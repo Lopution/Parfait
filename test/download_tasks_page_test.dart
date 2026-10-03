@@ -440,6 +440,9 @@ void main() {
       ),
     );
     await tester.pump();
+    // The row's exit plays before the record drops.
+    expect(manager.tasks, hasLength(1));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(manager.tasks, isEmpty);
     await tester.pump();
     expect(find.text('暂无下载任务'), findsOneWidget);
@@ -509,6 +512,7 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(manager.tasks, isEmpty);
   });
 
@@ -1063,6 +1067,7 @@ void main() {
       expect(find.byType(AlertDialog), findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, '移除'));
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       expect(manager.tasks.single.status, DownloadStatus.running);
       expect(find.text('已选 0 项'), findsNothing);
       expect(find.text('下载任务'), findsOneWidget);

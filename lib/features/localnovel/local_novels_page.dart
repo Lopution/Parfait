@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/haptics/app_haptics.dart';
 import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
+import '../../app/motion/removal.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/app_snack_bar.dart';
@@ -20,11 +21,18 @@ import '../../app/theme/func_semantic_tokens.dart';
 
 /// The imported-TXT library: list rows (title/size/import time), an import
 /// action, and delete — reading itself is wired by the local reader route.
-class LocalNovelsPage extends ConsumerWidget {
+class LocalNovelsPage extends ConsumerStatefulWidget {
   const LocalNovelsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LocalNovelsPage> createState() => _LocalNovelsPageState();
+}
+
+class _LocalNovelsPageState extends ConsumerState<LocalNovelsPage> {
+  final _removals = RemovalController();
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(localNovelStoreProvider);
     return Scaffold(
       appBar: AppBar(
@@ -61,11 +69,16 @@ class LocalNovelsPage extends ConsumerWidget {
               }
               return PullToRefresh(
                 onRefresh: () async => ref.invalidate(localNovelStoreProvider),
-                child: ListView.builder(
-                  restorationId: 'local-novels',
-                  itemCount: novels.length,
-                  itemBuilder: (context, index) =>
-                      _LocalNovelTile(novel: novels[index]),
+                child: RemovalScope(
+                  controller: _removals,
+                  child: ListView.builder(
+                    restorationId: 'local-novels',
+                    itemCount: novels.length,
+                    itemBuilder: (context, index) => Removable(
+                      id: novels[index].id,
+                      child: _LocalNovelTile(novel: novels[index]),
+                    ),
+                  ),
                 ),
               );
             },
@@ -193,9 +206,17 @@ class _LocalNovelTile extends ConsumerWidget {
     if (confirmed != true || !context.mounted) return;
     // The provider container outlives the tile — a defunct WidgetRef
     // would throw if the list rebuilt while the dialog was open.
-    await ProviderScope.containerOf(
+    final store = ProviderScope.containerOf(
       context,
       listen: false,
-    ).read(localNovelStoreProvider.notifier).delete(novel);
+    ).read(localNovelStoreProvider.notifier);
+    final removals = RemovalScope.of(context);
+    await removals.playExit([novel.id]);
+    try {
+      await store.delete(novel);
+    } on Object {
+      removals.restore([novel.id]);
+      rethrow;
+    }
   }
 }

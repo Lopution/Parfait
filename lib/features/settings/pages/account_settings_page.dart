@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/motion/app_overlays.dart';
+import '../../../app/motion/removal.dart';
 import '../../../app/navigation/routes.dart' show openLogin, openMe;
 import '../../../app/person_avatar.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
@@ -78,6 +81,8 @@ class AccountSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
+  final _removals = RemovalController();
+
   /// Id of the account a switch is committing to, or null when idle.
   /// `switchAccount` is an action write (metadata save + network session
   /// reset), not an instant toggle — the target row spins and every row's
@@ -128,76 +133,82 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
             : state.accounts.isEmpty
             ? Center(child: Text(context.l10n.noAccounts))
             : settingsNarrowBody(
-                ListView(
-                  padding: const EdgeInsets.only(
-                    top: FuncSpacing.sm,
-                    bottom: FuncSpacing.xl,
-                  ),
-                  children: [
-                    SettingsGroup(
-                      children: [
-                        for (final account in state.accounts)
-                          ListTile(
-                            // Same selected-state second channel as the
-                            // theme/language pickers (check icon for
-                            // sighted users, `selected` for assistive
-                            // tech).
-                            selected: state.currentId == account.id,
-                            leading: _AccountAvatar(account: account),
-                            title: Text(account.name),
-                            subtitle: Text(
-                              account.mailAddress ??
-                                  '${context.l10n.accountId}: ${account.id}',
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (_switchingTo == account.id)
-                                  SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: Center(
-                                      child: SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          semanticsLabel:
-                                              context.l10n.accountSwitching,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                else if (state.currentId == account.id)
-                                  Icon(
-                                    Icons.check,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                  ),
-                                IconButton(
-                                  tooltip: context.l10n.removeAccount,
-                                  icon: const Icon(Icons.delete_outline),
-                                  onPressed: _switchingTo == null
-                                      ? () => _confirmRemove(account)
-                                      : null,
-                                ),
-                              ],
-                            ),
-                            onTap:
-                                state.currentId == account.id ||
-                                    _switchingTo != null
-                                ? null
-                                : () => _switchTo(account),
-                          ),
-                      ],
+                RemovalScope(
+                  controller: _removals,
+                  child: ListView(
+                    padding: const EdgeInsets.only(
+                      top: FuncSpacing.sm,
+                      bottom: FuncSpacing.xl,
                     ),
-                    // Server-side display preferences only exist for a
-                    // usable account; a signed-out/re-auth state shows the
-                    // account rows alone.
-                    if (state.usableCurrent != null)
-                      const _ServerDisplaySection(),
-                  ],
+                    children: [
+                      SettingsGroup(
+                        children: [
+                          for (final account in state.accounts)
+                            Removable(
+                              id: account.id,
+                              child: ListTile(
+                                // Same selected-state second channel as the
+                                // theme/language pickers (check icon for
+                                // sighted users, `selected` for assistive
+                                // tech).
+                                selected: state.currentId == account.id,
+                                leading: _AccountAvatar(account: account),
+                                title: Text(account.name),
+                                subtitle: Text(
+                                  account.mailAddress ??
+                                      '${context.l10n.accountId}: ${account.id}',
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_switchingTo == account.id)
+                                      SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: Center(
+                                          child: SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              semanticsLabel:
+                                                  context.l10n.accountSwitching,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    else if (state.currentId == account.id)
+                                      Icon(
+                                        Icons.check,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                    IconButton(
+                                      tooltip: context.l10n.removeAccount,
+                                      icon: const Icon(Icons.delete_outline),
+                                      onPressed: _switchingTo == null
+                                          ? () => _confirmRemove(account)
+                                          : null,
+                                    ),
+                                  ],
+                                ),
+                                onTap:
+                                    state.currentId == account.id ||
+                                        _switchingTo != null
+                                    ? null
+                                    : () => _switchTo(account),
+                              ),
+                            ),
+                        ],
+                      ),
+                      // Server-side display preferences only exist for a
+                      // usable account; a signed-out/re-auth state shows the
+                      // account rows alone.
+                      if (state.usableCurrent != null)
+                        const _ServerDisplaySection(),
+                    ],
+                  ),
                 ),
               ),
       ),
@@ -223,10 +234,19 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
       ),
     );
     if (remove != true || !mounted) return;
-    await persistSettings(
+    // The row leaves first; a failed save brings it back.
+    final store = ref.read(accountStoreProvider.notifier);
+    await _removals.playExit([account.id]);
+    // Confirmed is confirmed: a page closed mid-exit still removes.
+    if (!mounted) {
+      unawaited(store.removeAccount(account.id));
+      return;
+    }
+    final saved = await persistSettings(
       context,
-      () => ref.read(accountStoreProvider.notifier).removeAccount(account.id),
+      () => store.removeAccount(account.id),
     );
+    if (!saved) _removals.restore([account.id]);
   }
 }
 

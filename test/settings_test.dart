@@ -53,6 +53,7 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/lookup.dart';
 import 'package:parfait/l10n/app_localizations_zh.dart';
+import 'package:parfait/app/motion/removal.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/recording_haptics.dart';
@@ -1040,6 +1041,14 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      // Account rows delete through the exit-first removal.
+      expect(
+        find.ancestor(
+          of: find.widgetWithText(ListTile, 'first'),
+          matching: find.byType(Removable),
+        ),
+        findsOneWidget,
+      );
 
       // Current row: check icon + selected semantics, no tap target.
       final currentTile = tester.widget<ListTile>(

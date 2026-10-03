@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/haptics/app_haptics.dart';
 import '../../../app/layout/content_widths.dart';
 import '../../../app/motion/app_overlays.dart';
+import '../../../app/motion/removal.dart';
 import '../../../app/motion/state_icon_switcher.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/pixiv_image.dart';
@@ -40,6 +41,8 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
   /// Group expansion is page-local too (D1): groups start collapsed and
   /// the set is never persisted or restored.
   final Set<String> _expandedGroups = {};
+
+  final _removals = RemovalController();
 
   @override
   void initState() {
@@ -136,10 +139,8 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
       body: context.l10n.downloadBatchRemoveConfirm(targets.length),
     );
     if (!confirmed) return;
-    for (final id in targets) {
-      _manager.dismiss(id);
-    }
-    _exitManaging();
+    await _dismissWithExit(_removals, _manager, targets);
+    if (mounted) _exitManaging();
   }
 
   /// Batch confirm through the shared dialog — its opening is the
@@ -274,25 +275,31 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
                   constraints: const BoxConstraints(
                     maxWidth: ContentWidths.management,
                   ),
-                  child: ListView.builder(
-                    restorationId: 'download-tasks',
-                    padding: const EdgeInsets.symmetric(
-                      vertical: FuncSpacing.sm,
+                  child: RemovalScope(
+                    controller: _removals,
+                    child: ListView.builder(
+                      restorationId: 'download-tasks',
+                      padding: const EdgeInsets.symmetric(
+                        vertical: FuncSpacing.sm,
+                      ),
+                      itemCount: entries.length,
+                      // Row keys follow the task/group identity so a reordered
+                      // or re-grouped entry keeps its element state.
+                      findChildIndexCallback: (key) {
+                        if (key is ValueKey<String>) {
+                          final index = entries.indexWhere(
+                            (entry) => entry.key == key.value,
+                          );
+                          return index < 0 ? null : index;
+                        }
+                        return null;
+                      },
+                      itemBuilder: (context, index) => Removable(
+                        key: ValueKey(entries[index].key),
+                        id: entries[index].key,
+                        child: _buildEntry(entries[index]),
+                      ),
                     ),
-                    itemCount: entries.length,
-                    // Row keys follow the task/group identity so a reordered
-                    // or re-grouped entry keeps its element state.
-                    findChildIndexCallback: (key) {
-                      if (key is ValueKey<String>) {
-                        final index = entries.indexWhere(
-                          (entry) => entry.key == key.value,
-                        );
-                        return index < 0 ? null : index;
-                      }
-                      return null;
-                    },
-                    itemBuilder: (context, index) =>
-                        _buildEntry(entries[index]),
                   ),
                 ),
               ),
@@ -304,7 +311,6 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     switch (entry) {
       case _GroupHeaderEntry(:final group, :final children, :final expanded):
         return _GroupRowSegment(
-          key: ValueKey(entry.key),
           radius: expanded
               ? BorderRadius.vertical(top: FuncShape.card.topLeft)
               : FuncShape.card,
@@ -329,7 +335,6 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
         );
       case _GroupChildEntry(:final task, :final last):
         return _GroupRowSegment(
-          key: ValueKey(entry.key),
           radius: last
               ? BorderRadius.vertical(bottom: FuncShape.card.bottomLeft)
               : BorderRadius.zero,
@@ -345,7 +350,6 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
         );
       case _TaskEntry(:final task):
         return Padding(
-          key: ValueKey(entry.key),
           padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.md),
           child: _taskRow(task),
         );
@@ -363,6 +367,27 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
       dense: dense,
     );
   }
+}
+
+String _taskRowKey(String taskId) => 'download-task-$taskId';
+String _groupRowKey(String groupId) => 'download-group-$groupId';
+
+/// Plays the exit of the rows of [taskIds] — plus [groupId]'s header when
+/// the whole group goes — then drops the records. A task that left the
+/// terminal state meanwhile (a retry landed) is kept, and its rows return.
+Future<void> _dismissWithExit(
+  RemovalController removals,
+  DownloadManager manager,
+  List<String> taskIds, {
+  String? groupId,
+}) async {
+  final header = [?(groupId == null ? null : _groupRowKey(groupId))];
+  await removals.playExit([...taskIds.map(_taskRowKey), ...header]);
+  final kept = [
+    for (final id in taskIds)
+      if (!manager.dismiss(id)) _taskRowKey(id),
+  ];
+  if (kept.isNotEmpty) removals.restore([...kept, ...header]);
 }
 
 /// The lazy list's flat entries (§3.1): a group header, one child of an
@@ -383,7 +408,7 @@ final class _GroupHeaderEntry extends _DownloadEntry {
   final bool expanded;
 
   @override
-  String get key => 'download-group-${group.id}';
+  String get key => _groupRowKey(group.id);
 }
 
 final class _GroupChildEntry extends _DownloadEntry {
@@ -395,7 +420,7 @@ final class _GroupChildEntry extends _DownloadEntry {
   final bool last;
 
   @override
-  String get key => 'download-task-${task.id}';
+  String get key => _taskRowKey(task.id);
 }
 
 final class _TaskEntry extends _DownloadEntry {
@@ -404,7 +429,7 @@ final class _TaskEntry extends _DownloadEntry {
   final DownloadTaskSnapshot task;
 
   @override
-  String get key => 'download-task-${task.id}';
+  String get key => _taskRowKey(task.id);
 }
 
 /// One slice of a group's rounded container (§3.3): every row of an
@@ -414,7 +439,6 @@ final class _TaskEntry extends _DownloadEntry {
 /// surface.
 class _GroupRowSegment extends StatelessWidget {
   const _GroupRowSegment({
-    super.key,
     required this.radius,
     required this.padding,
     required this.child,
@@ -816,7 +840,8 @@ class _DownloadTaskRow extends StatelessWidget {
         _DownloadAction(
           label: l10n.downloadRemoveRecord,
           icon: Icons.remove_circle_outline,
-          onPressed: () => manager.dismiss(task.id),
+          onPressed: () =>
+              _dismissWithExit(RemovalScope.of(context), manager, [task.id]),
         ),
       ],
       DownloadStatus.succeeded => [
@@ -828,14 +853,16 @@ class _DownloadTaskRow extends StatelessWidget {
         _DownloadAction(
           label: l10n.downloadRemoveRecord,
           icon: Icons.remove_circle_outline,
-          onPressed: () => manager.dismiss(task.id),
+          onPressed: () =>
+              _dismissWithExit(RemovalScope.of(context), manager, [task.id]),
         ),
       ],
       DownloadStatus.orphaned => [
         _DownloadAction(
           label: l10n.downloadRemoveRecord,
           icon: Icons.remove_circle_outline,
-          onPressed: () => manager.dismiss(task.id),
+          onPressed: () =>
+              _dismissWithExit(RemovalScope.of(context), manager, [task.id]),
         ),
       ],
     };
@@ -929,11 +956,12 @@ class _DownloadGroupHeader extends StatelessWidget {
     List<DownloadTaskSnapshot> children,
   ) {
     final l10n = context.l10n;
-    void dismissChildren() {
-      for (final child in children) {
-        manager.dismiss(child.id);
-      }
-    }
+    void dismissChildren() => _dismissWithExit(
+      RemovalScope.of(context),
+      manager,
+      [for (final child in children) child.id],
+      groupId: group.id,
+    );
 
     return switch (group.status) {
       DownloadGroupStatus.queued || DownloadGroupStatus.running => [

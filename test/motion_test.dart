@@ -11,6 +11,7 @@ import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/motion/feed_entrance.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/motion/press_scale.dart';
+import 'package:parfait/app/motion/removal.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/app_snack_bar.dart';
@@ -924,6 +925,142 @@ void main() {
       await tester.pump();
       expect(find.byIcon(Icons.circle_outlined), findsNothing);
       expect(entering(tester, Icons.check_circle), (1.0, 1.0));
+    });
+  });
+
+  group('Removable', () {
+    Widget list(
+      RemovalController controller,
+      List<String> ids, {
+      RemovalStyle style = RemovalStyle.row,
+      bool reduce = false,
+    }) => _wrap(
+      RemovalScope(
+        controller: controller,
+        child: ListView(
+          children: [
+            for (final id in ids)
+              Removable(
+                id: id,
+                style: style,
+                child: SizedBox(height: 50, child: Text(id)),
+              ),
+          ],
+        ),
+      ),
+      reduce: reduce,
+    );
+
+    double opacity(WidgetTester tester, String id) => tester
+        .widget<FadeTransition>(
+          find
+              .ancestor(
+                of: find.text(id),
+                matching: find.byType(FadeTransition),
+              )
+              .first,
+        )
+        .opacity
+        .value;
+
+    testWidgets('a row collapses and fades before the commit, and the '
+        'exit future waits for it', (tester) async {
+      final controller = RemovalController();
+      await tester.pumpWidget(list(controller, ['a', 'b']));
+      final bTop = tester.getTopLeft(find.text('b')).dy;
+
+      var done = false;
+      unawaited(controller.playExit(['a']).then((_) => done = true));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(done, isFalse);
+      expect(tester.getTopLeft(find.text('b')).dy, lessThan(bTop));
+      expect(opacity(tester, 'a'), inExclusiveRange(0, 1));
+
+      // spatialFast settles in ~225 ms.
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(done, isTrue);
+      expect(tester.getTopLeft(find.text('b')).dy, bTop - 50);
+      expect(opacity(tester, 'b'), 1);
+    });
+
+    testWidgets('restore brings a row back after a failed commit', (
+      tester,
+    ) async {
+      final controller = RemovalController();
+      await tester.pumpWidget(list(controller, ['a', 'b']));
+      final bTop = tester.getTopLeft(find.text('b')).dy;
+      unawaited(controller.playExit(['a']));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('b')).dy, bTop - 50);
+
+      controller.restore(['a']);
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('b')).dy, bTop);
+      expect(opacity(tester, 'a'), 1);
+    });
+
+    testWidgets('a tile shrinks to 0.9 and fades out', (tester) async {
+      final controller = RemovalController();
+      await tester.pumpWidget(
+        list(controller, ['a'], style: RemovalStyle.tile),
+      );
+      unawaited(controller.playExit(['a']));
+      await tester.pumpAndSettle();
+      final scale = tester.widget<ScaleTransition>(
+        find
+            .ancestor(
+              of: find.text('a'),
+              matching: find.byType(ScaleTransition),
+            )
+            .first,
+      );
+      expect(scale.scale.value, 0.9);
+      expect(opacity(tester, 'a'), 0);
+      // A tile keeps its cell: the grid reflows on the commit.
+      expect(tester.getSize(find.text('a')).height, 50);
+    });
+
+    testWidgets('reduced motion and ids off screen complete at once', (
+      tester,
+    ) async {
+      final controller = RemovalController();
+      await tester.pumpWidget(list(controller, ['a', 'b'], reduce: true));
+      final bTop = tester.getTopLeft(find.text('b')).dy;
+
+      var done = false;
+      unawaited(controller.playExit(['a', 'gone']).then((_) => done = true));
+      await tester.pump();
+      expect(done, isTrue);
+      expect(tester.getTopLeft(find.text('b')).dy, bTop - 50);
+    });
+
+    testWidgets('a recycled slot showing another id starts present', (
+      tester,
+    ) async {
+      final controller = RemovalController();
+      await tester.pumpWidget(list(controller, ['a', 'b']));
+      unawaited(controller.playExit(['a']));
+      await tester.pumpAndSettle();
+
+      // The commit drops 'a': its unkeyed slot now shows 'b'.
+      await tester.pumpWidget(list(controller, ['b']));
+      expect(opacity(tester, 'b'), 1);
+      expect(tester.getSize(find.text('b')).height, 50);
+    });
+
+    testWidgets('a row disposed mid-exit does not leave the exit hanging', (
+      tester,
+    ) async {
+      final controller = RemovalController();
+      await tester.pumpWidget(list(controller, ['a', 'b']));
+      var done = false;
+      unawaited(controller.playExit(['a']).then((_) => done = true));
+      await tester.pump(const Duration(milliseconds: 60));
+
+      await tester.pumpWidget(_wrap(const SizedBox.shrink()));
+      await tester.pump();
+      expect(done, isTrue);
     });
   });
 

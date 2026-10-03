@@ -11,6 +11,7 @@ import 'package:network_image_mock/network_image_mock.dart';
 import 'package:path/path.dart' as path;
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/motion/press_scale.dart';
+import 'package:parfait/app/motion/removal.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
@@ -211,6 +212,13 @@ void main() {
     expect(find.text('删除后将不可恢复'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, '确定'));
     await tester.pump();
+    // The tiles leave first; the delete commits once their exit lands.
+    expect(find.text('work 1'), findsOneWidget);
+    expect(
+      find.ancestor(of: find.text('work 1'), matching: find.byType(Removable)),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(milliseconds: 300));
     // The ffi-backed deletes run on the real event loop while the
     // resulting rebuild rides fake-async pump — poll instead of trusting
     // a fixed delay (300ms was enough locally but not on CI).

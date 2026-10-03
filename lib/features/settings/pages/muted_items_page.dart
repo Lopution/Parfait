@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/motion/removal.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/errors/error_details.dart';
@@ -27,6 +28,7 @@ class MutedItemsPage extends ConsumerStatefulWidget {
 
 class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
   late final TextEditingController _controller;
+  final _removals = RemovalController();
 
   @override
   void initState() {
@@ -40,18 +42,22 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
     super.dispose();
   }
 
-  void _unmute(Future<void> Function() action) {
-    unawaited(
-      action().catchError((Object error) {
-        if (mounted) {
-          showErrorSnackBar(
-            context,
-            action: context.l10n.muteFailed,
-            error: error,
-          );
-        }
-      }),
-    );
+  /// The row leaves first, then the unmute is sent; a failed write brings
+  /// the row back with the error.
+  Future<void> _unmute(MuteKey key, Future<void> Function() action) async {
+    await _removals.playExit([key]);
+    try {
+      await action();
+    } on Object catch (error) {
+      _removals.restore([key]);
+      if (mounted) {
+        showErrorSnackBar(
+          context,
+          action: context.l10n.muteFailed,
+          error: error,
+        );
+      }
+    }
   }
 
   Future<void> _addTag(String value) async {
@@ -112,88 +118,118 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
     final works = state.workIds.toList()..sort();
     return Scaffold(
       appBar: AppBar(title: Text(l10n.mutedItemsSettings)),
-      body: settingsNarrowBody(
-        ListView(
-          padding: const EdgeInsets.only(
-            top: FuncSpacing.sm,
-            bottom: FuncSpacing.xl,
-          ),
-          children: [
-            SettingsGroup(
-              title: Text(l10n.mutedTagsSection),
-              children: [
-                SettingsGroupContent(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: InputDecoration(
-                      labelText: l10n.muteTagInputHint,
-                      suffixIcon: IconButton(
-                        tooltip: l10n.add,
-                        icon: const Icon(Icons.add),
-                        onPressed: () => _addTag(_controller.text),
+      body: RemovalScope(
+        controller: _removals,
+        child: settingsNarrowBody(
+          ListView(
+            padding: const EdgeInsets.only(
+              top: FuncSpacing.sm,
+              bottom: FuncSpacing.xl,
+            ),
+            children: [
+              SettingsGroup(
+                title: Text(l10n.mutedTagsSection),
+                children: [
+                  SettingsGroupContent(
+                    child: TextField(
+                      controller: _controller,
+                      decoration: InputDecoration(
+                        labelText: l10n.muteTagInputHint,
+                        suffixIcon: IconButton(
+                          tooltip: l10n.add,
+                          icon: const Icon(Icons.add),
+                          onPressed: () => _addTag(_controller.text),
+                        ),
+                      ),
+                      onSubmitted: _addTag,
+                    ),
+                  ),
+                  for (final tag in tags)
+                    Removable(
+                      id: MuteKey.tag(tag),
+                      child: ListTile(
+                        dense: true,
+                        title: Text(tag),
+                        onTap: () => openTagSearch(context, tag),
+                        trailing: _unmuteTrailing(
+                          pending: state.pending.contains(MuteKey.tag(tag)),
+                          tooltip: l10n.unmuteTag,
+                          onPressed: () => unawaited(
+                            _unmute(
+                              MuteKey.tag(tag),
+                              () => store.toggleTag(tag),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                    onSubmitted: _addTag,
-                  ),
-                ),
-                for (final tag in tags)
-                  ListTile(
-                    dense: true,
-                    title: Text(tag),
-                    onTap: () => openTagSearch(context, tag),
-                    trailing: _unmuteTrailing(
-                      pending: state.pending.contains(MuteKey.tag(tag)),
-                      tooltip: l10n.unmuteTag,
-                      onPressed: () => _unmute(() => store.toggleTag(tag)),
-                    ),
-                  ),
-              ],
-            ),
-            SettingsGroup(
-              title: Text(l10n.mutedUsersSection),
-              children: [
-                for (final user in users)
-                  ListTile(
-                    dense: true,
-                    title: Text(user.name),
-                    subtitle: user.account == null
-                        ? null
-                        : Text('@${user.account}'),
-                    onTap: () => openUser(context, user.userId),
-                    trailing: _unmuteTrailing(
-                      pending: state.pending.contains(
-                        MuteKey.user(user.userId),
-                      ),
-                      tooltip: l10n.unmuteAuthor,
-                      onPressed: () => _unmute(() => store.toggleUser(user)),
-                    ),
-                  ),
-              ],
-            ),
-            SettingsGroup(
-              title: Text(l10n.mutedWorksSection),
-              children: [
-                for (final id in works)
-                  ListTile(
-                    dense: true,
-                    title: Text(
-                      ref.watch(illustStoreProvider).get(id)?.title ?? '#$id',
-                    ),
-                    onTap: () => openIllust(context, id),
-                    trailing: _unmuteTrailing(
-                      pending: state.pending.contains(MuteKey.work(id)),
-                      tooltip: l10n.unmuteWork,
-                      onPressed: () => _unmute(() => store.toggleWork(id)),
-                    ),
-                  ),
-              ],
-            ),
-            if (tags.isEmpty && users.isEmpty && works.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: FuncSpacing.xxl),
-                child: Center(child: Text(l10n.mutedEmpty)),
+                ],
               ),
-          ],
+              SettingsGroup(
+                title: Text(l10n.mutedUsersSection),
+                children: [
+                  for (final user in users)
+                    Removable(
+                      id: MuteKey.user(user.userId),
+                      child: ListTile(
+                        dense: true,
+                        title: Text(user.name),
+                        subtitle: user.account == null
+                            ? null
+                            : Text('@${user.account}'),
+                        onTap: () => openUser(context, user.userId),
+                        trailing: _unmuteTrailing(
+                          pending: state.pending.contains(
+                            MuteKey.user(user.userId),
+                          ),
+                          tooltip: l10n.unmuteAuthor,
+                          onPressed: () => unawaited(
+                            _unmute(
+                              MuteKey.user(user.userId),
+                              () => store.toggleUser(user),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              SettingsGroup(
+                title: Text(l10n.mutedWorksSection),
+                children: [
+                  for (final id in works)
+                    Removable(
+                      id: MuteKey.work(id),
+                      child: ListTile(
+                        dense: true,
+                        title: Text(
+                          ref.watch(illustStoreProvider).get(id)?.title ??
+                              '#$id',
+                        ),
+                        onTap: () => openIllust(context, id),
+                        trailing: _unmuteTrailing(
+                          pending: state.pending.contains(MuteKey.work(id)),
+                          tooltip: l10n.unmuteWork,
+                          onPressed: () => unawaited(
+                            _unmute(
+                              MuteKey.work(id),
+                              () => store.toggleWork(id),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              if (tags.isEmpty && users.isEmpty && works.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: FuncSpacing.xxl,
+                  ),
+                  child: Center(child: Text(l10n.mutedEmpty)),
+                ),
+            ],
+          ),
         ),
       ),
     );
