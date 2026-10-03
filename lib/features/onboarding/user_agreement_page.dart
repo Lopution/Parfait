@@ -41,18 +41,17 @@ class UserAgreementPage extends StatelessWidget {
                 ),
                 const SizedBox(height: FuncSpacing.xl),
                 for (final (title, body) in [
+                  (l10n.agreementServiceTitle, l10n.agreementServiceBody),
                   (l10n.agreementAccountTitle, l10n.agreementAccountBody),
+                  (l10n.agreementUsageTitle, l10n.agreementUsageBody),
                   (l10n.agreementContentTitle, l10n.agreementContentBody),
                   (l10n.agreementNetworkTitle, l10n.agreementNetworkBody),
+                  (l10n.agreementThirdPartyTitle, l10n.agreementThirdPartyBody),
                   (l10n.agreementPrivacyTitle, l10n.agreementPrivacyBody),
                   (l10n.agreementDisclaimerTitle, l10n.agreementDisclaimerBody),
+                  (l10n.agreementUpdatesTitle, l10n.agreementUpdates),
                 ])
                   _AgreementSection(title: title, body: body),
-                const SizedBox(height: FuncSpacing.sm),
-                Text(
-                  l10n.agreementUpdates,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
               ],
             ),
           ),

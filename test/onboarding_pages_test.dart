@@ -391,13 +391,19 @@ void main() {
           textScale: 1.3,
           locale: locale,
         );
-        for (final title in [
+        final titles = [
+          l10n.agreementServiceTitle,
           l10n.agreementAccountTitle,
+          l10n.agreementUsageTitle,
           l10n.agreementContentTitle,
           l10n.agreementNetworkTitle,
+          l10n.agreementThirdPartyTitle,
           l10n.agreementPrivacyTitle,
           l10n.agreementDisclaimerTitle,
-        ]) {
+          l10n.agreementUpdatesTitle,
+        ];
+        expect(titles.toSet(), hasLength(9));
+        for (final title in titles) {
           await tester.scrollUntilVisible(
             find.text(title),
             200,

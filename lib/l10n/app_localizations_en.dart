@@ -98,7 +98,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networkCompatibilityHint =>
-      'Direct HTTPS is tried first; only official Pixiv destinations may try a strict HTTPS candidate after an explicit transport failure. Other traffic is never proxied and certificate checks stay enabled.';
+      'When on, official Pixiv domains are reached through whichever works of direct connections and compatibility connections (encrypted DNS, ECH, no SNI), and the method that succeeded is remembered. The last compatibility tier does not verify certificates; turn this off to use direct connections only. Other traffic is never proxied.';
 
   @override
   String get useLoginWithClipboard => 'Login with clipboard data';
@@ -171,43 +171,67 @@ class AppLocalizationsEn extends AppLocalizations {
       'Thank you for using Parfait. By using this app, you confirm that you have read and agree to these terms. Stop using the app if you do not agree.';
 
   @override
-  String get agreementAccountTitle => 'Account and authorization';
+  String get agreementServiceTitle => 'About the service';
+
+  @override
+  String get agreementServiceBody =>
+      'Parfait is an open-source, unofficial third-party Pixiv client. It is not affiliated with Pixiv Inc. Its source code is published under the AGPL-3.0 license.\n\nThe app provides no content of its own; all works and profiles come from Pixiv.';
+
+  @override
+  String get agreementAccountTitle => 'Account and sign-in';
 
   @override
   String get agreementAccountBody =>
-      'The app uses Pixiv\'s official sign-in flow and never asks you to enter or share your Pixiv password here. Keep your account and device secure; Pixiv account settings control account activity and revocation.';
+      'You register and sign in on Pixiv\'s official web pages, opened inside the app; the app never reads or stores your password. The credential you receive after signing in is kept in the system\'s secure storage.\n\n\"Export account credential\" puts the credential into the system clipboard in plaintext: on Android 13 and later it is marked as sensitive, and it is cleared automatically after 5 minutes. Only use it between your own devices.\n\nWhether using a third-party client complies with Pixiv\'s rules is your own judgement, and any restriction placed on your account as a result is your own responsibility.';
+
+  @override
+  String get agreementUsageTitle => 'Acceptable use';
+
+  @override
+  String get agreementUsageBody =>
+      'Follow the laws where you live and Pixiv\'s Terms of Use. Do not use the app for bulk scraping, automated inflation of views or bookmarks, harassment, or anything else that harms Pixiv or creators.\n\nRestricted content is shown according to your Pixiv account settings; minors must not view restricted content.';
 
   @override
   String get agreementContentTitle => 'Content and copyright';
 
   @override
   String get agreementContentBody =>
-      'Artwork, comments, and profiles are provided by Pixiv and its users, with rights held by their respective owners. Browse, save, and share only where the law and Pixiv rules allow, and do not use the app to infringe others\' rights.';
+      'Works, comments, profiles and other content belong to their respective rights holders. Downloads are for personal keeping only; reposting or redistributing requires the rights holder\'s permission.';
 
   @override
   String get agreementNetworkTitle => 'Network access';
 
   @override
   String get agreementNetworkBody =>
-      'The app provides compatibility routing only for official Pixiv destinations. It does not proxy other traffic and keeps certificate verification enabled. Network availability, API changes, and outages are not guaranteed.';
+      'In the default \"Automatic\" network mode, when reaching official Pixiv domains (API, sign-in, web pages, images) the app picks whichever of these connection methods works, remembers the one that succeeded, and prefers it afterwards:\n• an ECH-encrypted handshake through Cloudflare;\n• connecting to addresses resolved over encrypted DNS (Cloudflare and Google by default), with Alibaba DNS queried for the ECH configuration;\n• connecting to Pixiv\'s image servers without SNI;\n• a plain system connection.\nAll of these verify certificates.\n\nIf they all fail, a last tier connects without SNI to built-in or previously working Pixiv addresses and does not verify certificates; a success on this tier is remembered too. If someone on the network impersonates Pixiv\'s servers, your sign-in credential and what you browse could be intercepted. If you do not accept this, choose \"Direct only\" in Settings → Network → Network mode, which turns off every compatibility connection above.\n\nThe image source defaults to \"Auto\": it measures the official image servers against third-party mirrors (i.pixiv.re, i.pixiv.nl, i.pixiv.cat) and uses the fastest. Through a mirror, its operator can see which image addresses you request and your IP address. You can pin the official source in Settings → Browse settings → Image source.\n\nThe app proxies no other traffic, and does not guarantee network availability, API changes or service continuity.';
+
+  @override
+  String get agreementThirdPartyTitle => 'Third-party services';
+
+  @override
+  String get agreementThirdPartyBody =>
+      'These services are contacted only when you use the matching feature:\n• Comment translation (off by default): sends the comment text to the Google Translate, Baidu Translate or OpenAI-compatible endpoint you chose;\n• Reverse image search: uploads the image you picked to SauceNAO or iqdb.\n\nThe sign-in pages are served by Pixiv and may load third-party resources Pixiv uses (for example, CAPTCHA checks).\n\nUpdate checks: the app fetches the version manifest on GitHub automatically at most once every 24 hours; the F-Droid build does not check for updates.';
 
   @override
   String get agreementPrivacyTitle => 'Privacy and local data';
 
   @override
   String get agreementPrivacyBody =>
-      'Credentials are kept in the system secure store; settings, cache, history, and downloads remain local. The app does not sell personal information. Uninstalling or clearing app data may remove local content.';
+      'Settings, caches, browsing history, Watch later and downloaded files are stored on this device. The app has no analytics, ads or crash reporting, and sends none of your data to the developer\'s servers.\n\nCrash logs stay on this device; you decide whether to share them through Settings → About → Export logs.\n\nUninstalling the app or clearing its data deletes this content (downloads saved to public folders excepted).';
 
   @override
   String get agreementDisclaimerTitle => 'Disclaimer';
 
   @override
   String get agreementDisclaimerBody =>
-      'This is an unofficial third-party client and is not affiliated with Pixiv Inc. To the extent permitted by law, the author is not responsible for loss or access failures caused by networks, accounts, third-party services, or events beyond control.';
+      'The app is provided as is, without any guarantee that it is error-free or will stay available. To the extent permitted by law, the author is not liable for lost content, failed access or other losses caused by the network, accounts, third-party services or force majeure.';
+
+  @override
+  String get agreementUpdatesTitle => 'Changes to this agreement';
 
   @override
   String get agreementUpdates =>
-      'This agreement may change with product or legal requirements. Continued use means you accept the updated agreement.';
+      'This agreement may change as features or laws change; continuing to use the app after a change means you accept the updated agreement.';
 
   @override
   String get settingsTitle => 'Settings';
@@ -750,7 +774,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get imageSource => 'Image source';
 
   @override
-  String get imageSourceNormal => 'Official (default)';
+  String get imageSourceNormal => 'Official';
 
   @override
   String get imageSourcePixivCat => 'pixiv.cat mirror';
@@ -791,7 +815,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Usually unreachable from mainland networks';
 
   @override
-  String get imageSourceAuto => 'Auto (race mirrors on this network)';
+  String get imageSourceAuto => 'Auto (default, measured on this network)';
 
   @override
   String imageSourceAutoWinner(String host) {
