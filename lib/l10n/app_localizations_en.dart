@@ -353,8 +353,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'When enabled, the fallback tier resolves via DoH (default Cloudflare DoH: domain endpoints pinned to static anycast IPs — no poisoned system round trip; custom endpoints resolve their own hostnames); otherwise the system DNS is used.';
 
   @override
-  String get networkDohEndpoints =>
-      'DoH endpoints (comma-separated, https URLs)';
+  String get networkDohEndpoints => 'DoH endpoints';
+
+  @override
+  String get networkDohEndpointsHint => 'Comma-separated https URLs';
 
   @override
   String get networkEchFrontHost => 'ECH front host';
@@ -370,7 +372,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkProbe => 'Layered connectivity probe';
 
   @override
-  String get networkProbeTitle => 'Layered connectivity probe';
+  String get networkProbeTitle => 'Network probe';
 
   @override
   String get networkProbeHint =>
@@ -642,7 +644,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileEditLeaveConfirm => 'Discard changes';
 
   @override
-  String get accountManagement => 'Account management';
+  String get accountManagement => 'Accounts';
 
   @override
   String get addAccount => 'Add account';
@@ -1609,6 +1611,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchHint => 'Search works, users or tags';
 
   @override
+  String get searchBarHint => 'Search';
+
+  @override
   String get searchReverseImage => 'Reverse image';
 
   @override
@@ -2498,7 +2503,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hapticStrengthLight => 'Light';
 
   @override
-  String get hapticStrengthStandard => 'Standard';
+  String get hapticStrengthStandard => 'Medium';
 
   @override
   String get hapticStrengthStrong => 'Strong';

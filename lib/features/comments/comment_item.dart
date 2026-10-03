@@ -254,8 +254,19 @@ class _Actions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    // The replies pill sits at the end of the actions' line; when long
+    // labels do not fit, it drops to a line of its own under the actions,
+    // which wrap.
+    final repliesPill = comment.hasReplies && onOpenReplies != null
+        ? _ActionPill(
+            icon: Icons.forum_outlined,
+            label: '${context.l10n.commentReplies} ${comment.replyCount}',
+            onTap: onOpenReplies,
+          )
+        : null;
+    final actions = Wrap(
       spacing: 8,
+      runSpacing: 8,
       children: [
         if (onReply != null)
           _ActionPill(
@@ -276,14 +287,14 @@ class _Actions extends StatelessWidget {
             foreground: FuncSemanticTokens.of(context).danger,
             onTap: onDelete,
           ),
-        const Spacer(),
-        if (comment.hasReplies && onOpenReplies != null)
-          _ActionPill(
-            icon: Icons.forum_outlined,
-            label: '${context.l10n.commentReplies} ${comment.replyCount}',
-            onTap: onOpenReplies,
-          ),
       ],
+    );
+    if (repliesPill == null) return actions;
+    return OverflowBar(
+      alignment: MainAxisAlignment.spaceBetween,
+      spacing: 8,
+      overflowSpacing: 8,
+      children: [actions, repliesPill],
     );
   }
 }

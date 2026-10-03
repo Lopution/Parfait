@@ -89,6 +89,7 @@ class _DownloadDestinationPageState
                       decoration: InputDecoration(
                         labelText: context.l10n.saveLocationCustomAlbum,
                         helperText: context.l10n.saveLocationCustomAlbumHint,
+                        helperMaxLines: 3,
                       ),
                       maxLength: 64,
                       onChanged: (_) => setState(() => _albumDirty = true),

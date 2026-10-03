@@ -24,7 +24,6 @@ import 'package:parfait/core/comments/comment_store.dart';
 import 'package:parfait/core/comments/comment_translation.dart';
 import 'package:parfait/core/entity/comment_entity.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
-import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/comments/comment_input.dart';
 import 'package:parfait/features/comments/comment_item.dart';
 import 'package:parfait/features/comments/comments_page.dart';
@@ -33,20 +32,10 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/context.dart';
 import 'package:parfait/app/motion/removal.dart';
 
+import 'helpers/comment_world.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
-
-class _StubAccountStore extends AccountStore {
-  _StubAccountStore();
-
-  @override
-  Future<AccountState> build() async => const AccountState(
-    status: AccountStatus.ready,
-    accounts: [Account(id: 'account', userId: 10, name: 'tester')],
-    currentId: 'account',
-  );
-}
 
 Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler,
@@ -125,105 +114,6 @@ Map<String, dynamic> _commentJson(
   ...?parentCommentId == null ? null : {'parent_comment_id': parentCommentId},
   ...?stamp == null ? null : {'stamp': stamp},
 };
-
-CommentEntity _comment(
-  int id, {
-  int workId = 1,
-  CommentWorkKind kind = CommentWorkKind.illust,
-  int userId = 10,
-  int? parentCommentId,
-  int? rootCommentId,
-  int replyCount = 0,
-  String? content,
-}) => CommentEntity(
-  id: id,
-  workId: workId,
-  kind: kind,
-  parentCommentId: parentCommentId,
-  rootCommentId: rootCommentId ?? id,
-  user: UserEntity(id: userId, name: 'user $userId', account: 'user_$userId'),
-  content: content ?? 'comment $id',
-  createdAt: DateTime.utc(2026, 8, 27),
-  hasReplies: replyCount > 0,
-  replyCount: replyCount,
-);
-
-class _FakeCommentRepository implements CommentRepository {
-  final requests = <CommentFeedQuery>[];
-  int deleteCalls = 0;
-  Completer<CommentEntity>? addCompleter;
-  List<CommentEntity>? rootComments;
-  List<CommentEntity>? replies;
-  Object? addError;
-
-  @override
-  Future<CommentPage> fetchComments(
-    int workId, {
-    CommentWorkKind kind = CommentWorkKind.illust,
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    final query = CommentFeedQuery.root(workId: workId, kind: kind);
-    requests.add(query);
-    return CommentPage(
-      comments: rootComments ?? [_comment(11, workId: workId, replyCount: 1)],
-      nextUrl: null,
-    );
-  }
-
-  @override
-  Future<CommentPage> fetchReplies(
-    int rootCommentId, {
-    required int workId,
-    CommentWorkKind kind = CommentWorkKind.illust,
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    final query = CommentFeedQuery.replies(
-      workId: workId,
-      kind: kind,
-      rootCommentId: rootCommentId,
-    );
-    requests.add(query);
-    return CommentPage(
-      comments:
-          replies ??
-          [
-            _comment(
-              12,
-              workId: workId,
-              parentCommentId: rootCommentId,
-              rootCommentId: rootCommentId,
-            ),
-          ],
-      nextUrl: null,
-    );
-  }
-
-  @override
-  bool validateCursor(CommentFeedQuery query, {required String cursor}) => true;
-
-  @override
-  Future<CommentEntity> addComment(
-    CommentAddRequest request, {
-    CancelToken? cancelToken,
-  }) {
-    final completer = addCompleter;
-    if (completer != null) return completer.future;
-    final error = addError;
-    if (error != null) return Future.error(error);
-    return Future.value(_comment(20));
-  }
-
-  @override
-  Future<void> deleteComment(
-    int commentId, {
-    CommentWorkKind kind = CommentWorkKind.illust,
-    CancelToken? cancelToken,
-  }) async {
-    deleteCalls++;
-  }
-}
 
 void main() {
   // Stamp cells are PixivImages, which read settings; shards run single
@@ -426,7 +316,7 @@ void main() {
     'store deduplicates shared comments and updates the correct thread',
     () async {
       final container = ProviderContainer(
-        overrides: [accountStoreProvider.overrideWith(_StubAccountStore.new)],
+        overrides: [accountStoreProvider.overrideWith(commentsAccountStore)],
       );
       addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
@@ -436,8 +326,8 @@ void main() {
         workId: 1,
         rootCommentId: 10,
       );
-      final root = _comment(10, replyCount: 0);
-      final reply = _comment(11, parentCommentId: 10, rootCommentId: 10);
+      final root = sampleComment(10, replyCount: 0);
+      final reply = sampleComment(11, parentCommentId: 10, rootCommentId: 10);
       store.mergePage(rootQuery, [root, root]);
       store.mergePage(replyQuery, [reply, reply]);
 
@@ -455,7 +345,11 @@ void main() {
         store.beginSend(workId: 1, parentCommentId: 10, rootCommentId: 10),
         isNull,
       );
-      final newReply = _comment(12, parentCommentId: 10, rootCommentId: 10);
+      final newReply = sampleComment(
+        12,
+        parentCommentId: 10,
+        rootCommentId: 10,
+      );
       store.commitSend(op, newReply);
       expect(store.idsFor(replyQuery), [12, 11]);
       expect(store.get(10)!.replyCount, 1);
@@ -470,10 +364,10 @@ void main() {
   test(
     'comment feed keeps root and reply page IDs in the shared store',
     () async {
-      final repository = _FakeCommentRepository();
+      final repository = FakeCommentRepository();
       final container = ProviderContainer(
         overrides: [
-          accountStoreProvider.overrideWith(_StubAccountStore.new),
+          accountStoreProvider.overrideWith(commentsAccountStore),
           commentRepositoryProvider.overrideWithValue(repository),
         ],
       );
@@ -500,7 +394,7 @@ void main() {
     'late send completion is dropped and root delete clears descendants',
     () async {
       final container = ProviderContainer(
-        overrides: [accountStoreProvider.overrideWith(_StubAccountStore.new)],
+        overrides: [accountStoreProvider.overrideWith(commentsAccountStore)],
       );
       addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
@@ -510,14 +404,14 @@ void main() {
         workId: 1,
         rootCommentId: 20,
       );
-      store.mergePage(rootQuery, [_comment(20, replyCount: 1)]);
+      store.mergePage(rootQuery, [sampleComment(20, replyCount: 1)]);
       store.mergePage(repliesQuery, [
-        _comment(21, parentCommentId: 20, rootCommentId: 20),
+        sampleComment(21, parentCommentId: 20, rootCommentId: 20),
       ]);
       final first = store.beginSend(workId: 1)!;
       store.failSend(first, StateError('network'));
       final second = store.beginSend(workId: 1)!;
-      store.commitSend(first, _comment(22));
+      store.commitSend(first, sampleComment(22));
       expect(store.idsFor(rootQuery), [20]);
       store.failSend(second, StateError('still unavailable'));
 
@@ -532,17 +426,17 @@ void main() {
   test(
     'actions do not publish before API success and enforce owner delete',
     () async {
-      final repository = _FakeCommentRepository();
+      final repository = FakeCommentRepository();
       final container = ProviderContainer(
         overrides: [
-          accountStoreProvider.overrideWith(_StubAccountStore.new),
+          accountStoreProvider.overrideWith(commentsAccountStore),
           commentRepositoryProvider.overrideWithValue(repository),
         ],
       );
       addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       final action = container.read(commentActionsProvider);
-      final result = _comment(20);
+      final result = sampleComment(20);
       repository.addCompleter = Completer<CommentEntity>();
       final pending = action.send(
         const CommentAddRequest(workId: 1, text: 'pending'),
@@ -556,7 +450,7 @@ void main() {
         result.id,
       );
 
-      final other = _comment(31, userId: 11);
+      final other = sampleComment(31, userId: 11);
       await expectLater(
         action.delete(other),
         throwsA(isA<CommentPermissionException>()),
@@ -706,14 +600,14 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [accountStoreProvider.overrideWith(_StubAccountStore.new)],
+          overrides: [accountStoreProvider.overrideWith(commentsAccountStore)],
           child: MaterialApp(
             locale: const Locale('zh', 'CN'),
             supportedLocales: const [Locale('zh', 'CN')],
             localizationsDelegates: appLocalizationsDelegates,
             home: Scaffold(
               body: CommentItem(
-                comment: _comment(40, replyCount: 2),
+                comment: sampleComment(40, replyCount: 2),
                 onReply: () {},
                 onOpenReplies: () {},
                 onDelete: () {},
@@ -733,10 +627,10 @@ void main() {
 
   group('stamp comment body', () {
     Future<void> pumpStampComment(WidgetTester tester, String? url) {
-      final base = _comment(41, content: '');
+      final base = sampleComment(41, content: '');
       return tester.pumpWidget(
         ProviderScope(
-          overrides: [accountStoreProvider.overrideWith(_StubAccountStore.new)],
+          overrides: [accountStoreProvider.overrideWith(commentsAccountStore)],
           child: MaterialApp(
             locale: const Locale('zh', 'CN'),
             supportedLocales: const [Locale('zh', 'CN')],
@@ -803,8 +697,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          accountStoreProvider.overrideWith(_StubAccountStore.new),
-          commentRepositoryProvider.overrideWithValue(_FakeCommentRepository()),
+          accountStoreProvider.overrideWith(commentsAccountStore),
+          commentRepositoryProvider.overrideWithValue(FakeCommentRepository()),
         ],
         child: MaterialApp.router(
           locale: const Locale('zh', 'CN'),
@@ -842,9 +736,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            accountStoreProvider.overrideWith(_StubAccountStore.new),
+            accountStoreProvider.overrideWith(commentsAccountStore),
             commentRepositoryProvider.overrideWithValue(
-              _FakeCommentRepository(),
+              FakeCommentRepository(),
             ),
           ],
           child: MaterialApp.router(
@@ -1089,8 +983,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          accountStoreProvider.overrideWith(_StubAccountStore.new),
-          commentRepositoryProvider.overrideWithValue(_FakeCommentRepository()),
+          accountStoreProvider.overrideWith(commentsAccountStore),
+          commentRepositoryProvider.overrideWithValue(FakeCommentRepository()),
         ],
         child: composerApp(const CommentsPage(workId: 1)),
       ),
@@ -1115,14 +1009,14 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          accountStoreProvider.overrideWith(_StubAccountStore.new),
-          commentRepositoryProvider.overrideWithValue(_FakeCommentRepository()),
+          accountStoreProvider.overrideWith(commentsAccountStore),
+          commentRepositoryProvider.overrideWithValue(FakeCommentRepository()),
         ],
         child: composerApp(
           CommentRepliesPage(
             workId: 1,
             rootCommentId: 11,
-            rootComment: _comment(11, replyCount: 1),
+            rootComment: sampleComment(11, replyCount: 1),
           ),
         ),
       ),
@@ -1184,12 +1078,12 @@ void main() {
 
   Future<void> pumpCommentsPage(
     WidgetTester tester,
-    _FakeCommentRepository repo,
+    FakeCommentRepository repo,
   ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          accountStoreProvider.overrideWith(_StubAccountStore.new),
+          accountStoreProvider.overrideWith(commentsAccountStore),
           commentRepositoryProvider.overrideWithValue(repo),
         ],
         child: composerApp(const CommentsPage(workId: 1)),
@@ -1200,20 +1094,20 @@ void main() {
 
   Future<void> pumpRepliesPage(
     WidgetTester tester,
-    _FakeCommentRepository repo, {
+    FakeCommentRepository repo, {
     CommentEntity? root,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          accountStoreProvider.overrideWith(_StubAccountStore.new),
+          accountStoreProvider.overrideWith(commentsAccountStore),
           commentRepositoryProvider.overrideWithValue(repo),
         ],
         child: composerApp(
           CommentRepliesPage(
             workId: 1,
             rootCommentId: 11,
-            rootComment: root ?? _comment(11, replyCount: 1),
+            rootComment: root ?? sampleComment(11, replyCount: 1),
           ),
         ),
       ),
@@ -1224,10 +1118,15 @@ void main() {
   testWidgets('replies page scrolls the root comment with the reply list', (
     tester,
   ) async {
-    final repo = _FakeCommentRepository()
+    final repo = FakeCommentRepository()
       ..replies = [
         for (var i = 0; i < 15; i++)
-          _comment(100 + i, parentCommentId: 11, rootCommentId: 11, userId: 20),
+          sampleComment(
+            100 + i,
+            parentCommentId: 11,
+            rootCommentId: 11,
+            userId: 20,
+          ),
       ];
     await pumpRepliesPage(tester, repo);
 
@@ -1249,8 +1148,8 @@ void main() {
   ) async {
     await pumpRepliesPage(
       tester,
-      _FakeCommentRepository(),
-      root: _comment(
+      FakeCommentRepository(),
+      root: sampleComment(
         11,
         replyCount: 1,
         content: 'long root comment line\n' * 12,
@@ -1291,8 +1190,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          accountStoreProvider.overrideWith(_StubAccountStore.new),
-          commentRepositoryProvider.overrideWithValue(_FakeCommentRepository()),
+          accountStoreProvider.overrideWith(commentsAccountStore),
+          commentRepositoryProvider.overrideWithValue(FakeCommentRepository()),
         ],
         child: composerApp(const CommentsPage(workId: 1)),
       ),
@@ -1336,7 +1235,7 @@ void main() {
   testWidgets('replies page primes the reference row with the root author', (
     tester,
   ) async {
-    await pumpRepliesPage(tester, _FakeCommentRepository());
+    await pumpRepliesPage(tester, FakeCommentRepository());
 
     // No explicit target yet — the composer still names the root author.
     expect(
@@ -1359,7 +1258,7 @@ void main() {
   testWidgets('send success clears the reply target and the draft', (
     tester,
   ) async {
-    await pumpCommentsPage(tester, _FakeCommentRepository());
+    await pumpCommentsPage(tester, FakeCommentRepository());
 
     await tester.tap(find.byIcon(Icons.reply_outlined).first);
     await tester.pump();
@@ -1385,9 +1284,9 @@ void main() {
   testWidgets(
     'replies send success returns the reference row to the root author',
     (tester) async {
-      final repo = _FakeCommentRepository()
+      final repo = FakeCommentRepository()
         ..replies = [
-          _comment(12, parentCommentId: 11, rootCommentId: 11, userId: 20),
+          sampleComment(12, parentCommentId: 11, rootCommentId: 11, userId: 20),
         ];
       await pumpRepliesPage(tester, repo);
 
@@ -1434,8 +1333,11 @@ void main() {
   testWidgets('a mid-flight retarget is not cleared by the old send', (
     tester,
   ) async {
-    final repo = _FakeCommentRepository()
-      ..rootComments = [_comment(11, replyCount: 1), _comment(12, userId: 21)]
+    final repo = FakeCommentRepository()
+      ..rootComments = [
+        sampleComment(11, replyCount: 1),
+        sampleComment(12, userId: 21),
+      ]
       ..addCompleter = Completer<CommentEntity>();
     await pumpCommentsPage(tester, repo);
 
@@ -1457,7 +1359,7 @@ void main() {
       findsOneWidget,
     );
 
-    repo.addCompleter!.complete(_comment(20));
+    repo.addCompleter!.complete(sampleComment(20));
     await tester.pumpAndSettle();
 
     // The completed send must not clear the newer target.
@@ -1473,7 +1375,7 @@ void main() {
   testWidgets(
     'replies send failure keeps the draft and target, flags permission',
     (tester) async {
-      final repo = _FakeCommentRepository()
+      final repo = FakeCommentRepository()
         ..addError = const CommentPermissionException();
       await pumpRepliesPage(tester, repo);
 
@@ -1558,7 +1460,7 @@ void main() {
   testWidgets('send shows an in-button progress indicator while busy', (
     tester,
   ) async {
-    final repo = _FakeCommentRepository()
+    final repo = FakeCommentRepository()
       ..addCompleter = Completer<CommentEntity>();
     await pumpCommentsPage(tester, repo);
     final context = tester.element(find.byType(CommentComposer));
@@ -1601,7 +1503,7 @@ void main() {
       isNull,
     );
 
-    repo.addCompleter!.complete(_comment(20));
+    repo.addCompleter!.complete(sampleComment(20));
     await tester.pumpAndSettle();
     expect(spinner(), findsNothing);
   });
@@ -1609,8 +1511,11 @@ void main() {
   testWidgets('busy spinner survives the early-false mutation key window', (
     tester,
   ) async {
-    final repo = _FakeCommentRepository()
-      ..rootComments = [_comment(11, replyCount: 1), _comment(12, userId: 21)]
+    final repo = FakeCommentRepository()
+      ..rootComments = [
+        sampleComment(11, replyCount: 1),
+        sampleComment(12, userId: 21),
+      ]
       ..addCompleter = Completer<CommentEntity>();
     await pumpCommentsPage(tester, repo);
 
@@ -1634,7 +1539,7 @@ void main() {
       findsOneWidget,
     );
 
-    repo.addCompleter!.complete(_comment(20));
+    repo.addCompleter!.complete(sampleComment(20));
     await tester.pumpAndSettle();
     expect(
       find.descendant(
@@ -1654,7 +1559,7 @@ void main() {
 
   testWidgets('send success fires one success haptic', (tester) async {
     final haptics = recordHaptics();
-    await pumpCommentsPage(tester, _FakeCommentRepository());
+    await pumpCommentsPage(tester, FakeCommentRepository());
 
     await typeAndSend(tester);
     expect(haptics.roles, [HapticRole.success]);
@@ -1664,7 +1569,7 @@ void main() {
     tester,
   ) async {
     final haptics = recordHaptics();
-    await pumpCommentsPage(tester, _FakeCommentRepository());
+    await pumpCommentsPage(tester, FakeCommentRepository());
 
     await tester.tap(find.byTooltip('Stamp'));
     await tester.pump();
@@ -1684,7 +1589,7 @@ void main() {
     tester,
   ) async {
     final haptics = recordHaptics();
-    await pumpRepliesPage(tester, _FakeCommentRepository());
+    await pumpRepliesPage(tester, FakeCommentRepository());
 
     await typeAndSend(tester);
     expect(haptics.roles, [HapticRole.success]);
@@ -1694,7 +1599,7 @@ void main() {
     final haptics = recordHaptics();
     await pumpCommentsPage(
       tester,
-      _FakeCommentRepository()..addError = StateError('offline'),
+      FakeCommentRepository()..addError = StateError('offline'),
     );
 
     await typeAndSend(tester);

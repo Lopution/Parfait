@@ -164,7 +164,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get userAgreement => '《Пользовательское соглашение Parfait》';
 
   @override
-  String get agreementTitle => 'Пользовательское соглашение Parfait';
+  String get agreementTitle => 'Соглашение Parfait';
 
   @override
   String get agreementIntro =>
@@ -354,7 +354,10 @@ class AppLocalizationsRu extends AppLocalizations {
       'Включено: резервный уровень резолвит через DoH (по умолчанию Cloudflare DoH: доменные эндпоинты привязаны к статическим Anycast IP — никакого отравленного системного DNS; кастомные эндпоинты резолвят свои хосты); выключено — системный DNS.';
 
   @override
-  String get networkDohEndpoints => 'DoH-эндпоинты (через запятую, https URL)';
+  String get networkDohEndpoints => 'DoH-эндпоинты';
+
+  @override
+  String get networkDohEndpointsHint => 'https URL через запятую';
 
   @override
   String get networkEchFrontHost => 'ECH-фронт-хост';
@@ -554,7 +557,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get historyDeleteHint => 'Удалённую историю нельзя восстановить.';
 
   @override
-  String get downloaderSettings => 'Задачи загрузки';
+  String get downloaderSettings => 'Загрузки';
 
   @override
   String get aboutSettings => 'О приложении';
@@ -999,7 +1002,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get saveLocationPixivAlbum => 'Альбом Parfait (по умолчанию)';
 
   @override
-  String get saveLocationCustomAlbum => 'Имя пользовательского альбома';
+  String get saveLocationCustomAlbum => 'Имя своего альбома';
 
   @override
   String get saveLocationCustomAlbumHint =>
@@ -1610,7 +1613,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchHint => 'Работы, пользователи или теги';
 
   @override
-  String get searchReverseImage => 'Поиск по изображению';
+  String get searchBarHint => 'Поиск';
+
+  @override
+  String get searchReverseImage => 'Поиск по фото';
 
   @override
   String get searchTrending => 'Популярные теги';
@@ -1783,10 +1789,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchTarget => 'Область поиска';
 
   @override
-  String get searchPartialTags => 'Частичное совпадение тегов';
+  String get searchPartialTags => 'Частично по тегам';
 
   @override
-  String get searchExactTags => 'Точное совпадение тегов';
+  String get searchExactTags => 'Точно по тегам';
 
   @override
   String get searchTitleCaption => 'Название и описание';

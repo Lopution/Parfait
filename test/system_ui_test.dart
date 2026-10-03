@@ -25,7 +25,7 @@ import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
-import 'download_manager_test.dart';
+import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 

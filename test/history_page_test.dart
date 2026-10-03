@@ -5,10 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
-import 'package:path/path.dart' as path;
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/app/motion/removal.dart';
@@ -16,15 +13,8 @@ import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/entity/illust_store.dart';
-import 'package:parfait/core/history/history_database.dart';
 import 'package:parfait/core/history/history_models.dart';
-import 'package:parfait/core/history/history_repository.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/novel/novel_store.dart';
 import 'package:parfait/core/user/user_entity.dart';
@@ -34,64 +24,9 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/recording_haptics.dart';
-import 'helpers/fake_account.dart';
+import 'helpers/history_world.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
-
-/// Real async I/O (the ffi-backed history database) only resolves while
-/// the real event loop turns, so every step that touches the repository
-/// or waits on provider futures runs inside [WidgetTester.runAsync].
-Future<ProviderContainer> _makeWorld(
-  HistoryRepository repository, {
-  IllustStore? illustStore,
-}) async {
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      historyRepositoryProvider.overrideWithValue(repository),
-      if (illustStore != null)
-        illustStoreProvider.overrideWithValue(illustStore),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient((request) async => http.Response('{}', 200)),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client not wired yet');
-        return client;
-      }),
-    ],
-  );
-  clientRef[0] = PixivHttpClient(
-    client: MockClient((request) async => http.Response('{}', 200)),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  await container.read(accountStoreProvider.future);
-  return container;
-}
-
-HistoryRecord _record(int id, {HistoryContentType? type}) => HistoryRecord(
-  accountId: '100',
-  contentType: type ?? HistoryContentType.illust,
-  contentId: id,
-  lastViewedAt: DateTime.utc(2026, 9, 20, 10),
-  snapshot: HistorySnapshot(title: 'work $id', authorName: 'author $id'),
-);
 
 Widget _app(ProviderContainer container) => UncontrolledProviderScope(
   container: container,
@@ -115,29 +50,22 @@ Future<ProviderContainer> _seedPage(
   addTearDown(tester.view.reset);
   late ProviderContainer container;
   await tester.runAsync(() async {
-    final directory = await Directory.systemTemp.createTemp('hist-');
-    final database = HistoryDatabase(
-      factory: databaseFactoryFfi,
-      databasePath: path.join(directory.path, 'history.db'),
-    );
-    final repository = HistoryRepository(database: database);
-    for (final record in records) {
-      await repository.upsert(record);
-    }
-    container = await _makeWorld(repository, illustStore: illustStore);
+    final repository = await openHistoryRepository(records);
+    container = await makeHistoryWorld(repository, illustStore: illustStore);
     await tester.pumpWidget(_app(container));
     // Let the first page load land on the real event loop.
     await Future<void>.delayed(const Duration(milliseconds: 100));
     await tester.pump();
     await Future<void>.delayed(const Duration(milliseconds: 50));
     await tester.pump();
-    addTearDown(() async {
-      await database.close();
-      await directory.delete(recursive: true);
-    });
   });
   return container;
 }
+
+/// The selection bar's title: the bare count, read out as [label].
+Finder _selectionTitle(String label) => find.byWidgetPredicate(
+  (widget) => widget is Text && widget.semanticsLabel == label,
+);
 
 void main() {
   setUpAll(sqfliteFfiInit);
@@ -148,7 +76,7 @@ void main() {
   testWidgets('long-press enters selection mode and toggles membership', (
     tester,
   ) async {
-    await _seedPage(tester, [_record(1), _record(2)]);
+    await _seedPage(tester, [historyRecord(1), historyRecord(2)]);
 
     expect(find.text('work 1'), findsOneWidget);
 
@@ -156,7 +84,7 @@ void main() {
     // AppBar swaps to the selection surface (primaryContainer + count).
     await tester.longPress(find.text('work 1'));
     await tester.pump();
-    expect(find.text('已选 1 项'), findsOneWidget);
+    expect(_selectionTitle('已选 1 项'), findsOneWidget);
     expect(find.byIcon(Icons.check_circle), findsOneWidget);
     expect(
       find.ancestor(
@@ -172,15 +100,15 @@ void main() {
     // stays off for these deliberate parent hits.
     await tester.tap(find.text('work 2'), warnIfMissed: false);
     await tester.pump();
-    expect(find.text('已选 2 项'), findsOneWidget);
+    expect(_selectionTitle('已选 2 项'), findsOneWidget);
     await tester.tap(find.text('work 1'), warnIfMissed: false);
     await tester.pump();
-    expect(find.text('已选 1 项'), findsOneWidget);
+    expect(_selectionTitle('已选 1 项'), findsOneWidget);
 
     // The close button exits the mode and restores the normal AppBar.
     await tester.tap(find.byIcon(Icons.close));
     await tester.pump();
-    expect(find.text('已选 1 项'), findsNothing);
+    expect(_selectionTitle('已选 1 项'), findsNothing);
     expect(find.text('历史记录'), findsOneWidget);
   });
 
@@ -188,18 +116,18 @@ void main() {
     tester,
   ) async {
     await _seedPage(tester, [
-      _record(1),
-      _record(2),
-      _record(3, type: HistoryContentType.novel),
+      historyRecord(1),
+      historyRecord(2),
+      historyRecord(3, type: HistoryContentType.novel),
     ]);
 
     await tester.tap(find.byTooltip('管理'));
     await tester.pump();
-    expect(find.text('已选 0 项'), findsOneWidget);
+    expect(_selectionTitle('已选 0 项'), findsOneWidget);
 
     await tester.tap(find.byTooltip('全选'));
     await tester.pump();
-    expect(find.text('已选 3 项'), findsOneWidget);
+    expect(_selectionTitle('已选 3 项'), findsOneWidget);
 
     // Delete goes through the shared confirm bottom sheet, then the rows
     // disappear and the mode exits.
@@ -275,8 +203,8 @@ void main() {
       // entity must be merged before the page builds.
       final illustStore = IllustStore()..mergeAll([parseIllust(illustJson(1))]);
       final container = await _seedPage(tester, [
-        _record(1),
-        _record(2, type: HistoryContentType.novel),
+        historyRecord(1),
+        historyRecord(2, type: HistoryContentType.novel),
       ], illustStore: illustStore);
 
       // The novel store is a NotifierProvider — a post-build merge rebuilds
@@ -358,7 +286,7 @@ void main() {
 
   testWidgets('management interactions fire graded haptics', (tester) async {
     final haptics = recordHaptics();
-    await _seedPage(tester, [_record(1), _record(2)]);
+    await _seedPage(tester, [historyRecord(1), historyRecord(2)]);
 
     // Long-press entering selection mode = explicit vibration.
     await tester.longPress(find.text('work 1'));
@@ -386,16 +314,16 @@ void main() {
   testWidgets('system back exits selection mode instead of popping', (
     tester,
   ) async {
-    await _seedPage(tester, [_record(1)]);
+    await _seedPage(tester, [historyRecord(1)]);
 
     await tester.longPress(find.text('work 1'));
     await tester.pump();
-    expect(find.text('已选 1 项'), findsOneWidget);
+    expect(_selectionTitle('已选 1 项'), findsOneWidget);
 
     final popped = await tester.binding.handlePopRoute();
     await tester.pump();
     expect(popped, isTrue);
-    expect(find.text('已选 1 项'), findsNothing);
+    expect(_selectionTitle('已选 1 项'), findsNothing);
     expect(find.text('历史记录'), findsOneWidget);
     expect(find.text('work 1'), findsOneWidget);
   });

@@ -20,7 +20,7 @@ import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/settings/settings_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'download_manager_test.dart';
+import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 

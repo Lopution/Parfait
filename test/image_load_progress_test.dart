@@ -12,7 +12,7 @@ import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/illust_fixtures.dart';
 import 'helpers/image_network.dart';
-import 'illust_detail_page_test.dart' show makeWorld;
+import 'helpers/detail_world.dart';
 
 const _url = 'https://i.pximg.net/img-master/progress.jpg';
 

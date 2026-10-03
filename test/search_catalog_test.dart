@@ -40,93 +40,8 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
+import 'helpers/search_world.dart';
 import 'helpers/test_preferences.dart';
-
-class _FakeSearchRepository implements SearchRepository {
-  _FakeSearchRepository({this.autocompleteHandler, this.trendingTagCount = 2});
-
-  final Future<List<SearchSuggestion>> Function(
-    String keyword,
-    CancelToken? cancelToken,
-  )?
-  autocompleteHandler;
-  final requests = <SearchQuery>[];
-
-  /// When set, every search fetch awaits it — holds a result page's
-  /// initial load in flight.
-  Completer<void>? pendingFetch;
-
-  SearchIllustPage illustPage = const SearchIllustPage(
-    illusts: [],
-    nextUrl: null,
-  );
-
-  @override
-  Future<SearchIllustPage> searchIllust(
-    IllustSearchQuery query, {
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add(query);
-    await pendingFetch?.future;
-    return illustPage;
-  }
-
-  @override
-  Future<SearchNovelPage> searchNovel(
-    NovelSearchQuery query, {
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add(query);
-    await pendingFetch?.future;
-    return const SearchNovelPage(novels: [], nextUrl: null);
-  }
-
-  @override
-  Future<SearchUserPage> searchUsers(
-    UserSearchQuery query, {
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add(query);
-    await pendingFetch?.future;
-    return const SearchUserPage(users: [], nextUrl: null);
-  }
-
-  @override
-  bool validateCursor(SearchQuery query, {required String cursor}) => true;
-
-  @override
-  Future<List<SearchSuggestion>> autocomplete(
-    String keyword, {
-    CancelToken? cancelToken,
-  }) {
-    return autocompleteHandler?.call(keyword, cancelToken) ??
-        Future.value(const []);
-  }
-
-  int trendingTagsCallCount = 0;
-  SearchResultType? trendingTagsLastType;
-  final int trendingTagCount;
-
-  @override
-  Future<List<TrendingTag>> trendingTags({
-    SearchResultType type = SearchResultType.illust,
-    CancelToken? cancelToken,
-  }) async {
-    trendingTagsCallCount++;
-    trendingTagsLastType = type;
-    final tags = <TrendingTag>[
-      TrendingTag(name: '风景', representative: parseIllust(illustJson(901))),
-      const TrendingTag(name: '猫'),
-    ];
-    for (var i = tags.length; i < trendingTagCount; i++) {
-      tags.add(TrendingTag(name: '标签${i + 1}'));
-    }
-    return tags;
-  }
-}
 
 Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler, {
@@ -674,7 +589,7 @@ void main() {
   test(
     'search feed merges typed illust results into the shared store',
     () async {
-      final repository = _FakeSearchRepository()
+      final repository = FakeSearchRepository()
         ..illustPage = SearchIllustPage(
           illusts: [parseIllust(illustJson(42))],
           nextUrl: null,
@@ -695,7 +610,7 @@ void main() {
   test(
     'search feed applies client-side bookmark and AI-only predicates',
     () async {
-      final repository = _FakeSearchRepository()
+      final repository = FakeSearchRepository()
         ..illustPage = SearchIllustPage(
           illusts: [
             parseIllust(illustJson(1, totalBookmarks: 50)),
@@ -752,7 +667,7 @@ void main() {
     () async {
       final oldResponse = Completer<List<SearchSuggestion>>();
       final newResponse = Completer<List<SearchSuggestion>>();
-      final repository = _FakeSearchRepository(
+      final repository = FakeSearchRepository(
         autocompleteHandler: (keyword, _) =>
             keyword == 'old' ? oldResponse.future : newResponse.future,
       );
@@ -793,7 +708,7 @@ void main() {
     'autocomplete disposal cancels pending work without publishing state',
     () async {
       final response = Completer<List<SearchSuggestion>>();
-      final repository = _FakeSearchRepository(
+      final repository = FakeSearchRepository(
         autocompleteHandler: (_, _) => response.future,
       );
       final container = ProviderContainer(
@@ -916,7 +831,7 @@ void main() {
   testWidgets('search guide renders trending tags and the three input tabs', (
     tester,
   ) async {
-    final repository = _FakeSearchRepository();
+    final repository = FakeSearchRepository();
     final router = createPixivRouter(initialLocation: '/search');
     addTearDown(router.dispose);
     await tester.pumpWidget(
@@ -951,7 +866,7 @@ void main() {
   testWidgets('search input keeps its geometry when the IME opens', (
     tester,
   ) async {
-    final repository = _FakeSearchRepository();
+    final repository = FakeSearchRepository();
     final router = createPixivRouter(initialLocation: '/search/input');
     addTearDown(router.dispose);
     await tester.pumpWidget(
@@ -981,7 +896,7 @@ void main() {
   testWidgets('a suggestion row tap fills the field; only the action submits', (
     tester,
   ) async {
-    final repository = _FakeSearchRepository(
+    final repository = FakeSearchRepository(
       autocompleteHandler: (keyword, _) async => const [
         SearchSuggestion(keyword: 'neko', translatedName: '猫'),
       ],
@@ -1030,7 +945,7 @@ void main() {
   testWidgets('U2: a trending tag renders its representative image', (
     tester,
   ) async {
-    final repository = _FakeSearchRepository();
+    final repository = FakeSearchRepository();
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         ProviderScope(
@@ -1075,7 +990,7 @@ void main() {
       () => VisibilityDetectorController.instance.updateInterval =
           const Duration(milliseconds: 500),
     );
-    final repository = _FakeSearchRepository();
+    final repository = FakeSearchRepository();
     final container = await _apiContainer(
       (request) async {
         if (request.url.path == '/v1/illust/detail') {
@@ -1122,7 +1037,7 @@ void main() {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final repository = _FakeSearchRepository(trendingTagCount: 6);
+    final repository = FakeSearchRepository(trendingTagCount: 6);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [searchRepositoryProvider.overrideWithValue(repository)],
@@ -1154,7 +1069,7 @@ void main() {
     tester.view.physicalSize = const Size(1200, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final repository = _FakeSearchRepository(trendingTagCount: 14);
+    final repository = FakeSearchRepository(trendingTagCount: 14);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [searchRepositoryProvider.overrideWithValue(repository)],
@@ -1182,7 +1097,7 @@ void main() {
   testWidgets('trending grid renders every tag including a partial row', (
     tester,
   ) async {
-    final repository = _FakeSearchRepository(trendingTagCount: 4);
+    final repository = FakeSearchRepository(trendingTagCount: 4);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [searchRepositoryProvider.overrideWithValue(repository)],
@@ -1206,7 +1121,7 @@ void main() {
   testWidgets('switching the trending kind re-requests the novel endpoint', (
     tester,
   ) async {
-    final repository = _FakeSearchRepository();
+    final repository = FakeSearchRepository();
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         ProviderScope(
@@ -1235,7 +1150,7 @@ void main() {
   testWidgets('U2: tapping a trending tag still searches that tag', (
     tester,
   ) async {
-    final repository = _FakeSearchRepository();
+    final repository = FakeSearchRepository();
     final router = createPixivRouter(initialLocation: '/search');
     addTearDown(router.dispose);
     await mockNetworkImagesFor(() async {
@@ -1264,7 +1179,7 @@ void main() {
   testWidgets('U2: re-entering search does not re-request trending tags', (
     tester,
   ) async {
-    final repository = _FakeSearchRepository();
+    final repository = FakeSearchRepository();
     final showSearch = ValueNotifier<bool>(true);
     addTearDown(showSearch.dispose);
 
@@ -1303,7 +1218,7 @@ void main() {
   });
 
   testWidgets('typed result page uses the shared result route', (tester) async {
-    final repository = _FakeSearchRepository();
+    final repository = FakeSearchRepository();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [searchRepositoryProvider.overrideWithValue(repository)],
@@ -1325,8 +1240,7 @@ void main() {
   testWidgets('illust results show the grid skeleton while pending', (
     tester,
   ) async {
-    final repository = _FakeSearchRepository()
-      ..pendingFetch = Completer<void>();
+    final repository = FakeSearchRepository()..pendingFetch = Completer<void>();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1355,8 +1269,7 @@ void main() {
 
   testWidgets('novel results show a spinner while pending, not an empty '
       'state', (tester) async {
-    final repository = _FakeSearchRepository()
-      ..pendingFetch = Completer<void>();
+    final repository = FakeSearchRepository()..pendingFetch = Completer<void>();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1387,7 +1300,7 @@ void main() {
   testWidgets('result route parameters round-trip every filter field', (
     tester,
   ) async {
-    final repository = _FakeSearchRepository();
+    final repository = FakeSearchRepository();
     final router = createPixivRouter(
       initialLocation:
           '/search/results?q=cat&type=illust&target=exact_match_for_tags'
@@ -1469,7 +1382,7 @@ void main() {
   testWidgets('malformed filter values fall back to defaults per field', (
     tester,
   ) async {
-    final repository = _FakeSearchRepository();
+    final repository = FakeSearchRepository();
     final router = createPixivRouter(
       initialLocation:
           '/search/results?q=cat&type=illust&sort=nonsense&ai=bogus'
@@ -1508,7 +1421,7 @@ void main() {
   testWidgets('re-tapping the search destination scrolls the guide to top', (
     tester,
   ) async {
-    final repository = _FakeSearchRepository(trendingTagCount: 30);
+    final repository = FakeSearchRepository(trendingTagCount: 30);
     final router = createPixivRouter(initialLocation: '/search');
     addTearDown(router.dispose);
     // Compact viewport: at ≥600px the shell swaps the bottom bar for a
@@ -1581,7 +1494,7 @@ void main() {
   testWidgets('the result title reopens the input prefilled with the query', (
     tester,
   ) async {
-    final repository = _FakeSearchRepository();
+    final repository = FakeSearchRepository();
     final router = createPixivRouter(
       initialLocation: '/search/results?q=%E9%A3%8E%E6%99%AF&type=illust',
     );
@@ -1617,7 +1530,7 @@ void main() {
   testWidgets('an empty result keeps the header and offers modify-search', (
     tester,
   ) async {
-    final repository = _FakeSearchRepository();
+    final repository = FakeSearchRepository();
     final router = createPixivRouter(
       initialLocation: '/search/results?q=nothing&type=illust',
     );
@@ -1653,7 +1566,7 @@ void main() {
   testWidgets('the filter summary row chips and clears active filters', (
     tester,
   ) async {
-    final repository = _FakeSearchRepository();
+    final repository = FakeSearchRepository();
     final router = createPixivRouter(
       initialLocation:
           '/search/results?q=cat&type=illust&sort=date_asc&bmin=100',

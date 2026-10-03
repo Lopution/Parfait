@@ -1,21 +1,10 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
-import 'package:parfait/core/actionqueue/action_bootstrap.dart';
-import 'package:parfait/core/actionqueue/action_store.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/series/series_recent_open_store.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
@@ -27,89 +16,9 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-import 'helpers/fake_account.dart';
+import 'helpers/watchlist_world.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
-
-class _Fixture {
-  final requests = <http.Request>[];
-  List<Map<String, Object?>> mangaSeries = const [];
-  List<Map<String, Object?>> novelSeries = const [];
-  int mutationStatus = 200;
-
-  http.Client build() => MockClient((request) async {
-    requests.add(request);
-    if (request.method == 'GET') {
-      final isNovel = request.url.path.contains('/novel');
-      return http.Response(
-        jsonEncode({
-          'series': isNovel ? novelSeries : mangaSeries,
-          'next_url': null,
-        }),
-        200,
-        headers: {'content-type': 'application/json'},
-      );
-    }
-    if (mutationStatus != 200) {
-      return http.Response(
-        jsonEncode({
-          'error': {'message': 'rejected'},
-        }),
-        mutationStatus,
-        headers: {'content-type': 'application/json'},
-      );
-    }
-    return http.Response(
-      jsonEncode({'is_success': true}),
-      200,
-      headers: {'content-type': 'application/json'},
-    );
-  });
-}
-
-Future<(ProviderContainer, _Fixture)> _makeWorld({_Fixture? fixture}) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  final resolvedFixture = fixture ?? _Fixture();
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient((request) async {
-            fail('refresh should not happen in watchlist page tests');
-          }),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client not wired yet');
-        return client;
-      }),
-      actionStoreProvider.overrideWithValue(InMemoryActionStore()),
-    ],
-  );
-  final client = PixivHttpClient(
-    client: resolvedFixture.build(),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  clientRef[0] = client;
-  await container.read(accountStoreProvider.future);
-  return (container, resolvedFixture);
-}
 
 Widget _app(Widget child) => MaterialApp(
   localizationsDelegates: appLocalizationsDelegates,
@@ -125,7 +34,7 @@ void main() {
   testWidgets('watchlist page lists entries under both type tabs', (
     tester,
   ) async {
-    final fixture = _Fixture()
+    final fixture = WatchlistFixture()
       ..mangaSeries = [
         {
           'id': 9,
@@ -144,7 +53,7 @@ void main() {
           'latest_content_id': 900,
         },
       ];
-    final (container, _) = await _makeWorld(fixture: fixture);
+    final (container, _) = await makeWatchlistWorld(fixture: fixture);
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
@@ -167,7 +76,7 @@ void main() {
   });
 
   testWidgets('feed caps at the management content width', (tester) async {
-    final fixture = _Fixture()
+    final fixture = WatchlistFixture()
       ..mangaSeries = [
         {
           'id': 9,
@@ -176,7 +85,7 @@ void main() {
           'latest_content_id': 777,
         },
       ];
-    final (container, _) = await _makeWorld(fixture: fixture);
+    final (container, _) = await makeWatchlistWorld(fixture: fixture);
     addTearDown(container.dispose);
 
     tester.view.physicalSize = const Size(1200, 900);
@@ -198,7 +107,7 @@ void main() {
   testWidgets('unseen series shows the new-content badge; seen hides it', (
     tester,
   ) async {
-    final fixture = _Fixture()
+    final fixture = WatchlistFixture()
       ..mangaSeries = [
         {
           'id': 9,
@@ -207,7 +116,7 @@ void main() {
           'latest_content_id': 777,
         },
       ];
-    final (container, _) = await _makeWorld(fixture: fixture);
+    final (container, _) = await makeWatchlistWorld(fixture: fixture);
     addTearDown(container.dispose);
     // A cursor equal to the latest id means "all caught up".
     await container
@@ -227,7 +136,7 @@ void main() {
   testWidgets('toggle reflects the detail flag and posts the mutation', (
     tester,
   ) async {
-    final (container, fixture) = await _makeWorld();
+    final (container, fixture) = await makeWatchlistWorld();
     addTearDown(container.dispose);
     const key = WatchlistKey(WatchlistType.manga, 9);
 
@@ -253,7 +162,7 @@ void main() {
 
   testWidgets('toggle haptics follow the settled outcome', (tester) async {
     final haptics = recordHaptics();
-    final (container, fixture) = await _makeWorld();
+    final (container, fixture) = await makeWatchlistWorld();
     addTearDown(container.dispose);
     const key = WatchlistKey(WatchlistType.manga, 9);
 
@@ -292,7 +201,7 @@ void main() {
   });
 
   testWidgets('icon toggle renders the compact variant', (tester) async {
-    final (container, _) = await _makeWorld();
+    final (container, _) = await makeWatchlistWorld();
     addTearDown(container.dispose);
     const key = WatchlistKey(WatchlistType.novel, 21);
 
@@ -328,7 +237,7 @@ void main() {
   testWidgets('tiles split view-updates, contents, return and unwatch', (
     tester,
   ) async {
-    final fixture = _Fixture()
+    final fixture = WatchlistFixture()
       ..mangaSeries = [
         {
           'id': 9,
@@ -347,7 +256,7 @@ void main() {
           'latest_content_id': 900,
         },
       ];
-    final (container, _) = await _makeWorld(fixture: fixture);
+    final (container, _) = await makeWatchlistWorld(fixture: fixture);
     addTearDown(container.dispose);
     // Session memory: the user last opened part 4 of series 9.
     container

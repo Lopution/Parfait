@@ -17,6 +17,7 @@ import '../../app/pull_to_refresh.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/haptics/app_haptics.dart';
 import '../../app/widgets/entity_row.dart';
+import '../../app/widgets/selection_app_bar.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/errors/error_category.dart';
@@ -80,7 +81,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   Widget build(BuildContext context) {
     final accountId = ref.watch(historyAccountIdProvider);
     final repository = ref.watch(historyRepositoryProvider);
-    final colorScheme = Theme.of(context).colorScheme;
     return PopScope(
       // System back exits selection mode instead of popping the page.
       canPop: !_managing,
@@ -89,14 +89,10 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       },
       child: Scaffold(
         appBar: _managing
-            ? AppBar(
-                backgroundColor: colorScheme.primaryContainer,
-                leading: IconButton(
-                  tooltip: context.l10n.cancel,
-                  icon: const Icon(Icons.close),
-                  onPressed: _exitManaging,
-                ),
-                title: Text(context.l10n.selectedCount(_selected.length)),
+            ? selectionAppBar(
+                context,
+                count: _selected.length,
+                onClose: _exitManaging,
                 actions: [
                   IconButton(
                     tooltip: context.l10n.selectAll,

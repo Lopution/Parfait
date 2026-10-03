@@ -1,153 +1,27 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/widgets/card_actions/illust_card_actions.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/feed/muted_cover.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
-import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/mute/mute_store.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/share/share_service.dart';
 import 'package:parfait/features/settings/pages/muted_items_page.dart';
-import 'package:parfait/core/watchlater/watch_later_database.dart';
-import 'package:parfait/core/watchlater/watch_later_repository.dart';
 import 'package:parfait/core/watchlater/watch_later_store.dart';
 import 'package:parfait/features/watchlater/watchlater_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'helpers/recording_haptics.dart';
-import 'helpers/fake_account.dart';
+import 'helpers/card_world.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
-
-/// HTTP transport recording bookmark calls so the card menu's bookmark
-/// adapter can be verified against real wire requests.
-class _BookmarkApiFixture {
-  final List<Uri> posts = [];
-  final List<Map<String, String>> postBodies = [];
-
-  /// Hydration payload for `/v1/mute/list`; tests override to seed
-  /// server-side muted tags/users.
-  Map<String, dynamic> muteList = {
-    'muted_tags': <dynamic>[],
-    'muted_users': <dynamic>[],
-    'mute_limit_count': 500,
-  };
-
-  /// `/v1/mute/edit` knobs: a non-2xx status fails the write; a gate
-  /// defers the response so tests can observe the in-flight pending row.
-  int muteEditStatus = 200;
-  Completer<void>? muteEditGate;
-
-  http.Client build() {
-    return MockClient((request) async {
-      // The card watches MuteStore, whose hydrate fetches the server list.
-      if (request.method == 'GET' &&
-          request.url.path.endsWith('/v1/mute/list')) {
-        return http.Response(
-          jsonEncode(muteList),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      }
-      posts.add(request.url);
-      if (request.url.path.endsWith('/v1/mute/edit')) {
-        await muteEditGate?.future;
-        if (muteEditStatus != 200) {
-          return http.Response(
-            jsonEncode({'message': 'boom', 'is_success': false}),
-            muteEditStatus,
-            headers: {'content-type': 'application/json'},
-          );
-        }
-      }
-      Map<String, String> fields;
-      try {
-        fields = (jsonDecode(request.body) as Map).cast<String, String>();
-      } on FormatException {
-        fields = Uri.splitQueryString(request.body);
-      }
-      postBodies.add(fields);
-      return http.Response(
-        jsonEncode({'message': '', 'is_success': true}),
-        200,
-        headers: {'content-type': 'application/json'},
-      );
-    });
-  }
-}
-
-/// In-memory repository for widget tests. sqflite_ffi runs sqlite on a
-/// worker isolate, and isolate port events are starved inside the
-/// testWidgets fake-async zone — the real-DB path is already covered by
-/// watch_later_store_test, so the persistence boundary is faked here while
-/// the sheet/dispatch code under test stays real.
-class _MemoryWatchLaterRepository extends WatchLaterRepository {
-  _MemoryWatchLaterRepository()
-    : super(
-        database: WatchLaterDatabase(
-          factory: databaseFactoryFfi,
-          databasePath: inMemoryDatabasePath,
-        ),
-      );
-
-  final Map<String, List<WatchLaterEntry>> _rows = {};
-
-  List<WatchLaterEntry> _account(String accountId) =>
-      _rows.putIfAbsent(accountId, () => []);
-
-  @override
-  Future<List<WatchLaterEntry>> list(String accountId) async =>
-      List.unmodifiable(_account(accountId));
-
-  @override
-  Future<void> add(
-    String accountId,
-    IllustEntity entity, {
-    int? addedAt,
-  }) async {
-    final rows = _account(accountId);
-    rows.removeWhere((entry) => entry.entity.id == entity.id);
-    rows.insert(
-      0,
-      WatchLaterEntry(
-        addedAt: addedAt ?? DateTime.now().millisecondsSinceEpoch,
-        entity: entity,
-      ),
-    );
-  }
-
-  @override
-  Future<void> remove(String accountId, int illustId) async {
-    _account(accountId).removeWhere((entry) => entry.entity.id == illustId);
-  }
-
-  @override
-  Future<void> clear(String accountId) async => _account(accountId).clear();
-}
-
-typedef World = (
-  ProviderContainer,
-  _BookmarkApiFixture,
-  _MemoryWatchLaterRepository,
-);
 
 /// Records the payloads the card sheet hands to the platform share
 /// boundary — the system sheet itself is plugin territory.
@@ -163,54 +37,6 @@ class _RecordingShareService implements ShareService {
     lastPayload = payload;
     return outcome;
   }
-}
-
-Future<World> _makeWorld({ShareService? shareService}) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  final fixture = _BookmarkApiFixture();
-  final repository = _MemoryWatchLaterRepository();
-
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient((request) async {
-            fail('refresh should not happen in this test');
-          }),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client not wired yet');
-        return client;
-      }),
-      watchLaterRepositoryProvider.overrideWithValue(repository),
-      if (shareService != null)
-        shareServiceProvider.overrideWithValue(shareService),
-    ],
-  );
-  clientRef[0] = PixivHttpClient(
-    client: fixture.build(),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  await container.read(accountStoreProvider.future);
-  addTearDown(container.dispose);
-  return (container, fixture, repository);
 }
 
 Widget _cardApp(ProviderContainer container, Widget home) {
@@ -241,7 +67,7 @@ void main() {
   testWidgets('long-press opens the sheet with all registered actions', (
     tester,
   ) async {
-    final (container, _, _) = await _makeWorld();
+    final (container, _, _) = await makeCardWorld();
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
@@ -271,7 +97,7 @@ void main() {
   testWidgets('watch-later action adds, then the sheet offers remove', (
     tester,
   ) async {
-    final (container, _, repository) = await _makeWorld();
+    final (container, _, repository) = await makeCardWorld();
     final entity = parseIllust(illustJson(9));
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
@@ -301,7 +127,7 @@ void main() {
   ) async {
     // Undo is the light-tick role.
     final haptics = recordHaptics();
-    final (container, _, repository) = await _makeWorld();
+    final (container, _, repository) = await makeCardWorld();
     final entity = parseIllust(illustJson(9));
     const originalAddedAt = 1726800000000;
     await repository.add('100', entity, addedAt: originalAddedAt);
@@ -335,7 +161,7 @@ void main() {
 
   testWidgets('bookmark action sends a real add request', (tester) async {
     final haptics = recordHaptics();
-    final (container, fixture, _) = await _makeWorld();
+    final (container, fixture, _) = await makeCardWorld();
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         _cardApp(container, IllustCard(entity: parseIllust(illustJson(11)))),
@@ -368,7 +194,7 @@ void main() {
     'download action surfaces submission failure for an entity without '
     'original URLs',
     (tester) async {
-      final (container, _, _) = await _makeWorld();
+      final (container, _, _) = await makeCardWorld();
       // Multi-page work without metaPages: originalUrlAt yields nothing,
       // so downloadAll throws FormatException — the adapter must catch
       // and report instead of propagating.
@@ -388,7 +214,7 @@ void main() {
     tester,
   ) async {
     final share = _RecordingShareService();
-    final (container, _, _) = await _makeWorld(shareService: share);
+    final (container, _, _) = await makeCardWorld(shareService: share);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         _cardApp(container, IllustCard(entity: parseIllust(illustJson(15)))),
@@ -408,7 +234,7 @@ void main() {
   ) async {
     final share = _RecordingShareService()
       ..outcome = ShareOutcome.copiedToClipboard;
-    final (container, _, _) = await _makeWorld(shareService: share);
+    final (container, _, _) = await makeCardWorld(shareService: share);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         _cardApp(container, IllustCard(entity: parseIllust(illustJson(15)))),
@@ -423,7 +249,7 @@ void main() {
   testWidgets('watch-later page renders stored works and empty state', (
     tester,
   ) async {
-    final (container, _, repository) = await _makeWorld();
+    final (container, _, repository) = await makeCardWorld();
     await repository.add('100', parseIllust(illustJson(21)));
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(_cardApp(container, const WatchLaterPage()));
@@ -441,7 +267,7 @@ void main() {
   });
 
   testWidgets('mute-work action toggles the local work mute', (tester) async {
-    final (container, fixture, _) = await _makeWorld();
+    final (container, fixture, _) = await makeCardWorld();
     final entity = parseIllust(illustJson(31));
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
@@ -470,7 +296,7 @@ void main() {
   testWidgets('mute-author action sends add_user_ids to mute/edit', (
     tester,
   ) async {
-    final (container, fixture, _) = await _makeWorld();
+    final (container, fixture, _) = await makeCardWorld();
     final entity = parseIllust(illustJson(33));
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
@@ -501,7 +327,7 @@ void main() {
   testWidgets('muted card blurs the cover and tap reveals in place', (
     tester,
   ) async {
-    final (container, _, _) = await _makeWorld();
+    final (container, _, _) = await makeCardWorld();
     final entity = parseIllust(illustJson(51));
     await container.read(muteStoreProvider.notifier).toggleWork(51);
     await mockNetworkImagesFor(() async {
@@ -529,7 +355,7 @@ void main() {
   testWidgets('muted items page lists entries and removes them', (
     tester,
   ) async {
-    final (container, fixture, _) = await _makeWorld();
+    final (container, fixture, _) = await makeCardWorld();
     fixture.muteList = {
       'muted_tags': [
         {'tag': 'tagA'},
@@ -591,7 +417,7 @@ void main() {
   testWidgets('muted items rows expose the release verb and icon', (
     tester,
   ) async {
-    final (container, fixture, _) = await _makeWorld();
+    final (container, fixture, _) = await makeCardWorld();
     fixture.muteList = {
       'muted_tags': [
         {'tag': 'tagA'},
@@ -608,7 +434,7 @@ void main() {
   });
 
   testWidgets('failed tag add keeps the input for a retry', (tester) async {
-    final (container, fixture, _) = await _makeWorld();
+    final (container, fixture, _) = await makeCardWorld();
     await tester.pumpWidget(_cardApp(container, const MutedItemsPage()));
     await tester.pumpAndSettle();
 
@@ -648,7 +474,7 @@ void main() {
     // The store applies optimistically: an added tag lands in the list
     // immediately and stays marked pending until the write resolves — the
     // trailing slot swaps its button for a live spinner.
-    final (container, fixture, _) = await _makeWorld();
+    final (container, fixture, _) = await makeCardWorld();
     await tester.pumpWidget(_cardApp(container, const MutedItemsPage()));
     await tester.pumpAndSettle();
 

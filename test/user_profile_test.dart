@@ -7,23 +7,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
-import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/network/api_error.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/share/share_service.dart';
 import 'package:parfait/core/user/follow_actions.dart';
 import 'package:parfait/core/user/follow_models.dart';
-import 'package:parfait/core/user/follow_repository.dart';
 import 'package:parfait/core/user/follow_store.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/core/user/user_detail_controller.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/core/user/user_store.dart';
-import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/core/profile/profile_models.dart';
 import 'package:parfait/app/motion/state_fade.dart';
 import 'package:parfait/app/scroll_behavior.dart';
@@ -47,151 +42,8 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
-import 'helpers/fake_account.dart';
-import 'helpers/memory_feed_snapshot_store.dart';
+import 'helpers/profile_world.dart';
 import 'helpers/test_preferences.dart';
-
-class _FakeFollowRepository implements FollowRepository {
-  final requests = <String>[];
-  Completer<void>? gate;
-  Object? failure;
-
-  @override
-  Future<void> add(
-    int userId, {
-    FollowRestrict restrict = FollowRestrict.public,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add('add:$userId:${restrict.name}');
-    final activeGate = gate;
-    if (activeGate != null) await activeGate.future;
-    final error = failure;
-    if (error != null) throw error;
-  }
-
-  @override
-  Future<void> delete(int userId, {CancelToken? cancelToken}) async {
-    requests.add('delete:$userId');
-    final activeGate = gate;
-    if (activeGate != null) await activeGate.future;
-    final error = failure;
-    if (error != null) throw error;
-  }
-}
-
-class _FakeUserRepository implements UserRepository {
-  _FakeUserRepository({
-    UserEntity? detail,
-    this.works = const [],
-    this.bookmarks = const [],
-    this.worksFailure,
-    this.detailFailure,
-  }) : detail = detail ?? _user(42);
-
-  // Mutable so a refresh scenario can change what fetchDetail returns.
-  UserEntity detail;
-  final List<IllustEntity> works;
-  final List<IllustEntity> bookmarks;
-  final Object? worksFailure;
-  final Object? detailFailure;
-
-  /// When set, `fetchWorks` waits on it — lets a test observe the feed's
-  /// loading state instead of racing past it.
-  Completer<void>? worksGate;
-
-  /// Same gate for `fetchDetail` — holds the profile header's first load.
-  Completer<void>? detailGate;
-  final requests = <String>[];
-
-  @override
-  Future<UserEntity> fetchDetail(int userId, {CancelToken? cancelToken}) async {
-    requests.add('detail:$userId');
-    final gate = detailGate;
-    if (gate != null) await gate.future;
-    final error = detailFailure;
-    if (error != null) throw error;
-    return detail.copyWith(id: userId);
-  }
-
-  @override
-  Future<UserIllustPage> fetchWorks(
-    int userId, {
-    required UserWorkType type,
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add(
-      'works:$userId:${type.name}:${cursor == null ? 'first' : 'next'}',
-    );
-    final gate = worksGate;
-    if (gate != null) await gate.future;
-    final error = worksFailure;
-    if (error != null) throw error;
-    return UserIllustPage(
-      illusts: type == UserWorkType.illust ? works : const [],
-      nextUrl: null,
-    );
-  }
-
-  @override
-  Future<UserIllustPage> fetchBookmarks(
-    int userId, {
-    required UserRestrict restrict,
-    String? tag,
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add('bookmarks:$userId:${restrict.name}:${tag ?? ''}');
-    return UserIllustPage(illusts: bookmarks, nextUrl: null);
-  }
-
-  @override
-  bool validateWorksCursor(
-    int userId, {
-    required UserWorkType type,
-    required String cursor,
-  }) => false;
-
-  @override
-  bool validateBookmarksCursor(
-    int userId, {
-    required UserRestrict restrict,
-    String? tag,
-    required String cursor,
-  }) => false;
-
-  @override
-  Future<UserRelationPage> fetchRelation(
-    int userId, {
-    required UserRelation relation,
-    UserRestrict restrict = UserRestrict.public,
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add('relation:$userId:${relation.name}');
-    return const UserRelationPage(users: [], nextUrl: null);
-  }
-
-  @override
-  bool validateRelationCursor(
-    int userId, {
-    required UserRelation relation,
-    required UserRestrict restrict,
-    required String cursor,
-  }) => false;
-
-  @override
-  Future<UserRelationPage> fetchRecommended({
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async {
-    requests.add('recommended:${cursor == null ? 'first' : 'next'}');
-    return const UserRelationPage(users: [], nextUrl: null);
-  }
-
-  @override
-  bool validateRecommendedCursor({required String cursor}) => false;
-}
 
 class _FakeOutboundUrlOpener implements OutboundUrlOpener {
   final requests = <String>[];
@@ -219,54 +71,6 @@ class _FakeShareService implements ShareService {
     lastOrigin = sharePositionOrigin;
     return outcome;
   }
-}
-
-Future<ProviderContainer> _makeWorld({
-  bool twoAccounts = false,
-  _FakeFollowRepository? follows,
-  UserRepository? users,
-  OutboundUrlOpener? outboundUrlOpener,
-  ShareService? shareService,
-}) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  // Per-world snapshot store: sqflite singleInstance caches the default
-  // ':memory:' feeds.db by path, so one test's committed snapshot would
-  // leak into the next world's cold start. An in-memory store keeps the
-  // same read/write contract without touching sqlite inside FakeAsync.
-  final feedSnapshots = MemoryFeedSnapshotStore();
-  final credentials = FakeCredentialStore(
-    values: const {
-      '100': Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-      '200': Credential(accessToken: 'access-2', refreshToken: 'refresh-2'),
-    },
-  );
-  final container = ProviderContainer(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      feedSnapshotStoreProvider.overrideWithValue(feedSnapshots),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: [
-            const Account(id: '100', userId: 100, name: 'first'),
-            if (twoAccounts)
-              const Account(id: '200', userId: 200, name: 'second'),
-          ],
-          currentId: '100',
-        ),
-      ),
-      followRepositoryProvider.overrideWithValue(
-        follows ?? _FakeFollowRepository(),
-      ),
-      if (outboundUrlOpener != null)
-        outboundUrlOpenerProvider.overrideWithValue(outboundUrlOpener),
-      if (shareService != null)
-        shareServiceProvider.overrideWithValue(shareService),
-      if (users != null) userRepositoryProvider.overrideWithValue(users),
-    ],
-  );
-  await container.read(accountStoreProvider.future);
-  addTearDown(container.dispose);
-  return container;
 }
 
 /// Mounts the profile header sliver exactly the way `UserPage` does: the
@@ -342,10 +146,10 @@ void main() {
     'follow action exposes pending state and commits through the store',
     () async {
       final gate = Completer<void>();
-      final repository = _FakeFollowRepository()..gate = gate;
-      final container = await _makeWorld(follows: repository);
+      final repository = FakeFollowRepository()..gate = gate;
+      final container = await makeProfileWorld(follows: repository);
       final userStore = container.read(userStoreProvider.notifier);
-      userStore.mergeAll([_user(42)]);
+      userStore.mergeAll([sampleUser(42)]);
 
       final action = container.read(followActionsProvider).toggle(42);
       await Future<void>.delayed(Duration.zero);
@@ -365,11 +169,11 @@ void main() {
   test(
     'follow failure restores confirmed state and records the error',
     () async {
-      final repository = _FakeFollowRepository()
+      final repository = FakeFollowRepository()
         ..failure = StateError('offline');
-      final container = await _makeWorld(follows: repository);
+      final container = await makeProfileWorld(follows: repository);
       final userStore = container.read(userStoreProvider.notifier);
-      userStore.mergeAll([_user(42)]);
+      userStore.mergeAll([sampleUser(42)]);
 
       await container.read(followActionsProvider).toggle(42);
       final entry = container.read(followStoreProvider)[42]!;
@@ -382,10 +186,10 @@ void main() {
   test(
     'follow state and user entities are isolated when account changes',
     () async {
-      final container = await _makeWorld(twoAccounts: true);
+      final container = await makeProfileWorld(twoAccounts: true);
       final userStore = container.read(userStoreProvider.notifier);
       final follows = container.read(followStoreProvider.notifier);
-      userStore.mergeAll([_user(42)]);
+      userStore.mergeAll([sampleUser(42)]);
       follows.observeRemote(42, followed: true, snapshotRevision: 0);
 
       await container.read(accountStoreProvider.notifier).switchAccount('200');
@@ -397,12 +201,12 @@ void main() {
   );
 
   test('a page of users lands its follow snapshots as one write', () async {
-    final container = await _makeWorld();
+    final container = await makeProfileWorld();
     var writes = 0;
     container.listen(followStoreProvider, (_, _) => writes++);
     final users = [
       for (var id = 300; id < 330; id++)
-        _user(id).copyWith(isFollowed: id.isEven),
+        sampleUser(id).copyWith(isFollowed: id.isEven),
     ];
 
     container.read(userStoreProvider.notifier).mergeAll(users);
@@ -417,7 +221,7 @@ void main() {
   testWidgets('follow button exposes its label and toggle state', (
     tester,
   ) async {
-    final container = await _makeWorld();
+    final container = await makeProfileWorld();
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -542,7 +346,7 @@ void main() {
 
   test('the delegate estimates one frame until the identity reports', () {
     final estimating = ReplicaProfileHeaderDelegate(
-      user: _user(42),
+      user: sampleUser(42),
       isMe: true,
       selectedTabIndex: 0,
       showRestrictSelector: false,
@@ -557,7 +361,7 @@ void main() {
     );
 
     final measured = ReplicaProfileHeaderDelegate(
-      user: _user(42),
+      user: sampleUser(42),
       isMe: true,
       selectedTabIndex: 0,
       showRestrictSelector: false,
@@ -587,7 +391,7 @@ void main() {
               _MeasuredProfileHeader(
                 delegateFor: (extent, onMeasured) =>
                     ReplicaProfileHeaderDelegate(
-                      user: _user(42),
+                      user: sampleUser(42),
                       isMe: true,
                       selectedTabIndex: 0,
                       showRestrictSelector: false,
@@ -629,11 +433,11 @@ void main() {
     'the avatar and expanded name never overlap, and no avatar enters the toolbar',
     (tester) async {
       final users = [
-        _user(42).copyWith(
+        sampleUser(42).copyWith(
           profileImageUrl: 'https://i.pximg.net/avatar.png',
           backgroundImageUrl: 'https://i.pximg.net/background.png',
         ),
-        _user(42),
+        sampleUser(42),
       ];
       for (final user in users) {
         await mockNetworkImagesFor(() async {
@@ -730,7 +534,7 @@ void main() {
               _MeasuredProfileHeader(
                 delegateFor: (extent, onMeasured) =>
                     ReplicaProfileHeaderDelegate(
-                      user: _user(42),
+                      user: sampleUser(42),
                       isMe: true,
                       selectedTabIndex: 0,
                       showRestrictSelector: false,
@@ -832,7 +636,7 @@ void main() {
                 _MeasuredProfileHeader(
                   delegateFor: (extent, onMeasured) =>
                       ReplicaProfileHeaderDelegate(
-                        user: _user(42),
+                        user: sampleUser(42),
                         isMe: true,
                         selectedTabIndex: 0,
                         showRestrictSelector: true,
@@ -895,7 +699,7 @@ void main() {
         slivers: [
           _MeasuredProfileHeader(
             delegateFor: (extent, onMeasured) => ReplicaProfileHeaderDelegate(
-              user: _user(42),
+              user: sampleUser(42),
               isMe: true,
               selectedTabIndex: 0,
               showRestrictSelector: false,
@@ -955,7 +759,7 @@ void main() {
           slivers: [
             _MeasuredProfileHeader(
               delegateFor: (extent, onMeasured) => ReplicaProfileHeaderDelegate(
-                user: _user(42),
+                user: sampleUser(42),
                 isMe: true,
                 selectedTabIndex: 0,
                 showRestrictSelector: false,
@@ -1022,7 +826,7 @@ void main() {
     'cover artwork switches the persistent controls to the overlay style',
     (tester) async {
       final controller = ScrollController();
-      final coverUser = _user(
+      final coverUser = sampleUser(
         42,
       ).copyWith(backgroundImageUrl: 'https://i.pximg.net/bg.png');
       Widget header() => Scaffold(
@@ -1114,7 +918,7 @@ void main() {
         slivers: [
           _MeasuredProfileHeader(
             delegateFor: (extent, onMeasured) => ReplicaProfileHeaderDelegate(
-              user: _user(42),
+              user: sampleUser(42),
               isMe: true,
               selectedTabIndex: 0,
               showRestrictSelector: false,
@@ -1204,7 +1008,7 @@ void main() {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           app(
-            _user(
+            sampleUser(
               42,
             ).copyWith(backgroundImageUrl: 'https://i.pximg.net/bg.png'),
           ),
@@ -1229,7 +1033,7 @@ void main() {
         );
       });
 
-      await tester.pumpWidget(app(_user(42)));
+      await tester.pumpWidget(app(sampleUser(42)));
       await tester.pump();
       await tester.pump();
       expect(
@@ -1246,11 +1050,11 @@ void main() {
   testWidgets(
     'stale profile error banner can be dismissed without hiding the snapshot',
     (tester) async {
-      final repository = _FakeUserRepository(
+      final repository = FakeUserRepository(
         detailFailure: const ApiNetworkError('offline'),
       );
-      final container = await _makeWorld(users: repository);
-      container.read(userStoreProvider.notifier).mergeAll([_user(42)]);
+      final container = await makeProfileWorld(users: repository);
+      container.read(userStoreProvider.notifier).mergeAll([sampleUser(42)]);
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
@@ -1289,8 +1093,8 @@ void main() {
   testWidgets(
     'UserPage keeps work types visible and re-tapping never toggles them',
     (tester) async {
-      final repository = _FakeUserRepository();
-      final container = await _makeWorld(users: repository);
+      final repository = FakeUserRepository();
+      final container = await makeProfileWorld(users: repository);
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
@@ -1348,8 +1152,8 @@ void main() {
   testWidgets(
     'profile stats navigate to their sections and keep myPixiv read-only',
     (tester) async {
-      final repository = _FakeUserRepository(
-        detail: _user(42).copyWith(
+      final repository = FakeUserRepository(
+        detail: sampleUser(42).copyWith(
           totalFollowUsers: 11,
           totalMyPixivUsers: 12,
           totalIllusts: 13,
@@ -1359,7 +1163,7 @@ void main() {
           totalNovelSeries: 4,
         ),
       );
-      final container = await _makeWorld(users: repository);
+      final container = await makeProfileWorld(users: repository);
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
@@ -1482,7 +1286,7 @@ void main() {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
-        final container = await _makeWorld(users: _FakeUserRepository());
+        final container = await makeProfileWorld(users: FakeUserRepository());
         await tester.pumpWidget(
           UncontrolledProviderScope(
             container: container,
@@ -1564,7 +1368,7 @@ void main() {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final container = await _makeWorld(users: _FakeUserRepository());
+    final container = await makeProfileWorld(users: FakeUserRepository());
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -1615,12 +1419,12 @@ void main() {
     }) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
-      final repository = _FakeUserRepository(
-        detail: _user(42).copyWith(
+      final repository = FakeUserRepository(
+        detail: sampleUser(42).copyWith(
           backgroundImageUrl: cover ? 'https://i.pximg.net/bg.png' : null,
         ),
       );
-      final container = await _makeWorld(users: repository);
+      final container = await makeProfileWorld(users: repository);
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           UncontrolledProviderScope(
@@ -1709,10 +1513,10 @@ void main() {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final repository = _FakeUserRepository(
-      detail: _user(42).copyWith(account: 'sample'),
+    final repository = FakeUserRepository(
+      detail: sampleUser(42).copyWith(account: 'sample'),
     );
-    final container = await _makeWorld(users: repository);
+    final container = await makeProfileWorld(users: repository);
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -1754,7 +1558,7 @@ void main() {
     // reads the entity captured by userDetailControllerProvider, so the
     // refresh has to go through reload() — a bare UserStore.mergeAll never
     // reaches it.
-    repository.detail = _user(42).copyWith(
+    repository.detail = sampleUser(42).copyWith(
       name: 'an extremely long display name that keeps going',
       account: 'a_very_long_account_handle_that_wraps_to_more_lines',
     );
@@ -1781,10 +1585,10 @@ void main() {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final repository = _FakeUserRepository(
+    final repository = FakeUserRepository(
       works: List.generate(30, (index) => _illust(index + 1)),
     );
-    final container = await _makeWorld(users: repository);
+    final container = await makeProfileWorld(users: repository);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         UncontrolledProviderScope(
@@ -1890,10 +1694,10 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       for (final speed in [300.0, 600.0]) {
-        final repository = _FakeUserRepository(
+        final repository = FakeUserRepository(
           works: List.generate(30, (index) => _illust(index + 1)),
         );
-        final container = await _makeWorld(users: repository);
+        final container = await makeProfileWorld(users: repository);
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
             UncontrolledProviderScope(
@@ -1964,10 +1768,10 @@ void main() {
       tester.view.physicalSize = const Size(360, 640);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      final repository = _FakeUserRepository(
+      final repository = FakeUserRepository(
         works: List.generate(30, (index) => _illust(index + 1)),
       );
-      final container = await _makeWorld(users: repository);
+      final container = await makeProfileWorld(users: repository);
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           UncontrolledProviderScope(
@@ -2026,10 +1830,10 @@ void main() {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final repository = _FakeUserRepository(
+    final repository = FakeUserRepository(
       works: List.generate(30, (index) => _illust(index + 1)),
     );
-    final container = await _makeWorld(users: repository);
+    final container = await makeProfileWorld(users: repository);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         UncontrolledProviderScope(
@@ -2068,14 +1872,14 @@ void main() {
   /// The work type row is the first sliver of a feed inside
   /// PullToRefresh: the shared row contract re-checked on a real feed.
   group('the work type row on a real feed', () {
-    Future<_FakeUserRepository> pumpProfile(WidgetTester tester) async {
+    Future<FakeUserRepository> pumpProfile(WidgetTester tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      final repository = _FakeUserRepository(
+      final repository = FakeUserRepository(
         works: List.generate(30, (index) => _illust(index + 1)),
       );
-      final container = await _makeWorld(users: repository);
+      final container = await makeProfileWorld(users: repository);
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
@@ -2092,7 +1896,7 @@ void main() {
       return repository;
     }
 
-    int firstLoads(_FakeUserRepository repository) => repository.requests
+    int firstLoads(FakeUserRepository repository) => repository.requests
         .where((request) => request == 'works:42:illust:first')
         .length;
 
@@ -2157,7 +1961,7 @@ void main() {
               _MeasuredProfileHeader(
                 delegateFor: (extent, onMeasured) =>
                     ReplicaProfileHeaderDelegate(
-                      user: _user(42),
+                      user: sampleUser(42),
                       isMe: true,
                       selectedTabIndex: 0,
                       showRestrictSelector: false,
@@ -2201,10 +2005,10 @@ void main() {
   testWidgets(
     'same work tab tap returns both profile scroll positions to top',
     (tester) async {
-      final repository = _FakeUserRepository(
+      final repository = FakeUserRepository(
         works: List.generate(36, (index) => _illust(index + 1)),
       );
-      final container = await _makeWorld(users: repository);
+      final container = await makeProfileWorld(users: repository);
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           UncontrolledProviderScope(
@@ -2299,11 +2103,11 @@ void main() {
     're-tap scrolls only the active tab; keep-alive siblings keep their '
     'offset',
     (tester) async {
-      final repository = _FakeUserRepository(
+      final repository = FakeUserRepository(
         works: List.generate(36, (index) => _illust(index + 1)),
         bookmarks: List.generate(36, (index) => _illust(100 + index)),
       );
-      final container = await _makeWorld(users: repository);
+      final container = await makeProfileWorld(users: repository);
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           UncontrolledProviderScope(
@@ -2379,8 +2183,8 @@ void main() {
   testWidgets('work type switch swaps between all four feed sections', (
     tester,
   ) async {
-    final repository = _FakeUserRepository();
-    final container = await _makeWorld(users: repository);
+    final repository = FakeUserRepository();
+    final container = await makeProfileWorld(users: repository);
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -2435,8 +2239,8 @@ void main() {
       addTearDown(() {
         if (!gate.isCompleted) gate.complete();
       });
-      final repository = _FakeUserRepository()..detailGate = gate;
-      final container = await _makeWorld(users: repository);
+      final repository = FakeUserRepository()..detailGate = gate;
+      final container = await makeProfileWorld(users: repository);
 
       // Push the page so canPop is true — the skeleton's BackButton is a
       // real affordance, not a dead icon.
@@ -2495,8 +2299,8 @@ void main() {
         addTearDown(() {
           if (!gate.isCompleted) gate.complete();
         });
-        final repository = _FakeUserRepository()..detailGate = gate;
-        final container = await _makeWorld(users: repository);
+        final repository = FakeUserRepository()..detailGate = gate;
+        final container = await makeProfileWorld(users: repository);
         await tester.pumpWidget(
           UncontrolledProviderScope(
             container: container,
@@ -2576,8 +2380,8 @@ void main() {
     addTearDown(() {
       if (!gate.isCompleted) gate.complete();
     });
-    final repository = _FakeUserRepository()..worksGate = gate;
-    final container = await _makeWorld(users: repository);
+    final repository = FakeUserRepository()..worksGate = gate;
+    final container = await makeProfileWorld(users: repository);
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -2613,10 +2417,10 @@ void main() {
     'work type switch floats back in on a small reverse drag while the '
     'header stays collapsed',
     (tester) async {
-      final repository = _FakeUserRepository(
+      final repository = FakeUserRepository(
         works: List.generate(36, (index) => _illust(index + 1)),
       );
-      final container = await _makeWorld(users: repository);
+      final container = await makeProfileWorld(users: repository);
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           UncontrolledProviderScope(
@@ -2680,13 +2484,13 @@ void main() {
     addTearDown(
       () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
     );
-    final user = _user(42).copyWith(
+    final user = sampleUser(42).copyWith(
       webpage: 'https://example.test/portfolio',
       twitterUrl: 'https://social.test/sample',
       pawooUrl: 'https://pawoo.test/sample',
     );
-    final container = await _makeWorld(
-      users: _FakeUserRepository(detail: user),
+    final container = await makeProfileWorld(
+      users: FakeUserRepository(detail: user),
       outboundUrlOpener: opener,
     );
     await tester.pumpWidget(
@@ -2729,10 +2533,10 @@ void main() {
   testWidgets(
     'collapsed profile follow menu tracks state and opens shared sheet',
     (tester) async {
-      final repository = _FakeFollowRepository();
-      final container = await _makeWorld(
+      final repository = FakeFollowRepository();
+      final container = await makeProfileWorld(
         follows: repository,
-        users: _FakeUserRepository(),
+        users: FakeUserRepository(),
       );
       await tester.pumpWidget(
         UncontrolledProviderScope(
@@ -2797,8 +2601,8 @@ void main() {
     addTearDown(
       () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
     );
-    final container = await _makeWorld(
-      users: _FakeUserRepository(),
+    final container = await makeProfileWorld(
+      users: FakeUserRepository(),
       shareService: share,
     );
     await tester.pumpWidget(
@@ -2954,10 +2758,10 @@ void main() {
   testWidgets(
     'header tabs and actions stay mounted while the work feed fails',
     (tester) async {
-      final repository = _FakeUserRepository(
+      final repository = FakeUserRepository(
         worksFailure: ApiNetworkError(StateError('offline')),
       );
-      final container = await _makeWorld(users: repository);
+      final container = await makeProfileWorld(users: repository);
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
@@ -3044,9 +2848,6 @@ void main() {
     }
   });
 }
-
-UserEntity _user(int id) =>
-    UserEntity(id: id, name: 'sample user', account: 'sample');
 
 IllustEntity _illust(int id) => IllustEntity(
   id: id,

@@ -351,7 +351,7 @@ void main() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
     final container = ProviderContainer(
       overrides: [
-        accountStoreProvider.overrideWith(_StubAccountStore.new),
+        accountStoreProvider.overrideWith(StubAccountStore.new),
         bookmarkRepositoryProvider.overrideWithValue(repository),
       ],
     );
@@ -400,7 +400,7 @@ void main() {
       ..loadMoreFailure = StateError('temporary failure');
     final container = ProviderContainer(
       overrides: [
-        accountStoreProvider.overrideWith(_StubAccountStore.new),
+        accountStoreProvider.overrideWith(StubAccountStore.new),
         bookmarkRepositoryProvider.overrideWithValue(repository),
       ],
     );
@@ -435,15 +435,6 @@ void main() {
       'tags:100:public:next',
     ]);
   });
-}
-
-class _StubAccountStore extends AccountStore {
-  @override
-  Future<AccountState> build() async => const AccountState(
-    status: AccountStatus.ready,
-    accounts: [Account(id: '100', userId: 100, name: 'a')],
-    currentId: '100',
-  );
 }
 
 class _FakeTagRepository implements BookmarkRepository {

@@ -6,120 +6,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/recording_haptics.dart';
+import 'helpers/bookmark_world.dart';
+import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
-import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/app/widgets/bookmark_switch_button.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
-class _StubAccountStore extends AccountStore {
-  @override
-  Future<AccountState> build() async => const AccountState(
-    status: AccountStatus.ready,
-    accounts: [Account(id: '100', userId: 100, name: 'a')],
-    currentId: '100',
-  );
-}
-
-class _RecordingRepository implements BookmarkRepository {
-  final List<(int id, String restrict, List<String>? tags)> adds = [];
-  final List<int> deletes = [];
-  Object? addError;
-  BookmarkDetail detail = const BookmarkDetail(
-    isBookmarked: false,
-    restrict: BookmarkRestrict.public,
-    tags: [],
-  );
-
-  /// When set, `fetchDetail` waits on it — a still-in-flight detail load.
-  Completer<BookmarkDetail>? detailGate;
-  Object? detailError;
-  UserBookmarkTagPage tagPage = const UserBookmarkTagPage(
-    tags: [],
-    nextUrl: null,
-  );
-
-  @override
-  Future<void> addIllust(
-    int id,
-    BookmarkRestrict restrict, {
-    List<String>? tags,
-    CancelToken? cancelToken,
-  }) async {
-    final error = addError;
-    if (error != null) throw error;
-    adds.add((id, restrict.name, tags));
-  }
-
-  @override
-  Future<void> deleteIllust(int id, {CancelToken? cancelToken}) async {
-    deletes.add(id);
-  }
-
-  @override
-  Future<void> addNovel(
-    int id,
-    BookmarkRestrict restrict, {
-    List<String>? tags,
-    CancelToken? cancelToken,
-  }) async {
-    final error = addError;
-    if (error != null) throw error;
-    adds.add((id, restrict.name, tags));
-  }
-
-  @override
-  Future<void> deleteNovel(int id, {CancelToken? cancelToken}) async {
-    deletes.add(id);
-  }
-
-  @override
-  Future<BookmarkDetail> fetchDetail(
-    BookmarkKey key, {
-    CancelToken? cancelToken,
-  }) async {
-    final gate = detailGate;
-    if (gate != null) await gate.future;
-    final error = detailError;
-    if (error != null) throw error;
-    return detail;
-  }
-
-  @override
-  Future<UserBookmarkTagPage> fetchUserTags(
-    int userId, {
-    required BookmarkEntityType entityType,
-    required BookmarkRestrict restrict,
-    String? cursor,
-    CancelToken? cancelToken,
-  }) async => tagPage;
-
-  @override
-  bool validateUserTagsCursor(
-    int userId, {
-    required BookmarkEntityType entityType,
-    required BookmarkRestrict restrict,
-    required String cursor,
-  }) => false;
-}
-
-Future<(ProviderContainer, _RecordingRepository)> _pump(
+Future<(ProviderContainer, RecordingBookmarkRepository)> _pump(
   WidgetTester tester, {
   Widget? child,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  final repository = _RecordingRepository();
+  final repository = RecordingBookmarkRepository();
   final container = ProviderContainer(
     overrides: [
-      accountStoreProvider.overrideWith(_StubAccountStore.new),
+      accountStoreProvider.overrideWith(StubAccountStore.new),
       bookmarkRepositoryProvider.overrideWithValue(repository),
     ],
   );

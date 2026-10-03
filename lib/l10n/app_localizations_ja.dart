@@ -343,7 +343,10 @@ class AppLocalizationsJa extends AppLocalizations {
       '有効時、フォールバック層は DoH（デフォルト Cloudflare DoH：ドメイン端点を静的 Anycast IP にピン留め — 汚染されたシステム DNS を回避；カスタム端点は自身のホスト名を解決）で解決します。無効時はシステム DNS を使用します。';
 
   @override
-  String get networkDohEndpoints => 'DoH エンドポイント（カンマ区切り、https URL）';
+  String get networkDohEndpoints => 'DoH エンドポイント';
+
+  @override
+  String get networkDohEndpointsHint => 'カンマ区切りの https URL';
 
   @override
   String get networkEchFrontHost => 'ECH フロントホスト';
@@ -760,7 +763,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageSourcePixivNl => 'pixiv.nl ミラー';
 
   @override
-  String get imageSourceCustom => 'カスタムリバースプロキシ';
+  String get imageSourceCustom => 'カスタムプロキシ';
 
   @override
   String get imageSourceCustomHint =>
@@ -1559,6 +1562,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchHint => '作品、ユーザー、タグを検索';
 
   @override
+  String get searchBarHint => '検索';
+
+  @override
   String get searchReverseImage => '画像で検索';
 
   @override
@@ -1790,7 +1796,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchContentSection => '作品タイプ';
 
   @override
-  String get searchContentAll => 'イラスト・マンガ・うごイラ';
+  String get searchContentAll => 'すべて';
 
   @override
   String get searchContentIllustUgoira => 'イラスト・うごイラ';

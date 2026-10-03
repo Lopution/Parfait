@@ -388,6 +388,7 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                       decoration: InputDecoration(
                         labelText: context.l10n.imageSourceCustom,
                         helperText: context.l10n.imageSourceCustomHint,
+                        helperMaxLines: 3,
                         border: const OutlineInputBorder(),
                       ),
                       onChanged: (_) => setState(() => _customDirty = true),

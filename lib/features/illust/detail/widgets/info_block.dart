@@ -77,7 +77,8 @@ class InfoBlock extends ConsumerWidget {
                       : context.l10n.illustDetailCreateDate(
                           '${createDate.year}/${createDate.month}/${createDate.day}',
                         ),
-                  overflow: TextOverflow.ellipsis,
+                  // Wraps rather than ellipsizes: the stats keep their
+                  // width and a long label never loses the date.
                   style: tokens.caption,
                 ),
               ),
