@@ -4,7 +4,14 @@ import '../system_ui.dart';
 import 'func_semantic_tokens.dart';
 import 'func_tokens.dart';
 
-ThemeData replicaTheme(Brightness brightness) {
+/// [fontFamilyFallback] is for layout tests only: the test engine draws a
+/// glyph Montserrat lacks as its own missing-glyph box instead of falling
+/// back, so the locale layout harness names its fallback fonts here. The
+/// app leaves it null and keeps the engine's system fallback chain.
+ThemeData replicaTheme(
+  Brightness brightness, {
+  List<String>? fontFamilyFallback,
+}) {
   final dark = brightness == Brightness.dark;
   final background = dark
       ? FuncTokens.darkBackground
@@ -72,59 +79,63 @@ ThemeData replicaTheme(Brightness brightness) {
 
   // One type scale feeds both TextTheme roles and the semantic token ramp
   // (FuncSemanticTokens derives its type slots from these roles).
-  final textTheme = baseTextTheme.copyWith(
-    headlineSmall: TextStyle(
-      fontSize: 18,
-      fontWeight: FontWeight.w500,
-      color: text,
-    ),
-    titleLarge: TextStyle(
-      fontSize: 20,
-      fontWeight: FontWeight.w600,
-      color: text,
-    ),
-    titleMedium: TextStyle(
-      fontSize: 16,
-      fontWeight: FontWeight.w600,
-      color: text,
-    ),
-    titleSmall: TextStyle(
-      fontSize: 14,
-      fontWeight: FontWeight.w500,
-      color: text,
-    ),
-    bodyLarge: TextStyle(
-      fontSize: 14,
-      fontWeight: FontWeight.w500,
-      color: text,
-    ),
-    bodyMedium: TextStyle(
-      fontSize: 14,
-      fontWeight: FontWeight.w400,
-      color: text,
-    ),
-    bodySmall: TextStyle(
-      fontSize: 12,
-      fontWeight: FontWeight.w400,
-      color: text,
-    ),
-    labelLarge: TextStyle(
-      fontSize: 14,
-      fontWeight: FontWeight.w500,
-      color: text,
-    ),
-    labelSmall: TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.w500,
-      color: text,
-    ),
-  );
+  final textTheme = baseTextTheme
+      .copyWith(
+        headlineSmall: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w500,
+          color: text,
+        ),
+        titleLarge: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: text,
+        ),
+        titleMedium: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: text,
+        ),
+        titleSmall: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: text,
+        ),
+        bodyLarge: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: text,
+        ),
+        bodyMedium: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: text,
+        ),
+        bodySmall: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+          color: text,
+        ),
+        labelLarge: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: text,
+        ),
+        labelSmall: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: text,
+        ),
+      )
+      // The slots above are new styles; the fallback has to reach them too.
+      .apply(fontFamilyFallback: fontFamilyFallback);
 
   final theme = ThemeData(
     brightness: brightness,
     // Latin/digits render in Montserrat; missing glyphs (CJK, emoji) resolve
     // through the engine's system fallback chain.
     fontFamily: 'Montserrat',
+    fontFamilyFallback: fontFamilyFallback,
     primaryColor: FuncTokens.primary,
     extensions: [FuncSemanticTokens.fromBrightness(brightness, textTheme)],
     // Keep app hints floating so their entrance and exit use the same
