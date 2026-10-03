@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:flutter/physics.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../core/settings/app_settings.dart';
@@ -119,6 +122,103 @@ abstract final class MotionTokens {
     required bool reduce,
     required AnimationSpeed speed,
   }) => _enabled(context, reduce: reduce) ? base * speed.factor : Duration.zero;
+
+  /// [token] as a physical spring at the current animation speed, or null
+  /// when the reduced-motion gate is closed (callers jump to the end
+  /// value). Stretching time by f is the same spring with stiffness / f²
+  /// at an unchanged damping ratio.
+  static SpringDescription? spring(BuildContext context, MotionSpring token) {
+    if (!enabled(context)) return null;
+    final f = MotionScope.speedOf(context).factor;
+    return SpringDescription.withDampingRatio(
+      mass: 1,
+      stiffness: token.stiffness / (f * f),
+      ratio: token.dampingRatio,
+    );
+  }
+
+  /// [token] as a duration plus curve, for APIs that only take those
+  /// (bottom sheets, AnimatedSize). The duration is the spring's settle
+  /// time at the current speed; zero when the gate is closed.
+  static (Duration, Curve) springCurve(
+    BuildContext context,
+    MotionSpring token,
+  ) {
+    final description = spring(context, token);
+    if (description == null) return (Duration.zero, Curves.linear);
+    final curve = SpringCurve(description);
+    return (curve.settleDuration, curve);
+  }
+}
+
+/// Material 3 spring tokens as (damping ratio, stiffness), mass 1, from
+/// androidx `StandardMotionTokens` / `ExpressiveMotionTokens`. Spatial
+/// springs move position, scale and size; effects springs fade opacity
+/// and colour. Only tokens with a caller are listed. Read them through
+/// [MotionTokens.spring] or [MotionTokens.springCurve].
+enum MotionSpring {
+  /// Settles in ~225 ms: press, expand/collapse, removal collapse.
+  spatialFast(0.9, 1400),
+
+  /// Settles in ~320 ms: bottom sheet.
+  spatialDefault(0.9, 700),
+
+  /// Settles in ~150 ms: state fades, selection check marks.
+  effectsFast(1.0, 3800),
+
+  /// Underdamped (~9% overshoot, ~390 ms): the bookmark heart pop.
+  expressiveSpatialFast(0.6, 800);
+
+  const MotionSpring(this.dampingRatio, this.stiffness);
+
+  final double dampingRatio;
+  final double stiffness;
+}
+
+/// A 0 → 1 spring at rest velocity, normalised onto [0, 1] time: t = 1 is
+/// the settle time, the earliest moment the spring is within 0.001 of 1 and
+/// nearly still. `transform(1)` is exactly 1 (the [Curve] contract), so an
+/// animation ending on this curve never stops a pixel short.
+class SpringCurve extends Curve {
+  SpringCurve(SpringDescription description)
+    : _simulation = SpringSimulation(
+        description,
+        0,
+        1,
+        0,
+        // Velocity tolerance in units of the natural frequency: a spring
+        // stretched in time by f then settles exactly f times later.
+        tolerance: Tolerance(
+          distance: _distanceTolerance,
+          velocity:
+              _distanceTolerance *
+              math.sqrt(description.stiffness / description.mass),
+        ),
+      ) {
+    _settleSeconds = _findSettle(_simulation);
+  }
+
+  static const _distanceTolerance = 0.001;
+
+  /// Search step and ceiling for the settle time.
+  static const _step = 0.001;
+  static const _maxSeconds = 10.0;
+
+  final SpringSimulation _simulation;
+  late final double _settleSeconds;
+
+  Duration get settleDuration =>
+      Duration(microseconds: (_settleSeconds * 1e6).round());
+
+  static double _findSettle(SpringSimulation simulation) {
+    for (var t = _step; t < _maxSeconds; t += _step) {
+      if (simulation.isDone(t)) return t;
+    }
+    return _maxSeconds;
+  }
+
+  @override
+  double transformInternal(double t) => _simulation.x(t * _settleSeconds);
 }
 
 /// Programmatic page turn (keyboard, tap zones): slides over the resolved

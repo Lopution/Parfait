@@ -1,5 +1,6 @@
 // Every UI animation length goes through MotionTokens.resolve so the
-// animation speed and the reduced-motion gate apply (design §7).
+// animation speed and the reduced-motion gate apply (design §7). Spring
+// tokens likewise go through MotionTokens.spring / springCurve (§8).
 //
 // Heuristic scan over lib/app and lib/features: the duration tokens are
 // read from motion_tokens.dart (`static const <name> = Duration(`), then
@@ -7,6 +8,8 @@
 // `resolve(` / `_resolve(` / `resolveWith(` calls. Any token reference
 // left over reads a raw length. Those are pinned per file below with a
 // reason; a new one must either go through resolve or be added here.
+// Springs use the same scan with `spring(` / `springCurve(` and no
+// exceptions.
 
 import 'dart:io';
 
@@ -35,12 +38,14 @@ const _census = <String, int>{
   'lib/app/widgets/smooth_wheel_scroll.dart': 1,
 };
 
-/// Removes the argument span of every resolve call, so tokens passed to
-/// it no longer match.
-String _stripResolveArguments(String src) {
+final _springCall = RegExp(r'(?<![\w.])(?:MotionTokens\.)?spring(?:Curve)?\(');
+
+/// Removes the argument span of every [call], so tokens passed to it no
+/// longer match.
+String _stripArguments(String src, RegExp call) {
   final out = StringBuffer();
   var cursor = 0;
-  for (final m in _resolveCall.allMatches(src)) {
+  for (final m in call.allMatches(src)) {
     if (m.start < cursor) continue;
     out.write(src.substring(cursor, m.end));
     var depth = 1;
@@ -57,6 +62,27 @@ String _stripResolveArguments(String src) {
   return out.toString();
 }
 
+/// Per-file count of [token] matches left after stripping comments and
+/// the argument spans of [call].
+Map<String, int> _rawReads(RegExp token, RegExp call) {
+  final counts = <String, int>{};
+  for (final root in ['lib/app', 'lib/features']) {
+    for (final entity in Directory(
+      root,
+    ).listSync(recursive: true).whereType<File>()) {
+      final file = entity.path;
+      if (!file.endsWith('.dart') || file == _tokensFile) continue;
+      final src = _stripArguments(
+        entity.readAsStringSync().replaceAll(_comment, ''),
+        call,
+      );
+      final n = token.allMatches(src).length;
+      if (n > 0) counts[file] = n;
+    }
+  }
+  return counts;
+}
+
 void main() {
   test('duration tokens are read through MotionTokens.resolve', () {
     final tokens = _durationToken
@@ -66,26 +92,23 @@ void main() {
     expect(tokens, isNotEmpty, reason: 'token scan found nothing');
     final raw = RegExp('MotionTokens\\.(?:${tokens.join('|')})(?!\\w)');
 
-    final counts = <String, int>{};
-    for (final root in ['lib/app', 'lib/features']) {
-      for (final entity in Directory(
-        root,
-      ).listSync(recursive: true).whereType<File>()) {
-        final file = entity.path;
-        if (!file.endsWith('.dart') || file == _tokensFile) continue;
-        final src = _stripResolveArguments(
-          entity.readAsStringSync().replaceAll(_comment, ''),
-        );
-        final n = raw.allMatches(src).length;
-        if (n > 0) counts[file] = n;
-      }
-    }
+    final counts = _rawReads(raw, _resolveCall);
     expect(
       counts,
       _census,
       reason:
           'a duration token is read without MotionTokens.resolve — wrap it, '
           'or pin the file in the census with a reason',
+    );
+  });
+
+  test('spring tokens are read through MotionTokens.spring', () {
+    expect(
+      _rawReads(RegExp(r'MotionSpring\.\w+'), _springCall),
+      isEmpty,
+      reason:
+          'a MotionSpring is read directly — go through MotionTokens.spring '
+          'or springCurve so the speed and the motion gate apply',
     );
   });
 }

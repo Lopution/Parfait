@@ -223,6 +223,96 @@ void main() {
     });
   });
 
+  group('spring tokens', () {
+    SpringCurve curveOf(MotionSpring token) => SpringCurve(
+      SpringDescription.withDampingRatio(
+        mass: 1,
+        stiffness: token.stiffness,
+        ratio: token.dampingRatio,
+      ),
+    );
+
+    test('a spring curve starts at 0 and ends exactly at 1', () {
+      for (final token in MotionSpring.values) {
+        final curve = curveOf(token);
+        expect(curve.transform(0), 0, reason: token.name);
+        expect(curve.transform(1), 1, reason: token.name);
+        // Within the settle tolerance just before the end.
+        expect(curve.transform(0.999), closeTo(1, 0.002), reason: token.name);
+      }
+    });
+
+    test('a stiffer spring settles sooner', () {
+      expect(
+        curveOf(MotionSpring.spatialFast).settleDuration,
+        lessThan(curveOf(MotionSpring.spatialDefault).settleDuration),
+      );
+    });
+
+    test('only the expressive spring overshoots', () {
+      double peak(MotionSpring token) {
+        final curve = curveOf(token);
+        return [
+          for (var i = 0; i <= 200; i++) curve.transform(i / 200),
+        ].reduce((a, b) => a > b ? a : b);
+      }
+
+      expect(peak(MotionSpring.expressiveSpatialFast), greaterThan(1.05));
+      expect(peak(MotionSpring.effectsFast), lessThanOrEqualTo(1.0));
+    });
+
+    Future<(Duration, Curve)> springCurveAt(
+      WidgetTester tester, {
+      AnimationSpeed speed = AnimationSpeed.normal,
+      bool reduce = false,
+    }) async {
+      (Duration, Curve)? resolved;
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) {
+              resolved = MotionTokens.springCurve(
+                context,
+                MotionSpring.spatialDefault,
+              );
+              return const SizedBox.shrink();
+            },
+          ),
+          speed: speed,
+          reduce: reduce,
+        ),
+      );
+      return resolved!;
+    }
+
+    testWidgets('the slow speed stretches the settle time', (tester) async {
+      final (normal, _) = await springCurveAt(tester);
+      final (slow, _) = await springCurveAt(tester, speed: AnimationSpeed.slow);
+      expect(
+        slow.inMicroseconds / normal.inMicroseconds,
+        closeTo(450 / 350, 450 / 350 * 0.02),
+      );
+    });
+
+    testWidgets('reduced motion has no spring', (tester) async {
+      final (duration, _) = await springCurveAt(tester, reduce: true);
+      expect(duration, Duration.zero);
+      SpringDescription? spring;
+      await tester.pumpWidget(
+        _wrap(
+          Builder(
+            builder: (context) {
+              spring = MotionTokens.spring(context, MotionSpring.spatialFast);
+              return const SizedBox.shrink();
+            },
+          ),
+          reduce: true,
+        ),
+      );
+      expect(spring, isNull);
+    });
+  });
+
   group('StaggeredEntrance', () {
     testWidgets('first-screen item fades in without moving', (tester) async {
       await tester.pumpWidget(
