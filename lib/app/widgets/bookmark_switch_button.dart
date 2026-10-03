@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/physics.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,6 +16,7 @@ import '../haptics/app_haptics.dart';
 import '../layout/app_breakpoints.dart';
 import '../layout/content_widths.dart';
 import '../motion/app_overlays.dart';
+import '../motion/motion_tokens.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
 import '../widgets/errors/error_details.dart';
@@ -28,27 +31,46 @@ String _bookmarkText(BuildContext context, String key) =>
 /// Toggles the bookmark of [key] and plays the haptic of the settled
 /// outcome: added → success, removed → select, failed → error. A queued
 /// (offline) or cancelled toggle stays silent — when its replay lands later
-/// the user is elsewhere, and a background haptic would mislead.
-Future<void> toggleBookmark(WidgetRef ref, BookmarkKey key) async {
+/// the user is elsewhere, and a background haptic would mislead. Returns
+/// whether the toggle landed as a new bookmark (the success case).
+Future<bool> toggleBookmark(WidgetRef ref, BookmarkKey key) async {
   // Read up front: the toggle may outlive the widget that started it.
   final store = ref.read(bookmarkStoreProvider.notifier);
   final before = store.entryOf(key)?.bookmarked ?? false;
   await ref.read(bookmarkActionsProvider).toggle(key);
   final after = store.entryOf(key);
-  if (after == null || after.isPending) return;
+  if (after == null || after.isPending) return false;
   if (after.error != null) {
     AppHaptics.error();
-  } else if (after.bookmarked != before) {
-    after.bookmarked ? AppHaptics.success() : AppHaptics.select();
+    return false;
   }
+  if (after.bookmarked == before) return false;
+  after.bookmarked ? AppHaptics.success() : AppHaptics.select();
+  return after.bookmarked;
+}
+
+/// Peak overshoot of the heart pop above its rest scale of 1.
+const _heartPopPeak = 0.2;
+
+/// Initial velocity that carries an underdamped spring released at rest
+/// position up to [_heartPopPeak]. For x(t) = v/ωd · e^(−ζωt) · sin(ωd t)
+/// the first peak is v/ω · e^(−ζθ/√(1−ζ²)) with θ = atan(√(1−ζ²)/ζ).
+double _heartPopVelocity(SpringDescription spring) {
+  final omega = math.sqrt(spring.stiffness / spring.mass);
+  final zeta = spring.damping / (2 * math.sqrt(spring.stiffness * spring.mass));
+  final root = math.sqrt(1 - zeta * zeta);
+  final theta = math.atan(root / zeta);
+  return _heartPopPeak * omega * math.exp(zeta * theta / root);
 }
 
 /// Beta56 BookmarkSwitchButton replica driven entirely by the shared
 /// BookmarkStore: heart icon (isButton app-bar/row variant), pending
 /// CupertinoActivityIndicator (24px, R4), short-press toggle and
 /// long-press public/private sheet (suppressed while pending or already
-/// bookmarked, R6).
-class BookmarkSwitchButton extends ConsumerWidget {
+/// bookmarked, R6). A landed add pops the heart on the
+/// [MotionSpring.expressiveSpatialFast] spring — only for the user's own
+/// toggle here, never for a refresh, a replay or a first build.
+class BookmarkSwitchButton extends ConsumerStatefulWidget {
   const BookmarkSwitchButton({
     super.key,
     required this.illustId,
@@ -64,35 +86,90 @@ class BookmarkSwitchButton extends ConsumerWidget {
   final bool isButton;
   final bool isPlaceholder;
 
-  BookmarkKey get _key => BookmarkKey(
-    isNovel ? BookmarkEntityType.novel : BookmarkEntityType.illust,
-    illustId,
+  @override
+  ConsumerState<BookmarkSwitchButton> createState() =>
+      _BookmarkSwitchButtonState();
+}
+
+class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
+    with SingleTickerProviderStateMixin {
+  /// The heart's scale; unbounded so the pop may pass 1.
+  late final AnimationController _pop = AnimationController.unbounded(
+    vsync: this,
+    value: 1,
   );
 
-  void _showBookmarkSheet(BuildContext context, {required bool bookmarked}) {
-    AppHaptics.longPress();
-    showAppBottomSheet<void>(
-      context: context,
-      backgroundColor: FuncTokens.transparent,
-      isScrollControlled: true,
-      builder: (sheetContext) => _BookmarkEditSheet(
-        bookmarkKey: _key,
-        title: title,
-        isNovel: isNovel,
-        initiallyBookmarked: bookmarked,
+  BookmarkKey get _key => BookmarkKey(
+    widget.isNovel ? BookmarkEntityType.novel : BookmarkEntityType.illust,
+    widget.illustId,
+  );
+
+  @override
+  void didUpdateWidget(BookmarkSwitchButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A recycled list slot now shows another work: drop the old pop.
+    if (oldWidget.illustId != widget.illustId ||
+        oldWidget.isNovel != widget.isNovel) {
+      _pop.value = 1;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pop.dispose();
+    super.dispose();
+  }
+
+  /// Pops the heart when [added] settled for the work still shown.
+  void _popIfAdded(bool added, BookmarkKey key) {
+    if (!added || !mounted || key != _key) return;
+    final spring = MotionTokens.spring(
+      context,
+      MotionSpring.expressiveSpatialFast,
+    );
+    if (spring == null) return;
+    _pop.animateWith(
+      SpringSimulation(
+        spring,
+        1,
+        1,
+        _heartPopVelocity(spring),
+        snapToEnd: true,
       ),
     );
   }
 
+  Future<void> _toggle() async {
+    final key = _key;
+    _popIfAdded(await toggleBookmark(ref, key), key);
+  }
+
+  Future<void> _showBookmarkSheet({required bool bookmarked}) async {
+    AppHaptics.longPress();
+    final key = _key;
+    final added = await showAppBottomSheet<bool>(
+      context: context,
+      backgroundColor: FuncTokens.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) => _BookmarkEditSheet(
+        bookmarkKey: key,
+        title: widget.title,
+        isNovel: widget.isNovel,
+        initiallyBookmarked: bookmarked,
+      ),
+    );
+    _popIfAdded(added ?? false, key);
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (isPlaceholder) return const SizedBox.shrink();
+  Widget build(BuildContext context) {
+    if (widget.isPlaceholder) return const SizedBox.shrink();
     final colorScheme = Theme.of(context).colorScheme;
     final entry = ref.watch(bookmarkStoreProvider.select((s) => s[_key]));
     final bookmarked = entry?.bookmarked ?? false;
     final pending = entry?.isPending ?? false;
     final semanticLabel =
-        '${_bookmarkText(context, isNovel ? 'bookmarkNovel' : 'bookmarkIllust')}: $title';
+        '${_bookmarkText(context, widget.isNovel ? 'bookmarkNovel' : 'bookmarkIllust')}: ${widget.title}';
 
     // R5: failures restore the confirmed icon (non-optimistic means it never
     // moved) and surface an observable error.
@@ -117,7 +194,9 @@ class BookmarkSwitchButton extends ConsumerWidget {
         label: semanticLabel,
         liveRegion: true,
         child: Padding(
-          padding: EdgeInsets.all(isButton ? FuncSpacing.md : FuncSpacing.sm),
+          padding: EdgeInsets.all(
+            widget.isButton ? FuncSpacing.md : FuncSpacing.sm,
+          ),
           child: SizedBox(
             width: 24,
             height: 24,
@@ -133,15 +212,21 @@ class BookmarkSwitchButton extends ConsumerWidget {
     // edit (prefilled from bookmark detail) for an already-bookmarked one.
     final onLongPress = pending
         ? null
-        : () => _showBookmarkSheet(context, bookmarked: bookmarked);
+        : () => _showBookmarkSheet(bookmarked: bookmarked);
+    final heart = ScaleTransition(
+      scale: _pop,
+      child: bookmarked
+          ? Icon(Icons.favorite_sharp, color: colorScheme.primary, size: 24)
+          : const Icon(Icons.favorite_outline_sharp, size: 24),
+    );
 
-    if (isButton) {
+    if (widget.isButton) {
       return Semantics(
         container: true,
         button: true,
         toggled: bookmarked,
         label: semanticLabel,
-        onTap: () => toggleBookmark(ref, _key),
+        onTap: _toggle,
         onLongPress: onLongPress,
         child: GestureDetector(
           excludeFromSemantics: true,
@@ -150,10 +235,8 @@ class BookmarkSwitchButton extends ConsumerWidget {
             child: IconButton(
               splashRadius: 24,
               iconSize: 24,
-              onPressed: () => toggleBookmark(ref, _key),
-              icon: bookmarked
-                  ? Icon(Icons.favorite_sharp, color: colorScheme.primary)
-                  : const Icon(Icons.favorite_outline_sharp),
+              onPressed: _toggle,
+              icon: heart,
             ),
           ),
         ),
@@ -164,17 +247,15 @@ class BookmarkSwitchButton extends ConsumerWidget {
       button: true,
       toggled: bookmarked,
       label: semanticLabel,
-      onTap: () => toggleBookmark(ref, _key),
+      onTap: _toggle,
       onLongPress: onLongPress,
       child: GestureDetector(
         excludeFromSemantics: true,
         onLongPress: onLongPress,
-        onTap: () => toggleBookmark(ref, _key),
+        onTap: _toggle,
         child: Padding(
           padding: const EdgeInsets.all(FuncSpacing.sm),
-          child: bookmarked
-              ? Icon(Icons.favorite_sharp, color: colorScheme.primary, size: 24)
-              : const Icon(Icons.favorite_outline_sharp, size: 24),
+          child: heart,
         ),
       ),
     );
@@ -264,6 +345,9 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
   Future<void> _confirm() async {
     final pending = _tagInput.text.trim();
     final tags = pending.isEmpty ? _tags : [..._tags, pending];
+    final before =
+        ref.read(bookmarkStoreProvider)[widget.bookmarkKey]?.bookmarked ??
+        false;
     setState(() {
       _submitting = true;
       _submitError = null;
@@ -300,8 +384,11 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
       return;
     }
     // Committed, or a connectivity failure already queued for replay —
-    // either way the draft is accepted and the sheet closes (D6).
-    Navigator.of(context).pop();
+    // either way the draft is accepted and the sheet closes (D6). The
+    // result tells the button whether a new bookmark landed (heart pop).
+    final added =
+        entry != null && !entry.isPending && entry.bookmarked && !before;
+    Navigator.of(context).pop(added);
   }
 
   void _addTag(String raw) {

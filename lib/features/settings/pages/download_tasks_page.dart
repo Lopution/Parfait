@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/haptics/app_haptics.dart';
 import '../../../app/layout/content_widths.dart';
 import '../../../app/motion/app_overlays.dart';
+import '../../../app/motion/state_icon_switcher.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
@@ -744,10 +745,15 @@ class _DownloadTaskRow extends StatelessWidget {
           detail: _failureReason(context, task),
           errorDetails: _failureDetailsError(task),
           titleAction: managing
-              ? Icon(
-                  key: ValueKey('download-select-${task.id}'),
-                  selected ? Icons.check_circle : Icons.radio_button_unchecked,
-                  color: selected ? colorScheme.primary : null,
+              ? StateIconSwitcher(
+                  value: selected,
+                  child: Icon(
+                    key: ValueKey('download-select-${task.id}'),
+                    selected
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    color: selected ? colorScheme.primary : null,
+                  ),
                 )
               : null,
           actions: managing ? const [] : _taskActions(context),

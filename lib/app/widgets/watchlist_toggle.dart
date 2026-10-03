@@ -6,6 +6,7 @@ import '../../core/watchlist/watchlist_models.dart';
 import '../../core/watchlist/watchlist_store.dart';
 import '../../l10n/context.dart';
 import '../haptics/app_haptics.dart';
+import '../motion/state_icon_switcher.dart';
 
 /// Shared 追更/取消追更 toggle for series surfaces (illust series header and
 /// the novel series bar). The watchlist store shadows the series payload's
@@ -44,6 +45,8 @@ class WatchlistToggle extends ConsumerWidget {
     final added = entry?.added ?? detailAdded ?? false;
     final pending = entry?.isPending == true;
     final failed = entry?.error != null;
+    // Spinner, added or not added: the icon swaps only between these.
+    final Object iconState = pending ? #pending : added;
 
     if (iconOnly) {
       return IconButton(
@@ -51,30 +54,36 @@ class WatchlistToggle extends ConsumerWidget {
             ? context.l10n.watchlistRemove
             : context.l10n.watchlistAdd,
         onPressed: pending ? null : () => _toggle(ref, key),
-        icon: pending
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Icon(
-                added ? Icons.bookmark_added : Icons.bookmark_add_outlined,
-                color: failed ? Theme.of(context).colorScheme.error : null,
-              ),
+        icon: StateIconSwitcher(
+          value: iconState,
+          child: pending
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(
+                  added ? Icons.bookmark_added : Icons.bookmark_add_outlined,
+                  color: failed ? Theme.of(context).colorScheme.error : null,
+                ),
+        ),
       );
     }
     return OutlinedButton.icon(
       onPressed: pending ? null : () => _toggle(ref, key),
-      icon: pending
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Icon(
-              added ? Icons.bookmark_added : Icons.bookmark_add_outlined,
-              size: 18,
-            ),
+      icon: StateIconSwitcher(
+        value: iconState,
+        child: pending
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Icon(
+                added ? Icons.bookmark_added : Icons.bookmark_add_outlined,
+                size: 18,
+              ),
+      ),
       label: Text(
         failed
             ? '${context.l10n.watchlistAdd} · ${context.l10n.retry}'

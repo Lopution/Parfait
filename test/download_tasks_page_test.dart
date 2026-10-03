@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
+import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/naming_rule.dart';
@@ -1040,11 +1041,15 @@ void main() {
       await tester.pump();
       expect(find.text('已选 2 项'), findsOneWidget);
       expect(haptics.roles.last, HapticRole.select);
+      // The check marks swap in; let the swap finish.
+      await tester.pump(const Duration(milliseconds: 300));
       for (final task in manager.tasks) {
-        final mark = tester.widget<Icon>(
-          find.byKey(ValueKey('download-select-${task.id}')),
+        final mark = find.byKey(ValueKey('download-select-${task.id}'));
+        expect(tester.widget<Icon>(mark).icon, Icons.check_circle);
+        expect(
+          find.ancestor(of: mark, matching: find.byType(StateIconSwitcher)),
+          findsOneWidget,
         );
-        expect(mark.icon, Icons.check_circle);
       }
       expect(find.byIcon(Icons.open_in_new), findsNothing);
 

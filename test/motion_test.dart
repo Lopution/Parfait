@@ -11,6 +11,7 @@ import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/motion/feed_entrance.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/motion/press_scale.dart';
+import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/app_snack_bar.dart';
 import 'package:parfait/core/settings/app_settings.dart';
@@ -690,11 +691,12 @@ void main() {
       expect(mid, lessThan(1));
       expect(mid, greaterThan(MotionTokens.pressScale));
       await tester.pumpAndSettle();
-      expect(_pressScale(tester), closeTo(MotionTokens.pressScale, 1e-3));
+      expect(_pressScale(tester), MotionTokens.pressScale);
 
       await gesture.up();
       await tester.pumpAndSettle();
-      expect(_pressScale(tester), closeTo(1, 1e-3));
+      // Exactly 1 at rest: a near-1 scale keeps a non-identity transform.
+      expect(_pressScale(tester), 1);
     });
 
     testWidgets('a quick release reverses from the current scale', (
@@ -728,10 +730,11 @@ void main() {
       }
       final lowest = frames.reduce((a, b) => a < b ? a : b);
       final turn = frames.indexOf(lowest);
+      // Damping ratio 0.9 overshoots 1 by ~1e-5 before snapping to it.
       for (var i = turn + 1; i < frames.length; i++) {
-        expect(frames[i], greaterThanOrEqualTo(frames[i - 1] - 1e-9));
+        expect(frames[i], greaterThanOrEqualTo(frames[i - 1] - 1e-4));
       }
-      expect(frames.last, closeTo(1, 1e-3));
+      expect(frames.last, 1);
     });
 
     testWidgets('reduced motion snaps the scale without a flight', (
@@ -851,6 +854,76 @@ void main() {
       await tester.pumpWidget(app());
       expect(_pressScale(tester), 1.0);
       await gesture.up();
+    });
+  });
+
+  group('StateIconSwitcher', () {
+    Widget switcher(bool selected) => StateIconSwitcher(
+      value: selected,
+      child: Icon(selected ? Icons.check_circle : Icons.circle_outlined),
+    );
+
+    /// Scale and opacity wrapped around the icon drawn for [icon].
+    (double, double) entering(WidgetTester tester, IconData icon) {
+      final scale = tester.widget<ScaleTransition>(
+        find
+            .ancestor(
+              of: find.byIcon(icon),
+              matching: find.byType(ScaleTransition),
+            )
+            .first,
+      );
+      final fade = tester.widget<FadeTransition>(
+        find
+            .ancestor(
+              of: find.byIcon(icon),
+              matching: find.byType(FadeTransition),
+            )
+            .first,
+      );
+      return (scale.scale.value, fade.opacity.value);
+    }
+
+    testWidgets('the first build shows the icon at rest', (tester) async {
+      await tester.pumpWidget(_wrap(switcher(false)));
+      expect(entering(tester, Icons.circle_outlined), (1.0, 1.0));
+    });
+
+    testWidgets('a state change scales the new icon up from 0.8 and fades '
+        'it in over the effectsFast spring', (tester) async {
+      await tester.pumpWidget(_wrap(switcher(false)));
+      await tester.pumpWidget(_wrap(switcher(true)));
+
+      final (startScale, startOpacity) = entering(tester, Icons.check_circle);
+      expect(startScale, StateIconSwitcher.enterScale);
+      expect(startOpacity, 0);
+
+      await tester.pump(const Duration(milliseconds: 40));
+      final (midScale, midOpacity) = entering(tester, Icons.check_circle);
+      expect(midScale, inExclusiveRange(StateIconSwitcher.enterScale, 1));
+      expect(midOpacity, inExclusiveRange(0, 1));
+      expect(find.byIcon(Icons.circle_outlined), findsOneWidget);
+
+      // effectsFast settles in ~150 ms.
+      await tester.pump(const Duration(milliseconds: 130));
+      expect(find.byIcon(Icons.circle_outlined), findsNothing);
+      expect(entering(tester, Icons.check_circle), (1.0, 1.0));
+    });
+
+    testWidgets('a rebuild with the same state does not swap', (tester) async {
+      await tester.pumpWidget(_wrap(switcher(true)));
+      await tester.pumpWidget(_wrap(switcher(true)));
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      expect(entering(tester, Icons.check_circle), (1.0, 1.0));
+    });
+
+    testWidgets('reduced motion swaps at once', (tester) async {
+      await tester.pumpWidget(_wrap(switcher(false), reduce: true));
+      await tester.pumpWidget(_wrap(switcher(true), reduce: true));
+      await tester.pump();
+      expect(find.byIcon(Icons.circle_outlined), findsNothing);
+      expect(entering(tester, Icons.check_circle), (1.0, 1.0));
     });
   });
 

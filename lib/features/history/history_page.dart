@@ -11,6 +11,7 @@ import '../../app/widgets/feed/illust_card.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/press_scale.dart';
+import '../../app/motion/state_icon_switcher.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/haptics/app_haptics.dart';
@@ -426,14 +427,18 @@ class _HistoryEntry extends ConsumerWidget {
                 ),
               ),
             ),
-          if (selected)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: IgnorePointer(
-                child: Icon(Icons.check_circle, color: colorScheme.primary),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: IgnorePointer(
+              child: StateIconSwitcher(
+                value: selected,
+                child: selected
+                    ? Icon(Icons.check_circle, color: colorScheme.primary)
+                    : const SizedBox.shrink(),
               ),
             ),
+          ),
         ],
       ),
     );

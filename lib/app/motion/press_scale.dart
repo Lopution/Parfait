@@ -120,8 +120,15 @@ class _PressScaleState extends State<PressScale>
       _scale.value = target;
       return;
     }
+    // Snap: a card left at 0.9998 keeps a non-identity transform.
     _scale.animateWith(
-      SpringSimulation(spring, _scale.value, target, _scale.velocity),
+      SpringSimulation(
+        spring,
+        _scale.value,
+        target,
+        _scale.velocity,
+        snapToEnd: true,
+      ),
     );
   }
 

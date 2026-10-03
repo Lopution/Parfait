@@ -34,6 +34,7 @@ import 'package:parfait/app/theme/func_tokens.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_image_pager.dart';
@@ -1451,6 +1452,13 @@ void main() {
         await tester.pump();
       });
       expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      expect(
+        find.ancestor(
+          of: find.byIcon(Icons.check_circle),
+          matching: find.byType(StateIconSwitcher),
+        ),
+        findsOneWidget,
+      );
 
       await mockNetworkImagesFor(() async {
         await tester.tap(find.widgetWithText(FilledButton, 'Done'));

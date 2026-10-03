@@ -11,6 +11,7 @@ import 'package:network_image_mock/network_image_mock.dart';
 import 'package:path/path.dart' as path;
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/motion/press_scale.dart';
+import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
@@ -156,6 +157,13 @@ void main() {
     await tester.pump();
     expect(find.text('已选 1 项'), findsOneWidget);
     expect(find.byIcon(Icons.check_circle), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.byIcon(Icons.check_circle),
+        matching: find.byType(StateIconSwitcher),
+      ),
+      findsOneWidget,
+    );
     expect(find.byIcon(Icons.select_all), findsOneWidget);
 
     // In selection mode a plain tap toggles instead of navigating — the
