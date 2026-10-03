@@ -537,10 +537,8 @@ void main() {
 
       await tester.tap(headerText('SauceNAO'));
       await tester.pumpAndSettle();
-      // The popup item, not the body's engine ChoiceChip of the same name.
-      await tester.tap(
-        find.widgetWithText(PopupMenuItem<ReverseImageEngine>, 'IQDB'),
-      );
+      // The menu item, not the body's engine ChoiceChip of the same name.
+      await tester.tap(find.widgetWithText(MenuItemButton, 'IQDB'));
       await tester.pumpAndSettle();
 
       expect(headerText('IQDB'), findsOneWidget);

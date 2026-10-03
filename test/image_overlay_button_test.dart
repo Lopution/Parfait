@@ -150,7 +150,7 @@ void main() {
     );
     await tester.pump();
 
-    // PopupMenuButton-style consumers apply the shared style through their
+    // AppMenuButton-style consumers apply the shared style through their
     // own IconButton — it must resolve to the same colors as the widget.
     final shared = ImageOverlayButton.buttonStyle();
     final applied = _style(tester);

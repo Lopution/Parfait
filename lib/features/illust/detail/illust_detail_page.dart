@@ -15,6 +15,7 @@ import '../../../core/history/history_snapshot.dart';
 import '../../../core/history/history_visibility.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/share/share_service.dart';
+import '../../../app/widgets/app_menu_button.dart';
 import '../../../app/widgets/bookmark_switch_button.dart';
 import '../../../core/illust/illust_detail_controller.dart';
 import '../../../core/illust/illust_download_controller.dart';
@@ -696,29 +697,14 @@ class _DetailMoreMenu extends StatelessWidget {
       ),
       _DetailMenuAction.info => (Icons.info_outline, l10n.illustInfoJump),
     };
-    return PopupMenuButton<_DetailMenuAction>(
-      tooltip: MaterialLocalizations.of(context).showMenuTooltip,
-      icon: const Icon(Icons.more_vert),
-      onSelected: (action) => onSelected(context, action),
-      itemBuilder: (context) => [
+    return AppMenuButton<_DetailMenuAction>(
+      onSelected: onSelected,
+      entries: [
         for (final action in actions)
-          PopupMenuItem<_DetailMenuAction>(
+          AppMenuEntry(
             value: action,
-            child: Row(
-              children: [
-                Icon(labelOf(action).$1, size: 20),
-                const SizedBox(width: FuncSpacing.md),
-                // Expanded keeps long localized labels inside the menu's
-                // fixed width — they truncate rather than overflow.
-                Expanded(
-                  child: Text(
-                    labelOf(action).$2,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
+            icon: labelOf(action).$1,
+            label: labelOf(action).$2,
           ),
       ],
     );

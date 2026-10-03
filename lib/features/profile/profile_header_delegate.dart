@@ -10,6 +10,7 @@ import '../../app/system_ui.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
+import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/follow_switch_button.dart';
 import '../../app/widgets/image_overlay_button.dart';
@@ -628,52 +629,23 @@ class _ProfileHeaderMoreButton extends StatelessWidget {
         .where((action) => includePrimary || !action.primary)
         .toList();
     if (entries.isEmpty) return const SizedBox.shrink();
-    return PopupMenuButton<String>(
-      tooltip: MaterialLocalizations.of(context).showMenuTooltip,
-      // PopupMenuButton builds its own IconButton, so it cannot wrap an
+    return AppMenuButton<_ProfileHeaderAction>(
+      // AppMenuButton builds its own IconButton, so it cannot wrap an
       // ImageOverlayButton — the shared style keeps the affordance
       // identical instead of duplicating the token list.
       style: overArtwork ? ImageOverlayButton.buttonStyle() : null,
-      onSelected: (value) {
-        for (final action in entries) {
-          if (action.value == value) {
-            action.onSelected(context);
-            return;
-          }
-        }
-      },
-      itemBuilder: (context) => [
+      onSelected: (anchorContext, action) => action.onSelected(anchorContext),
+      entries: [
         for (final action in entries)
-          if (action.checked == null)
-            PopupMenuItem<String>(
-              value: action.value,
-              child: _ProfileHeaderMenuLabel(action: action),
-            )
-          else
-            CheckedPopupMenuItem<String>(
-              value: action.value,
-              checked: action.checked!,
-              child: _ProfileHeaderMenuLabel(action: action),
-            ),
+          AppMenuEntry(
+            value: action,
+            icon: action.icon,
+            label: action.label,
+            checked: action.checked,
+          ),
       ],
-      icon: const Icon(Icons.more_vert),
     );
   }
-}
-
-class _ProfileHeaderMenuLabel extends StatelessWidget {
-  const _ProfileHeaderMenuLabel({required this.action});
-
-  final _ProfileHeaderAction action;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Icon(action.icon, size: 18),
-      const SizedBox(width: FuncSpacing.md),
-      Text(action.label),
-    ],
-  );
 }
 
 class _CollapsedProfile extends StatelessWidget {

@@ -2185,7 +2185,7 @@ void main() {
       // The bottom bar keeps its own "Select pages to download" title —
       // what must be gone is the menu's re-entry item.
       expect(
-        find.widgetWithText(PopupMenuItem, 'Select pages to download'),
+        find.widgetWithText(MenuItemButton, 'Select pages to download'),
         findsNothing,
       );
     });
