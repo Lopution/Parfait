@@ -277,7 +277,8 @@ image entry point, a prefetcher or a preload, or when touching lane sizes.
 ```dart
 enum ImageFetchPriority { foreground, background }
 class PriorityFileService extends FileService {
-  PriorityFileService({required http.Client httpClient, ImageDemand? demand});
+  PriorityFileService({required http.Client httpClient, ImageDemand? demand,
+      SegmentBudget? segmentBudget}); // see Segmented Transfer Contract
   static const foregroundSlots = 8, backgroundSlots = 2;
   void promote(String url);
 }
@@ -369,6 +370,90 @@ directly — nothing holds the URL, so a queued fetch for it can be dropped.
 
 **Correct**: paint through `PixivImage` (or warm through `PixivImage.preload`
 with a registered window or a foreground `holdFor`).
+
+### Segmented Transfer Contract (`SegmentedFetch`, `SegmentBudget`, `lib/core/network/compat/segmented_fetch.dart`)
+
+#### 1. Scope / Trigger
+
+Large Pixiv files (`/img-original/` images, downloads) are fetched as
+parallel byte ranges so one slow CDN connection cannot set the pace. This
+applies when touching `PriorityFileService._fetch`, `DownloadManager._open`,
+the budget, or adding another bulk transfer.
+
+#### 2. Signatures
+
+```dart
+class SegmentBudget { SegmentBudget({int limit = 6}); bool tryAcquire(); void release(); }
+final segmentBudgetProvider = Provider<SegmentBudget>(…); // one per app
+typedef RangeOpen = Future<RangeResponse> Function(int start, int endInclusive,
+    {String? ifRange, required NetworkCancelSignal cancel});
+class SegmentedFetch {
+  SegmentedFetch({required RangeOpen open, required SegmentBudget budget,
+      int segmentBytes = 1 << 20, int maxParallel = 4, DateTime Function()? clock});
+  static const maxRestarts = 2;
+  int get fetchedBytes;
+  Stream<List<int>> continueFrom(RangeResponse first, {NetworkCancelSignal? cancel});
+  void close();
+}
+class SegmentedFetchMismatch implements Exception {}
+class SegmentedFetchCancelled implements Exception {}
+DownloadManager({…, SegmentBudget? segmentBudget}); // null = single stream
+```
+
+#### 3. Contracts
+
+- The caller opens the first range (`bytes=<offset>-<offset + 1 MiB − 1>`)
+  itself and continues only from a 206 whose `Content-Range` carries the
+  total. A 200 is used as a plain single stream; the image cache returns
+  any other answer as is, and the download manager keeps its 200/416 resume
+  branches.
+- The first connection is covered by its image lane or download slot; up to
+  `maxParallel − 1` more come from the one shared `SegmentBudget`
+  (`segmentBudgetProvider`, not the network factory, which is rebuilt per
+  policy). No budget left = the first connection does everything.
+- Every later segment sends `If-Range` with the first ETag. A segment that is
+  not a 206 with exactly its range and the same total fails the whole
+  transfer with `SegmentedFetchMismatch`, never retried — stitching it in
+  would mix two files.
+- A segment is restarted from the byte it reached after 5 s without bytes, or
+  when it has run ≥ 3 s, has > 256 KiB left and streams under a third of the
+  median pace (other active segments plus the last 8 finished ones). A
+  dropped connection retries the same way. Each segment gets at most
+  `maxRestarts`; after that an error fails the transfer and a stall is left
+  to the transport's idle timeout.
+- Workers claim only segments within `maxParallel` of the next undelivered
+  one: that is the backpressure and the memory cap (≤ 4 MiB per transfer).
+- Cancelling (signal or `close()`) closes every connection, returns the
+  budget and ends the output with `SegmentedFetchCancelled`; the download
+  manager maps it to `DownloadCancelledException`.
+- Image cache: only `/img-original/` paths segment. The synthetic response is
+  a 200 with the total length and no `content-range`, so `WebHelper` and the
+  cache format are unchanged. Later segments drop
+  `If-None-Match`/`If-Modified-Since` (a 304 cannot be stitched). The
+  foreground/background lane holds one slot for the whole transfer.
+- Downloads: below 2 MiB remaining the rest follows on one connection
+  (`maxParallel = 1`). `receivedBytes` shows `resumeOffset + fetchedBytes`
+  (bytes fetched ahead of the sink included), while the resume anchor stays
+  the sink's `storedBytes`. A first 206 without a total or from another
+  offset fails before writing. The updater's manager passes no budget.
+
+#### 4. Tests Required
+
+`segmented_fetch_test.dart` (sizes around segment edges, budget caps, slow
+and stalled restarts, restart limit, If-Range, mismatch, cancel and
+close-before-listen, paused reader) runs in `fakeAsync` against a paced
+in-memory server. `priority_file_service_test.dart` group `originals` and
+the `parallel ranges` group in `download_resume_test.dart` run the real
+cache manager / download manager over in-memory range servers
+(`RangeServingClient`, `_RangeTransport`).
+
+#### 5. Wrong vs Correct
+
+**Wrong**: awaiting `subscription.cancel()` when tearing down a segment — in
+`fakeAsync` the root-zone future never settles, and a body that errors on
+teardown surfaces as an uncaught error.
+
+**Correct**: `subscription.cancel().ignore()`, then close the response.
 
 ### Comments and Replies Contract (`CommentStore`, `lib/core/comments/`)
 
