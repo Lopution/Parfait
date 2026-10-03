@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import '../core/i18n/replica_language.dart';
 import 'app_localizations.dart';
+import '../core/i18n/replica_language.dart';
 
 /// Locale access for the legacy language enum (onboarding previews).
 extension ReplicaLanguageLocale on ReplicaLanguage {
@@ -300,6 +300,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'manage' => l10n.manage,
   'maxDownloadCount' => l10n.maxDownloadCount,
   'maxDownloadCountHint' => l10n.maxDownloadCountHint,
+  'motionPageTransition' => l10n.motionPageTransition,
   'muteAuthor' => l10n.muteAuthor,
   'muteFailed' => l10n.muteFailed,
   'muteTagInputHint' => l10n.muteTagInputHint,
@@ -440,6 +441,16 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'novelWords' => l10n.novelWords,
   'openInBrowser' => l10n.openInBrowser,
   'openLink' => l10n.openLink,
+  'pageTransitionStyleSharedAxis' => l10n.pageTransitionStyleSharedAxis,
+  'pageTransitionStyleSharedAxisHint' => l10n.pageTransitionStyleSharedAxisHint,
+  'pageTransitionStyleSlide' => l10n.pageTransitionStyleSlide,
+  'pageTransitionStyleSlideHint' => l10n.pageTransitionStyleSlideHint,
+  'pageTransitionStyleSystem' => l10n.pageTransitionStyleSystem,
+  'pageTransitionStyleSystemHint' => l10n.pageTransitionStyleSystemHint,
+  'pageTransitionStyleSystemHintOther' =>
+    l10n.pageTransitionStyleSystemHintOther,
+  'pageTransitionStyleZoom' => l10n.pageTransitionStyleZoom,
+  'pageTransitionStyleZoomHint' => l10n.pageTransitionStyleZoomHint,
   'pauseDownload' => l10n.pauseDownload,
   'pixivHistory' => l10n.pixivHistory,
   'pressFeedback' => l10n.pressFeedback,

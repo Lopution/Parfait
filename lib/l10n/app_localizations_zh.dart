@@ -888,6 +888,36 @@ class AppLocalizationsZh extends AppLocalizations {
   String get animationSpeedReduceHint => '开启「减少动态效果」时不播放动画，速度不生效';
 
   @override
+  String get motionPageTransition => '页面转场';
+
+  @override
+  String get pageTransitionStyleSystem => '系统默认';
+
+  @override
+  String get pageTransitionStyleSystemHint => '安卓系统转场，支持预测性返回';
+
+  @override
+  String get pageTransitionStyleSystemHintOther => '平台默认';
+
+  @override
+  String get pageTransitionStyleSharedAxis => '共享轴';
+
+  @override
+  String get pageTransitionStyleSharedAxisHint => 'Material 推荐：新旧页面同向滑动并交叉淡化';
+
+  @override
+  String get pageTransitionStyleZoom => '缩放';
+
+  @override
+  String get pageTransitionStyleZoomHint => '放大进入（Android 10 风格）';
+
+  @override
+  String get pageTransitionStyleSlide => '侧滑';
+
+  @override
+  String get pageTransitionStyleSlideHint => '从右侧推入，上一页错开并变暗（iOS 风格）';
+
+  @override
   String get maxDownloadCount => '最大并行下载数';
 
   @override

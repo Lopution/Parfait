@@ -267,6 +267,23 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                 ],
               ),
               SettingsGroup(
+                title: Text(context.l10n.motionPageTransition),
+                children: [
+                  for (final style in PageTransitionStyle.values)
+                    SettingsChoiceTile(
+                      title: Text(_transitionStyleText(context, style)),
+                      subtitle: Text(_transitionStyleHint(context, style)),
+                      selected: settings.pageTransitionStyle == style,
+                      onTap: () => persistSettings(
+                        context,
+                        () => ref
+                            .read(settingsProvider.notifier)
+                            .setPageTransitionStyle(style),
+                      ),
+                    ),
+                ],
+              ),
+              SettingsGroup(
                 title: Text(context.l10n.animationSpeed),
                 footer: Text(
                   settings.reduceMotion
@@ -487,6 +504,28 @@ String _hapticTierText(BuildContext context, HapticsTier tier) {
     HapticsTier.none => context.l10n.hapticTierNone,
   };
 }
+
+String _transitionStyleText(BuildContext context, PageTransitionStyle style) =>
+    switch (style) {
+      PageTransitionStyle.system => context.l10n.pageTransitionStyleSystem,
+      PageTransitionStyle.sharedAxis =>
+        context.l10n.pageTransitionStyleSharedAxis,
+      PageTransitionStyle.zoom => context.l10n.pageTransitionStyleZoom,
+      PageTransitionStyle.slide => context.l10n.pageTransitionStyleSlide,
+    };
+
+String _transitionStyleHint(BuildContext context, PageTransitionStyle style) =>
+    switch (style) {
+      // Predictive back is the Android system transition.
+      PageTransitionStyle.system =>
+        defaultTargetPlatform == TargetPlatform.android
+            ? context.l10n.pageTransitionStyleSystemHint
+            : context.l10n.pageTransitionStyleSystemHintOther,
+      PageTransitionStyle.sharedAxis =>
+        context.l10n.pageTransitionStyleSharedAxisHint,
+      PageTransitionStyle.zoom => context.l10n.pageTransitionStyleZoomHint,
+      PageTransitionStyle.slide => context.l10n.pageTransitionStyleSlideHint,
+    };
 
 String _animationSpeedText(BuildContext context, AnimationSpeed s) {
   return switch (s) {

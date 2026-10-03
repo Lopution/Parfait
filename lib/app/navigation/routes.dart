@@ -190,6 +190,7 @@ Page<dynamic> _page(
     child: _scoped(observer, child),
     transitionDuration: duration,
     reverseTransitionDuration: duration,
+    transitionStyle: MotionScope.transitionStyleOf(context),
   );
 }
 

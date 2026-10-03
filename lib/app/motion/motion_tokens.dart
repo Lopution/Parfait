@@ -233,7 +233,7 @@ void turnPage(BuildContext context, PageController controller, int page) {
 }
 
 /// Publishes the in-app motion settings (reduce motion, animation speed,
-/// press feedback) to the widget subtree. Mounted once at the app root (MaterialApp.builder);
+/// press feedback, page transition style) to the widget subtree. Mounted once at the app root (MaterialApp.builder);
 /// tests can wrap any subtree directly. The platform half of the gate stays
 /// on `MediaQuery.disableAnimations`.
 class MotionScope extends InheritedWidget {
@@ -242,6 +242,7 @@ class MotionScope extends InheritedWidget {
     required this.reduce,
     this.speed = AnimationSpeed.normal,
     this.pressFeedback = true,
+    this.transitionStyle = PageTransitionStyle.system,
     required super.child,
   });
 
@@ -252,6 +253,9 @@ class MotionScope extends InheritedWidget {
 
   /// Whether cards scale down while pressed (`PressScale`).
   final bool pressFeedback;
+
+  /// Transition of pushed pages (`FuncPage`).
+  final PageTransitionStyle transitionStyle;
 
   static bool? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<MotionScope>()?.reduce;
@@ -269,9 +273,18 @@ class MotionScope extends InheritedWidget {
           ?.pressFeedback ??
       true;
 
+  /// The scoped page transition style; [PageTransitionStyle.system]
+  /// outside a scope.
+  static PageTransitionStyle transitionStyleOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<MotionScope>()
+          ?.transitionStyle ??
+      PageTransitionStyle.system;
+
   @override
   bool updateShouldNotify(MotionScope oldWidget) =>
       reduce != oldWidget.reduce ||
       speed != oldWidget.speed ||
-      pressFeedback != oldWidget.pressFeedback;
+      pressFeedback != oldWidget.pressFeedback ||
+      transitionStyle != oldWidget.transitionStyle;
 }

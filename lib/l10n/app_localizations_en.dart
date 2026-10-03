@@ -939,6 +939,39 @@ class AppLocalizationsEn extends AppLocalizations {
       'Animations are off while Reduce motion is on, so the speed has no effect';
 
   @override
+  String get motionPageTransition => 'Page transition';
+
+  @override
+  String get pageTransitionStyleSystem => 'System default';
+
+  @override
+  String get pageTransitionStyleSystemHint =>
+      'Android system transition with predictive back';
+
+  @override
+  String get pageTransitionStyleSystemHintOther => 'Platform default';
+
+  @override
+  String get pageTransitionStyleSharedAxis => 'Shared axis';
+
+  @override
+  String get pageTransitionStyleSharedAxisHint =>
+      'Material recommended: both pages slide the same way and cross-fade';
+
+  @override
+  String get pageTransitionStyleZoom => 'Zoom';
+
+  @override
+  String get pageTransitionStyleZoomHint => 'Zooms in (Android 10 style)';
+
+  @override
+  String get pageTransitionStyleSlide => 'Slide';
+
+  @override
+  String get pageTransitionStyleSlideHint =>
+      'Pushes in from the right; the page below shifts and dims (iOS style)';
+
+  @override
   String get maxDownloadCount => 'Maximum concurrent downloads';
 
   @override
