@@ -22,45 +22,39 @@ class UserAgreementPage extends StatelessWidget {
         // surfaces. This is a content-width role, not a breakpoint.
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: ContentWidths.article),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(
-              FuncSpacing.xl,
-              FuncSpacing.lg,
-              FuncSpacing.xl,
-              FuncSpacing.xxl,
+          // One selection region for the whole document: paragraphs are
+          // plain Text, so none of them owns a Scrollable the app-wide
+          // bouncing physics could leak into, and a selection can span
+          // paragraphs.
+          child: SelectionArea(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(
+                FuncSpacing.xl,
+                FuncSpacing.lg,
+                FuncSpacing.xl,
+                FuncSpacing.xxl,
+              ),
+              children: [
+                Text(
+                  l10n.agreementIntro,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: FuncSpacing.xl),
+                for (final (title, body) in [
+                  (l10n.agreementAccountTitle, l10n.agreementAccountBody),
+                  (l10n.agreementContentTitle, l10n.agreementContentBody),
+                  (l10n.agreementNetworkTitle, l10n.agreementNetworkBody),
+                  (l10n.agreementPrivacyTitle, l10n.agreementPrivacyBody),
+                  (l10n.agreementDisclaimerTitle, l10n.agreementDisclaimerBody),
+                ])
+                  _AgreementSection(title: title, body: body),
+                const SizedBox(height: FuncSpacing.sm),
+                Text(
+                  l10n.agreementUpdates,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
             ),
-            children: [
-              SelectableText(
-                l10n.agreementIntro,
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-              const SizedBox(height: FuncSpacing.xl),
-              _AgreementSection(
-                title: l10n.agreementAccountTitle,
-                body: l10n.agreementAccountBody,
-              ),
-              _AgreementSection(
-                title: l10n.agreementContentTitle,
-                body: l10n.agreementContentBody,
-              ),
-              _AgreementSection(
-                title: l10n.agreementNetworkTitle,
-                body: l10n.agreementNetworkBody,
-              ),
-              _AgreementSection(
-                title: l10n.agreementPrivacyTitle,
-                body: l10n.agreementPrivacyBody,
-              ),
-              _AgreementSection(
-                title: l10n.agreementDisclaimerTitle,
-                body: l10n.agreementDisclaimerBody,
-              ),
-              const SizedBox(height: FuncSpacing.sm),
-              SelectableText(
-                l10n.agreementUpdates,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
           ),
         ),
       ),
@@ -81,14 +75,14 @@ class _AgreementSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SelectableText(
+          Text(
             title,
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: FuncSpacing.sm),
-          SelectableText(body, style: Theme.of(context).textTheme.bodyMedium),
+          Text(body, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/app/widgets/replica_button.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
@@ -65,6 +66,7 @@ void main() {
     double textScale = 1,
     SettingsRepository? repository,
     Locale? locale,
+    ScrollBehavior? scrollBehavior,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -81,6 +83,7 @@ void main() {
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: locale ?? const Locale('zh', 'CN'),
+            scrollBehavior: scrollBehavior,
             home: page,
           ),
         ),
@@ -324,16 +327,85 @@ void main() {
     testWidgets('body is selectable and width-capped on wide viewports', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(1200, 800);
-      tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
 
       await pumpPage(tester, const Size(1200, 800), const UserAgreementPage());
       expect(tester.takeException(), isNull);
 
-      expect(find.byType(SelectableText), findsWidgets);
+      // One selection region over plain Text: no paragraph owns a
+      // Scrollable of its own.
+      expect(find.byType(SelectionArea), findsOneWidget);
+      expect(find.byType(SelectableText), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(UserAgreementPage),
+          matching: find.byType(Scrollable),
+        ),
+        findsOneWidget,
+      );
       final list = tester.getRect(find.byType(ListView));
       expect(list.width, lessThanOrEqualTo(700));
     });
+
+    testWidgets('a drag on a paragraph scrolls the whole page', (tester) async {
+      addTearDown(tester.view.reset);
+      final zh = lookupAppLocalizations(const Locale('zh'));
+      // The app's always-scrollable bouncing physics used to leak into each
+      // paragraph's own Scrollable, letting it drag on its own.
+      await pumpPage(
+        tester,
+        const Size(390, 844),
+        const UserAgreementPage(),
+        scrollBehavior: const FuncScrollBehavior(),
+      );
+
+      final position = tester
+          .state<ScrollableState>(
+            find
+                .descendant(
+                  of: find.byType(ListView),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          )
+          .position;
+      expect(position.pixels, 0);
+      await tester.drag(
+        find.text(zh.agreementAccountBody),
+        const Offset(0, -200),
+      );
+      await tester.pumpAndSettle();
+      expect(position.pixels, greaterThan(0));
+    });
+
+    for (final locale in const [Locale('zh'), Locale('ru')]) {
+      testWidgets('every section title is reachable in $locale', (
+        tester,
+      ) async {
+        addTearDown(tester.view.reset);
+        final l10n = lookupAppLocalizations(locale);
+        await pumpPage(
+          tester,
+          const Size(320, 568),
+          const UserAgreementPage(),
+          textScale: 1.3,
+          locale: locale,
+        );
+        for (final title in [
+          l10n.agreementAccountTitle,
+          l10n.agreementContentTitle,
+          l10n.agreementNetworkTitle,
+          l10n.agreementPrivacyTitle,
+          l10n.agreementDisclaimerTitle,
+        ]) {
+          await tester.scrollUntilVisible(
+            find.text(title),
+            200,
+            scrollable: find.byType(Scrollable),
+          );
+          expect(tester.takeException(), isNull, reason: title);
+        }
+      });
+    }
   });
 }
