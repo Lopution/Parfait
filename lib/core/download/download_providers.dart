@@ -85,6 +85,7 @@ final downloadManagerProvider = Provider<DownloadManager>((ref) {
       return info?.file;
     },
     maxConcurrent: ref.read(maxDownloadCountProvider),
+    segmentBudget: ref.watch(segmentBudgetProvider),
     requireOwnedSubmissions: true,
     // D5: authenticated product downloads may target the selected custom
     // album or SAF tree. Account and destination identity checks remain in

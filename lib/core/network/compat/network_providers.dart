@@ -13,6 +13,7 @@ import 'pixiv_network_factory.dart';
 import 'network_policy.dart';
 import 'network_fast_route_store.dart';
 import 'route_kind_store.dart';
+import 'segmented_fetch.dart';
 
 /// App-scoped network policy. Every native Pixiv API/OAuth/image/download
 /// consumer receives this same revision and diagnostics owner.
@@ -176,9 +177,14 @@ String _connectivityIdentity(List<ConnectivityResult> results) {
   return names.join('+');
 }
 
+/// Extra connections for segmented transfers, shared by the image cache and
+/// downloads. Outlives factory rebuilds so the cap stays app-wide.
+final segmentBudgetProvider = Provider<SegmentBudget>((ref) => SegmentBudget());
+
 final pixivNetworkFactoryProvider = Provider<PixivNetworkFactory>((ref) {
   final factory = PixivNetworkFactory(
     ref.watch(networkAccessPolicyProvider),
+    segmentBudget: ref.watch(segmentBudgetProvider),
     // Read the mirror lazily per request instead of watching it: the auto
     // winner flips mid-session, and a watched rebuild would tear down the
     // image cache plus every pooled client for a pure URL-rewrite rule

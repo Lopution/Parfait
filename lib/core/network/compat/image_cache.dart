@@ -5,11 +5,17 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:http/http.dart' as http;
 
 import 'image_demand.dart';
+import 'network_contracts.dart';
+import 'segmented_fetch.dart';
 
 class PixivImageCache {
-  PixivImageCache({required this.httpClient});
+  PixivImageCache({required this.httpClient, this.segmentBudget});
 
   final http.Client httpClient;
+
+  /// Extra connections for originals fetched in parallel ranges; null
+  /// fetches every image on one connection.
+  final SegmentBudget? segmentBudget;
 
   /// Who waits for which image: image widgets and prefetchers register
   /// here, the file service reads it.
@@ -30,7 +36,11 @@ class PixivImageCache {
   }
 
   PriorityFileService _fileService() {
-    final service = PriorityFileService(httpClient: httpClient, demand: demand);
+    final service = PriorityFileService(
+      httpClient: httpClient,
+      demand: demand,
+      segmentBudget: segmentBudget,
+    );
     demand.onHeld = service.promote;
     return service;
   }
@@ -86,12 +96,22 @@ const _kWebHelperAdmitAll = 1 << 20;
 /// may legitimately never listen to `content` (304/error paths), so a
 /// generous [_holdLimit] releases a permit that the response stream did
 /// not — bounded over-admission beats a lane leak.
+///
+/// Originals (`/img-original/`) with a [SegmentBudget] are fetched in
+/// parallel byte ranges ([SegmentedFetch]) behind the same single permit;
+/// `WebHelper` still sees one in-order 200 of the full length.
 class PriorityFileService extends FileService {
-  /// Without a [demand], queued fetches are never dropped.
-  PriorityFileService({required http.Client httpClient, ImageDemand? demand})
-    : _service = HttpFileService(httpClient: httpClient),
-      _foreground = _PermitGate(foregroundSlots, demand?.wants),
-      _background = _PermitGate(backgroundSlots, demand?.wants) {
+  /// Without a [demand], queued fetches are never dropped. Without a
+  /// [segmentBudget], originals use one connection like everything else.
+  PriorityFileService({
+    required http.Client httpClient,
+    ImageDemand? demand,
+    SegmentBudget? segmentBudget,
+  }) : _httpClient = httpClient,
+       _segmentBudget = segmentBudget,
+       _service = HttpFileService(httpClient: httpClient),
+       _foreground = _PermitGate(foregroundSlots, demand?.wants),
+       _background = _PermitGate(backgroundSlots, demand?.wants) {
     concurrentFetches = _kWebHelperAdmitAll;
   }
 
@@ -110,6 +130,15 @@ class PriorityFileService extends FileService {
   /// permit on termination well before this.
   static const _holdLimit = Duration(seconds: 45);
 
+  /// Path marker of full-size originals, the only images worth splitting.
+  static const segmentedPath = '/img-original/';
+
+  /// Conditional headers belong to the first range only: a 304 for a
+  /// later segment could not be stitched in.
+  static const _conditionalHeaders = {'if-none-match', 'if-modified-since'};
+
+  final http.Client _httpClient;
+  final SegmentBudget? _segmentBudget;
   final HttpFileService _service;
   final _PermitGate _foreground;
   final _PermitGate _background;
@@ -129,13 +158,101 @@ class PriorityFileService extends FileService {
     // its slot back there, so the response remembers the admitting gate.
     final gate = await (prefetch ? _background : _foreground).acquire(url);
     try {
-      final response = await _service.get(url, headers: outbound);
+      final response = await _fetch(url, outbound);
       return _GatedResponse(response, gate.release, _holdLimit);
     } on Object {
       gate.release();
       rethrow;
     }
   }
+
+  Future<FileServiceResponse> _fetch(
+    String url,
+    Map<String, String>? headers,
+  ) async {
+    final budget = _segmentBudget;
+    final uri = Uri.parse(url);
+    if (budget == null || !uri.path.contains(segmentedPath)) {
+      return _service.get(url, headers: headers);
+    }
+    final first = await _sendRange(
+      uri,
+      headers ?? const {},
+      0,
+      SegmentedFetch.defaultSegmentBytes - 1,
+    );
+    final range = parseContentRange(first.headers['content-range']);
+    final total = range?.total;
+    // A 200 (Range ignored), 304 or error goes to WebHelper unchanged.
+    if (first.statusCode != 206 || range == null || total == null) {
+      return HttpGetResponse(first);
+    }
+    final segmentHeaders = {
+      for (final entry in (headers ?? const <String, String>{}).entries)
+        if (!_conditionalHeaders.contains(entry.key.toLowerCase()))
+          entry.key: entry.value,
+    };
+    final body = range.end + 1 >= total
+        ? first.stream
+        : SegmentedFetch(
+            open: (start, end, {ifRange, required cancel}) async =>
+                _rangeResponse(
+                  await _sendRange(
+                    uri,
+                    segmentHeaders,
+                    start,
+                    end,
+                    ifRange: ifRange,
+                    cancel: cancel,
+                  ),
+                ),
+            budget: budget,
+          ).continueFrom(_rangeResponse(first));
+    return HttpGetResponse(
+      http.StreamedResponse(
+        body,
+        200,
+        contentLength: total,
+        request: first.request,
+        headers: {
+          for (final entry in first.headers.entries)
+            if (entry.key != 'content-range') entry.key: entry.value,
+          'content-length': '$total',
+        },
+      ),
+    );
+  }
+
+  Future<http.StreamedResponse> _sendRange(
+    Uri uri,
+    Map<String, String> headers,
+    int start,
+    int end, {
+    String? ifRange,
+    NetworkCancelSignal? cancel,
+  }) {
+    final request =
+        http.AbortableRequest('GET', uri, abortTrigger: cancel?.whenCancel)
+          ..headers.addAll(headers)
+          ..headers['range'] = 'bytes=$start-$end';
+    if (ifRange != null) request.headers['if-range'] = ifRange;
+    return _httpClient.send(request);
+  }
+
+  static RangeResponse _rangeResponse(http.StreamedResponse response) =>
+      RangeResponse(
+        statusCode: response.statusCode,
+        headers: response.headers,
+        body: response.stream,
+        close: () async {
+          try {
+            // An unread body still holds the connection.
+            await response.stream.listen(null).cancel();
+          } on StateError {
+            // Already listened to: its subscriber tears it down.
+          }
+        },
+      );
 
   /// Moves a queued prefetch of [url] to the foreground lane: admitted at
   /// once when a foreground slot is free, otherwise queued behind the

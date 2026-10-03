@@ -4,6 +4,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/network/compat/image_cache.dart';
 import 'package:parfait/core/network/compat/image_demand.dart';
+import 'package:parfait/core/network/compat/segmented_fetch.dart';
 
 import 'helpers/image_network.dart';
 
@@ -338,5 +339,127 @@ void main() {
     for (final subscription in subscriptions) {
       await subscription.cancel();
     }
+  });
+
+  group('originals', () {
+    const original = 'https://i.pximg.net/img-original/img/1_p0.png';
+    const preview = 'https://i.pximg.net/img-master/img/1_p0_master1200.jpg';
+    final size = 3 * SegmentedFetch.defaultSegmentBytes + 12345;
+    final firstRange = 'bytes=0-${SegmentedFetch.defaultSegmentBytes - 1}';
+
+    Future<List<int>> read(FileServiceResponse response) async => [
+      for (final chunk in await response.content.toList()) ...chunk,
+    ];
+
+    test('start with a ranged request and reach WebHelper as one 200 of '
+        'the full length', () async {
+      final data = patternBytes(size);
+      final client = RangeServingClient({original: data});
+      final budget = SegmentBudget();
+      final service = PriorityFileService(
+        httpClient: client,
+        segmentBudget: budget,
+      );
+      final response = await service.get(original);
+      expect(client.ranges.first, firstRange);
+      expect(response.statusCode, 200);
+      expect(response.contentLength, size);
+      expect(await read(response), data);
+      expect(client.requests, hasLength(4));
+      expect(budget.inUse, 0);
+    });
+
+    test('land on disk byte for byte through the real cache manager', () async {
+      final data = patternBytes(size);
+      final client = RangeServingClient({original: data});
+      final manager = testImageCacheManager(
+        PriorityFileService(httpClient: client, segmentBudget: SegmentBudget()),
+      );
+      final file = await manager.getSingleFile(original);
+      expect(await file.readAsBytes(), data);
+      expect(client.ranges.first, firstRange);
+    });
+
+    test('a revalidation asks If-None-Match on the first range only', () async {
+      final data = patternBytes(size);
+      final client = RangeServingClient({original: data});
+      final service = PriorityFileService(
+        httpClient: client,
+        segmentBudget: SegmentBudget(),
+      );
+      final response = await service.get(
+        original,
+        headers: {'If-None-Match': '"v0"'},
+      );
+      expect(await read(response), data);
+      expect(
+        [for (final r in client.requests) r.headers['if-none-match']],
+        ['"v0"', null, null, null],
+      );
+      expect([
+        for (final r in client.requests.skip(1)) r.headers['if-range'],
+      ], everyElement('"v1"'));
+    });
+
+    test('other images are fetched without Range', () async {
+      final data = patternBytes(size);
+      final client = RangeServingClient({preview: data});
+      final service = PriorityFileService(
+        httpClient: client,
+        segmentBudget: SegmentBudget(),
+      );
+      expect(await read(await service.get(preview)), data);
+      expect(client.ranges, [null]);
+    });
+
+    test('a server that ignores Range streams the whole file once', () async {
+      final data = patternBytes(size);
+      final client = RangeServingClient({original: data}, honorRange: false);
+      final service = PriorityFileService(
+        httpClient: client,
+        segmentBudget: SegmentBudget(),
+      );
+      final response = await service.get(original);
+      expect(response.statusCode, 200);
+      expect(await read(response), data);
+      expect(client.requests, hasLength(1));
+    });
+
+    test('a segmented original holds one foreground slot', () async {
+      final files = {
+        original: patternBytes(size),
+        for (var i = 0; i < PriorityFileService.foregroundSlots; i++)
+          'https://i.pximg.net/img-master/v$i.jpg': patternBytes(10),
+      };
+      final client = RangeServingClient(files, hold: true);
+      final service = PriorityFileService(
+        httpClient: client,
+        segmentBudget: SegmentBudget(),
+      );
+      final body = (await service.get(original)).content.drain<void>();
+      await pollUntil(
+        () => client.requests.length == SegmentedFetch.defaultParallel,
+      );
+      final others = [
+        for (var i = 0; i < PriorityFileService.foregroundSlots; i++)
+          service.get('https://i.pximg.net/img-master/v$i.jpg'),
+      ];
+      await settleIo();
+      // Every slot but the original's is free for visible images.
+      expect(
+        client.urls.where((u) => u.contains('/v')),
+        hasLength(PriorityFileService.foregroundSlots - 1),
+      );
+      while (client.urls.where((u) => u.contains('/v')).length <
+          PriorityFileService.foregroundSlots) {
+        client.releaseHeld();
+        await settleIo();
+      }
+      client.releaseHeld();
+      for (final response in await Future.wait(others)) {
+        await response.content.drain<void>();
+      }
+      await body;
+    });
   });
 }

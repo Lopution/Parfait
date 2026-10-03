@@ -8,6 +8,7 @@ import '../network/pixiv_headers.dart';
 import 'dart:io';
 
 import '../network/compat/network_contracts.dart';
+import '../network/compat/segmented_fetch.dart';
 import '../platform/android_platform_interfaces.dart';
 import 'download_destination.dart';
 import 'download_request.dart';
@@ -18,6 +19,10 @@ import 'pixiv_download_transport.dart';
 
 /// Per-task progress snapshot emission interval (R5 throttle).
 const Duration _kProgressThrottle = Duration(milliseconds: 200);
+
+/// Below this many remaining bytes a download continues on one connection
+/// after its first segment.
+const int _kParallelMinRemaining = 2 << 20;
 
 typedef DownloadSubmissionContextProvider =
     DownloadSubmissionContext? Function();
@@ -39,6 +44,7 @@ class DownloadManager {
     this.requireOwnedSubmissions = false,
     this.enforceDefaultDestination = true,
     this.cacheLookup,
+    this.segmentBudget,
     DateTime Function()? now,
   }) : _transport = transport,
        _sinkFactory = sinkFactory,
@@ -55,6 +61,11 @@ class DownloadManager {
   /// spending a network round-trip. Misses and lookup errors fall through
   /// to the transport — the lookup must never make a download worse.
   final Future<File?> Function(Uri url)? cacheLookup;
+
+  /// Extra connections for fetching one file in parallel byte ranges,
+  /// shared with the image cache. Null keeps every download on a single
+  /// connection.
+  final SegmentBudget? segmentBudget;
   final Duration progressThrottle;
   final DownloadSubmissionContextProvider? _submissionContext;
   final DownloadRecoveryStore _recoveryStore;
@@ -781,6 +792,9 @@ class DownloadManager {
     );
 
     var received = resumeOffset;
+    // Parallel ranges arrive ahead of the in-order bytes the sink takes;
+    // counting only the sink would make progress jump a segment at a time.
+    final segmented = response is _SegmentedDownloadResponse ? response : null;
     var lastEmit = _now();
     await for (final chunk in response.stream) {
       if (job.cancelToken.isCancelled) {
@@ -792,7 +806,10 @@ class DownloadManager {
       final now = _now();
       if (now.difference(lastEmit) >= progressThrottle) {
         lastEmit = now;
-        _update(job, job.snapshot.copyWith(receivedBytes: received));
+        final shown = segmented == null
+            ? received
+            : resumeOffset + segmented.fetchedBytes;
+        _update(job, job.snapshot.copyWith(receivedBytes: shown));
       }
     }
     _update(job, job.snapshot.copyWith(receivedBytes: received));
@@ -1001,6 +1018,10 @@ class DownloadManager {
       }
     }
     final headers = PixivHeaders.image(userAgent: true);
+    final budget = segmentBudget;
+    if (budget != null) {
+      return _openSegmented(job, resumeOffset, headers, budget);
+    }
     if (resumeOffset > 0) {
       headers['Range'] = 'bytes=$resumeOffset-';
     }
@@ -1009,6 +1030,78 @@ class DownloadManager {
       headers: headers,
       cancelToken: job.cancelToken,
     );
+  }
+
+  /// Asks for one segment from [resumeOffset]. A sized 206 continues in
+  /// parallel ranges; any other status goes back to [_run] unchanged, so a
+  /// server ignoring `Range` (200) or rejecting it (416) keeps its existing
+  /// handling.
+  Future<DownloadResponse> _openSegmented(
+    _Job job,
+    int resumeOffset,
+    Map<String, String> headers,
+    SegmentBudget budget,
+  ) async {
+    final url = job.request.url;
+    final lastByte = resumeOffset + SegmentedFetch.defaultSegmentBytes - 1;
+    final first = await _transport.open(
+      url,
+      headers: {...headers, 'Range': 'bytes=$resumeOffset-$lastByte'},
+      cancelToken: job.cancelToken,
+    );
+    if (first.statusCode != 206) return first;
+    final firstRange = _rangeResponse(first);
+    final range = firstRange.contentRange;
+    final total = range?.total;
+    if (range == null || total == null || range.start != resumeOffset) {
+      // Without the file size, or from another offset, these bytes cannot
+      // be continued or appended.
+      await firstRange.close().catchError((Object _) {});
+      throw SegmentedFetchMismatch(
+        'asked bytes=$resumeOffset-$lastByte, got '
+        '${firstRange.headers['content-range']}',
+      );
+    }
+    final remaining = total - resumeOffset;
+    final fetch = SegmentedFetch(
+      open: (start, end, {ifRange, required cancel}) => _openRange(
+        url,
+        headers,
+        start,
+        end,
+        ifRange: ifRange,
+        cancel: cancel,
+      ),
+      budget: budget,
+      maxParallel: remaining >= _kParallelMinRemaining
+          ? SegmentedFetch.defaultParallel
+          : 1,
+    );
+    return _SegmentedDownloadResponse(
+      fetch,
+      firstRange,
+      contentLength: remaining,
+      cancel: job.cancelToken,
+    );
+  }
+
+  /// One further segment on its own connection, closed through [cancel].
+  Future<RangeResponse> _openRange(
+    Uri url,
+    Map<String, String> headers,
+    int start,
+    int end, {
+    String? ifRange,
+    required NetworkCancelSignal cancel,
+  }) async {
+    final token = DownloadCancelToken();
+    unawaited(cancel.whenCancel.then((_) => token.cancel()));
+    final response = await _transport.open(
+      url,
+      headers: {...headers, 'Range': 'bytes=$start-$end', 'If-Range': ?ifRange},
+      cancelToken: token,
+    );
+    return _rangeResponse(response);
   }
 
   void _checkOwner(_Job job) {
@@ -1505,6 +1598,58 @@ Duration? _parseRetryAfter(Map<String, String> headers) {
   if (date == null) return null;
   final delta = date.toUtc().difference(DateTime.now().toUtc());
   return delta.isNegative ? Duration.zero : delta;
+}
+
+RangeResponse _rangeResponse(DownloadResponse response) => RangeResponse(
+  statusCode: response.statusCode,
+  headers: switch (response) {
+    final DownloadResponseMetadata metadata => {
+      for (final entry in metadata.headers.entries)
+        entry.key.toLowerCase(): entry.value,
+    },
+    _ => const {},
+  },
+  body: response.stream,
+  close: response.close,
+);
+
+/// A sized 206 continued in parallel ranges. It reads like one 206 for the
+/// rest of the file: [contentLength] counts from the resume offset to the
+/// end and [headers] are the first segment's.
+class _SegmentedDownloadResponse
+    implements DownloadResponse, DownloadResponseMetadata {
+  _SegmentedDownloadResponse(
+    this._fetch,
+    RangeResponse first, {
+    required this.contentLength,
+    required NetworkCancelSignal cancel,
+  }) : headers = first.headers,
+       stream = _fetch
+           .continueFrom(first, cancel: cancel)
+           .handleError(
+             (Object _) => throw const DownloadCancelledException(),
+             test: (error) => error is SegmentedFetchCancelled,
+           );
+
+  final SegmentedFetch _fetch;
+
+  @override
+  int get statusCode => 206;
+
+  @override
+  final int contentLength;
+
+  @override
+  final Map<String, String> headers;
+
+  @override
+  final Stream<List<int>> stream;
+
+  /// Bytes received so far, including segments not yet in the sink.
+  int get fetchedBytes => _fetch.fetchedBytes;
+
+  @override
+  Future<void> close() async => _fetch.close();
 }
 
 /// A download response served from a file already in the image disk cache.
