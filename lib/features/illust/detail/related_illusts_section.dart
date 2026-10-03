@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../core/entity/illust_store.dart';
 import '../../../app/widgets/errors/error_details.dart';
@@ -11,6 +12,7 @@ import '../../../core/paging/paged_feed_controller.dart';
 import '../../../core/illust/related_illust_controller.dart';
 import '../../../l10n/context.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
+import 'detail_page_activity.dart';
 
 export '../../../core/illust/related_illust_controller.dart';
 export '../../../core/illust/related_illust_repository.dart';
@@ -19,13 +21,83 @@ export '../../../core/illust/related_illust_repository.dart';
 /// Pixiv client: a two-column grid of related works (square cover + title +
 /// author) below the caption/tags, paginated as the user scrolls. Each tile
 /// pushes its own detail page.
-class RelatedIllustsSlivers extends ConsumerWidget {
+///
+/// The first page is requested on demand: only once the section is on
+/// screen on the page the user is looking at ([DetailPageActivity]).
+/// Swiping through the detail pager (which prebuilds neighbours) therefore
+/// sends no related requests. A work whose related list already exists
+/// renders it straight away.
+class RelatedIllustsSlivers extends ConsumerStatefulWidget {
   const RelatedIllustsSlivers({super.key, required this.illustId});
 
   final int illustId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RelatedIllustsSlivers> createState() =>
+      _RelatedIllustsSliversState();
+}
+
+class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
+  late bool _requested = _alreadyRequested();
+  bool _visible = false;
+  bool _active = true;
+
+  bool _alreadyRequested() =>
+      ref.exists(relatedIllustControllerProvider(widget.illustId));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _active = DetailPageActivity.of(context);
+    // A build follows right away, no setState needed.
+    if (_visible && _active) _requested = true;
+  }
+
+  @override
+  void didUpdateWidget(RelatedIllustsSlivers oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.illustId != widget.illustId) {
+      _requested = _alreadyRequested();
+      _visible = false;
+    }
+  }
+
+  void _onVisibilityChanged(VisibilityInfo info) {
+    if (!mounted) return;
+    _visible = info.visibleFraction > 0;
+    if (_visible && _active && !_requested) {
+      setState(() => _requested = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_requested) {
+      // Same box as the loading spinner, so starting the request does not
+      // shift anything. It stays static: an idle spinner below the fold
+      // (or on a prebuilt pager neighbour) would keep producing frames.
+      return SliverToBoxAdapter(
+        child: VisibilityDetector(
+          key: ValueKey('related-trigger-${widget.illustId}'),
+          onVisibilityChanged: _onVisibilityChanged,
+          child: _indicatorBox(null),
+        ),
+      );
+    }
+    return _buildSection(context);
+  }
+
+  static Widget _indicatorBox(Widget? indicator) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: FuncSpacing.xxl),
+    child: Center(child: SizedBox(width: 22, height: 22, child: indicator)),
+  );
+
+  static final Widget _loadingIndicator = _indicatorBox(
+    const CircularProgressIndicator(strokeWidth: 2.5),
+  );
+
+  Widget _buildSection(BuildContext context) {
+    final illustId = widget.illustId;
     final async = ref.watch(relatedIllustControllerProvider(illustId));
     final state = async.asData?.value;
     final controller = ref.read(
@@ -59,18 +131,7 @@ class RelatedIllustsSlivers extends ConsumerWidget {
           ),
         );
       }
-      return const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: FuncSpacing.xxl),
-          child: Center(
-            child: SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
-            ),
-          ),
-        ),
-      );
+      return SliverToBoxAdapter(child: _loadingIndicator);
     }
     if (state.showInitialError) {
       return SliverToBoxAdapter(

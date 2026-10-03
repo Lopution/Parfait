@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/feed/feed_grid.dart';
+import 'detail_page_activity.dart';
 import 'illust_detail_page.dart';
 
 /// Detail host paged horizontally across a feed's work list: a work
@@ -300,14 +301,23 @@ class _PagerSlotState extends State<_PagerSlot> {
     // together on push/pop. Only the page under the finger owns a live
     // hero; the rest ride HeroMode-disabled.
     //
+    // The same flag tells the page whether it is current, so deferred
+    // network work (related works) never starts on a prebuilt neighbour.
+    //
     // The detail page is the builder's stable [child]: a page change only
-    // re-wraps it in a new HeroMode instead of running the whole detail
-    // build again.
+    // re-wraps it in a new HeroMode/DetailPageActivity instead of running
+    // the whole detail build again; only dependents of the activity scope
+    // rebuild.
     return ValueListenableBuilder<int>(
       valueListenable: widget.current,
       child: _detail,
-      builder: (context, current, child) =>
-          HeroMode(enabled: widget.index == current, child: child!),
+      builder: (context, current, child) {
+        final active = widget.index == current;
+        return HeroMode(
+          enabled: active,
+          child: DetailPageActivity(active: active, child: child!),
+        );
+      },
     );
   }
 }
