@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
@@ -40,6 +41,84 @@ class HeldBodyClient extends http.BaseClient {
     }
   }
 }
+
+/// Serves [files] by URL, honouring `Range: bytes=a-b` with a 206 and its
+/// `Content-Range` unless [honorRange] is off. With [hold], every body
+/// waits for [releaseHeld] — a transfer that keeps its permit.
+class RangeServingClient extends http.BaseClient {
+  RangeServingClient(this.files, {this.honorRange = true, this.hold = false});
+
+  final Map<String, Uint8List> files;
+  final bool honorRange;
+  final bool hold;
+  final requests = <http.BaseRequest>[];
+  final _held = <(StreamController<List<int>>, Uint8List)>[];
+
+  static const _chunk = 64 * 1024;
+  static final _rangePattern = RegExp(r'^bytes=(\d+)-(\d+)$');
+
+  List<String> get urls => [for (final r in requests) r.url.toString()];
+  List<String?> get ranges => [for (final r in requests) r.headers['range']];
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    requests.add(request);
+    final data = files[request.url.toString()];
+    if (data == null) {
+      return http.StreamedResponse(const Stream.empty(), 404, request: request);
+    }
+    final range = _rangePattern.firstMatch(request.headers['range'] ?? '');
+    if (!honorRange || range == null) {
+      return http.StreamedResponse(
+        _body(data),
+        200,
+        contentLength: data.length,
+        request: request,
+        headers: {'etag': '"v1"'},
+      );
+    }
+    final start = int.parse(range.group(1)!);
+    final last = math.min(int.parse(range.group(2)!), data.length - 1);
+    final slice = Uint8List.sublistView(data, start, last + 1);
+    return http.StreamedResponse(
+      _body(slice),
+      206,
+      contentLength: slice.length,
+      request: request,
+      headers: {
+        'content-range': 'bytes $start-$last/${data.length}',
+        'etag': '"v1"',
+      },
+    );
+  }
+
+  Stream<List<int>> _body(Uint8List bytes) {
+    if (hold) {
+      final body = StreamController<List<int>>();
+      _held.add((body, bytes));
+      return body.stream;
+    }
+    return Stream.fromIterable([
+      for (var i = 0; i < bytes.length; i += _chunk)
+        Uint8List.sublistView(bytes, i, math.min(i + _chunk, bytes.length)),
+    ]);
+  }
+
+  /// Sends and ends every held body; a body nobody reads yet keeps its
+  /// bytes until it is listened to.
+  void releaseHeld() {
+    final held = List.of(_held);
+    _held.clear();
+    for (final (body, bytes) in held) {
+      body.add(bytes);
+      unawaited(body.close());
+    }
+  }
+}
+
+/// [size] bytes of a repeating pattern that no shifted copy matches.
+Uint8List patternBytes(int size) =>
+    Uint8List.fromList([for (var i = 0; i < size; i++) i * 31 % 251]);
 
 var _managerSerial = 0;
 

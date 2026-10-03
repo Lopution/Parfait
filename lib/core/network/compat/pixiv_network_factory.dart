@@ -7,6 +7,7 @@ import 'network_contracts.dart';
 import 'network_policy.dart';
 import 'image_cache.dart';
 import 'image_demand.dart';
+import 'segmented_fetch.dart';
 
 /// A policy-aware `package:http` client. The business request is the route
 /// attempt: selection never pays for a separate probe. A
@@ -149,10 +150,14 @@ class PixivNetworkFactory {
   /// [imageUrlRewriter] mirrors `i./s.pximg.net` URLs onto the selected
   /// image source before destination resolution; null/identity keeps the
   /// stock pximg path.
-  PixivNetworkFactory(this.policy, {this.imageUrlRewriter});
+  PixivNetworkFactory(this.policy, {this.imageUrlRewriter, this.segmentBudget});
 
   final NetworkAccessPolicy policy;
   final Uri Function(Uri url)? imageUrlRewriter;
+
+  /// Extra connections for originals fetched in parallel ranges, shared
+  /// with downloads; null keeps every image on one connection.
+  final SegmentBudget? segmentBudget;
   final Map<PixivDestinationPurpose, PixivPolicyHttpClient> _clients = {};
   // CacheManager keeps its HttpFileService for the lifetime of the cache.
   // NetworkAccessPolicy intentionally closes pooled clients when the account
@@ -163,6 +168,7 @@ class PixivNetworkFactory {
   // retaining decoded/file cache entries.
   late final PixivImageCache _imageCache = PixivImageCache(
     httpClient: _ImageClientProxy(this),
+    segmentBudget: segmentBudget,
   );
   Future<void>? _warmupFuture;
 
