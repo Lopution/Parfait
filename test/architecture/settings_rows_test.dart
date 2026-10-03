@@ -22,9 +22,6 @@ const _listTileAllowList = <String, int>{
   'lib/features/settings/pages/muted_items_page.dart': 3,
   // The picked SAF folder: read-only display, long-press copies the URI.
   'lib/features/settings/pages/download_destination_page.dart': 1,
-  // The conflict-policy options inside the restore dialog — not a
-  // settings-list row.
-  'lib/features/settings/pages/backup_settings_page.dart': 1,
   // AccountSummaryTile's 58dp avatar headline row, and the account list
   // rows with avatar/switch-spinner/delete affordances.
   'lib/features/settings/pages/account_settings_page.dart': 2,

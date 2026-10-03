@@ -13,6 +13,7 @@ import '../theme/func_tokens.dart';
 import 'errors/error_details.dart';
 import '../../l10n/lookup.dart';
 import '../../l10n/context.dart';
+import 'app_segmented_button.dart';
 
 /// Shared beta56-style follow button for profile/user-preview surfaces.
 ///
@@ -196,7 +197,7 @@ Future<void> showFollowRestrictSheet(
                         style: FuncSemanticTokens.of(sheetContext).caption,
                       ),
                     const SizedBox(height: FuncSpacing.lg),
-                    SegmentedButton<FollowRestrict>(
+                    AppSegmentedButton<FollowRestrict>(
                       segments: [
                         ButtonSegment(
                           value: FollowRestrict.public,

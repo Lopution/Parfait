@@ -18,6 +18,8 @@ import '../theme/func_tokens.dart';
 import '../widgets/errors/error_details.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
+import 'app_segmented_button.dart';
+import 'app_choice_chip.dart';
 
 String _bookmarkText(BuildContext context, String key) =>
     l10nLookup(context.l10n, key);
@@ -398,7 +400,7 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                           style: FuncSemanticTokens.of(context).caption,
                         ),
                         const SizedBox(height: FuncSpacing.lg),
-                        SegmentedButton<BookmarkRestrict>(
+                        AppSegmentedButton<BookmarkRestrict>(
                           segments: [
                             ButtonSegment(
                               value: BookmarkRestrict.public,
@@ -523,10 +525,10 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                                       children: [
                                         for (final suggestion in value)
                                           if (!_tags.contains(suggestion.name))
-                                            FilterChip(
+                                            AppChoiceChip.toggle(
                                               label: Text(suggestion.name),
                                               selected: false,
-                                              onSelected: (_) =>
+                                              onChanged: (_) =>
                                                   _addTag(suggestion.name),
                                             ),
                                       ],

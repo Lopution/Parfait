@@ -25,6 +25,8 @@ import '../../l10n/context.dart';
 import 'novel_layout.dart';
 import 'novel_reader.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/app_choice_chip.dart';
+import '../../app/widgets/app_slider.dart';
 
 /// Data seam for [NovelReaderStage]: everything that differs between the
 /// online novel page and the local TXT reader is injected here, so the
@@ -645,7 +647,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                     Row(
                       children: [
                         Expanded(
-                          child: Slider(
+                          child: AppSlider(
                             value: preview.toDouble().clamp(
                               0.0,
                               (pageCount - 1).toDouble(),
@@ -781,10 +783,10 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                           (NovelReaderTheme.sepia, l10n.novelThemeSepia),
                           (NovelReaderTheme.night, l10n.novelThemeNight),
                         ])
-                          ChoiceChip(
+                          AppChoiceChip(
                             label: Text(label),
                             selected: _settings.theme == theme,
-                            onSelected: (_) =>
+                            onSelected: () =>
                                 apply(_settings.copyWith(theme: theme)),
                           ),
                       ],
@@ -828,7 +830,7 @@ class _SettingsSliderRow extends StatelessWidget {
           child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
         ),
         Expanded(
-          child: Slider(
+          child: AppSlider(
             value: value.clamp(min, max),
             min: min,
             max: max,

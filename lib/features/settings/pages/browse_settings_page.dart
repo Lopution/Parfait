@@ -17,6 +17,7 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../../../app/widgets/app_segmented_button.dart';
 
 class BrowseSettingsPage extends ConsumerStatefulWidget {
   const BrowseSettingsPage({super.key});
@@ -194,7 +195,7 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                 title: Text(context.l10n.previewQuality),
                 children: [
                   SettingsGroupContent(
-                    child: SegmentedButton<PreviewQuality>(
+                    child: AppSegmentedButton<PreviewQuality>(
                       segments: [
                         for (final quality in PreviewQuality.values)
                           ButtonSegment<PreviewQuality>(
@@ -217,7 +218,7 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                 title: Text(context.l10n.detailQuality),
                 children: [
                   SettingsGroupContent(
-                    child: SegmentedButton<DetailQuality>(
+                    child: AppSegmentedButton<DetailQuality>(
                       segments: [
                         for (final quality in const [
                           DetailQuality.large,
@@ -243,7 +244,7 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                 title: Text(context.l10n.viewQuality),
                 children: [
                   SettingsGroupContent(
-                    child: SegmentedButton<ViewQuality>(
+                    child: AppSegmentedButton<ViewQuality>(
                       segments: [
                         for (final quality in const [
                           ViewQuality.large,
@@ -275,7 +276,7 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                       : null,
                   children: [
                     SettingsGroupContent(
-                      child: SegmentedButton<PageTransitionSpeed>(
+                      child: AppSegmentedButton<PageTransitionSpeed>(
                         segments: [
                           for (final speed in PageTransitionSpeed.values)
                             ButtonSegment<PageTransitionSpeed>(
@@ -432,7 +433,7 @@ class _HapticStrengthGroup extends ConsumerWidget {
       },
       children: [
         SettingsGroupContent(
-          child: SegmentedButton<HapticStrength>(
+          child: AppSegmentedButton<HapticStrength>(
             segments: [
               for (final strength in HapticStrength.values)
                 ButtonSegment<HapticStrength>(
@@ -444,6 +445,8 @@ class _HapticStrengthGroup extends ConsumerWidget {
             // Four segments on a phone-width row: the check icon would
             // squeeze the labels, and the fill already marks the level.
             showSelectedIcon: false,
+            // The preview below is this picker's haptic.
+            haptics: false,
             onSelectionChanged: (picked) {
               AppHaptics.preview(picked.first);
               persistSettings(

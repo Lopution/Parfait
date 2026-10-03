@@ -13,6 +13,7 @@ import '../../../core/download/naming_rule.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../../../app/widgets/app_slider.dart';
 
 class DownloadSettingsPage extends ConsumerStatefulWidget {
   const DownloadSettingsPage({super.key});
@@ -91,7 +92,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                   // `_draftMaxDownloads`, the write commits on release and a
                   // failure rolls the draft back to the persisted count.
                   SettingsGroupContent(
-                    child: Slider(
+                    child: AppSlider(
                       min: 1,
                       max: 10,
                       divisions: 9,

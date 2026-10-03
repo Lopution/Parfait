@@ -8,6 +8,9 @@
 //     pinned below)
 //   - `HapticFeedback.` callsites outside lib/app/haptics/: zero —
 //     AppHaptics and its platform driver are the only owners
+//   - raw selection controls (SegmentedButton, ChoiceChip/FilterChip,
+//     Slider, Switch/SwitchListTile, Radio) only inside the wrapper that
+//     builds their haptic in
 //   - raw overlay entries (showDialog / showModalBottomSheet / Cupertino
 //     variants / showMenu / framework pickers) outside
 //     lib/app/motion/app_overlays.dart: zero beyond the pinned
@@ -34,6 +37,28 @@ const _snackBarOwner = 'lib/app/widgets/app_snack_bar.dart';
 
 /// Owner directory for haptic feedback (AppHaptics + its platform driver).
 const _hapticsOwnerDir = 'lib/app/haptics/';
+
+/// Raw selection control → the wrapper files allowed to build it. The
+/// wrappers own the control's haptic, so a raw control elsewhere would be
+/// a silent one.
+final _selectionControlOwners = <RegExp, Set<String>>{
+  RegExp(r'(?<![A-Za-z])SegmentedButton<'): {
+    'lib/app/widgets/app_segmented_button.dart',
+  },
+  RegExp(r'(?<![A-Za-z])(?:ChoiceChip|FilterChip)\('): {
+    'lib/app/widgets/app_choice_chip.dart',
+  },
+  RegExp(r'(?<![A-Za-z])Slider(?:\.adaptive)?\('): {
+    'lib/app/widgets/app_slider.dart',
+  },
+  RegExp(r'(?<![A-Za-z])(?:Switch|SwitchListTile)(?:\.adaptive)?\('): {
+    'lib/app/widgets/settings/settings_control.dart',
+    'lib/app/widgets/replica_switch_tile.dart',
+  },
+  RegExp(r'(?<![A-Za-z])(?:RadioListTile|Radio)\s*[<(]'): {
+    'lib/app/widgets/settings/settings_choice_tile.dart',
+  },
+};
 
 /// Owner file for app modal overlays.
 const _overlaysOwner = 'lib/app/motion/app_overlays.dart';
@@ -154,6 +179,24 @@ void main() {
       reason:
           'raw haptics outside $_hapticsOwnerDir — '
           'use an AppHaptics role',
+    );
+  });
+
+  test('selection controls live only in their haptic wrappers', () {
+    final violations = <String>[];
+    _selectionControlOwners.forEach((pattern, owners) {
+      final files = _matches(['lib'], pattern).keys.toSet();
+      for (final file in files.difference(owners)) {
+        violations.add('$file: ${pattern.pattern}');
+      }
+    });
+    expect(
+      violations,
+      isEmpty,
+      reason:
+          'raw selection controls outside their wrappers (use '
+          'AppSegmentedButton / AppChoiceChip / AppSlider / SettingsControl / '
+          'SettingsChoiceTile):\n${violations.join('\n')}',
     );
   });
 

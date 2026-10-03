@@ -7,6 +7,7 @@ import '../../app/motion/app_overlays.dart';
 import 'search_text.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/app_choice_chip.dart';
 
 Future<SearchFilters?> showSearchFilterSheet(
   BuildContext context, {
@@ -188,7 +189,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
               spacing: 8,
               runSpacing: 4,
               children: [
-                ChoiceChip(
+                AppChoiceChip(
                   label: Text(context.l10n.searchAllTime),
                   // "All time" means unconstrained: a custom date bound is
                   // still sent on the wire even when duration is null, so
@@ -198,7 +199,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                       _filters.duration == null &&
                       _filters.startDate == null &&
                       _filters.endDate == null,
-                  onSelected: (_) => setState(
+                  onSelected: () => setState(
                     () => _filters = _filters.copyWith(
                       duration: null,
                       startDate: null,
@@ -207,10 +208,10 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                   ),
                 ),
                 for (final value in SearchDuration.values)
-                  ChoiceChip(
+                  AppChoiceChip(
                     label: Text(searchText(context, value.labelKey)),
                     selected: _filters.duration == value,
-                    onSelected: (_) => setState(
+                    onSelected: () => setState(
                       // A duration preset resolves to a concrete date range
                       // on the wire, so it replaces any custom bounds.
                       () => _filters = _filters.copyWith(
@@ -258,10 +259,10 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                 runSpacing: 4,
                 children: [
                   for (final value in SearchAiFilter.values)
-                    ChoiceChip(
+                    AppChoiceChip(
                       label: Text(searchText(context, value.labelKey)),
                       selected: _filters.aiFilter == value,
-                      onSelected: (_) => setState(
+                      onSelected: () => setState(
                         () => _filters = _filters.copyWith(aiFilter: value),
                       ),
                     ),
@@ -310,18 +311,18 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                 spacing: 8,
                 runSpacing: 4,
                 children: [
-                  ChoiceChip(
+                  AppChoiceChip(
                     label: Text(context.l10n.searchRatioAny),
                     selected: _filters.ratio == null,
-                    onSelected: (_) => setState(
+                    onSelected: () => setState(
                       () => _filters = _filters.copyWith(ratio: null),
                     ),
                   ),
                   for (final value in SearchRatioPattern.values)
-                    ChoiceChip(
+                    AppChoiceChip(
                       label: Text(searchText(context, value.labelKey)),
                       selected: _filters.ratio == value,
-                      onSelected: (_) => setState(
+                      onSelected: () => setState(
                         () => _filters = _filters.copyWith(ratio: value),
                       ),
                     ),
@@ -338,10 +339,10 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                 runSpacing: 4,
                 children: [
                   for (final value in SearchContentType.values)
-                    ChoiceChip(
+                    AppChoiceChip(
                       label: Text(searchText(context, value.labelKey)),
                       selected: _filters.contentType == value,
-                      onSelected: (_) => setState(
+                      onSelected: () => setState(
                         () => _filters = _filters.copyWith(contentType: value),
                       ),
                     ),
@@ -433,10 +434,10 @@ class _FilterGroup<T> extends StatelessWidget {
           runSpacing: 4,
           children: [
             for (final value in values)
-              ChoiceChip(
+              AppChoiceChip(
                 label: Text(label(value)),
                 selected: value == selected,
-                onSelected: (_) => onSelected(value),
+                onSelected: () => onSelected(value),
               ),
           ],
         ),

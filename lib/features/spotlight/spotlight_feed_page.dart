@@ -13,6 +13,7 @@ import '../../core/spotlight/spotlight_store.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/app_segmented_button.dart';
 
 /// pixivision spotlight article list: a category selector (all/illust/
 /// manga) over independent paged feeds. Rows open the in-app article page
@@ -37,7 +38,7 @@ class _SpotlightFeedPageState extends ConsumerState<SpotlightFeedPage> {
           preferredSize: const Size.fromHeight(52),
           child: Padding(
             padding: const EdgeInsets.only(bottom: FuncSpacing.sm),
-            child: SegmentedButton<SpotlightCategory>(
+            child: AppSegmentedButton<SpotlightCategory>(
               segments: [
                 for (final category in SpotlightCategory.values)
                   ButtonSegment(
