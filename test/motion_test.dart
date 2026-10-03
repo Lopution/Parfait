@@ -1021,6 +1021,53 @@ void main() {
       expect(dragOffset(tester), 0);
     });
 
+    testWidgets('the return spring starts at the release velocity', (
+      tester,
+    ) async {
+      var dismissed = false;
+      await tester.pumpWidget(
+        _wrap(
+          DragToDismiss(
+            onDismissed: () => dismissed = true,
+            child: const SizedBox.expand(child: Text('viewer')),
+          ),
+        ),
+      );
+
+      /// Offset 16 ms into the return from a release at 80.
+      Future<double> returnAfterRelease() async {
+        await tester.pump();
+        expect(dragOffset(tester), 80);
+        await tester.pump(const Duration(milliseconds: 16));
+        final offset = dragOffset(tester);
+        await tester.pumpAndSettle();
+        expect(dragOffset(tester), 0);
+        return offset;
+      }
+
+      // Still release: the velocity decays before the finger lifts.
+      await dragDownAndRelease(tester);
+      final still = await returnAfterRelease();
+
+      // A steady ~500 px/s downward pull: under the 1000 px/s dismiss
+      // velocity and the 160 dismiss distance, so the surface returns —
+      // but the spring starts with the finger's downward speed.
+      final gesture = await tester.createGesture();
+      await gesture.down(tester.getCenter(find.byType(DragToDismiss)));
+      for (var i = 1; i <= 8; i++) {
+        await gesture.moveBy(
+          const Offset(0, 10),
+          timeStamp: Duration(milliseconds: 20 * i),
+        );
+        await tester.pump();
+      }
+      await gesture.up(timeStamp: const Duration(milliseconds: 170));
+      final moving = await returnAfterRelease();
+
+      expect(moving, greaterThan(still + 4));
+      expect(dismissed, isFalse);
+    });
+
     testWidgets('reduced motion lands the canceled drag without a flight', (
       tester,
     ) async {
