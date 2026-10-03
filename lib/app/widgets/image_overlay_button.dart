@@ -25,7 +25,7 @@ class ImageOverlayButton extends StatelessWidget {
   final VoidCallback? onPressed;
 
   /// The shared overlay palette. Controls that construct their own
-  /// [IconButton] internally — e.g. a [PopupMenuButton], which cannot wrap
+  /// [IconButton] internally — e.g. an [AppMenuButton], which cannot wrap
   /// an [ImageOverlayButton] — apply this style to match the affordance
   /// exactly instead of duplicating the colors.
   static ButtonStyle buttonStyle() => IconButton.styleFrom(

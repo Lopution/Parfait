@@ -29,6 +29,7 @@ import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/theme/func_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/app/widgets/app_menu_button.dart';
 import 'package:parfait/app/widgets/app_type_switch.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
@@ -1068,8 +1069,8 @@ void main() {
         await tester.pumpAndSettle();
 
         ButtonStyle? overflowStyle() => tester
-            .widget<PopupMenuButton<String>>(
-              find.byType(PopupMenuButton<String>),
+            .widget<AppMenuButton<dynamic>>(
+              find.byWidgetPredicate((w) => w is AppMenuButton),
             )
             .style;
 
@@ -1154,7 +1155,9 @@ void main() {
     expect(find.byType(ImageOverlayButton), findsNothing);
     expect(
       tester
-          .widget<PopupMenuButton<String>>(find.byType(PopupMenuButton<String>))
+          .widget<AppMenuButton<dynamic>>(
+            find.byWidgetPredicate((w) => w is AppMenuButton),
+          )
           .style,
       isNull,
     );

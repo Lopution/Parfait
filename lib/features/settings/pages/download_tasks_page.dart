@@ -9,6 +9,7 @@ import '../../../app/motion/app_overlays.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/widgets/app_menu_button.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../core/download/download_manager.dart';
@@ -1021,23 +1022,16 @@ class _DownloadActionStrip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _button(actions.first),
-        PopupMenuButton<_DownloadAction>(
-          tooltip: MaterialLocalizations.of(context).showMenuTooltip,
-          onSelected: (action) => action.onPressed(),
-          itemBuilder: (context) => [
+        AppMenuButton<_DownloadAction>(
+          onSelected: (_, action) => action.onPressed(),
+          entries: [
             for (final action in actions.skip(1))
-              PopupMenuItem<_DownloadAction>(
+              AppMenuEntry(
                 value: action,
-                child: Row(
-                  children: [
-                    Icon(action.icon, size: 20),
-                    const SizedBox(width: FuncSpacing.md),
-                    Text(action.label),
-                  ],
-                ),
+                icon: action.icon,
+                label: action.label,
               ),
           ],
-          icon: const Icon(Icons.more_vert),
         ),
       ],
     );

@@ -25,6 +25,7 @@ import '../../core/reverse_image/webview_upload_provider.dart';
 import '../../core/errors/error_category.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../app/navigation/routes.dart';
+import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/errors/error_details.dart';
 import 'package:parfait/core/network/http_client_providers.dart';
@@ -621,28 +622,28 @@ class _TaskHeader extends StatelessWidget {
       ),
     );
     if (!engineSwitchable) return chip();
-    return PopupMenuButton<ReverseImageEngine>(
-      tooltip: context.l10n.searchReverseEngineSwitch,
-      onSelected: onSelectEngine,
-      itemBuilder: (context) => [
+    return AppMenuButton<ReverseImageEngine>(
+      onSelected: (_, engine) => onSelectEngine(engine),
+      entries: [
         for (final engineSpec in ReverseImageEngineSpecs.all.values)
-          PopupMenuItem(
+          AppMenuEntry(
             value: engineSpec.engine,
+            label: engineSpec.displayName,
+            icon: state.engineFailures.containsKey(engineSpec.engine)
+                ? Icons.error_outline
+                : null,
             enabled: input == null || engineSpec.supportsInput(input),
-            child: Row(
-              children: [
-                if (state.engineFailures.containsKey(engineSpec.engine)) ...[
-                  const Icon(Icons.error_outline, size: 18),
-                  const SizedBox(width: FuncSpacing.sm),
-                ],
-                Expanded(child: Text(engineSpec.displayName)),
-                if (engineSpec.engine == state.engine)
-                  const Icon(Icons.check, size: 18),
-              ],
-            ),
+            checked: engineSpec.engine == state.engine,
           ),
       ],
-      child: chip(trailing: const Icon(Icons.arrow_drop_down, size: 18)),
+      anchorBuilder: (context, toggle) => Tooltip(
+        message: context.l10n.searchReverseEngineSwitch,
+        child: InkWell(
+          onTap: toggle,
+          customBorder: const StadiumBorder(),
+          child: chip(trailing: const Icon(Icons.arrow_drop_down, size: 18)),
+        ),
+      ),
     );
   }
 
