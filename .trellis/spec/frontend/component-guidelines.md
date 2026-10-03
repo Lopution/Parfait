@@ -127,6 +127,14 @@ state or action.
   stack unless clipped. Content that must stay under a boundary needs an
   explicit `ClipRect` — the profile identity block is clipped to the
   `top: minExtent, bottom: 0` region for exactly this reason.
+- A long document page (the user agreement is the reference) wraps its
+  one `ListView` in a single `SelectionArea` and renders paragraphs as
+  plain `Text` — never a `SelectableText` per paragraph. Each
+  `SelectableText` owns a `Scrollable`; `FuncScrollBehavior`'s
+  always-scrollable bouncing physics leaks into it, so every paragraph
+  drags and bounces on its own, and selection cannot span paragraphs.
+  `onboarding_pages_test.dart` drags a paragraph under
+  `FuncScrollBehavior` and expects the page itself to scroll.
 
 ## Material 3 Theme Contract
 
