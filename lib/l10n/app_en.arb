@@ -638,7 +638,7 @@
   "ugoiraArchiveInvalid": "The animation archive is invalid",
   "ugoiraFrameCorrupt": "An animation frame is corrupt",
   "ugoiraLoadFailed": "Animation failed to load",
-  "homeRecommended": "Recommended",
+  "homeRecommended": "For you",
   "homeRanking": "Ranking",
   "homeMe": "Me",
   "homeExitHint": "Press back again to exit",

@@ -42,15 +42,13 @@ class _SpotlightFeedPageState extends ConsumerState<SpotlightFeedPage> {
             child: AppSegmentedButton<SpotlightCategory>(
               segments: [
                 for (final category in SpotlightCategory.values)
-                  ButtonSegment(
+                  AppSegment(
                     value: category,
-                    label: Text(l10nLookup(context.l10n, category.labelKey)),
+                    label: l10nLookup(context.l10n, category.labelKey),
                   ),
               ],
-              selected: {_category},
-              showSelectedIcon: false,
-              onSelectionChanged: (selected) =>
-                  setState(() => _category = selected.first),
+              selected: _category,
+              onSelected: (category) => setState(() => _category = category),
             ),
           ),
         ),

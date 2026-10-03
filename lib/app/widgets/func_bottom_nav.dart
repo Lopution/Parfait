@@ -10,6 +10,7 @@ import '../motion/motion_tokens.dart';
 import '../icons/app_icons.dart';
 import '../navigation/home_shell_metrics.dart';
 import '../theme/func_semantic_tokens.dart';
+import 'fit_label.dart';
 
 /// Primary bottom navigation for narrow layouts.
 ///
@@ -289,10 +290,21 @@ class _FuncBottomNavState extends State<FuncBottomNav>
             builder: (context, constraints) {
               final itemWidth =
                   constraints.maxWidth / widget.destinations.length;
-              // Uniform label scale: every destination shares one font
-              // size, shrunk until the widest translation fits its slot —
-              // no per-locale truncation or mixed sizes.
-              final labelFontSize = 12 * _labelScale(context, itemWidth);
+              // Measured and drawn in this one style (colour aside), so the
+              // indicator spans exactly the painted label.
+              final labelStyle = DefaultTextStyle.of(
+                context,
+              ).style.merge(_labelStyle);
+              // Uniform label scale: every destination shares one size,
+              // shrunk until the widest translation fits its slot, down to
+              // LabelFit.minScale; past that the labels ellipsize.
+              final fit = LabelFit.group(
+                labels: [for (final d in widget.destinations) d.label],
+                style: labelStyle,
+                textScaler: MediaQuery.textScalerOf(context),
+                textDirection: Directionality.of(context),
+                slotWidth: _labelSlot(itemWidth),
+              );
               return AnimatedBuilder(
                 animation: widget.indicatorAnimation ?? _indicatorController,
                 builder: (context, _) {
@@ -317,12 +329,12 @@ class _FuncBottomNavState extends State<FuncBottomNav>
                     final from = _indicatorRect(
                       itemWidth,
                       lower,
-                      _labelWidth(context, lower, itemWidth, labelFontSize),
+                      _labelWidth(context, lower, itemWidth, labelStyle, fit),
                     );
                     final to = _indicatorRect(
                       itemWidth,
                       upper,
-                      _labelWidth(context, upper, itemWidth, labelFontSize),
+                      _labelWidth(context, upper, itemWidth, labelStyle, fit),
                     );
                     left = from.left + (to.left - from.left) * frac;
                     right = from.right + (to.right - from.right) * frac;
@@ -346,7 +358,8 @@ class _FuncBottomNavState extends State<FuncBottomNav>
                         context,
                         _indicatorFrom,
                         itemWidth,
-                        labelFontSize,
+                        labelStyle,
+                        fit,
                       ),
                     );
                     final to = _indicatorRect(
@@ -356,7 +369,8 @@ class _FuncBottomNavState extends State<FuncBottomNav>
                         context,
                         widget.selectedIndex,
                         itemWidth,
-                        labelFontSize,
+                        labelStyle,
+                        fit,
                       ),
                     );
                     final movingRight = widget.selectedIndex > _indicatorFrom;
@@ -379,7 +393,8 @@ class _FuncBottomNavState extends State<FuncBottomNav>
                               child: _FuncBottomNavItem(
                                 key: _itemKeys[i],
                                 destination: widget.destinations[i],
-                                fontSize: labelFontSize,
+                                labelStyle: labelStyle,
+                                labelFit: fit,
                                 selected: i == selected,
                                 onTap: () {
                                   // Record the pre-switch index at press
@@ -430,51 +445,39 @@ class _FuncBottomNavState extends State<FuncBottomNav>
   // TabBar `indicatorSize: label` — the underline spans the label text, not
   // the whole destination. Measuring the label's intrinsic width keeps the
   // bottom indicator the same proportion as the top bar's.
-  final Map<String, double> _labelWidths = {};
+  final Map<(String, double), double> _labelWidths = {};
 
-  double _measureLabel(BuildContext context, String label, double fontSize) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: TextStyle(
-          fontSize: fontSize,
-          fontWeight: FontWeight.w500,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-      ),
-      textDirection: Directionality.of(context),
-      maxLines: 1,
-      textScaler: MediaQuery.textScalerOf(context),
-    )..layout();
-    return painter.width;
-  }
+  static const _labelStyle = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+  );
 
-  /// One scale factor shared by every destination label, so all of them
-  /// render at the same size in any locale. Never upscales past 1.
-  double _labelScale(BuildContext context, double itemWidth) {
-    var maxWidth = 0.0;
-    for (final destination in widget.destinations) {
-      final width = _measureLabel(context, destination.label, 12);
-      if (width > maxWidth) maxWidth = width;
-    }
-    if (maxWidth <= 0) return 1;
-    return (math.max(0.0, itemWidth - 12) / maxWidth).clamp(0.55, 1.0);
-  }
+  /// Room for a label inside its destination.
+  static double _labelSlot(double itemWidth) =>
+      math.max(0.0, itemWidth - 2 * _labelInset);
 
+  static const _labelInset = 6.0;
+
+  /// The painted width of destination [index]'s label.
   double _labelWidth(
     BuildContext context,
     int index,
     double itemWidth,
-    double fontSize,
+    TextStyle labelStyle,
+    LabelFit fit,
   ) {
     final label = widget.destinations[index].label;
     final measured = _labelWidths.putIfAbsent(
-      label,
-      () => _measureLabel(context, label, fontSize),
+      (label, fit.scale),
+      () => LabelFit.measureLabel(
+        label,
+        labelStyle,
+        fit.scaler(MediaQuery.textScalerOf(context)),
+        Directionality.of(context),
+      ),
     );
-    // Keep the indicator inside the item's hit target even if an extreme
-    // translation still overflows after scaling.
-    return measured.clamp(0.0, math.max(0.0, itemWidth - 12));
+    // An ellipsized label fills its slot.
+    return math.min(measured, _labelSlot(itemWidth));
   }
 }
 
@@ -518,13 +521,15 @@ class _FuncBottomNavItem extends StatelessWidget {
   const _FuncBottomNavItem({
     super.key,
     required this.destination,
-    required this.fontSize,
+    required this.labelStyle,
+    required this.labelFit,
     required this.selected,
     required this.onTap,
   });
 
   final FuncBottomNavDestination destination;
-  final double fontSize;
+  final TextStyle labelStyle;
+  final LabelFit labelFit;
   final bool selected;
   final VoidCallback onTap;
 
@@ -553,14 +558,14 @@ class _FuncBottomNavItem extends StatelessWidget {
         children: [
           Icon(destination.icon, size: 24, color: color),
           const SizedBox(height: FuncSpacing.xxs),
-          Text(
-            destination.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w500,
-              color: color,
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: _FuncBottomNavState._labelInset,
+            ),
+            child: FitLabel(
+              destination.label,
+              fit: labelFit,
+              style: labelStyle.copyWith(color: color),
             ),
           ),
           const SizedBox(height: FuncSpacing.xs),

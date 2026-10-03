@@ -184,15 +184,28 @@ void main() {
     expect(picked, ['novel', 'illust']);
   });
 
-  testWidgets('the selected option carries the check glyph', (tester) async {
+  testWidgets('the selection is the fill and the selected semantics', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
     await tester.pumpWidget(_boxHost());
     await tester.pump();
 
-    // Selection is not color-only: the M3 default check icon stays.
+    // No check glyph: it would widen the selected segment and shift the
+    // labels when the selection moves. Screen readers get the selection.
     expect(
       find.descendant(of: _switchRow(), matching: find.byIcon(Icons.check)),
-      findsOneWidget,
+      findsNothing,
     );
+    expect(
+      tester.getSemantics(find.text(_two.first.label)),
+      isSemantics(isSelected: true, isInMutuallyExclusiveGroup: true),
+    );
+    expect(
+      tester.getSemantics(find.text(_two.last.label)),
+      isSemantics(isSelected: false, isInMutuallyExclusiveGroup: true),
+    );
+    semantics.dispose();
   });
 
   group('sliver form inside PullToRefresh', () {

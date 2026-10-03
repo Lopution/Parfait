@@ -166,16 +166,15 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage> {
                             SearchResultType.illust,
                             SearchResultType.novel,
                           ])
-                            ButtonSegment(
+                            AppSegment(
                               value: type,
-                              label: Text(searchText(context, type.labelKey)),
+                              label: searchText(context, type.labelKey),
                             ),
                         ],
-                        selected: {trendingType},
-                        showSelectedIcon: false,
-                        onSelectionChanged: (selected) => ref
+                        selected: trendingType,
+                        onSelected: (type) => ref
                             .read(trendingKindProvider.notifier)
-                            .select(selected.first),
+                            .select(type),
                       ),
                     ],
                   ),

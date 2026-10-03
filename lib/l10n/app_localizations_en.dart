@@ -1437,7 +1437,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get ugoiraLoadFailed => 'Animation failed to load';
 
   @override
-  String get homeRecommended => 'Recommended';
+  String get homeRecommended => 'For you';
 
   @override
   String get homeRanking => 'Ranking';

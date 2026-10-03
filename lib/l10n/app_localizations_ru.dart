@@ -1438,7 +1438,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get ugoiraLoadFailed => 'Не удалось загрузить анимацию';
 
   @override
-  String get homeRecommended => 'Рекомендации';
+  String get homeRecommended => 'Для вас';
 
   @override
   String get homeRanking => 'Рейтинг';

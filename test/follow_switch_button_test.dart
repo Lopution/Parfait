@@ -106,6 +106,25 @@ RenderParagraph _buttonParagraph(WidgetTester tester) =>
       ),
     );
 
+/// The label is whole, or — scaled to LabelFit's floor and still too wide
+/// (FlutterTest's square glyphs at ru + 2x) — ellipsized with its full text
+/// in a tooltip.
+void _expectLabelReadable(WidgetTester tester, {String? reason}) {
+  final paragraph = _buttonParagraph(tester);
+  if (!paragraph.didExceedMaxLines) return;
+  final text = paragraph.text.toPlainText();
+  expect(
+    find.descendant(
+      of: find.byType(FollowSwitchButton),
+      matching: find.byWidgetPredicate(
+        (widget) => widget is Tooltip && widget.message == text,
+      ),
+    ),
+    findsOneWidget,
+    reason: reason,
+  );
+}
+
 /// Mounts a `ReplicaProfileHeaderDelegate` the same way `UserPage` does: the
 /// expanded extent starts unset and is fed back from the identity block's
 /// post-frame size report.
@@ -358,11 +377,12 @@ void main() {
     await tester.pump();
     expect(find.byType(FollowSwitchButton), findsOneWidget);
     expect(tester.takeException(), isNull);
-    expect(_buttonParagraph(tester).didExceedMaxLines, isFalse);
+    _expectLabelReadable(tester);
 
     // Both user lists (profile_user_feed.dart, search_result_page.dart)
     // cap the ListTile's trailing slot at half the row: the title keeps a
-    // lane, and the label scales down instead of overflowing the tile.
+    // lane, and the label scales down (then ellipsizes) instead of
+    // overflowing the tile.
     for (final subtitle in ['@sample', 'u: sample']) {
       await _pump(
         tester,
@@ -410,11 +430,7 @@ void main() {
         ),
         reason: 'tile "$subtitle" button cap',
       );
-      expect(
-        _buttonParagraph(tester).didExceedMaxLines,
-        isFalse,
-        reason: 'tile "$subtitle" label',
-      );
+      _expectLabelReadable(tester, reason: 'tile "$subtitle" label');
     }
   });
 }
