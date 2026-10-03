@@ -432,7 +432,9 @@ void main() {
             demand.debugHolds(e.imageUrls.medium) == 0)
           e.imageUrls.medium,
     ];
-    expect(windowed, isNotEmpty);
+    // Three rows of the grid's four columns past the built edge.
+    expect(illustColumnsFor(800 - 16), 4);
+    expect(windowed, hasLength(4 * 3));
 
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(host(grid: false));

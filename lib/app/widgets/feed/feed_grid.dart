@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../core/entity/illust_entity.dart';
+import '../../../core/network/compat/image_cache.dart' show PriorityFileService;
 import '../../../core/network/compat/image_demand.dart';
 import '../../../core/network/compat/network_contracts.dart';
 import '../../../core/network/compat/network_providers.dart';
@@ -85,11 +86,14 @@ class IllustPagerScope extends InheritedWidget {
       source != oldWidget.source;
 }
 
-/// How many items past the built edge each prefetch step warms.
-const int _kFeedPrefetchAhead = 24;
+/// Rows past the built edge each prefetch step warms. Three phone rows are
+/// about one screen; with the half screen `kFeedCacheExtent` already
+/// builds, loading runs roughly 1.5 screens ahead of what is visible.
+const int _kFeedPrefetchRows = 3;
 
-/// Concurrent preview resolves admitted per prefetch batch.
-const int _kFeedPrefetchConcurrent = 4;
+/// Preview resolves admitted per prefetch batch — the background lane's
+/// slot count, so a batch never queues behind itself.
+const int _kFeedPrefetchConcurrent = PriorityFileService.backgroundSlots;
 
 /// (url, decodeWidth) pairs already issued. Bounded LRU so a long session
 /// does not grow the set without limit.
@@ -114,19 +118,28 @@ Iterable<String> get debugFeedPrefetchedKeys => _feedPrefetched;
 /// awaits the scroll position's isScrolling notifier, then gives up to the
 /// next watermark advance if the user is still flinging.
 ///
-/// The window is registered through [cursor] as the grid's image demand: a
-/// warm-up still queued when the window has moved on is dropped.
+/// The window is the [length] items from [fromIndex]. It is registered
+/// through [cursor] as the grid's image demand; when a newer window replaces
+/// it, this run stops issuing and its queued warm-ups are dropped.
 void scheduleFeedPreviewPrefetch(
   BuildContext context,
   List<IllustEntity> entities,
   int fromIndex,
   int decodeWidth, {
+  required int length,
   required FeedPrefetchCursor cursor,
 }) {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     if (!context.mounted) return;
     unawaited(
-      _prefetchFeedWindow(context, entities, fromIndex, decodeWidth, cursor),
+      _prefetchFeedWindow(
+        context,
+        entities,
+        fromIndex,
+        math.min(entities.length, fromIndex + length),
+        decodeWidth,
+        cursor,
+      ),
     );
   });
 }
@@ -135,6 +148,7 @@ Future<void> _prefetchFeedWindow(
   BuildContext context,
   List<IllustEntity> entities,
   int fromIndex,
+  int end,
   int decodeWidth,
   FeedPrefetchCursor cursor,
 ) async {
@@ -165,7 +179,6 @@ Future<void> _prefetchFeedWindow(
         .read(networkAccessPolicyProvider)
         .warmConnection(PixivDestinationPurpose.image, warmHost);
   }
-  final end = math.min(entities.length, fromIndex + _kFeedPrefetchAhead);
   // The card's own layout rule: tall works prefetch the cropped large or
   // square thumbnail the card will paint, not the tier preview.
   final window = [
@@ -180,14 +193,16 @@ Future<void> _prefetchFeedWindow(
           ),
         ),
   ];
-  cursor.claimWindow(network.imageDemand, {
+  final claim = cursor.claimWindow(network.imageDemand, {
     for (final (_, preview) in window) preview.url,
   });
   for (var i = 0; i < window.length; i += _kFeedPrefetchConcurrent) {
-    if (!context.mounted) return;
+    if (!context.mounted || !cursor.holdsWindow(claim)) return;
     if (_isDeferred(context)) {
       await _waitForScrollIdle(context);
-      if (!context.mounted || _isDeferred(context)) {
+      if (!context.mounted ||
+          !cursor.holdsWindow(claim) ||
+          _isDeferred(context)) {
         // Still moving fast — the next built-edge advance reschedules.
         return;
       }
@@ -300,6 +315,7 @@ class FeedItemExtent extends InheritedWidget {
 class FeedPrefetchCursor {
   int _last = -1;
   ImageDemand? _demand;
+  var _claims = 0;
 
   /// The window start for [index], or null when nothing should be warmed.
   int? advance(int index, {required int ahead}) {
@@ -310,10 +326,15 @@ class FeedPrefetchCursor {
   }
 
   /// Makes [urls] this grid's prefetch window, replacing the previous one.
-  void claimWindow(ImageDemand demand, Set<String> urls) {
+  /// Returns a claim for [holdsWindow].
+  int claimWindow(ImageDemand demand, Set<String> urls) {
     if (!identical(demand, _demand)) _demand?.clearPrefetchWindow(this);
     _demand = demand..setPrefetchWindow(this, urls);
+    return ++_claims;
   }
+
+  /// Whether [claim] is still the latest window.
+  bool holdsWindow(int claim) => claim == _claims && _demand != null;
 
   /// Gives the window up when the grid goes away.
   void dispose() {
@@ -403,16 +424,23 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
   /// by those walks queued a prefetch window per built card each time.
   final _prefetchCursor = FeedPrefetchCursor();
 
-  void _prefetchPast(BuildContext context, int index, int decodeWidth) {
+  void _prefetchPast(
+    BuildContext context,
+    int index,
+    int decodeWidth,
+    int columns,
+  ) {
     final entities = widget.prefetchEntities;
     if (entities == null) return;
-    final from = _prefetchCursor.advance(index, ahead: _kFeedPrefetchAhead);
+    final ahead = columns * _kFeedPrefetchRows;
+    final from = _prefetchCursor.advance(index, ahead: ahead);
     if (from != null) {
       scheduleFeedPreviewPrefetch(
         context,
         entities,
         from,
         decodeWidth,
+        length: ahead,
         cursor: _prefetchCursor,
       );
     }
@@ -487,7 +515,8 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
                   // afresh, which is what advances the prefetch.
                   child: _OnMount(
                     key: ValueKey(id),
-                    onMount: () => _prefetchPast(context, index, decodeWidth),
+                    onMount: () =>
+                        _prefetchPast(context, index, decodeWidth, columns),
                     child: StaggeredEntrance(
                       index: index,
                       id: id,

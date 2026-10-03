@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
+import 'package:parfait/core/network/compat/image_demand.dart';
 
 void main() {
   const ahead = 12;
@@ -36,5 +37,20 @@ void main() {
     final cursor = FeedPrefetchCursor();
     cursor.advance(30, ahead: ahead);
     expect(cursor.advance(5, ahead: ahead), 0);
+  });
+
+  test('a newer window supersedes the running one; dispose gives it up', () {
+    final cursor = FeedPrefetchCursor();
+    final demand = ImageDemand();
+    final first = cursor.claimWindow(demand, {'a'});
+    final second = cursor.claimWindow(demand, {'b'});
+    expect(cursor.holdsWindow(first), isFalse);
+    expect(cursor.holdsWindow(second), isTrue);
+    expect(demand.wants('a'), isFalse);
+    expect(demand.wants('b'), isTrue);
+
+    cursor.dispose();
+    expect(cursor.holdsWindow(second), isFalse);
+    expect(demand.wants('b'), isFalse);
   });
 }
