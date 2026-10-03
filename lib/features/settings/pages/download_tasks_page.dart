@@ -44,6 +44,10 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
 
   final _removals = RemovalController();
 
+  /// Rows an expand inserts this frame: only those grow in, not rows the
+  /// lazy list builds on scroll.
+  Set<String> _growingRows = const {};
+
   @override
   void initState() {
     super.initState();
@@ -103,10 +107,29 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     });
   }
 
-  void _toggleGroupExpanded(String groupId) {
+  Future<void> _toggleGroupExpanded(String groupId) async {
+    if (_expandedGroups.contains(groupId)) {
+      // The children fold away first, then leave the list.
+      final group = _manager.groups.where((group) => group.id == groupId);
+      await _removals.playExit([
+        for (final id in group.expand((group) => group.jobIds)) _taskRowKey(id),
+      ]);
+      if (mounted) setState(() => _expandedGroups.remove(groupId));
+      return;
+    }
+    final group = _manager.groups.where((group) => group.id == groupId);
     setState(() {
-      if (!_expandedGroups.remove(groupId)) _expandedGroups.add(groupId);
+      _expandedGroups.add(groupId);
+      _growingRows = {
+        for (final id in group.expand(
+          (group) => group.jobIds.take(_maxGrowingRows),
+        ))
+          _taskRowKey(id),
+      };
     });
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _growingRows = const {},
+    );
   }
 
   Future<void> _cancelSelected() async {
@@ -297,6 +320,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
                       itemBuilder: (context, index) => Removable(
                         key: ValueKey(entries[index].key),
                         id: entries[index].key,
+                        animateIn: _growingRows.contains(entries[index].key),
                         child: _buildEntry(entries[index]),
                       ),
                     ),
@@ -370,6 +394,11 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
 }
 
 String _taskRowKey(String taskId) => 'download-task-$taskId';
+
+/// Children of an expanding group that grow in: about one screen of rows.
+/// Every growing row starts at zero height, so the lazy list would build
+/// all of them at once; the rest appear at full size below the fold.
+const _maxGrowingRows = 16;
 String _groupRowKey(String groupId) => 'download-group-$groupId';
 
 /// Plays the exit of the rows of [taskIds] — plus [groupId]'s header when

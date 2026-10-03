@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/motion/state_fade.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/author_summary.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
@@ -120,6 +121,42 @@ void main() {
     );
     await tester.pump();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('empty and error states fade in when they appear', (
+    tester,
+  ) async {
+    double opacityOver(String text) => tester
+        .widget<FadeTransition>(
+          find
+              .ancestor(
+                of: find.text(text),
+                matching: find.descendant(
+                  of: find.byType(StateFade),
+                  matching: find.byType(FadeTransition),
+                ),
+              )
+              .first,
+        )
+        .opacity
+        .value;
+
+    for (final state in [
+      const FeedEmpty(title: 'Nothing here'),
+      FeedError(title: 'Failed', onRetry: () {}, retryLabel: 'Retry'),
+    ]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: replicaTheme(Brightness.light),
+          home: Scaffold(body: state),
+        ),
+      );
+      final title = state is FeedEmpty ? 'Nothing here' : 'Failed';
+      expect(opacityOver(title), 0);
+      await tester.pumpAndSettle();
+      expect(opacityOver(title), 1);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
   });
 
   testWidgets('MotionTokens.resolve collapses under disabled animations', (

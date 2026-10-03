@@ -34,6 +34,7 @@ import 'package:parfait/app/theme/func_tokens.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/motion/state_fade.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
@@ -1673,8 +1674,15 @@ void main() {
         expect(find.byType(ProgressIndicator), findsNothing);
 
         gate.complete();
-        await tester.pumpAndSettle();
+        // The loaded detail replaces the skeleton and fades in.
+        for (var i = 0; i < 20; i++) {
+          if (find.byType(IllustDetailSkeleton).evaluate().isEmpty) break;
+          await tester.pump(const Duration(milliseconds: 1));
+        }
         expect(find.byType(IllustDetailSkeleton), findsNothing);
+        expect(_stateFadeOpacity(tester), lessThan(1));
+        await tester.pumpAndSettle();
+        expect(_stateFadeOpacity(tester), 1);
         // The first page image at the top of the scroll proves the entity
         // rendered — the InfoBlock title sits below the fold of a lazy
         // sliver.
@@ -2505,3 +2513,16 @@ void main() {
     });
   });
 }
+
+/// Opacity of the page's skeleton-to-content [StateFade].
+double _stateFadeOpacity(WidgetTester tester) => tester
+    .widget<FadeTransition>(
+      find
+          .descendant(
+            of: find.byType(StateFade),
+            matching: find.byType(FadeTransition),
+          )
+          .first,
+    )
+    .opacity
+    .value;

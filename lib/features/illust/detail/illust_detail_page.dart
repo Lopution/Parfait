@@ -21,6 +21,7 @@ import '../../../core/illust/illust_detail_controller.dart';
 import '../../../core/illust/illust_download_controller.dart';
 import '../../../app/haptics/app_haptics.dart';
 import '../../../app/motion/motion_tokens.dart';
+import '../../../app/motion/state_fade.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/widgets/feed/feed_states.dart';
@@ -249,55 +250,65 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 )
               : const SizedBox.shrink(),
         ),
-        body: async.when(
-          // U5 (R7): AsyncNotifier.build() returns a Future, so the first
-          // frame is ALWAYS AsyncLoading — a spinner here would hide the
-          // store snapshot the feed already placed in IllustStore, and the
-          // Hero destination would not exist on the first frame. Render the
-          // snapshot immediately; the controller's IllustDetailLoading state
-          // stays as the no-snapshot first-load signal.
-          loading: () {
-            final snapshot = _snapshotEntity();
-            if (snapshot != null) {
-              return _buildContent(context, ref, snapshot);
-            }
-            return const IllustDetailSkeleton();
-          },
-          error: (Object error, StackTrace _) => FeedError(
-            title: context.l10n.illustDetailLoadFailed,
-            error: error,
-            retryLabel: context.l10n.retry,
-            onRetry: () => ref
-                .read(illustDetailControllerProvider(widget.illustId).notifier)
-                .reload(),
+        body: _fadeStates(
+          async.when(
+            // U5 (R7): AsyncNotifier.build() returns a Future, so the first
+            // frame is ALWAYS AsyncLoading — a spinner here would hide the
+            // store snapshot the feed already placed in IllustStore, and the
+            // Hero destination would not exist on the first frame. Render the
+            // snapshot immediately; the controller's IllustDetailLoading state
+            // stays as the no-snapshot first-load signal.
+            loading: () {
+              final snapshot = _snapshotEntity();
+              if (snapshot != null) {
+                return _buildContent(context, ref, snapshot);
+              }
+              return const IllustDetailSkeleton();
+            },
+            error: (Object error, StackTrace _) => FeedError(
+              title: context.l10n.illustDetailLoadFailed,
+              error: error,
+              retryLabel: context.l10n.retry,
+              onRetry: () => ref
+                  .read(
+                    illustDetailControllerProvider(widget.illustId).notifier,
+                  )
+                  .reload(),
+            ),
+            data: (state) {
+              // Snapshot-first (R1): the shared store renders stale data behind
+              // any in-flight refresh; the controller state drives the terminal
+              // surfaces (the loading branch above reads the store directly).
+              return switch (state) {
+                IllustDetailRestricted(:final entity) => FeedEmpty(
+                  icon: Icons.visibility_off_outlined,
+                  title: context.l10n.illustDetailRestricted(entity.id),
+                ),
+                IllustDetailNotFound() => FeedEmpty(
+                  icon: Icons.search_off,
+                  title: context.l10n.illustDetailNotFound,
+                ),
+                IllustDetailReady(:final entity) => _buildContent(
+                  context,
+                  ref,
+                  entity,
+                  detailReady: true,
+                ),
+                IllustDetailError(:final error, :final snapshot) =>
+                  _errorOrSnapshot(context, ref, error, snapshot),
+              };
+            },
           ),
-          data: (state) {
-            // Snapshot-first (R1): the shared store renders stale data behind
-            // any in-flight refresh; the controller state drives the terminal
-            // surfaces (the loading branch above reads the store directly).
-            return switch (state) {
-              IllustDetailRestricted(:final entity) => FeedEmpty(
-                icon: Icons.visibility_off_outlined,
-                title: context.l10n.illustDetailRestricted(entity.id),
-              ),
-              IllustDetailNotFound() => FeedEmpty(
-                icon: Icons.search_off,
-                title: context.l10n.illustDetailNotFound,
-              ),
-              IllustDetailReady(:final entity) => _buildContent(
-                context,
-                ref,
-                entity,
-                detailReady: true,
-              ),
-              IllustDetailError(:final error, :final snapshot) =>
-                _errorOrSnapshot(context, ref, error, snapshot),
-            };
-          },
         ),
       ),
     );
   }
+
+  /// The no-snapshot skeleton hands over to the content with a fade. Empty
+  /// and error states fade in by themselves; the snapshot-first path never
+  /// shows the skeleton, so the Hero destination is never faded.
+  Widget _fadeStates(Widget body) =>
+      StateFade(kind: body is IllustDetailSkeleton, child: body);
 
   PreferredSizeWidget _buildAppBar(
     BuildContext context,

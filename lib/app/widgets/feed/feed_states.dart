@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../core/errors/error_category.dart';
 import '../../../core/paging/paged_feed_controller.dart';
+import '../../motion/state_fade.dart';
 import '../errors/error_details.dart';
 import '../../theme/func_semantic_tokens.dart';
 
@@ -154,52 +155,55 @@ class FeedEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 48, color: colorScheme.onSurfaceVariant),
-          const SizedBox(height: FuncSpacing.md),
-          Text(title),
-          if (error != null) ...[
-            const SizedBox(height: FuncSpacing.sm),
-            Text(
-              errorCategoryText(context, categorizeError(error!)),
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-            ErrorDetails(error: error!),
-          ] else if (detail != null) ...[
-            const SizedBox(height: FuncSpacing.sm),
-            Text(
-              detail!,
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-          ],
-          if (onRefresh != null || onAction != null) ...[
+    // Always the result of a state change (loading → empty): fade in.
+    return StateFade.onMount(
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 48, color: colorScheme.onSurfaceVariant),
             const SizedBox(height: FuncSpacing.md),
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                if (onRefresh != null)
-                  OutlinedButton.icon(
-                    onPressed: onRefresh,
-                    icon: const Icon(Icons.refresh),
-                    label: Text(retryLabel!),
-                  ),
-                if (onAction != null)
-                  OutlinedButton.icon(
-                    onPressed: onAction,
-                    icon: const Icon(Icons.edit_outlined),
-                    label: Text(actionLabel!),
-                  ),
-              ],
-            ),
+            Text(title),
+            if (error != null) ...[
+              const SizedBox(height: FuncSpacing.sm),
+              Text(
+                errorCategoryText(context, categorizeError(error!)),
+                style: Theme.of(context).textTheme.bodySmall,
+                textAlign: TextAlign.center,
+              ),
+              ErrorDetails(error: error!),
+            ] else if (detail != null) ...[
+              const SizedBox(height: FuncSpacing.sm),
+              Text(
+                detail!,
+                style: Theme.of(context).textTheme.bodySmall,
+                textAlign: TextAlign.center,
+              ),
+            ],
+            if (onRefresh != null || onAction != null) ...[
+              const SizedBox(height: FuncSpacing.md),
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  if (onRefresh != null)
+                    OutlinedButton.icon(
+                      onPressed: onRefresh,
+                      icon: const Icon(Icons.refresh),
+                      label: Text(retryLabel!),
+                    ),
+                  if (onAction != null)
+                    OutlinedButton.icon(
+                      onPressed: onAction,
+                      icon: const Icon(Icons.edit_outlined),
+                      label: Text(actionLabel!),
+                    ),
+                ],
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -246,18 +250,18 @@ class FeedError extends StatelessWidget {
         FilledButton(onPressed: onRetry, child: Text(retryLabel)),
       ],
     );
-    if (!scrollable) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(FuncSpacing.xl),
-          child: column,
-        ),
-      );
-    }
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(FuncSpacing.xl),
-        child: column,
+    // Always the result of a state change (loading → error): fade in.
+    return StateFade.onMount(
+      child: Center(
+        child: scrollable
+            ? SingleChildScrollView(
+                padding: const EdgeInsets.all(FuncSpacing.xl),
+                child: column,
+              )
+            : Padding(
+                padding: const EdgeInsets.all(FuncSpacing.xl),
+                child: column,
+              ),
       ),
     );
   }

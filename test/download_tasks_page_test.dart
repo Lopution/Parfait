@@ -911,6 +911,13 @@ void main() {
     // and they share its surface color.
     await tester.tap(find.text('批量下载 · 2 项'));
     await tester.pump();
+    // The children grow in from zero height, then sit at full size.
+    final firstChild = _taskRow(manager.tasks.first.id);
+    expect(tester.getSize(firstChild).height, 0);
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(tester.getSize(firstChild).height, greaterThan(0));
+    await tester.pump(const Duration(milliseconds: 300));
+    final fullHeight = tester.getSize(firstChild).height;
     expect(_taskRows(), findsNWidgets(2));
     expect(
       find.descendant(of: header, matching: find.byIcon(Icons.expand_less)),
@@ -940,9 +947,12 @@ void main() {
       );
     }
 
-    // Tap again to collapse.
+    // Tap again to collapse: the children fold away, then leave the list.
     await tester.tap(find.text('批量下载 · 2 项'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(tester.getSize(firstChild).height, inExclusiveRange(0, fullHeight));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(_taskRows(skipOffstage: false), findsNothing);
     expect(
       find.descendant(of: header, matching: find.byIcon(Icons.expand_more)),
@@ -989,11 +999,19 @@ void main() {
 
     await tester.tap(find.byKey(ValueKey('download-group-${group.id}')));
     await tester.pump();
+    // The first frame also holds the growing rows at zero height; only
+    // about a screen of them grows, not all 300.
+    expect(
+      _taskRows(skipOffstage: false).evaluate().length,
+      inInclusiveRange(1, 40),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
     expect(
       _taskRows(skipOffstage: false).evaluate().length,
       inInclusiveRange(1, 20),
     );
   });
+
   testWidgets(
     'selection mode batch-removes terminal and batch-cancels active',
     (tester) async {
@@ -1167,6 +1185,7 @@ void main() {
       // contract: two-line title, actions on the second line.
       await tester.tap(find.text('批量下载 · 2 项'));
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       final longNameTask = manager.tasks.first;
       final childRow = _taskRow(longNameTask.id);
       expect(

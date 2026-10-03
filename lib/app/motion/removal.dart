@@ -79,11 +79,17 @@ class Removable extends StatefulWidget {
     super.key,
     required this.id,
     this.style = RemovalStyle.row,
+    this.animateIn = false,
     required this.child,
   });
 
   final Object id;
   final RemovalStyle style;
+
+  /// Plays the exit backwards when first built: for rows a user action
+  /// inserts (a group expanding). Rows a lazy list builds on scroll pass
+  /// false and appear as they are.
+  final bool animateIn;
   final Widget child;
 
   @override
@@ -95,17 +101,25 @@ class _RemovableState extends State<Removable>
   /// 1 present, 0 gone; linear in time, shaped by [_shaped].
   late final AnimationController _presence = AnimationController(
     vsync: this,
-    value: 1,
+    value: widget.animateIn ? 0 : 1,
   );
-  late CurvedAnimation _shaped = CurvedAnimation(
+
+  /// Curves are set per run: they follow the animation speed setting.
+  late final CurvedAnimation _shaped = CurvedAnimation(
     parent: _presence,
     curve: Curves.linear,
   );
   RemovalController? _controller;
+  late bool _pendingEnter = widget.animateIn;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // The spring needs the motion scope, so the entrance starts here.
+    if (_pendingEnter) {
+      _pendingEnter = false;
+      _animateTo(1);
+    }
     final controller = RemovalScope.maybeOf(context);
     if (controller == _controller) return;
     _controller?._unregister(widget.id, this);
@@ -142,15 +156,9 @@ class _RemovableState extends State<Removable>
       _presence.value = target;
       return;
     }
-    final previous = _shaped;
-    setState(() {
-      _shaped = CurvedAnimation(
-        parent: _presence,
-        curve: curve,
-        reverseCurve: curve.flipped,
-      );
-    });
-    previous.dispose();
+    _shaped
+      ..curve = curve
+      ..reverseCurve = curve.flipped;
     _presence.duration = duration;
     // reverse()/forward() rather than animateTo: the curve follows the
     // controller's direction, and animateTo always reports forward.

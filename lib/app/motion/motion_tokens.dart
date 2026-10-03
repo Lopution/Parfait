@@ -40,10 +40,6 @@ abstract final class MotionTokens {
   static const listEntranceCurve = Curves.easeOutCubic;
   static const listStaggerStep = Duration(milliseconds: 30);
 
-  /// Bottom-sheet presentation (sheetAnimationStyle).
-  static const sheet = Duration(milliseconds: 250);
-  static const sheetCurve = Curves.easeOutCubic;
-
   /// Alert/confirm dialog presentation.
   static const dialog = Duration(milliseconds: 220);
 

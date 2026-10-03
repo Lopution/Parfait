@@ -131,7 +131,8 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    // Long enough for the feed's empty state to finish fading in.
+    await tester.pump(const Duration(milliseconds: 300));
     await expectLater(
       find.byType(FuncBottomNav),
       matchesGoldenFile('goldens/home_bar.png'),

@@ -12,6 +12,8 @@ import 'package:parfait/app/motion/feed_entrance.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/app/motion/removal.dart';
+import 'package:parfait/app/motion/spring_size.dart';
+import 'package:parfait/app/motion/state_fade.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/app_snack_bar.dart';
@@ -143,10 +145,29 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(
-        ModalRoute.of(sheet)!.transitionDuration,
-        MotionTokens.sheet * factor,
+      final (sheetIn, sheetCurve) = MotionTokens.springCurve(
+        host,
+        MotionSpring.spatialDefault,
       );
+      final normalSheet = SpringCurve(
+        SpringDescription.withDampingRatio(
+          mass: 1,
+          stiffness: MotionSpring.spatialDefault.stiffness,
+          ratio: MotionSpring.spatialDefault.dampingRatio,
+        ),
+      ).settleDuration;
+      expect(
+        sheetIn.inMicroseconds,
+        closeTo(normalSheet.inMicroseconds * factor, 2000),
+      );
+      final sheetRoute = ModalRoute.of(sheet)! as ModalBottomSheetRoute<void>;
+      expect(sheetRoute.transitionDuration, sheetIn);
+      expect(
+        sheetRoute.reverseTransitionDuration,
+        MotionTokens.medium * factor,
+      );
+      expect(sheetRoute.sheetAnimationStyle!.curve, isA<SpringCurve>());
+      expect(sheetCurve, isA<SpringCurve>());
       Navigator.of(sheet).pop();
       await tester.pumpAndSettle();
 
@@ -1061,6 +1082,167 @@ void main() {
       await tester.pumpWidget(_wrap(const SizedBox.shrink()));
       await tester.pump();
       expect(done, isTrue);
+    });
+
+    Widget inserted(
+      RemovalController controller, {
+      bool reduce = false,
+    }) => _wrap(
+      RemovalScope(
+        controller: controller,
+        // A Column: a lazy list counts the zero-height first frame offstage.
+        child: Column(
+          children: const [
+            Removable(
+              id: 'new',
+              animateIn: true,
+              child: SizedBox(height: 50, child: Text('new')),
+            ),
+            SizedBox(height: 50, child: Text('below')),
+          ],
+        ),
+      ),
+      reduce: reduce,
+    );
+
+    testWidgets('an inserted row grows in and fades from zero', (tester) async {
+      await tester.pumpWidget(inserted(RemovalController()));
+      final belowTop = tester.getTopLeft(find.text('below')).dy;
+      expect(opacity(tester, 'new'), 0);
+
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(opacity(tester, 'new'), inExclusiveRange(0, 1));
+      expect(tester.getTopLeft(find.text('below')).dy, greaterThan(belowTop));
+
+      await tester.pumpAndSettle();
+      expect(opacity(tester, 'new'), 1);
+      expect(tester.getTopLeft(find.text('below')).dy, belowTop + 50);
+    });
+
+    testWidgets('reduced motion inserts the row at full size', (tester) async {
+      await tester.pumpWidget(inserted(RemovalController(), reduce: true));
+      await tester.pump();
+      expect(opacity(tester, 'new'), 1);
+      expect(tester.getSize(find.text('new')).height, 50);
+    });
+  });
+
+  group('StateFade', () {
+    Widget faded(Object kind, {bool reduce = false}) => _wrap(
+      StateFade(kind: kind, child: Text('$kind')),
+      reduce: reduce,
+    );
+
+    double opacity(WidgetTester tester, String text) => tester
+        .widget<FadeTransition>(
+          find
+              .ancestor(
+                of: find.text(text),
+                matching: find.byType(FadeTransition),
+              )
+              .first,
+        )
+        .opacity
+        .value;
+
+    testWidgets('the first build shows its state at once', (tester) async {
+      await tester.pumpWidget(faded('skeleton'));
+      expect(opacity(tester, 'skeleton'), 1);
+    });
+
+    testWidgets('a kind change fades the new state in from zero over the '
+        'effectsFast spring', (tester) async {
+      await tester.pumpWidget(faded('skeleton'));
+      await tester.pumpWidget(faded('content'));
+      expect(find.text('skeleton'), findsNothing, reason: 'no cross-fade');
+      expect(opacity(tester, 'content'), 0);
+
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(opacity(tester, 'content'), inExclusiveRange(0, 1));
+
+      // effectsFast settles in ~150 ms.
+      await tester.pump(const Duration(milliseconds: 130));
+      expect(opacity(tester, 'content'), 1);
+    });
+
+    testWidgets('a rebuild of the same kind does not fade', (tester) async {
+      await tester.pumpWidget(faded('content'));
+      await tester.pumpWidget(faded('content'));
+      expect(opacity(tester, 'content'), 1);
+    });
+
+    testWidgets('onMount fades in on the first build', (tester) async {
+      await tester.pumpWidget(
+        _wrap(const StateFade.onMount(child: Text('empty'))),
+      );
+      expect(opacity(tester, 'empty'), 0);
+      await tester.pumpAndSettle();
+      expect(opacity(tester, 'empty'), 1);
+    });
+
+    testWidgets('reduced motion and frozen tickers show the state at once', (
+      tester,
+    ) async {
+      await tester.pumpWidget(faded('skeleton', reduce: true));
+      await tester.pumpWidget(faded('content', reduce: true));
+      expect(opacity(tester, 'content'), 1);
+
+      await tester.pumpWidget(
+        _wrap(
+          const TickerMode(
+            enabled: false,
+            child: StateFade.onMount(child: Text('error')),
+          ),
+        ),
+      );
+      expect(opacity(tester, 'error'), 1);
+    });
+  });
+
+  group('SpringSize', () {
+    Widget section(bool open, {bool reduce = false}) => _wrap(
+      Column(
+        children: [
+          SpringSize(
+            child: open
+                ? const SizedBox(height: 100, width: 10)
+                : const SizedBox.shrink(),
+          ),
+          const Text('below'),
+        ],
+      ),
+      reduce: reduce,
+    );
+
+    testWidgets('opening and closing animate the height', (tester) async {
+      await tester.pumpWidget(section(false));
+      final closedTop = tester.getTopLeft(find.text('below')).dy;
+
+      await tester.pumpWidget(section(true));
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(
+        tester.getTopLeft(find.text('below')).dy,
+        inExclusiveRange(closedTop, closedTop + 100),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('below')).dy, closedTop + 100);
+
+      await tester.pumpWidget(section(false));
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(
+        tester.getTopLeft(find.text('below')).dy,
+        inExclusiveRange(closedTop, closedTop + 100),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('below')).dy, closedTop);
+    });
+
+    testWidgets('reduced motion resizes at once', (tester) async {
+      await tester.pumpWidget(section(false, reduce: true));
+      final closedTop = tester.getTopLeft(find.text('below')).dy;
+      await tester.pumpWidget(section(true, reduce: true));
+      await tester.pump();
+      expect(tester.getTopLeft(find.text('below')).dy, closedTop + 100);
     });
   });
 

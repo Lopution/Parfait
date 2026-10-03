@@ -71,6 +71,30 @@ void main() {
       expect(find.byType(SelectableText), findsNothing);
     });
 
+    testWidgets('the section opens and closes with a height animation', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_host(ErrorDetails(error: StateError('boom'))));
+      final collapsed = tester.getSize(find.byType(ErrorDetails)).height;
+
+      await tester.tap(find.widgetWithText(TextButton, '详情'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      final opening = tester.getSize(find.byType(ErrorDetails)).height;
+      await tester.pumpAndSettle();
+      final expanded = tester.getSize(find.byType(ErrorDetails)).height;
+      expect(opening, greaterThan(collapsed));
+      expect(opening, lessThan(expanded));
+
+      await tester.tap(find.widgetWithText(TextButton, '详情'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      final closing = tester.getSize(find.byType(ErrorDetails)).height;
+      expect(closing, inExclusiveRange(collapsed, expanded));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(ErrorDetails)).height, collapsed);
+    });
+
     testWidgets('caps the raw text at maxChars', (tester) async {
       final huge = 'x' * (ErrorDetails.maxChars + 500);
       await tester.pumpWidget(_host(ErrorDetails(error: huge)));
@@ -89,7 +113,7 @@ void main() {
       _mockClipboard(clipboard);
       await tester.pumpWidget(_host(ErrorDetails(error: StateError('boom'))));
       await tester.tap(find.widgetWithText(TextButton, '详情'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(TextButton, '复制'));
       await tester.pump();
 
