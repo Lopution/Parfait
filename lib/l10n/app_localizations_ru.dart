@@ -557,7 +557,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get historyDeleteHint => 'Удалённую историю нельзя восстановить.';
 
   @override
-  String get downloaderSettings => 'Задачи загрузки';
+  String get downloaderSettings => 'Загрузки';
 
   @override
   String get aboutSettings => 'О приложении';
@@ -1789,10 +1789,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchTarget => 'Область поиска';
 
   @override
-  String get searchPartialTags => 'Частичное совпадение тегов';
+  String get searchPartialTags => 'Частично по тегам';
 
   @override
-  String get searchExactTags => 'Точное совпадение тегов';
+  String get searchExactTags => 'Точно по тегам';
 
   @override
   String get searchTitleCaption => 'Название и описание';

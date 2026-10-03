@@ -13,7 +13,6 @@ import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_recovery.dart';
-import 'package:parfait/core/download/download_request.dart';
 import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/download/pixiv_download_transport.dart';
@@ -23,24 +22,6 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'helpers/download_world.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
-
-Future<(ProviderContainer, DownloadManager, FakeTransport)> _world({
-  required List<ScriptedResponse> responses,
-  int maxConcurrent = 3,
-}) async {
-  installMemoryPreferences();
-  final transport = FakeTransport()..responses.addAll(responses);
-  final manager = DownloadManager(
-    transport: transport,
-    sinkFactory: MemorySinkFactory(),
-    maxConcurrent: maxConcurrent,
-  );
-  final container = ProviderContainer(
-    overrides: [downloadManagerProvider.overrideWithValue(manager)],
-  );
-  addTearDown(container.dispose);
-  return (container, manager, transport);
-}
 
 Future<void> _pumpPage(WidgetTester tester, ProviderContainer container) async {
   await tester.pumpWidget(
@@ -62,45 +43,6 @@ Future<void> _pumpPage(WidgetTester tester, ProviderContainer container) async {
   await tester.pump();
 }
 
-Future<void> _drain(
-  WidgetTester tester,
-  bool Function() predicate, {
-  int tries = 40,
-}) async {
-  for (var i = 0; i < tries && !predicate(); i++) {
-    await tester.pump(const Duration(milliseconds: 20));
-  }
-}
-
-DownloadRequest _req(
-  int id, {
-  String? title,
-  String? artist,
-  int pageIndex = 0,
-  int? totalPages,
-  String? thumbnailUrl,
-  NamingRule? namingRule,
-}) => DownloadRequest(
-  illustId: id,
-  pageIndex: pageIndex,
-  url: Uri.parse('https://i.pximg.net/$id/p$pageIndex.jpg'),
-  target: DownloadTarget.illustPage,
-  title: title,
-  artist: artist,
-  totalPages: totalPages,
-  thumbnailUrl: thumbnailUrl,
-  namingRule: namingRule,
-);
-
-ScriptedResponse _gated(Completer<void> gate, {int byte = 1}) =>
-    ScriptedResponse(
-      contentLength: 1,
-      chunks: [
-        [byte],
-      ],
-      completers: [gate],
-    );
-
 /// A built row's `download-task-*`/`download-group-*` key, onstage or in the
 /// lazy cache — this is how we prove the list builds on demand (R6).
 Finder _taskRows({bool skipOffstage = true}) => find.byWidgetPredicate(
@@ -115,23 +57,28 @@ Finder _taskRow(String taskId) => find.byKey(ValueKey('download-task-$taskId'));
 Finder _groupHeader(String groupId) =>
     find.byKey(ValueKey('download-group-$groupId'));
 
+/// The selection bar's title: the bare count, read out as [label].
+Finder _selectionTitle(String label) => find.byWidgetPredicate(
+  (widget) => widget is Text && widget.semanticsLabel == label,
+);
+
 void main() {
   testWidgets('group header pauses, resumes and cancels children', (
     tester,
   ) async {
     final gates = [Completer<void>(), Completer<void>()];
     final resumeGates = [Completer<void>(), Completer<void>()];
-    final (container, manager, transport) = await _world(
+    final (container, manager, transport) = await makeDownloadWorld(
       responses: [
-        _gated(gates[0], byte: 1),
-        _gated(gates[1], byte: 2),
-        _gated(resumeGates[0], byte: 3),
-        _gated(resumeGates[1], byte: 4),
+        gatedResponse(gates[0], byte: 1),
+        gatedResponse(gates[1], byte: 2),
+        gatedResponse(resumeGates[0], byte: 3),
+        gatedResponse(resumeGates[1], byte: 4),
       ],
     );
-    final group = manager.submitGroup([_req(1), _req(2)]);
+    final group = manager.submitGroup([downloadRequest(1), downloadRequest(2)]);
     await _pumpPage(tester, container);
-    await _drain(
+    await pumpUntil(
       tester,
       () => manager.tasks.every((t) => t.status == DownloadStatus.running),
     );
@@ -160,7 +107,7 @@ void main() {
     for (final gate in gates) {
       gate.complete();
     }
-    await _drain(
+    await pumpUntil(
       tester,
       () => manager.tasks.every((t) => t.status == DownloadStatus.retryable),
     );
@@ -178,7 +125,7 @@ void main() {
     await tester.tap(
       find.descendant(of: header, matching: find.byIcon(Icons.play_arrow)),
     );
-    await _drain(
+    await pumpUntil(
       tester,
       () => manager.tasks.every((t) => t.status == DownloadStatus.running),
     );
@@ -191,7 +138,7 @@ void main() {
     for (final gate in resumeGates) {
       gate.complete();
     }
-    await _drain(
+    await pumpUntil(
       tester,
       () => manager.tasks.every((t) => t.status == DownloadStatus.canceled),
     );
@@ -211,7 +158,7 @@ void main() {
   testWidgets('the developer note about DownloadManager is gone', (
     tester,
   ) async {
-    final (container, manager, _) = await _world(
+    final (container, manager, _) = await makeDownloadWorld(
       responses: [
         ScriptedResponse(
           contentLength: 1,
@@ -221,9 +168,9 @@ void main() {
         ),
       ],
     );
-    manager.submit(_req(1));
+    manager.submit(downloadRequest(1));
     await _pumpPage(tester, container);
-    await _drain(tester, () => manager.tasks.isNotEmpty);
+    await pumpUntil(tester, () => manager.tasks.isNotEmpty);
 
     // R4: the live-list header was an implementation note, not UI copy.
     expect(find.textContaining('DownloadManager'), findsNothing);
@@ -233,7 +180,7 @@ void main() {
   testWidgets('a finished group shows the aggregate counter exactly once', (
     tester,
   ) async {
-    final (container, manager, _) = await _world(
+    final (container, manager, _) = await makeDownloadWorld(
       responses: [
         ScriptedResponse(
           contentLength: 3,
@@ -249,9 +196,9 @@ void main() {
         ),
       ],
     );
-    final group = manager.submitGroup([_req(1), _req(2)]);
+    final group = manager.submitGroup([downloadRequest(1), downloadRequest(2)]);
     await _pumpPage(tester, container);
-    await _drain(
+    await pumpUntil(
       tester,
       () => manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
     );
@@ -286,7 +233,7 @@ void main() {
   });
 
   testWidgets('a completed task hides the progress bar', (tester) async {
-    final (container, manager, _) = await _world(
+    final (container, manager, _) = await makeDownloadWorld(
       responses: [
         // No contentLength: completion used to force a fake 100% bar;
         // finished rows show none at all (R2).
@@ -297,9 +244,9 @@ void main() {
         ),
       ],
     );
-    final task = manager.submit(_req(1));
+    final task = manager.submit(downloadRequest(1));
     await _pumpPage(tester, container);
-    await _drain(
+    await pumpUntil(
       tester,
       () => manager.tasks.single.status == DownloadStatus.succeeded,
     );
@@ -325,10 +272,10 @@ void main() {
     tester,
   ) async {
     final gate = Completer<void>();
-    final (container, manager, _) = await _world(
+    final (container, manager, _) = await makeDownloadWorld(
       maxConcurrent: 1,
       responses: [
-        _gated(gate, byte: 1),
+        gatedResponse(gate, byte: 1),
         ScriptedResponse(
           contentLength: 1,
           chunks: [
@@ -337,9 +284,9 @@ void main() {
         ),
       ],
     );
-    final task = manager.submit(_req(1));
+    final task = manager.submit(downloadRequest(1));
     await _pumpPage(tester, container);
-    await _drain(
+    await pumpUntil(
       tester,
       () => manager.tasks.single.status == DownloadStatus.running,
     );
@@ -349,7 +296,7 @@ void main() {
       find.descendant(of: row, matching: find.byIcon(Icons.pause)),
     );
     gate.complete();
-    await _drain(
+    await pumpUntil(
       tester,
       () => manager.tasks.single.status == DownloadStatus.retryable,
     );
@@ -381,14 +328,14 @@ void main() {
     await tester.tap(
       find.descendant(of: row, matching: find.byIcon(Icons.play_arrow)),
     );
-    await _drain(
+    await pumpUntil(
       tester,
       () => manager.tasks.single.status == DownloadStatus.succeeded,
     );
   });
 
   testWidgets('succeeded row offers view and remove', (tester) async {
-    final (container, manager, _) = await _world(
+    final (container, manager, _) = await makeDownloadWorld(
       responses: [
         ScriptedResponse(
           contentLength: 1,
@@ -398,9 +345,9 @@ void main() {
         ),
       ],
     );
-    final task = manager.submit(_req(1));
+    final task = manager.submit(downloadRequest(1));
     await _pumpPage(tester, container);
-    await _drain(
+    await pumpUntil(
       tester,
       () => manager.tasks.single.status == DownloadStatus.succeeded,
     );
@@ -449,7 +396,7 @@ void main() {
   });
 
   testWidgets('failed row offers retry and remove', (tester) async {
-    final (container, manager, _) = await _world(
+    final (container, manager, _) = await makeDownloadWorld(
       responses: [
         ScriptedResponse(
           contentLength: 1,
@@ -460,9 +407,9 @@ void main() {
         ),
       ],
     );
-    final task = manager.submit(_req(1));
+    final task = manager.submit(downloadRequest(1));
     await _pumpPage(tester, container);
-    await _drain(
+    await pumpUntil(
       tester,
       () => manager.tasks.single.status == DownloadStatus.failed,
     );
@@ -533,7 +480,7 @@ void main() {
       (const DownloadResourceLimitException('too big'), '设备资源不足或文件过大'),
       (StateError('boom'), '未知错误'), // unknown
     ];
-    final (container, manager, _) = await _world(
+    final (container, manager, _) = await makeDownloadWorld(
       responses: [
         for (final (error, _) in cases)
           ScriptedResponse(
@@ -546,10 +493,11 @@ void main() {
       ],
     );
     final tasks = [
-      for (var i = 0; i < cases.length; i++) manager.submit(_req(100 + i)),
+      for (var i = 0; i < cases.length; i++)
+        manager.submit(downloadRequest(100 + i)),
     ];
     await _pumpPage(tester, container);
-    await _drain(
+    await pumpUntil(
       tester,
       () => manager.tasks.every((t) => t.status == DownloadStatus.failed),
     );
@@ -582,7 +530,7 @@ void main() {
     // A running record carries no failure kind; recovery turns it into a
     // kindless retryable task that must not read as 未知错误.
     installMemoryPreferences();
-    final request = _req(7);
+    final request = downloadRequest(7);
     final snapshot = DownloadSubmissionSnapshot(
       snapshotId: 'submission-7',
       jobId: 'job-7',
@@ -640,7 +588,7 @@ void main() {
   testWidgets('a failed child in an expanded group shows reason and details', (
     tester,
   ) async {
-    final (container, manager, _) = await _world(
+    final (container, manager, _) = await makeDownloadWorld(
       responses: [
         ScriptedResponse(
           contentLength: 1,
@@ -657,9 +605,9 @@ void main() {
         ),
       ],
     );
-    final group = manager.submitGroup([_req(1), _req(2)]);
+    final group = manager.submitGroup([downloadRequest(1), downloadRequest(2)]);
     await _pumpPage(tester, container);
-    await _drain(
+    await pumpUntil(
       tester,
       () => manager.tasks.every(
         (t) =>
@@ -708,7 +656,7 @@ void main() {
     final gateUnknown = Completer<void>();
     // Concurrency 2 keeps the last submission genuinely queued: t3 and
     // t4 fill the slots after t1/t2 settle, and t5 never gets one.
-    final (container, manager, _) = await _world(
+    final (container, manager, _) = await makeDownloadWorld(
       maxConcurrent: 2,
       responses: [
         // t1 succeeds, t2 fails, t3 runs with a known total, t4 runs
@@ -726,7 +674,7 @@ void main() {
           ],
           error: StateError('boom'),
         ),
-        _gated(gateKnown),
+        gatedResponse(gateKnown),
         ScriptedResponse(
           chunks: const [
             <int>[1],
@@ -735,14 +683,14 @@ void main() {
         ),
       ],
     );
-    final succeeded = manager.submit(_req(1));
-    final failed = manager.submit(_req(2));
-    final running = manager.submit(_req(3));
-    final unknown = manager.submit(_req(4));
-    final queued = manager.submit(_req(5));
+    final succeeded = manager.submit(downloadRequest(1));
+    final failed = manager.submit(downloadRequest(2));
+    final running = manager.submit(downloadRequest(3));
+    final unknown = manager.submit(downloadRequest(4));
+    final queued = manager.submit(downloadRequest(5));
     await _pumpPage(tester, container);
     // Both late submissions running means t1 succeeded and t2 failed.
-    await _drain(
+    await pumpUntil(
       tester,
       () =>
           manager.taskById(unknown.id)!.status == DownloadStatus.running &&
@@ -795,7 +743,7 @@ void main() {
       ),
     );
     gateKnown.complete();
-    await _drain(
+    await pumpUntil(
       tester,
       () => manager.taskById(running.id)!.status == DownloadStatus.retryable,
     );
@@ -815,16 +763,16 @@ void main() {
     await mockNetworkImagesFor(() async {
       // The gated first task stays running forever — an uncompleted
       // completer blocks on a future and leaves no pending timer behind.
-      final (container, manager, _) = await _world(
+      final (container, manager, _) = await makeDownloadWorld(
         maxConcurrent: 1,
-        responses: [_gated(Completer<void>())],
+        responses: [gatedResponse(Completer<void>())],
       );
       final withThumb = manager.submit(
-        _req(1, thumbnailUrl: 'https://i.pximg.net/1/s.jpg'),
+        downloadRequest(1, thumbnailUrl: 'https://i.pximg.net/1/s.jpg'),
       );
-      final withoutThumb = manager.submit(_req(2));
+      final withoutThumb = manager.submit(downloadRequest(2));
       await _pumpPage(tester, container);
-      await _drain(tester, () => manager.tasks.isNotEmpty);
+      await pumpUntil(tester, () => manager.tasks.isNotEmpty);
 
       final image = tester.widget<PixivImage>(
         find.descendant(
@@ -854,16 +802,22 @@ void main() {
     tester,
   ) async {
     await mockNetworkImagesFor(() async {
-      final (container, manager, _) = await _world(
+      final (container, manager, _) = await makeDownloadWorld(
         maxConcurrent: 1,
-        responses: [_gated(Completer<void>())],
+        responses: [gatedResponse(Completer<void>())],
       );
       final titled = manager.submit(
-        _req(7, title: '星空', artist: '画师', pageIndex: 1, totalPages: 3),
+        downloadRequest(
+          7,
+          title: '星空',
+          artist: '画师',
+          pageIndex: 1,
+          totalPages: 3,
+        ),
       );
-      final untitled = manager.submit(_req(8));
+      final untitled = manager.submit(downloadRequest(8));
       await _pumpPage(tester, container);
-      await _drain(tester, () => manager.tasks.isNotEmpty);
+      await pumpUntil(tester, () => manager.tasks.isNotEmpty);
 
       final titledRow = _taskRow(titled.id);
       expect(
@@ -893,13 +847,13 @@ void main() {
   testWidgets('a collapsed group expands on tap and folds its children in', (
     tester,
   ) async {
-    final (container, manager, _) = await _world(
+    final (container, manager, _) = await makeDownloadWorld(
       maxConcurrent: 1,
-      responses: [_gated(Completer<void>())],
+      responses: [gatedResponse(Completer<void>())],
     );
-    final group = manager.submitGroup([_req(1), _req(2)]);
+    final group = manager.submitGroup([downloadRequest(1), downloadRequest(2)]);
     await _pumpPage(tester, container);
-    await _drain(tester, () => manager.tasks.isNotEmpty);
+    await pumpUntil(tester, () => manager.tasks.isNotEmpty);
     await tester.pump();
 
     final header = _groupHeader(group.id);
@@ -963,15 +917,15 @@ void main() {
   testWidgets('a five-hundred-item list only builds the visible rows', (
     tester,
   ) async {
-    final (container, manager, _) = await _world(
+    final (container, manager, _) = await makeDownloadWorld(
       maxConcurrent: 1,
-      responses: [_gated(Completer<void>())],
+      responses: [gatedResponse(Completer<void>())],
     );
     for (var i = 0; i < 500; i++) {
-      manager.submit(_req(i + 1));
+      manager.submit(downloadRequest(i + 1));
     }
     await _pumpPage(tester, container);
-    await _drain(tester, () => manager.tasks.isNotEmpty);
+    await pumpUntil(tester, () => manager.tasks.isNotEmpty);
     await tester.pump();
 
     // ListView.builder only realizes the viewport plus its cache extent —
@@ -986,15 +940,15 @@ void main() {
   testWidgets('expanding a three-hundred-item group stays lazy', (
     tester,
   ) async {
-    final (container, manager, _) = await _world(
+    final (container, manager, _) = await makeDownloadWorld(
       maxConcurrent: 1,
-      responses: [_gated(Completer<void>())],
+      responses: [gatedResponse(Completer<void>())],
     );
     final group = manager.submitGroup([
-      for (var i = 0; i < 300; i++) _req(i + 1),
+      for (var i = 0; i < 300; i++) downloadRequest(i + 1),
     ]);
     await _pumpPage(tester, container);
-    await _drain(tester, () => manager.tasks.isNotEmpty);
+    await pumpUntil(tester, () => manager.tasks.isNotEmpty);
     await tester.pump();
 
     await tester.tap(find.byKey(ValueKey('download-group-${group.id}')));
@@ -1018,7 +972,7 @@ void main() {
       var haptics = recordHaptics();
 
       final gate = Completer<void>();
-      final (container, manager, _) = await _world(
+      final (container, manager, _) = await makeDownloadWorld(
         responses: [
           ScriptedResponse(
             contentLength: 1,
@@ -1035,10 +989,10 @@ void main() {
           ),
         ],
       );
-      manager.submit(_req(1));
-      manager.submit(_req(2));
+      manager.submit(downloadRequest(1));
+      manager.submit(downloadRequest(2));
       await _pumpPage(tester, container);
-      await _drain(
+      await pumpUntil(
         tester,
         () =>
             manager.tasks.any((t) => t.status == DownloadStatus.succeeded) &&
@@ -1054,14 +1008,14 @@ void main() {
       // swaps to the count surface.
       await tester.tap(find.widgetWithText(TextButton, '管理'));
       await tester.pump();
-      expect(find.text('已选 0 项'), findsOneWidget);
+      expect(_selectionTitle('已选 0 项'), findsOneWidget);
       expect(haptics.roles, [HapticRole.confirm]);
 
       // Select-all is the light tick; selected rows drop their nested
       // action row for the check affordance.
       await tester.tap(find.byIcon(Icons.select_all));
       await tester.pump();
-      expect(find.text('已选 2 项'), findsOneWidget);
+      expect(_selectionTitle('已选 2 项'), findsOneWidget);
       expect(haptics.roles.last, HapticRole.select);
       // The check marks swap in; let the swap finish.
       await tester.pump(const Duration(milliseconds: 300));
@@ -1087,7 +1041,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(manager.tasks.single.status, DownloadStatus.running);
-      expect(find.text('已选 0 项'), findsNothing);
+      expect(_selectionTitle('已选 0 项'), findsNothing);
       expect(find.text('下载任务'), findsOneWidget);
 
       // Batch cancel on the running task also goes through the confirm
@@ -1102,7 +1056,7 @@ void main() {
       expect(find.byType(AlertDialog), findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, '取消'));
       gate.complete();
-      await _drain(
+      await pumpUntil(
         tester,
         () => manager.tasks.single.status == DownloadStatus.canceled,
       );
@@ -1112,7 +1066,7 @@ void main() {
   );
 
   testWidgets('list caps at the management content width', (tester) async {
-    final (container, manager, _) = await _world(
+    final (container, manager, _) = await makeDownloadWorld(
       responses: [
         ScriptedResponse(
           contentLength: 1,
@@ -1122,12 +1076,12 @@ void main() {
         ),
       ],
     );
-    manager.submit(_req(1));
+    manager.submit(downloadRequest(1));
     tester.view.physicalSize = const Size(1200, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await _pumpPage(tester, container);
-    await _drain(tester, () => manager.tasks.isNotEmpty);
+    await pumpUntil(tester, () => manager.tasks.isNotEmpty);
     await tester.pump();
 
     final listRect = tester.getRect(find.byType(ListView));
@@ -1146,10 +1100,10 @@ void main() {
 
       final gate = Completer<void>();
       final longTitle = List.filled(80, '长').join();
-      final (container, manager, _) = await _world(
+      final (container, manager, _) = await makeDownloadWorld(
         maxConcurrent: 1,
         responses: [
-          _gated(gate),
+          gatedResponse(gate),
           ScriptedResponse(
             contentLength: 1,
             chunks: [
@@ -1159,15 +1113,15 @@ void main() {
         ],
       );
       final group = manager.submitGroup([
-        _req(
+        downloadRequest(
           42,
           title: longTitle,
           namingRule: const NamingRule(preset: NamingPreset.titleId),
         ),
-        _req(43),
+        downloadRequest(43),
       ]);
       await _pumpPage(tester, container);
-      await _drain(
+      await pumpUntil(
         tester,
         () => manager.tasks.first.status == DownloadStatus.running,
       );
@@ -1215,7 +1169,7 @@ void main() {
       await tester.pump();
 
       gate.complete();
-      await _drain(
+      await pumpUntil(
         tester,
         () => manager.tasks.every(
           (task) => task.status == DownloadStatus.succeeded,

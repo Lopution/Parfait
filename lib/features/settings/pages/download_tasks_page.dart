@@ -14,6 +14,7 @@ import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_menu_button.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/feed_states.dart';
+import '../../../app/widgets/selection_app_bar.dart';
 import '../../../core/download/download_manager.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart';
@@ -239,7 +240,6 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
       for (final task in tasks)
         if (_selected.contains(task.id) && isTerminal(task.status)) task,
     ];
-    final colorScheme = Theme.of(context).colorScheme;
     return PopScope(
       // System back exits selection mode instead of popping the page.
       canPop: !_managing,
@@ -248,14 +248,10 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
       },
       child: Scaffold(
         appBar: _managing
-            ? AppBar(
-                backgroundColor: colorScheme.primaryContainer,
-                leading: IconButton(
-                  tooltip: context.l10n.cancel,
-                  icon: const Icon(Icons.close),
-                  onPressed: _exitManaging,
-                ),
-                title: Text(context.l10n.selectedCount(_selected.length)),
+            ? selectionAppBar(
+                context,
+                count: _selected.length,
+                onClose: _exitManaging,
                 actions: [
                   IconButton(
                     tooltip: context.l10n.selectAll,
@@ -503,6 +499,7 @@ class _DownloadRowLayout extends StatelessWidget {
     required this.thumbnailUrl,
     this.thumbnailSize = 56,
     required this.title,
+    this.titleWraps = false,
     this.titleNote,
     this.subtitle,
     required this.status,
@@ -516,6 +513,11 @@ class _DownloadRowLayout extends StatelessWidget {
   final String? thumbnailUrl;
   final double thumbnailSize;
   final String title;
+
+  /// Whether the title wraps in full. Work titles are user content and
+  /// stop at two lines; group titles are mostly app copy, which must stay
+  /// whole in every language.
+  final bool titleWraps;
 
   /// Trailing note on the title line (the page label).
   final String? titleNote;
@@ -559,8 +561,8 @@ class _DownloadRowLayout extends StatelessWidget {
                 Flexible(
                   child: Text(
                     title,
-                    maxLines: compact ? 2 : 1,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: titleWraps ? null : (compact ? 2 : 1),
+                    overflow: titleWraps ? null : TextOverflow.ellipsis,
                     style: textTheme.titleMedium,
                   ),
                 ),
@@ -585,12 +587,7 @@ class _DownloadRowLayout extends StatelessWidget {
             ],
             if (detail != null) ...[
               const SizedBox(height: FuncSpacing.xxs),
-              Text(
-                detail!,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: captionStyle,
-              ),
+              Text(detail!, style: captionStyle),
             ],
             if (errorDetails != null) ErrorDetails(error: errorDetails!),
           ],
@@ -687,8 +684,6 @@ class _DownloadStatusLine extends StatelessWidget {
         Flexible(
           child: Text(
             text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -954,6 +949,7 @@ class _DownloadGroupHeader extends StatelessWidget {
                 ? null
                 : children.first.submission?.request.thumbnailUrl,
             title: downloadGroupRowTitle(l10n, children, group.childCount),
+            titleWraps: true,
             subtitle: downloadGroupSubtitle(children),
             status: _DownloadStatusLine(
               state: state,

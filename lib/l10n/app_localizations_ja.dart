@@ -1796,7 +1796,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchContentSection => '作品タイプ';
 
   @override
-  String get searchContentAll => 'イラスト・マンガ・うごイラ';
+  String get searchContentAll => 'すべて';
 
   @override
   String get searchContentIllustUgoira => 'イラスト・うごイラ';

@@ -70,3 +70,20 @@ List<Override> accountProviderOverrides({
     ),
   ];
 }
+
+/// An [AccountStore] that is ready with [account] signed in, for tests that
+/// need a current account but none of the stores behind the real one.
+class StubAccountStore extends AccountStore {
+  StubAccountStore([
+    this.account = const Account(id: '100', userId: 100, name: 'a'),
+  ]);
+
+  final Account account;
+
+  @override
+  Future<AccountState> build() async => AccountState(
+    status: AccountStatus.ready,
+    accounts: [account],
+    currentId: account.id,
+  );
+}
