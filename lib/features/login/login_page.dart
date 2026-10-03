@@ -286,8 +286,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   /// The register/login row is the page's primary action and stays in place
-  /// regardless of the help toggle — `_help` only reveals the secondary
-  /// zone below it, it never replaces this row.
+  /// regardless of the help toggle — `_help` only reveals the network
+  /// compatibility note below it, it never replaces this row.
   Widget _buildMainActions(String Function(String) text) {
     return Row(
       children: [
@@ -330,40 +330,42 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ),
           ),
           const SizedBox(height: FuncSpacing.md),
-          // Clipboard import is an action (idle/busy/success/error): while
-          // busy the button is disabled and its label carries a small
-          // progress indicator — ReplicaButton has no loading variant, so
-          // a disabled OutlinedButton is the equivalent secondary form.
-          OutlinedButton(
-            onPressed: _clipboardBusy ? null : onClipboardLogin,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (_clipboardBusy) ...[
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  const SizedBox(width: FuncSpacing.sm),
-                ],
-                Flexible(
-                  child: Text(
-                    text('useLoginWithClipboard'),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: FuncSpacing.sm),
-          Text(
-            text('accountTransferWarning'),
-            textAlign: TextAlign.center,
-            style: FuncSemanticTokens.of(context).caption,
-          ),
-          const SizedBox(height: FuncSpacing.md),
         ],
+        // Clipboard import is an action (idle/busy/success/error): while
+        // busy the button is disabled and its label carries a small
+        // progress indicator — ReplicaButton has no loading variant, so
+        // a disabled OutlinedButton is the equivalent secondary form.
+        OutlinedButton(
+          onPressed: _clipboardBusy ? null : onClipboardLogin,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_clipboardBusy) ...[
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: FuncSpacing.sm),
+              ],
+              Flexible(
+                child: Text(
+                  text('useLoginWithClipboard'),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: FuncSpacing.sm),
+        // Where the data comes from, then the shared clipboard risk note
+        // (also shown by the settings export dialog).
+        Text(
+          '${text('loginClipboardHint')}\n${text('accountTransferWarning')}',
+          textAlign: TextAlign.center,
+          style: FuncSemanticTokens.of(context).caption,
+        ),
+        const SizedBox(height: FuncSpacing.md),
         Text(
           text('loginAgree'),
           textAlign: TextAlign.center,

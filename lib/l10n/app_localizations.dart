@@ -294,6 +294,12 @@ abstract class AppLocalizations {
   /// **'剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。'**
   String get accountTransferWarning;
 
+  /// No description provided for @loginClipboardHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'先在已登录的设备上打开「设置 → 导出账号凭据」复制，再回到这里导入。'**
+  String get loginClipboardHint;
+
   /// No description provided for @accountTransferSensitiveWarning.
   ///
   /// In zh, this message translates to:

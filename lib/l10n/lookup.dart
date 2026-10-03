@@ -260,6 +260,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'login' => l10n.login,
   'loginAgree' => l10n.loginAgree,
   'loginCallbackInvalid' => l10n.loginCallbackInvalid,
+  'loginClipboardHint' => l10n.loginClipboardHint,
   'loginFailed' => l10n.loginFailed,
   'loginInstallWebView2' => l10n.loginInstallWebView2,
   'loginPageClosed' => l10n.loginPageClosed,

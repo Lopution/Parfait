@@ -39,6 +39,7 @@
   "useLoginWithClipboard": "クリップボードに保存されたデータでログイン",
   "accountTransferExportTitle": "アカウント認証情報をエクスポート",
   "accountTransferWarning": "クリップボードは短時間保持され、他のアプリに読み取られる可能性があります。この形式は暗号化も送信者認証も提供しません。",
+  "loginClipboardHint": "ログイン済みの端末で「設定 → アカウント認証情報をエクスポート」からコピーし、ここに戻ってインポートしてください。",
   "accountTransferSensitiveWarning": "この端末はクリップボードの機密マーク（Android 13+）未対応です。認証情報は平文でシステムクリップボードに置かれます。すぐに貼り付けてください。5分後に自動クリアされます。",
   "accountTransferCopied": "アカウント移行データをコピーしました。対象端末ですぐに貼り付けてください。",
   "accountTransferImported": "アカウント移行に成功しました",

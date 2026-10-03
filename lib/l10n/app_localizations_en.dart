@@ -111,6 +111,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'The clipboard is kept briefly and may be read by other apps; this format provides neither encryption nor sender authentication.';
 
   @override
+  String get loginClipboardHint =>
+      'On a signed-in device, open Settings → Export account credential to copy it, then come back here to import.';
+
+  @override
   String get accountTransferSensitiveWarning =>
       'This device cannot mark clipboard entries as sensitive (Android 13+ only): the credential will sit in the system clipboard in plaintext. Paste as soon as possible; it is cleared automatically after 5 minutes.';
 
