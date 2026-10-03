@@ -1253,7 +1253,7 @@ void main() {
     expect(find.text('关闭'), findsOneWidget);
     // Lower groups are below the fold — scroll each summary into view.
     for (final summary in [
-      '官方源（默认）',
+      '官方源',
       '暂无屏蔽条目',
       '本地 开 · Pixiv 开',
       '自动',
@@ -2489,7 +2489,7 @@ void main() {
     await check(const TranslateSettingsPage(), '关闭', '百度翻译');
     await check(const DownloadSettingsPage(), '作品 ID（默认）', '标题 - ID');
     await check(const NetworkSettingsPage(), '自动', '仅直连');
-    await check(const BrowseSettingsPage(), '官方源（默认）', 'pixiv.cat 镜像');
+    await check(const BrowseSettingsPage(), '官方源', 'pixiv.cat 镜像');
     await check(const DownloadDestinationPage(), '相册', '文件夹（系统目录选择）');
 
     // Unmount and unwind the third-party reachability probe timeouts.

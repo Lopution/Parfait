@@ -232,6 +232,7 @@ void main() {
   });
 
   group('action layering', () {
+    final zh = lookupAppLocalizations(const Locale('zh'));
     Future<void> expandHelp(WidgetTester tester) async {
       await tester.tap(find.byIcon(Icons.info_outline));
       await tester.pumpAndSettle();
@@ -248,11 +249,12 @@ void main() {
         onRegister: () => registered++,
         onLogin: () => loggedIn++,
       );
+      expect(find.text(zh.networkCompatibilityHint), findsNothing);
       await expandHelp(tester);
       expect(tester.takeException(), isNull);
 
-      // Secondary zone content is revealed…
-      expect(find.textContaining('默认直连'), findsOneWidget);
+      // The toggle reveals only the network note…
+      expect(find.text(zh.networkCompatibilityHint), findsOneWidget);
       expect(find.text('使用剪贴板数据登录'), findsOneWidget);
       expect(find.textContaining('剪贴板内容会短时存在'), findsOneWidget);
       // …and the dead "get more help" affordance is gone.
@@ -270,13 +272,36 @@ void main() {
       expect(loggedIn, 1);
     });
 
+    testWidgets('clipboard sign-in is visible without the help toggle', (
+      tester,
+    ) async {
+      await pumpLogin(tester, size: const Size(390, 844));
+
+      final button = find.widgetWithText(OutlinedButton, '使用剪贴板数据登录');
+      expect(button, findsOneWidget);
+      // The hint says where the data comes from and keeps the risk note.
+      final hint = find.textContaining('导出账号凭据');
+      expect(hint, findsOneWidget);
+      expect(tester.widget<Text>(hint).data, contains('剪贴板内容会短时存在'));
+      // It sits under the register/login row, above the agreement line.
+      final login = find.widgetWithText(ReplicaButton, '登录');
+      expect(
+        tester.getTopLeft(button).dy,
+        greaterThan(tester.getBottomLeft(login).dy),
+      );
+      expect(
+        tester.getBottomLeft(hint).dy,
+        lessThan(tester.getTopLeft(find.text('登录即表示您同意')).dy),
+      );
+    });
+
     testWidgets('expanded help text uses the secondary text color', (
       tester,
     ) async {
       await pumpLogin(tester, size: const Size(390, 844));
       await expandHelp(tester);
 
-      final hint = find.textContaining('默认直连');
+      final hint = find.text(zh.networkCompatibilityHint);
       expect(hint, findsOneWidget);
       final scheme = Theme.of(tester.element(hint)).colorScheme;
       expect(tester.widget<Text>(hint).style?.color, scheme.onSurfaceVariant);
@@ -293,7 +318,6 @@ void main() {
           accountTransferServiceProvider.overrideWithValue(service),
         ],
       );
-      await expandHelp(tester);
 
       final button = find.widgetWithText(OutlinedButton, '使用剪贴板数据登录');
       await tester.ensureVisible(button);
