@@ -416,7 +416,7 @@ it never enters the toolbar band.
 collapse interval, including the fade hand-off between expanded and
 collapsed chrome. While real cover artwork still sits behind the toolbar
 (`hasCover && geometry.bannerBehindToolbar`), the back button is an
-`ImageOverlayButton` and the overflow `PopupMenuButton` applies
+`ImageOverlayButton` and the overflow `AppMenuButton` applies
 `ImageOverlayButton.buttonStyle()`; collapsed or cover-less, both are
 plain surface icons with no fill. The whole header is wrapped in
 `FuncSystemBars(background: overArtwork ? Brightness.dark :
@@ -439,6 +439,45 @@ stay on screen.
 - R6: `SystemChrome.latestStyle` reads `statusBarIconBrightness ==
   Brightness.light` while a cover is expanded, and the root default
   (`dark` under the light theme) once collapsed or without a cover.
+
+## Menus and Modal Barriers Contract
+
+Overflow and choice menus use `AppMenuButton` /
+`AppMenuEntry` (`lib/app/widgets/app_menu_button.dart`), never
+`PopupMenuButton`. It is a `MenuAnchor` with `consumeOutsideTap: true`:
+a pointer going down anywhere outside closes the menu and that touch is
+consumed — the page below neither scrolls nor taps. A `PopScope` with
+`canPop: !open` makes back close the menu before the page. Entries carry
+an optional icon, `enabled`, and `checked` (non-null renders a trailing
+check and checked semantics); `onSelected` receives the anchor's context;
+`style` forwards to the default `IconButton` (over-artwork palette);
+`anchorBuilder` replaces the anchor (the reverse-image engine chip). The
+panel is width-capped at `kAppMenuMaxWidth` with
+`crossAxisUnconstrained: false` — the default lets the panel grow past
+the cap and clip long labels instead of truncating them. Menu items have
+no `isButton` flag off the web (framework behaviour); tests assert the
+tap action and checked state instead. Reduced motion turns off the
+open animation.
+
+Dialogs and bottom sheets go through `showAppDialog` /
+`showAppBottomSheet`, which push `DialogRoute` / `ModalBottomSheetRoute`
+subclasses mirroring `showDialog` / `showModalBottomSheet`'s own
+construction and override only `buildModalBarrier()`. The barrier closes
+the route when a touch that started on the scrim is released on the
+scrim — a tap or a drag alike, like a native Android dialog. It decides
+"released on the scrim" by hit-testing the release position: over the
+route's content the barrier is not in the hit path. It replaces the stock
+barrier instead of wrapping it, because the stock tap recognizer would
+pop on the same release and a second pop would close the page below; the
+route only pops itself while `isCurrent`. A non-dismissible barrier stays
+opaque and silent. Semantics match `ModalBarrier` (label, tap and dismiss
+actions where the platform supports dismissing a barrier, `BlockSemantics`).
+
+Owning tests: `app_menu_button_test.dart` (outside press closes, no
+scroll or tap passes through, back closes the menu first, checked and
+disabled rows, reduced motion, 320-wide ru truncation) and
+`app_overlays_test.dart` (drag-release closes one layer, release over the
+content keeps it open, non-dismissible stays, scrim dismiss action).
 
 ## SnackBar Feedback Contract
 
