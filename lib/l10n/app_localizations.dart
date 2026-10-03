@@ -4577,17 +4577,71 @@ abstract class AppLocalizations {
   /// **'暂无特辑'**
   String get spotlightEmpty;
 
-  /// No description provided for @enableHaptics.
+  /// No description provided for @hapticStrength.
   ///
   /// In zh, this message translates to:
-  /// **'触感反馈'**
-  String get enableHaptics;
+  /// **'触感强度'**
+  String get hapticStrength;
 
-  /// No description provided for @enableHapticsHint.
+  /// No description provided for @hapticStrengthOff.
   ///
   /// In zh, this message translates to:
-  /// **'选择、保存成功与失败时振动'**
-  String get enableHapticsHint;
+  /// **'关'**
+  String get hapticStrengthOff;
+
+  /// No description provided for @hapticStrengthLight.
+  ///
+  /// In zh, this message translates to:
+  /// **'轻'**
+  String get hapticStrengthLight;
+
+  /// No description provided for @hapticStrengthStandard.
+  ///
+  /// In zh, this message translates to:
+  /// **'标准'**
+  String get hapticStrengthStandard;
+
+  /// No description provided for @hapticStrengthStrong.
+  ///
+  /// In zh, this message translates to:
+  /// **'强'**
+  String get hapticStrengthStrong;
+
+  /// No description provided for @hapticTierComposition.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机支持精细振动，强度逐级可调'**
+  String get hapticTierComposition;
+
+  /// No description provided for @hapticTierPredefined.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机使用系统预设振动，强度按档位换用不同效果'**
+  String get hapticTierPredefined;
+
+  /// No description provided for @hapticTierSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机仅支持系统触感，强度不可调'**
+  String get hapticTierSystem;
+
+  /// No description provided for @hapticTierNone.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机没有振动器'**
+  String get hapticTierNone;
+
+  /// No description provided for @hapticTierUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法读取本机的振动能力'**
+  String get hapticTierUnknown;
+
+  /// No description provided for @hapticSystemOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统已关闭触摸振动，应用内触感不会生效'**
+  String get hapticSystemOff;
 
   /// No description provided for @downloadSelectPages.
   ///

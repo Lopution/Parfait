@@ -2386,10 +2386,37 @@ class AppLocalizationsJa extends AppLocalizations {
   String get spotlightEmpty => 'スポットライト記事がありません';
 
   @override
-  String get enableHaptics => '触覚フィードバック';
+  String get hapticStrength => '触覚の強さ';
 
   @override
-  String get enableHapticsHint => '選択・保存完了・失敗時に振動します';
+  String get hapticStrengthOff => 'オフ';
+
+  @override
+  String get hapticStrengthLight => '弱';
+
+  @override
+  String get hapticStrengthStandard => '標準';
+
+  @override
+  String get hapticStrengthStrong => '強';
+
+  @override
+  String get hapticTierComposition => 'この端末は細かな振動に対応しており、強さを段階的に調整できます';
+
+  @override
+  String get hapticTierPredefined => 'この端末はシステムのプリセット振動を使い、段階ごとに効果を切り替えます';
+
+  @override
+  String get hapticTierSystem => 'この端末はシステムの触覚のみ対応しており、強さは調整できません';
+
+  @override
+  String get hapticTierNone => 'この端末には振動機能がありません';
+
+  @override
+  String get hapticTierUnknown => 'この端末の振動機能を取得できませんでした';
+
+  @override
+  String get hapticSystemOff => 'システム設定でタッチ振動がオフのため、アプリの触覚は動作しません';
 
   @override
   String get downloadSelectPages => 'ダウンロードするページを選択';

@@ -2359,10 +2359,37 @@ class AppLocalizationsZh extends AppLocalizations {
   String get spotlightEmpty => '暂无特辑';
 
   @override
-  String get enableHaptics => '触感反馈';
+  String get hapticStrength => '触感强度';
 
   @override
-  String get enableHapticsHint => '选择、保存成功与失败时振动';
+  String get hapticStrengthOff => '关';
+
+  @override
+  String get hapticStrengthLight => '轻';
+
+  @override
+  String get hapticStrengthStandard => '标准';
+
+  @override
+  String get hapticStrengthStrong => '强';
+
+  @override
+  String get hapticTierComposition => '本机支持精细振动，强度逐级可调';
+
+  @override
+  String get hapticTierPredefined => '本机使用系统预设振动，强度按档位换用不同效果';
+
+  @override
+  String get hapticTierSystem => '本机仅支持系统触感，强度不可调';
+
+  @override
+  String get hapticTierNone => '本机没有振动器';
+
+  @override
+  String get hapticTierUnknown => '无法读取本机的振动能力';
+
+  @override
+  String get hapticSystemOff => '系统已关闭触摸振动，应用内触感不会生效';
 
   @override
   String get downloadSelectPages => '选择要下载的页';

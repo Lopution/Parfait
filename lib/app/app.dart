@@ -176,9 +176,9 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     // latest persisted setting on each trigger, so the settings toggle
     // applies immediately without a restart.
     AppHaptics.configure(
-      strength: () => (ref.read(settingsProvider).value?.enableHaptics ?? true)
-          ? HapticStrength.standard
-          : HapticStrength.off,
+      strength: () =>
+          ref.read(settingsProvider).value?.hapticStrength ??
+          HapticStrength.standard,
       driver: ref.watch(hapticsDriverProvider),
     );
     return settings.when(

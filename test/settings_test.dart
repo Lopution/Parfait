@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_repository.dart';
@@ -54,6 +55,7 @@ import 'package:parfait/l10n/lookup.dart';
 import 'package:parfait/l10n/app_localizations_zh.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
 
 class _FakeRepository implements SettingsRepository {
@@ -2277,8 +2279,8 @@ void main() {
 
     double dyOf(String text) => tester.getCenter(find.text(text)).dy;
     expect(dyOf('本地屏蔽 R-18 作品'), lessThan(dyOf('预览质量')));
-    expect(dyOf('预览质量'), lessThan(dyOf('触感反馈')));
-    expect(dyOf('触感反馈'), lessThan(dyOf('图片源')));
+    expect(dyOf('预览质量'), lessThan(dyOf('触感强度')));
+    expect(dyOf('触感强度'), lessThan(dyOf('图片源')));
 
     // R4: pixivHistory has a single owner — the history settings page.
     expect(find.text('Pixiv 浏览历史'), findsNothing);
@@ -2497,66 +2499,129 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  test('enableHaptics defaults on and round-trips through JSON', () {
+  test('hapticStrength defaults to standard and round-trips through JSON', () {
     final base = _baseSettings();
-    expect(base.enableHaptics, isTrue);
-    final restored = AppSettings.fromJson(
-      base.toJson(),
-      fallback: _baseSettings(),
-    );
-    expect(restored.enableHaptics, isTrue);
-    // Payloads from before the key existed also default to on.
-    final legacy = base.toJson()..remove('enableHaptics');
-    expect(
-      AppSettings.fromJson(legacy, fallback: _baseSettings()).enableHaptics,
-      isTrue,
-    );
-    // And the off state persists.
-    final off = base.copyWith(enableHaptics: false);
-    expect(
-      AppSettings.fromJson(
-        off.toJson(),
-        fallback: _baseSettings(),
-      ).enableHaptics,
-      isFalse,
-    );
+    expect(base.hapticStrength, HapticStrength.standard);
+    for (final strength in HapticStrength.values) {
+      final json = base.copyWith(hapticStrength: strength).toJson();
+      expect(json['hapticStrength'], strength.name);
+      expect(json.containsKey('enableHaptics'), isFalse);
+      expect(
+        AppSettings.fromJson(json, fallback: _baseSettings()).hapticStrength,
+        strength,
+      );
+    }
   });
-  testWidgets('the haptics toggle persists through the repository', (
-    tester,
-  ) async {
-    final repository = _FakeRepository(_baseSettings());
-    tester.view.physicalSize = const Size(800, 2400);
-    addTearDown(tester.view.resetPhysicalSize);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: BrowseSettingsPage(),
+
+  test('the legacy haptics switch migrates to a strength', () {
+    HapticStrength read(Map<String, dynamic> json) => AppSettings.fromJson(
+      json,
+      fallback: _baseSettings().copyWith(hapticStrength: HapticStrength.light),
+    ).hapticStrength;
+    final legacy = _baseSettings().toJson()..remove('hapticStrength');
+    expect(read({...legacy, 'enableHaptics': false}), HapticStrength.off);
+    expect(read({...legacy, 'enableHaptics': true}), HapticStrength.standard);
+    // Neither key: the fallback wins.
+    expect(read(legacy), HapticStrength.light);
+    // The new key wins over a stale legacy one.
+    expect(
+      read({...legacy, 'enableHaptics': false, 'hapticStrength': 'strong'}),
+      HapticStrength.strong,
+    );
+    // An unknown value is ignored like a missing key.
+    expect(read({...legacy, 'hapticStrength': 'max'}), HapticStrength.light);
+  });
+
+  group('haptic strength settings group', () {
+    Future<_FakeRepository> pumpPage(
+      WidgetTester tester,
+      RecordingHapticsDriver driver,
+    ) async {
+      final repository = _FakeRepository(_baseSettings());
+      tester.view.physicalSize = const Size(800, 2400);
+      addTearDown(tester.view.resetPhysicalSize);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsRepositoryProvider.overrideWithValue(repository),
+            hapticsDriverProvider.overrideWithValue(driver),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: BrowseSettingsPage(),
+          ),
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    // The tile sits below the fold of a lazily-built list — scroll it
-    // into the viewport first (finders cannot reach an unbuilt child).
-    // (widgetWithText can't find the Switch itself: in a SwitchListTile
-    // the switch is the title's sibling in the trailing slot.)
-    final tile = find.widgetWithText(SwitchListTile, '触感反馈');
-    await tester.scrollUntilVisible(
-      tile,
-      300,
-      scrollable: find.byType(Scrollable).first,
-      maxScrolls: 20,
-    );
-    await tester.pumpAndSettle();
-    expect(tile, findsOneWidget);
-    await tester.tap(tile);
-    await tester.pumpAndSettle();
-    expect(repository.value.enableHaptics, isFalse);
-    expect(repository.saved.last.enableHaptics, isFalse);
+      );
+      await tester.pump();
+      await tester.pump();
+      // The group sits below the fold of a lazily-built list — scroll it
+      // into the viewport first (finders cannot reach an unbuilt child).
+      await tester.scrollUntilVisible(
+        find.byType(SegmentedButton<HapticStrength>),
+        300,
+        scrollable: find.byType(Scrollable).first,
+        maxScrolls: 20,
+      );
+      await tester.pumpAndSettle();
+      return repository;
+    }
+
+    testWidgets('picking a strength persists it and previews it', (
+      tester,
+    ) async {
+      final driver = recordHaptics();
+      final repository = await pumpPage(tester, driver);
+      await tester.tap(find.text('强'));
+      await tester.pumpAndSettle();
+      expect(repository.value.hapticStrength, HapticStrength.strong);
+      expect(repository.saved.last.hapticStrength, HapticStrength.strong);
+      expect(driver.played, [(HapticRole.confirm, HapticStrength.strong)]);
+
+      await tester.tap(find.text('关'));
+      await tester.pumpAndSettle();
+      expect(repository.value.hapticStrength, HapticStrength.off);
+      // Off has nothing to preview.
+      expect(driver.played, hasLength(1));
+    });
+
+    testWidgets('the footer names the device tier', (tester) async {
+      const expected = {
+        HapticsTier.composition: '本机支持精细振动，强度逐级可调',
+        HapticsTier.predefined: '本机使用系统预设振动，强度按档位换用不同效果',
+        HapticsTier.system: '本机仅支持系统触感，强度不可调',
+        HapticsTier.none: '本机没有振动器',
+      };
+      for (final MapEntry(key: tier, value: text) in expected.entries) {
+        final driver = RecordingHapticsDriver(
+          capabilityResult: HapticsCapability(tier: tier, systemOff: false),
+        );
+        await pumpPage(tester, driver);
+        expect(find.text(text), findsOneWidget, reason: '$tier');
+        await tester.pumpWidget(const SizedBox());
+      }
+    });
+
+    testWidgets('the footer explains a system-wide haptics switch-off', (
+      tester,
+    ) async {
+      final driver = RecordingHapticsDriver(
+        capabilityResult: const HapticsCapability(
+          tier: HapticsTier.composition,
+          systemOff: true,
+        ),
+      );
+      await pumpPage(tester, driver);
+      expect(find.text('本机支持精细振动，强度逐级可调\n系统已关闭触摸振动，应用内触感不会生效'), findsOneWidget);
+    });
+
+    testWidgets('an unreadable capability says so', (tester) async {
+      final driver = RecordingHapticsDriver()
+        ..capabilityError = StateError('no channel');
+      await pumpPage(tester, driver);
+      expect(find.text('无法读取本机的振动能力'), findsOneWidget);
+    });
   });
 }
 
