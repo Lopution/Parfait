@@ -913,6 +913,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Turn off decorative animation: page transitions, list entrances and press feedback';
 
   @override
+  String get pressFeedback => 'Press feedback';
+
+  @override
+  String get pressFeedbackHint => 'Cards shrink slightly while pressed';
+
+  @override
   String get animationSpeed => 'Animation speed';
 
   @override

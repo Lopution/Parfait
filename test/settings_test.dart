@@ -518,6 +518,21 @@ void main() {
     expect(AppSettings.defaults().animationSpeed, AnimationSpeed.normal);
   });
 
+  test('pressFeedback defaults on and round-trips', () {
+    expect(AppSettings.defaults().pressFeedback, isTrue);
+    final stored = _baseSettings().copyWith(pressFeedback: false);
+    final encoded = stored.toJson();
+    expect(encoded['pressFeedback'], isFalse);
+    expect(
+      AppSettings.fromJson(encoded, fallback: _baseSettings()).pressFeedback,
+      isFalse,
+    );
+    final corrupt = AppSettings.fromJson({
+      'pressFeedback': 'yes',
+    }, fallback: _baseSettings());
+    expect(corrupt.pressFeedback, isTrue);
+  });
+
   test('animation speed factors scale from the normal tier', () {
     expect(AnimationSpeed.normal.factor, 1);
     expect(AnimationSpeed.fast.factor, closeTo(250 / 350, 1e-9));
@@ -877,6 +892,17 @@ void main() {
       }
     });
   }
+
+  testWidgets('the press feedback switch persists', (tester) async {
+    final repository = _FakeRepository(_baseSettings());
+    await pumpBrowse(tester, repository);
+    final row = find.text('按压反馈', skipOffstage: false);
+    await _scrollCentered(tester, row);
+    expect(find.text('按下卡片时轻微缩小'), findsOneWidget);
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+    expect(repository.value.pressFeedback, isFalse);
+  });
 
   testWidgets('reduce motion greys the speed picker and explains why', (
     tester,

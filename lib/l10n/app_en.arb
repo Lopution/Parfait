@@ -356,6 +356,8 @@
   "muteFailed": "Mute operation failed",
   "reduceMotion": "Reduce motion",
   "reduceMotionHint": "Turn off decorative animation: page transitions, list entrances and press feedback",
+  "pressFeedback": "Press feedback",
+  "pressFeedbackHint": "Cards shrink slightly while pressed",
   "animationSpeed": "Animation speed",
   "animationSpeedFast": "Fast",
   "animationSpeedNormal": "Standard",

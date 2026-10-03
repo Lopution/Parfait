@@ -122,6 +122,9 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setAnimationSpeed(AnimationSpeed speed) =>
       _update((settings) => settings.copyWith(animationSpeed: speed));
 
+  Future<void> setPressFeedback(bool enabled) =>
+      _update((settings) => settings.copyWith(pressFeedback: enabled));
+
   Future<void> setHapticStrength(HapticStrength strength) =>
       _update((settings) => settings.copyWith(hapticStrength: strength));
 

@@ -1733,6 +1733,18 @@ abstract class AppLocalizations {
   /// **'关闭页面转场、列表进场与按压反馈等装饰性动画'**
   String get reduceMotionHint;
 
+  /// No description provided for @pressFeedback.
+  ///
+  /// In zh, this message translates to:
+  /// **'按压反馈'**
+  String get pressFeedback;
+
+  /// No description provided for @pressFeedbackHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'按下卡片时轻微缩小'**
+  String get pressFeedbackHint;
+
   /// No description provided for @animationSpeed.
   ///
   /// In zh, this message translates to:

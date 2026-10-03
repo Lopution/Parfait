@@ -1,15 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/widgets.dart';
 
 import 'motion_tokens.dart';
 
 /// M3-style press feedback: the child scales to [MotionTokens.pressScale]
-/// while a pointer is down and releases back over [MotionTokens.press].
-/// Passive wrapper — no gestures are consumed, so it composes over the
-/// child's own InkWell/GestureDetector. Under reduced motion the scale
-/// snaps via a zero duration rather than animating.
+/// while a pointer is down and springs back on release. Both directions
+/// run the [MotionSpring.spatialFast] spring from the current scale and
+/// velocity, so a quick press-release-press never jumps. Passive wrapper —
+/// no gestures are consumed, so it composes over the child's own
+/// InkWell/GestureDetector. Under reduced motion the scale snaps. The
+/// press-feedback setting ([MotionScope.pressFeedbackOf]) turns it off.
 ///
 /// Release uses a raw [Listener] rather than a tap recognizer: a recognizer's
 /// `onTapDown` waits on the `kPressTimeout` deadline or an arena win (up to
@@ -25,18 +28,12 @@ import 'motion_tokens.dart';
 /// once would run a scale-down and a release across the card under the
 /// finger on every swipe start. A tap shorter than the deadline shows no
 /// scale; the tap's own feedback (ink, route push) covers it.
-///
-/// [TickerMode] frozen (a route transition owns the ticker budget): render
-/// the neutral scale. A press scale left armed would bake a mid-release
-/// card into the outgoing snapshot and replay the release after landing —
-/// the "card suddenly grows" pop.
 class PressScale extends StatefulWidget {
   const PressScale({
     super.key,
     required this.child,
     this.enabled = true,
     this.scale = MotionTokens.pressScale,
-    this.curve = MotionTokens.pressCurve,
   });
 
   final Widget child;
@@ -46,16 +43,20 @@ class PressScale extends StatefulWidget {
   /// tighter (0.85–0.9) reads better on small touch targets like nav items.
   final double scale;
 
-  /// Applied in both directions — an overshooting curve (e.g.
-  /// `Curves.easeOutBack`) gives the release a springy pop.
-  final Curve curve;
-
   @override
   State<PressScale> createState() => _PressScaleState();
 }
 
-class _PressScaleState extends State<PressScale> {
+class _PressScaleState extends State<PressScale>
+    with SingleTickerProviderStateMixin {
+  /// The rendered scale; unbounded so the spring may pass its target.
+  late final AnimationController _scale = AnimationController.unbounded(
+    vsync: this,
+    value: 1,
+  );
   var _pressed = false;
+  var _active = false;
+  var _tickersEnabled = true;
   Offset? _downPosition;
   Timer? _pressDelay;
   bool _insideVerticalScrollable = false;
@@ -68,29 +69,60 @@ class _PressScaleState extends State<PressScale> {
         Scrollable.maybeOf(context, axis: Axis.vertical) != null;
     _insideHorizontalScrollable =
         Scrollable.maybeOf(context, axis: Axis.horizontal) != null;
+    _tickersEnabled = TickerMode.valuesOf(context).enabled;
+    _syncActive();
+    _drive();
   }
 
   @override
   void didUpdateWidget(PressScale oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // A disabled wrapper drops its Listener: the pointer up never arrives,
-    // so a pending delay or a held press would otherwise outlive it.
-    if (!widget.enabled) {
-      _pressDelay?.cancel();
-      _downPosition = null;
-      _pressed = false;
-    }
+    _syncActive();
+  }
+
+  /// A disabled wrapper (by the caller or the press-feedback setting)
+  /// drops its Listener: the pointer up never arrives, so a pending delay
+  /// or a held press would otherwise outlive it.
+  void _syncActive() {
+    _active = widget.enabled && MotionScope.pressFeedbackOf(context);
+    if (_active) return;
+    _pressDelay?.cancel();
+    _downPosition = null;
+    _pressed = false;
+    _scale.value = 1;
   }
 
   @override
   void dispose() {
     _pressDelay?.cancel();
+    _scale.dispose();
     super.dispose();
   }
 
   void _setPressed(bool value) {
     if (_pressed == value) return;
-    setState(() => _pressed = value);
+    _pressed = value;
+    _drive();
+  }
+
+  /// Springs from the current scale and velocity toward the target. Frozen
+  /// tickers (a route transition owns the ticker budget) hold the neutral
+  /// scale: an armed press would bake a mid-release card into the
+  /// outgoing snapshot and replay the release after landing — the "card
+  /// suddenly grows" pop.
+  void _drive() {
+    if (!_active) return;
+    final target = _pressed && _tickersEnabled ? widget.scale : 1.0;
+    final spring = _tickersEnabled
+        ? MotionTokens.spring(context, MotionSpring.spatialFast)
+        : null;
+    if (spring == null) {
+      _scale.value = target;
+      return;
+    }
+    _scale.animateWith(
+      SpringSimulation(spring, _scale.value, target, _scale.velocity),
+    );
   }
 
   void _onPointerDown(PointerDownEvent event) {
@@ -127,21 +159,13 @@ class _PressScaleState extends State<PressScale> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.enabled) return widget.child;
-    final tickersEnabled = TickerMode.valuesOf(context).enabled;
+    if (!_active) return widget.child;
     return Listener(
       onPointerDown: _onPointerDown,
       onPointerMove: _onPointerMove,
       onPointerUp: _onPointerEnd,
       onPointerCancel: _onPointerEnd,
-      child: AnimatedScale(
-        scale: _pressed && tickersEnabled ? widget.scale : 1,
-        duration: tickersEnabled
-            ? MotionTokens.resolve(context, MotionTokens.press)
-            : Duration.zero,
-        curve: widget.curve,
-        child: widget.child,
-      ),
+      child: ScaleTransition(scale: _scale, child: widget.child),
     );
   }
 }

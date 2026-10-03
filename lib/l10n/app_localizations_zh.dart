@@ -864,6 +864,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reduceMotionHint => '关闭页面转场、列表进场与按压反馈等装饰性动画';
 
   @override
+  String get pressFeedback => '按压反馈';
+
+  @override
+  String get pressFeedbackHint => '按下卡片时轻微缩小';
+
+  @override
   String get animationSpeed => '动画速度';
 
   @override

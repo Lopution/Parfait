@@ -312,6 +312,17 @@ class _BrowseSettingsPageState extends ConsumerState<BrowseSettingsPage> {
                           .setReduceMotion(value),
                     ),
                   ),
+                  SettingsControl(
+                    title: Text(context.l10n.pressFeedback),
+                    subtitle: Text(context.l10n.pressFeedbackHint),
+                    value: settings.pressFeedback,
+                    onChanged: (value) => persistSettings(
+                      context,
+                      () => ref
+                          .read(settingsProvider.notifier)
+                          .setPressFeedback(value),
+                    ),
+                  ),
                 ],
               ),
               // Android-only: the haptics driver is a no-op elsewhere.

@@ -218,6 +218,7 @@ class AppSettings {
     this.hideMuted = false,
     this.reduceMotion = false,
     this.animationSpeed = AnimationSpeed.normal,
+    this.pressFeedback = true,
     this.hapticStrength = HapticStrength.standard,
     this.translateIndex = 1,
     this.maxDownloadCount = defaultMaxDownloadCount,
@@ -305,6 +306,10 @@ class AppSettings {
   /// Speed multiplier for every UI animation, the route transition and
   /// Hero flight included. Consumed through `MotionScope`.
   final AnimationSpeed animationSpeed;
+
+  /// Cards scale down slightly while pressed. Consumed through
+  /// `MotionScope`; reduce motion still snaps the scale.
+  final bool pressFeedback;
 
   /// Haptic strength, consumed by `AppHaptics` (§5.6 single owner).
   /// Haptics are a redundant channel — visual feedback stays complete
@@ -421,6 +426,7 @@ class AppSettings {
       animationSpeed: json['pageTransitionSpeedCode'] is int
           ? AnimationSpeed.fromCode(json['pageTransitionSpeedCode'])
           : base.animationSpeed,
+      pressFeedback: _bool(json['pressFeedback'], base.pressFeedback),
       hapticStrength: _readHapticStrength(json, base.hapticStrength),
       translateIndex: provider?.code ?? base.translateIndex,
       maxDownloadCount: _maxDownloads(maxDownloads, base.maxDownloadCount),
@@ -459,6 +465,7 @@ class AppSettings {
       'hideMuted': hideMuted,
       'reduceMotion': reduceMotion,
       'pageTransitionSpeedCode': animationSpeed.code,
+      'pressFeedback': pressFeedback,
       'hapticStrength': hapticStrength.name,
       'translateIndex': translateIndex,
       'maxDownloadCount': maxDownloadCount,
@@ -593,6 +600,7 @@ class AppSettings {
     bool? hideMuted,
     bool? reduceMotion,
     AnimationSpeed? animationSpeed,
+    bool? pressFeedback,
     HapticStrength? hapticStrength,
     int? translateIndex,
     int? maxDownloadCount,
@@ -637,6 +645,7 @@ class AppSettings {
       hideMuted: hideMuted ?? this.hideMuted,
       reduceMotion: reduceMotion ?? this.reduceMotion,
       animationSpeed: animationSpeed ?? this.animationSpeed,
+      pressFeedback: pressFeedback ?? this.pressFeedback,
       hapticStrength: hapticStrength ?? this.hapticStrength,
       translateIndex:
           TranslationProvider.fromCode(translateIndex)?.code ??

@@ -38,19 +38,15 @@ Widget _wrap(
   );
 }
 
-/// The press contract is asserted on [AnimatedScale]'s target/duration
-/// rather than the rendered Transform: in this test environment implicit
-/// animations started by a widget update do not tick under `pump` (ones
-/// started at widget creation do), so the matrix never leaves 1.0. The
-/// state machine and token wiring are ours to test; interpolation is the
-/// framework's.
-AnimatedScale _animatedScale(WidgetTester tester) {
-  return tester.widget<AnimatedScale>(
-    find.descendant(
-      of: find.byType(PressScale),
-      matching: find.byType(AnimatedScale),
-    ),
+/// The rendered press scale: PressScale drives a [ScaleTransition] from its
+/// own spring controller. 1.0 when the wrapper renders no transition.
+double _pressScale(WidgetTester tester) {
+  final transition = find.descendant(
+    of: find.byType(PressScale),
+    matching: find.byType(ScaleTransition),
   );
+  if (transition.evaluate().isEmpty) return 1;
+  return tester.widget<ScaleTransition>(transition).scale.value;
 }
 
 /// Counts State creations — a re-inflated card mounts a second time.
@@ -676,7 +672,7 @@ void main() {
   });
 
   group('PressScale', () {
-    testWidgets('pointer down scales to pressScale, up releases', (
+    testWidgets('pointer down springs to pressScale, up springs back', (
       tester,
     ) async {
       // The child must be hit-testable: a bare SizedBox/ColoredBox is not
@@ -689,12 +685,53 @@ void main() {
         tester.getCenter(find.byType(PressScale)),
       );
       await tester.pump();
-      expect(_animatedScale(tester).scale, MotionTokens.pressScale);
-      expect(_animatedScale(tester).duration, MotionTokens.press);
+      await tester.pump(const Duration(milliseconds: 16));
+      final mid = _pressScale(tester);
+      expect(mid, lessThan(1));
+      expect(mid, greaterThan(MotionTokens.pressScale));
+      await tester.pumpAndSettle();
+      expect(_pressScale(tester), closeTo(MotionTokens.pressScale, 1e-3));
 
       await gesture.up();
+      await tester.pumpAndSettle();
+      expect(_pressScale(tester), closeTo(1, 1e-3));
+    });
+
+    testWidgets('a quick release reverses from the current scale', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _wrap(const PressScale(child: Text('card content'))),
+      );
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(PressScale)),
+      );
       await tester.pump();
-      expect(_animatedScale(tester).scale, 1.0);
+      await tester.pump(const Duration(milliseconds: 50));
+      final released = _pressScale(tester);
+      expect(released, lessThan(1));
+      await gesture.up();
+
+      // Frame by frame: no jump back to 1 or to the pressed rest, and the
+      // scale keeps heading home once it turns around.
+      final frames = <double>[released];
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        frames.add(_pressScale(tester));
+      }
+      for (var i = 1; i < frames.length; i++) {
+        expect(
+          (frames[i] - frames[i - 1]).abs(),
+          lessThan(0.01),
+          reason: 'frame $i jumped',
+        );
+      }
+      final lowest = frames.reduce((a, b) => a < b ? a : b);
+      final turn = frames.indexOf(lowest);
+      for (var i = turn + 1; i < frames.length; i++) {
+        expect(frames[i], greaterThanOrEqualTo(frames[i - 1] - 1e-9));
+      }
+      expect(frames.last, closeTo(1, 1e-3));
     });
 
     testWidgets('reduced motion snaps the scale without a flight', (
@@ -707,11 +744,38 @@ void main() {
         tester.getCenter(find.byType(PressScale)),
       );
       await tester.pump();
-      expect(_animatedScale(tester).scale, MotionTokens.pressScale);
-      expect(_animatedScale(tester).duration, Duration.zero);
+      expect(_pressScale(tester), MotionTokens.pressScale);
       await gesture.up();
       await tester.pump();
-      expect(_animatedScale(tester).scale, 1.0);
+      expect(_pressScale(tester), 1.0);
+    });
+
+    testWidgets('the press-feedback setting turns the scale off', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MotionScope(
+            reduce: false,
+            pressFeedback: false,
+            child: const Scaffold(
+              body: PressScale(child: Text('card content')),
+            ),
+          ),
+        ),
+      );
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(PressScale)),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(PressScale),
+          matching: find.byType(ScaleTransition),
+        ),
+        findsNothing,
+      );
+      await gesture.up();
     });
 
     Widget scrollingCard() => _wrap(
@@ -739,13 +803,13 @@ void main() {
         tester.getCenter(find.byType(PressScale)),
       );
       await tester.pump(kPressTimeout ~/ 2);
-      expect(_animatedScale(tester).scale, 1.0);
+      expect(_pressScale(tester), 1.0);
 
       // The drag claims the pointer before the deadline: the pending press
       // is dropped, not shown late.
       await gesture.moveBy(const Offset(0, -80));
       await tester.pump(kPressTimeout);
-      expect(_animatedScale(tester).scale, 1.0);
+      expect(_pressScale(tester), 1.0);
       await gesture.up();
     });
 
@@ -756,14 +820,15 @@ void main() {
       );
       // A held finger presses once the deadline passes.
       await tester.pump(kPressTimeout);
-      expect(_animatedScale(tester).scale, MotionTokens.pressScale);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(_pressScale(tester), closeTo(MotionTokens.pressScale, 1e-3));
 
-      // The drag becomes a scroll: the ListView's recognizer wins the
-      // arena, the tap recognizer is rejected, and onTapCancel releases
-      // the scale — a raw Listener would stay pressed for the whole drag.
+      // The drag becomes a scroll: the ListView's recognizer claims the
+      // pointer and the press springs back while the finger is still down.
       await gesture.moveBy(const Offset(0, -80));
       await tester.pump();
-      expect(_animatedScale(tester).scale, 1.0);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(_pressScale(tester), closeTo(1, 1e-3));
       await gesture.up();
     });
 
@@ -777,15 +842,14 @@ void main() {
       final gesture = await tester.startGesture(
         tester.getCenter(find.byType(PressScale)),
       );
-      await tester.pump();
-      expect(_animatedScale(tester).scale, MotionTokens.pressScale);
+      await tester.pumpAndSettle();
+      expect(_pressScale(tester), closeTo(MotionTokens.pressScale, 1e-3));
 
       // Route transition owns the ticker budget: the armed press scale must
       // not bake into the outgoing snapshot.
       tickers = false;
       await tester.pumpWidget(app());
-      expect(_animatedScale(tester).scale, 1.0);
-      expect(_animatedScale(tester).duration, Duration.zero);
+      expect(_pressScale(tester), 1.0);
       await gesture.up();
     });
   });

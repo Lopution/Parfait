@@ -356,6 +356,8 @@
   "muteFailed": "ミュート操作に失敗しました",
   "reduceMotion": "視覚効果を減らす",
   "reduceMotionHint": "画面遷移・リスト入場・押下フィードバックなどの装飾アニメーションをオフにします",
+  "pressFeedback": "押下フィードバック",
+  "pressFeedbackHint": "カードを押している間わずかに縮小します",
   "animationSpeed": "アニメーション速度",
   "animationSpeedFast": "速い",
   "animationSpeedNormal": "標準",

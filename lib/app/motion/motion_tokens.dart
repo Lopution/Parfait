@@ -29,9 +29,8 @@ abstract final class MotionTokens {
   /// Medium UI transitions (root-back exit hint window pieces).
   static const medium = Duration(milliseconds: 200);
 
-  /// Card press feedback: scale down on pointer-down, release back.
-  static const press = Duration(milliseconds: 120);
-  static const pressCurve = Curves.easeOut;
+  /// Card press feedback: rest scale while pressed (the motion is the
+  /// [MotionSpring.spatialFast] spring).
   static const pressScale = 0.97;
 
   /// Feed entrance: staggered fade, played on a card's first viewport
@@ -237,8 +236,8 @@ void turnPage(BuildContext context, PageController controller, int page) {
   }
 }
 
-/// Publishes the in-app motion settings (reduce motion, animation speed) to
-/// the widget subtree. Mounted once at the app root (MaterialApp.builder);
+/// Publishes the in-app motion settings (reduce motion, animation speed,
+/// press feedback) to the widget subtree. Mounted once at the app root (MaterialApp.builder);
 /// tests can wrap any subtree directly. The platform half of the gate stays
 /// on `MediaQuery.disableAnimations`.
 class MotionScope extends InheritedWidget {
@@ -246,6 +245,7 @@ class MotionScope extends InheritedWidget {
     super.key,
     required this.reduce,
     this.speed = AnimationSpeed.normal,
+    this.pressFeedback = true,
     required super.child,
   });
 
@@ -253,6 +253,9 @@ class MotionScope extends InheritedWidget {
 
   /// Multiplier applied by [MotionTokens.resolve].
   final AnimationSpeed speed;
+
+  /// Whether cards scale down while pressed (`PressScale`).
+  final bool pressFeedback;
 
   static bool? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<MotionScope>()?.reduce;
@@ -263,7 +266,16 @@ class MotionScope extends InheritedWidget {
       context.dependOnInheritedWidgetOfExactType<MotionScope>()?.speed ??
       AnimationSpeed.normal;
 
+  /// The scoped press-feedback switch; on outside a scope.
+  static bool pressFeedbackOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<MotionScope>()
+          ?.pressFeedback ??
+      true;
+
   @override
   bool updateShouldNotify(MotionScope oldWidget) =>
-      reduce != oldWidget.reduce || speed != oldWidget.speed;
+      reduce != oldWidget.reduce ||
+      speed != oldWidget.speed ||
+      pressFeedback != oldWidget.pressFeedback;
 }

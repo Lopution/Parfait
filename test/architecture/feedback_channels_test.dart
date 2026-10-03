@@ -115,7 +115,7 @@ const _heroFiles = <String>{
 /// throttle, wheel floor clamp, ugoira frame delay, debug probe poll).
 /// Counts are pinned so a new hard-coded animation duration fails here.
 const _durationCensus = <String, int>{
-  'lib/app/motion/motion_tokens.dart': 20,
+  'lib/app/motion/motion_tokens.dart': 19,
   'lib/app/haptics/app_haptics.dart': 3,
   'lib/app/widgets/smooth_wheel_scroll.dart': 2,
   // Show delay of the image progress ring: a debounce, not an animation.

@@ -356,6 +356,8 @@
   "muteFailed": "Ошибка заглушения",
   "reduceMotion": "Меньше анимаций",
   "reduceMotionHint": "Отключить декоративную анимацию: переходы страниц, появление списков и отклик на нажатие",
+  "pressFeedback": "Отклик на нажатие",
+  "pressFeedbackHint": "Карточки слегка уменьшаются при нажатии",
   "animationSpeed": "Скорость анимации",
   "animationSpeedFast": "Быстро",
   "animationSpeedNormal": "Стандартно",

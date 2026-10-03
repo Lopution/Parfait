@@ -279,6 +279,7 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
           child: MotionScope(
             reduce: settings.reduceMotion,
             speed: settings.animationSpeed,
+            pressFeedback: settings.pressFeedback,
             // ignore: deprecated_member_use
             child: MaterialUiCompatibilityBridge(
               child: ExternalIntentBridge(

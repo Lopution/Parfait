@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../app/motion/press_scale.dart';
 import '../../../app/motion/feed_entrance.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
@@ -510,28 +511,30 @@ class _UserRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(
-        horizontal: FuncSpacing.md,
-        vertical: FuncSpacing.sm,
-      ),
-      child: InkWell(
-        onTap: () => openUser(context, entity.id),
-        borderRadius: FuncShape.control,
-        child: Padding(
-          padding: const EdgeInsets.all(FuncSpacing.md),
-          child: Row(
-            children: [
-              Expanded(
-                child: AuthorSummary(
-                  name: entity.name,
-                  account: entity.account,
-                  imageUrl: entity.profileImageUrl,
-                  avatarRadius: 24,
+    return PressScale(
+      child: Card(
+        margin: const EdgeInsets.symmetric(
+          horizontal: FuncSpacing.md,
+          vertical: FuncSpacing.sm,
+        ),
+        child: InkWell(
+          onTap: () => openUser(context, entity.id),
+          borderRadius: FuncShape.control,
+          child: Padding(
+            padding: const EdgeInsets.all(FuncSpacing.md),
+            child: Row(
+              children: [
+                Expanded(
+                  child: AuthorSummary(
+                    name: entity.name,
+                    account: entity.account,
+                    imageUrl: entity.profileImageUrl,
+                    avatarRadius: 24,
+                  ),
                 ),
-              ),
-              const Icon(Icons.chevron_right),
-            ],
+                const Icon(Icons.chevron_right),
+              ],
+            ),
           ),
         ),
       ),

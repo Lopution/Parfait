@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import 'app_localizations.dart';
 import '../core/i18n/replica_language.dart';
+import 'app_localizations.dart';
 
 /// Locale access for the legacy language enum (onboarding previews).
 extension ReplicaLanguageLocale on ReplicaLanguage {
@@ -442,6 +442,8 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'openLink' => l10n.openLink,
   'pauseDownload' => l10n.pauseDownload,
   'pixivHistory' => l10n.pixivHistory,
+  'pressFeedback' => l10n.pressFeedback,
+  'pressFeedbackHint' => l10n.pressFeedbackHint,
   'previewQuality' => l10n.previewQuality,
   'profileAbout' => l10n.profileAbout,
   'profileAccount' => l10n.profileAccount,

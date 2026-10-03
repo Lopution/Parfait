@@ -356,6 +356,8 @@
   "muteFailed": "屏蔽操作失败",
   "reduceMotion": "减少动态效果",
   "reduceMotionHint": "关闭页面转场、列表进场与按压反馈等装饰性动画",
+  "pressFeedback": "按压反馈",
+  "pressFeedbackHint": "按下卡片时轻微缩小",
   "animationSpeed": "动画速度",
   "animationSpeedFast": "快",
   "animationSpeedNormal": "标准",

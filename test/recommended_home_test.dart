@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/icons/app_icons.dart';
+import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
@@ -408,6 +409,10 @@ void main() {
     });
     expect(fixture.requests, contains('/v1/user/recommended?filter=for_ios'));
     expect(find.text('user 1'), findsOneWidget);
+    expect(
+      find.ancestor(of: find.text('user 1'), matching: find.byType(PressScale)),
+      findsOneWidget,
+    );
   });
 
   testWidgets('branch re-tap scrolls the active feed to top without refetch', (

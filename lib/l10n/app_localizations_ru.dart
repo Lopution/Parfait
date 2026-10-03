@@ -914,6 +914,12 @@ class AppLocalizationsRu extends AppLocalizations {
       'Отключить декоративную анимацию: переходы страниц, появление списков и отклик на нажатие';
 
   @override
+  String get pressFeedback => 'Отклик на нажатие';
+
+  @override
+  String get pressFeedbackHint => 'Карточки слегка уменьшаются при нажатии';
+
+  @override
   String get animationSpeed => 'Скорость анимации';
 
   @override

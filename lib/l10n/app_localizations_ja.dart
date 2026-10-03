@@ -883,6 +883,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get reduceMotionHint => '画面遷移・リスト入場・押下フィードバックなどの装飾アニメーションをオフにします';
 
   @override
+  String get pressFeedback => '押下フィードバック';
+
+  @override
+  String get pressFeedbackHint => 'カードを押している間わずかに縮小します';
+
+  @override
   String get animationSpeed => 'アニメーション速度';
 
   @override

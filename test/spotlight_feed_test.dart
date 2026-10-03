@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 
+import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
 import 'package:parfait/core/search/search_repository.dart' show TrendingTag;
@@ -133,6 +134,13 @@ void main() {
         // Page one committed: two rows with title, label and date.
         expect(find.text('spotlight 101'), findsOneWidget);
         expect(find.text('spotlight 102'), findsOneWidget);
+        expect(
+          find.ancestor(
+            of: find.text('spotlight 101'),
+            matching: find.byType(PressScale),
+          ),
+          findsOneWidget,
+        );
         expect(find.text('label 101'), findsOneWidget);
         expect(find.text('2026-09-01'), findsNWidgets(2));
         expect(fixture.requests.single.queryParameters['category'], 'all');
