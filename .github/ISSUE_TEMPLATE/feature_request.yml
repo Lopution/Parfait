@@ -2,22 +2,20 @@ name: 功能建议 Feature request
 description: 想要新功能，或希望改进现有功能
 labels: [enhancement]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        提交前请先搜索现有 Issue，看看是否已经有人提过。
-  - type: textarea
-    id: feature
-    attributes:
-      label: 想要的功能 Feature
-      description: 希望应用能做什么。
-    validations:
-      required: true
   - type: textarea
     id: use-case
     attributes:
       label: 使用场景 Use case
       description: 什么情况下会用到它，现在遇到了什么不便。
+      placeholder: 我想……的时候，需要……，现在只能……。
+    validations:
+      required: true
+  - type: textarea
+    id: feature
+    attributes:
+      label: 想要的功能 Feature
+      description: 希望应用能做什么。截图或示意图可以直接拖进这里。
+      placeholder: 如果在……加一个……，就可以……。
     validations:
       required: true
   - type: textarea
@@ -25,3 +23,12 @@ body:
     attributes:
       label: 考虑过的替代做法 Alternatives
       description: 现在是怎么绕过的，或者其他客户端是怎么做的。
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认 Checklist
+      options:
+        - label: 我已搜索过现有 Issue（包括已关闭的），没有人提过。I searched the open and closed issues.
+          required: true
+        - label: 我已更新到[最新版本](https://github.com/Lopution/Parfait/releases/latest)，其中还没有这个功能。I am on the latest version.
+          required: true
