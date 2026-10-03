@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-import 'app_localizations.dart';
 import '../core/i18n/replica_language.dart';
+import 'app_localizations.dart';
 
 /// Locale access for the legacy language enum (onboarding previews).
 extension ReplicaLanguageLocale on ReplicaLanguage {
@@ -91,6 +91,12 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'agreementUpdatesTitle' => l10n.agreementUpdatesTitle,
   'agreementUsageBody' => l10n.agreementUsageBody,
   'agreementUsageTitle' => l10n.agreementUsageTitle,
+  'animationSpeed' => l10n.animationSpeed,
+  'animationSpeedFast' => l10n.animationSpeedFast,
+  'animationSpeedHint' => l10n.animationSpeedHint,
+  'animationSpeedNormal' => l10n.animationSpeedNormal,
+  'animationSpeedReduceHint' => l10n.animationSpeedReduceHint,
+  'animationSpeedSlow' => l10n.animationSpeedSlow,
   'backupExport' => l10n.backupExport,
   'backupExportFailed' => l10n.backupExportFailed,
   'backupExportHint' => l10n.backupExportHint,
@@ -434,13 +440,10 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'novelWords' => l10n.novelWords,
   'openInBrowser' => l10n.openInBrowser,
   'openLink' => l10n.openLink,
-  'pageTransitionFast' => l10n.pageTransitionFast,
-  'pageTransitionNormal' => l10n.pageTransitionNormal,
-  'pageTransitionSlow' => l10n.pageTransitionSlow,
-  'pageTransitionSpeed' => l10n.pageTransitionSpeed,
-  'pageTransitionSpeedReduceHint' => l10n.pageTransitionSpeedReduceHint,
   'pauseDownload' => l10n.pauseDownload,
   'pixivHistory' => l10n.pixivHistory,
+  'pressFeedback' => l10n.pressFeedback,
+  'pressFeedbackHint' => l10n.pressFeedbackHint,
   'previewQuality' => l10n.previewQuality,
   'profileAbout' => l10n.profileAbout,
   'profileAccount' => l10n.profileAccount,

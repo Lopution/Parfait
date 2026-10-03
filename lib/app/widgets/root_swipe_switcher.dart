@@ -257,7 +257,7 @@ class _RootSwipeSwitcherState extends State<RootSwipeSwitcher>
     }
     tc.animateTo(
       target,
-      duration: MotionTokens.enabled(context) ? null : Duration.zero,
+      duration: MotionTokens.resolve(context, MotionTokens.navIndicator),
     );
   }
 
@@ -265,7 +265,8 @@ class _RootSwipeSwitcherState extends State<RootSwipeSwitcher>
     final tc = _tc!;
     _settleTarget = target;
     final from = tc.animation?.value ?? tc.index.toDouble();
-    if (!MotionTokens.enabled(context) || (from - target).abs() < 1e-4) {
+    final duration = MotionTokens.resolve(context, MotionTokens.fast);
+    if (duration == Duration.zero || (from - target).abs() < 1e-4) {
       tc.index = target;
       tc.offset = 0;
       return;
@@ -273,7 +274,7 @@ class _RootSwipeSwitcherState extends State<RootSwipeSwitcher>
     final controller = _settle ??= AnimationController(vsync: this)
       ..addListener(_applySettle)
       ..addStatusListener(_finishSettle);
-    controller.duration = MotionTokens.fast;
+    controller.duration = duration;
     _settleAnim = Tween<double>(begin: from, end: target.toDouble()).animate(
       CurvedAnimation(parent: controller, curve: MotionTokens.fastCurve),
     );

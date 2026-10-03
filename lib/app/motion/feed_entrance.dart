@@ -100,7 +100,6 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
   @override
   void initState() {
     super.initState();
-    _syncDuration();
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) _markDone();
     });
@@ -109,6 +108,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _syncDuration();
     _evaluate();
   }
 
@@ -134,10 +134,16 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
     super.dispose();
   }
 
+  /// The per-index wait before the fade; part of the controller's span.
+  var _delay = Duration.zero;
+
   void _syncDuration() {
+    _delay = MotionTokens.resolve(
+      context,
+      MotionTokens.listStaggerStep * _staggerIndex,
+    );
     _controller.duration =
-        MotionTokens.listEntrance +
-        MotionTokens.listStaggerStep * _staggerIndex;
+        _delay + MotionTokens.resolve(context, MotionTokens.listEntrance);
   }
 
   int get _staggerIndex => !_staggered
@@ -272,18 +278,18 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
     if (_done && !_wrapped) return widget.child;
     _wrapped = true;
     final total = _controller.duration!.inMicroseconds;
-    final delayUs =
-        (MotionTokens.listStaggerStep * _staggerIndex).inMicroseconds;
+    final delayUs = _delay.inMicroseconds;
     return AnimatedBuilder(
       animation: _controller,
       child: widget.child,
       builder: (context, child) {
         // The entrance occupies the tail fraction after the per-index delay.
-        final window =
-            ((_controller.value * total - delayUs) / (total - delayUs)).clamp(
-              0.0,
-              1.0,
-            );
+        // A closed motion gate resolves both spans to zero: land on the
+        // end state.
+        final span = total - delayUs;
+        final window = span <= 0
+            ? 1.0
+            : ((_controller.value * total - delayUs) / span).clamp(0.0, 1.0);
         return Opacity(
           opacity: MotionTokens.listEntranceCurve.transform(window),
           child: child,

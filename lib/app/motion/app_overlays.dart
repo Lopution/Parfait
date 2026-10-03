@@ -4,7 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'motion_tokens.dart';
 
-/// App-wide modal bottom sheet entry: one presentation curve and one
+/// App-wide modal bottom sheet entry: one presentation spring and one
 /// reduced-motion gate for every sheet. Under reduced motion the sheet
 /// snaps open via [AnimationStyle.noAnimation] — the state change still
 /// lands, only the slide is removed.
@@ -38,13 +38,23 @@ Future<T?> showAppBottomSheet<T>({
       modalBarrierColor: Theme.of(context).bottomSheetTheme.modalBarrierColor,
       showDragHandle: showDragHandle,
       useSafeArea: useSafeArea,
-      sheetAnimationStyle: MotionTokens.enabled(context)
-          ? AnimationStyle(
-              duration: MotionTokens.sheet,
-              curve: MotionTokens.sheetCurve,
-            )
-          : AnimationStyle.noAnimation,
+      sheetAnimationStyle: _sheetAnimationStyle(context),
     ),
+  );
+}
+
+/// Opens on the [MotionSpring.spatialDefault] spring; closes over Material's
+/// 200 ms exit, which the reversed spring curve accelerates away.
+AnimationStyle _sheetAnimationStyle(BuildContext context) {
+  final (duration, curve) = MotionTokens.springCurve(
+    context,
+    MotionSpring.spatialDefault,
+  );
+  if (duration == Duration.zero) return AnimationStyle.noAnimation;
+  return AnimationStyle(
+    duration: duration,
+    curve: curve,
+    reverseDuration: MotionTokens.resolve(context, MotionTokens.medium),
   );
 }
 
@@ -75,7 +85,9 @@ Future<T?> showAppDialog<T>({
       barrierLabel: barrierLabel,
       traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
       animationStyle: MotionTokens.enabled(context)
-          ? AnimationStyle(duration: MotionTokens.dialog)
+          ? AnimationStyle(
+              duration: MotionTokens.resolve(context, MotionTokens.dialog),
+            )
           : AnimationStyle.noAnimation,
     ),
   );

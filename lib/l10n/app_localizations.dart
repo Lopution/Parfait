@@ -1733,35 +1733,53 @@ abstract class AppLocalizations {
   /// **'关闭页面转场、列表进场与按压反馈等装饰性动画'**
   String get reduceMotionHint;
 
-  /// No description provided for @pageTransitionSpeed.
+  /// No description provided for @pressFeedback.
   ///
   /// In zh, this message translates to:
-  /// **'页面转场速度'**
-  String get pageTransitionSpeed;
+  /// **'按压反馈'**
+  String get pressFeedback;
 
-  /// No description provided for @pageTransitionFast.
+  /// No description provided for @pressFeedbackHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'按下卡片时轻微缩小'**
+  String get pressFeedbackHint;
+
+  /// No description provided for @animationSpeed.
+  ///
+  /// In zh, this message translates to:
+  /// **'动画速度'**
+  String get animationSpeed;
+
+  /// No description provided for @animationSpeedFast.
   ///
   /// In zh, this message translates to:
   /// **'快'**
-  String get pageTransitionFast;
+  String get animationSpeedFast;
 
-  /// No description provided for @pageTransitionNormal.
+  /// No description provided for @animationSpeedNormal.
   ///
   /// In zh, this message translates to:
   /// **'标准'**
-  String get pageTransitionNormal;
+  String get animationSpeedNormal;
 
-  /// No description provided for @pageTransitionSlow.
+  /// No description provided for @animationSpeedSlow.
   ///
   /// In zh, this message translates to:
   /// **'慢'**
-  String get pageTransitionSlow;
+  String get animationSpeedSlow;
 
-  /// No description provided for @pageTransitionSpeedReduceHint.
+  /// No description provided for @animationSpeedHint.
   ///
   /// In zh, this message translates to:
-  /// **'开启「减少动态效果」时不播放页面转场'**
-  String get pageTransitionSpeedReduceHint;
+  /// **'作用于应用内全部动画；水波纹等系统控件动画不受影响'**
+  String get animationSpeedHint;
+
+  /// No description provided for @animationSpeedReduceHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启「减少动态效果」时不播放动画，速度不生效'**
+  String get animationSpeedReduceHint;
 
   /// No description provided for @maxDownloadCount.
   ///

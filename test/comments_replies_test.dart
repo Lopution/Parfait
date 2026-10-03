@@ -31,6 +31,7 @@ import 'package:parfait/features/comments/comments_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/context.dart';
+import 'package:parfait/app/motion/removal.dart';
 
 import 'helpers/recording_haptics.dart';
 import 'helpers/fake_account.dart';
@@ -1261,6 +1262,8 @@ void main() {
     // squeezed the list into an overflowing sliver instead.
     final feedBottom = tester.getRect(find.byType(ListView)).bottom;
     expect(find.byKey(const ValueKey(12)), findsOneWidget);
+    // Reply rows delete through the exit-first removal.
+    expect(tester.widget(find.byKey(const ValueKey(12))), isA<Removable>());
     expect(
       tester.getRect(find.byKey(const ValueKey(12))).top,
       lessThan(feedBottom),

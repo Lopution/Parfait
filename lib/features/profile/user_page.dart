@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/motion_tokens.dart';
+import '../../app/motion/state_fade.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/widgets/app_snack_bar.dart';
@@ -385,19 +386,22 @@ class _UserPageState extends ConsumerState<UserPage>
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(userDetailControllerProvider(widget.userId));
-    return Scaffold(
-      body: async.when(
-        loading: () => const ProfileSkeleton(),
-        error: (error, _) => _ProfileStatusPage(
-          icon: Icons.cloud_off,
-          title: context.l10n.profileLoadFailed,
-          error: error,
-          onRetry: () => ref
-              .read(userDetailControllerProvider(widget.userId).notifier)
-              .reload(),
-        ),
-        data: _buildLoaded,
+    final body = async.when(
+      loading: () => const ProfileSkeleton(),
+      error: (error, _) => _ProfileStatusPage(
+        icon: Icons.cloud_off,
+        title: context.l10n.profileLoadFailed,
+        error: error,
+        onRetry: () => ref
+            .read(userDetailControllerProvider(widget.userId).notifier)
+            .reload(),
       ),
+      data: _buildLoaded,
+    );
+    // The skeleton hands over to the profile with a fade; status pages are
+    // FeedEmpty, which fades in by itself.
+    return Scaffold(
+      body: StateFade(kind: body is ProfileSkeleton, child: body),
     );
   }
 

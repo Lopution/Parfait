@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
+import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/naming_rule.dart';
@@ -439,6 +440,9 @@ void main() {
       ),
     );
     await tester.pump();
+    // The row's exit plays before the record drops.
+    expect(manager.tasks, hasLength(1));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(manager.tasks, isEmpty);
     await tester.pump();
     expect(find.text('暂无下载任务'), findsOneWidget);
@@ -508,6 +512,7 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(manager.tasks, isEmpty);
   });
 
@@ -906,6 +911,13 @@ void main() {
     // and they share its surface color.
     await tester.tap(find.text('批量下载 · 2 项'));
     await tester.pump();
+    // The children grow in from zero height, then sit at full size.
+    final firstChild = _taskRow(manager.tasks.first.id);
+    expect(tester.getSize(firstChild).height, 0);
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(tester.getSize(firstChild).height, greaterThan(0));
+    await tester.pump(const Duration(milliseconds: 300));
+    final fullHeight = tester.getSize(firstChild).height;
     expect(_taskRows(), findsNWidgets(2));
     expect(
       find.descendant(of: header, matching: find.byIcon(Icons.expand_less)),
@@ -935,9 +947,12 @@ void main() {
       );
     }
 
-    // Tap again to collapse.
+    // Tap again to collapse: the children fold away, then leave the list.
     await tester.tap(find.text('批量下载 · 2 项'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(tester.getSize(firstChild).height, inExclusiveRange(0, fullHeight));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(_taskRows(skipOffstage: false), findsNothing);
     expect(
       find.descendant(of: header, matching: find.byIcon(Icons.expand_more)),
@@ -984,11 +999,19 @@ void main() {
 
     await tester.tap(find.byKey(ValueKey('download-group-${group.id}')));
     await tester.pump();
+    // The first frame also holds the growing rows at zero height; only
+    // about a screen of them grows, not all 300.
+    expect(
+      _taskRows(skipOffstage: false).evaluate().length,
+      inInclusiveRange(1, 40),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
     expect(
       _taskRows(skipOffstage: false).evaluate().length,
       inInclusiveRange(1, 20),
     );
   });
+
   testWidgets(
     'selection mode batch-removes terminal and batch-cancels active',
     (tester) async {
@@ -1040,11 +1063,15 @@ void main() {
       await tester.pump();
       expect(find.text('已选 2 项'), findsOneWidget);
       expect(haptics.roles.last, HapticRole.select);
+      // The check marks swap in; let the swap finish.
+      await tester.pump(const Duration(milliseconds: 300));
       for (final task in manager.tasks) {
-        final mark = tester.widget<Icon>(
-          find.byKey(ValueKey('download-select-${task.id}')),
+        final mark = find.byKey(ValueKey('download-select-${task.id}'));
+        expect(tester.widget<Icon>(mark).icon, Icons.check_circle);
+        expect(
+          find.ancestor(of: mark, matching: find.byType(StateIconSwitcher)),
+          findsOneWidget,
         );
-        expect(mark.icon, Icons.check_circle);
       }
       expect(find.byIcon(Icons.open_in_new), findsNothing);
 
@@ -1058,6 +1085,7 @@ void main() {
       expect(find.byType(AlertDialog), findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, '移除'));
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       expect(manager.tasks.single.status, DownloadStatus.running);
       expect(find.text('已选 0 项'), findsNothing);
       expect(find.text('下载任务'), findsOneWidget);
@@ -1157,6 +1185,7 @@ void main() {
       // contract: two-line title, actions on the second line.
       await tester.tap(find.text('批量下载 · 2 项'));
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       final longNameTask = manager.tasks.first;
       final childRow = _taskRow(longNameTask.id);
       expect(

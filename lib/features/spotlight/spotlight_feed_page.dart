@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/motion/press_scale.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/pull_to_refresh.dart';
@@ -167,73 +168,75 @@ class _SpotlightArticleTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => openSpotlightArticle(
-          context,
-          articleId: article.id,
-          articleUrl: article.articleUrl,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(FuncSpacing.md),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (article.thumbnailUrl != null)
-                ClipRRect(
-                  borderRadius: FuncShape.control,
-                  // App API thumbnails live on i.pximg.net, which refuses
-                  // requests without the Pixiv referer.
-                  child: PixivImage.feed(
-                    article.thumbnailUrl!,
-                    layoutWidth: _thumbnailWidth,
-                    width: _thumbnailWidth,
-                    height: _thumbnailHeight,
+    return PressScale(
+      child: Card(
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => openSpotlightArticle(
+            context,
+            articleId: article.id,
+            articleUrl: article.articleUrl,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(FuncSpacing.md),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (article.thumbnailUrl != null)
+                  ClipRRect(
+                    borderRadius: FuncShape.control,
+                    // App API thumbnails live on i.pximg.net, which refuses
+                    // requests without the Pixiv referer.
+                    child: PixivImage.feed(
+                      article.thumbnailUrl!,
+                      layoutWidth: _thumbnailWidth,
+                      width: _thumbnailWidth,
+                      height: _thumbnailHeight,
+                    ),
+                  ),
+                if (article.thumbnailUrl != null)
+                  const SizedBox(width: FuncSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        article.title,
+                        style: theme.textTheme.titleSmall,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: FuncSpacing.xs),
+                      Row(
+                        children: [
+                          if (article.subcategoryLabel.isNotEmpty)
+                            Flexible(
+                              child: Text(
+                                article.subcategoryLabel,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          if (article.subcategoryLabel.isNotEmpty &&
+                              article.publishDate.isNotEmpty)
+                            const SizedBox(width: FuncSpacing.sm),
+                          if (article.publishDate.isNotEmpty)
+                            Text(
+                              article.publishDate,
+                              style: theme.textTheme.bodySmall,
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              if (article.thumbnailUrl != null)
-                const SizedBox(width: FuncSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      article.title,
-                      style: theme.textTheme.titleSmall,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: FuncSpacing.xs),
-                    Row(
-                      children: [
-                        if (article.subcategoryLabel.isNotEmpty)
-                          Flexible(
-                            child: Text(
-                              article.subcategoryLabel,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.primary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        if (article.subcategoryLabel.isNotEmpty &&
-                            article.publishDate.isNotEmpty)
-                          const SizedBox(width: FuncSpacing.sm),
-                        if (article.publishDate.isNotEmpty)
-                          Text(
-                            article.publishDate,
-                            style: theme.textTheme.bodySmall,
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right),
-            ],
+                const Icon(Icons.chevron_right),
+              ],
+            ),
           ),
         ),
       ),

@@ -93,7 +93,7 @@ const _snackBarOnCallSites = <String>{
 };
 
 /// Raw overlay entries that are intentional framework pickers, not app
-/// overlay surfaces — the app overlay contract (MotionTokens.sheet/dialog +
+/// overlay surfaces — the app overlay contract (sheet spring, dialog token +
 /// reduced-motion gate) does not restyle them.
 const _overlayAllowList = <String, Set<String>>{
   'lib/features/settings/pages/about_settings_page.dart': {'showLicensePage'},
@@ -115,7 +115,7 @@ const _heroFiles = <String>{
 /// throttle, wheel floor clamp, ugoira frame delay, debug probe poll).
 /// Counts are pinned so a new hard-coded animation duration fails here.
 const _durationCensus = <String, int>{
-  'lib/app/motion/motion_tokens.dart': 20,
+  'lib/app/motion/motion_tokens.dart': 18,
   'lib/app/haptics/app_haptics.dart': 3,
   'lib/app/widgets/smooth_wheel_scroll.dart': 2,
   // Show delay of the image progress ring: a debounce, not an animation.

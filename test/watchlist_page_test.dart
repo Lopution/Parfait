@@ -19,6 +19,7 @@ import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/series/series_recent_open_store.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
+import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/app/widgets/watchlist_toggle.dart';
 import 'package:parfait/features/watchlist/watchlist_page.dart';
@@ -313,6 +314,13 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.bookmark_added), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.byIcon(Icons.bookmark_added),
+        matching: find.byType(StateIconSwitcher),
+      ),
+      findsOneWidget,
+    );
     // The detail payload was observed into the store.
     expect(container.read(watchlistStoreProvider)[key]!.added, isTrue);
   });

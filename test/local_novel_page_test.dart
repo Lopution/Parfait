@@ -17,6 +17,7 @@ import 'package:parfait/features/novel/local_novel_reader_page.dart';
 import 'package:parfait/features/localnovel/local_novels_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/app/motion/removal.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'helpers/recording_haptics.dart';
@@ -276,6 +277,15 @@ void main() {
     await tester.tap(find.byIcon(Icons.delete_outline));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    // The row's exit plays before the delete is issued.
+    await tester.pump();
+    expect(
+      find.ancestor(
+        of: find.text('My Story'),
+        matching: find.byType(Removable),
+      ),
+      findsOneWidget,
+    );
     // The store's delete is sqflite IO issued inside the fake-async zone:
     // its lock queue advances on `pump` while `runAsync` buys real time —
     // the same zone dance as `_pumpUntil`. Deleting the only row lands on

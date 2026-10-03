@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:flutter/physics.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../haptics/app_haptics.dart';
@@ -28,87 +31,72 @@ class DragToDismiss extends StatefulWidget {
 
 class _DragToDismissState extends State<DragToDismiss>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _returnAnimation;
-  double _dragOffset = 0;
-  double _returnFrom = 0;
+  /// The surface's downward offset in pixels: the finger sets it during a
+  /// drag, a spring carries it home after a cancelled one. Unbounded so the
+  /// spring may pass zero.
+  late final AnimationController _offset = AnimationController.unbounded(
+    vsync: this,
+  )..addListener(() => setState(() {}));
   bool _dismissing = false;
-
-  double get _visualOffset => _returnAnimation.isAnimating
-      ? _returnFrom * (1 - _returnAnimation.value)
-      : _dragOffset;
-
-  @override
-  void initState() {
-    super.initState();
-    _returnAnimation =
-        AnimationController(vsync: this, duration: MotionTokens.fast)
-          ..addListener(() => setState(() {}))
-          ..addStatusListener((status) {
-            if (status == AnimationStatus.completed) {
-              _dragOffset = 0;
-            }
-          });
-  }
 
   @override
   void dispose() {
-    _returnAnimation.dispose();
+    _offset.dispose();
     super.dispose();
   }
 
   void _onVerticalDragStart(DragStartDetails _) {
-    final offset = _visualOffset;
-    _returnAnimation.stop();
-    _dragOffset = offset;
+    // Catch the surface mid-return where it is.
+    _offset.stop();
   }
 
   void _onVerticalDragUpdate(DragUpdateDetails details) {
-    final wasPast = _dragOffset >= widget.dismissDistance;
-    setState(() {
-      _dragOffset = (_dragOffset + details.delta.dy)
-          .clamp(0.0, double.infinity)
-          .toDouble();
-    });
+    final wasPast = _offset.value >= widget.dismissDistance;
+    _offset.value = math.max(0.0, _offset.value + details.delta.dy);
     // Crossing the distance threshold is felt both ways: releasing past it
     // dismisses, pulling back under it cancels.
-    final isPast = _dragOffset >= widget.dismissDistance;
+    final isPast = _offset.value >= widget.dismissDistance;
     if (isPast && !wasPast) AppHaptics.thresholdOn();
     if (wasPast && !isPast) AppHaptics.thresholdOff();
   }
 
   void _onVerticalDragEnd(DragEndDetails details) {
+    final velocity = details.velocity.pixelsPerSecond.dy;
     final shouldDismiss =
-        _dragOffset >= widget.dismissDistance ||
-        details.velocity.pixelsPerSecond.dy >= widget.dismissVelocity;
+        _offset.value >= widget.dismissDistance ||
+        velocity >= widget.dismissVelocity;
     if (shouldDismiss) {
       _dismissing = true;
       widget.onDismissed();
       return;
     }
-    _settleReturn();
+    _settleReturn(velocity);
   }
 
   void _onVerticalDragCancel() {
-    _settleReturn();
+    _settleReturn(0);
   }
 
-  /// The canceled-drag return flight is the only decorative motion here.
-  /// The controller is created in initState (no context), so the
-  /// [MotionTokens] gate lives at the call site: reduced motion lands the
-  /// end state — `_dragOffset` back to zero via the completed-status
-  /// listener — without the flight.
-  void _settleReturn() {
-    _returnFrom = _dragOffset;
-    if (MotionTokens.enabled(context)) {
-      _returnAnimation.forward(from: 0);
-    } else {
-      _returnAnimation.value = 1;
+  /// Carries the surface home on the [MotionSpring.spatialFast] spring,
+  /// starting at the finger's release [velocity] (pixels per second): a
+  /// slow release eases back, an upward flick snaps back. Reduced motion
+  /// lands at rest at once.
+  void _settleReturn(double velocity) {
+    final spring = MotionTokens.spring(context, MotionSpring.spatialFast);
+    if (spring == null) {
+      _offset.value = 0;
+      return;
     }
+    _offset.animateWith(
+      SpringSimulation(spring, _offset.value, 0, velocity, snapToEnd: true),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final offset = _visualOffset;
+    // An upward flick may carry the spring past rest; the surface stops
+    // at its home position rather than lifting off the top.
+    final offset = math.max(0.0, _offset.value);
     final progress = (offset / widget.dismissDistance)
         .clamp(0.0, 1.0)
         .toDouble();
@@ -118,7 +106,7 @@ class _DragToDismissState extends State<DragToDismiss>
         scale: 1 - progress * 0.15,
         child: Opacity(
           opacity: 1 - progress * 0.35,
-          // The return controller only changes the transform/opacity. Keep
+          // The return spring only changes the transform/opacity. Keep
           // the detail surface in its own raster layer so a canceled drag
           // does not rebuild and repaint every image on each reverse tick.
           child: RepaintBoundary(child: widget.child),

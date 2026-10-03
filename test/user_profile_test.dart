@@ -25,6 +25,7 @@ import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/core/user/user_store.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/core/profile/profile_models.dart';
+import 'package:parfait/app/motion/state_fade.dart';
 import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/theme/func_tokens.dart';
@@ -2526,6 +2527,21 @@ void main() {
         );
 
         gate.complete();
+        for (var i = 0; i < 20; i++) {
+          if (find.byType(ProfileSkeleton).evaluate().isEmpty) break;
+          await tester.pump(const Duration(milliseconds: 1));
+        }
+        // The loaded profile replaces the skeleton and fades in.
+        expect(find.byType(ProfileSkeleton), findsNothing);
+        final fade = tester.widget<FadeTransition>(
+          find
+              .descendant(
+                of: find.byType(StateFade),
+                matching: find.byType(FadeTransition),
+              )
+              .first,
+        );
+        expect(fade.opacity.value, lessThan(1));
         // The works feed shimmers behind the header, so pumpAndSettle would
         // never return; pump a fixed stretch for the header to measure itself.
         for (var i = 0; i < 12; i++) {

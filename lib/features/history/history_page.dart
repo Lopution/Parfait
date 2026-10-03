@@ -11,6 +11,8 @@ import '../../app/widgets/feed/illust_card.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/press_scale.dart';
+import '../../app/motion/removal.dart';
+import '../../app/motion/state_icon_switcher.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/haptics/app_haptics.dart';
@@ -42,6 +44,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   /// this page consumes it, so it never leaves the widget tree.
   bool _managing = false;
   final Set<int> _selected = <int>{};
+  final _removals = RemovalController();
 
   void _enterManaging([int? recordKey]) {
     // Entering management mode is the explicit-vibration role (W4).
@@ -131,13 +134,16 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
               ),
         body: accountId == null
             ? Center(child: Text(context.l10n.signedOut))
-            : _HistoryBody(
-                key: ValueKey('$accountId-$_clearGeneration'),
-                accountId: accountId,
-                managing: _managing,
-                selectedKeys: _selected,
-                onToggle: _toggleSelected,
-                onEnterManaging: _enterManaging,
+            : RemovalScope(
+                controller: _removals,
+                child: _HistoryBody(
+                  key: ValueKey('$accountId-$_clearGeneration'),
+                  accountId: accountId,
+                  managing: _managing,
+                  selectedKeys: _selected,
+                  onToggle: _toggleSelected,
+                  onEnterManaging: _enterManaging,
+                ),
               ),
       ),
     );
@@ -155,11 +161,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       title: context.l10n.historyDelete,
     );
     if (confirmed != true || !mounted) return;
+    final keys = List<int>.of(_selected);
+    final controller = ref.read(
+      historyFeedControllerProvider(accountId).notifier,
+    );
+    // The tiles leave first; the delete then drops them from the feed.
+    await _removals.playExit(keys);
     try {
-      final controller = ref.read(
-        historyFeedControllerProvider(accountId).notifier,
-      );
-      for (final key in List<int>.of(_selected)) {
+      for (final key in keys) {
         final record = controller.recordFor(key);
         if (record != null) await controller.removeRecord(record);
       }
@@ -170,6 +179,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         });
       }
     } on Object catch (error) {
+      _removals.restore(keys);
       if (mounted) {
         showErrorSnackBar(
           context,
@@ -306,13 +316,19 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
                   padding: const EdgeInsets.all(FuncSpacing.sm),
                   mainAxisSpacing: FuncSpacing.sm,
                   itemCount: entries.length,
-                  itemBuilder: (context, index) => _HistoryEntry(
-                    record: entries[index].record,
-                    recordKey: entries[index].key,
-                    managing: widget.managing,
-                    selected: widget.selectedKeys.contains(entries[index].key),
-                    onToggle: widget.onToggle,
-                    onEnterManaging: widget.onEnterManaging,
+                  itemBuilder: (context, index) => Removable(
+                    id: entries[index].key,
+                    style: RemovalStyle.tile,
+                    child: _HistoryEntry(
+                      record: entries[index].record,
+                      recordKey: entries[index].key,
+                      managing: widget.managing,
+                      selected: widget.selectedKeys.contains(
+                        entries[index].key,
+                      ),
+                      onToggle: widget.onToggle,
+                      onEnterManaging: widget.onEnterManaging,
+                    ),
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -426,14 +442,18 @@ class _HistoryEntry extends ConsumerWidget {
                 ),
               ),
             ),
-          if (selected)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: IgnorePointer(
-                child: Icon(Icons.check_circle, color: colorScheme.primary),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: IgnorePointer(
+              child: StateIconSwitcher(
+                value: selected,
+                child: selected
+                    ? Icon(Icons.check_circle, color: colorScheme.primary)
+                    : const SizedBox.shrink(),
               ),
             ),
+          ),
         ],
       ),
     );

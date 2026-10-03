@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/haptics/app_haptics.dart';
 import '../../app/motion/app_overlays.dart';
+import '../../app/motion/removal.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/pull_to_refresh.dart';
@@ -40,6 +41,7 @@ class CommentsPage extends ConsumerStatefulWidget {
 class _CommentsPageState extends ConsumerState<CommentsPage> {
   CommentEntity? _replyTarget;
   final _composerKey = GlobalKey<CommentComposerState>();
+  final _removals = RemovalController();
 
   CommentFeedQuery get _query =>
       CommentFeedQuery.root(workId: widget.workId, kind: widget.kind);
@@ -58,11 +60,15 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       body: Column(
         children: [
           Expanded(
-            child: _CommentFeedView(
-              query: _query,
-              onReply: _replyTo,
-              onOpenReplies: (comment) => openCommentReplies(context, comment),
-              onDelete: _deleteComment,
+            child: RemovalScope(
+              controller: _removals,
+              child: _CommentFeedView(
+                query: _query,
+                onReply: _replyTo,
+                onOpenReplies: (comment) =>
+                    openCommentReplies(context, comment),
+                onDelete: _deleteComment,
+              ),
             ),
           ),
           CommentComposer(
@@ -146,9 +152,13 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       ),
     );
     if (!mounted || confirmed != true) return;
+    final actions = ref.read(commentActionsProvider);
+    // The row leaves first; a failed delete brings it back.
+    await _removals.playExit([comment.id]);
     try {
-      await ref.read(commentActionsProvider).delete(comment);
+      await actions.delete(comment);
     } on Object {
+      _removals.restore([comment.id]);
       if (!mounted) return;
       showAppSnackBar(context, context.l10n.commentDeleteFailed);
     }
@@ -176,6 +186,7 @@ class CommentRepliesPage extends ConsumerStatefulWidget {
 class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
   CommentEntity? _replyTarget;
   final _composerKey = GlobalKey<CommentComposerState>();
+  final _removals = RemovalController();
 
   CommentFeedQuery get _query => CommentFeedQuery.replies(
     workId: widget.workId,
@@ -197,39 +208,42 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
       body: Column(
         children: [
           Expanded(
-            child: _CommentFeedView(
-              query: _query,
-              // The root comment and the section title ride the list's first
-              // slot: they scroll away like every other row, and the composer
-              // reply bar keeps the reply context visible meanwhile.
-              header: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (root != null)
-                    CommentItem(
-                      comment: root,
-                      onReply: () => _replyTo(root),
-                      onDelete: () => _deleteComment(root),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      FuncSpacing.lg,
-                      0,
-                      FuncSpacing.lg,
-                      FuncSpacing.sm,
-                    ),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        context.l10n.commentReplies,
-                        style: Theme.of(context).textTheme.titleMedium,
+            child: RemovalScope(
+              controller: _removals,
+              child: _CommentFeedView(
+                query: _query,
+                // The root comment and the section title ride the list's first
+                // slot: they scroll away like every other row, and the composer
+                // reply bar keeps the reply context visible meanwhile.
+                header: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (root != null)
+                      CommentItem(
+                        comment: root,
+                        onReply: () => _replyTo(root),
+                        onDelete: () => _deleteComment(root),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        FuncSpacing.lg,
+                        0,
+                        FuncSpacing.lg,
+                        FuncSpacing.sm,
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          context.l10n.commentReplies,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+                onReply: _replyTo,
+                onDelete: _deleteComment,
               ),
-              onReply: _replyTo,
-              onDelete: _deleteComment,
             ),
           ),
           CommentComposer(
@@ -303,12 +317,16 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
       ),
     );
     if (!mounted || confirmed != true) return;
+    final actions = ref.read(commentActionsProvider);
+    // The row leaves first; a failed delete brings it back.
+    await _removals.playExit([comment.id]);
     try {
-      await ref.read(commentActionsProvider).delete(comment);
+      await actions.delete(comment);
       if (mounted && comment.id == widget.rootCommentId) {
         Navigator.of(context).pop();
       }
     } on Object {
+      _removals.restore([comment.id]);
       if (!mounted) return;
       showAppSnackBar(context, context.l10n.commentDeleteFailed);
     }
@@ -411,14 +429,17 @@ class _CommentFeedView extends ConsumerWidget {
                     );
                   }
                   final comment = comments[itemIndex];
-                  return CommentItem(
+                  return Removable(
                     key: ValueKey(comment.id),
-                    comment: comment,
-                    onReply: () => onReply(comment),
-                    onOpenReplies: onOpenReplies == null
-                        ? null
-                        : () => onOpenReplies!(comment),
-                    onDelete: () => onDelete(comment),
+                    id: comment.id,
+                    child: CommentItem(
+                      comment: comment,
+                      onReply: () => onReply(comment),
+                      onOpenReplies: onOpenReplies == null
+                          ? null
+                          : () => onOpenReplies!(comment),
+                      onDelete: () => onDelete(comment),
+                    ),
                   );
                 },
               ),

@@ -49,6 +49,8 @@ void main() {
         ),
         brightness: brightness,
       );
+      // Empty and error states fade in when they appear.
+      await tester.pump(const Duration(milliseconds: 300));
       await expectLater(
         find.byType(Scaffold),
         matchesGoldenFile('goldens/feed_empty_$tone.png'),
@@ -66,6 +68,8 @@ void main() {
         ),
         brightness: brightness,
       );
+      // Empty and error states fade in when they appear.
+      await tester.pump(const Duration(milliseconds: 300));
       await expectLater(
         find.byType(Scaffold),
         matchesGoldenFile('goldens/feed_error_$tone.png'),

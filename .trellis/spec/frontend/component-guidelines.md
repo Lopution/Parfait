@@ -54,7 +54,8 @@ brand values in `FuncTokens`. Shared component shapes, surfaces, and states
 belong in `lib/app/theme/replica_theme.dart`; a feature should not recreate a
 second light/dark palette or copy a component theme locally.
 
-Use `MotionTokens` for shared UI and route durations. A visible image keeps
+Use `MotionTokens` / `MotionSpring` through `resolve` / `spring` for every
+UI animation (see the Motion Contract). A visible image keeps
 the `PixivImage` quality/cache hand-off, and a feed keeps the shared
 `PullToRefresh` wrapper rather than adding a parallel loading or gesture
 implementation.
@@ -532,14 +533,12 @@ window.
 `PredictiveBackPageTransitionsBuilder` (FadeForwards for button pops, the
 shared-element predictive transition while `popGestureInProgress`), every
 other platform keeps the `FuncRouteTransition` trailing-edge slide.
-`transitionDuration` on Android is the user's speed tier
-(`AppSettings.pageTransitionSpeed`: 250 / 350 / 450ms, default 350 — the
-builder's own 800ms dragged, and a 300/550/800 set still felt long on
-device), read through `MotionScope.pageTransitionOf`;
-FadeForwards scales its phases to whatever duration the route carries.
-Other platforms keep `MotionTokens.pageTransition`, and the setting is shown
-on Android only. Both pass through `MotionTokens.resolve`, so reduced motion
-collapses them to zero; Hero flights follow the route duration. Both paths are wrapped by
+`transitionDuration` is `MotionTokens.pageTransitionAndroid` (350 ms — the
+builder's own 800 ms dragged) on Android and `MotionTokens.pageTransition`
+elsewhere, both through `MotionTokens.resolve`, so the animation speed
+setting scales them and reduced motion collapses them to zero (see the
+Motion Contract). FadeForwards scales its phases to whatever duration the
+route carries; Hero flights follow the route duration. Both paths are wrapped by
 `FuncTransitionGuard` — the shared `TickerMode` + `RoutePopSnapshot` pair that
 freezes an outgoing page's tickers and snapshots it for the reverse flight;
 `FuncRouteTransition` already carries the guard internally, so the Android
@@ -583,8 +582,9 @@ in `dispose` as the fallback for pop paths that never notify.
 
 `DragToDismiss` is shared by the still image viewer and Ugoira surface. It
 accepts a downward drag while the still viewer is at 1x, translates/scales/
-fades the surface with the drag, and returns with `MotionTokens.fast` when the
-drag is canceled or below threshold. A qualifying drag pops the current typed
+fades the surface with the drag, and returns on the spatialFast spring,
+starting at the release velocity, when the drag is canceled or below
+threshold. A qualifying drag pops the current typed
 route so the existing `FuncPage`, scoped Hero tag, and
 `HeroRectClip` perform the reverse flight.
 
@@ -1062,6 +1062,105 @@ and assert `driver.roles` / `driver.played`; do not mock
 that expects two haptics in the same lane waits
 `AppHaptics.lightInterval` (or the lane's interval) inside
 `tester.runAsync` between them.
+
+## Motion Contract
+
+`MotionTokens` and `MotionSpring` (`lib/app/motion/motion_tokens.dart`)
+are the only sources of UI animation lengths and springs. Data-level
+durations (debounce, throttles, frame scheduling) do not belong there.
+
+### 1. Speed and the reduced-motion gate
+
+- `MotionScope` (mounted in `MaterialApp.builder`) publishes `reduce`,
+  `speed` (`AnimationSpeed` fast/normal/slow = 250/350/450, factor
+  `code / 350`) and `pressFeedback`. The persisted key stays
+  `pageTransitionSpeedCode`.
+- Read every duration through `MotionTokens.resolve(context, token)`: the
+  token times the speed factor, or zero when the gate is closed (platform
+  `disableAnimations`, platform `reduceMotion`, or the in-app setting).
+  Callers above `MotionScope` (the `MaterialApp` theme animation, the root
+  messenger) use `resolveWith(..., reduce:, speed:)`.
+- Reduced motion removes the flight, never the state it communicates.
+  A scroll animation asserts a non-zero duration, so programmatic page
+  turns go through `turnPage(context, controller, page)`, which jumps
+  under reduced motion.
+- `test/architecture/motion_census_test.dart` fails on a token read
+  outside `resolve`. Its pinned exceptions: the `FuncPage` constructor
+  defaults, `PixivImage` fade parameters (resolved where they are used),
+  the skeleton shimmer period, and wheel-scroll physics.
+  `feedback_channels_test.dart` pins every raw `Duration(milliseconds:`
+  per file. Framework-owned animations (`MenuAnchor`, the `TabBar`
+  indicator) do not follow the speed; the settings footer says so.
+
+### 2. Springs
+
+- `MotionSpring` holds Material 3 (damping ratio, stiffness) pairs from
+  androidx `StandardMotionTokens` / `ExpressiveMotionTokens`, mass 1,
+  listed only when something uses them: `spatialFast` (press,
+  expand/collapse, removal, drag return), `spatialDefault` (bottom
+  sheet), `effectsFast` (state fades, check marks), `expressiveSpatialFast`
+  (bookmark heart pop). **Spatial** springs move position, scale and
+  size; **effects** springs change opacity and colour — never swap them.
+- `MotionTokens.spring(context, token)` returns a `SpringDescription`
+  whose stiffness is divided by factor², or null under reduced motion
+  (jump to the end value). `springCurve(context, token)` returns the
+  settle time and a `SpringCurve` for APIs that only take a duration and
+  curve (`AnimatedSize`, `AnimatedSwitcher`, `AnimationStyle`); zero
+  under reduced motion. The census test allows spring tokens only inside
+  these two calls.
+- Physical springs run on `AnimationController.unbounded` with
+  `animateWith(SpringSimulation(..., snapToEnd: true))`. Without
+  `snapToEnd` the value rests inside the tolerance (0.9998), leaving a
+  permanent non-identity transform on the widget.
+- A zero-duration `AnimatedSize` asserts during its own layout:
+  `SpringSize` returns its child as-is under reduced motion.
+
+### 3. Shared motion widgets
+
+| Widget | Motion |
+|---|---|
+| `PressScale` | spring to `MotionTokens.pressScale` while pressed and back, interruptible; off with the press-feedback setting; frozen tickers set the value without playing. Wraps every tappable card. |
+| `StateIconSwitcher(value:)` | effectsFast fade plus scale from 0.8 when `value` changes — selection checks, watchlist, download badges. Keyed by state, not by widget instance. |
+| `StateFade(kind:)` / `.onMount` | fades the new state in from 0 when `kind` changes (skeleton → content); replaces, never cross-fades. `onMount` for widgets that only appear as a change (`FeedEmpty`, `FeedError`). Keeps semantics during the fade. Frozen tickers and reduced motion show it at once. |
+| `SpringSize` | `AnimatedSize` on spatialFast for sections that open and close (`ErrorDetails`). |
+| `RemovalScope` / `Removable` | see §4. |
+| `DragToDismiss` | the return runs `SpringSimulation(spatialFast, offset, 0, release velocity)` in pixels. |
+
+Feed grids fade cards in through `StaggeredEntrance`; do not add a
+`StateFade` around grid content.
+
+### 4. Removal: exit first, then commit
+
+Lists stay driven by their provider. The page state owns a
+`RemovalController` and hands it down with `RemovalScope`; each item is
+`Removable(id:, style: row | tile)`. To delete: `await
+controller.playExit(ids)`, then commit the change, and call
+`controller.restore(ids)` when the commit fails. A row collapses and
+fades; a tile shrinks to 0.9 and fades and the grid reflows on the
+commit. Ids not on screen are skipped and reduced motion completes at
+once. Row callbacks read the controller with `RemovalScope.of` (no
+dependency). Read stores and actions before awaiting the exit: the
+widget may be gone afterwards.
+
+`Removable(animateIn: true)` plays the exit backwards on first build, for
+rows a user action inserts (download group expand). Only mark the rows
+inserted on that frame, and cap how many: a growing row starts at zero
+height, so a lazy list would build every one of them.
+
+### 5. Overlays
+
+`showAppBottomSheet` opens on the spatialDefault spring curve and closes
+over `MotionTokens.medium` (Material's 200 ms exit), with
+`AnimationStyle.noAnimation` under reduced motion. Dialogs use
+`MotionTokens.dialog`; snackbars resolve `medium` / `fast`.
+
+### 6. Tests
+
+Wrap the subject in `MotionScope(reduce:, speed:)` and step frames with
+`tester.pump(duration)`; spring settle times are about 150 ms
+(effectsFast), 225 ms (spatialFast) and 320 ms (spatialDefault) at normal
+speed. Cover reduced motion for every new motion. Golden tests whose
+subject fades in pump past the fade before comparing.
 
 ## Management List Rows
 

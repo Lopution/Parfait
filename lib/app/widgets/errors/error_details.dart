@@ -4,6 +4,8 @@ import '../../../core/errors/error_category.dart';
 import '../../../core/logging/crash_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../l10n/context.dart';
+import '../../motion/spring_size.dart';
+import '../../motion/state_fade.dart';
 import '../../theme/func_semantic_tokens.dart';
 import '../app_snack_bar.dart';
 import '../../clipboard.dart';
@@ -84,31 +86,40 @@ class _ErrorDetailsState extends State<ErrorDetails> {
             ),
           ),
         ),
-        if (_expanded) ...[
-          const SizedBox(height: FuncSpacing.xs),
-          ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxHeight: ErrorDetails.maxContentHeight,
-            ),
-            child: SingleChildScrollView(
-              child: SelectableText(
-                text,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ),
-          TextButton.icon(
-            onPressed: () => copyToClipboard(
-              context,
-              text,
-              message: l10n.errorDetailsCopied,
-            ),
-            icon: const Icon(Icons.copy_outlined, size: 16),
-            label: Text(l10n.errorDetailsCopy),
-          ),
-        ],
+        SpringSize(
+          child: _expanded
+              ? StateFade.onMount(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: FuncSpacing.xs),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxHeight: ErrorDetails.maxContentHeight,
+                        ),
+                        child: SingleChildScrollView(
+                          child: SelectableText(
+                            text,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => copyToClipboard(
+                          context,
+                          text,
+                          message: l10n.errorDetailsCopied,
+                        ),
+                        icon: const Icon(Icons.copy_outlined, size: 16),
+                        label: Text(l10n.errorDetailsCopy),
+                      ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
       ],
     );
   }

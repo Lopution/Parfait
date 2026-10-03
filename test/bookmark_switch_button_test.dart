@@ -9,6 +9,7 @@ import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
 import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
+import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
@@ -677,6 +678,114 @@ void main() {
     // the crash log instead.
     expect(find.textContaining('boom'), findsNothing);
     expect(find.byIcon(Icons.favorite_outline_sharp), findsOneWidget);
+  });
+
+  group('heart pop', () {
+    const key = BookmarkKey(BookmarkEntityType.illust, 1);
+
+    double heartScale(WidgetTester tester) => tester
+        .widget<ScaleTransition>(
+          find.descendant(
+            of: find.byType(BookmarkSwitchButton),
+            matching: find.byType(ScaleTransition),
+          ),
+        )
+        .scale
+        .value;
+
+    /// Pumps [span] in small steps and returns the largest heart scale
+    /// seen (1 while the heart is replaced by the pending spinner).
+    Future<double> peakScale(
+      WidgetTester tester, {
+      Duration span = const Duration(milliseconds: 600),
+    }) async {
+      const step = Duration(milliseconds: 4);
+      var peak = 1.0;
+      for (var t = Duration.zero; t < span; t += step) {
+        await tester.pump(step);
+        final heart = find.descendant(
+          of: find.byType(BookmarkSwitchButton),
+          matching: find.byType(ScaleTransition),
+        );
+        if (heart.evaluate().isNotEmpty && heartScale(tester) > peak) {
+          peak = heartScale(tester);
+        }
+      }
+      return peak;
+    }
+
+    testWidgets('a landed add pops the heart to ~1.2 and settles at 1', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      await tester.tap(find.byType(BookmarkSwitchButton));
+      final peak = await peakScale(tester);
+
+      expect(find.byIcon(Icons.favorite_sharp), findsOneWidget);
+      expect(peak, inInclusiveRange(1.15, 1.25));
+      await tester.pumpAndSettle();
+      expect(heartScale(tester), 1);
+    });
+
+    testWidgets('a removal, a refresh or a failed add does not pop', (
+      tester,
+    ) async {
+      final (container, repository) = await _pump(tester);
+
+      // Refresh: the store learns the work is bookmarked.
+      container
+          .read(bookmarkStoreProvider.notifier)
+          .observeRemote(key, bookmarked: true, snapshotRevision: 0);
+      expect(await peakScale(tester), 1);
+      expect(find.byIcon(Icons.favorite_sharp), findsOneWidget);
+
+      await tester.tap(find.byType(BookmarkSwitchButton));
+      expect(await peakScale(tester), 1);
+      expect(repository.deletes, [1]);
+
+      repository.addError = StateError('boom');
+      await tester.tap(find.byType(BookmarkSwitchButton));
+      expect(await peakScale(tester), 1);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('reduced motion bookmarks without the pop', (tester) async {
+      final (container, _) = await _pump(
+        tester,
+        child: const MotionScope(
+          reduce: true,
+          child: BookmarkSwitchButton(illustId: 1, title: 'work 1'),
+        ),
+      );
+
+      await tester.tap(find.byType(BookmarkSwitchButton));
+      expect(await peakScale(tester), 1);
+      expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isTrue);
+    });
+
+    testWidgets('the sheet pops the heart for a new bookmark, not an edit', (
+      tester,
+    ) async {
+      final (container, repository) = await _pump(tester);
+
+      await tester.longPress(find.byType(BookmarkSwitchButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('确定'));
+      expect(await peakScale(tester), inInclusiveRange(1.15, 1.25));
+      await tester.pumpAndSettle();
+      expect(repository.adds, hasLength(1));
+
+      // Editing an existing bookmark lands no new one.
+      expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isTrue);
+      await tester.longPress(find.byType(BookmarkSwitchButton));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('确定'));
+      await tester.tap(find.text('确定'));
+      expect(await peakScale(tester), 1);
+      await tester.pumpAndSettle();
+      expect(repository.adds, hasLength(2));
+    });
   });
 
   testWidgets('placeholder renders nothing', (tester) async {

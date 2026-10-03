@@ -883,19 +883,29 @@ class AppLocalizationsJa extends AppLocalizations {
   String get reduceMotionHint => '画面遷移・リスト入場・押下フィードバックなどの装飾アニメーションをオフにします';
 
   @override
-  String get pageTransitionSpeed => '画面遷移速度';
+  String get pressFeedback => '押下フィードバック';
 
   @override
-  String get pageTransitionFast => '速い';
+  String get pressFeedbackHint => 'カードを押している間わずかに縮小します';
 
   @override
-  String get pageTransitionNormal => '標準';
+  String get animationSpeed => 'アニメーション速度';
 
   @override
-  String get pageTransitionSlow => '遅い';
+  String get animationSpeedFast => '速い';
 
   @override
-  String get pageTransitionSpeedReduceHint => '「視覚効果を減らす」がオンの間は画面遷移を再生しません';
+  String get animationSpeedNormal => '標準';
+
+  @override
+  String get animationSpeedSlow => '遅い';
+
+  @override
+  String get animationSpeedHint => 'アプリ内のすべてのアニメーションに適用されます。波紋などのシステム効果は変わりません';
+
+  @override
+  String get animationSpeedReduceHint =>
+      '「視覚効果を減らす」がオンの間はアニメーションを再生しないため、速度は反映されません';
 
   @override
   String get maxDownloadCount => '同時ダウンロード数の上限';

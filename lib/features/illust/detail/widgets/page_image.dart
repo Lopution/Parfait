@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/motion/hero_transition.dart';
+import '../../../../app/motion/state_icon_switcher.dart';
 import '../../../../app/pixiv_image.dart';
 import '../../../../app/theme/func_tokens.dart';
 import '../../../../core/entity/illust_entity.dart';
@@ -333,7 +334,12 @@ class _DownloadBadge extends StatelessWidget {
             color: theme.colorScheme.surface,
             borderRadius: FuncShape.dialog,
           ),
-          child: child,
+          // Keyed by the mark drawn: a state change that keeps the same
+          // mark does not replay the swap.
+          child: StateIconSwitcher(
+            value: child is Icon ? child.icon! : state,
+            child: child,
+          ),
         ),
       ),
     );

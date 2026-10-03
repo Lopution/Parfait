@@ -100,7 +100,7 @@ Future<PageRoute<void>> _pushSecondPage(
 Future<GoRouter> _pumpHome(
   WidgetTester tester, {
   bool reduceMotion = false,
-  Duration? pageTransition,
+  AnimationSpeed? speed,
   String location = '/recommended',
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -115,10 +115,10 @@ Future<GoRouter> _pumpHome(
     locale: const Locale('en', 'US'),
     routerConfig: router,
   );
-  if (reduceMotion || pageTransition != null) {
+  if (reduceMotion || speed != null) {
     app = MotionScope(
       reduce: reduceMotion,
-      pageTransition: pageTransition ?? PageTransitionSpeed.normal.duration,
+      speed: speed ?? AnimationSpeed.normal,
       child: app,
     );
   }
@@ -231,30 +231,25 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(find.byType(HistoryPage), findsOneWidget);
     final route = _routeOf(tester, find.byType(HistoryPage));
-    // No MotionScope → the default tier (350ms) resolves.
-    expect(route.transitionDuration, PageTransitionSpeed.normal.duration);
-    expect(
-      route.reverseTransitionDuration,
-      PageTransitionSpeed.normal.duration,
-    );
+    // No MotionScope → the normal speed (350ms) resolves.
+    expect(route.transitionDuration, MotionTokens.pageTransitionAndroid);
+    expect(route.reverseTransitionDuration, MotionTokens.pageTransitionAndroid);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-  testWidgets('the Android route duration follows the speed tier', (
+  testWidgets('the Android route duration follows the animation speed', (
     tester,
   ) async {
-    for (final speed in PageTransitionSpeed.values) {
-      final router = await _pumpHome(tester, pageTransition: speed.duration);
+    for (final speed in AnimationSpeed.values) {
+      final router = await _pumpHome(tester, speed: speed);
       unawaited(router.push('/recommended/history'));
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       expect(find.byType(HistoryPage), findsOneWidget);
       final route = _routeOf(tester, find.byType(HistoryPage));
-      expect(
-        route.transitionDuration,
-        speed.duration,
-        reason: 'tier ${speed.name}',
-      );
-      expect(route.reverseTransitionDuration, speed.duration);
+      // The Android base is 350ms, so each tier lands on its code.
+      final expected = Duration(milliseconds: speed.code);
+      expect(route.transitionDuration, expected, reason: 'tier ${speed.name}');
+      expect(route.reverseTransitionDuration, expected);
     }
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
@@ -264,7 +259,7 @@ void main() {
     final router = await _pumpHome(
       tester,
       reduceMotion: true,
-      pageTransition: PageTransitionSpeed.slow.duration,
+      speed: AnimationSpeed.slow,
     );
     unawaited(router.push('/recommended/history'));
     await tester.pump();

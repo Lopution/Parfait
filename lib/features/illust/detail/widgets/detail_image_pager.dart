@@ -72,16 +72,7 @@ class _DetailImagePagerState extends State<DetailImagePager> {
     };
     if (next == null) return KeyEventResult.ignored;
     if (next < 0 || next >= entity.pageCount) return KeyEventResult.handled;
-    if (MotionTokens.enabled(context)) {
-      _controller.animateToPage(
-        next,
-        duration: MotionTokens.fast,
-        curve: MotionTokens.fastCurve,
-      );
-    } else {
-      // ScrollActivity asserts duration > 0 — reduced motion jumps instead.
-      _controller.jumpToPage(next);
-    }
+    turnPage(context, _controller, next);
     return KeyEventResult.handled;
   }
 

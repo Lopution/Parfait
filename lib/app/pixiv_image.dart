@@ -941,8 +941,12 @@ class _PixivImageState extends ConsumerState<PixivImage> {
         color: widget.filterColor,
         colorBlendMode: widget.filterBlendMode,
         filterQuality: widget.filterQuality,
-        fadeInDuration: crossfade ? widget.fadeDuration : Duration.zero,
-        fadeOutDuration: crossfade ? MotionTokens.imageFadeOut : Duration.zero,
+        fadeInDuration: crossfade
+            ? MotionTokens.resolve(context, widget.fadeDuration)
+            : Duration.zero,
+        fadeOutDuration: crossfade
+            ? MotionTokens.resolve(context, MotionTokens.imageFadeOut)
+            : Duration.zero,
         placeholder: (_, _) =>
             transitionPlaceholder ?? ColoredBox(color: placeholderColor),
         errorWidget: (_, _, error) => ColoredBox(

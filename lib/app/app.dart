@@ -55,6 +55,7 @@ void showUpdatePrompt(
   required String version,
   required bool shellBarVisible,
   required bool reduceMotion,
+  required AnimationSpeed animationSpeed,
   required VoidCallback onOpen,
 }) {
   final l10n = messenger.context.l10n;
@@ -73,9 +74,14 @@ void showUpdatePrompt(
     duration: updatePromptDuration,
     action: SnackBarAction(label: l10n.aboutUpdateOpen, onPressed: onOpen),
     margin: appSnackBarShellMargin(bottomBarExtent),
-    animationStyle: !reduceMotion
-        ? appSnackBarAnimationStyle
-        : AnimationStyle.noAnimation,
+    animationStyle: appSnackBarAnimationStyle(
+      (base) => MotionTokens.resolveWith(
+        messenger.context,
+        base,
+        reduce: reduceMotion,
+        speed: animationSpeed,
+      ),
+    ),
   );
 }
 
@@ -134,16 +140,16 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     }
     final version = result.release?.manifest.version ?? '';
     // The root ScaffoldMessenger sits above MotionScope, so the in-app
-    // reduce-motion setting is read from the provider directly (the same
-    // source the scope publishes); the platform half of the gate is still
+    // motion settings are read from the provider directly (the same source
+    // the scope publishes); the platform half of the gate is still
     // reachable through the messenger's context.
-    final reduceMotion =
-        ref.read(settingsProvider).value?.reduceMotion ?? false;
+    final settings = ref.read(settingsProvider).value;
     showUpdatePrompt(
       messenger,
       version: '$version',
       shellBarVisible: ref.read(homeShellBarVisibleProvider),
-      reduceMotion: reduceMotion,
+      reduceMotion: settings?.reduceMotion ?? false,
+      animationSpeed: settings?.animationSpeed ?? AnimationSpeed.normal,
       onOpen: () => _router.push<void>('/settings/about'),
     );
   }
@@ -247,6 +253,14 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
       // Desktop affordance: mouse and trackpad drag like touch. Wheel
       // smoothing stays per-scrollable — see SmoothWheelScroll.
       scrollBehavior: const FuncScrollBehavior(),
+      // The light/dark and palette cross-fade. MaterialApp sits above
+      // MotionScope, so the settings are passed in directly.
+      themeAnimationDuration: MotionTokens.resolveWith(
+        context,
+        MotionTokens.medium,
+        reduce: settings.reduceMotion,
+        speed: settings.animationSpeed,
+      ),
       // ignore: deprecated_member_use
       builder: (context, child) {
         final routeChild = child!;
@@ -264,7 +278,8 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
           background: Theme.of(context).brightness,
           child: MotionScope(
             reduce: settings.reduceMotion,
-            pageTransition: settings.pageTransitionSpeed.duration,
+            speed: settings.animationSpeed,
+            pressFeedback: settings.pressFeedback,
             // ignore: deprecated_member_use
             child: MaterialUiCompatibilityBridge(
               child: ExternalIntentBridge(

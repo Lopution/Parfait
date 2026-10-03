@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 
+import '../../app/motion/press_scale.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -154,47 +155,49 @@ class _UserSeriesCardView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cover = series.coverUrl;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      margin: EdgeInsets.zero,
-      child: InkWell(
-        onTap: () => openIllustSeries(context, series.id),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (cover != null)
-              AspectRatio(
-                aspectRatio: 1.4,
-                child: PixivImage.feed(
-                  cover,
-                  layoutWidth: FeedItemExtent.maybeOf(context) ?? 180,
+    return PressScale(
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        margin: EdgeInsets.zero,
+        child: InkWell(
+          onTap: () => openIllustSeries(context, series.id),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (cover != null)
+                AspectRatio(
+                  aspectRatio: 1.4,
+                  child: PixivImage.feed(
+                    cover,
+                    layoutWidth: FeedItemExtent.maybeOf(context) ?? 180,
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  FuncSpacing.sm,
+                  FuncSpacing.xs,
+                  FuncSpacing.sm,
+                  FuncSpacing.sm,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      series.title,
+                      style: theme.textTheme.titleSmall,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (series.workCount != null)
+                      Text(
+                        context.l10n.seriesWorksCount(series.workCount!),
+                        style: theme.textTheme.bodySmall,
+                      ),
+                  ],
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                FuncSpacing.sm,
-                FuncSpacing.xs,
-                FuncSpacing.sm,
-                FuncSpacing.sm,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    series.title,
-                    style: theme.textTheme.titleSmall,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (series.workCount != null)
-                    Text(
-                      context.l10n.seriesWorksCount(series.workCount!),
-                      style: theme.textTheme.bodySmall,
-                    ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
