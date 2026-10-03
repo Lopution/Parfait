@@ -3671,17 +3671,11 @@ abstract class AppLocalizations {
   /// **'好P友'**
   String get newMyPixiv;
 
-  /// No description provided for @newIllust.
+  /// No description provided for @newNovels.
   ///
   /// In zh, this message translates to:
-  /// **'插画'**
-  String get newIllust;
-
-  /// No description provided for @newNovel.
-  ///
-  /// In zh, this message translates to:
-  /// **'小说'**
-  String get newNovel;
+  /// **'小说新作'**
+  String get newNovels;
 
   /// No description provided for @recommendedIllust.
   ///

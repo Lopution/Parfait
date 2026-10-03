@@ -1966,10 +1966,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get newMyPixiv => 'My Pixiv';
 
   @override
-  String get newIllust => 'Illust';
-
-  @override
-  String get newNovel => 'Novel';
+  String get newNovels => 'New Novels';
 
   @override
   String get recommendedIllust => 'Illust';

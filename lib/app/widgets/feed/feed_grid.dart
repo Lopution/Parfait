@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,10 +12,10 @@ import '../../../core/entity/illust_entity.dart';
 import '../../../core/network/compat/network_contracts.dart';
 import '../../../core/network/compat/network_providers.dart';
 import '../../../core/settings/settings_controller.dart';
-import '../../image_tier_cache.dart';
 import '../../motion/feed_entrance.dart';
 import '../../pixiv_image.dart';
 import '../../theme/func_semantic_tokens.dart';
+import 'illust_card_layout.dart';
 
 /// Minimum card width used to derive the masonry column count.
 const _kMinCardExtent = 180.0;
@@ -94,6 +94,10 @@ const int _kFeedPrefetchConcurrent = 4;
 /// does not grow the set without limit.
 final LinkedHashSet<String> _feedPrefetched = LinkedHashSet<String>();
 
+/// The `url|decodeWidth` keys issued so far, oldest first.
+@visibleForTesting
+Iterable<String> get debugFeedPrefetchedKeys => _feedPrefetched;
+
 /// Warms the decode+HTTP cache for feed items just past the built edge.
 ///
 /// `cacheExtent` only ever builds a fraction of a viewport ahead, so a
@@ -169,18 +173,26 @@ Future<void> _prefetchFeedWindow(
     for (var j = i; j < math.min(i + _kFeedPrefetchConcurrent, end); j++) {
       final entity = entities[j];
       if (!entity.visible) continue;
-      final url = entity.previewUrl(previewQuality);
+      // The card's own layout rule: tall works prefetch the cropped large
+      // or square thumbnail the card will paint, not the tier preview.
+      final preview = illustCardPreview(
+        entity,
+        quality: previewQuality,
+        cardPhysicalWidth: decodeWidth,
+      );
+      final url = preview.url;
       if (!_feedPrefetched.add('$url|$decodeWidth')) continue;
       while (_feedPrefetched.length > 512) {
         _feedPrefetched.remove(_feedPrefetched.first);
       }
+      final tier = preview.tier;
       batch.add(
         PixivImage.preload(
           context,
           url,
           cacheManager: cacheManager,
-          tierKey: entity.imageTierKeyAt(0),
-          tier: previewQuality.tier,
+          tierKey: tier == null ? null : entity.imageTierKeyAt(0),
+          tier: tier,
           memCacheWidth: decodeWidth,
         ),
       );

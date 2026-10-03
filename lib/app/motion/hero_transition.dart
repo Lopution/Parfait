@@ -34,25 +34,55 @@ class IllustHeroFlightChild extends StatelessWidget {
   Widget build(BuildContext context) => child;
 }
 
-/// Feed-card end of the artwork Hero (R5): rounded clip plus a divider
-/// hairline. The shared shuttle recognises it on the card side and fades
-/// the same hairline out as the image grows into the detail page.
+/// Feed-card end of the artwork Hero: the rounded clip, no outline. The
+/// shared shuttle recognises it on the card side.
 class IllustHeroCardFrame extends StatelessWidget {
-  const IllustHeroCardFrame({super.key, required this.child});
+  const IllustHeroCardFrame({super.key, this.cropAspect, required this.child});
 
   final Widget child;
 
+  /// Set when the card shows only the top of a taller image: the image's
+  /// width / height. The shuttle then grows the cropped top into the whole
+  /// image instead of starting from a shrunken full frame.
+  final double? cropAspect;
+
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      position: DecorationPosition.foreground,
-      decoration: BoxDecoration(
-        borderRadius: FuncShape.card,
-        border: Border.all(color: FuncSemanticTokens.of(context).divider),
-      ),
-      child: ClipRRect(borderRadius: FuncShape.card, child: child),
-    );
+    return ClipRRect(borderRadius: FuncShape.card, child: child);
   }
+}
+
+/// Lays the shuttle image out between the card's top crop and the detail's
+/// contained frame. Both rects keep the image's own [aspect], so the
+/// detail's `BoxFit.contain` image fills the rect exactly; the shuttle clip
+/// cuts off what the card did not show.
+class _CropLerpDelegate extends SingleChildLayoutDelegate {
+  const _CropLerpDelegate({required this.progress, required this.aspect});
+
+  /// 0 at the card, 1 at the detail page, in both directions.
+  final double progress;
+  final double aspect;
+
+  Rect _rect(Size size) {
+    final coverTop = Offset.zero & Size(size.width, size.width / aspect);
+    final fitted = applyBoxFit(BoxFit.contain, Size(aspect, 1), size);
+    final containCenter = Alignment.center.inscribe(
+      fitted.destination,
+      Offset.zero & size,
+    );
+    return Rect.lerp(coverTop, containCenter, progress)!;
+  }
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
+      BoxConstraints.tight(_rect(constraints.biggest).size);
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) => _rect(size).topLeft;
+
+  @override
+  bool shouldRelayout(_CropLerpDelegate oldDelegate) =>
+      progress != oldDelegate.progress || aspect != oldDelegate.aspect;
 }
 
 /// Conservative fallback for the home shell bottom navigation when the
@@ -95,16 +125,13 @@ Widget illustHeroFlightShuttleBuilder(
       ? heroChild.popChild!
       : heroChild;
   final child = RepaintBoundary(child: shuttleChild);
-  // The card's hairline border rides the flight: the card endpoint is the
-  // source on push and the destination on pop. Only when that endpoint is an
-  // [IllustHeroCardFrame] does a border exist at all — the detail-to-viewer
-  // flight has no card side and must not grow a hairline out of nowhere.
-  final cardContext = direction == HeroFlightDirection.push
-      ? fromHeroContext
-      : toHeroContext;
-  final cardHero = cardContext.widget;
-  final cardDivider = cardHero is Hero && cardHero.child is IllustHeroCardFrame
-      ? FuncSemanticTokens.of(cardContext).divider
+  // The card endpoint is the source on push and the destination on pop.
+  final cardHero =
+      (direction == HeroFlightDirection.push ? fromHeroContext : toHeroContext)
+          .widget;
+  final cardFrame = cardHero is Hero ? cardHero.child : null;
+  final cropAspect = cardFrame is IllustHeroCardFrame
+      ? cardFrame.cropAspect
       : null;
   // Resolve all geometry before the animation starts. The old implementation
   // performed RenderObject walks and NestedScrollView header discovery from
@@ -175,23 +202,14 @@ Widget illustHeroFlightShuttleBuilder(
         ),
         child: ClipRRect(
           borderRadius: radius,
-          // Same lerped radius as the clip, fading out towards the detail
-          // end: the first push frame and the last pop frame match the card
-          // exactly, and the hairline is fully transparent at the detail
-          // endpoint — no jump, no ghost.
-          child: cardDivider == null
-              ? child!
-              : DecoratedBox(
-                  position: DecorationPosition.foreground,
-                  decoration: BoxDecoration(
-                    borderRadius: radius,
-                    border: Border.all(
-                      color: cardDivider.withValues(
-                        alpha: cardDivider.a * (1 - progress),
-                      ),
-                    ),
+          child: cropAspect == null
+              ? child
+              : CustomSingleChildLayout(
+                  delegate: _CropLerpDelegate(
+                    progress: progress,
+                    aspect: cropAspect,
                   ),
-                  child: child!,
+                  child: child,
                 ),
         ),
       );

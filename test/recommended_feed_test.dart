@@ -377,7 +377,8 @@ void main() {
   // Beta56 parity regression: the feed is a two-column waterfall flow and
   // the card preview must render a tall portrait at its original aspect
   // ratio (BoxFit.fitWidth) without overflow or cropping — the real-device
-  // fixed-tile crop looked broken (heads/subjects cut off).
+  // fixed-tile crop looked broken (heads/subjects cut off). Up to 1:2;
+  // taller works are covered by the card layout tests.
   testWidgets(
     'IllustCard renders a tall portrait at full aspect ratio without overflow',
     (tester) async {
@@ -397,7 +398,7 @@ void main() {
                     width: 300,
                     child: IllustCard(
                       entity: parseIllust(
-                        illustJson(7, pageCount: 1, width: 800, height: 2000),
+                        illustJson(7, pageCount: 1, width: 800, height: 1600),
                       ),
                     ),
                   ),
@@ -409,17 +410,17 @@ void main() {
         await tester.pump();
       });
       expect(tester.takeException(), isNull);
-      // 300-wide column with a 800x2000 work: preview height follows the
-      // original ratio (300 / 800 * 2000 = 750) instead of a cropped tile.
+      // 300-wide column with a 800x1600 work: preview height follows the
+      // original ratio (300 / 800 * 1600 = 600) instead of a cropped tile.
       final image = tester.getSize(find.byType(IllustCard).first);
       expect(image.width, 300);
-      expect(image.height, greaterThan(700));
+      expect(image.height, greaterThan(600));
       expect(
         tester
             .widget<CachedNetworkImage>(find.byType(CachedNetworkImage).first)
             .imageUrl,
-        'https://i.pximg.net/7/large.jpg',
-        reason: 'ultra-tall cards use the sharper uncropped source',
+        'https://i.pximg.net/7/medium.jpg',
+        reason: 'a 1:2 card keeps the user preview tier',
       );
       expect(find.bySemanticsLabel('illust 7'), findsOneWidget);
       expect(find.bySemanticsLabel('author'), findsOneWidget);

@@ -6,9 +6,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
+import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
@@ -70,6 +72,7 @@ Future<void> _pumpCard(
   IllustCard card, {
   ThemeData? theme,
   double textScale = 1,
+  double width = 300,
 }) async {
   await mockNetworkImagesFor(() async {
     await tester.pumpWidget(
@@ -88,7 +91,7 @@ Future<void> _pumpCard(
           ),
           home: Scaffold(
             body: SingleChildScrollView(
-              child: SizedBox(width: 300, child: card),
+              child: SizedBox(width: width, child: card),
             ),
           ),
         ),
@@ -245,6 +248,142 @@ void main() {
     // 300-wide column, 800×1200 work → 450-tall preview, never cropped.
     final size = tester.getSize(find.byType(PixivImage).first);
     expect(size.height, 450);
+    expect(
+      tester
+          .widget<IllustHeroCardFrame>(find.byType(IllustHeroCardFrame))
+          .cropAspect,
+      isNull,
+    );
+  });
+
+  group('tall works', () {
+    // Decode widths follow the platform view's 3x ratio: a 100 px card is
+    // 300 physical px, so the crop holds while large is at least 240 px
+    // wide.
+    const cardWidth = 100.0;
+
+    Finder heroFor(int id) => find.byWidgetPredicate(
+      (w) => w is Hero && w.tag == 'IllustHero:feed:$id',
+    );
+
+    testWidgets('a 1:3 work shows the top of large in a 1:2 card', (
+      tester,
+    ) async {
+      final container = await _makeWorld();
+      addTearDown(container.dispose);
+      final entity = parseIllust(illustJson(5, width: 2000, height: 6000));
+      await _pumpCard(
+        tester,
+        container,
+        IllustCard(entity: entity),
+        width: cardWidth,
+      );
+
+      final image = tester.widget<PixivImage>(find.byType(PixivImage).first);
+      expect(image.url, entity.imageUrls.large);
+      expect(image.fit, BoxFit.cover);
+      expect(image.alignment, Alignment.topCenter);
+      expect(
+        tester.getSize(find.byType(PixivImage).first),
+        const Size(cardWidth, cardWidth * 2),
+      );
+      expect(heroFor(5), findsOneWidget);
+      // The shuttle grows this top crop into the whole 1:3 image.
+      expect(
+        tester
+            .widget<IllustHeroCardFrame>(find.byType(IllustHeroCardFrame))
+            .cropAspect,
+        closeTo(1 / 3, 1e-9),
+      );
+    });
+
+    testWidgets('a narrow 1:5 work shows the square thumbnail, no Hero', (
+      tester,
+    ) async {
+      final container = await _makeWorld();
+      addTearDown(container.dispose);
+      final entity = parseIllust(illustJson(6, width: 200, height: 1000));
+      await _pumpCard(
+        tester,
+        container,
+        IllustCard(entity: entity),
+        width: cardWidth,
+      );
+
+      final image = tester.widget<PixivImage>(find.byType(PixivImage).first);
+      expect(image.url, entity.imageUrls.squareMedium);
+      expect(image.fit, BoxFit.cover);
+      expect(
+        tester.getSize(find.byType(PixivImage).first),
+        const Size(cardWidth, cardWidth),
+      );
+      expect(heroFor(6), findsNothing);
+    });
+
+    testWidgets('the feed prefetch fetches what the card will paint', (
+      tester,
+    ) async {
+      final container = await _makeWorld();
+      addTearDown(container.dispose);
+      // Odd ids are ordinary works on the user's tier; even ids are too
+      // tall and narrow and switch to the square thumbnail. The prefetch
+      // used to warm the tier preview for both.
+      final entities = [
+        for (var id = 7101; id <= 7124; id++)
+          parseIllust(
+            id.isOdd
+                ? illustJson(id, width: 800, height: 600)
+                : illustJson(id, width: 100, height: 600),
+          ),
+      ];
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: const [Locale('zh')],
+              locale: const Locale('zh'),
+              home: Scaffold(
+                body: CustomScrollView(
+                  slivers: [
+                    IllustFeedGrid(
+                      itemCount: entities.length,
+                      itemIds: [for (final e in entities) e.id],
+                      prefetchEntities: entities,
+                      itemBuilder: (context, index) =>
+                          IllustCard(entity: entities[index]),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+      });
+
+      final decodeWidth = PixivImage.decodeWidthFor(
+        tester.getSize(find.byType(PixivImage).first).width,
+      );
+      // Prefetch batches land asynchronously; every key issued so far must
+      // be the exact (url, decode width) the card paints.
+      var squares = 0;
+      for (final e in entities) {
+        final issued = debugFeedPrefetchedKeys.where(
+          (k) => k.startsWith('https://i.pximg.net/${e.id}/'),
+        );
+        final painted = e.id.isOdd
+            ? e.imageUrls.medium
+            : e.imageUrls.squareMedium;
+        for (final key in issued) {
+          expect(key, '$painted|$decodeWidth', reason: '${e.id}');
+          if (e.id.isEven) squares++;
+        }
+      }
+      expect(squares, greaterThanOrEqualTo(4));
+    });
   });
 
   testWidgets('title and author rows fit the column at 1.3x text', (

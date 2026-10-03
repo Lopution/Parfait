@@ -20,11 +20,6 @@ class NewFeedKey {
     NewFeedScope.myPixiv => 'newMyPixiv',
   };
 
-  String get typeLabelKey => switch (type) {
-    NewFeedType.illust => 'newIllust',
-    NewFeedType.novel => 'newNovel',
-  };
-
   @override
   bool operator ==(Object other) =>
       other is NewFeedKey && other.scope == scope && other.type == type;

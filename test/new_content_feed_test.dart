@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart' as legacy_material;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
@@ -14,13 +14,12 @@ import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
-import 'package:parfait/app/widgets/app_type_switch.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
-import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/new/new_feed_models.dart';
 import 'package:parfait/core/new/new_feed_repository.dart';
+import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/features/new/new_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -32,12 +31,32 @@ import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
 
+Map<String, dynamic> _novelJson(int id) => {
+  'id': id,
+  'title': 'novel $id',
+  'caption': '',
+  'restrict': 0,
+  'x_restrict': 0,
+  'image_urls': {'medium': 'https://i.pximg.net/$id/m.png'},
+  'tags': <Object>[],
+  'text_length': 1200,
+  'user': {
+    'id': 99,
+    'name': 'author',
+    'account': 'author',
+    'profile_image_urls': {'medium': 'https://i.pximg.net/u.png'},
+  },
+  'is_bookmarked': false,
+  'visible': true,
+};
+
 class _FakeNewFeedRepository implements NewFeedRepository {
-  _FakeNewFeedRepository({this.illustCount = 0});
+  _FakeNewFeedRepository({this.illustCount = 0, this.novelCount = 0});
 
   /// Non-zero makes the illust feed overflow the viewport so scroll-state
   /// assertions (re-tap → top) have something to scroll.
   final int illustCount;
+  final int novelCount;
 
   /// When set, every fetch awaits this completer — holds an initial load
   /// or a pull-to-refresh in flight until the test completes it.
@@ -74,7 +93,13 @@ class _FakeNewFeedRepository implements NewFeedRepository {
     requests.add(key);
     if (fails) throw ApiNetworkError(StateError('offline'));
     await pendingFetch?.future;
-    return const NewNovelPage(novels: [], nextUrl: null);
+    return NewNovelPage(
+      novels: [
+        for (var i = 0; i < novelCount; i++)
+          NovelEntity.fromJson(_novelJson(2000 + i)),
+      ],
+      nextUrl: null,
+    );
   }
 
   @override
@@ -91,9 +116,13 @@ class _FakeNewFeedRepository implements NewFeedRepository {
 /// recommended_home_test's world).
 Future<(ProviderContainer, _FakeNewFeedRepository)> _makeWorld({
   int illustCount = 0,
+  int novelCount = 0,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  final repository = _FakeNewFeedRepository(illustCount: illustCount);
+  final repository = _FakeNewFeedRepository(
+    illustCount: illustCount,
+    novelCount: novelCount,
+  );
   final credentials = FakeCredentialStore()
     ..seed(
       '100',
@@ -123,14 +152,29 @@ Future<(ProviderContainer, _FakeNewFeedRepository)> _makeWorld({
   return (container, repository);
 }
 
-/// `SmoothWheelScroll` starts in wheel mode on the Linux test host
-/// (desktop = true): the scrollable sits on NeverScrollableScrollPhysics
-/// until the first pointer-down drops the mode. A stray >slop drag is a
-/// safe warm-up — it is not a tap, so cards cannot navigate.
-Future<void> _dropWheelMode(WidgetTester tester, Finder feedView) async {
-  await tester.drag(feedView, const Offset(0, -30));
-  await tester.pump();
+Widget _routerApp(ProviderContainer container, GoRouter router) {
+  return UncontrolledProviderScope(
+    container: container,
+    child: MaterialApp.router(
+      localizationsDelegates: appLocalizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('zh', 'CN'),
+      routerConfig: router,
+    ),
+  );
 }
+
+/// Compact viewport: ≥600px swaps the bottom bar for a rail.
+void _phone(WidgetTester tester) {
+  tester.view.physicalSize = const Size(390, 844);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+}
+
+const _followingIllust = NewFeedKey(
+  scope: NewFeedScope.following,
+  type: NewFeedType.illust,
+);
 
 Widget _app(ProviderContainer container, {NewPage? page}) {
   return UncontrolledProviderScope(
@@ -146,10 +190,6 @@ Widget _app(ProviderContainer container, {NewPage? page}) {
 
 void main() {
   test('NewFeedKey keeps scope and content type independent', () {
-    const followingIllust = NewFeedKey(
-      scope: NewFeedScope.following,
-      type: NewFeedType.illust,
-    );
     const followingNovel = NewFeedKey(
       scope: NewFeedScope.following,
       type: NewFeedType.novel,
@@ -159,12 +199,12 @@ void main() {
       type: NewFeedType.illust,
     );
 
-    expect(followingIllust, isNot(followingNovel));
-    expect(followingIllust, isNot(everyoneIllust));
-    expect({followingIllust, followingNovel}, hasLength(2));
+    expect(_followingIllust, isNot(followingNovel));
+    expect(_followingIllust, isNot(everyoneIllust));
+    expect({_followingIllust, followingNovel}, hasLength(2));
   });
 
-  testWidgets('New tabs are lazy and the type selector stays visible', (
+  testWidgets('the illust page has lazy scope tabs and no type row', (
     tester,
   ) async {
     final (container, repository) = await _makeWorld();
@@ -177,15 +217,12 @@ void main() {
     expect(find.text('关注'), findsOneWidget);
     expect(find.text('大家'), findsOneWidget);
     expect(find.text('好P友'), findsOneWidget);
-    // The type row lives inside the feed now — at rest it is mounted, so
-    // both segments exist before any re-tap (the old expand-on-re-tap
-    // behavior is gone). Hit-testable finders skip the offstage scope
-    // slots the swipe warmer keeps alive.
-    expect(find.text('插画').hitTestable(), findsOneWidget);
-    expect(find.text('小说').hitTestable(), findsOneWidget);
-    expect(repository.requests, [
-      const NewFeedKey(scope: NewFeedScope.following, type: NewFeedType.illust),
-    ]);
+    // The novel feeds moved to their own page behind the app bar's book
+    // button, like the novel ranking.
+    expect(find.text('插画'), findsNothing);
+    expect(find.text('小说'), findsNothing);
+    expect(find.byTooltip('小说新作'), findsOneWidget);
+    expect(repository.requests, [_followingIllust]);
 
     await tester.tap(find.text('大家'));
     await tester.pumpAndSettle();
@@ -198,25 +235,40 @@ void main() {
         ),
       ),
     );
-    // Re-tapping the active scope must not collapse the row or
-    // refetch — it is a scroll-only gesture now.
-    await tester.tap(find.text('大家'));
-    await tester.pumpAndSettle();
-    expect(find.text('插画').hitTestable(), findsOneWidget);
-    expect(find.text('小说').hitTestable(), findsOneWidget);
-
-    await tester.tap(find.text('小说').hitTestable());
-    await tester.pump();
-    await tester.pump();
     expect(
-      repository.requests,
-      contains(
-        const NewFeedKey(scope: NewFeedScope.everyone, type: NewFeedType.novel),
-      ),
+      repository.requests.where((key) => key.type == NewFeedType.novel),
+      isEmpty,
     );
   });
 
-  testWidgets('re-tapping the active scope or type scrolls the feed to top', (
+  testWidgets('the novel page lists novels per scope, without the book '
+      'button', (tester) async {
+    final (container, repository) = await _makeWorld(novelCount: 3);
+    addTearDown(container.dispose);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        _app(container, page: const NewPage(type: NewFeedType.novel)),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+    });
+
+    expect(find.text('novel 2000').hitTestable(), findsOneWidget);
+    expect(find.byTooltip('小说新作'), findsNothing);
+    expect(repository.requests, [
+      const NewFeedKey(scope: NewFeedScope.following, type: NewFeedType.novel),
+    ]);
+
+    await tester.tap(find.text('大家'));
+    await tester.pumpAndSettle();
+    expect(repository.requests, [
+      const NewFeedKey(scope: NewFeedScope.following, type: NewFeedType.novel),
+      const NewFeedKey(scope: NewFeedScope.everyone, type: NewFeedType.novel),
+    ]);
+  });
+
+  testWidgets('re-tapping the active scope scrolls the feed to top', (
     tester,
   ) async {
     final (container, repository) = await _makeWorld(illustCount: 24);
@@ -231,72 +283,33 @@ void main() {
       // scroll-state queries to the onstage feed.
       final feedView = find.byType(CustomScrollView).hitTestable();
       expect(feedView, findsOneWidget);
-      ScrollController controller() =>
-          tester.widget<CustomScrollView>(feedView).controller!;
+      final controller = tester.widget<CustomScrollView>(feedView).controller!;
 
       // A programmatic jump stages the "scrolled away" state deterministi-
       // cally — the assertion is about the re-tap landing, not gestures.
-      controller().jumpTo(400);
+      controller.jumpTo(400);
       await tester.pump();
-      expect(controller().offset, 400);
+      expect(controller.offset, 400);
 
-      // Same-index scope tap → pure scroll-to-top.
+      // Same-index scope tap → pure scroll-to-top, nothing refetched.
       await tester.tap(find.text('关注'));
       await tester.pumpAndSettle();
-      expect(controller().offset, 0);
-      // Nothing refetched and the row is back at the top with the feed.
-      expect(repository.requests, [
-        const NewFeedKey(
-          scope: NewFeedScope.following,
-          type: NewFeedType.illust,
-        ),
-      ]);
-      expect(find.text('小说').hitTestable(), findsOneWidget);
-
-      // Same-type segment tap → same scroll-only contract. The row
-      // scrolled away with the feed: a reverse drag floats it back — the
-      // reveal consumes the drag delta, so the offset does not move yet.
-      controller().jumpTo(300);
-      await tester.pump();
-      expect(controller().offset, 300);
-      await _dropWheelMode(tester, feedView);
-      await tester.drag(feedView, const Offset(0, 50));
-      await tester.pump();
-      await tester.pumpAndSettle();
-      final row = find.byType(AppTypeSwitch<NewFeedType>).hitTestable();
-      expect(row, findsOneWidget);
-      await tester.tap(find.descendant(of: row, matching: find.text('插画')));
-      await tester.pumpAndSettle();
-      expect(controller().offset, 0);
-      // Once back at the top the row sits in its natural slot.
-      expect(row, findsOneWidget);
+      expect(controller.offset, 0);
+      expect(repository.requests, [_followingIllust]);
     });
   });
 
-  testWidgets('branch re-tap scrolls the feed to top — no refetch, no '
-      'selector expansion', (tester) async {
+  testWidgets('branch re-tap scrolls the feed to top — no refetch', (
+    tester,
+  ) async {
     final (container, repository) = await _makeWorld(illustCount: 24);
     addTearDown(container.dispose);
     final router = createPixivRouter(initialLocation: '/new');
     addTearDown(router.dispose);
-    // Compact viewport: ≥600px swaps the bottom bar for a rail and the
-    // re-tap channel has no tap surface.
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    _phone(tester);
 
     await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: router,
-          ),
-        ),
-      );
+      await tester.pumpWidget(_routerApp(container, router));
       await tester.pump();
       await tester.pump();
       await tester.pumpAndSettle();
@@ -308,10 +321,7 @@ void main() {
       await tester.pump();
       expect(controller.offset, 400);
 
-      // Same-destination tap on the bottom-bar "new" slot. Pure
-      // scroll-to-top: no refetch, and the scope/type chrome must not
-      // expand or collapse — the old expand-on-re-tap entry is gone for
-      // good.
+      // Same-destination tap on the bottom-bar "new" slot.
       final requestsBefore = repository.requests.length;
       await tester.tap(
         find.descendant(
@@ -324,153 +334,57 @@ void main() {
 
       expect(controller.offset, 0);
       expect(repository.requests.length, requestsBefore);
-      expect(find.text('插画'), findsOneWidget);
-      expect(find.text('小说'), findsOneWidget);
       expect(find.text('关注'), findsOneWidget);
     });
   });
 
-  testWidgets('scope and type round-trip through the route parameters', (
-    tester,
-  ) async {
-    final (container, repository) = await _makeWorld();
-    addTearDown(container.dispose);
-    final router = createPixivRouter(
-      initialLocation: '/new?scope=everyone&type=novel',
+  testWidgets('the book button pushes the novel page; back keeps the illust '
+      'feed where it was', (tester) async {
+    final (container, repository) = await _makeWorld(
+      illustCount: 24,
+      novelCount: 3,
     );
+    addTearDown(container.dispose);
+    final router = createPixivRouter(initialLocation: '/new?scope=everyone');
     addTearDown(router.dispose);
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    await tester.pumpAndSettle();
+    _phone(tester);
 
-    // The URL seeds both selectors.
-    var page = tester.widget<NewPage>(find.byType(NewPage));
-    expect(page.initialScope, NewFeedScope.everyone);
-    expect(page.initialType, NewFeedType.novel);
-    expect(repository.requests, [
-      const NewFeedKey(scope: NewFeedScope.everyone, type: NewFeedType.novel),
-    ]);
-
-    // A scope tap writes scope+type back through context.replace.
-    await tester.tap(find.text('好P友'));
-    await tester.pump();
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/new');
-    expect(router.state.uri.queryParameters['scope'], 'myPixiv');
-    expect(router.state.uri.queryParameters['type'], 'novel');
-    page = tester.widget<NewPage>(find.byType(NewPage));
-    expect(page.initialScope, NewFeedScope.myPixiv);
-    expect(page.initialType, NewFeedType.novel);
-
-    // Same for the type row.
-    await tester.tap(find.text('插画').hitTestable());
-    await tester.pump();
-    await tester.pumpAndSettle();
-    expect(router.state.uri.queryParameters['scope'], 'myPixiv');
-    expect(router.state.uri.queryParameters['type'], 'illust');
-    page = tester.widget<NewPage>(find.byType(NewPage));
-    expect(page.initialScope, NewFeedScope.myPixiv);
-    expect(page.initialType, NewFeedType.illust);
-  });
-
-  testWidgets('the type row caps at 48dp and scrolls away with the feed', (
-    tester,
-  ) async {
-    final (container, _) = await _makeWorld(illustCount: 24);
-    addTearDown(container.dispose);
     await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(_app(container));
+      await tester.pumpWidget(_routerApp(container, router));
       await tester.pump();
       await tester.pump();
       await tester.pumpAndSettle();
 
-      final row = find.byType(AppTypeSwitch<NewFeedType>).hitTestable();
-      expect(row, findsOneWidget);
-      expect(tester.getSize(row).height, lessThanOrEqualTo(48));
-
-      final feedView = find.byType(CustomScrollView).hitTestable();
-      await _dropWheelMode(tester, feedView);
-      await tester.drag(feedView, const Offset(0, -400));
+      final illustFeed = find.byType(CustomScrollView);
+      final illustController = tester
+          .widget<CustomScrollView>(illustFeed)
+          .controller!;
+      illustController.jumpTo(400);
       await tester.pump();
+
+      await tester.tap(find.byTooltip('小说新作'));
       await tester.pumpAndSettle();
-      expect(row, findsNothing);
-    });
-  });
-
-  testWidgets('a reverse drag floats the type row back in', (tester) async {
-    final (container, _) = await _makeWorld(illustCount: 24);
-    addTearDown(container.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(_app(container));
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
-
-      final row = find.byType(AppTypeSwitch<NewFeedType>).hitTestable();
-      final feedView = find.byType(CustomScrollView).hitTestable();
-      final controller = tester.widget<CustomScrollView>(feedView).controller!;
-      controller.jumpTo(400);
-      await tester.pump();
-      expect(row, findsNothing);
-
-      // The floating header consumes the reverse drag to reveal itself —
-      // a full reveal needs at least the row's own extent.
-      await _dropWheelMode(tester, feedView);
-      await tester.drag(feedView, const Offset(0, 50));
-      await tester.pump();
-      await tester.pumpAndSettle();
-      expect(row, findsOneWidget);
+      expect(router.state.uri.path, '/new/new-novels');
+      expect(find.text('novel 2000').hitTestable(), findsOneWidget);
+      // The novel page opens on its own default scope.
       expect(
-        tester.getRect(row).top,
-        lessThan(tester.getRect(feedView).top + 48),
-      );
-    });
-  });
-
-  testWidgets('the type row stays tappable while the feed is loading', (
-    tester,
-  ) async {
-    final (container, repository) = await _makeWorld();
-    addTearDown(container.dispose);
-    repository.pendingFetch = Completer<void>();
-    addTearDown(() {
-      if (repository.pendingFetch?.isCompleted == false) {
-        repository.pendingFetch!.complete();
-      }
-    });
-    await tester.pumpWidget(_app(container));
-    await tester.pump();
-    await tester.pump();
-
-    expect(
-      find.byType(AppTypeSwitch<NewFeedType>).hitTestable(),
-      findsOneWidget,
-    );
-    await tester.tap(find.text('小说').hitTestable());
-    await tester.pump();
-    await tester.pump();
-    expect(
-      repository.requests,
-      contains(
+        repository.requests.last,
         const NewFeedKey(
           scope: NewFeedScope.following,
           type: NewFeedType.novel,
         ),
-      ),
-    );
-    repository.pendingFetch!.complete();
-    await tester.pumpAndSettle();
+      );
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/new');
+      expect(router.state.uri.queryParameters, {'scope': 'everyone'});
+      expect(illustController.offset, 400);
+      expect(
+        tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
+        NewFeedScope.values.indexOf(NewFeedScope.everyone),
+      );
+    });
   });
 
   testWidgets('illust first load shows the grid skeleton, not an empty '
@@ -506,7 +420,7 @@ void main() {
       }
     });
     await tester.pumpWidget(
-      _app(container, page: const NewPage(initialType: NewFeedType.novel)),
+      _app(container, page: const NewPage(type: NewFeedType.novel)),
     );
     await tester.pump();
     await tester.pump();
@@ -519,7 +433,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('the type row stays tappable while the feed is in error', (
+  testWidgets('a failed first load shows the error state with retry', (
     tester,
   ) async {
     final (container, repository) = await _makeWorld();
@@ -530,240 +444,6 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(
-      find.byType(AppTypeSwitch<NewFeedType>).hitTestable(),
-      findsOneWidget,
-    );
-    await tester.tap(find.text('小说').hitTestable());
-    await tester.pump();
-    await tester.pump();
-    expect(
-      repository.requests,
-      contains(
-        const NewFeedKey(
-          scope: NewFeedScope.following,
-          type: NewFeedType.novel,
-        ),
-      ),
-    );
-    // The tap's drag-cancel leaves a chained zero-delay indicator future —
-    // settle so no fake timer is pending at teardown.
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('the type row stays tappable while the feed is empty', (
-    tester,
-  ) async {
-    final (container, repository) = await _makeWorld();
-    addTearDown(container.dispose);
-    await tester.pumpWidget(_app(container));
-    await tester.pump();
-    await tester.pump();
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byType(AppTypeSwitch<NewFeedType>).hitTestable(),
-      findsOneWidget,
-    );
-    await tester.tap(find.text('小说').hitTestable());
-    await tester.pump();
-    await tester.pump();
-    expect(
-      repository.requests,
-      contains(
-        const NewFeedKey(
-          scope: NewFeedScope.following,
-          type: NewFeedType.novel,
-        ),
-      ),
-    );
-  });
-
-  /// Pull-to-refresh around the trigger threshold (design §9): the row is
-  /// the first sliver, so it must ride with the overscroll, and the
-  /// indicator must stay above it. The swipe warmer can mount a neighbor
-  /// feed mid-gesture, so every finder is hit-testable and request counts
-  /// are filtered to the active feed key.
-  testWidgets('a pull under the threshold carries the row with the list', (
-    tester,
-  ) async {
-    const activeKey = NewFeedKey(
-      scope: NewFeedScope.following,
-      type: NewFeedType.illust,
-    );
-    final (container, repository) = await _makeWorld(illustCount: 24);
-    addTearDown(container.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(_app(container));
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
-
-      final row = find.byType(AppTypeSwitch<NewFeedType>).hitTestable();
-      final card = find.byType(IllustCard).hitTestable().first;
-      final indicator = find.byType(legacy_material.RefreshProgressIndicator);
-      final feedView = find.byType(CustomScrollView).hitTestable();
-      expect(row, findsOneWidget);
-      expect(card, findsOneWidget);
-      int activeRequests() =>
-          repository.requests.where((key) => key == activeKey).length;
-      final requestsBefore = activeRequests();
-      final cardTop = tester.getRect(card).top;
-      final rowTop = tester.getRect(row).top;
-
-      // 60px < the 100px trigger — the gesture stays a drag, no refresh.
-      await _dropWheelMode(tester, feedView);
-      final gesture = await tester.startGesture(tester.getCenter(feedView));
-      for (var i = 0; i < 6; i++) {
-        await gesture.moveBy(const Offset(0, 10));
-        await tester.pump();
-      }
-
-      // The card must actually be displaced before comparing row motion.
-      final cardDelta = tester.getRect(card).top - cardTop;
-      expect(cardDelta, greaterThan(0));
-      expect(
-        tester.getRect(row).top - rowTop,
-        moreOrLessEquals(cardDelta, epsilon: 0.01),
-      );
-      // The indicator stays above the row — its bottom must not cross
-      // the row's top edge.
-      expect(indicator, findsOneWidget);
-      expect(
-        tester.getRect(indicator).bottom,
-        lessThanOrEqualTo(tester.getRect(row).top),
-      );
-
-      await gesture.up();
-      await tester.pumpAndSettle();
-      expect(activeRequests(), requestsBefore);
-    });
-  });
-
-  testWidgets('releasing past the threshold holds the refresh under the '
-      'row', (tester) async {
-    const activeKey = NewFeedKey(
-      scope: NewFeedScope.following,
-      type: NewFeedType.illust,
-    );
-    final (container, repository) = await _makeWorld(illustCount: 24);
-    addTearDown(container.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(_app(container));
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
-
-      final row = find.byType(AppTypeSwitch<NewFeedType>).hitTestable();
-      final card = find.byType(IllustCard).hitTestable().first;
-      final indicator = find.byType(legacy_material.RefreshProgressIndicator);
-      final feedView = find.byType(CustomScrollView).hitTestable();
-      int activeRequests() =>
-          repository.requests.where((key) => key == activeKey).length;
-      final requestsBefore = activeRequests();
-      final cardTop = tester.getRect(card).top;
-      final rowTop = tester.getRect(row).top;
-
-      // The refresh request hangs on the gate so the processing state
-      // stays observable: the list stays pinned at the trigger offset.
-      repository.pendingFetch = Completer<void>();
-
-      // Finger travel is damped by overscroll physics — pull_to_refresh_
-      // test reaches the same trigger with one long drag.
-      await _dropWheelMode(tester, feedView);
-      final gesture = await tester.startGesture(tester.getCenter(feedView));
-      for (var i = 0; i < 20; i++) {
-        await gesture.moveBy(const Offset(0, 30));
-        await tester.pump();
-      }
-      await gesture.up();
-      // On release the list springs back to the trigger offset before the
-      // refresh task fires — wait for the request to land.
-      for (var i = 0; i < 40 && activeRequests() == requestsBefore; i++) {
-        await tester.pump(const Duration(milliseconds: 50));
-      }
-
-      expect(activeRequests(), requestsBefore + 1);
-
-      final cardDelta = tester.getRect(card).top - cardTop;
-      expect(cardDelta, greaterThan(0));
-      expect(
-        tester.getRect(row).top - rowTop,
-        moreOrLessEquals(cardDelta, epsilon: 0.01),
-      );
-      expect(indicator, findsOneWidget);
-      expect(
-        tester.getRect(indicator).bottom,
-        lessThanOrEqualTo(tester.getRect(row).top),
-      );
-
-      repository.pendingFetch!.complete();
-      await tester.pump();
-      await tester.pumpAndSettle();
-    });
-  });
-
-  /// A swipe that starts on the type row must act like one that starts
-  /// anywhere else on the feed: the two segments fit, so the row has
-  /// nothing to scroll — it must neither overscroll into a refresh nor
-  /// keep the swipe from RootSwipeSwitcher.
-  group('a sideways swipe from the type row', () {
-    /// Mounts the loaded feed the way a phone starts it: out of wheel
-    /// mode, with the row at the top.
-    Future<void> pumpLoadedFeed(
-      WidgetTester tester,
-      ProviderContainer container,
-    ) async {
-      await tester.pumpWidget(_app(container));
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
-      // The warm-up drag scrolls the row partly away; jump back.
-      final feedView = find.byType(CustomScrollView).hitTestable();
-      await _dropWheelMode(tester, feedView);
-      tester.widget<CustomScrollView>(feedView).controller!.jumpTo(0);
-      await tester.pumpAndSettle();
-    }
-
-    Finder segments() => find.descendant(
-      of: find.byType(AppTypeSwitch<NewFeedType>).hitTestable(),
-      matching: find.byType(SegmentedButton<NewFeedType>),
-    );
-
-    testWidgets('never refreshes the visible feed', (tester) async {
-      const activeKey = NewFeedKey(
-        scope: NewFeedScope.following,
-        type: NewFeedType.illust,
-      );
-      final (container, repository) = await _makeWorld(illustCount: 24);
-      addTearDown(container.dispose);
-      await mockNetworkImagesFor(() async {
-        await pumpLoadedFeed(tester, container);
-        expect(segments(), findsOneWidget);
-        int activeRequests() =>
-            repository.requests.where((key) => key == activeKey).length;
-        final requestsBefore = activeRequests();
-
-        // Rightward on the first scope: there is no tab to turn back to,
-        // so the drag has nowhere to go.
-        await tester.drag(segments(), const Offset(300, 0));
-        await tester.pumpAndSettle();
-        expect(activeRequests(), requestsBefore);
-      });
-    });
-
-    testWidgets('turns the scope tab', (tester) async {
-      final (container, _) = await _makeWorld(illustCount: 24);
-      addTearDown(container.dispose);
-      await mockNetworkImagesFor(() async {
-        await pumpLoadedFeed(tester, container);
-        expect(segments(), findsOneWidget);
-        final tabs = tester.widget<TabBar>(find.byType(TabBar)).controller!;
-
-        await tester.drag(segments(), const Offset(-300, 0));
-        await tester.pumpAndSettle();
-        expect(tabs.index, 1);
-      });
-    });
+    expect(find.byType(FeedError), findsOneWidget);
   });
 }

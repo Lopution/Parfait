@@ -136,9 +136,7 @@ void main() {
   });
 
   group('StaggeredEntrance', () {
-    testWidgets('first-screen item animates: rises then settles', (
-      tester,
-    ) async {
+    testWidgets('first-screen item fades in without moving', (tester) async {
       await tester.pumpWidget(
         _wrap(const StaggeredEntrance(index: 2, id: 2, child: Text('card'))),
       );
@@ -148,10 +146,26 @@ void main() {
       );
       expect(opacityFinder, findsOneWidget);
       expect(tester.widget<Opacity>(opacityFinder).opacity, 0);
+      final cardTop = tester.getTopLeft(find.text('card')).dy;
 
       // The exposure check defers the start to a post-frame callback; the
       // ticker's epoch is the following frame — one bare pump() arms it.
       await tester.pump();
+      await tester.pump(
+        MotionTokens.listStaggerStep * 2 + MotionTokens.listEntrance ~/ 2,
+      );
+      final midway = tester.widget<Opacity>(opacityFinder).opacity;
+      expect(midway, greaterThan(0));
+      expect(midway, lessThan(1));
+      expect(
+        find.descendant(
+          of: find.byType(StaggeredEntrance),
+          matching: find.byType(Transform),
+        ),
+        findsNothing,
+      );
+      expect(tester.getTopLeft(find.text('card')).dy, cardTop);
+
       await tester.pump(
         MotionTokens.listEntrance + MotionTokens.listStaggerStep * 3,
       );

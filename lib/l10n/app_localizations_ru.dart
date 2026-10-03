@@ -1970,10 +1970,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get newMyPixiv => 'Мои Pixiv';
 
   @override
-  String get newIllust => 'Иллюстрации';
-
-  @override
-  String get newNovel => 'Новеллы';
+  String get newNovels => 'Новые новеллы';
 
   @override
   String get recommendedIllust => 'Иллюстрации';

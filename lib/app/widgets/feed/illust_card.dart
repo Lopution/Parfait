@@ -20,6 +20,7 @@ import '../../widgets/bookmark_switch_button.dart';
 import '../card_actions/card_action_sheet.dart';
 import '../entity_row.dart';
 import 'feed_grid.dart';
+import 'illust_card_layout.dart';
 import 'muted_cover.dart';
 
 /// Illust preview card replicating beta56 IllustPreviewer semantics:
@@ -101,89 +102,50 @@ class _IllustCardBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final previewQuality = ref.watch(previewQualityProvider);
-    // Pixiv's medium endpoint is capped at a small source width. A very tall
-    // work paints a large continuous surface in the waterfall, so stretching
-    // that cap is especially obvious as blur. Use the same uncropped large
-    // source for ultra-tall works while retaining the user's quality choice
-    // for ordinary cards.
-    final isUltraTall = entity.width > 0 && entity.height / entity.width >= 2.5;
-    final previewUrl = isUltraTall
-        ? entity.imageUrls.large
-        : entity.previewUrl(previewQuality);
-    final previewTier = isUltraTall
-        ? IllustImageTier.large
-        : previewQuality.tier;
-    final heroTag = illustHeroTag(heroScope, entity.id);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildPreview(
-          context,
-          ref,
-          colorScheme,
-          previewUrl,
-          heroTag,
-          previewTier,
-        ),
+        _buildPreview(context, ref),
         const SizedBox(height: FuncSpacing.xs),
         _buildTitle(context),
       ],
     );
   }
 
-  Widget _buildPreview(
-    BuildContext context,
-    WidgetRef ref,
-    ColorScheme colorScheme,
-    String previewUrl,
-    String heroTag,
-    IllustImageTier previewTier,
-  ) {
-    // Beta56 IllustPreviewer semantics: the preview height follows the
-    // original aspect ratio (BoxFit.fitWidth) inside the waterfall flow,
-    // so works are never cropped in the feed.
-
+  Widget _buildPreview(BuildContext context, WidgetRef ref) {
     // The grid publishes the resolved column width — reading it skips the
     // per-card LayoutBuilder entirely. The fallback keeps direct (non-grid)
     // usages working.
     final inheritedWidth = FeedItemExtent.maybeOf(context);
     if (inheritedWidth != null) {
-      return _buildPreviewWithWidth(
-        context,
-        ref,
-        colorScheme,
-        previewUrl,
-        heroTag,
-        previewTier,
-        inheritedWidth,
-      );
+      return _buildPreviewWithWidth(context, ref, inheritedWidth);
     }
     return LayoutBuilder(
-      builder: (context, constraints) => _buildPreviewWithWidth(
-        context,
-        ref,
-        colorScheme,
-        previewUrl,
-        heroTag,
-        previewTier,
-        constraints.maxWidth,
-      ),
+      builder: (context, constraints) =>
+          _buildPreviewWithWidth(context, ref, constraints.maxWidth),
     );
   }
 
   Widget _buildPreviewWithWidth(
     BuildContext context,
     WidgetRef ref,
-    ColorScheme colorScheme,
-    String previewUrl,
-    String heroTag,
-    IllustImageTier previewTier,
     double cardWidth,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
     final cardDecodeWidth = PixivImage.decodeWidthFor(cardWidth);
+    // Beta56 IllustPreviewer semantics: the preview height follows the
+    // original aspect ratio up to 1:2. Taller works crop to the top of
+    // `large` or switch to the square thumbnail (illustCardPreview).
+    final preview = illustCardPreview(
+      entity,
+      quality: ref.watch(previewQualityProvider),
+      cardPhysicalWidth: cardDecodeWidth,
+    );
+    final heroTag = illustHeroTag(heroScope, entity.id);
+    // The square thumbnail is a different image from the detail page's:
+    // that card opens without a Hero and hands the detail no first frame.
+    final hasHero = preview.crop != IllustCardCrop.square;
     // Mute presentation (default blur mode): a hit renders the blurred
     // cover and the first tap reveals in place instead of opening the
     // detail. Hide mode never reaches here — the feed filter already
@@ -196,29 +158,22 @@ class _IllustCardBody extends ConsumerWidget {
     );
     final muted = mutedHit != null && !revealed;
     void openDetail() {
-      _preloadTransitionImages(
-        context,
-        ref,
-        previewUrl,
-        previewTier,
-        cardDecodeWidth,
-      );
+      _preloadTransitionImages(context, ref, preview, cardDecodeWidth);
       openIllust(
         context,
         entity.id,
         initialEntity: entity,
         heroScope: heroScope,
-        heroImageUrl: previewUrl,
-        heroImageDecodeWidth: cardDecodeWidth,
+        heroImageUrl: hasHero ? preview.url : null,
+        heroImageDecodeWidth: hasHero ? cardDecodeWidth : null,
         // Inside a feed grid this carries the feed's work list — the
         // detail route then opens as a work-to-work pager.
         pagerSource: IllustPagerScope.maybeOf(context),
       );
     }
 
-    final previewHeight = entity.width > 0
-        ? cardWidth / entity.width * entity.height
-        : cardWidth;
+    final previewHeight = cardWidth * preview.heightRatio;
+    final image = _buildImage(preview, heroTag, cardWidth);
     void reveal() {
       ref.read(revealedMuteIdsProvider.notifier).reveal(entity.id);
     }
@@ -241,8 +196,7 @@ class _IllustCardBody extends ConsumerWidget {
               : (_) => _preloadTransitionImages(
                   context,
                   ref,
-                  previewUrl,
-                  previewTier,
+                  preview,
                   cardDecodeWidth,
                 ),
           onTap: muted ? reveal : openDetail,
@@ -255,26 +209,10 @@ class _IllustCardBody extends ConsumerWidget {
             width: cardWidth,
             height: previewHeight,
             child: muted
-                ? MutedCover(
-                    reasonLabel: mutedHit.label,
-                    child: _buildHeroImage(
-                      previewUrl,
-                      heroTag,
-                      cardWidth,
-                      previewTier,
-                    ),
-                  )
+                ? MutedCover(reasonLabel: mutedHit.label, child: image)
                 : Stack(
                     fit: StackFit.expand,
-                    children: [
-                      _buildHeroImage(
-                        previewUrl,
-                        heroTag,
-                        cardWidth,
-                        previewTier,
-                      ),
-                      ..._buildBadges(colorScheme),
-                    ],
+                    children: [image, ..._buildBadges(colorScheme)],
                   ),
           ),
         ),
@@ -282,40 +220,45 @@ class _IllustCardBody extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeroImage(
-    String previewUrl,
-    String heroTag,
-    double width,
-    IllustImageTier previewTier,
-  ) {
+  Widget _buildImage(IllustCardPreview preview, String heroTag, double width) {
+    final tier = preview.tier;
+    final framed = IllustHeroCardFrame(
+      cropAspect: preview.crop == IllustCardCrop.top
+          ? entity.pageAspectRatioAt(0)
+          : null,
+      child: PixivImage.feed(
+        preview.url,
+        layoutWidth: width,
+        fit: switch (preview.crop) {
+          IllustCardCrop.none => BoxFit.fitWidth,
+          IllustCardCrop.top || IllustCardCrop.square => BoxFit.cover,
+        },
+        alignment: preview.crop == IllustCardCrop.top
+            ? Alignment.topCenter
+            : Alignment.center,
+        transitionKey: heroTag,
+        // Record the painted tier but never upgrade it: the feed always
+        // renders its configured preview tier — an upgraded file would
+        // decode to the same output size and only cost extra file reads.
+        // The square crop is no tier and records nothing.
+        tierKey: tier == null ? null : entity.imageTierKeyAt(0),
+        tier: tier,
+        tierUpgrade: false,
+      ),
+    );
+    if (preview.crop == IllustCardCrop.square) return framed;
     // Only the image participates in the detail Hero flight. Badges belong to
     // the feed viewport; when the whole Stack was the Hero, the page-count
     // badge was scaled and left as a large ghost during pop.
     //
-    // The card frame (rounded clip + divider hairline) sits INSIDE the Hero
-    // child for the same reason the ClipRRect did (R7 Ugoira): Hero flight
-    // renders the raw child, so a clip outside the Hero only applied after
-    // the flight finished — the image snapped from square to rounded on pop.
-    // A border outside would stay planted as a ghost during the flight and
-    // pop in on landing; IllustHeroCardFrame keeps both inside while the
-    // shared shuttle fades the hairline towards the detail endpoint.
+    // The card frame (rounded clip) sits INSIDE the Hero child (R7 Ugoira):
+    // Hero flight renders the raw child, so a clip outside the Hero only
+    // applied after the flight finished — the image snapped from square to
+    // rounded on pop.
     return Hero(
       tag: heroTag,
       flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-      child: IllustHeroCardFrame(
-        child: PixivImage.feed(
-          previewUrl,
-          layoutWidth: width,
-          fit: BoxFit.fitWidth,
-          transitionKey: heroTag,
-          // Record the painted tier but never upgrade it: the feed always
-          // renders its configured preview tier — an upgraded file would
-          // decode to the same output size and only cost extra file reads.
-          tierKey: entity.imageTierKeyAt(0),
-          tier: previewTier,
-          tierUpgrade: false,
-        ),
-      ),
+      child: framed,
     );
   }
 
@@ -402,13 +345,14 @@ class _IllustCardBody extends ConsumerWidget {
   void _preloadTransitionImages(
     BuildContext context,
     WidgetRef ref,
-    String previewUrl,
-    IllustImageTier previewTier,
+    IllustCardPreview preview,
     int decodeWidth,
   ) {
     final cacheManager = ref
         .read(pixivNetworkFactoryProvider)
         .imageCacheManager;
+    final previewUrl = preview.url;
+    final previewTier = preview.tier;
     // Warm the exact decoded entry the feed card displays AND the detail
     // hero phase reuses (same ResizeImage width): the whole feed -> detail
     // hand-off then hits an already-decoded frame.
@@ -417,7 +361,7 @@ class _IllustCardBody extends ConsumerWidget {
         context,
         previewUrl,
         cacheManager: cacheManager,
-        tierKey: entity.imageTierKeyAt(0),
+        tierKey: previewTier == null ? null : entity.imageTierKeyAt(0),
         tier: previewTier,
         memCacheWidth: decodeWidth,
       ),

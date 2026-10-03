@@ -341,8 +341,8 @@ claim the drag, so a swipe starting on it would never reach
 `RootSwipeSwitcher`. `app_type_switch_test.dart` proves both — a fitting
 row under `FuncScrollBehavior` hands the swipe to an enclosing horizontal
 drag detector, and sideways drags on fitting and overflowing rows never
-call `onRefresh` — and the `a sideways swipe from the type row` group in
-`new_content_feed_test.dart` repeats them on the real feed.
+call `onRefresh` — and the `the work type row on a real feed` group in
+`user_profile_test.dart` repeats the refresh half on a real profile feed.
 
 The sliver form clamps `constraints.overlap` at zero before handing it to
 `SliverFloatingHeader`. `PullToRefresh` lays out non-clamping, so an
@@ -351,9 +351,9 @@ parks at the viewport top while the list overshoots and the refresh
 indicator paints over the switch row. The clamp keeps the row traveling
 with the list while positive overlaps — which the Hero return clip reads —
 pass through untouched. `app_type_switch_test.dart` proves the row's top
-edge tracks the first card's during a pull; `new_content_feed_test.dart`
-repeats that on the real feed and adds that the indicator bottom stays at
-or above the row top.
+edge tracks the first card's during a pull; `user_profile_test.dart`
+repeats that on a real profile feed. Neither test asserts the refresh
+indicator's bottom against the row top.
 
 `AppTypeSwitch` enables `emptySelectionAllowed` and reports an empty
 selection as the current value, so a tap on the active segment reaches
@@ -362,7 +362,13 @@ Branch Re-tap Contract. Loading, error, and empty feed states keep the
 selector reachable by rendering the box form as a fixed header above the
 status widget; only a loaded feed uses the floating sliver.
 
-The profile page is the second consumer. Each profile feed
+The profile page is the only consumer. The new-works page no longer
+switches type in place: its illustration page carries a book action in the
+AppBar (`newNovels` tooltip) that pushes the common `new-novels` route —
+the same `NewPage` with `type: NewFeedType.novel` and no book action —
+mirroring how the novel ranking opens. Each page keeps its own scope in the
+URL (`/new?scope=` and `.../new-novels?scope=`); an old `type=novel` link
+lands on illustrations. Each profile feed
 (`ProfileIllustFeed`, `ProfileNovelFeed`, `UserSeriesFeed`) takes a
 `typeSwitch` sliver parameter and inserts it *after*
 `HeaderLocator.sliver()` inside the nested list — the locator must come
@@ -644,17 +650,24 @@ Future<void> PixivImage.preload(
   intersect to an empty rectangle. If an endpoint is temporarily offstage,
   use a conservative Scaffold/chrome fallback rather than returning an empty
   clip.
-- The waterfall card is the only Hero endpoint that carries a visible
-  boundary. `IllustHeroCardFrame` wraps the card's Hero child — `ClipRRect`
-  at `FuncShape.card` plus a foreground hairline in the semantic `divider`
-  color. The shuttle recognizes the frame on the card side and paints the
-  same hairline into the overlay, fading its alpha to zero across the flight
-  (`× 1 - progress`); the border and the clip share one interpolated
-  `BorderRadius`, and the color resolves through the card-side context.
-  Detail→viewer flights have no card endpoint and draw no border. The frame
-  must live **inside** the Hero child: a border drawn outside the Hero stays
-  on the route during flight (a stationary ghost) and pops back in on
-  landing.
+- Feed cards draw no outline. `IllustHeroCardFrame` wraps the card's Hero
+  child as a `ClipRRect` at `FuncShape.card` only; the shuttle interpolates
+  that radius towards the detail side's. The frame must live **inside** the
+  Hero child: a clip outside the Hero only applies after the flight lands,
+  so the image snaps from square to rounded on pop.
+- Feed card layout (`illustCardPreview` in `illust_card_layout.dart`): the
+  preview follows the work's aspect ratio up to 1:2 (`fitWidth`, the
+  user's preview tier). A taller work keeps a 1:2 card and shows the top of
+  `large` (`cover`, top-aligned) while `large`'s pixel width is at least
+  80% of the card's physical width; a narrower one shows a square card from
+  the square thumbnail (the 540 px resize, or the uncropped `square1200`
+  for wider cards) and opens without a Hero, since that image is not the
+  detail page's. A top-cropped card hands `cropAspect` (the work's
+  width/height) to its frame, and the shuttle lerps the child from the
+  card's cover-top rect to the whole contained image, both directions. The
+  feed prefetch resolves the same `illustCardPreview` so it warms exactly
+  what the card will paint. The feed entrance is a staggered fade only —
+  cards never move.
 - Detail page page numbers use only `DetailPageCounter`. Narrow and wide
   layouts both place it at the top-right of the artwork region; single-page
   and ugoira works never show it; selection mode hides it because each

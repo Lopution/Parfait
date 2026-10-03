@@ -2,9 +2,9 @@ import 'package:flutter/widgets.dart';
 
 import 'motion_tokens.dart';
 
-/// Feed entrance: item fades in and rises [MotionTokens.listEntranceOffset]
-/// over [MotionTokens.listEntrance], delayed by a bounded per-index stagger
-/// for the first-screen batch only.
+/// Feed entrance: item fades in over [MotionTokens.listEntrance], delayed
+/// by a bounded per-index stagger for the first-screen batch only. It does
+/// not move: the card lands where it sits.
 ///
 /// The trigger is *first viewport exposure*, not mount: the list's
 /// `cacheExtent` mounts cards half a viewport below the fold, and a
@@ -84,7 +84,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
 
   /// Whether the per-index stagger delay applies to this entrance. Only
   /// the first-screen batch staggers: a card surfaced by continued
-  /// scrolling plays the same rise/fade with `delayUs = 0` — holding it
+  /// scrolling plays the same fade with `delayUs = 0` — holding it
   /// at Opacity(0) for a wait sized for the opening screen reads as a
   /// hole in a feed already in motion.
   var _staggered = true;
@@ -284,13 +284,9 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
               0.0,
               1.0,
             );
-        final eased = MotionTokens.listEntranceCurve.transform(window);
         return Opacity(
-          opacity: eased,
-          child: Transform.translate(
-            offset: Offset(0, MotionTokens.listEntranceOffset * (1 - eased)),
-            child: child,
-          ),
+          opacity: MotionTokens.listEntranceCurve.transform(window),
+          child: child,
         );
       },
     );

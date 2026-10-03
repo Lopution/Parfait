@@ -296,11 +296,6 @@ NewFeedScope _newFeedScope(String? raw) => NewFeedScope.values.firstWhere(
   orElse: () => NewFeedScope.following,
 );
 
-NewFeedType _newFeedType(String? raw) => NewFeedType.values.firstWhere(
-  (type) => type.name == raw,
-  orElse: () => NewFeedType.illust,
-);
-
 SearchResultType _searchType(String? raw) => SearchResultType.values.firstWhere(
   (value) => value.name == raw,
   orElse: () => SearchResultType.illust,
@@ -628,6 +623,19 @@ List<RouteBase> _commonBranchRoutes(
         NovelRankingPage(
           initialMode: _novelRankingMode(state.uri.queryParameters['mode']),
           onModeChanged: (mode) => replaceNovelRankingMode(context, mode),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: 'new-novels',
+      pageBuilder: (context, state) => _page(
+        context,
+        state,
+        branchObserver,
+        NewPage(
+          type: NewFeedType.novel,
+          initialScope: _newFeedScope(state.uri.queryParameters['scope']),
+          onScopeChanged: (scope) => replaceNewNovelScope(context, scope),
         ),
       ),
     ),
@@ -1082,9 +1090,7 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
             home: const NewPage(),
             homeBuilder: (context, state) => NewPage(
               initialScope: _newFeedScope(state.uri.queryParameters['scope']),
-              initialType: _newFeedType(state.uri.queryParameters['type']),
-              onFeedChanged: (scope, type) =>
-                  replaceNewFeed(context, scope: scope, type: type),
+              onScopeChanged: (scope) => replaceNewFeed(context, scope),
             ),
             navigatorKey: newNavigatorKey,
             observer: newRouteObserver,
@@ -1288,6 +1294,10 @@ Future<void> openNovelRanking(BuildContext context) async {
   await _push(context, '${_currentStackRoot(context)}/novel-ranking');
 }
 
+Future<void> openNewNovels(BuildContext context) async {
+  await _push(context, '${_currentStackRoot(context)}/new-novels');
+}
+
 /// Download tasks live under the settings shell — the SnackBar "查看"
 /// action lands there directly regardless of which stack submitted the
 /// download.
@@ -1396,14 +1406,20 @@ void replaceRecommendedType(BuildContext context, RecommendedContentType type) {
   context.replace(location);
 }
 
-void replaceNewFeed(
-  BuildContext context, {
-  required NewFeedScope scope,
-  required NewFeedType type,
-}) {
+void replaceNewFeed(BuildContext context, NewFeedScope scope) {
   final location = Uri(
     path: '/new',
-    queryParameters: {'scope': scope.name, 'type': type.name},
+    queryParameters: {'scope': scope.name},
+  ).toString();
+  context.replace(location);
+}
+
+/// New novels live on a pushed common route (`<branch>/new-novels`), like
+/// [replaceNovelRankingMode].
+void replaceNewNovelScope(BuildContext context, NewFeedScope scope) {
+  final location = Uri(
+    path: '${_currentStackRoot(context)}/new-novels',
+    queryParameters: {'scope': scope.name},
   ).toString();
   context.replace(location);
 }
