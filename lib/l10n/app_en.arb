@@ -712,6 +712,7 @@
   "profileNovel": "Novel",
   "searchTitle": "Search",
   "searchHint": "Search works, users or tags",
+  "searchBarHint": "Search",
   "searchReverseImage": "Reverse image",
   "searchTrending": "Trending tags",
   "searchNoTrending": "No trending tags",

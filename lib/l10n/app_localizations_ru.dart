@@ -1613,7 +1613,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchHint => 'Работы, пользователи или теги';
 
   @override
-  String get searchReverseImage => 'Поиск по изображению';
+  String get searchBarHint => 'Поиск';
+
+  @override
+  String get searchReverseImage => 'Поиск по фото';
 
   @override
   String get searchTrending => 'Популярные теги';

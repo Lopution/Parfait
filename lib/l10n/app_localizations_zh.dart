@@ -1536,6 +1536,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchHint => '搜索作品、用户或标签';
 
   @override
+  String get searchBarHint => '搜索';
+
+  @override
   String get searchReverseImage => '反向搜图';
 
   @override

@@ -106,7 +106,9 @@ void expectLocaleLayoutIntact(
   expect(
     exception,
     isNull,
-    reason: '[${locale.toLanguageTag()}/${profile.name}] layout error',
+    reason:
+        '[${locale.toLanguageTag()}/${profile.name}] layout error\n  '
+        '${_overflowingFlexes().join('\n  ')}',
   );
   final messages = LocaleMessages.of(locale);
   final problems = <String>[];
@@ -197,6 +199,30 @@ double _scaleToRoot(RenderObject paragraph) {
       MatrixUtils.transformPoint(matrix, const Offset(1, 0)) -
       MatrixUtils.transformPoint(matrix, Offset.zero);
   return math.sqrt(dx.dx * dx.dx + dx.dy * dx.dy);
+}
+
+/// Rows and columns whose children run past their box: an overflow
+/// error names only the size, this names the place.
+List<String> _overflowingFlexes() {
+  final found = <String>[];
+  for (final element in find.byWidgetPredicate((w) => w is Flex).evaluate()) {
+    final flex = element.renderObject! as RenderFlex;
+    if (!flex.hasSize) continue;
+    final horizontal = flex.direction == Axis.horizontal;
+    var extent = 0.0;
+    flex.visitChildren((child) {
+      final size = (child as RenderBox).size;
+      extent += horizontal ? size.width : size.height;
+    });
+    final available = horizontal ? flex.size.width : flex.size.height;
+    if (extent <= available + 0.5) continue;
+    found.add(
+      '${element.widget.runtimeType} needs ${extent.toStringAsFixed(1)}px, '
+      'has ${available.toStringAsFixed(1)}px\n    in '
+      '${_ancestry(element).join(' < ')}',
+    );
+  }
+  return found;
 }
 
 bool _inside<T extends Widget>(Element element) {

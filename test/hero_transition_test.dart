@@ -16,7 +16,7 @@ import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_fixtures.dart';
-import 'illust_detail_page_test.dart';
+import 'helpers/detail_world.dart';
 import 'package:parfait/app/motion/hero_rect_clip.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';

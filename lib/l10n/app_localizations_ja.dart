@@ -1562,6 +1562,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchHint => '作品、ユーザー、タグを検索';
 
   @override
+  String get searchBarHint => '検索';
+
+  @override
   String get searchReverseImage => '画像で検索';
 
   @override

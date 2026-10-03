@@ -2999,6 +2999,12 @@ abstract class AppLocalizations {
   /// **'搜索作品、用户或标签'**
   String get searchHint;
 
+  /// No description provided for @searchBarHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索'**
+  String get searchBarHint;
+
   /// No description provided for @searchReverseImage.
   ///
   /// In zh, this message translates to:

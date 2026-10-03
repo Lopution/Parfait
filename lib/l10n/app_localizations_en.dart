@@ -1611,6 +1611,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchHint => 'Search works, users or tags';
 
   @override
+  String get searchBarHint => 'Search';
+
+  @override
   String get searchReverseImage => 'Reverse image';
 
   @override

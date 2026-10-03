@@ -15,7 +15,7 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_fixtures.dart';
-import 'illust_detail_page_test.dart';
+import 'helpers/detail_world.dart';
 
 Future<void> _pumpPager(
   WidgetTester tester,

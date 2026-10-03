@@ -394,9 +394,10 @@ class _ReverseImageSearchPageState
           ),
           const SizedBox(height: FuncSpacing.xs),
           // Reselect/cancel sit right under the preview — below the engine
-          // chips and search button they fell off the first screen.
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          // chips and search button they fell off the first screen. They
+          // stack when long labels do not fit side by side.
+          Wrap(
+            alignment: WrapAlignment.center,
             children: [
               TextButton.icon(
                 onPressed: _controller.pick,

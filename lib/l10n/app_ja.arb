@@ -712,6 +712,7 @@
   "profileNovel": "小説",
   "searchTitle": "検索",
   "searchHint": "作品、ユーザー、タグを検索",
+  "searchBarHint": "検索",
   "searchReverseImage": "画像で検索",
   "searchTrending": "人気タグ",
   "searchNoTrending": "人気タグはありません",

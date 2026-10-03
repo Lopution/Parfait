@@ -152,13 +152,17 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage> {
                   FuncSpacing.sm,
                 ),
                 sliver: SliverToBoxAdapter(
-                  child: Row(
+                  // The type switch moves under the title when both do
+                  // not fit on one line.
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: FuncSpacing.md,
+                    runSpacing: FuncSpacing.sm,
                     children: [
-                      Expanded(
-                        child: Text(
-                          context.l10n.searchTrending,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
+                      Text(
+                        context.l10n.searchTrending,
+                        style: Theme.of(context).textTheme.titleLarge,
                       ),
                       AppSegmentedButton<SearchResultType>(
                         segments: [
@@ -276,7 +280,9 @@ class _SearchGuideBox extends StatelessWidget {
       padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
         EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
       ),
-      hintText: context.l10n.searchHint,
+      // One line only: a search bar hint cannot wrap, so it stays short;
+      // the input page body spells out what can be searched.
+      hintText: context.l10n.searchBarHint,
       leading: const Icon(Icons.search),
       trailing: const [Icon(Icons.chevron_right)],
       onTap: onTap,
@@ -556,7 +562,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
       controller: _textController,
       focusNode: _focusNode,
       constraints: const BoxConstraints(minHeight: 48),
-      hintText: context.l10n.searchHint,
+      hintText: context.l10n.searchBarHint,
       leading: const Icon(Icons.search),
       trailing: [
         _clearSearchAction(),

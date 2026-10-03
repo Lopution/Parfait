@@ -12,7 +12,7 @@ import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/features/profile/author_works_download_dialog.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
-import 'download_manager_test.dart';
+import 'helpers/download_world.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
 

@@ -20,7 +20,7 @@ import 'package:parfait/core/download/pixiv_download_transport.dart';
 import 'package:parfait/features/settings/pages/download_tasks_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
-import 'download_manager_test.dart';
+import 'helpers/download_world.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
 
