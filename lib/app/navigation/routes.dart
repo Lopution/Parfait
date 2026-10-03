@@ -1491,16 +1491,19 @@ Future<void> openImageViewer(
   // viewer's first frame lands on an already-resolving entry instead of a
   // cold placeholder — the flash seen when zooming while the detail page
   // was still loading. Runs uncapped like the viewer's own provider.
+  final network = ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(pixivNetworkFactoryProvider);
   unawaited(
     PixivImage.preload(
       context,
       entity.viewerUrlAt(page, quality),
-      cacheManager: ProviderScope.containerOf(
-        context,
-        listen: false,
-      ).read(pixivNetworkFactoryProvider).imageCacheManager,
+      cacheManager: network.imageCacheManager,
+      demand: network.imageDemand,
       tierKey: entity.imageTierKeyAt(page),
       tier: quality.tier,
+      priority: ImageFetchPriority.foreground,
       // A context that unmounts mid-push (branch switch racing the tap)
       // makes the deferred precache throw — best-effort, so swallow.
     ).then((_) {}, onError: (_, _) {}),

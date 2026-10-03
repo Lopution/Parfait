@@ -348,9 +348,8 @@ class _IllustCardBody extends ConsumerWidget {
     IllustCardPreview preview,
     int decodeWidth,
   ) {
-    final cacheManager = ref
-        .read(pixivNetworkFactoryProvider)
-        .imageCacheManager;
+    final network = ref.read(pixivNetworkFactoryProvider);
+    final cacheManager = network.imageCacheManager;
     final previewUrl = preview.url;
     final previewTier = preview.tier;
     // Warm the exact decoded entry the feed card displays AND the detail
@@ -376,6 +375,8 @@ class _IllustCardBody extends ConsumerWidget {
     // preview URL as soon as its payload lands, and without this the bigger
     // variant still starts from zero on open. Original stays lazy — a
     // cancelled tap must not burn a multi-MB fetch on a background lane.
+    // The user is waiting for this one, so it must not queue behind feed
+    // prefetch.
     final detailQuality = ref.read(detailQualityProvider);
     if (detailQuality != DetailQuality.original) {
       final detailUrl = entity.detailUrlAt(0, detailQuality);
@@ -387,6 +388,8 @@ class _IllustCardBody extends ConsumerWidget {
             cacheManager: cacheManager,
             tierKey: entity.imageTierKeyAt(0),
             tier: detailQuality.tier,
+            demand: network.imageDemand,
+            priority: ImageFetchPriority.foreground,
           ),
         );
       }

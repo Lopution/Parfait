@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'network_contracts.dart';
 import 'network_policy.dart';
 import 'image_cache.dart';
+import 'image_demand.dart';
 
 /// A policy-aware `package:http` client. The business request is the route
 /// attempt: selection never pays for a separate probe. A
@@ -183,6 +184,11 @@ class PixivNetworkFactory {
       client(PixivDestinationPurpose.oauth);
 
   CacheManager get imageCacheManager => _imageCache.manager;
+
+  /// Shared with [imageCacheManager]'s file service: image widgets and
+  /// prefetchers register what they wait for, queued fetches nobody wants
+  /// are dropped.
+  ImageDemand get imageDemand => _imageCache.demand;
 
   /// Eagerly constructs the shared API/OAuth/image clients and their fast
   /// route pools. It is idempotent so callers can safely trigger it from the

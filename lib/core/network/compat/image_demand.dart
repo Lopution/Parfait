@@ -1,0 +1,110 @@
+import 'package:meta/meta.dart';
+
+/// Completes a queued image fetch whose turn came after everyone waiting
+/// for it went away. The fetch never reached the network.
+class ImageFetchDropped implements Exception {
+  const ImageFetchDropped(this.url);
+
+  final String url;
+
+  @override
+  String toString() => 'ImageFetchDropped: $url';
+}
+
+/// How long a released URL still counts as wanted. Absorbs the brief
+/// unmount/remount of a Hero flight or a list re-layout.
+const _kReleaseGrace = Duration(milliseconds: 500);
+
+/// Bookkeeping entries kept before expired ones are pruned.
+const _kPruneThreshold = 256;
+
+/// Who is still waiting for an image URL. The file service consults it
+/// when a queued fetch reaches its turn: nobody waiting means the fetch is
+/// dropped before it costs a connection.
+///
+/// Keys are the request URLs as the widgets see them; mirror rewriting
+/// happens later, inside the HTTP client.
+class ImageDemand {
+  ImageDemand({DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
+
+  final DateTime Function() _clock;
+
+  /// Called when [url] gains an on-screen holder: its first [hold], or any
+  /// [holdFor]. Wired to the file service's promotion.
+  void Function(String url)? onHeld;
+
+  final _counts = <String, int>{};
+  final _heldUntil = <String, DateTime>{};
+  final _releasedAt = <String, DateTime>{};
+  final _windows = <Object, Set<String>>{};
+
+  /// An image widget shows [url]. Pair with [release].
+  void hold(String url) {
+    final count = _counts[url] ?? 0;
+    _counts[url] = count + 1;
+    _releasedAt.remove(url);
+    if (count == 0) onHeld?.call(url);
+  }
+
+  void release(String url) {
+    final count = _counts[url];
+    assert(count != null, 'release without hold: $url');
+    if (count == null) return;
+    if (count > 1) {
+      _counts[url] = count - 1;
+      return;
+    }
+    _counts.remove(url);
+    _releasedAt[url] = _clock();
+    _pruneIfLarge();
+  }
+
+  /// Wants [url] for [ttl] without a widget, e.g. a preload the user just
+  /// asked for whose page has not mounted yet.
+  void holdFor(String url, Duration ttl) {
+    final until = _clock().add(ttl);
+    final current = _heldUntil[url];
+    if (current == null || until.isAfter(current)) _heldUntil[url] = until;
+    _pruneIfLarge();
+    onHeld?.call(url);
+  }
+
+  /// Replaces the URLs [owner] is prefetching. URLs that fall out of the
+  /// window stop being wanted unless something else holds them.
+  void setPrefetchWindow(Object owner, Set<String> urls) {
+    _windows[owner] = Set.unmodifiable(urls);
+  }
+
+  void clearPrefetchWindow(Object owner) {
+    _windows.remove(owner);
+  }
+
+  bool wants(String url) {
+    if (_counts.containsKey(url)) return true;
+    final now = _clock();
+    final until = _heldUntil[url];
+    if (until != null && now.isBefore(until)) return true;
+    for (final window in _windows.values) {
+      if (window.contains(url)) return true;
+    }
+    final releasedAt = _releasedAt[url];
+    return releasedAt != null && now.difference(releasedAt) < _kReleaseGrace;
+  }
+
+  /// Widgets currently holding [url].
+  @visibleForTesting
+  int debugHolds(String url) => _counts[url] ?? 0;
+
+  /// Timed-hold and release entries currently kept.
+  @visibleForTesting
+  int get debugBookkeepingSize => _heldUntil.length + _releasedAt.length;
+
+  void _pruneIfLarge() {
+    if (_heldUntil.length + _releasedAt.length <= _kPruneThreshold) return;
+    final now = _clock();
+    _heldUntil.removeWhere((_, until) => !now.isBefore(until));
+    _releasedAt.removeWhere(
+      (_, releasedAt) => now.difference(releasedAt) >= _kReleaseGrace,
+    );
+  }
+}

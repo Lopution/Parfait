@@ -16,6 +16,7 @@ import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
+import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -384,6 +385,62 @@ void main() {
       }
       expect(squares, greaterThanOrEqualTo(4));
     });
+  });
+
+  testWidgets('the feed registers its prefetch window as image demand and '
+      'gives it up when the grid goes away', (tester) async {
+    final container = await _makeWorld();
+    addTearDown(container.dispose);
+    final entities = [
+      for (var id = 7201; id <= 7260; id++)
+        parseIllust(illustJson(id, width: 800, height: 600)),
+    ];
+    Widget host({required bool grid}) => UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: const [Locale('zh')],
+        locale: const Locale('zh'),
+        home: Scaffold(
+          body: grid
+              ? CustomScrollView(
+                  slivers: [
+                    IllustFeedGrid(
+                      itemCount: entities.length,
+                      itemIds: [for (final e in entities) e.id],
+                      prefetchEntities: entities,
+                      itemBuilder: (context, index) =>
+                          IllustCard(entity: entities[index]),
+                    ),
+                  ],
+                )
+              : const SizedBox(),
+        ),
+      ),
+    );
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(host(grid: true));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+    });
+
+    final demand = container.read(pixivNetworkFactoryProvider).imageDemand;
+    // Works past the built edge: wanted although no card shows them.
+    final windowed = [
+      for (final e in entities)
+        if (demand.wants(e.imageUrls.medium) &&
+            demand.debugHolds(e.imageUrls.medium) == 0)
+          e.imageUrls.medium,
+    ];
+    // Three rows of the grid's four columns past the built edge.
+    expect(illustColumnsFor(800 - 16), 4);
+    expect(windowed, hasLength(4 * 3));
+
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(host(grid: false));
+      await tester.pump();
+    });
+    expect(windowed.where(demand.wants), isEmpty);
   });
 
   testWidgets('title and author rows fit the column at 1.3x text', (
