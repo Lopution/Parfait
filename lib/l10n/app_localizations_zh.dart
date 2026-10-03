@@ -2451,4 +2451,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get watchlistOpenContents => '打开目录';
+
+  @override
+  String get imageRetry => '重新加载图片';
+
+  @override
+  String get imageLoading => '图片加载中';
 }

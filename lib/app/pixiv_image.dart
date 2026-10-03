@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:ui';
 
@@ -14,8 +15,11 @@ import '../core/network/pixiv_headers.dart';
 import '../core/network/compat/image_cache.dart';
 import '../core/network/compat/image_demand.dart';
 import '../core/network/compat/network_providers.dart';
+import '../l10n/app_localizations.dart';
+import 'widgets/image_load_progress.dart';
 
 export '../core/network/compat/image_cache.dart' show ImageFetchPriority;
+export 'widgets/image_load_progress.dart';
 
 /// Decode policy of a [PixivImage] variant (R8 performance boundary).
 enum PixivImageSize {
@@ -65,6 +69,7 @@ class PixivImage extends ConsumerStatefulWidget {
     this.tierKey,
     this.tier,
     this.tierUpgrade = true,
+    this.progress,
   });
 
   /// Feed/row card variant: decode width derives from [layoutWidth] (the
@@ -132,6 +137,7 @@ class PixivImage extends ConsumerStatefulWidget {
     IllustImageTier? tier,
     bool tierUpgrade = true,
     Widget? placeholderWidget,
+    ValueNotifier<ImageLoadProgress>? progress,
     // Hero hand-off phase: decode at the source card's width so the first
     // frame is the exact cache entry the feed already decoded — without
     // this, the detail page re-decodes the same file at screen width and
@@ -150,6 +156,7 @@ class PixivImage extends ConsumerStatefulWidget {
          tier: tier,
          tierUpgrade: tierUpgrade,
          placeholderWidget: placeholderWidget,
+         progress: progress,
        );
 
   /// Hero hand-off variant: keeps the transition history keyed by [tag] so a
@@ -267,6 +274,11 @@ class PixivImage extends ConsumerStatefulWidget {
   /// since an upgraded file decodes to the same output size anyway and only
   /// adds file-read cost.
   final bool tierUpgrade;
+
+  /// Receives the download progress of the image this widget resolves, for
+  /// an [ImageLoadProgressOverlay] placed outside any Hero. The owner keeps
+  /// the notifier at least as long as this widget.
+  final ValueNotifier<ImageLoadProgress>? progress;
 
   @override
   ConsumerState<PixivImage> createState() => _PixivImageState();
@@ -584,10 +596,197 @@ class _PixivImageState extends ConsumerState<PixivImage> {
     _heldUrl = null;
   }
 
+  /// Waits before each automatic retry of a transient failure.
+  static const _retryBackoff = [
+    Duration(seconds: 1),
+    Duration(seconds: 3),
+    Duration(seconds: 8),
+  ];
+
+  /// HTTP statuses that a retry cannot fix.
+  static const _permanentStatuses = {403, 404, 410};
+
+  /// Smallest image box that shows a manual retry button; smaller slots
+  /// (avatars, chips) keep the broken-image icon.
+  static const _retryButtonMinSize = 48.0;
+
+  /// Automatic retries used for the current URL.
+  int _attempt = 0;
+
+  /// Key of the network image; each bump is a fresh resolve.
+  int _load = 0;
+  Timer? _retryTimer;
+  var _retryScheduled = false;
+
+  void _resetRetry() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _retryScheduled = false;
+    _attempt = 0;
+  }
+
+  @override
+  void didUpdateWidget(covariant PixivImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) _resetRetry();
+  }
+
   @override
   void dispose() {
+    _retryTimer?.cancel();
+    _detachProgress();
     _release();
     super.dispose();
+  }
+
+  /// What [_trackProgress] last attached for: notifier, URL, decode width,
+  /// cache manager and load generation.
+  Object? _progressKey;
+  ValueNotifier<ImageLoadProgress>? _progressNotifier;
+  ImageStream? _progressStream;
+  ImageStreamListener? _progressListener;
+
+  /// Follows the stream the visible image resolves — the same key, so no
+  /// second decode. Attaches after the frame: a cache hit reports at once,
+  /// and notifying the overlay (a sibling) mid-build is not allowed.
+  void _trackProgress(
+    String url,
+    int? decodeWidth,
+    BaseCacheManager? cacheManager,
+  ) {
+    final notifier = widget.progress;
+    final key = (notifier, url, decodeWidth, cacheManager, _load);
+    if (key == _progressKey) return;
+    _progressKey = key;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _progressKey != key) return;
+      // The old stream's last report must not linger on the new image.
+      _progressNotifier?.value = const ImageLoadProgress.idle();
+      _detachProgress();
+      if (notifier != null) {
+        _attachProgress(notifier, url, decodeWidth, cacheManager);
+      }
+    });
+  }
+
+  void _attachProgress(
+    ValueNotifier<ImageLoadProgress> notifier,
+    String url,
+    int? decodeWidth,
+    BaseCacheManager? cacheManager,
+  ) {
+    ImageProvider provider = PixivImage.provider(
+      url,
+      cacheManager: cacheManager,
+    );
+    if (decodeWidth != null) {
+      provider = ResizeImage.resizeIfNeeded(decodeWidth, null, provider);
+    }
+    final stream = provider.resolve(ImageConfiguration.empty);
+    void idle() => notifier.value = const ImageLoadProgress.idle();
+    // Loading starts with the first bytes, not with the request: a fetch
+    // still connecting or queued reports nothing.
+    final listener = ImageStreamListener(
+      (_, _) => idle(),
+      onChunk: (event) {
+        final total = event.expectedTotalBytes;
+        notifier.value = ImageLoadProgress.loading(
+          total == null || total <= 0
+              ? null
+              : (event.cumulativeBytesLoaded / total).clamp(0.0, 1.0),
+        );
+      },
+      onError: (_, _) => idle(),
+    );
+    stream.addListener(listener);
+    _progressNotifier = notifier;
+    _progressStream = stream;
+    _progressListener = listener;
+  }
+
+  void _detachProgress() {
+    final listener = _progressListener;
+    if (listener != null) _progressStream?.removeListener(listener);
+    _progressNotifier = null;
+    _progressStream = null;
+    _progressListener = null;
+  }
+
+  /// A transient failure retries on its own up to [_retryBackoff].length
+  /// times; a permanent or exhausted one offers a manual retry when the box
+  /// is large enough for a button.
+  Widget _errorView(
+    Object error,
+    String url,
+    int? decodeWidth,
+    BaseCacheManager? cacheManager,
+  ) {
+    const broken = Icon(Icons.broken_image);
+    final permanent =
+        error is HttpExceptionWithStatus &&
+        _permanentStatuses.contains(error.statusCode);
+    if (!permanent && _attempt < _retryBackoff.length) {
+      if (!_retryScheduled) {
+        _retryScheduled = true;
+        final delay = _retryBackoff[_attempt];
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          // A URL change in the meantime reset the schedule.
+          if (!mounted || !_retryScheduled) return;
+          _retryTimer = Timer(delay, () {
+            _retryTimer = null;
+            _reload(url, decodeWidth, cacheManager, automatic: true);
+          });
+        });
+      }
+      return broken;
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < _retryButtonMinSize ||
+            constraints.maxHeight < _retryButtonMinSize) {
+          return broken;
+        }
+        return Center(
+          child: IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: Localizations.of<AppLocalizations>(
+              context,
+              AppLocalizations,
+            )?.imageRetry,
+            onPressed: () =>
+                _reload(url, decodeWidth, cacheManager, automatic: false),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Drops the failed entry from the image cache — the same
+  /// `ResizeImage`-wrapped key the visible widget resolves, which the
+  /// loader's own eviction does not reach — then resolves again.
+  void _reload(
+    String url,
+    int? decodeWidth,
+    BaseCacheManager? cacheManager, {
+    required bool automatic,
+  }) {
+    ImageProvider provider = PixivImage.provider(
+      url,
+      cacheManager: cacheManager,
+    );
+    if (decodeWidth != null) {
+      provider = ResizeImage.resizeIfNeeded(decodeWidth, null, provider);
+    }
+    unawaited(
+      provider.evict().then((_) {
+        if (!mounted) return;
+        setState(() {
+          _attempt = automatic ? _attempt + 1 : 0;
+          _retryScheduled = false;
+          _load++;
+        });
+      }),
+    );
   }
 
   @override
@@ -634,6 +833,7 @@ class _PixivImageState extends ConsumerState<PixivImage> {
       demand = network.imageDemand;
     }
     _hold(demand, imageUrl);
+    _trackProgress(imageUrl, effectiveWidth, cacheManager);
     PixivImage._recordWhenDecoded(
       imageUrl,
       widget.tierKey,
@@ -711,6 +911,8 @@ class _PixivImageState extends ConsumerState<PixivImage> {
         Theme.of(context).colorScheme.surfaceContainer;
     final image = LayoutBuilder(
       builder: (context, constraints) => CachedNetworkImage(
+        // A new key is a fresh resolve: how a retry reloads.
+        key: ValueKey(_load),
         imageUrl: imageUrl,
         httpHeaders: PixivImage.headers,
         cacheManager: cacheManager,
@@ -743,9 +945,9 @@ class _PixivImageState extends ConsumerState<PixivImage> {
         fadeOutDuration: crossfade ? MotionTokens.imageFadeOut : Duration.zero,
         placeholder: (_, _) =>
             transitionPlaceholder ?? ColoredBox(color: placeholderColor),
-        errorWidget: (_, _, _) => ColoredBox(
+        errorWidget: (_, _, error) => ColoredBox(
           color: placeholderColor,
-          child: const Icon(Icons.broken_image),
+          child: _errorView(error, imageUrl, effectiveWidth, cacheManager),
         ),
       ),
     );

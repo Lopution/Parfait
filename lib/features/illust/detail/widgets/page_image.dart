@@ -71,6 +71,10 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
   bool _routeTransitionComplete = true;
   Animation<double>? _routeAnimation;
 
+  /// Download progress of the settled detail image. The Hero-phase image
+  /// does not report: it is the feed's already-decoded preview.
+  final _progress = ValueNotifier(const ImageLoadProgress.idle());
+
   IllustEntity get entity => widget.entity;
   bool get downloadMode => widget.downloadMode;
 
@@ -106,6 +110,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
   @override
   void dispose() {
     _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
+    _progress.dispose();
     super.dispose();
   }
 
@@ -196,6 +201,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
                   // already-decoded cache entry. Once detailUrl arrives,
                   // the normal page endpoint uses screen width.
                   decodeWidth: onHeroPhase ? widget.heroImageDecodeWidth : null,
+                  progress: onHeroPhase ? null : _progress,
                   filterColor: downloadMode ? FuncTokens.imageOverlay : null,
                   filterBlendMode: downloadMode ? BlendMode.srcOver : null,
                   // Estimated box until the first frame: after decode the
@@ -209,6 +215,11 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
                   ),
                 ),
               ),
+            ),
+          // Outside the Hero, so the ring never flies with the image.
+          if (!isPagePlaceholder)
+            Positioned.fill(
+              child: ImageLoadProgressOverlay(progress: _progress),
             ),
           if (downloadMode && !isPagePlaceholder)
             Positioned(

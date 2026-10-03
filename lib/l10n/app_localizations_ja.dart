@@ -2478,4 +2478,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get watchlistOpenContents => '目次を開く';
+
+  @override
+  String get imageRetry => '画像を再読み込み';
+
+  @override
+  String get imageLoading => '画像を読み込み中';
 }

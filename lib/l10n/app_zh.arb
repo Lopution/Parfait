@@ -1181,5 +1181,13 @@
   "watchlistOpenContents": "打开目录",
   "@watchlistOpenContents": {
     "description": "Watchlist sheet action: open the manga series contents page"
+  },
+  "imageRetry": "重新加载图片",
+  "@imageRetry": {
+    "description": "Tooltip of the retry button on an image that failed to load"
+  },
+  "imageLoading": "图片加载中",
+  "@imageLoading": {
+    "description": "Screen-reader label of the progress ring over a loading detail or viewer image"
   }
 }

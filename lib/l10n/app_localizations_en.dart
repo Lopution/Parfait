@@ -2539,4 +2539,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get watchlistOpenContents => 'Open contents';
+
+  @override
+  String get imageRetry => 'Reload image';
+
+  @override
+  String get imageLoading => 'Loading image';
 }

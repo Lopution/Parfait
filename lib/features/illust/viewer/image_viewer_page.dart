@@ -100,6 +100,9 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   late final PageController _pageController;
   late final AnimationController _zoomController;
   final _transformations = <int, TransformationController>{};
+
+  /// Per-page download progress for the ring over the page.
+  final _progress = <int, ValueNotifier<ImageLoadProgress>>{};
   int _activePage = 0;
 
   /// The page controller currently being zoom-animated and the tween
@@ -168,6 +171,9 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     _downloadEvents?.cancel();
     for (final controller in _transformations.values) {
       controller.dispose();
+    }
+    for (final progress in _progress.values) {
+      progress.dispose();
     }
     _zoomController.dispose();
     _pageController.dispose();
@@ -457,6 +463,9 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     );
   }
 
+  ValueNotifier<ImageLoadProgress> _progressFor(int page) => _progress
+      .putIfAbsent(page, () => ValueNotifier(const ImageLoadProgress.idle()));
+
   TransformationController _transformationFor(int page) {
     return _transformations.putIfAbsent(page, TransformationController.new);
   }
@@ -713,13 +722,21 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                   // The stage is already black — the default container
                   // tier would flash a grey box under the artwork.
                   placeholderColor: FuncTokens.transparent,
+                  progress: _progressFor(page),
                 ),
               ),
             ),
           ),
         );
-        if (heroTag == null) return viewer;
-        return Hero(
+        // Outside the Hero and the zoom, so the ring neither flies nor
+        // scales with the artwork.
+        final progress = Positioned.fill(
+          child: ImageLoadProgressOverlay(progress: _progressFor(page)),
+        );
+        if (heroTag == null) {
+          return Stack(fit: StackFit.expand, children: [viewer, progress]);
+        }
+        final hero = Hero(
           tag: heroTag,
           flightShuttleBuilder: illustHeroFlightShuttleBuilder,
           child: IllustHeroFlightChild(
@@ -742,6 +759,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
             child: viewer,
           ),
         );
+        return Stack(fit: StackFit.expand, children: [hero, progress]);
       },
     );
   }
