@@ -292,13 +292,10 @@ class _IllustCardBody extends ConsumerWidget {
     // the feed viewport; when the whole Stack was the Hero, the page-count
     // badge was scaled and left as a large ghost during pop.
     //
-    // The card frame (rounded clip + divider hairline) sits INSIDE the Hero
-    // child for the same reason the ClipRRect did (R7 Ugoira): Hero flight
-    // renders the raw child, so a clip outside the Hero only applied after
-    // the flight finished — the image snapped from square to rounded on pop.
-    // A border outside would stay planted as a ghost during the flight and
-    // pop in on landing; IllustHeroCardFrame keeps both inside while the
-    // shared shuttle fades the hairline towards the detail endpoint.
+    // The card frame (rounded clip) sits INSIDE the Hero child (R7 Ugoira):
+    // Hero flight renders the raw child, so a clip outside the Hero only
+    // applied after the flight finished — the image snapped from square to
+    // rounded on pop.
     return Hero(
       tag: heroTag,
       flightShuttleBuilder: illustHeroFlightShuttleBuilder,

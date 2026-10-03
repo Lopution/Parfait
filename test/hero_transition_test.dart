@@ -745,7 +745,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('the card artwork carries a divider hairline inside the Hero', (
+  testWidgets('the card artwork frame clips without an outline', (
     tester,
   ) async {
     final theme = replicaTheme(Brightness.light);
@@ -780,22 +780,23 @@ void main() {
       matching: find.byType(IllustHeroCardFrame),
     );
     expect(frame, findsOneWidget);
-    // The hairline is the ambient divider on the card corner — the same
-    // value the shuttle fades out during the flight.
-    final box = tester.widget<DecoratedBox>(
-      find.descendant(of: frame, matching: find.byType(DecoratedBox)).first,
+    final clip = tester.widget<ClipRRect>(
+      find.descendant(of: frame, matching: find.byType(ClipRRect)).first,
     );
-    final decoration = box.decoration as BoxDecoration;
-    expect(decoration.borderRadius, FuncShape.card);
-    expect(
-      decoration.border!.top.color,
-      FuncSemanticTokens.of(tester.element(frame)).divider,
+    expect(clip.borderRadius, FuncShape.card);
+    final outlines = find.descendant(
+      of: frame,
+      matching: find.byWidgetPredicate(
+        (w) =>
+            w is DecoratedBox &&
+            w.decoration is BoxDecoration &&
+            (w.decoration as BoxDecoration).border != null,
+      ),
     );
+    expect(outlines, findsNothing);
   });
 
-  testWidgets('the card hairline fades through the hero flight', (
-    tester,
-  ) async {
+  testWidgets('a card flight paints no outline either way', (tester) async {
     final navigatorKey = GlobalKey<NavigatorState>();
     const tag = 'border-hero';
     Widget plainHero(Widget child) => Hero(
@@ -819,9 +820,6 @@ void main() {
       ),
     );
     await tester.pump();
-    final cardDivider = FuncSemanticTokens.of(
-      tester.element(find.byWidgetPredicate((w) => w is Hero && w.tag == tag)),
-    ).divider;
 
     navigatorKey.currentState!.push(
       _testPageRoute<void>(
@@ -840,28 +838,16 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1));
     final pushSamples = await _sampleShuttleBorder(tester);
-
-    // Push: the hairline starts identical to the card's and dissolves to
-    // nothing by the detail endpoint.
     expect(pushSamples.length, greaterThan(2));
-    expect(pushSamples, everyElement(isNotNull));
-    expect(pushSamples.first!.a, closeTo(cardDivider.a, 0.03));
-    expect(pushSamples.last!.a, lessThan(0.05));
-    for (var i = 1; i < pushSamples.length; i++) {
-      expect(pushSamples[i]!.a, lessThanOrEqualTo(pushSamples[i - 1]!.a));
-    }
+    expect(pushSamples, everyElement(isNull));
     await tester.pumpAndSettle();
 
     navigatorKey.currentState!.pop();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1));
     final popSamples = await _sampleShuttleBorder(tester);
-
-    // Pop: the reverse — invisible at the detail end, restored to the full
-    // hairline as the image lands back on the card.
     expect(popSamples.length, greaterThan(2));
-    expect(popSamples.first!.a, lessThan(0.05));
-    expect(popSamples.last!.a, closeTo(cardDivider.a, 0.03));
+    expect(popSamples, everyElement(isNull));
     await tester.pumpAndSettle();
   });
 

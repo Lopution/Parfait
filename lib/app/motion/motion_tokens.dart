@@ -27,12 +27,11 @@ abstract final class MotionTokens {
   static const pressCurve = Curves.easeOut;
   static const pressScale = 0.97;
 
-  /// Feed entrance: staggered fade + short rise, played on a card's first
-  /// viewport exposure. Cards arriving mid-fling stay static — a pop-in
-  /// during ballistic scroll reads as a layout bug, not motion.
+  /// Feed entrance: staggered fade, played on a card's first viewport
+  /// exposure. Cards arriving mid-fling stay static — a pop-in during
+  /// ballistic scroll reads as a layout bug, not motion.
   static const listEntrance = Duration(milliseconds: 220);
   static const listEntranceCurve = Curves.easeOutCubic;
-  static const listEntranceOffset = 12.0;
   static const listStaggerStep = Duration(milliseconds: 30);
 
   /// Bottom-sheet presentation (sheetAnimationStyle).
