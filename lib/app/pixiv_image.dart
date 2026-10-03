@@ -14,6 +14,8 @@ import '../core/network/pixiv_headers.dart';
 import '../core/network/compat/image_cache.dart';
 import '../core/network/compat/network_providers.dart';
 
+export '../core/network/compat/image_cache.dart' show ImageFetchPriority;
+
 /// Decode policy of a [PixivImage] variant (R8 performance boundary).
 enum PixivImageSize {
   /// Feed cards and row cards: decode at the layout width.
@@ -466,9 +468,13 @@ class PixivImage extends ConsumerStatefulWidget {
   }
 
   /// Starts decoding through the same provider/cache identity as [build].
-  /// [precacheImage] completes normally on image errors, so callers can start
+  /// An image error completes the future normally, so callers can start
   /// this without delaying navigation; the visible widget still owns its
   /// placeholder and error state.
+  ///
+  /// [priority] is background for speculative warm-up. Preloads the user
+  /// just asked for (a tapped card's detail image, the viewer page) pass
+  /// foreground so they never queue behind feed prefetch.
   static Future<void> preload(
     BuildContext context,
     String url, {
@@ -476,6 +482,7 @@ class PixivImage extends ConsumerStatefulWidget {
     String? tierKey,
     IllustImageTier? tier,
     int? memCacheWidth,
+    ImageFetchPriority priority = ImageFetchPriority.background,
   }) async {
     final resolved = tierKey != null && tier != null
         ? IllustTierCache.resolve(tierKey, tier, url)
@@ -483,7 +490,7 @@ class PixivImage extends ConsumerStatefulWidget {
     ImageProvider imageProvider = provider(
       resolved.$1,
       cacheManager: cacheManager,
-      prefetch: true,
+      prefetch: priority == ImageFetchPriority.background,
     );
     // Match OctoImage's ResizeImage.wrap so the warmed entry is the exact
     // cache key the visible widget resolves — a different decode width is a
@@ -495,7 +502,21 @@ class PixivImage extends ConsumerStatefulWidget {
         imageProvider,
       );
     }
-    await precacheImage(imageProvider, context);
+    var failed = false;
+    await precacheImage(
+      imageProvider,
+      context,
+      // Without onError a failed warm-up is reported through
+      // FlutterError.onError and lands in the crash log. The visible widget
+      // shows (and retries) its own failure; here it is only noise.
+      onError: (error, _) {
+        failed = true;
+        debugPrint('PixivImage.preload ${resolved.$1}: $error');
+      },
+    );
+    // A failed image must not be recorded as decoded: the tier cache would
+    // then upgrade later requests to a URL that never loaded.
+    if (failed) return;
     FrameProbe.instance.mark('img preload');
     _markCompleted(_decodeKey(resolved.$1, memCacheWidth));
     if (tierKey != null && resolved.$2 != null) {

@@ -36,25 +36,43 @@ class PixivImageCache {
   }
 }
 
+/// Lane an image fetch is admitted on; see [PriorityFileService].
+enum ImageFetchPriority {
+  /// Something on screen, or about to be because the user just asked for it.
+  foreground,
+
+  /// Warm-up work nobody is looking at yet.
+  background,
+}
+
+/// [FileService.concurrentFetches] value that keeps `WebHelper` from
+/// queueing anything itself.
+const _kWebHelperAdmitAll = 1 << 20;
+
 /// Splits fetch concurrency between on-screen loads and prefetch warmers on
-/// the same disk store. `WebHelper` gates on [FileService.concurrentFetches]
-/// — a single FIFO — so a full prefetch window could occupy every slot and
-/// make a just-scrolled-into-view image queue behind warm work. The marker
-/// header is injected by `PixivImage.preload` and stripped here before the
-/// request hits the wire; everything else takes the foreground lane.
+/// the same disk store. The marker header is injected by `PixivImage.preload`
+/// and stripped here before the request hits the wire; everything else takes
+/// the foreground lane.
 ///
-/// A permit is held for the whole transfer, not just the header wait:
-/// WebHelper counts a call as in-flight until the response body has been
-/// consumed, so releasing at headers would let prefetch bodies still fill
-/// the shared queue. `WebHelper` may legitimately never listen to `content`
-/// (304/error paths), so a generous [_holdLimit] releases a permit that the
-/// response stream did not — bounded over-admission beats a lane leak.
+/// `WebHelper` has its own queue in front of this service, a single FIFO
+/// gated on [FileService.concurrentFetches]. With any finite limit there, a
+/// burst of prefetch fills it and a just-scrolled-into-view image waits
+/// behind all of them before it even reaches the lanes. So `WebHelper`
+/// admits everything and the two gates below decide what goes on the wire.
+///
+/// `WebHelper` also merges requests for the same URL: a visible image whose
+/// URL is already queued as prefetch never reaches this service on its own.
+/// [promote] moves that queued prefetch onto the foreground lane.
+///
+/// A permit is held for the whole transfer, not just the header wait, so a
+/// lane's slot count is the number of bodies streaming at once. `WebHelper`
+/// may legitimately never listen to `content` (304/error paths), so a
+/// generous [_holdLimit] releases a permit that the response stream did
+/// not — bounded over-admission beats a lane leak.
 class PriorityFileService extends FileService {
   PriorityFileService({required http.Client httpClient})
     : _service = HttpFileService(httpClient: httpClient) {
-    // The outer WebHelper queue must admit both lanes' worth of work; the
-    // gates below do the real prioritisation.
-    concurrentFetches = foregroundSlots + backgroundSlots;
+    concurrentFetches = _kWebHelperAdmitAll;
   }
 
   /// Header marking a fetch as prefetch traffic. Stripped in [get], so it
@@ -62,7 +80,10 @@ class PriorityFileService extends FileService {
   static const prefetchMarker = 'x-parfait-prefetch';
 
   static const foregroundSlots = 8;
-  static const backgroundSlots = 4;
+
+  /// Kept small so prefetch never competes with visible images for the
+  /// connection pool or bandwidth.
+  static const backgroundSlots = 2;
 
   /// Upper bound on how long one transfer may hold a lane permit. It only
   /// fires when the body stream was abandoned — normal bodies release the
@@ -84,8 +105,9 @@ class PriorityFileService extends FileService {
     final outbound = prefetch
         ? (Map<String, String>.of(headers!)..remove(prefetchMarker))
         : headers;
-    final gate = prefetch ? _background : _foreground;
-    await gate.acquire();
+    // A promoted request is admitted by the foreground gate and must give
+    // its slot back there, so the response remembers the admitting gate.
+    final gate = await (prefetch ? _background : _foreground).acquire(url);
     try {
       final response = await _service.get(url, headers: outbound);
       return _GatedResponse(response, gate.release, _holdLimit);
@@ -94,6 +116,21 @@ class PriorityFileService extends FileService {
       rethrow;
     }
   }
+
+  /// Moves a queued prefetch of [url] to the foreground lane: admitted at
+  /// once when a foreground slot is free, otherwise queued behind the
+  /// visible loads. A prefetch already streaming is left alone.
+  void promote(String url) {
+    final waiter = _background.take(url);
+    if (waiter != null) _foreground.admit(waiter);
+  }
+}
+
+class _Waiter {
+  _Waiter(this.url);
+
+  final String url;
+  final completer = Completer<_PermitGate>();
 }
 
 class _PermitGate {
@@ -101,16 +138,31 @@ class _PermitGate {
 
   final int _slots;
   var _inFlight = 0;
-  final _waiters = Queue<Completer<void>>();
+  final _waiters = Queue<_Waiter>();
 
-  Future<void> acquire() {
+  Future<_PermitGate> acquire(String url) => admit(_Waiter(url));
+
+  /// Grants [waiter] a slot now or queues it; the future completes with
+  /// this gate once the slot is granted.
+  Future<_PermitGate> admit(_Waiter waiter) {
     if (_inFlight < _slots) {
       _inFlight++;
-      return Future<void>.value();
+      waiter.completer.complete(this);
+    } else {
+      _waiters.add(waiter);
     }
-    final completer = Completer<void>();
-    _waiters.add(completer);
-    return completer.future;
+    return waiter.completer.future;
+  }
+
+  /// Removes and returns the first queued waiter for [url], if any.
+  _Waiter? take(String url) {
+    for (final waiter in _waiters) {
+      if (waiter.url == url) {
+        _waiters.remove(waiter);
+        return waiter;
+      }
+    }
+    return null;
   }
 
   void release() {
@@ -119,7 +171,7 @@ class _PermitGate {
       _inFlight--;
     } else {
       // The slot passes to the waiter without dipping _inFlight.
-      next.complete();
+      next.completer.complete(this);
     }
   }
 }
@@ -181,30 +233,17 @@ class _ReleaseOnEndStream extends Stream<List<int>> {
     void Function()? onDone,
     bool? cancelOnError,
   }) {
-    late StreamSubscription<List<int>> sub;
-    sub = _source.listen(
-      onData,
-      onError: (Object error, StackTrace stack) {
-        _onEnd();
-        final handler = onError;
-        if (handler is void Function(Object, StackTrace)) {
-          handler(error, stack);
-        } else if (handler is void Function(Object)) {
-          handler(error);
-        }
-      },
-      onDone: () {
-        _onEnd();
-        onDone?.call();
-      },
-      cancelOnError: cancelOnError,
-    );
-    return _ReleasingSubscription(sub, _onEnd);
+    final sub = _source.listen(onData, cancelOnError: cancelOnError);
+    return _ReleasingSubscription(sub, _onEnd)
+      ..onError(onError)
+      ..onDone(onDone);
   }
 }
 
-/// Cancelling the body (an abandoned prefetch, a disposed card) also frees
-/// the lane — the subscription is the last thing holding it.
+/// Ending or cancelling the body (an abandoned prefetch, a disposed card)
+/// frees the lane — the subscription is the last thing holding it. Handlers
+/// set later through [onError]/[onDone] (as `drain` and `asFuture` do) keep
+/// the release, too.
 class _ReleasingSubscription implements StreamSubscription<List<int>> {
   _ReleasingSubscription(this._inner, this._onEnd);
 
@@ -222,10 +261,27 @@ class _ReleasingSubscription implements StreamSubscription<List<int>> {
       _inner.onData(handleData);
 
   @override
-  void onError(Function? handleError) => _inner.onError(handleError);
+  void onError(Function? handleError) {
+    _inner.onError((Object error, StackTrace stack) {
+      _onEnd();
+      if (handleError is void Function(Object, StackTrace)) {
+        handleError(error, stack);
+      } else if (handleError is void Function(Object)) {
+        handleError(error);
+      } else {
+        // Same as a subscription without an error handler.
+        Zone.current.handleUncaughtError(error, stack);
+      }
+    });
+  }
 
   @override
-  void onDone(void Function()? handleDone) => _inner.onDone(handleDone);
+  void onDone(void Function()? handleDone) {
+    _inner.onDone(() {
+      _onEnd();
+      handleDone?.call();
+    });
+  }
 
   @override
   void pause([Future<void>? resumeSignal]) => _inner.pause(resumeSignal);
@@ -236,6 +292,16 @@ class _ReleasingSubscription implements StreamSubscription<List<int>> {
   @override
   bool get isPaused => _inner.isPaused;
 
+  /// Routed through [onDone]/[onError] above; delegating to the inner
+  /// subscription's `asFuture` would replace the releasing handlers.
   @override
-  Future<E> asFuture<E>([E? futureValue]) => _inner.asFuture<E>(futureValue);
+  Future<E> asFuture<E>([E? futureValue]) {
+    final completer = Completer<E>();
+    onDone(() => completer.complete(futureValue as E));
+    onError((Object error, StackTrace stack) {
+      unawaited(cancel());
+      completer.completeError(error, stack);
+    });
+    return completer.future;
+  }
 }
