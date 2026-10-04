@@ -137,6 +137,32 @@ void main() {
     expect(find.byType(UgoiraViewer), findsOneWidget);
   });
 
+  testWidgets('a disposed viewer ignores a late visibility callback', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+        home: Scaffold(
+          body: UgoiraViewer(
+            illustId: 42,
+            previewUrl: 'https://i.pximg.net/42/large.jpg',
+            width: 800,
+            height: 600,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+
+    VisibilityDetectorController.instance.notifyNow();
+    expect(tester.takeException(), isNull);
+  });
+
   Future<void> pumpFailingViewer(WidgetTester tester, Object failure) async {
     await tester.pumpWidget(
       ProviderScope(

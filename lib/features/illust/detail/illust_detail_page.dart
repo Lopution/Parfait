@@ -654,6 +654,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
               ],
             ),
     );
+    final container = ProviderScope.containerOf(context, listen: false);
     final accountId = ref.watch(historyAccountIdProvider);
     if (accountId == null) return content;
     final pixivEnabled = ref.watch(pixivHistoryEnabledProvider);
@@ -666,7 +667,8 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
       pixivHistoryEnabled: pixivEnabled,
       repository: ref.watch(historyRepositoryProvider),
       remote: pixivEnabled ? ref.watch(pixivHistoryRemoteProvider) : null,
-      isAccountCurrent: () => ref.read(historyAccountIdProvider) == accountId,
+      isAccountCurrent: () =>
+          container.read(historyAccountIdProvider) == accountId,
       child: content,
     );
   }

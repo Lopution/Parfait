@@ -263,6 +263,7 @@ class _NovelHistoryVisibility extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final container = ProviderScope.containerOf(context, listen: false);
     final accountId = ref.watch(historyAccountIdProvider);
     if (accountId == null) return child;
     final pixivEnabled = ref.watch(pixivHistoryEnabledProvider);
@@ -279,7 +280,8 @@ class _NovelHistoryVisibility extends ConsumerWidget {
       pixivHistoryEnabled: pixivEnabled,
       repository: ref.watch(historyRepositoryProvider),
       remote: pixivEnabled ? ref.watch(pixivHistoryRemoteProvider) : null,
-      isAccountCurrent: () => ref.read(historyAccountIdProvider) == accountId,
+      isAccountCurrent: () =>
+          container.read(historyAccountIdProvider) == accountId,
       child: child,
     );
   }
