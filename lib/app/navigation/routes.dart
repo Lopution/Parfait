@@ -428,11 +428,43 @@ SearchRatioPattern? _searchRatio(String? raw) {
   return null;
 }
 
+List<RouteBase> _searchRoutes(
+  RouteObserver<ModalRoute<dynamic>> observer, {
+  required String prefix,
+}) {
+  return [
+    GoRoute(
+      path: '${prefix}input',
+      pageBuilder: (context, state) => _modalPage(
+        context,
+        state,
+        observer,
+        SearchInputPage(
+          initialKeyword: state.uri.queryParameters['q'] ?? '',
+          initialType: _searchType(state.uri.queryParameters['type']),
+          onTypeChanged: (keyword, type) =>
+              replaceSearchInput(context, keyword: keyword, type: type),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: '${prefix}results',
+      pageBuilder: (context, state) => _page(
+        context,
+        state,
+        observer,
+        SearchResultPage(query: _searchQuery(state)),
+      ),
+    ),
+  ];
+}
+
 List<RouteBase> _commonBranchRoutes(
   RouteObserver<ModalRoute<dynamic>> branchObserver, {
   required GlobalKey<NavigatorState> rootNavigatorKey,
   required RouteObserver<ModalRoute<dynamic>> rootObserver,
   bool includeHistory = true,
+  bool includeSearch = true,
 }) {
   final routes = <RouteBase>[
     GoRoute(
@@ -714,6 +746,9 @@ List<RouteBase> _commonBranchRoutes(
   if (!includeHistory) {
     routes.removeWhere((route) => route is GoRoute && route.path == 'history');
   }
+  if (includeSearch) {
+    routes.addAll(_searchRoutes(branchObserver, prefix: 'search/'));
+  }
   return routes;
 }
 
@@ -880,6 +915,7 @@ StatefulShellBranch _branch({
   required RouteObserver<ModalRoute<dynamic>> rootObserver,
   required String restorationScopeId,
   bool includeHistory = true,
+  bool includeSearch = true,
   List<RouteBase> routes = const [],
 }) {
   final commonRoutes = _commonBranchRoutes(
@@ -887,6 +923,7 @@ StatefulShellBranch _branch({
     rootNavigatorKey: rootNavigatorKey,
     rootObserver: rootObserver,
     includeHistory: includeHistory,
+    includeSearch: includeSearch,
   );
   return StatefulShellBranch(
     navigatorKey: navigatorKey,
@@ -1128,34 +1165,8 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
             rootNavigatorKey: appRootNavigatorKey,
             rootObserver: appRootRouteObserver,
             restorationScopeId: 'search',
-            routes: [
-              GoRoute(
-                path: 'input',
-                pageBuilder: (context, state) => _modalPage(
-                  context,
-                  state,
-                  searchRouteObserver,
-                  SearchInputPage(
-                    initialKeyword: state.uri.queryParameters['q'] ?? '',
-                    initialType: _searchType(state.uri.queryParameters['type']),
-                    onTypeChanged: (keyword, type) => replaceSearchInput(
-                      context,
-                      keyword: keyword,
-                      type: type,
-                    ),
-                  ),
-                ),
-              ),
-              GoRoute(
-                path: 'results',
-                pageBuilder: (context, state) => _page(
-                  context,
-                  state,
-                  searchRouteObserver,
-                  SearchResultPage(query: _searchQuery(state)),
-                ),
-              ),
-            ],
+            includeSearch: false,
+            routes: _searchRoutes(searchRouteObserver, prefix: ''),
           ),
           _branch(
             path: '/settings',
@@ -1231,6 +1242,7 @@ const _stackRoots = <String>[
   '/me',
   '/settings',
   '/reverse-image',
+  '/downloads',
 ];
 
 String _currentStackRoot(BuildContext context) {
@@ -1239,6 +1251,11 @@ String _currentStackRoot(BuildContext context) {
     (root) => path == root || path.startsWith('$root/'),
     orElse: () => '/recommended',
   );
+}
+
+String _searchPath(BuildContext context, String leaf) {
+  final root = _currentStackRoot(context);
+  return root == '/search' ? '/search/$leaf' : '$root/search/$leaf';
 }
 
 Future<void> _push(
@@ -1399,7 +1416,7 @@ Future<void> openSearchInput(
   SearchResultType type = SearchResultType.illust,
 }) async {
   final location = Uri(
-    path: '/search/input',
+    path: _searchPath(context, 'input'),
     queryParameters: {'q': initialKeyword, 'type': type.name},
   ).toString();
   await _push(context, location);
@@ -1411,7 +1428,7 @@ void replaceSearchInput(
   required SearchResultType type,
 }) {
   final location = Uri(
-    path: '/search/input',
+    path: _searchPath(context, 'input'),
     queryParameters: {'q': keyword, 'type': type.name},
   ).toString();
   context.replace(location);
@@ -1481,7 +1498,7 @@ Future<void> openSearchResults(BuildContext context, SearchQuery query) async {
     return;
   }
   final location = Uri(
-    path: '/search/results',
+    path: _searchPath(context, 'results'),
     queryParameters: _searchQueryParameters(query),
   ).toString();
   await _push(context, location);
@@ -1494,7 +1511,7 @@ void replaceSearchResults(BuildContext context, SearchQuery query) {
     return;
   }
   final location = Uri(
-    path: '/search/results',
+    path: _searchPath(context, 'results'),
     queryParameters: _searchQueryParameters(query),
   ).toString();
   context.replace(location);

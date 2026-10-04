@@ -11,6 +11,7 @@ import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/user/user_repository.dart';
+import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/features/bookmark/bookmark_tags_page.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
@@ -18,6 +19,7 @@ import 'package:parfait/features/new/new_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/search/reverse_image_search_page.dart';
 import 'package:parfait/features/search/search_page.dart';
+import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/features/search/tag_search_page.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -151,6 +153,33 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(router.state.uri.path, '/ranking');
     expect(find.byType(RankingPage), findsOneWidget);
+  });
+
+  testWidgets('search input and results stay on the requesting stack', (
+    tester,
+  ) async {
+    final router = await pumpRouter(tester, '/ranking');
+    final ranking = find.byType(RankingPage);
+
+    unawaited(openSearchInput(tester.element(ranking), initialKeyword: '猫'));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/ranking/search/input');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/ranking');
+
+    unawaited(
+      openSearchResults(
+        tester.element(find.byType(RankingPage)),
+        const IllustSearchQuery(keyword: '猫'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/ranking/search/results');
+    expect(find.byType(SearchResultPage), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/ranking');
   });
 
   testWidgets('bottom bar hides on pushed branch routes and returns at root', (
