@@ -34,6 +34,7 @@ import 'package:parfait/core/platform/account_transfer_clipboard.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/features/history/history_page.dart' as history;
+import 'package:parfait/features/login/login_page.dart';
 import 'package:parfait/features/settings/network_settings_page.dart';
 import 'package:parfait/features/settings/saf_tree_name.dart';
 import 'package:parfait/features/settings/settings_page.dart';
@@ -560,7 +561,9 @@ void main() {
 
   test('all settings labels are available in all supported languages', () {
     const keys = [
-      'settingsTitle',
+      'homeMe',
+      'motionSettings',
+      'settingsBrowseHint',
       'accountSettings',
       'networkSettings',
       'networkMode',
@@ -631,8 +634,8 @@ void main() {
       'qualityLarge',
       'qualityOriginal',
       'scaleQuality',
-      'localHistory',
-      'pixivHistory',
+      'historyRecordLocal',
+      'historyRecordPixiv',
       'blockR18',
       'blockAI',
       'maxDownloadCount',
@@ -659,7 +662,6 @@ void main() {
       'namingTemplateVariables',
       'save',
       'translateCredentialHint',
-      'historySettingsHint',
       'aboutLicenseText',
       'accountTransferWarning',
       'accountTransferCopied',
@@ -672,9 +674,6 @@ void main() {
       'accountTransferCredentialUnavailable',
       'accountTransferClipboardUnavailable',
       'accountTransferStorageFailure',
-      'settingsSummaryOn',
-      'settingsSummaryOff',
-      'settingsHistorySummary',
       'settingsMutedSummary',
       'settingsDownloadTasksSummary',
       'settingsCredentialConfigured',
@@ -761,7 +760,7 @@ void main() {
     expect(repository.value.detailQuality, DetailQuality.original);
   });
 
-  Future<void> pumpBrowse(
+  Future<void> pumpMotion(
     WidgetTester tester,
     FakeSettingsRepository repository,
   ) async {
@@ -772,7 +771,7 @@ void main() {
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
-          home: BrowseSettingsPage(),
+          home: MotionSettingsPage(),
         ),
       ),
     );
@@ -794,7 +793,7 @@ void main() {
       final repository = FakeSettingsRepository(baseTestSettings());
       debugDefaultTargetPlatformOverride = platform;
       try {
-        await pumpBrowse(tester, repository);
+        await pumpMotion(tester, repository);
 
         final selector = speedSelector();
         expect(selector, findsOneWidget);
@@ -826,7 +825,7 @@ void main() {
       final repository = FakeSettingsRepository(baseTestSettings());
       debugDefaultTargetPlatformOverride = platform;
       try {
-        await pumpBrowse(tester, repository);
+        await pumpMotion(tester, repository);
         expect(find.text('页面转场', skipOffstage: false), findsOneWidget);
         for (final label in ['系统默认', '共享轴', '缩放', '侧滑']) {
           expect(find.text(label, skipOffstage: false), findsOneWidget);
@@ -852,7 +851,7 @@ void main() {
 
   testWidgets('the press feedback switch persists', (tester) async {
     final repository = FakeSettingsRepository(baseTestSettings());
-    await pumpBrowse(tester, repository);
+    await pumpMotion(tester, repository);
     final row = find.text('按压反馈', skipOffstage: false);
     await _scrollCentered(tester, row);
     expect(find.text('按下卡片时轻微缩小'), findsOneWidget);
@@ -867,7 +866,7 @@ void main() {
     final repository = FakeSettingsRepository(
       baseTestSettings().copyWith(reduceMotion: true),
     );
-    await pumpBrowse(tester, repository);
+    await pumpMotion(tester, repository);
 
     await _scrollCentered(tester, speedSelector());
     final button = tester.widget<SegmentedButton<AnimationSpeed>>(
@@ -1108,8 +1107,13 @@ void main() {
     },
   );
 
-  testWidgets('settings home shows the beta56 route order', (tester) async {
+  testWidgets('settings home shows the Me tab groups and order', (
+    tester,
+  ) async {
     final repository = FakeSettingsRepository(baseTestSettings());
+    // Tall surface so every lazily-built row exists for the text asserts.
+    tester.view.physicalSize = const Size(800, 6400);
+    addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1129,11 +1133,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('设置'), findsOneWidget);
-    expect(find.text('账号'), findsOneWidget);
+    expect(find.text('我的'), findsOneWidget);
+    expect(find.text('账号管理'), findsOneWidget);
     expect(find.text('主题'), findsOneWidget);
     expect(find.text('浏览设置'), findsOneWidget);
     // Hub layout: intent groups carry labeled section headers.
+    expect(find.text('账号'), findsOneWidget);
     expect(find.text('外观'), findsOneWidget);
     expect(find.text('浏览'), findsOneWidget);
     await tester.scrollUntilVisible(
@@ -1143,19 +1148,21 @@ void main() {
     );
     await tester.pump();
     expect(find.text('我的内容', skipOffstage: false), findsOneWidget);
-    // The content route sits in the library group while the 历史记录 tile
-    // remains the configuration entry under 浏览 (D5).
-    expect(find.text('查看浏览历史', skipOffstage: false), findsOneWidget);
+    expect(find.text('历史记录', skipOffstage: false), findsOneWidget);
     expect(find.text('网络与下载'), findsOneWidget);
     expect(find.text('数据'), findsOneWidget);
     expect(find.text('下载任务'), findsOneWidget);
+    expect(find.text('动效与触感', skipOffstage: false), findsOneWidget);
     expect(find.text('关于'), findsOneWidget);
     expect(find.text('新作'), findsNothing);
   });
 
-  testWidgets('settings home groups the account summary in the first group', (
+  testWidgets('settings home opens with the account card alone', (
     tester,
   ) async {
+    // Tall surface so every lazily-built row exists for position asserts.
+    tester.view.physicalSize = const Size(800, 4800);
+    addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -1181,19 +1188,28 @@ void main() {
         .widgetList<SettingsGroup>(find.byType(SettingsGroup))
         .toList();
     final first = find.byWidget(groups.first);
-    // The account summary and the account-settings entry share the first
-    // (untitled) group.
+    // The account card is the whole first (untitled) group; account
+    // management got its own 账号 group further down.
     expect(
       find.descendant(of: first, matching: find.byType(AccountSummaryTile)),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: first, matching: find.widgetWithText(ListTile, '账号')),
-      findsOneWidget,
+      find.descendant(of: first, matching: find.byType(SettingsTile)),
+      findsNothing,
     );
+
+    // Content destinations lead the page, then account, then preferences.
+    double dyOf(String text) => tester.getCenter(find.text(text)).dy;
+    expect(dyOf('我的内容'), lessThan(dyOf('账号')));
+    expect(dyOf('账号'), lessThan(dyOf('外观')));
+    expect(dyOf('外观'), lessThan(dyOf('浏览')));
+    expect(dyOf('浏览'), lessThan(dyOf('网络与下载')));
+    expect(dyOf('网络与下载'), lessThan(dyOf('数据')));
+
     // Every group heading is a semantics header — the labelled groups use
     // SettingsGroup titles now, not styled plain text.
-    for (final title in ['外观', '浏览', '我的内容', '网络与下载', '数据']) {
+    for (final title in ['我的内容', '账号', '外观', '浏览', '网络与下载', '数据']) {
       await tester.scrollUntilVisible(
         find.text(title),
         200,
@@ -1251,6 +1267,9 @@ void main() {
   });
 
   testWidgets('settings home shows current-value summaries', (tester) async {
+    // Tall surface so every lazily-built row exists for the text asserts.
+    tester.view.physicalSize = const Size(800, 6400);
+    addTearDown(tester.view.resetPhysicalSize);
     PackageInfo.setMockInitialValues(
       appName: 'Parfait',
       packageName: 'io.github.lopution.parfait',
@@ -1282,28 +1301,20 @@ void main() {
     // Every configuration entry shows its current value (D- summaries):
     // the signed-out state appears on the card and the account tile.
     expect(find.text('未登录'), findsNWidgets(2));
-    expect(find.text('明亮'), findsOneWidget);
-    expect(find.text('English'), findsOneWidget);
     // translateIndex=1 → disabled; credential-less providers show the
-    // provider label alone.
-    expect(find.text('关闭'), findsOneWidget);
-    // Lower groups are below the fold — scroll each summary into view.
+    // provider label alone ('关闭').
     for (final summary in [
-      '官方源',
+      '明亮',
+      'English',
+      '关闭',
+      '本地屏蔽、图片画质',
       '暂无屏蔽条目',
-      '本地 开 · Pixiv 开',
       '自动',
       '作品 ID（默认） · Parfait 相册（默认）',
       '0 个活动任务',
       '导出当前设置、屏蔽列表和浏览历史；凭据不会写入文件。',
       '9.9.9+99',
     ]) {
-      await tester.scrollUntilVisible(
-        find.text(summary),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
       expect(find.text(summary), findsOneWidget);
     }
   });
@@ -1311,6 +1322,8 @@ void main() {
   testWidgets('translation entry reports the credential configured state', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(800, 4800);
+    addTearDown(tester.view.resetPhysicalSize);
     final store = FakeTranslationStore()
       ..baidu = const BaiduTranslationCredentials(appId: 'id', secret: 'sec');
     await tester.pumpWidget(
@@ -1370,6 +1383,8 @@ void main() {
   testWidgets('translation summary re-probes when the provider switches', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(800, 4800);
+    addTearDown(tester.view.resetPhysicalSize);
     final store = FakeTranslationStore()
       ..baidu = const BaiduTranslationCredentials(appId: 'id', secret: 'sec');
     await tester.pumpWidget(
@@ -1413,6 +1428,8 @@ void main() {
   testWidgets('translation summary re-probes when the root resurfaces', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(800, 4800);
+    addTearDown(tester.view.resetPhysicalSize);
     final store = FakeTranslationStore()
       ..baidu = const BaiduTranslationCredentials(appId: 'id', secret: 'sec');
     final router = createPixivRouter(initialLocation: '/settings');
@@ -1743,9 +1760,7 @@ void main() {
     expect(find.textContaining('content://'), findsNothing);
   });
 
-  testWidgets('history config and content entries open distinct routes', (
-    tester,
-  ) async {
+  testWidgets('the history tile opens the content route', (tester) async {
     final router = createPixivRouter(initialLocation: '/settings');
     addTearDown(router.dispose);
     await tester.pumpWidget(
@@ -1772,29 +1787,16 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpAndSettle();
 
-    // Content entry under 我的内容 → the history view route directly (D5).
-    await tester.scrollUntilVisible(
-      find.text('查看浏览历史'),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('查看浏览历史'));
-    await tester.pumpAndSettle();
-    expect(find.byType(history.HistoryPage), findsOneWidget);
-    router.pop();
-    await tester.pumpAndSettle();
-
-    // The 浏览-group tile remains the configuration entry.
+    // The single 历史记录 tile under 我的内容 opens the history view.
     await tester.scrollUntilVisible(
       find.text('历史记录'),
-      -200,
+      200,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('历史记录'));
     await tester.pumpAndSettle();
-    expect(find.byType(HistorySettingsPage), findsOneWidget);
+    expect(find.byType(history.HistoryPage), findsOneWidget);
   });
 
   testWidgets('account card opens one profile route without a settings entry', (
@@ -1843,6 +1845,36 @@ void main() {
     expect(find.byIcon(Icons.settings_outlined), findsNothing);
   });
 
+  testWidgets('a signed-out account card opens the login page', (tester) async {
+    final router = createPixivRouter(initialLocation: '/settings');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(
+            FakeSettingsRepository(baseTestSettings()),
+          ),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            FakeAccountMetadataRepository(),
+          ),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+        ],
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Signed out the card used to ignore taps — it is the login entry.
+    await tester.tap(find.byType(AccountSummaryTile));
+    await tester.pumpAndSettle();
+    expect(find.byType(LoginPage), findsOneWidget);
+  });
+
   testWidgets('the export tile exports bounded transfer data after confirm', (
     tester,
   ) async {
@@ -1882,7 +1914,7 @@ void main() {
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
 
-          home: SettingsPage(),
+          home: AccountSettingsPage(),
         ),
       ),
     );
@@ -1943,7 +1975,7 @@ void main() {
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
 
-            home: SettingsPage(),
+            home: AccountSettingsPage(),
           ),
         ),
       );
@@ -2200,7 +2232,7 @@ void main() {
     expect(find.byType(NetworkAdvancedSettingsPage), findsNothing);
   });
 
-  testWidgets('browse image source selects a preset and a custom proxy', (
+  testWidgets('network image source selects a preset and a custom proxy', (
     tester,
   ) async {
     final repository = FakeSettingsRepository(baseTestSettings());
@@ -2211,14 +2243,13 @@ void main() {
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
-          home: BrowseSettingsPage(),
+          home: NetworkSettingsPage(),
         ),
       ),
     );
     await tester.pump();
-    // The custom input sits at the bottom after the R4
-    // regroup — a tall surface builds every lazy row so
-    // ensureVisible-based scrolling below stays legal.
+    // A tall surface builds every lazy row so ensureVisible-based
+    // scrolling below stays legal.
     tester.view.physicalSize = const Size(800, 4800);
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pump();
@@ -2226,6 +2257,10 @@ void main() {
     expect(find.text('pixiv.cat 镜像'), findsOneWidget);
     expect(find.text('pixiv.re 镜像'), findsOneWidget);
     expect(find.text('pixiv.nl 镜像'), findsOneWidget);
+
+    // The source section sits right after the network mode group.
+    double dyOf(String text) => tester.getCenter(find.text(text)).dy;
+    expect(dyOf('网络模式'), lessThan(dyOf('图片源')));
 
     await _scrollCentered(tester, find.text('pixiv.cat 镜像'));
     await tester.tap(find.text('pixiv.cat 镜像'));
@@ -2267,7 +2302,7 @@ void main() {
     expect(repository.value.imageSource, 'https://proxy.example.com/pixiv');
   });
 
-  testWidgets('browse image source rejects an invalid custom input', (
+  testWidgets('network image source rejects an invalid custom input', (
     tester,
   ) async {
     final repository = FakeSettingsRepository(baseTestSettings());
@@ -2278,14 +2313,13 @@ void main() {
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
-          home: BrowseSettingsPage(),
+          home: NetworkSettingsPage(),
         ),
       ),
     );
     await tester.pump();
-    // The custom input sits at the bottom after the R4
-    // regroup — a tall surface builds every lazy row so
-    // ensureVisible-based scrolling below stays legal.
+    // A tall surface builds every lazy row so ensureVisible-based
+    // scrolling below stays legal.
     tester.view.physicalSize = const Size(800, 4800);
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pump();
@@ -2300,7 +2334,7 @@ void main() {
     expect(find.textContaining('无效自定义源'), findsOneWidget);
   });
 
-  testWidgets('browse page groups preferences first and source last', (
+  testWidgets('browse page keeps only blocking and quality groups', (
     tester,
   ) async {
     final repository = FakeSettingsRepository(baseTestSettings());
@@ -2323,14 +2357,18 @@ void main() {
 
     double dyOf(String text) => tester.getCenter(find.text(text)).dy;
     expect(dyOf('本地屏蔽 R-18 作品'), lessThan(dyOf('预览质量')));
-    expect(dyOf('预览质量'), lessThan(dyOf('触感强度')));
-    expect(dyOf('触感强度'), lessThan(dyOf('图片源')));
+
+    // Motion controls live on the motion page; the image source moved to
+    // network settings — neither still renders here.
+    expect(find.text('触感强度'), findsNothing);
+    expect(find.text('页面转场'), findsNothing);
+    expect(find.text('图片源'), findsNothing);
 
     // R4: pixivHistory has a single owner — the history settings page.
     expect(find.text('Pixiv 浏览历史'), findsNothing);
   });
 
-  testWidgets('browse custom input draft asks before leaving', (tester) async {
+  testWidgets('network custom input draft asks before leaving', (tester) async {
     final repository = FakeSettingsRepository(baseTestSettings());
     await tester.pumpWidget(
       ProviderScope(
@@ -2345,7 +2383,7 @@ void main() {
                 child: FilledButton(
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => const BrowseSettingsPage(),
+                      builder: (_) => const NetworkSettingsPage(),
                     ),
                   ),
                   child: const Text('open'),
@@ -2363,7 +2401,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.byType(BrowseSettingsPage), findsNothing);
+    expect(find.byType(NetworkSettingsPage), findsNothing);
 
     // Dirty draft: system back opens the discard dialog and 取消 stays.
     await tester.tap(find.text('open'));
@@ -2380,18 +2418,18 @@ void main() {
     expect(find.text('放弃未保存的修改？'), findsOneWidget);
     await tester.tap(find.text('取消').last);
     await tester.pumpAndSettle();
-    expect(find.byType(BrowseSettingsPage), findsOneWidget);
+    expect(find.byType(NetworkSettingsPage), findsOneWidget);
 
     // 放弃 leaves the page and drops the draft.
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     await tester.tap(find.text('放弃修改'));
     await tester.pumpAndSettle();
-    expect(find.byType(BrowseSettingsPage), findsNothing);
+    expect(find.byType(NetworkSettingsPage), findsNothing);
   });
 
   testWidgets(
-    'browse image source apply-and-test applies then probes the live pipeline',
+    'network image source apply-and-test applies then probes the live pipeline',
     (tester) async {
       final repository = FakeSettingsRepository(baseTestSettings());
       final backend = RecordingClient();
@@ -2412,14 +2450,13 @@ void main() {
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
-            home: BrowseSettingsPage(),
+            home: NetworkSettingsPage(),
           ),
         ),
       );
       await tester.pump();
-      // The custom input sits at the bottom after the R4
-      // regroup — a tall surface builds every lazy row so
-      // ensureVisible-based scrolling below stays legal.
+      // A tall surface builds every lazy row so ensureVisible-based
+      // scrolling below stays legal.
       tester.view.physicalSize = const Size(800, 4800);
       addTearDown(tester.view.resetPhysicalSize);
       await tester.pump();
@@ -2535,7 +2572,7 @@ void main() {
     await check(const TranslateSettingsPage(), '关闭', '百度翻译');
     await check(const DownloadSettingsPage(), '作品 ID（默认）', '标题 - ID');
     await check(const NetworkSettingsPage(), '自动', '仅直连');
-    await check(const BrowseSettingsPage(), '官方源', 'pixiv.cat 镜像');
+    await check(const NetworkSettingsPage(), '官方源', 'pixiv.cat 镜像');
     await check(const DownloadDestinationPage(), '相册', '文件夹（系统目录选择）');
 
     // Unmount and unwind the third-party reachability probe timeouts.
@@ -2596,7 +2633,7 @@ void main() {
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
-            home: BrowseSettingsPage(),
+            home: MotionSettingsPage(),
           ),
         ),
       );

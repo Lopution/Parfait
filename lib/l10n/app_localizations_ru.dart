@@ -113,7 +113,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get loginClipboardHint =>
-      'На устройстве, где вы уже вошли, откройте «Настройки → Экспорт учётных данных аккаунта», скопируйте данные и вернитесь сюда для импорта.';
+      'На устройстве, где вы уже вошли, откройте «Профиль → Управление аккаунтами → Экспорт учётных данных аккаунта», скопируйте данные и вернитесь сюда для импорта.';
 
   @override
   String get accountTransferSensitiveWarning =>
@@ -217,7 +217,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get agreementPrivacyBody =>
-      'Настройки, кэш, история просмотров, «Посмотреть позже» и загруженные файлы хранятся на этом устройстве. В приложении нет аналитики, рекламы и отправки отчётов о сбоях; ваши данные не отправляются на серверы разработчика.\n\nЖурналы сбоев хранятся только на устройстве; поделиться ими или нет, решаете вы через «Настройки → О приложении → Экспорт логов».\n\nУдаление приложения или очистка его данных удаляет всё это (кроме загрузок, сохранённых в общие папки).';
+      'Настройки, кэш, история просмотров, «Посмотреть позже» и загруженные файлы хранятся на этом устройстве. В приложении нет аналитики, рекламы и отправки отчётов о сбоях; ваши данные не отправляются на серверы разработчика.\n\nЖурналы сбоев хранятся только на устройстве; поделиться ими или нет, решаете вы через «Профиль → О приложении → Экспорт логов».\n\nУдаление приложения или очистка его данных удаляет всё это (кроме загрузок, сохранённых в общие папки).';
 
   @override
   String get agreementDisclaimerTitle => 'Отказ от ответственности';
@@ -232,9 +232,6 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get agreementUpdates =>
       'Соглашение может меняться вслед за функциями приложения или законодательством; продолжая пользоваться приложением после изменений, вы принимаете обновлённое соглашение.';
-
-  @override
-  String get settingsTitle => 'Настройки';
 
   @override
   String get settingsGroupAppearance => 'Внешний вид';
@@ -533,13 +530,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String get browseSettings => 'Настройки просмотра';
 
   @override
+  String get settingsBrowseHint => 'Локальное скрытие, качество изображений';
+
+  @override
   String get downloadSettings => 'Настройки загрузки';
 
   @override
   String get historySettings => 'История';
 
   @override
-  String get historyView => 'Открыть историю просмотров';
+  String get historyRecordLocal => 'Сохранять историю на устройстве';
+
+  @override
+  String get historyRecordPixiv => 'Записывать в историю Pixiv';
 
   @override
   String get historyEmpty => 'История просмотров пуста';
@@ -852,12 +855,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get scaleQuality => 'Качество просмотра (оригинал)';
 
   @override
-  String get localHistory => 'Локальная история просмотров';
-
-  @override
-  String get pixivHistory => 'История просмотров Pixiv';
-
-  @override
   String get blockR18 => 'Локально скрывать работы R-18';
 
   @override
@@ -941,6 +938,9 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get animationSpeedReduceHint =>
       'Пока включено «Меньше анимаций», анимации не воспроизводятся и скорость не действует';
+
+  @override
+  String get motionSettings => 'Анимация и отклик';
 
   @override
   String get motionPageTransition => 'Переход между страницами';
@@ -1142,10 +1142,6 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get translateCredentialHint =>
       'Данные перевода не записываются в обычные настройки; при необходимости они хранятся в защищённом хранилище.';
-
-  @override
-  String get historySettingsHint =>
-      'Модуль истории читает эти переключатели; отключённая история не получает новые записи.';
 
   @override
   String get downloadTasksEmpty => 'Нет задач загрузки';
@@ -1356,17 +1352,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsWriteFailed => 'Не удалось сохранить настройки';
 
   @override
-  String get settingsSummaryOn => 'Вкл';
-
-  @override
-  String get settingsSummaryOff => 'Выкл';
-
-  @override
-  String settingsHistorySummary(String local, String pixiv) {
-    return 'Локально: $local · Pixiv: $pixiv';
-  }
-
-  @override
   String settingsMutedSummary(int count) {
     return 'Скрытых элементов: $count';
   }
@@ -1451,9 +1436,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get homeMe => 'Профиль';
-
-  @override
-  String get homeExitHint => 'Нажмите ещё раз, чтобы выйти';
 
   @override
   String get bookmarkIllust => 'Добавить иллюстрацию в закладки';

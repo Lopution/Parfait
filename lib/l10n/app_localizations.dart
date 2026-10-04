@@ -297,7 +297,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginClipboardHint.
   ///
   /// In zh, this message translates to:
-  /// **'先在已登录的设备上打开「设置 → 导出账号凭据」复制，再回到这里导入。'**
+  /// **'先在已登录的设备上打开「我的 → 账号管理 → 导出账号凭据」复制，再回到这里导入。'**
   String get loginClipboardHint;
 
   /// No description provided for @accountTransferSensitiveWarning.
@@ -471,7 +471,7 @@ abstract class AppLocalizations {
   /// No description provided for @agreementPrivacyBody.
   ///
   /// In zh, this message translates to:
-  /// **'设置、缓存、浏览历史、稍后再看与下载文件都保存在本机。本应用没有统计、广告或崩溃上报，不会把你的数据发送到开发者的服务器。\n\n崩溃日志只保存在本机，由你决定是否通过「设置 → 关于 → 导出日志」分享。\n\n卸载应用或清除数据会删除这些内容（保存到公共目录的下载文件除外）。'**
+  /// **'设置、缓存、浏览历史、稍后再看与下载文件都保存在本机。本应用没有统计、广告或崩溃上报，不会把你的数据发送到开发者的服务器。\n\n崩溃日志只保存在本机，由你决定是否通过「我的 → 关于 → 导出日志」分享。\n\n卸载应用或清除数据会删除这些内容（保存到公共目录的下载文件除外）。'**
   String get agreementPrivacyBody;
 
   /// No description provided for @agreementDisclaimerTitle.
@@ -497,12 +497,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'协议可能随功能或法律变化而更新；更新后继续使用即表示接受更新后的协议。'**
   String get agreementUpdates;
-
-  /// No description provided for @settingsTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'设置'**
-  String get settingsTitle;
 
   /// No description provided for @settingsGroupAppearance.
   ///
@@ -1044,6 +1038,12 @@ abstract class AppLocalizations {
   /// **'浏览设置'**
   String get browseSettings;
 
+  /// No description provided for @settingsBrowseHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地屏蔽、图片画质'**
+  String get settingsBrowseHint;
+
   /// No description provided for @downloadSettings.
   ///
   /// In zh, this message translates to:
@@ -1056,11 +1056,17 @@ abstract class AppLocalizations {
   /// **'历史记录'**
   String get historySettings;
 
-  /// No description provided for @historyView.
+  /// No description provided for @historyRecordLocal.
   ///
   /// In zh, this message translates to:
-  /// **'查看浏览历史'**
-  String get historyView;
+  /// **'记录本地浏览历史'**
+  String get historyRecordLocal;
+
+  /// No description provided for @historyRecordPixiv.
+  ///
+  /// In zh, this message translates to:
+  /// **'记录到 Pixiv 浏览历史'**
+  String get historyRecordPixiv;
 
   /// No description provided for @historyEmpty.
   ///
@@ -1613,18 +1619,6 @@ abstract class AppLocalizations {
   /// **'查看质量（原图）'**
   String get scaleQuality;
 
-  /// No description provided for @localHistory.
-  ///
-  /// In zh, this message translates to:
-  /// **'本地浏览历史'**
-  String get localHistory;
-
-  /// No description provided for @pixivHistory.
-  ///
-  /// In zh, this message translates to:
-  /// **'Pixiv 浏览历史'**
-  String get pixivHistory;
-
   /// No description provided for @blockR18.
   ///
   /// In zh, this message translates to:
@@ -1786,6 +1780,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'开启「减少动态效果」时不播放动画，速度不生效'**
   String get animationSpeedReduceHint;
+
+  /// No description provided for @motionSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'动效与触感'**
+  String get motionSettings;
 
   /// No description provided for @motionPageTransition.
   ///
@@ -2147,12 +2147,6 @@ abstract class AppLocalizations {
   /// **'翻译凭据不会写入普通设置；需要时由安全存储管理。'**
   String get translateCredentialHint;
 
-  /// No description provided for @historySettingsHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'历史记录开关由历史模块读取；关闭后不会新增对应记录。'**
-  String get historySettingsHint;
-
   /// No description provided for @downloadTasksEmpty.
   ///
   /// In zh, this message translates to:
@@ -2513,24 +2507,6 @@ abstract class AppLocalizations {
   /// **'设置保存失败'**
   String get settingsWriteFailed;
 
-  /// No description provided for @settingsSummaryOn.
-  ///
-  /// In zh, this message translates to:
-  /// **'开'**
-  String get settingsSummaryOn;
-
-  /// No description provided for @settingsSummaryOff.
-  ///
-  /// In zh, this message translates to:
-  /// **'关'**
-  String get settingsSummaryOff;
-
-  /// No description provided for @settingsHistorySummary.
-  ///
-  /// In zh, this message translates to:
-  /// **'本地 {local} · Pixiv {pixiv}'**
-  String settingsHistorySummary(String local, String pixiv);
-
   /// No description provided for @settingsMutedSummary.
   ///
   /// In zh, this message translates to:
@@ -2686,12 +2662,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'我的'**
   String get homeMe;
-
-  /// No description provided for @homeExitHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'再按一次退出'**
-  String get homeExitHint;
 
   /// No description provided for @bookmarkIllust.
   ///

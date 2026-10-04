@@ -156,9 +156,17 @@ ThemeData replicaTheme(
     colorScheme: colorScheme,
     textTheme: textTheme,
     appBarTheme: AppBarThemeData(
-      backgroundColor: background,
+      // A plain colour would be used for the scrolled-under state too
+      // (AppBar resolves both from the same property), hiding M3's
+      // surfaceContainer step. Only the background changes; no shadow.
+      backgroundColor: WidgetStateColor.resolveWith(
+        (states) => states.contains(WidgetState.scrolledUnder)
+            ? colorScheme.surfaceContainer
+            : background,
+      ),
       foregroundColor: text,
       elevation: 0,
+      scrolledUnderElevation: 0,
       surfaceTintColor: FuncTokens.transparent,
       iconTheme: IconThemeData(color: text),
       actionsIconTheme: IconThemeData(color: text),
@@ -193,7 +201,7 @@ ThemeData replicaTheme(
       iconTheme: WidgetStateProperty.resolveWith((states) {
         return IconThemeData(
           color: states.contains(WidgetState.selected)
-              ? colorScheme.primary
+              ? colorScheme.onPrimaryContainer
               : colorScheme.onSurfaceVariant,
         );
       }),
@@ -210,7 +218,7 @@ ThemeData replicaTheme(
     navigationRailTheme: NavigationRailThemeData(
       backgroundColor: background,
       indicatorColor: colorScheme.primaryContainer,
-      selectedIconTheme: IconThemeData(color: colorScheme.primary),
+      selectedIconTheme: IconThemeData(color: colorScheme.onPrimaryContainer),
       unselectedIconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
     ),
     segmentedButtonTheme: SegmentedButtonThemeData(

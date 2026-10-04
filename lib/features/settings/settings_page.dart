@@ -6,19 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
-import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
-import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/func_bottom_nav.dart';
-import '../../app/widgets/root_swipe_switcher.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings/settings_group.dart';
 import '../../app/widgets/settings/settings_tile.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/auth/account_store.dart';
-import '../../core/auth/account_transfer.dart';
-import '../../core/auth/account_transfer_service.dart';
 import '../../core/comments/comment_translation.dart';
 import '../../core/debug/frame_probe.dart';
 import '../../core/download/download_providers.dart';
@@ -40,8 +35,8 @@ export 'pages/browse_settings_page.dart';
 export 'pages/download_settings_page.dart';
 export 'pages/download_destination_page.dart';
 export 'pages/download_tasks_page.dart';
-export 'pages/history_settings_page.dart';
 export 'pages/language_settings_page.dart';
+export 'pages/motion_settings_page.dart';
 export 'pages/theme_settings_page.dart';
 export 'pages/translate_settings_page.dart';
 
@@ -58,17 +53,15 @@ class SettingsPage extends ConsumerWidget {
       // every time the IME animates (e.g. the push that hides the search
       // keyboard) — a relayout storm across all five live branches.
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(title: Text(context.l10n.settingsTitle)),
-      body: RootSwipeSwitcher(
-        child: settings.when(
-          loading: () => const FeedLoading(),
-          error: (error, _) => SettingsLoadError(
-            error: error,
-            onRetry: () => ref.read(settingsProvider.notifier).reload(),
-          ),
-          data: (settings) =>
-              _SettingsList(accounts: accounts, settings: settings),
+      appBar: AppBar(title: Text(context.l10n.homeMe)),
+      body: settings.when(
+        loading: () => const FeedLoading(),
+        error: (error, _) => SettingsLoadError(
+          error: error,
+          onRetry: () => ref.read(settingsProvider.notifier).reload(),
         ),
+        data: (settings) =>
+            _SettingsList(accounts: accounts, settings: settings),
       ),
     );
   }
@@ -114,19 +107,6 @@ class _SettingsList extends ConsumerWidget {
         .tasks
         .where((task) => !isTerminal(task.status))
         .length;
-    final imageSource = switch (settings.imageSourceMode) {
-      ImageSourceMode.auto =>
-        ref.watch(autoImageSourceWinnerProvider) == null
-            ? context.l10n.imageSourceAuto
-            : context.l10n.imageSourceAutoWinner(
-                ref.watch(autoImageSourceWinnerProvider)!,
-              ),
-      ImageSourceMode.custom =>
-        settings.imageSource.isNotEmpty
-            ? settings.imageSource
-            : context.l10n.imageSourceCustomUnset,
-      final mode => imageSourceLabel(context, mode),
-    };
     // Hub layout: tiles are grouped by intent under labeled section
     // headers instead of a flat list with bare dividers. Destructive/
     // transfer actions (backup) sit in their own "data" group.
@@ -142,24 +122,49 @@ class _SettingsList extends ConsumerWidget {
           bottom: FuncSpacing.xl,
         ),
         children: [
+          SettingsGroup(children: [AccountSummaryTile(account: account)]),
           SettingsGroup(
+            title: Text(context.l10n.settingsGroupLibrary),
             children: [
-              AccountSummaryTile(account: account),
+              SettingsTile(
+                icon: Icons.history,
+                title: context.l10n.historySettings,
+                onTap: () => openHistory(context),
+              ),
+              SettingsTile(
+                icon: Icons.bookmark_border,
+                title: context.l10n.watchLaterTitle,
+                onTap: () => openWatchLater(context),
+              ),
+              SettingsTile(
+                icon: Icons.collections_bookmark_outlined,
+                title: context.l10n.watchlistTitle,
+                onTap: () => openWatchlist(context),
+              ),
+              SettingsTile(
+                icon: Icons.menu_book_outlined,
+                title: context.l10n.localNovelsTitle,
+                onTap: () => openLocalNovels(context),
+              ),
+              SettingsTile(
+                icon: Icons.downloading_outlined,
+                title: context.l10n.downloaderSettings,
+                subtitle: Text(
+                  context.l10n.settingsDownloadTasksSummary(activeTasks),
+                ),
+                onTap: () => unawaited(openDownloadTasks(context)),
+              ),
+            ],
+          ),
+          SettingsGroup(
+            title: Text(context.l10n.accountSettings),
+            children: [
               SettingsTile(
                 icon: Icons.manage_accounts_outlined,
-                title: context.l10n.accountSettings,
+                title: context.l10n.accountManagement,
                 subtitle: Text(account?.name ?? context.l10n.signedOut),
                 onTap: () => openSettingsPage(context, '/settings/account'),
               ),
-              // Credential export is a visible entry, not a hidden gesture:
-              // the tile exists only for a signed-in account and the warning
-              // dialog still gates the actual copy.
-              if (account != null)
-                SettingsTile(
-                  icon: Icons.send_to_mobile,
-                  title: context.l10n.accountTransferExportTitle,
-                  onTap: () => _confirmCopyAccount(context, ref),
-                ),
             ],
           ),
           SettingsGroup(
@@ -185,6 +190,16 @@ class _SettingsList extends ConsumerWidget {
                 ),
                 onTap: () => openSettingsPage(context, '/settings/translate'),
               ),
+              SettingsTile(
+                icon: Icons.animation,
+                title: context.l10n.motionSettings,
+                subtitle: Text(
+                  settings.reduceMotion
+                      ? context.l10n.reduceMotion
+                      : animationSpeedLabel(context, settings.animationSpeed),
+                ),
+                onTap: () => openSettingsPage(context, '/settings/motion'),
+              ),
             ],
           ),
           SettingsGroup(
@@ -193,7 +208,10 @@ class _SettingsList extends ConsumerWidget {
               SettingsTile(
                 icon: Icons.image_outlined,
                 title: context.l10n.browseSettings,
-                subtitle: Text(imageSource),
+                // No single value summarizes the page now that the image
+                // source lives in network settings — a static hint instead,
+                // same as the backup tile.
+                subtitle: Text(context.l10n.settingsBrowseHint),
                 onTap: () => openSettingsPage(context, '/settings/browse'),
               ),
               SettingsTile(
@@ -205,54 +223,6 @@ class _SettingsList extends ConsumerWidget {
                       : context.l10n.settingsMutedSummary(mutedCount),
                 ),
                 onTap: () => openSettingsPage(context, '/settings/muted'),
-              ),
-              // The history tile stays a configuration entry (D5): its
-              // summary shows the switch states; the content view lives in
-              // the library group below.
-              SettingsTile(
-                icon: Icons.manage_history,
-                title: context.l10n.historySettings,
-                subtitle: Text(
-                  context.l10n.settingsHistorySummary(
-                    settings.enableHistory
-                        ? context.l10n.settingsSummaryOn
-                        : context.l10n.settingsSummaryOff,
-                    settings.enablePixivHistory
-                        ? context.l10n.settingsSummaryOn
-                        : context.l10n.settingsSummaryOff,
-                  ),
-                ),
-                onTap: () => openSettingsPage(context, '/settings/history'),
-              ),
-            ],
-          ),
-          // Content destinations (not preferences) sit in their own group so
-          // the preference sections stay unmixed.
-          SettingsGroup(
-            title: Text(context.l10n.settingsGroupLibrary),
-            children: [
-              SettingsTile(
-                icon: Icons.bookmark_border,
-                title: context.l10n.watchLaterTitle,
-                onTap: () => openWatchLater(context),
-              ),
-              SettingsTile(
-                icon: Icons.collections_bookmark_outlined,
-                title: context.l10n.watchlistTitle,
-                onTap: () => openWatchlist(context),
-              ),
-              SettingsTile(
-                icon: Icons.menu_book_outlined,
-                title: context.l10n.localNovelsTitle,
-                onTap: () => openLocalNovels(context),
-              ),
-              // D5: direct content entry — the history configuration tile
-              // above keeps owning the switches; this one opens the content
-              // view.
-              SettingsTile(
-                icon: Icons.history,
-                title: context.l10n.historyView,
-                onTap: () => openHistory(context),
               ),
             ],
           ),
@@ -273,14 +243,6 @@ class _SettingsList extends ConsumerWidget {
                   '${downloadDestinationLabel(context, settings.downloadDestination)}',
                 ),
                 onTap: () => openSettingsPage(context, '/settings/download'),
-              ),
-              SettingsTile(
-                icon: Icons.downloading_outlined,
-                title: context.l10n.downloaderSettings,
-                subtitle: Text(
-                  context.l10n.settingsDownloadTasksSummary(activeTasks),
-                ),
-                onTap: () => unawaited(openDownloadTasks(context)),
               ),
             ],
           ),
@@ -331,79 +293,6 @@ class _SettingsList extends ConsumerWidget {
       ),
     );
   }
-
-  /// Credential export is destructive-adjacent (plaintext tokens on the
-  /// system clipboard): the entry is a visible tile, and this dialog carries
-  /// the warning before any byte is copied.
-  Future<void> _confirmCopyAccount(BuildContext context, WidgetRef ref) async {
-    final l10n = context.l10n;
-    final confirmed = await showAppDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.accountTransferExportTitle),
-        content: Text(l10n.accountTransferWarning),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(l10n.confirm),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && context.mounted) {
-      _copyAccount(context, ref);
-    }
-  }
-
-  void _copyAccount(BuildContext context, WidgetRef ref) {
-    unawaited(() async {
-      try {
-        await ref
-            .read(accountTransferServiceProvider)
-            .exportCurrentToClipboard();
-        if (!context.mounted) return;
-        showAppSnackBar(context, context.l10n.accountTransferCopied);
-        // Android <13 cannot mark the clipboard entry as sensitive; the
-        // credential sits in the system clipboard in plaintext. Never do
-        // this silently (R4: 安全降级，不能静默少做一件事).
-        final capabilities = await ref
-            .read(transferClipboardProvider)
-            .capabilities();
-        if (!capabilities.sensitiveMarkSupported && context.mounted) {
-          showAppSnackBar(
-            context,
-            context.l10n.accountTransferSensitiveWarning,
-            duration: const Duration(seconds: 5),
-            replaceCurrent: false,
-          );
-        }
-      } on AccountTransferException catch (error) {
-        if (!context.mounted) return;
-        showAppSnackBar(context, _transferErrorText(context, error.code));
-      }
-    }());
-  }
-}
-
-String _transferErrorText(BuildContext context, AccountTransferErrorCode code) {
-  final key = switch (code) {
-    AccountTransferErrorCode.corrupt => 'accountTransferCorrupt',
-    AccountTransferErrorCode.credentialInvalid =>
-      'accountTransferCredentialInvalid',
-    AccountTransferErrorCode.verificationUnavailable =>
-      'accountTransferVerificationUnavailable',
-    AccountTransferErrorCode.noUsableAccount => 'accountTransferNoAccount',
-    AccountTransferErrorCode.credentialUnavailable =>
-      'accountTransferCredentialUnavailable',
-    AccountTransferErrorCode.clipboardUnavailable =>
-      'accountTransferClipboardUnavailable',
-    AccountTransferErrorCode.storageFailure => 'accountTransferStorageFailure',
-  };
-  return settingsText(context, key);
 }
 
 /// Translation summary = provider label, plus the configured/unconfigured

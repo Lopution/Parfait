@@ -35,7 +35,7 @@ class AppTypeSwitch<T> extends StatelessWidget {
           // PullToRefresh a sideways drag would feed EasyRefresh's physics
           // and arm a refresh, and the app's always-scrollable parent makes
           // a row that fits claim the drag, so a swipe starting on it never
-          // reaches RootSwipeSwitcher. Parentless bouncing only takes drags
+          // reaches TabSwipeSwitcher. Parentless bouncing only takes drags
           // when the segments overflow.
           child: ScrollConfiguration(
             behavior: ScrollConfiguration.of(

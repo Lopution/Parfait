@@ -22,13 +22,13 @@ import '../helpers/test_preferences.dart';
 final _pages = <String, Widget>{
   'settings': const SettingsPage(),
   'browse': const BrowseSettingsPage(),
+  'motion': const MotionSettingsPage(),
   'appearance': const ThemeSettingsPage(),
   'language': const LanguageSettingsPage(),
   'account': const AccountSettingsPage(),
   'backup': const BackupSettingsPage(),
   'download': const DownloadSettingsPage(),
   'download destination': const DownloadDestinationPage(),
-  'history': const HistorySettingsPage(),
   'muted items': const MutedItemsPage(),
   'translation': const TranslateSettingsPage(),
   'translation credentials (Baidu)': const TranslationCredentialsPage(

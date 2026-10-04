@@ -70,7 +70,7 @@ import 'func_page.dart';
 import '../pixiv_image.dart';
 import '../startup_gate.dart';
 import '../widgets/app_snack_bar.dart';
-import '../widgets/branch_slide_stack.dart';
+import '../widgets/home_branch_stack.dart';
 import '../widgets/feed/feed_grid.dart';
 import '../widgets/func_bottom_nav.dart';
 
@@ -463,7 +463,6 @@ List<RouteBase> _commonBranchRoutes(
   RouteObserver<ModalRoute<dynamic>> branchObserver, {
   required GlobalKey<NavigatorState> rootNavigatorKey,
   required RouteObserver<ModalRoute<dynamic>> rootObserver,
-  bool includeHistory = true,
   bool includeSearch = true,
 }) {
   final routes = <RouteBase>[
@@ -743,9 +742,6 @@ List<RouteBase> _commonBranchRoutes(
       ),
     ),
   ];
-  if (!includeHistory) {
-    routes.removeWhere((route) => route is GoRoute && route.path == 'history');
-  }
   if (includeSearch) {
     routes.addAll(_searchRoutes(branchObserver, prefix: 'search/'));
   }
@@ -844,6 +840,11 @@ List<RouteBase> _settingsSubRoutes(
           _page(context, state, observer, const BrowseSettingsPage()),
     ),
     GoRoute(
+      path: 'motion',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const MotionSettingsPage()),
+    ),
+    GoRoute(
       path: 'download',
       pageBuilder: (context, state) =>
           _page(context, state, observer, const DownloadSettingsPage()),
@@ -852,18 +853,6 @@ List<RouteBase> _settingsSubRoutes(
           path: 'destination',
           pageBuilder: (context, state) =>
               _page(context, state, observer, const DownloadDestinationPage()),
-        ),
-      ],
-    ),
-    GoRoute(
-      path: 'history',
-      pageBuilder: (context, state) =>
-          _page(context, state, observer, const HistorySettingsPage()),
-      routes: [
-        GoRoute(
-          path: 'view',
-          pageBuilder: (context, state) =>
-              _page(context, state, observer, const HistoryPage()),
         ),
       ],
     ),
@@ -914,7 +903,6 @@ StatefulShellBranch _branch({
   required GlobalKey<NavigatorState> rootNavigatorKey,
   required RouteObserver<ModalRoute<dynamic>> rootObserver,
   required String restorationScopeId,
-  bool includeHistory = true,
   bool includeSearch = true,
   List<RouteBase> routes = const [],
 }) {
@@ -922,7 +910,6 @@ StatefulShellBranch _branch({
     observer,
     rootNavigatorKey: rootNavigatorKey,
     rootObserver: rootObserver,
-    includeHistory: includeHistory,
     includeSearch: includeSearch,
   );
   return StatefulShellBranch(
@@ -1095,12 +1082,10 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
       ),
       StatefulShellRoute(
         restorationScopeId: 'home-shell',
-        // Branch Navigators sit side by side and slide like a ViewPager —
-        // the outer half of the nested-pager pair the root pages'
-        // RootSwipeSwitcher completes. The strip slides in branch order,
-        // which is also the bottom bar's visual order.
+        // Branch Navigators stay mounted in place and fade through when the
+        // selected home destination changes.
         navigatorContainerBuilder: (context, navigationShell, children) =>
-            BranchSlideStack(shell: navigationShell, children: children),
+            HomeBranchStack(shell: navigationShell, children: children),
         pageBuilder: (context, state, navigationShell) => NoTransitionPage(
           key: state.pageKey,
           restorationId: RestorationScope.maybeOf(context) == null
@@ -1177,10 +1162,6 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
             rootNavigatorKey: appRootNavigatorKey,
             rootObserver: appRootRouteObserver,
             restorationScopeId: 'settings',
-            // The settings subtree owns 'history' (its settings page plus
-            // /settings/history/view), so the common history route would
-            // collide — same exclusion the old root-level route used.
-            includeHistory: false,
             routes: _settingsSubRoutes(settingsRouteObserver),
           ),
         ],
@@ -1657,7 +1638,7 @@ Future<void> openCommentReplies(
 }
 
 Future<void> openHistory(BuildContext context) async {
-  await _push(context, '/settings/history/view');
+  await _push(context, '${_currentStackRoot(context)}/history');
 }
 
 Future<void> openLogin(

@@ -16,6 +16,7 @@ import '../../app/motion/state_icon_switcher.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/haptics/app_haptics.dart';
+import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/entity_row.dart';
 import '../../app/widgets/selection_app_bar.dart';
 import '../../core/entity/illust_entity.dart';
@@ -26,10 +27,15 @@ import '../../core/history/history_feed_controller.dart';
 import '../../core/history/history_repository.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/novel_store.dart';
+import '../../core/settings/settings_controller.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/settings/persist_settings.dart';
+
+/// The three rows of the history page's overflow menu.
+enum _HistoryMenuAction { recordLocal, recordPixiv, deleteAll }
 
 class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
@@ -81,6 +87,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   Widget build(BuildContext context) {
     final accountId = ref.watch(historyAccountIdProvider);
     final repository = ref.watch(historyRepositoryProvider);
+    final settings = ref.watch(settingsProvider).value;
     return PopScope(
       // System back exits selection mode instead of popping the page.
       canPop: !_managing,
@@ -113,19 +120,42 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             : AppBar(
                 title: Text(context.l10n.historySettings),
                 actions: [
-                  if (accountId != null) ...[
+                  if (accountId != null)
                     IconButton(
                       tooltip: context.l10n.manage,
                       onPressed: _enterManaging,
                       icon: const Icon(Icons.checklist_outlined),
                     ),
-                    IconButton(
-                      tooltip: context.l10n.historyDeleteAll,
-                      onPressed: () =>
-                          _deleteAll(context, repository, accountId),
-                      icon: const Icon(Icons.delete_forever_outlined),
+                  // The overflow stays visible signed out: the record
+                  // switches are global settings; only delete-all needs
+                  // an account.
+                  AppMenuButton<_HistoryMenuAction>(
+                    onSelected: (menuContext, action) => _onMenuAction(
+                      menuContext,
+                      action,
+                      repository,
+                      accountId,
                     ),
-                  ],
+                    entries: [
+                      AppMenuEntry(
+                        value: _HistoryMenuAction.recordLocal,
+                        label: context.l10n.historyRecordLocal,
+                        checked: settings?.enableHistory ?? false,
+                        enabled: settings != null,
+                      ),
+                      AppMenuEntry(
+                        value: _HistoryMenuAction.recordPixiv,
+                        label: context.l10n.historyRecordPixiv,
+                        checked: settings?.enablePixivHistory ?? false,
+                        enabled: settings != null,
+                      ),
+                      AppMenuEntry(
+                        value: _HistoryMenuAction.deleteAll,
+                        label: context.l10n.historyDeleteAll,
+                        enabled: accountId != null,
+                      ),
+                    ],
+                  ),
                 ],
               ),
         body: accountId == null
@@ -183,6 +213,38 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
           error: error,
         );
       }
+    }
+  }
+
+  void _onMenuAction(
+    BuildContext menuContext,
+    _HistoryMenuAction action,
+    HistoryRepository repository,
+    String? accountId,
+  ) {
+    final notifier = ref.read(settingsProvider.notifier);
+    final settings = ref.read(settingsProvider).value;
+    switch (action) {
+      case _HistoryMenuAction.recordLocal:
+        if (settings == null) return;
+        unawaited(
+          persistSettings(
+            menuContext,
+            () => notifier.setHistoryEnabled(!settings.enableHistory),
+          ),
+        );
+      case _HistoryMenuAction.recordPixiv:
+        if (settings == null) return;
+        unawaited(
+          persistSettings(
+            menuContext,
+            () => notifier.setPixivHistoryEnabled(!settings.enablePixivHistory),
+          ),
+        );
+      case _HistoryMenuAction.deleteAll:
+        if (accountId != null) {
+          unawaited(_deleteAll(menuContext, repository, accountId));
+        }
     }
   }
 

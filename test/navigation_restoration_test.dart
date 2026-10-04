@@ -22,6 +22,7 @@ import 'package:parfait/core/novel/novel_repository.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/core/search/search_trending_controller.dart';
+import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:parfait/features/new/new_page.dart';
@@ -29,6 +30,7 @@ import 'package:parfait/features/profile/bookmark_tag_feed_page.dart';
 import 'package:parfait/features/ranking/novel_ranking_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
 import 'package:parfait/features/search/search_page.dart';
+import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -537,4 +539,27 @@ void main() {
     expect(router.state.uri.path, '/recommended/illust/42/viewer/1');
     expect(find.byType(ImageViewerPage), findsOneWidget);
   });
+
+  for (final (path, type) in [
+    ('/settings/history', HistoryPage),
+    ('/settings/motion', MotionSettingsPage),
+  ]) {
+    testWidgets('restores $path on the settings stack', (tester) async {
+      final router = createPixivRouter(initialLocation: path);
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(_routerApp(router));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(router.state.uri.path, path);
+      expect(find.byType(type), findsOneWidget);
+
+      await tester.restartAndRestore();
+      await tester.pump();
+
+      expect(router.state.uri.path, path);
+      expect(find.byType(type), findsOneWidget);
+    });
+  }
 }

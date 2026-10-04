@@ -39,7 +39,7 @@
   "useLoginWithClipboard": "クリップボードに保存されたデータでログイン",
   "accountTransferExportTitle": "アカウント認証情報をエクスポート",
   "accountTransferWarning": "クリップボードは短時間保持され、他のアプリに読み取られる可能性があります。この形式は暗号化も送信者認証も提供しません。",
-  "loginClipboardHint": "ログイン済みの端末で「設定 → アカウント認証情報をエクスポート」からコピーし、ここに戻ってインポートしてください。",
+  "loginClipboardHint": "ログイン済みの端末で「マイページ → アカウント管理 → アカウント認証情報をエクスポート」からコピーし、ここに戻ってインポートしてください。",
   "accountTransferSensitiveWarning": "この端末はクリップボードの機密マーク（Android 13+）未対応です。認証情報は平文でシステムクリップボードに置かれます。すぐに貼り付けてください。5分後に自動クリアされます。",
   "accountTransferCopied": "アカウント移行データをコピーしました。対象端末ですぐに貼り付けてください。",
   "accountTransferImported": "アカウント移行に成功しました",
@@ -68,12 +68,11 @@
   "agreementThirdPartyTitle": "サードパーティのサービス",
   "agreementThirdPartyBody": "次のサービスには、対応する機能を使ったときにだけ接続します。\n• コメント翻訳（既定はオフ）：コメント本文を、選んだGoogle翻訳、Baidu翻訳、または入力したOpenAI互換APIに送信します。\n• 画像検索：選んだ画像をSauceNAOまたはiqdbにアップロードします。\n\nログイン用のWebページはPixivが提供しており、Pixivが使うサードパーティのリソース（例：ロボット認証）を読み込むことがあります。\n\nアップデート確認：本アプリは24時間に最大1回、GitHub上のバージョン情報を自動で取得します。F-Droid版はアップデートを確認しません。",
   "agreementPrivacyTitle": "プライバシーとローカルデータ",
-  "agreementPrivacyBody": "設定、キャッシュ、閲覧履歴、あとで見る、ダウンロードしたファイルはすべてこの端末に保存されます。本アプリには統計、広告、クラッシュ報告の仕組みがなく、データを開発者のサーバーに送信しません。\n\nクラッシュログはこの端末にのみ保存され、「設定 → このアプリについて → ログをエクスポート」で共有するかどうかはご自身で決められます。\n\nアプリのアンインストールやデータの消去でこれらは削除されます（公開フォルダに保存したダウンロードファイルを除く）。",
+  "agreementPrivacyBody": "設定、キャッシュ、閲覧履歴、あとで見る、ダウンロードしたファイルはすべてこの端末に保存されます。本アプリには統計、広告、クラッシュ報告の仕組みがなく、データを開発者のサーバーに送信しません。\n\nクラッシュログはこの端末にのみ保存され、「マイページ → このアプリについて → ログをエクスポート」で共有するかどうかはご自身で決められます。\n\nアプリのアンインストールやデータの消去でこれらは削除されます（公開フォルダに保存したダウンロードファイルを除く）。",
   "agreementDisclaimerTitle": "免責事項",
   "agreementDisclaimerBody": "本アプリは現状のまま提供され、不具合がないことや継続して利用できることを保証しません。ネットワーク、アカウント、サードパーティのサービス、不可抗力によるコンテンツの消失、アクセスの失敗、その他の損害について、作者は法律で認められる範囲で責任を負いません。",
   "agreementUpdatesTitle": "規約の更新",
   "agreementUpdates": "本規約は機能や法律の変更に応じて更新されることがあります。更新後も利用を続けた場合、更新後の規約に同意したものとします。",
-  "settingsTitle": "設定",
   "settingsGroupAppearance": "外観",
   "settingsGroupNetwork": "ネットワークとダウンロード",
   "settingsGroupBrowse": "閲覧",
@@ -171,9 +170,11 @@
   "languageSettings": "言語",
   "translateSettings": "翻訳",
   "browseSettings": "ブラウズ設定",
+  "settingsBrowseHint": "ローカル非表示・画質",
   "downloadSettings": "ダウンロード設定",
   "historySettings": "履歴",
-  "historyView": "閲覧履歴を見る",
+  "historyRecordLocal": "ローカルに閲覧履歴を記録",
+  "historyRecordPixiv": "Pixivの閲覧履歴に記録",
   "historyEmpty": "閲覧履歴はありません",
   "historyLoadFailed": "履歴の読み込みに失敗しました",
   "historyDelete": "履歴を削除",
@@ -336,8 +337,6 @@
   "qualityLarge": "大サイズ",
   "qualityOriginal": "オリジナル",
   "scaleQuality": "ビューア画質（オリジナル）",
-  "localHistory": "ローカル閲覧履歴",
-  "pixivHistory": "Pixiv 閲覧履歴",
   "blockR18": "R-18作品をローカルで非表示",
   "blockAI": "AI作品をローカルで非表示",
   "hideMuted": "ミュートした作品を非表示",
@@ -365,6 +364,7 @@
   "animationSpeedSlow": "遅い",
   "animationSpeedHint": "アプリ内のすべてのアニメーションに適用されます。波紋などのシステム効果は変わりません",
   "animationSpeedReduceHint": "「視覚効果を減らす」がオンの間はアニメーションを再生しないため、速度は反映されません",
+  "motionSettings": "モーションと触覚",
   "motionPageTransition": "画面遷移",
   "pageTransitionStyleSystem": "システムのデフォルト",
   "pageTransitionStyleSystemHint": "Android システムの遷移。予測型「戻る」に対応",
@@ -457,7 +457,6 @@
   "translateBaiduHint": "百度翻訳の標準版は認証不要ですが月 5 万文字・毎秒 1 回までで、コメント翻訳には足りません。高級版は個人の実名認証（氏名 + 身分証番号）が必要で、月 100 万文字・毎秒 10 回です。認証情報は翻訳リクエストにのみ使用します。",
   "translateLlmCredentialHint": "HTTPS エンドポイントのみ。翻訳は固定プロンプトで、モデルや詳細パラメータは変更できません。コメント本文と翻訳は保存されません。",
   "translateCredentialHint": "翻訳の認証情報は通常の設定に保存せず、必要な場合は安全なストレージで管理します。",
-  "historySettingsHint": "履歴機能がこのスイッチを読み取ります。無効にすると新しい履歴を追加しません。",
   "downloadTasksEmpty": "ダウンロードタスクはありません",
   "downloadQueued": "待機中",
   "downloadRunning": "ダウンロード中",
@@ -557,7 +556,7 @@
     }
   },
   "downloadAuthorEmpty": "この作者にはダウンロード可能な作品がありません。",
-"downloadAuthorFailed": "作品の列挙に失敗しました",
+  "downloadAuthorFailed": "作品の列挙に失敗しました",
   "downloadCaption": "作品のキャプションを書き出す",
   "downloadCaptionHint": "イラスト・マンガのダウンロード時に、タイトル・作者・キャプションを同名の .txt として保存します",
   "aboutVersion": "バージョン",
@@ -590,19 +589,6 @@
   "aboutAttributionText": "著作権およびメンテナンス：Lopution。",
   "settingsReadFailed": "設定の読み込みに失敗しました",
   "settingsWriteFailed": "設定の保存に失敗しました",
-  "settingsSummaryOn": "オン",
-  "settingsSummaryOff": "オフ",
-  "settingsHistorySummary": "ローカル {local} · Pixiv {pixiv}",
-  "@settingsHistorySummary": {
-    "placeholders": {
-      "local": {
-        "type": "String"
-      },
-      "pixiv": {
-        "type": "String"
-      }
-    }
-  },
   "settingsMutedSummary": "ミュート項目 {count} 件",
   "@settingsMutedSummary": {
     "placeholders": {
@@ -643,7 +629,6 @@
   "homeRecommended": "おすすめ",
   "homeRanking": "ランキング",
   "homeMe": "マイページ",
-  "homeExitHint": "もう一度戻ると終了します",
   "bookmarkIllust": "イラストをブックマーク",
   "bookmarkNovel": "小説をブックマーク",
   "bookmarkOperationFailed": "ブックマーク操作に失敗しました",

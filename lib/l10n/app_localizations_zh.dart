@@ -110,7 +110,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountTransferWarning => '剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。';
 
   @override
-  String get loginClipboardHint => '先在已登录的设备上打开「设置 → 导出账号凭据」复制，再回到这里导入。';
+  String get loginClipboardHint => '先在已登录的设备上打开「我的 → 账号管理 → 导出账号凭据」复制，再回到这里导入。';
 
   @override
   String get accountTransferSensitiveWarning =>
@@ -206,7 +206,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agreementPrivacyBody =>
-      '设置、缓存、浏览历史、稍后再看与下载文件都保存在本机。本应用没有统计、广告或崩溃上报，不会把你的数据发送到开发者的服务器。\n\n崩溃日志只保存在本机，由你决定是否通过「设置 → 关于 → 导出日志」分享。\n\n卸载应用或清除数据会删除这些内容（保存到公共目录的下载文件除外）。';
+      '设置、缓存、浏览历史、稍后再看与下载文件都保存在本机。本应用没有统计、广告或崩溃上报，不会把你的数据发送到开发者的服务器。\n\n崩溃日志只保存在本机，由你决定是否通过「我的 → 关于 → 导出日志」分享。\n\n卸载应用或清除数据会删除这些内容（保存到公共目录的下载文件除外）。';
 
   @override
   String get agreementDisclaimerTitle => '免责声明';
@@ -220,9 +220,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agreementUpdates => '协议可能随功能或法律变化而更新；更新后继续使用即表示接受更新后的协议。';
-
-  @override
-  String get settingsTitle => '设置';
 
   @override
   String get settingsGroupAppearance => '外观';
@@ -500,13 +497,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get browseSettings => '浏览设置';
 
   @override
+  String get settingsBrowseHint => '本地屏蔽、图片画质';
+
+  @override
   String get downloadSettings => '下载设置';
 
   @override
   String get historySettings => '历史记录';
 
   @override
-  String get historyView => '查看浏览历史';
+  String get historyRecordLocal => '记录本地浏览历史';
+
+  @override
+  String get historyRecordPixiv => '记录到 Pixiv 浏览历史';
 
   @override
   String get historyEmpty => '暂无浏览历史';
@@ -804,12 +807,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get scaleQuality => '查看质量（原图）';
 
   @override
-  String get localHistory => '本地浏览历史';
-
-  @override
-  String get pixivHistory => 'Pixiv 浏览历史';
-
-  @override
   String get blockR18 => '本地屏蔽 R-18 作品';
 
   @override
@@ -889,6 +886,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get animationSpeedReduceHint => '开启「减少动态效果」时不播放动画，速度不生效';
+
+  @override
+  String get motionSettings => '动效与触感';
 
   @override
   String get motionPageTransition => '页面转场';
@@ -1080,9 +1080,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get translateCredentialHint => '翻译凭据不会写入普通设置；需要时由安全存储管理。';
-
-  @override
-  String get historySettingsHint => '历史记录开关由历史模块读取；关闭后不会新增对应记录。';
 
   @override
   String get downloadTasksEmpty => '暂无下载任务';
@@ -1283,17 +1280,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsWriteFailed => '设置保存失败';
 
   @override
-  String get settingsSummaryOn => '开';
-
-  @override
-  String get settingsSummaryOff => '关';
-
-  @override
-  String settingsHistorySummary(String local, String pixiv) {
-    return '本地 $local · Pixiv $pixiv';
-  }
-
-  @override
   String settingsMutedSummary(int count) {
     return '$count 个屏蔽项';
   }
@@ -1374,9 +1360,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get homeMe => '我的';
-
-  @override
-  String get homeExitHint => '再按一次退出';
 
   @override
   String get bookmarkIllust => '收藏插画';

@@ -230,6 +230,50 @@ void main() {
     }
   });
 
+  testWidgets('the app bar steps to surfaceContainer under scrolled content', (
+    tester,
+  ) async {
+    Color appBarColor() => tester
+        .widget<Material>(
+          find
+              .descendant(
+                of: find.byType(AppBar),
+                matching: find.byType(Material),
+              )
+              .first,
+        )
+        .color!;
+
+    for (final brightness in Brightness.values) {
+      final theme = replicaTheme(brightness);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Scaffold(
+            appBar: AppBar(title: const Text('App bar')),
+            body: ListView(
+              children: [for (var i = 0; i < 40; i++) Text('row $i')],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(appBarColor(), theme.scaffoldBackgroundColor);
+
+      // Content scrolled under the bar: the theme's backgroundColor is a
+      // WidgetStateColor, so the bar reads surfaceContainer — the M3
+      // scrolled-under step — with no elevation change.
+      await tester.drag(find.byType(ListView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+      expect(appBarColor(), theme.colorScheme.surfaceContainer);
+      expect(theme.appBarTheme.scrolledUnderElevation, 0);
+
+      await tester.drag(find.byType(ListView), const Offset(0, 200));
+      await tester.pumpAndSettle();
+      expect(appBarColor(), theme.scaffoldBackgroundColor);
+    }
+  });
+
   testWidgets('component text styles resolve through the themed textTheme', (
     tester,
   ) async {

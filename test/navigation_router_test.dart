@@ -8,11 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'helpers/test_preferences.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/navigation/routes.dart';
-import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/features/bookmark/bookmark_tags_page.dart';
+import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
 import 'package:parfait/features/new/new_page.dart';
@@ -75,21 +75,12 @@ void main() {
     expect(find.byType(RankingPage, skipOffstage: false), findsOneWidget);
   });
 
-  testWidgets('branch back is handled before the root exit coordinator', (
-    tester,
-  ) async {
+  testWidgets('branch back returns to the recommended root', (tester) async {
     final router = createPixivRouter(initialLocation: '/recommended');
     addTearDown(router.dispose);
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          // The root exit coordinator is Android-only; the test host is
-          // Linux, so inject Android caps for the back-press path.
-          platformCapsProvider.overrideWithValue(
-            const PlatformCaps(isAndroid: true),
-          ),
-        ],
         child: MaterialApp.router(
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
@@ -108,11 +99,6 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pump();
     expect(router.state.uri.path, '/recommended');
-    expect(find.text('再按一次退出'), findsNothing);
-
-    await tester.binding.handlePopRoute();
-    await tester.pump();
-    expect(find.text('再按一次退出'), findsOneWidget);
   });
 
   Future<GoRouter> pumpRouter(WidgetTester tester, String location) async {
@@ -344,6 +330,92 @@ void main() {
     });
   }
 
+  testWidgets('openHistory stays on the stack it was called from', (
+    tester,
+  ) async {
+    final router = await pumpRouter(tester, '/settings');
+    expect(find.byType(SettingsPage), findsOneWidget);
+
+    // The shared history route is mounted on every stack — the settings
+    // branch gets /settings/history, returning to the Me tab on pop.
+    unawaited(openHistory(tester.element(find.byType(SettingsPage))));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(router.state.uri.path, '/settings/history');
+    expect(find.byType(HistoryPage), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(router.state.uri.path, '/settings');
+    expect(find.byType(SettingsPage), findsOneWidget);
+
+    // From the /me overlay the same facade pushes the overlay-level
+    // /me/history instead of bouncing to a branch.
+    unawaited(router.push<void>('/me'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(MePage), findsOneWidget);
+    unawaited(openHistory(tester.element(find.byType(MePage))));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(router.state.uri.path, '/me/history');
+    expect(find.byType(HistoryPage), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(router.state.uri.path, '/me');
+  });
+
+  testWidgets('/settings/history/view no longer matches', (tester) async {
+    final router = createPixivRouter(initialLocation: '/settings/history/view');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    // The retired settings-page subroute resolves to the router's
+    // unmatched-path error page, not to a page.
+    expect(find.byType(HistoryPage), findsNothing);
+    expect(find.text('Page Not Found'), findsOneWidget);
+  });
+
+  testWidgets('every settings subroute returns to the Me root', (tester) async {
+    final router = await pumpRouter(tester, '/settings');
+    expect(find.byType(SettingsPage), findsOneWidget);
+
+    for (final sub in [
+      'account',
+      'theme',
+      'language',
+      'translate',
+      'motion',
+      'browse',
+      'muted',
+      'network',
+      'download',
+      'backup',
+      'about',
+      'history',
+    ]) {
+      unawaited(router.push('/settings/$sub'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(router.state.uri.path, '/settings/$sub', reason: sub);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(router.state.uri.path, '/settings', reason: sub);
+    }
+  });
+
   testWidgets('pop slides the outgoing page as a snapshot texture', (
     tester,
   ) async {
@@ -429,7 +501,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.byType(NavigationRail),
-        matching: find.byIcon(Icons.settings_outlined),
+        matching: find.byIcon(Icons.person_outline),
       ),
     );
     await tester.pump();

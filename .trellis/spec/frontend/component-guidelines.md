@@ -222,6 +222,22 @@ per line number.
 with `inversePrimary` actions, so a SnackBar reads as inverted chrome on
 both themes. Do not restyle it to a container tier.
 
+**AppBar scrolled-under.** `appBarTheme.backgroundColor` must stay a
+`WidgetStateColor` that resolves `colorScheme.surface` at rest and
+`colorScheme.surfaceContainer` under `WidgetState.scrolledUnder` — M3's
+"tint when content scrolls beneath" without an elevation overlay. Feature
+`AppBar`s never set a background. For a page whose tabs each own a
+scrollable, pick the rule by the tab body, not by hand:
+
+| Tab body | Scroll-notification depth | Rule |
+|---|---|---|
+| `TabSlideStack` (no Scrollable ancestor; list depth 0) | 0 | Default judgement is already the visible list — call `announceTabScroll` after each switch |
+| `TabBarView`/`PageView` wrapping the list | 1 | `AppBar(notificationPredicate: (n) => n.depth == 1)` |
+
+The AppBar only reacts to `ScrollUpdateNotification`, so after a tab switch
+it would keep the previous tab's state: call `announceTabScroll` on the new
+tab's `ScrollController` (see the Tab Navigation Animation Contract).
+
 Feature code reads `ColorScheme`, `TextTheme`, and component defaults from the
 ambient theme. `MaterialUiCompatibilityBridge` is installed once in the app
 builder for legacy plugin subtrees; feature pages do not add another bridge.
@@ -287,14 +303,28 @@ Widget tests read `SystemChrome.latestStyle` only after a `pump` (the
 
 ## NavigationBar Contract
 
-`HomePage` renders one M3 `NavigationBar` with the five localized
-`NavigationDestination`s. Its selected index comes from
-`StatefulNavigationShell.currentIndex`, and destination selection calls
-`goBranch`. Branch selection is owned by the shell; the destination callback
-does not create a second tab controller or animation.
+`HomeBranchStack` owns the bottom bar and the navigation rail — shell chrome
+laid over the branch strip, not part of any page's content. Both read the
+shared `homeDestinations(context)` list (five `FuncBottomNavDestination`s —
+icon + localized label; the fifth is `homeMe`), so the bar and the rail
+never disagree on order, icons, or labels. Destination selection goes
+through `HomeBranchStack._select`, which calls `goBranch`; there is no
+second tab controller or per-destination animation.
+
+`FuncBottomNav` is a custom bar (`destinations`, `selectedIndex`,
+`onSelected`) — not a `NavigationBar` — because the M3 widget sizes its
+indicator to the label while this app paints the fixed pill. Each item
+renders a 56×32 `NavigationIndicator` stadium behind the icon
+(`FuncBottomNav.indicatorSize`), cross-faded by a per-item selection
+controller; the ink response is clipped to that pill, so splashes never
+cover the label. Item semantics mirror `NavigationBar`'s: the destination
+exposes its localized `tabLabel` plus the selected flag, so screen readers
+announce "selected, <label>, tab, N of 5". Labels are laid out through
+`LabelFit` with a hard 1.3 scale cap — above `textScaler` 1.3 the label
+stays at 1.3 so the row cannot outgrow the 64dp bar.
 
 The shell publishes the bar's resting extent through `HomeShellChrome`, an
-InheritedWidget `BranchSlideStack` wraps around the strip and the bar —
+InheritedWidget `HomeBranchStack` wraps around the strip and the bar —
 computed synchronously, not measured post-layout:
 `rail ? 0 : FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom)`.
 `restingExtent` is the fixed `_height` row plus the bottom safe-area inset
@@ -317,15 +347,25 @@ cannot reach the scope is the root-messenger update prompt; it reads the
 it on mount/deactivate) and recomputes the same formula from its own
 context's padding.
 
+Scroll auto-hide yields to touch exploration: while
+`MediaQuery.accessibleNavigationOf(context)` is true,
+`HomeBranchStack._onScrollNotification` returns early — a TalkBack user
+cannot find a bar that scrolled away. If the flag flips while the bar is
+hidden, `_navVisibility` is driven back to 1. `accessibleNavigation` tracks
+only TalkBack-style touch exploration; services that merely open the
+semantics tree (for example `tester.ensureSemantics()`) do not set it, and
+the bar keeps hiding on scroll for them. A pushed route covering the shell
+still slides the bar away — that is not auto-hide.
+
 The five labels share one `LabelFit` (see the Multi-Locale Layout
 Contract): the widest translation sets one scale for all of them against
 the slot `itemWidth − 2 × 6`, floor 0.8, and past the floor every label
 ellipsizes with a tooltip. The labels are measured and painted in one
 style — the ambient `DefaultTextStyle` merged with the bar's 12sp label
-style — and the selection indicator's width is the same measurement taken
-through `fit.scaler`, so it spans exactly the painted label.
-`func_bottom_nav_test.dart` pins the shared scale, the tooltip and the
-indicator width.
+style — so one shared scale keeps every destination identical.
+`func_bottom_nav_test.dart` pins the shared scale, the tooltip, the pill
+geometry, the 1.3 cap, the pill-clipped ripple, and the selected
+semantics.
 
 ## Top Tab Contract
 
@@ -359,7 +399,7 @@ break two things: inside `PullToRefresh` a sideways drag would arm a
 refresh (see the Shared Pull-to-Refresh Contract), and
 `FuncScrollBehavior`'s always-scrollable parent would let a row that fits
 claim the drag, so a swipe starting on it would never reach
-`RootSwipeSwitcher`. `app_type_switch_test.dart` proves both — a fitting
+`TabSwipeSwitcher`. `app_type_switch_test.dart` proves both — a fitting
 row under `FuncScrollBehavior` hands the swipe to an enclosing horizontal
 drag detector, and sideways drags on fitting and overflowing rows never
 call `onRefresh` — and the `the work type row on a real feed` group in
@@ -718,8 +758,12 @@ the message is shown, instead of reading a disposed page context later.
 
 The Android application enables `android:enableOnBackInvokedCallback`. Pages
 use `PopScope.onPopInvokedWithResult`; `WillPopScope` is not part of the app
-route model. go_router first pops the current branch stack. At a branch root,
-the shell delegates to `RootBackCoordinator` for the existing double-back exit
+route model. go_router first pops the current branch stack. At a branch
+root, `HomePage`'s `PopScope` decides from the active branch: the
+Recommended root (`currentIndex == 0` and the shell URI at `/recommended`)
+reports `canPop: true` and hands the back event to the system — on Android
+that leaves the app. Every other branch root claims the back event and
+returns to Recommended via `goBranch(0)`. There is no double-tap exit
 window.
 
 `FuncPage<T>` (`lib/app/navigation/func_page.dart`) is the page behind every
@@ -727,7 +771,8 @@ window.
 `buildTransitions` needs the `PageRoute` itself — a `CustomTransitionPage`
 `transitionsBuilder` closure never receives it. `_page` passes the scoped
 `MotionScope.transitionStyleOf(context)` into `FuncPage.transitionStyle`
-(Settings → Browse → Page transition, persisted as `pageTransitionStyle`),
+(Me → Motion & haptics → Page transition, persisted as
+`pageTransitionStyle`),
 and `_FuncPageRoute.buildTransitions` switches on it:
 
 | Style | Android | Other platforms |
@@ -778,7 +823,7 @@ Only the visible route may take the gesture. Each home-shell branch Navigator
 keeps an `isCurrent` route alive while parked a page-width offstage, and
 Flutter hands the gesture to the last-registered `popGestureEnabled` route —
 without a gate a hidden branch pops a page the user cannot see.
-`BranchSlideStack` wraps every branch in `BranchActivityScope` (`active` =
+`HomeBranchStack` wraps every branch in `BranchActivityScope` (`active` =
 the branch is settled as the current index AND the enclosing route — a
 root-level page above the shell — is current or absent).
 `_FuncPageRoute.popGestureEnabled` returns `super.popGestureEnabled &&
@@ -1043,27 +1088,49 @@ onTap: () => Navigator.push(detailRoute); // do not await the preload
 
 ## Tab Navigation Animation Contract
 
-`TabBar` owns the `TabController.animateTo` call for a tap. A tab's `onTap`
-callback may update selected state, lazy-build bookkeeping, or an auxiliary
-selector, but must not call `animateTo` for the same index. Starting a second
-animation from the callback resets the indicator/body flight and produces a
-visible stall on fast taps. Programmatic selection may call `animateTo` only
-when it did not originate from the `TabBar` tap callback.
+Between home-shell branches there is no swipe: `HomeBranchStack` cross-fades
+the outgoing and incoming branch through `FadeThroughTransition` over
+`MotionTokens.branchSwitch` (a straight swap at zero duration under reduced
+motion). Only the current branch is hit-testable, semantic, and
+`BranchActivityScope.active` during the flight; `Offstage` keeps unvisited
+branches unbuilt.
+
+In-page tab strips keep the gesture. `TabSwipeSwitcher` requires a
+`tabController`, follows a horizontal drag, and commits or cancels at the
+edge — the drag never crosses into a branch switch. `TabBar` owns the
+`TabController.animateTo` call for a tap. A tab's `onTap` callback may
+update selected state, lazy-build bookkeeping, or an auxiliary selector, but
+must not call `animateTo` for the same index. Starting a second animation
+from the callback resets the indicator/body flight and produces a visible
+stall on fast taps. Programmatic selection may call `animateTo` only when it
+did not originate from the `TabBar` tap callback.
+
+After a tab switch the page calls `announceTabScroll(context, controller)`
+(`tab_swipe_switcher.dart`): it dispatches one synthetic
+`ScrollUpdateNotification` from a body-level context — above the page's
+scrollables but below the Scaffold — so the AppBar's scrolled-under state
+re-reads the new tab's position. Dispatching through the list's own
+position (`position.didUpdateScrollPositionBy(0)`) would make the feed's
+load-more listener see a zero-delta scroll and fire an extra request.
+Tab scroll controllers also register `ScrollController.onAttach` to issue
+the same announcement for a tab whose list mounts after the switch — the
+first visit through a skeleton otherwise leaves the bar stuck on the
+previous tab's state.
 
 ## Branch Re-tap Contract
 
 A tap on the bottom-bar destination that is already active is the re-tap
-gesture. `BranchSlidePager.selectIndex`
-(`lib/app/widgets/branch_slide_stack.dart`) detects it, calls
+gesture. `HomeBranchStack._select`
+(`lib/app/widgets/home_branch_stack.dart`) detects it, calls
 `goBranch` (a no-op on the live branch), pops the branch Navigator to its
 root — a `PopScope`-vetoed route (`doNotPop`) cuts the pop short — and
-fires `reTapEvents`.
+fires the `ReTapChannel`. Consumers read it through
+`HomeBranchStack.reTapOf(context)` — null outside the home shell.
 
-- `reTapEvents` is a `ReTapChannel` (`ChangeNotifier`): an edge, not a
-  state. Every same-destination tap emits, including consecutive taps on
-  the same index — a `ValueNotifier<int>` carrying the branch index would
-  swallow repeats.
-- `syncIndex`, drag settles, and programmatic moves never emit.
+- `ReTapChannel` (`ChangeNotifier`) is an edge, not a state. Every
+  same-destination tap emits, including consecutive taps on the same
+  index — a `ValueNotifier<int>` carrying the branch index would swallow
+  repeats. Only a same-index tap emits; `goBranch` moves never emit.
 - Consumers read `channel.branch`, compare it against
   `BranchRootScope.maybeOf(context)?.branchIndex`, and schedule the
   scroll post-frame so it lands after the pop commits. A vetoed pop
@@ -1078,10 +1145,10 @@ fires `reTapEvents`.
   `onTap` on the selected index while `!controller.indexIsChanging`, or an
   `AppTypeSwitch` `onSelected` that reports the current value.
 
-Owning tests: the `re-tap channel` group in
-`test/root_swipe_switcher_test.dart` (emit-once-per-tap, pop-to-root,
-sync/drag silence), plus per-page re-tap cases in
-`test/new_content_feed_test.dart` and `test/search_catalog_test.dart`.
+Owning tests: the re-tap group in `test/home_branch_stack_test.dart`
+(emit-once-per-tap, pop-to-root, programmatic silence), plus per-page
+re-tap cases in `test/new_content_feed_test.dart` and
+`test/search_catalog_test.dart`.
 
 ## Shared Pull-to-Refresh Contract
 
@@ -1471,6 +1538,26 @@ reintroduce it or hand-build group containers.
   `test/architecture/settings_rows_test.dart` pins the exact per-file
   `ListTile(` count; adding a hand-written row means extending that
   whitelist with a stated reason.
+
+**Me tab layout.** The fifth shell destination is `homeMe` (`SettingsPage`
+still owns the `/settings` route; the label and icon change, the path
+does not). Its group order is fixed: (1) the untitled account card —
+signed-in subtitle shows the account ID and taps through to `openMe`,
+signed-out shows `login` and taps through to `openLogin`; (2) my content
+(`settingsGroupLibrary`): history (`openHistory` — stays on the current
+stack), watch-later, watchlist, local novels, download tasks
+(`openDownloadTasks`, a root overlay); (3) account (`accountSettings`):
+account management only; (4) appearance: theme, language, translation,
+motion & haptics (`/settings/motion`); (5) browse (`/settings/browse`,
+static `settingsBrowseHint` summary — blocking and image quality live
+there) plus the muted list; (6) network & downloads: network (which also
+owns the image-source controls), download settings; (7) data: backup;
+(8) untitled about; (9) the conditional developer group. Page ownership:
+`/settings/motion` holds transition style, animation speed, reduced
+motion, press feedback, and haptic strength; credential export lives in
+account management; the history record/Pixiv switches and delete-all
+live in the history page's overflow menu — there is no history settings
+page and no `/settings/history/view` route.
 
 ## First-Load Skeletons
 

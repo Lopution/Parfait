@@ -1,15 +1,5 @@
-import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
-
-import '../../app/layout/app_breakpoints.dart';
-import '../../core/navigation/route_observer.dart';
-import '../../app/widgets/app_snack_bar.dart';
-import '../../app/widgets/func_bottom_nav.dart';
-import '../../core/platform/platform_caps.dart';
-import '../../core/platform/root_back_coordinator.dart';
-import '../../l10n/context.dart';
+import 'package:material_ui/material_ui.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.navigationShell});
@@ -20,108 +10,26 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with WidgetsBindingObserver, RouteAware {
-  late final RootBackCoordinator _backCoordinator;
-  RouteObserver<ModalRoute<dynamic>> _routeObserver = replicaRouteObserver;
-  bool _routeSubscribed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _backCoordinator = RootBackCoordinator();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final observer =
-        RouteObserverScope.maybeOf(context) ?? replicaRouteObserver;
-    final route = ModalRoute.of(context);
-    if (_routeSubscribed && identical(observer, _routeObserver)) return;
-    if (_routeSubscribed) _routeObserver.unsubscribe(this);
-    _routeObserver = observer;
-    _routeSubscribed = false;
-    if (route != null) {
-      _routeObserver.subscribe(this, route);
-      _routeSubscribed = true;
-    }
-  }
-
-  @override
-  void didPushNext() => _backCoordinator.onRoutePushed();
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    _backCoordinator.onLifecycleChange(state);
-  }
-
-  @override
-  void dispose() {
-    if (_routeSubscribed) _routeObserver.unsubscribe(this);
-    WidgetsBinding.instance.removeObserver(this);
-    _backCoordinator.dispose();
-    super.dispose();
-  }
-
-  void _handleRootBack(bool didPop) {
-    if (didPop) return;
-    // Double-back-to-exit is an Android pattern. Desktop has no root back
-    // gesture that reaches this callback; a stray one must not show an
-    // exit hint for a window that closes via the title bar.
-    if (!ProviderScope.containerOf(
-      context,
-    ).read(platformCapsProvider).isAndroid) {
-      return;
-    }
-    switch (_backCoordinator.handleBackPress()) {
-      case RootBackAction.showExitHint:
-        // HomePage's ScaffoldMessenger is above the branch-root Scaffold that
-        // owns the bottom bar. A floating SnackBar otherwise anchors to the
-        // screen edge and covers the bar; the shell margin lifts it by the
-        // same extent the shell's chrome slot uses — computable here because
-        // nothing between this page and the bar strips the bottom inset.
-        // U4 (R7): the hint's lifetime must equal the exit window — with
-        // the default 4s SnackBar the text was still on screen long after
-        // the window closed, so it was describing a state that was
-        // already false.
-        final bottomBarExtent =
-            AppBreakpoints.useNavigationRail(MediaQuery.sizeOf(context).width)
-            ? 0.0
-            : FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom);
-        showAppSnackBarOn(
-          ScaffoldMessenger.of(context),
-          context.l10n.homeExitHint,
-          duration: RootBackCoordinator.exitWindow,
-          margin: appSnackBarShellMargin(bottomBarExtent),
-          // The resolved messenger is the root one — it sits above
-          // MotionScope, so the gate must come from this page's context.
-          animationStyle: snackBarAnimationStyleFor(context),
-        );
-      case RootBackAction.exit:
-        SystemNavigator.pop();
-    }
-  }
-
+class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
-    // The navigation chrome — bottom bar or NavigationRail, whichever the
-    // width ladder selects — is owned by the shell's BranchSlideStack so
-    // both controls share one action entry (BranchSlidePager.selectIndex).
-    // Narrow layout: the bar floats over the branch strip and a pushed
-    // route slides it away via the covered provider. Wide layout: no bar
-    // at all — HomeShellChrome publishes a zero extent.
+    final shell = widget.navigationShell;
+    // Only the start destination's own root hands back to the system. Every
+    // other branch root claims the back event and returns to Recommended.
+    final atStart =
+        shell.currentIndex == 0 &&
+        shell.shellRouteContext.routerState.uri.path == '/recommended';
     return PopScope<void>(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) => _handleRootBack(didPop),
+      canPop: atStart,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && shell.currentIndex != 0) shell.goBranch(0);
+      },
       child: Scaffold(
         // Keyboard overlay, not resize: this Scaffold's body is the branch
         // navigator — resizing it compresses every pushed route regardless
-        // of the leaf page's own resizeToAvoidBottomInset (the search
-        // input page's `false` was previously defeated here).
+        // of the leaf page's own resizeToAvoidBottomInset.
         resizeToAvoidBottomInset: false,
-        body: widget.navigationShell,
+        body: shell,
       ),
     );
   }

@@ -13,7 +13,7 @@ import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/motion/page_transitions.dart';
 import 'package:parfait/app/navigation/func_page.dart';
 import 'package:parfait/app/navigation/routes.dart';
-import 'package:parfait/app/widgets/branch_slide_stack.dart';
+import 'package:parfait/app/widgets/home_branch_stack.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -604,7 +604,7 @@ void main() {
     // goBranch keeps the branch stack — go() would re-match the root
     // and drop the pushed page.
     tester
-        .widget<BranchSlideStack>(find.byType(BranchSlideStack))
+        .widget<HomeBranchStack>(find.byType(HomeBranchStack))
         .shell
         .goBranch(0);
     await tester.pump();

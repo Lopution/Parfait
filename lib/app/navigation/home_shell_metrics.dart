@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The shell's bottom-bar extent, published as an inherited value by
-/// [BranchSlideStack] — the shell computes it synchronously from
+/// [HomeBranchStack] — the shell computes it synchronously from
 /// `FuncBottomNav.restingExtent` and the view padding, so branch pages can
 /// reserve the slot on the very first frame instead of waiting for a
 /// post-layout measurement.
@@ -28,7 +28,7 @@ class HomeShellChrome extends InheritedWidget {
   /// landing clip reads it per frame so a half-returned bar clips at its
   /// real top edge instead of the resting one.
   ///
-  /// The instance is a stable notifier owned by `BranchSlideStack`;
+  /// The instance is a stable notifier owned by `HomeBranchStack`;
   /// [updateShouldNotify] deliberately ignores it. Stays 0 on rail
   /// layouts, where no bottom bar exists.
   ///

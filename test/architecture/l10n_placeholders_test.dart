@@ -41,7 +41,6 @@ const _textPlaceholderKeys = <String, String>{
   'namingTemplateHint': 'naming-template variable tokens',
   'namingTemplateVariables': 'naming-template variable list',
   'downloadGroupAuthorTitle': 'author name',
-  'settingsHistorySummary': 'formatted counts',
   // `reason` is always errorCategoryText output (showErrorSnackBar).
   'errorWithReason': 'localized action and category',
   'rankingLoadFailed': 'localized ranking mode label',

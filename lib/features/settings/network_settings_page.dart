@@ -13,8 +13,10 @@ import '../../app/widgets/settings/settings_choice_tile.dart';
 import '../../app/widgets/settings/settings_group.dart';
 import '../../app/widgets/settings/settings_group_content.dart';
 import '../../app/widgets/settings/settings_tile.dart';
+import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/settings_load_error.dart';
-import '../../core/network/compat/network_contracts.dart' show NetworkRouteKind;
+import '../../core/network/compat/network_contracts.dart'
+    show NetworkRouteKind, NetworkRedirectException, PixivDestinationPurpose;
 import '../../core/network/compat/network_providers.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
@@ -102,6 +104,7 @@ class NetworkSettingsPage extends ConsumerWidget {
                 ),
               ],
             ),
+            const _ImageSourceSection(),
             SettingsGroup(
               children: [
                 SettingsTile(
@@ -126,6 +129,210 @@ class NetworkSettingsPage extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Image-source picker: presets plus a custom https origin with save and
+/// probe-test actions. Stateful for the custom input's draft and the
+/// in-flight test flag.
+class _ImageSourceSection extends ConsumerStatefulWidget {
+  const _ImageSourceSection();
+
+  @override
+  ConsumerState<_ImageSourceSection> createState() =>
+      _ImageSourceSectionState();
+}
+
+class _ImageSourceSectionState extends ConsumerState<_ImageSourceSection> {
+  late final TextEditingController _customController;
+  late final FocusNode _customFocusNode;
+  bool _customDirty = false;
+  bool _testingMirror = false;
+
+  static const _presets = [
+    ImageSourceMode.auto,
+    ImageSourceMode.normal,
+    ImageSourceMode.pixivCat,
+    ImageSourceMode.pixivRe,
+    ImageSourceMode.pixivNl,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _customController = TextEditingController();
+    _customFocusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _customController.dispose();
+    _customFocusNode.dispose();
+    super.dispose();
+  }
+
+  Future<bool> _selectSource(String source) {
+    return persistSettings(
+      context,
+      () => ref.read(settingsProvider.notifier).selectImageSource(source),
+    );
+  }
+
+  /// Returns the normalized custom prefix after validating, persisting and
+  /// selecting it — or null when the input cannot be a safe https origin.
+  /// The destination registry only trusts the *active* selection, so the
+  /// candidate must be stored before the policy can route a probe to it.
+  Future<String?> _applyCustomInput() async {
+    final normalized = ImageMirror.normalizeCustomSource(
+      _customController.text,
+    );
+    if (normalized == null) {
+      showAppSnackBar(context, context.l10n.imageSourceCustomInvalid);
+      return null;
+    }
+    final saved = await _selectSource(normalized);
+    if (!saved || !mounted) return null;
+    setState(() => _customDirty = false);
+    return normalized;
+  }
+
+  Future<void> _saveCustomSource() async {
+    final normalized = await _applyCustomInput();
+    if (normalized != null && mounted) {
+      showAppSnackBar(context, context.l10n.saved);
+    }
+  }
+
+  /// Connectivity check through the real image pipeline: the just-selected
+  /// mirror host is allowlisted on the rebuilt policy, and the request runs
+  /// the same resolver/route/client pool as on-screen image loads. Any HTTP
+  /// response — including an error status — proves the origin answered.
+  Future<void> _testMirror() async {
+    final normalized = await _applyCustomInput();
+    if (normalized == null) return;
+    setState(() => _testingMirror = true);
+    try {
+      final client = ref
+          .read(pixivNetworkFactoryProvider)
+          .client(PixivDestinationPurpose.image);
+      final response = await client
+          .get(Uri.parse(normalized))
+          .timeout(const Duration(seconds: 10));
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          context.l10n.imageSourceTestOk('${response.statusCode}'),
+        );
+      }
+    } on NetworkRedirectException catch (error) {
+      if (mounted) {
+        // The returned status code is the probe's expected output, not raw
+        // error text — a redirect answer still describes a reachable host.
+        final statusCode = error.statusCode;
+        showAppSnackBar(context, context.l10n.imageSourceTestOk('$statusCode'));
+      }
+    } on Object catch (error) {
+      if (mounted) {
+        showErrorSnackBar(
+          context,
+          action: context.l10n.imageSourceTestFailed,
+          error: error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _testingMirror = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(settingsProvider);
+    final settings = state.value;
+    if (settings == null) return const SizedBox.shrink();
+    final customSource = settings.customImageSource ?? '';
+    if (!_customDirty && _customController.text != customSource) {
+      _customController.text = customSource;
+    }
+    final isCustom = settings.imageSourceMode == ImageSourceMode.custom;
+    final autoWinner = ref.watch(autoImageSourceWinnerProvider);
+    return guardDraft(
+      dirty: _customDirty,
+      child: SettingsGroup(
+        title: Text(context.l10n.imageSource),
+        children: [
+          for (final mode in _presets)
+            SettingsChoiceTile(
+              title: Text(imageSourceLabel(context, mode)),
+              subtitle: switch (mode) {
+                ImageSourceMode.pixivCat => Text(
+                  context.l10n.imageSourceUnreachableMainland,
+                ),
+                ImageSourceMode.auto => Text(
+                  autoWinner == null
+                      ? context.l10n.imageSourceAutoPending
+                      : context.l10n.imageSourceAutoWinner(autoWinner),
+                ),
+                _ => null,
+              },
+              selected: settings.imageSource == mode.host,
+              onTap: () => _selectSource(mode.host),
+            ),
+          SettingsChoiceTile(
+            title: Text(context.l10n.imageSourceCustom),
+            subtitle: Text(
+              settings.customImageSource ?? context.l10n.imageSourceCustomUnset,
+            ),
+            selected: isCustom,
+            onTap: () {
+              final saved = settings.customImageSource;
+              if (saved != null) {
+                _selectSource(saved);
+              } else {
+                _customFocusNode.requestFocus();
+              }
+            },
+          ),
+          SettingsGroupContent(
+            child: TextField(
+              controller: _customController,
+              focusNode: _customFocusNode,
+              decoration: InputDecoration(
+                labelText: context.l10n.imageSourceCustom,
+                helperText: context.l10n.imageSourceCustomHint,
+                helperMaxLines: 3,
+                border: const OutlineInputBorder(),
+              ),
+              onChanged: (_) => setState(() => _customDirty = true),
+            ),
+          ),
+          SettingsGroupContent(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  FilledButton.tonal(
+                    onPressed: _testingMirror ? null : _saveCustomSource,
+                    child: Text(context.l10n.save),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: _testingMirror ? null : _testMirror,
+                    icon: _testingMirror
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.network_check, size: 18),
+                    label: Text(context.l10n.imageSourceApplyAndTest),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

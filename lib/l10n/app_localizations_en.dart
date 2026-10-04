@@ -112,7 +112,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loginClipboardHint =>
-      'On a signed-in device, open Settings → Export account credential to copy it, then come back here to import.';
+      'On a signed-in device, open Me → Accounts → Export account credential to copy it, then come back here to import.';
 
   @override
   String get accountTransferSensitiveWarning =>
@@ -217,7 +217,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agreementPrivacyBody =>
-      'Settings, caches, browsing history, Watch later and downloaded files are stored on this device. The app has no analytics, ads or crash reporting, and sends none of your data to the developer\'s servers.\n\nCrash logs stay on this device; you decide whether to share them through Settings → About → Export logs.\n\nUninstalling the app or clearing its data deletes this content (downloads saved to public folders excepted).';
+      'Settings, caches, browsing history, Watch later and downloaded files are stored on this device. The app has no analytics, ads or crash reporting, and sends none of your data to the developer\'s servers.\n\nCrash logs stay on this device; you decide whether to share them through Me → About → Export logs.\n\nUninstalling the app or clearing its data deletes this content (downloads saved to public folders excepted).';
 
   @override
   String get agreementDisclaimerTitle => 'Disclaimer';
@@ -232,9 +232,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get agreementUpdates =>
       'This agreement may change as features or laws change; continuing to use the app after a change means you accept the updated agreement.';
-
-  @override
-  String get settingsTitle => 'Settings';
 
   @override
   String get settingsGroupAppearance => 'Appearance';
@@ -532,13 +529,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get browseSettings => 'Browse settings';
 
   @override
+  String get settingsBrowseHint => 'Local blocking, image quality';
+
+  @override
   String get downloadSettings => 'Download settings';
 
   @override
   String get historySettings => 'History';
 
   @override
-  String get historyView => 'View browsing history';
+  String get historyRecordLocal => 'Record local history';
+
+  @override
+  String get historyRecordPixiv => 'Record to Pixiv history';
 
   @override
   String get historyEmpty => 'No browsing history';
@@ -850,12 +853,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scaleQuality => 'Viewer quality (original)';
 
   @override
-  String get localHistory => 'Local browsing history';
-
-  @override
-  String get pixivHistory => 'Pixiv browsing history';
-
-  @override
   String get blockR18 => 'Locally block R-18 works';
 
   @override
@@ -939,6 +936,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get animationSpeedReduceHint =>
       'Animations are off while Reduce motion is on, so the speed has no effect';
+
+  @override
+  String get motionSettings => 'Motion & haptics';
 
   @override
   String get motionPageTransition => 'Page transition';
@@ -1140,10 +1140,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get translateCredentialHint =>
       'Translation credentials are never written to ordinary settings; secure storage owns them when needed.';
-
-  @override
-  String get historySettingsHint =>
-      'The history module reads these switches; disabled histories do not receive new records.';
 
   @override
   String get downloadTasksEmpty => 'No download tasks';
@@ -1355,17 +1351,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsWriteFailed => 'Failed to save settings';
 
   @override
-  String get settingsSummaryOn => 'On';
-
-  @override
-  String get settingsSummaryOff => 'Off';
-
-  @override
-  String settingsHistorySummary(String local, String pixiv) {
-    return 'Local $local · Pixiv $pixiv';
-  }
-
-  @override
   String settingsMutedSummary(int count) {
     return '$count muted items';
   }
@@ -1449,9 +1434,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get homeMe => 'Me';
-
-  @override
-  String get homeExitHint => 'Press back again to exit';
 
   @override
   String get bookmarkIllust => 'Bookmark illustration';

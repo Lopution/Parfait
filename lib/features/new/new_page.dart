@@ -14,9 +14,9 @@ import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/app_tab_bar.dart';
-import '../../app/widgets/branch_slide_stack.dart';
+import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/func_bottom_nav.dart';
-import '../../app/widgets/root_swipe_switcher.dart';
+import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../l10n/context.dart';
@@ -62,6 +62,12 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   bool _suppressRouteEcho = false;
   ReTapChannel? _reTapChannel;
 
+  /// A context inside the Scaffold's notification scope, captured from the
+  /// body's Builder: scroll announcements dispatched from here reach the
+  /// app bar's ScrollNotificationObserver without passing the feeds' own
+  /// NotificationListeners — a synthetic update must not trip load-more.
+  late BuildContext _notificationContext;
+
   static const _scopes = NewFeedScope.values;
 
   @override
@@ -79,7 +85,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final channel = BranchSlideStack.maybeOf(context)?.reTapEvents;
+    final channel = HomeBranchStack.reTapOf(context);
     if (identical(channel, _reTapChannel)) return;
     _reTapChannel?.removeListener(_onBranchReTap);
     _reTapChannel = channel;
@@ -124,7 +130,19 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   NewFeedKey get _activeKey => _keyFor(_scopes[_selectedIndex]);
 
   ScrollController _scrollControllerFor(NewFeedKey key) =>
-      _scrollControllers.putIfAbsent(key, ScrollController.new);
+      _scrollControllers.putIfAbsent(
+        key,
+        () => ScrollController(
+          onAttach: (_) {
+            // A first-visited tab's list mounts after the tab-change
+            // announce has already fired — re-announce so the app bar's
+            // scrolled-under state still lands on the tab on screen.
+            if (key == _activeKey) {
+              announceTabScroll(_notificationContext, _scrollControllers[key]!);
+            }
+          },
+        ),
+      );
 
   /// Every drag start lands here; only a first visit to a neighbour needs
   /// a rebuild.
@@ -143,6 +161,9 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
       _selectedIndex = _tabController.index;
       _loadedKeys.add(_activeKey);
     });
+    // The app bar's scrolled-under state must follow the tab now on
+    // screen, not the last list that scrolled.
+    announceTabScroll(_notificationContext, _scrollControllerFor(_activeKey));
     if (!_suppressRouteEcho) {
       widget.onScopeChanged?.call(_scopes[_selectedIndex]);
     }
@@ -190,7 +211,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
           ],
         ),
         // Same entry as the ranking page's novel ranking. Other feature
-        // entries (watchlist, local novels) live in settings' content
+        // entries (watchlist, local novels) live in the Me tab's content
         // group.
         actions: [
           if (widget.type == NewFeedType.illust)
@@ -201,30 +222,35 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
             ),
         ],
       ),
-      body: RootSwipeSwitcher(
-        tabController: _tabController,
-        // A neighbor the finger is about to uncover has to exist before
-        // the slide starts — same offscreen-page warmup ViewPager does.
-        onPrepareAdjacent: _prepareAdjacent,
-        child: TabSlideStack(
-          controller: _tabController,
-          children: [
-            for (final key in _scopes.map(_keyFor))
-              // A scope slot builds its feed on first visit (or swipe
-              // warm-up) and keeps it from then on.
-              if (_loadedKeys.contains(key))
-                _bodies.putIfAbsent(
-                  key,
-                  () => _NewFeedBody(
-                    key: ValueKey(key),
-                    feedKey: key,
-                    scrollController: _scrollControllerFor(key),
-                  ),
-                )
-              else
-                const SizedBox.shrink(),
-          ],
-        ),
+      body: Builder(
+        builder: (context) {
+          _notificationContext = context;
+          return TabSwipeSwitcher(
+            tabController: _tabController,
+            // A neighbor the finger is about to uncover has to exist before
+            // the slide starts — same offscreen-page warmup ViewPager does.
+            onPrepareAdjacent: _prepareAdjacent,
+            child: TabSlideStack(
+              controller: _tabController,
+              children: [
+                for (final key in _scopes.map(_keyFor))
+                  // A scope slot builds its feed on first visit (or swipe
+                  // warm-up) and keeps it from then on.
+                  if (_loadedKeys.contains(key))
+                    _bodies.putIfAbsent(
+                      key,
+                      () => _NewFeedBody(
+                        key: ValueKey(key),
+                        feedKey: key,
+                        scrollController: _scrollControllerFor(key),
+                      ),
+                    )
+                  else
+                    const SizedBox.shrink(),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

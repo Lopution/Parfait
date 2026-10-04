@@ -39,7 +39,7 @@
   "useLoginWithClipboard": "使用剪贴板数据登录",
   "accountTransferExportTitle": "导出账号凭据",
   "accountTransferWarning": "剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。",
-  "loginClipboardHint": "先在已登录的设备上打开「设置 → 导出账号凭据」复制，再回到这里导入。",
+  "loginClipboardHint": "先在已登录的设备上打开「我的 → 账号管理 → 导出账号凭据」复制，再回到这里导入。",
   "accountTransferSensitiveWarning": "此设备不支持敏感剪贴板标记（Android 13+ 才支持）：凭据将以明文进入系统剪贴板，请尽快粘贴；5 分钟后自动清除。",
   "accountTransferCopied": "账号迁移数据已复制，请尽快在目标设备粘贴。",
   "accountTransferImported": "账号迁移成功",
@@ -68,12 +68,11 @@
   "agreementThirdPartyTitle": "第三方服务",
   "agreementThirdPartyBody": "以下服务只在你使用相应功能时访问：\n• 评论翻译（默认关闭）：把评论原文发送给你选择的 Google 翻译、百度翻译，或你填写的 OpenAI 兼容接口；\n• 以图搜图：把你选择的图片上传到 SauceNAO 或 iqdb。\n\n登录网页由 Pixiv 提供，可能加载 Pixiv 使用的第三方资源（例如人机验证）。\n\n检查更新：本应用每 24 小时最多自动访问一次 GitHub 上的版本清单；F-Droid 版本不检查更新。",
   "agreementPrivacyTitle": "隐私与本地数据",
-  "agreementPrivacyBody": "设置、缓存、浏览历史、稍后再看与下载文件都保存在本机。本应用没有统计、广告或崩溃上报，不会把你的数据发送到开发者的服务器。\n\n崩溃日志只保存在本机，由你决定是否通过「设置 → 关于 → 导出日志」分享。\n\n卸载应用或清除数据会删除这些内容（保存到公共目录的下载文件除外）。",
+  "agreementPrivacyBody": "设置、缓存、浏览历史、稍后再看与下载文件都保存在本机。本应用没有统计、广告或崩溃上报，不会把你的数据发送到开发者的服务器。\n\n崩溃日志只保存在本机，由你决定是否通过「我的 → 关于 → 导出日志」分享。\n\n卸载应用或清除数据会删除这些内容（保存到公共目录的下载文件除外）。",
   "agreementDisclaimerTitle": "免责声明",
   "agreementDisclaimerBody": "本应用按现状提供，不保证没有错误或持续可用。因网络、账号、第三方服务或不可抗力造成的内容丢失、访问失败或其他损失，作者在法律允许范围内不承担责任。",
   "agreementUpdatesTitle": "协议更新",
   "agreementUpdates": "协议可能随功能或法律变化而更新；更新后继续使用即表示接受更新后的协议。",
-  "settingsTitle": "设置",
   "settingsGroupAppearance": "外观",
   "settingsGroupNetwork": "网络与下载",
   "settingsGroupBrowse": "浏览",
@@ -171,9 +170,11 @@
   "languageSettings": "语言",
   "translateSettings": "翻译",
   "browseSettings": "浏览设置",
+  "settingsBrowseHint": "本地屏蔽、图片画质",
   "downloadSettings": "下载设置",
   "historySettings": "历史记录",
-  "historyView": "查看浏览历史",
+  "historyRecordLocal": "记录本地浏览历史",
+  "historyRecordPixiv": "记录到 Pixiv 浏览历史",
   "historyEmpty": "暂无浏览历史",
   "historyLoadFailed": "历史记录加载失败",
   "historyDelete": "删除历史记录",
@@ -336,8 +337,6 @@
   "qualityLarge": "大图",
   "qualityOriginal": "原图",
   "scaleQuality": "查看质量（原图）",
-  "localHistory": "本地浏览历史",
-  "pixivHistory": "Pixiv 浏览历史",
   "blockR18": "本地屏蔽 R-18 作品",
   "blockAI": "本地屏蔽 AI 作品",
   "hideMuted": "直接隐藏被屏蔽的作品",
@@ -365,6 +364,7 @@
   "animationSpeedSlow": "慢",
   "animationSpeedHint": "作用于应用内全部动画；水波纹等系统控件动画不受影响",
   "animationSpeedReduceHint": "开启「减少动态效果」时不播放动画，速度不生效",
+  "motionSettings": "动效与触感",
   "motionPageTransition": "页面转场",
   "pageTransitionStyleSystem": "系统默认",
   "pageTransitionStyleSystemHint": "安卓系统转场，支持预测性返回",
@@ -457,7 +457,6 @@
   "translateBaiduHint": "百度翻译标准版无需认证，但只有 5 万字符/月、每秒 1 次，评论翻译基本不够；高级版需个人实名认证（姓名 + 身份证号），100 万字符/月、每秒 10 次。凭据仅用于翻译请求。",
   "translateLlmCredentialHint": "仅允许 HTTPS 接口；翻译使用固定提示词，不开放模型与高级参数。评论正文与译文不会持久化。",
   "translateCredentialHint": "翻译凭据不会写入普通设置；需要时由安全存储管理。",
-  "historySettingsHint": "历史记录开关由历史模块读取；关闭后不会新增对应记录。",
   "downloadTasksEmpty": "暂无下载任务",
   "downloadQueued": "排队中",
   "downloadRunning": "下载中",
@@ -557,7 +556,7 @@
     }
   },
   "downloadAuthorEmpty": "该作者没有可下载的作品。",
-"downloadAuthorFailed": "枚举作品失败",
+  "downloadAuthorFailed": "枚举作品失败",
   "downloadCaption": "同时导出作品简介",
   "downloadCaptionHint": "下载插画/漫画时，把标题、作者与简介保存为同名 .txt",
   "aboutVersion": "版本",
@@ -590,19 +589,6 @@
   "aboutAttributionText": "版权所有及维护：Lopution。",
   "settingsReadFailed": "读取设置失败",
   "settingsWriteFailed": "设置保存失败",
-  "settingsSummaryOn": "开",
-  "settingsSummaryOff": "关",
-  "settingsHistorySummary": "本地 {local} · Pixiv {pixiv}",
-  "@settingsHistorySummary": {
-    "placeholders": {
-      "local": {
-        "type": "String"
-      },
-      "pixiv": {
-        "type": "String"
-      }
-    }
-  },
   "settingsMutedSummary": "{count} 个屏蔽项",
   "@settingsMutedSummary": {
     "placeholders": {
@@ -643,7 +629,6 @@
   "homeRecommended": "推荐",
   "homeRanking": "排行",
   "homeMe": "我的",
-  "homeExitHint": "再按一次退出",
   "bookmarkIllust": "收藏插画",
   "bookmarkNovel": "收藏小说",
   "bookmarkOperationFailed": "收藏操作失败",

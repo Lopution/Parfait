@@ -91,7 +91,7 @@ void main() {
       expect(iconWidgets, hasLength(5));
 
       // Four destinations use the bundled beta56 iconFont — the prominent
-      // center circle included — while settings stays a Material icon.
+      // center circle included — while Me stays a Material icon.
       final bundled = iconWidgets
           .where((w) => w.icon!.fontFamily == 'iconFont')
           .toList();
@@ -100,7 +100,7 @@ void main() {
         expect(icon.icon!.matchTextDirection, isTrue);
       }
       expect(
-        iconWidgets.any((w) => identical(w.icon, Icons.settings_outlined)),
+        iconWidgets.any((w) => identical(w.icon, Icons.person_outline)),
         isTrue,
       );
     },

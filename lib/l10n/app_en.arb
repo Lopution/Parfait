@@ -39,7 +39,7 @@
   "useLoginWithClipboard": "Login with clipboard data",
   "accountTransferExportTitle": "Export account credential",
   "accountTransferWarning": "The clipboard is kept briefly and may be read by other apps; this format provides neither encryption nor sender authentication.",
-  "loginClipboardHint": "On a signed-in device, open Settings → Export account credential to copy it, then come back here to import.",
+  "loginClipboardHint": "On a signed-in device, open Me → Accounts → Export account credential to copy it, then come back here to import.",
   "accountTransferSensitiveWarning": "This device cannot mark clipboard entries as sensitive (Android 13+ only): the credential will sit in the system clipboard in plaintext. Paste as soon as possible; it is cleared automatically after 5 minutes.",
   "accountTransferCopied": "Account-transfer data copied. Paste it on the target device soon.",
   "accountTransferImported": "Account transfer succeeded",
@@ -68,12 +68,11 @@
   "agreementThirdPartyTitle": "Third-party services",
   "agreementThirdPartyBody": "These services are contacted only when you use the matching feature:\n• Comment translation (off by default): sends the comment text to the Google Translate, Baidu Translate or OpenAI-compatible endpoint you chose;\n• Reverse image search: uploads the image you picked to SauceNAO or iqdb.\n\nThe sign-in pages are served by Pixiv and may load third-party resources Pixiv uses (for example, CAPTCHA checks).\n\nUpdate checks: the app fetches the version manifest on GitHub automatically at most once every 24 hours; the F-Droid build does not check for updates.",
   "agreementPrivacyTitle": "Privacy and local data",
-  "agreementPrivacyBody": "Settings, caches, browsing history, Watch later and downloaded files are stored on this device. The app has no analytics, ads or crash reporting, and sends none of your data to the developer's servers.\n\nCrash logs stay on this device; you decide whether to share them through Settings → About → Export logs.\n\nUninstalling the app or clearing its data deletes this content (downloads saved to public folders excepted).",
+  "agreementPrivacyBody": "Settings, caches, browsing history, Watch later and downloaded files are stored on this device. The app has no analytics, ads or crash reporting, and sends none of your data to the developer's servers.\n\nCrash logs stay on this device; you decide whether to share them through Me → About → Export logs.\n\nUninstalling the app or clearing its data deletes this content (downloads saved to public folders excepted).",
   "agreementDisclaimerTitle": "Disclaimer",
   "agreementDisclaimerBody": "The app is provided as is, without any guarantee that it is error-free or will stay available. To the extent permitted by law, the author is not liable for lost content, failed access or other losses caused by the network, accounts, third-party services or force majeure.",
   "agreementUpdatesTitle": "Changes to this agreement",
   "agreementUpdates": "This agreement may change as features or laws change; continuing to use the app after a change means you accept the updated agreement.",
-  "settingsTitle": "Settings",
   "settingsGroupAppearance": "Appearance",
   "settingsGroupNetwork": "Network & downloads",
   "settingsGroupBrowse": "Browsing",
@@ -171,9 +170,11 @@
   "languageSettings": "Language",
   "translateSettings": "Translate",
   "browseSettings": "Browse settings",
+  "settingsBrowseHint": "Local blocking, image quality",
   "downloadSettings": "Download settings",
   "historySettings": "History",
-  "historyView": "View browsing history",
+  "historyRecordLocal": "Record local history",
+  "historyRecordPixiv": "Record to Pixiv history",
   "historyEmpty": "No browsing history",
   "historyLoadFailed": "Failed to load history",
   "historyDelete": "Delete history",
@@ -336,8 +337,6 @@
   "qualityLarge": "Large",
   "qualityOriginal": "Original",
   "scaleQuality": "Viewer quality (original)",
-  "localHistory": "Local browsing history",
-  "pixivHistory": "Pixiv browsing history",
   "blockR18": "Locally block R-18 works",
   "blockAI": "Locally block AI works",
   "hideMuted": "Hide muted works",
@@ -365,6 +364,7 @@
   "animationSpeedSlow": "Slow",
   "animationSpeedHint": "Applies to every in-app animation; system effects such as ripples are unaffected",
   "animationSpeedReduceHint": "Animations are off while Reduce motion is on, so the speed has no effect",
+  "motionSettings": "Motion & haptics",
   "motionPageTransition": "Page transition",
   "pageTransitionStyleSystem": "System default",
   "pageTransitionStyleSystemHint": "Android system transition with predictive back",
@@ -457,7 +457,6 @@
   "translateBaiduHint": "Baidu standard needs no verification but allows only 50k chars/month at 1 QPS, too little for comments; premium requires personal real-name verification (name + ID number) for 1M chars/month at 10 QPS. Credentials are used only for translation requests.",
   "translateLlmCredentialHint": "HTTPS endpoints only; translation uses a fixed prompt without model/advanced knobs. Comment text and translations are never persisted.",
   "translateCredentialHint": "Translation credentials are never written to ordinary settings; secure storage owns them when needed.",
-  "historySettingsHint": "The history module reads these switches; disabled histories do not receive new records.",
   "downloadTasksEmpty": "No download tasks",
   "downloadQueued": "Queued",
   "downloadRunning": "Downloading",
@@ -557,7 +556,7 @@
     }
   },
   "downloadAuthorEmpty": "This author has no downloadable works.",
-"downloadAuthorFailed": "Failed to enumerate works",
+  "downloadAuthorFailed": "Failed to enumerate works",
   "downloadCaption": "Export work caption",
   "downloadCaptionHint": "Save the title, author and caption as a matching .txt next to downloaded illusts and manga",
   "aboutVersion": "Version",
@@ -590,19 +589,6 @@
   "aboutAttributionText": "Copyright and maintained by Lopution.",
   "settingsReadFailed": "Failed to read settings",
   "settingsWriteFailed": "Failed to save settings",
-  "settingsSummaryOn": "On",
-  "settingsSummaryOff": "Off",
-  "settingsHistorySummary": "Local {local} · Pixiv {pixiv}",
-  "@settingsHistorySummary": {
-    "placeholders": {
-      "local": {
-        "type": "String"
-      },
-      "pixiv": {
-        "type": "String"
-      }
-    }
-  },
   "settingsMutedSummary": "{count} muted items",
   "@settingsMutedSummary": {
     "placeholders": {
@@ -643,7 +629,6 @@
   "homeRecommended": "For you",
   "homeRanking": "Ranking",
   "homeMe": "Me",
-  "homeExitHint": "Press back again to exit",
   "bookmarkIllust": "Bookmark illustration",
   "bookmarkNovel": "Bookmark novel",
   "bookmarkOperationFailed": "Bookmark operation failed",

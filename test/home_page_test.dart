@@ -12,8 +12,6 @@ import 'package:parfait/core/auth/account_repository.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/platform/intent_router.dart';
-import 'package:parfait/core/platform/platform_caps.dart';
-import 'package:parfait/core/platform/root_back_coordinator.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/new/new_page.dart';
@@ -101,83 +99,6 @@ Future<void> _pumpHome(
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
-  testWidgets(
-    'U4: exit hint snackbar lifetime equals the root back exit window',
-    (tester) async {
-      // Pin a compact surface so the shell renders the bottom bar whose
-      // measured height the hint's margin is asserted against.
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            // Root double-back-to-exit is Android-only; the test host is
-            // Linux, so the coordinator path needs Android caps injected.
-            platformCapsProvider.overrideWithValue(
-              const PlatformCaps(isAndroid: true),
-            ),
-            ...accountProviderOverrides(
-              credentialStore: FakeCredentialStore(
-                values: const {
-                  '100': Credential(
-                    accessToken: 'a-100',
-                    refreshToken: 'r-100',
-                  ),
-                },
-              ),
-              metadataRepository: FakeAccountMetadataRepository(
-                accounts: _signedInSnapshot.accounts,
-                currentId: _signedInSnapshot.currentId,
-              ),
-            ),
-          ],
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            routerConfig: createPixivRouter(initialLocation: '/recommended'),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // First root back press arms the exit window and shows the hint.
-      await tester.binding.handlePopRoute();
-      await tester.pump();
-
-      final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
-      // The hint must not outlive the window it describes (U4: the default
-      // 4-second SnackBar was still showing after the window had closed).
-      expect(snackBar.duration, RootBackCoordinator.exitWindow);
-      expect(snackBar.behavior, SnackBarBehavior.floating);
-      expect(find.text('再按一次退出'), findsOneWidget);
-
-      // The hint clears the shell bottom bar: the floating margin grows by
-      // the bar's computed resting extent, and the rendered card never
-      // touches the bar.
-      final barExtent = tester.getSize(find.byType(FuncBottomNav)).height;
-      expect(snackBar.margin, EdgeInsets.fromLTRB(16, 0, 16, 16 + barExtent));
-      final card = tester.getRect(
-        find.descendant(
-          of: find.byType(SnackBar),
-          matching: find.byType(Material),
-        ),
-      );
-      final bar = tester.getRect(find.byType(FuncBottomNav));
-      expect(card.overlaps(bar), isFalse);
-
-      // A second press inside the window exits via SystemNavigator.pop; in
-      // the test environment that is a no-op that must not throw.
-      await tester.binding.handlePopRoute();
-      await tester.pump();
-    },
-  );
-
-  testWidgets('root back coordinator window is one second', (tester) async {
-    expect(RootBackCoordinator.exitWindow, const Duration(seconds: 1));
   });
 
   testWidgets(

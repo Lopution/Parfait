@@ -17,8 +17,9 @@ import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
-import 'package:parfait/app/widgets/root_swipe_switcher.dart';
+import 'package:parfait/app/widgets/tab_swipe_switcher.dart';
 import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/skeleton/illust_grid_skeleton.dart';
@@ -586,6 +587,79 @@ void main() {
 
       expect(controller.offset, 0);
       expect(fixture.requests.length, requestsBefore);
+    });
+  });
+
+  testWidgets('the app bar follows the visible tab’s scrolled-under state', (
+    tester,
+  ) async {
+    final (container, _) = await _makeWorld(
+      fixture: _RankingFixture(itemsPerPage: 24),
+    );
+    addTearDown(container.dispose);
+    final router = createPixivRouter(initialLocation: '/ranking');
+    addTearDown(router.dispose);
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await mockNetworkImagesFor(() async {
+      final theme = replicaTheme(Brightness.dark);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            theme: theme,
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      Color appBarColor() => tester
+          .widget<Material>(
+            find
+                .descendant(
+                  of: find.byType(AppBar),
+                  matching: find.byType(Material),
+                )
+                .first,
+          )
+          .color!;
+      final dayFeed = find
+          .descendant(
+            of: find.byType(RankingPage),
+            matching: find.byType(CustomScrollView),
+          )
+          .first;
+
+      expect(appBarColor(), theme.scaffoldBackgroundColor);
+
+      // Scroll the day feed: the bar picks up the scrolled-under step.
+      // (jumpTo — touch drags are gated off the list by SmoothWheelScroll
+      // on the desktop test platform.)
+      tester.widget<CustomScrollView>(dayFeed).controller!.jumpTo(300);
+      await tester.pumpAndSettle();
+      expect(appBarColor(), theme.colorScheme.surfaceContainer);
+
+      // A first-visited tab mounts its list after the switch — the attach
+      // announce still lands the bar on the un-scrolled tab.
+      await tester.tap(find.byType(Tab).at(1));
+      await tester.pumpAndSettle();
+      expect(appBarColor(), theme.scaffoldBackgroundColor);
+
+      // Back to day: the kept scroll position re-tints the bar.
+      await tester.tap(find.byType(Tab).at(0));
+      await tester.pumpAndSettle();
+      expect(appBarColor(), theme.colorScheme.surfaceContainer);
+
+      // And the now-visited r18 tab, never scrolled, restores again.
+      await tester.tap(find.byType(Tab).at(1));
+      await tester.pumpAndSettle();
+      expect(appBarColor(), theme.scaffoldBackgroundColor);
     });
   });
 }

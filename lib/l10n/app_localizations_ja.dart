@@ -112,7 +112,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get loginClipboardHint =>
-      'ログイン済みの端末で「設定 → アカウント認証情報をエクスポート」からコピーし、ここに戻ってインポートしてください。';
+      'ログイン済みの端末で「マイページ → アカウント管理 → アカウント認証情報をエクスポート」からコピーし、ここに戻ってインポートしてください。';
 
   @override
   String get accountTransferSensitiveWarning =>
@@ -212,7 +212,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get agreementPrivacyBody =>
-      '設定、キャッシュ、閲覧履歴、あとで見る、ダウンロードしたファイルはすべてこの端末に保存されます。本アプリには統計、広告、クラッシュ報告の仕組みがなく、データを開発者のサーバーに送信しません。\n\nクラッシュログはこの端末にのみ保存され、「設定 → このアプリについて → ログをエクスポート」で共有するかどうかはご自身で決められます。\n\nアプリのアンインストールやデータの消去でこれらは削除されます（公開フォルダに保存したダウンロードファイルを除く）。';
+      '設定、キャッシュ、閲覧履歴、あとで見る、ダウンロードしたファイルはすべてこの端末に保存されます。本アプリには統計、広告、クラッシュ報告の仕組みがなく、データを開発者のサーバーに送信しません。\n\nクラッシュログはこの端末にのみ保存され、「マイページ → このアプリについて → ログをエクスポート」で共有するかどうかはご自身で決められます。\n\nアプリのアンインストールやデータの消去でこれらは削除されます（公開フォルダに保存したダウンロードファイルを除く）。';
 
   @override
   String get agreementDisclaimerTitle => '免責事項';
@@ -227,9 +227,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get agreementUpdates =>
       '本規約は機能や法律の変更に応じて更新されることがあります。更新後も利用を続けた場合、更新後の規約に同意したものとします。';
-
-  @override
-  String get settingsTitle => '設定';
 
   @override
   String get settingsGroupAppearance => '外観';
@@ -517,13 +514,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get browseSettings => 'ブラウズ設定';
 
   @override
+  String get settingsBrowseHint => 'ローカル非表示・画質';
+
+  @override
   String get downloadSettings => 'ダウンロード設定';
 
   @override
   String get historySettings => '履歴';
 
   @override
-  String get historyView => '閲覧履歴を見る';
+  String get historyRecordLocal => 'ローカルに閲覧履歴を記録';
+
+  @override
+  String get historyRecordPixiv => 'Pixivの閲覧履歴に記録';
 
   @override
   String get historyEmpty => '閲覧履歴はありません';
@@ -823,12 +826,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get scaleQuality => 'ビューア画質（オリジナル）';
 
   @override
-  String get localHistory => 'ローカル閲覧履歴';
-
-  @override
-  String get pixivHistory => 'Pixiv 閲覧履歴';
-
-  @override
   String get blockR18 => 'R-18作品をローカルで非表示';
 
   @override
@@ -909,6 +906,9 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get animationSpeedReduceHint =>
       '「視覚効果を減らす」がオンの間はアニメーションを再生しないため、速度は反映されません';
+
+  @override
+  String get motionSettings => 'モーションと触覚';
 
   @override
   String get motionPageTransition => '画面遷移';
@@ -1103,9 +1103,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get translateCredentialHint =>
       '翻訳の認証情報は通常の設定に保存せず、必要な場合は安全なストレージで管理します。';
-
-  @override
-  String get historySettingsHint => '履歴機能がこのスイッチを読み取ります。無効にすると新しい履歴を追加しません。';
 
   @override
   String get downloadTasksEmpty => 'ダウンロードタスクはありません';
@@ -1309,17 +1306,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsWriteFailed => '設定の保存に失敗しました';
 
   @override
-  String get settingsSummaryOn => 'オン';
-
-  @override
-  String get settingsSummaryOff => 'オフ';
-
-  @override
-  String settingsHistorySummary(String local, String pixiv) {
-    return 'ローカル $local · Pixiv $pixiv';
-  }
-
-  @override
   String settingsMutedSummary(int count) {
     return 'ミュート項目 $count 件';
   }
@@ -1400,9 +1386,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get homeMe => 'マイページ';
-
-  @override
-  String get homeExitHint => 'もう一度戻ると終了します';
 
   @override
   String get bookmarkIllust => 'イラストをブックマーク';
