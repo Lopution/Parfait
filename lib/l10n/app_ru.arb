@@ -625,6 +625,7 @@
   "viewerNoImages": "Нет изображений для отображения",
   "downloadAll": "Скачать всё",
   "downloadQueuedMessage": "Добавлено в очередь загрузки",
+  "downloadAlreadyQueued": "Уже в очереди загрузки",
   "downloadSubmissionFailed": "Не удалось скачать",
   "downloadFailurePermission": "Нет разрешения на доступ к хранилищу",
   "downloadFailureResource": "Недостаточно ресурсов устройства или файл слишком большой",

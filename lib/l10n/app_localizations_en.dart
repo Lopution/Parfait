@@ -1394,6 +1394,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadQueuedMessage => 'Added to the download queue';
 
   @override
+  String get downloadAlreadyQueued => 'Already in the download queue';
+
+  @override
   String get downloadSubmissionFailed => 'Download failed';
 
   @override

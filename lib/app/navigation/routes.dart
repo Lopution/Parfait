@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../haptics/app_haptics.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/entity/comment_entity.dart';
@@ -716,6 +717,24 @@ List<RouteBase> _commonBranchRoutes(
   return routes;
 }
 
+GoRoute _overlayRoute(
+  String path, {
+  required GlobalKey<NavigatorState> rootNavigatorKey,
+  required RouteObserver<ModalRoute<dynamic>> rootObserver,
+  required GoRouterPageBuilder pageBuilder,
+}) {
+  return GoRoute(
+    path: path,
+    parentNavigatorKey: rootNavigatorKey,
+    pageBuilder: pageBuilder,
+    routes: _commonBranchRoutes(
+      rootObserver,
+      rootNavigatorKey: rootNavigatorKey,
+      rootObserver: rootObserver,
+    ),
+  );
+}
+
 /// Settings subpages grafted under the `/settings` home branch. They take
 /// the branch observer so route-aware widgets behave the same as on any
 /// other branch stack.
@@ -999,8 +1018,10 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
           ),
         ],
       ),
-      GoRoute(
-        path: '/reverse-image',
+      _overlayRoute(
+        '/reverse-image',
+        rootNavigatorKey: appRootNavigatorKey,
+        rootObserver: appRootRouteObserver,
         pageBuilder: (context, state) => _page(
           context,
           state,
@@ -1011,28 +1032,28 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
                 : null,
           ),
         ),
-        // Results open illust/user pages on top of the reverse-image page
-        // itself (root stack). Pushing a shell location from here would stack
-        // a second home shell on the root navigator.
-        routes: _commonBranchRoutes(
-          appRootRouteObserver,
-          rootNavigatorKey: appRootNavigatorKey,
-          rootObserver: appRootRouteObserver,
-        ),
       ),
       // The personal profile is an app-level flow pushed on the root
       // navigator, not a home tab: /me renders over the home shell so the
       // settings branch stays reachable even while the account/profile
       // cannot load. Common routes stay mounted so the shared facade keeps
       // working from inside profile pages.
-      GoRoute(
-        path: '/me',
+      _overlayRoute(
+        '/me',
+        rootNavigatorKey: appRootNavigatorKey,
+        rootObserver: appRootRouteObserver,
         pageBuilder: (context, state) =>
             _page(context, state, appRootRouteObserver, const MePage()),
-        routes: _commonBranchRoutes(
+      ),
+      _overlayRoute(
+        '/downloads',
+        rootNavigatorKey: appRootNavigatorKey,
+        rootObserver: appRootRouteObserver,
+        pageBuilder: (context, state) => _page(
+          context,
+          state,
           appRootRouteObserver,
-          rootNavigatorKey: appRootNavigatorKey,
-          rootObserver: appRootRouteObserver,
+          const DownloadTasksPage(),
         ),
       ),
       StatefulShellRoute(
@@ -1298,11 +1319,28 @@ Future<void> openNewNovels(BuildContext context) async {
   await _push(context, '${_currentStackRoot(context)}/new-novels');
 }
 
-/// Download tasks live under the settings shell — the SnackBar "查看"
-/// action lands there directly regardless of which stack submitted the
-/// download.
+/// Download tasks are an app-level page over the current stack.
 Future<void> openDownloadTasks(BuildContext context) async {
-  await _push(context, '/settings/tasks');
+  await _push(context, '/downloads');
+}
+
+/// Binds the SnackBar action to the router while the submitting page is
+/// alive, so it remains valid after that page is popped or disposed.
+void showDownloadSubmittedSnackBar(
+  BuildContext context, {
+  bool alreadyQueued = false,
+}) {
+  final router = GoRouter.of(context);
+  final l10n = context.l10n;
+  if (!alreadyQueued) AppHaptics.success();
+  showAppSnackBar(
+    context,
+    alreadyQueued ? l10n.downloadAlreadyQueued : l10n.downloadQueuedMessage,
+    action: SnackBarAction(
+      label: l10n.downloadViewResult,
+      onPressed: () => unawaited(router.push<void>('/downloads')),
+    ),
+  );
 }
 
 Future<void> openWatchLater(BuildContext context) async {

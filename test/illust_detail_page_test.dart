@@ -38,6 +38,7 @@ import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart'
 import 'package:parfait/features/illust/detail/widgets/illust_detail_skeleton.dart';
 import 'package:parfait/features/illust/detail/ugoira_viewer.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
+import 'package:parfait/features/settings/pages/download_tasks_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/search/tag_search_page.dart';
 import 'package:parfait/app/widgets/tag_chips.dart';
@@ -1019,6 +1020,28 @@ void main() {
   });
 
   group('IllustDetailPage download mode (R4)', () {
+    testWidgets('download feedback opens tasks after the detail is disposed', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        final (container, _, _) = await makeWorld();
+        await pumpDetail(tester, container, useRouter: true);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Download All'));
+        await tester.pumpAndSettle();
+        expect(container.read(downloadManagerProvider).tasks, hasLength(2));
+        expect(find.text('View'), findsOneWidget);
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byType(IllustDetailPage), findsNothing);
+        await tester.tap(find.text('View'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DownloadTasksPage), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+    });
+
     testWidgets('multi-page works expose an explicit selection action', (
       tester,
     ) async {

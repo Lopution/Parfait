@@ -2579,6 +2579,12 @@ abstract class AppLocalizations {
   /// **'已加入下载队列'**
   String get downloadQueuedMessage;
 
+  /// No description provided for @downloadAlreadyQueued.
+  ///
+  /// In zh, this message translates to:
+  /// **'已在下载队列中'**
+  String get downloadAlreadyQueued;
+
   /// No description provided for @downloadSubmissionFailed.
   ///
   /// In zh, this message translates to:

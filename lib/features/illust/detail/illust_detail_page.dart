@@ -208,15 +208,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
       return;
     }
     if (!mounted) return;
-    AppHaptics.success();
-    showAppSnackBar(
-      context,
-      context.l10n.downloadQueuedMessage,
-      action: SnackBarAction(
-        label: context.l10n.downloadViewResult,
-        onPressed: () => unawaited(openDownloadTasks(context)),
-      ),
-    );
+    showDownloadSubmittedSnackBar(context);
     setState(() => _selectedPages = null);
   }
 
@@ -353,15 +345,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 return;
               }
               if (!context.mounted) return;
-              AppHaptics.success();
-              showAppSnackBar(
-                context,
-                context.l10n.downloadQueuedMessage,
-                action: SnackBarAction(
-                  label: context.l10n.downloadViewResult,
-                  onPressed: () => unawaited(openDownloadTasks(context)),
-                ),
-              );
+              showDownloadSubmittedSnackBar(context);
             },
             icon: const Icon(Icons.file_download_outlined),
           ),

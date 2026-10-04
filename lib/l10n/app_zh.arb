@@ -625,6 +625,7 @@
   "viewerNoImages": "没有可显示的图片",
   "downloadAll": "下载全部",
   "downloadQueuedMessage": "已加入下载队列",
+  "downloadAlreadyQueued": "已在下载队列中",
   "downloadSubmissionFailed": "下载失败",
   "downloadFailurePermission": "缺少存储权限",
   "downloadFailureResource": "设备资源不足或文件过大",

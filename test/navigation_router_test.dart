@@ -226,7 +226,7 @@ void main() {
     expect(find.byType(RecommendedHomePage), findsOneWidget);
   });
 
-  testWidgets('openDownloadTasks lands on the settings tasks route', (
+  testWidgets('openDownloadTasks lands on the root downloads route', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -242,9 +242,49 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(router.state.uri.path, '/settings/tasks');
+    expect(router.state.uri.path, '/downloads');
     expect(find.byType(DownloadTasksPage), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/recommended');
   });
+
+  for (final origin in [
+    '/recommended',
+    '/ranking',
+    '/new',
+    '/search',
+    '/settings',
+    '/me',
+    '/reverse-image',
+    '/downloads',
+  ]) {
+    testWidgets('downloads return to $origin with one home shell', (
+      tester,
+    ) async {
+      final overlay = ['/me', '/reverse-image', '/downloads'].contains(origin);
+      final router = await pumpRouter(
+        tester,
+        overlay ? '/recommended' : origin,
+      );
+      if (overlay) {
+        unawaited(router.push<void>(origin));
+        await tester.pumpAndSettle();
+      }
+      unawaited(openDownloadTasks(tester.element(find.byType(Scaffold).last)));
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/downloads');
+      expect(find.byType(DownloadTasksPage), findsOneWidget);
+      expect(
+        find.byType(StatefulNavigationShell, skipOffstage: false),
+        findsOneWidget,
+      );
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, origin);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('pop slides the outgoing page as a snapshot texture', (
     tester,

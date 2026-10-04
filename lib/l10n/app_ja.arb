@@ -625,6 +625,7 @@
   "viewerNoImages": "表示できる画像がありません",
   "downloadAll": "すべてダウンロード",
   "downloadQueuedMessage": "ダウンロードキューに追加しました",
+  "downloadAlreadyQueued": "すでにダウンロードキューにあります",
   "downloadSubmissionFailed": "ダウンロードに失敗しました",
   "downloadFailurePermission": "ストレージ権限がありません",
   "downloadFailureResource": "デバイスのリソース不足またはファイルが大きすぎます",
