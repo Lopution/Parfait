@@ -52,6 +52,12 @@ class _RankingPageState extends State<RankingPage>
   /// every loaded feed (and its visible cards) inside the swipe frame.
   final _bodies = <RankingMode, Widget>{};
   int _selectedIndex = 0;
+
+  /// A context inside the Scaffold's notification scope, captured from the
+  /// body's Builder: scroll announcements dispatched from here reach the
+  /// app bar's ScrollNotificationObserver without passing the feeds' own
+  /// NotificationListeners — a synthetic update must not trip load-more.
+  late BuildContext _notificationContext;
   ReTapChannel? _reTapChannel;
 
   @override
@@ -95,11 +101,26 @@ class _RankingPageState extends State<RankingPage>
       _selectedIndex = _tabController.index;
       _loadedModes.add(_selectedIndex);
     });
+    // The app bar's scrolled-under state must follow the tab now on
+    // screen, not the last list that scrolled.
+    announceTabScroll(_notificationContext, _scrollControllerFor(mode));
     widget.onModeChanged?.call(mode);
   }
 
   ScrollController _scrollControllerFor(RankingMode mode) {
-    return _scrollControllers.putIfAbsent(mode, ScrollController.new);
+    return _scrollControllers.putIfAbsent(
+      mode,
+      () => ScrollController(
+        onAttach: (_) {
+          // A first-visited tab's list mounts after the tab-change
+          // announce has already fired — re-announce so the app bar's
+          // scrolled-under state still lands on the tab on screen.
+          if (mode == RankingMode.values[_selectedIndex]) {
+            announceTabScroll(_notificationContext, _scrollControllers[mode]!);
+          }
+        },
+      ),
+    );
   }
 
   /// Every drag start lands here; only a first visit to a neighbour needs
@@ -170,28 +191,33 @@ class _RankingPageState extends State<RankingPage>
           ],
         ),
       ),
-      body: TabSwipeSwitcher(
-        tabController: _tabController,
-        // Warm the neighbor slots before a drag uncovers them — the strip
-        // slide shows real feeds instead of blank placeholders.
-        onPrepareAdjacent: _prepareAdjacent,
-        child: TabSlideStack(
-          controller: _tabController,
-          children: [
-            for (final (i, mode) in RankingMode.values.indexed)
-              if (_loadedModes.contains(i))
-                _bodies.putIfAbsent(
-                  mode,
-                  () => _RankingModeBody(
-                    key: ValueKey(mode),
-                    mode: mode,
-                    scrollController: _scrollControllerFor(mode),
-                  ),
-                )
-              else
-                const SizedBox.shrink(),
-          ],
-        ),
+      body: Builder(
+        builder: (context) {
+          _notificationContext = context;
+          return TabSwipeSwitcher(
+            tabController: _tabController,
+            // Warm the neighbor slots before a drag uncovers them — the
+            // strip slide shows real feeds instead of blank placeholders.
+            onPrepareAdjacent: _prepareAdjacent,
+            child: TabSlideStack(
+              controller: _tabController,
+              children: [
+                for (final (i, mode) in RankingMode.values.indexed)
+                  if (_loadedModes.contains(i))
+                    _bodies.putIfAbsent(
+                      mode,
+                      () => _RankingModeBody(
+                        key: ValueKey(mode),
+                        mode: mode,
+                        scrollController: _scrollControllerFor(mode),
+                      ),
+                    )
+                  else
+                    const SizedBox.shrink(),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

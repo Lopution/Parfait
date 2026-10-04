@@ -75,6 +75,12 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
   bool _suppressRouteEcho = false;
   ReTapChannel? _reTapChannel;
 
+  /// A context inside the Scaffold's notification scope, captured from the
+  /// body's Builder: scroll announcements dispatched from here reach the
+  /// app bar's ScrollNotificationObserver without passing the feeds' own
+  /// NotificationListeners — a synthetic update must not trip load-more.
+  late BuildContext _notificationContext;
+
   @override
   void initState() {
     super.initState();
@@ -137,6 +143,9 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
       _type = _types[_tabController.index];
       _loaded.add(_type);
     });
+    // The app bar's scrolled-under state must follow the tab now on
+    // screen, not the last list that scrolled.
+    announceTabScroll(_notificationContext, _scrollControllerFor(_type));
     if (!_suppressRouteEcho) {
       widget.onTypeChanged?.call(_type);
     }
@@ -158,7 +167,19 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
   }
 
   ScrollController _scrollControllerFor(RecommendedContentType type) {
-    return _scrollControllers.putIfAbsent(type, ScrollController.new);
+    return _scrollControllers.putIfAbsent(
+      type,
+      () => ScrollController(
+        onAttach: (_) {
+          // A first-visited tab's list mounts after the tab-change
+          // announce has already fired — re-announce so the app bar's
+          // scrolled-under state still lands on the tab on screen.
+          if (type == _type) {
+            announceTabScroll(_notificationContext, _scrollControllers[type]!);
+          }
+        },
+      ),
+    );
   }
 
   /// Every drag start lands here; only a first visit to a neighbour needs
@@ -198,29 +219,37 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
           },
         ),
       ),
-      body: TabSwipeSwitcher(
-        tabController: _tabController,
-        // A neighbor the finger is about to uncover has to exist before
-        // the slide starts — same offscreen-page warmup ViewPager does.
-        onPrepareAdjacent: _prepareAdjacent,
-        child: TabSlideStack(
-          controller: _tabController,
-          children: [
-            for (final type in _types)
-              if (_loaded.contains(type))
-                _bodies.putIfAbsent(
-                  type,
-                  () => _RecommendedFeedView(
-                    key: ValueKey(type),
-                    type: type,
-                    scrollController: _scrollControllerFor(type),
-                    entrancePlayed: _entrancePlayed.putIfAbsent(type, () => {}),
-                  ),
-                )
-              else
-                const SizedBox.shrink(),
-          ],
-        ),
+      body: Builder(
+        builder: (context) {
+          _notificationContext = context;
+          return TabSwipeSwitcher(
+            tabController: _tabController,
+            // A neighbor the finger is about to uncover has to exist before
+            // the slide starts — same offscreen-page warmup ViewPager does.
+            onPrepareAdjacent: _prepareAdjacent,
+            child: TabSlideStack(
+              controller: _tabController,
+              children: [
+                for (final type in _types)
+                  if (_loaded.contains(type))
+                    _bodies.putIfAbsent(
+                      type,
+                      () => _RecommendedFeedView(
+                        key: ValueKey(type),
+                        type: type,
+                        scrollController: _scrollControllerFor(type),
+                        entrancePlayed: _entrancePlayed.putIfAbsent(
+                          type,
+                          () => {},
+                        ),
+                      ),
+                    )
+                  else
+                    const SizedBox.shrink(),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

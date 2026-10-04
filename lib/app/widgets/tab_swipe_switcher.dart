@@ -193,3 +193,22 @@ class TabSlideStack extends StatelessWidget {
     );
   }
 }
+
+/// Re-reports [controller]'s list position after a tab switch, so the app
+/// bar's scrolled-under state follows the tab on screen instead of the
+/// last list that scrolled. [context] must sit inside the Scaffold's
+/// notification scope but outside the feed lists: dispatching from there
+/// reaches the ScrollNotificationObserver without passing the feeds' own
+/// NotificationListeners — a synthetic zero-delta update must not trip
+/// load-more or pull-to-refresh handlers. Runs after the frame: a tab
+/// built by the switch has no position until then.
+void announceTabScroll(BuildContext context, ScrollController controller) {
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!context.mounted || !controller.hasClients) return;
+    ScrollUpdateNotification(
+      metrics: controller.position,
+      context: context,
+      scrollDelta: 0,
+    ).dispatch(context);
+  });
+}

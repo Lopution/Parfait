@@ -35,6 +35,9 @@ class WatchlistPage extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: Text(context.l10n.watchlistTitle),
+          // The feeds sit one Scrollable deep inside the TabBarView's
+          // PageView, so their notifications arrive at depth 1.
+          notificationPredicate: (notification) => notification.depth == 1,
           bottom: AppTabBar(
             labels: [context.l10n.watchlistManga, context.l10n.watchlistNovel],
           ),

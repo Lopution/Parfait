@@ -156,9 +156,17 @@ ThemeData replicaTheme(
     colorScheme: colorScheme,
     textTheme: textTheme,
     appBarTheme: AppBarThemeData(
-      backgroundColor: background,
+      // A plain colour would be used for the scrolled-under state too
+      // (AppBar resolves both from the same property), hiding M3's
+      // surfaceContainer step. Only the background changes; no shadow.
+      backgroundColor: WidgetStateColor.resolveWith(
+        (states) => states.contains(WidgetState.scrolledUnder)
+            ? colorScheme.surfaceContainer
+            : background,
+      ),
       foregroundColor: text,
       elevation: 0,
+      scrolledUnderElevation: 0,
       surfaceTintColor: FuncTokens.transparent,
       iconTheme: IconThemeData(color: text),
       actionsIconTheme: IconThemeData(color: text),

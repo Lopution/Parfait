@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart' as mui;
 
 import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
+import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/core/series/series_recent_open_store.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
@@ -330,6 +332,53 @@ void main() {
       fixture.requests.map((r) => r.url.path),
       contains('/v1/watchlist/novel/delete'),
     );
+  });
+
+  testWidgets('scrolling a tab feed scrolls the app bar under', (tester) async {
+    final fixture = WatchlistFixture()
+      ..mangaSeries = [
+        for (var i = 0; i < 24; i++)
+          {
+            'id': 100 + i,
+            'title': 'Series $i',
+            'user': {'id': 5, 'name': 'author'},
+            'latest_content_id': 700 + i,
+          },
+      ];
+    final (container, _) = await makeWatchlistWorld(fixture: fixture);
+    addTearDown(container.dispose);
+
+    final theme = replicaTheme(Brightness.dark);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: mui.MaterialApp(
+          theme: theme,
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const WatchlistPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Color appBarColor() => tester
+        .widget<mui.Material>(
+          find
+              .descendant(
+                of: find.byType(mui.AppBar),
+                matching: find.byType(mui.Material),
+              )
+              .first,
+        )
+        .color!;
+    expect(appBarColor(), theme.scaffoldBackgroundColor);
+
+    // The feeds sit inside the TabBarView's PageView — their notifications
+    // reach the bar at depth 1, which the page's predicate accepts.
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(appBarColor(), theme.colorScheme.surfaceContainer);
   });
 }
 

@@ -62,6 +62,12 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   bool _suppressRouteEcho = false;
   ReTapChannel? _reTapChannel;
 
+  /// A context inside the Scaffold's notification scope, captured from the
+  /// body's Builder: scroll announcements dispatched from here reach the
+  /// app bar's ScrollNotificationObserver without passing the feeds' own
+  /// NotificationListeners — a synthetic update must not trip load-more.
+  late BuildContext _notificationContext;
+
   static const _scopes = NewFeedScope.values;
 
   @override
@@ -124,7 +130,19 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   NewFeedKey get _activeKey => _keyFor(_scopes[_selectedIndex]);
 
   ScrollController _scrollControllerFor(NewFeedKey key) =>
-      _scrollControllers.putIfAbsent(key, ScrollController.new);
+      _scrollControllers.putIfAbsent(
+        key,
+        () => ScrollController(
+          onAttach: (_) {
+            // A first-visited tab's list mounts after the tab-change
+            // announce has already fired — re-announce so the app bar's
+            // scrolled-under state still lands on the tab on screen.
+            if (key == _activeKey) {
+              announceTabScroll(_notificationContext, _scrollControllers[key]!);
+            }
+          },
+        ),
+      );
 
   /// Every drag start lands here; only a first visit to a neighbour needs
   /// a rebuild.
@@ -143,6 +161,9 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
       _selectedIndex = _tabController.index;
       _loadedKeys.add(_activeKey);
     });
+    // The app bar's scrolled-under state must follow the tab now on
+    // screen, not the last list that scrolled.
+    announceTabScroll(_notificationContext, _scrollControllerFor(_activeKey));
     if (!_suppressRouteEcho) {
       widget.onScopeChanged?.call(_scopes[_selectedIndex]);
     }
@@ -201,30 +222,35 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
             ),
         ],
       ),
-      body: TabSwipeSwitcher(
-        tabController: _tabController,
-        // A neighbor the finger is about to uncover has to exist before
-        // the slide starts — same offscreen-page warmup ViewPager does.
-        onPrepareAdjacent: _prepareAdjacent,
-        child: TabSlideStack(
-          controller: _tabController,
-          children: [
-            for (final key in _scopes.map(_keyFor))
-              // A scope slot builds its feed on first visit (or swipe
-              // warm-up) and keeps it from then on.
-              if (_loadedKeys.contains(key))
-                _bodies.putIfAbsent(
-                  key,
-                  () => _NewFeedBody(
-                    key: ValueKey(key),
-                    feedKey: key,
-                    scrollController: _scrollControllerFor(key),
-                  ),
-                )
-              else
-                const SizedBox.shrink(),
-          ],
-        ),
+      body: Builder(
+        builder: (context) {
+          _notificationContext = context;
+          return TabSwipeSwitcher(
+            tabController: _tabController,
+            // A neighbor the finger is about to uncover has to exist before
+            // the slide starts — same offscreen-page warmup ViewPager does.
+            onPrepareAdjacent: _prepareAdjacent,
+            child: TabSlideStack(
+              controller: _tabController,
+              children: [
+                for (final key in _scopes.map(_keyFor))
+                  // A scope slot builds its feed on first visit (or swipe
+                  // warm-up) and keeps it from then on.
+                  if (_loadedKeys.contains(key))
+                    _bodies.putIfAbsent(
+                      key,
+                      () => _NewFeedBody(
+                        key: ValueKey(key),
+                        feedKey: key,
+                        scrollController: _scrollControllerFor(key),
+                      ),
+                    )
+                  else
+                    const SizedBox.shrink(),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
