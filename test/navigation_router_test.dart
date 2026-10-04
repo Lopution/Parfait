@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'helpers/test_preferences.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/navigation/routes.dart';
-import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/core/search/search_models.dart';
@@ -75,21 +74,12 @@ void main() {
     expect(find.byType(RankingPage, skipOffstage: false), findsOneWidget);
   });
 
-  testWidgets('branch back is handled before the root exit coordinator', (
-    tester,
-  ) async {
+  testWidgets('branch back returns to the recommended root', (tester) async {
     final router = createPixivRouter(initialLocation: '/recommended');
     addTearDown(router.dispose);
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          // The root exit coordinator is Android-only; the test host is
-          // Linux, so inject Android caps for the back-press path.
-          platformCapsProvider.overrideWithValue(
-            const PlatformCaps(isAndroid: true),
-          ),
-        ],
         child: MaterialApp.router(
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
@@ -108,11 +98,6 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pump();
     expect(router.state.uri.path, '/recommended');
-    expect(find.text('再按一次退出'), findsNothing);
-
-    await tester.binding.handlePopRoute();
-    await tester.pump();
-    expect(find.text('再按一次退出'), findsOneWidget);
   });
 
   Future<GoRouter> pumpRouter(WidgetTester tester, String location) async {

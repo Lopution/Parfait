@@ -1453,9 +1453,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get homeMe => 'Профиль';
 
   @override
-  String get homeExitHint => 'Нажмите ещё раз, чтобы выйти';
-
-  @override
   String get bookmarkIllust => 'Добавить иллюстрацию в закладки';
 
   @override

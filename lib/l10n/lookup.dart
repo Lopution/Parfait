@@ -244,7 +244,6 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'historySettings' => l10n.historySettings,
   'historySettingsHint' => l10n.historySettingsHint,
   'historyView' => l10n.historyView,
-  'homeExitHint' => l10n.homeExitHint,
   'homeMe' => l10n.homeMe,
   'homeRanking' => l10n.homeRanking,
   'homeRecommended' => l10n.homeRecommended,

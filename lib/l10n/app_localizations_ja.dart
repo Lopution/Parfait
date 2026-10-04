@@ -1402,9 +1402,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get homeMe => 'マイページ';
 
   @override
-  String get homeExitHint => 'もう一度戻ると終了します';
-
-  @override
   String get bookmarkIllust => 'イラストをブックマーク';
 
   @override
