@@ -17,6 +17,7 @@ import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_models.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/novel/novel_store.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
@@ -326,5 +327,103 @@ void main() {
     expect(_selectionTitle('已选 1 项'), findsNothing);
     expect(find.text('历史记录'), findsOneWidget);
     expect(find.text('work 1'), findsOneWidget);
+  });
+
+  testWidgets('overflow menu toggles record switches and shows checks', (
+    tester,
+  ) async {
+    final container = await _seedPage(tester, [historyRecord(1)]);
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    // Defaults record into both stores — the check mark is the trailing
+    // icon of a checkable menu row.
+    for (final label in ['记录本地浏览历史', '记录到 Pixiv 浏览历史']) {
+      final item = find.widgetWithText(MenuItemButton, label);
+      expect(item, findsOneWidget);
+      expect(
+        find.descendant(of: item, matching: find.byIcon(Icons.check)),
+        findsOneWidget,
+      );
+    }
+    // Delete-all is an action row — enabled while signed in.
+    expect(
+      tester
+          .widget<MenuItemButton>(
+            find.widgetWithText(MenuItemButton, '删除全部历史记录'),
+          )
+          .onPressed,
+      isNotNull,
+    );
+
+    await tester.tap(find.widgetWithText(MenuItemButton, '记录本地浏览历史'));
+    await tester.pumpAndSettle();
+    // The controller's write tail is created in the seed's runAsync zone —
+    // let the real loop turn so the persisted value lands, same as the
+    // ffi-backed delete above.
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await tester.pump();
+    });
+    expect(container.read(settingsProvider).value!.enableHistory, isFalse);
+
+    // Reopened: the local switch reads unchecked, the Pixiv one still on.
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    final local = find.widgetWithText(MenuItemButton, '记录本地浏览历史');
+    expect(
+      find.descendant(of: local, matching: find.byIcon(Icons.check)),
+      findsNothing,
+    );
+    final pixiv = find.widgetWithText(MenuItemButton, '记录到 Pixiv 浏览历史');
+    expect(
+      find.descendant(of: pixiv, matching: find.byIcon(Icons.check)),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('signed out the menu keeps switches, disables delete-all', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.runAsync(() async {
+      final repository = await openHistoryRepository(const []);
+      final container = await makeHistoryWorld(repository, signedOut: true);
+      await tester.pumpWidget(_app(container));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await tester.pump();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await tester.pump();
+    });
+
+    // The overflow still opens — the record switches are global settings.
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<MenuItemButton>(
+            find.widgetWithText(MenuItemButton, '记录本地浏览历史'),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    expect(
+      tester
+          .widget<MenuItemButton>(
+            find.widgetWithText(MenuItemButton, '记录到 Pixiv 浏览历史'),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    expect(
+      tester
+          .widget<MenuItemButton>(
+            find.widgetWithText(MenuItemButton, '删除全部历史记录'),
+          )
+          .onPressed,
+      isNull,
+    );
   });
 }

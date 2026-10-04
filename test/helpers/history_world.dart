@@ -46,21 +46,28 @@ Future<HistoryRepository> openHistoryRepository(
 Future<ProviderContainer> makeHistoryWorld(
   HistoryRepository repository, {
   IllustStore? illustStore,
+  bool signedOut = false,
 }) async {
-  final credentials = FakeCredentialStore()
-    ..seed(
+  final credentials = FakeCredentialStore();
+  if (!signedOut) {
+    credentials.seed(
       '100',
       const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
     );
+  }
   final clientRef = <PixivHttpClient?>[null];
   final container = ProviderContainer(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
+        signedOut
+            ? FakeAccountMetadataRepository()
+            : FakeAccountMetadataRepository(
+                accounts: const [
+                  Account(id: '100', userId: 100, name: 'tester'),
+                ],
+                currentId: '100',
+              ),
       ),
       historyRepositoryProvider.overrideWithValue(repository),
       if (illustStore != null)

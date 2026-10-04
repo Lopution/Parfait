@@ -35,7 +35,6 @@ export 'pages/browse_settings_page.dart';
 export 'pages/download_settings_page.dart';
 export 'pages/download_destination_page.dart';
 export 'pages/download_tasks_page.dart';
-export 'pages/history_settings_page.dart';
 export 'pages/language_settings_page.dart';
 export 'pages/motion_settings_page.dart';
 export 'pages/theme_settings_page.dart';

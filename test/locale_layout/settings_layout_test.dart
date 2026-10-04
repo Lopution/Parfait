@@ -29,7 +29,6 @@ final _pages = <String, Widget>{
   'backup': const BackupSettingsPage(),
   'download': const DownloadSettingsPage(),
   'download destination': const DownloadDestinationPage(),
-  'history': const HistorySettingsPage(),
   'muted items': const MutedItemsPage(),
   'translation': const TranslateSettingsPage(),
   'translation credentials (Baidu)': const TranslationCredentialsPage(

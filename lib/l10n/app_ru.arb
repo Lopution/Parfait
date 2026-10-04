@@ -173,7 +173,8 @@
   "settingsBrowseHint": "Локальное скрытие, качество изображений",
   "downloadSettings": "Настройки загрузки",
   "historySettings": "История",
-  "historyView": "Открыть историю просмотров",
+  "historyRecordLocal": "Сохранять историю на устройстве",
+  "historyRecordPixiv": "Записывать в историю Pixiv",
   "historyEmpty": "История просмотров пуста",
   "historyLoadFailed": "Не удалось загрузить историю",
   "historyDelete": "Удалить историю",
@@ -336,8 +337,6 @@
   "qualityLarge": "Большое",
   "qualityOriginal": "Оригинал",
   "scaleQuality": "Качество просмотра (оригинал)",
-  "localHistory": "Локальная история просмотров",
-  "pixivHistory": "История просмотров Pixiv",
   "blockR18": "Локально скрывать работы R-18",
   "blockAI": "Локально скрывать работы AI",
   "hideMuted": "Скрывать заглушенные работы",
@@ -458,7 +457,6 @@
   "translateBaiduHint": "Стандартная версия Baidu не требует верификации, но даёт лишь 50 тыс. символов/мес при 1 запросе/с — для комментариев этого мало; премиум требует личную верификацию (имя + номер удостоверения): 1 млн символов/мес, 10 запросов/с. Учётные данные используются только для запросов перевода.",
   "translateLlmCredentialHint": "Только HTTPS; перевод использует фиксированный промпт без настроек модели. Текст и перевод не сохраняются.",
   "translateCredentialHint": "Данные перевода не записываются в обычные настройки; при необходимости они хранятся в защищённом хранилище.",
-  "historySettingsHint": "Модуль истории читает эти переключатели; отключённая история не получает новые записи.",
   "downloadTasksEmpty": "Нет задач загрузки",
   "downloadQueued": "В очереди",
   "downloadRunning": "Загрузка",
@@ -591,19 +589,6 @@
   "aboutAttributionText": "Авторские права и сопровождение: Lopution.",
   "settingsReadFailed": "Не удалось прочитать настройки",
   "settingsWriteFailed": "Не удалось сохранить настройки",
-  "settingsSummaryOn": "Вкл",
-  "settingsSummaryOff": "Выкл",
-  "settingsHistorySummary": "Локально: {local} · Pixiv: {pixiv}",
-  "@settingsHistorySummary": {
-    "placeholders": {
-      "local": {
-        "type": "String"
-      },
-      "pixiv": {
-        "type": "String"
-      }
-    }
-  },
   "settingsMutedSummary": "Скрытых элементов: {count}",
   "@settingsMutedSummary": {
     "placeholders": {

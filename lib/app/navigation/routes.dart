@@ -463,7 +463,6 @@ List<RouteBase> _commonBranchRoutes(
   RouteObserver<ModalRoute<dynamic>> branchObserver, {
   required GlobalKey<NavigatorState> rootNavigatorKey,
   required RouteObserver<ModalRoute<dynamic>> rootObserver,
-  bool includeHistory = true,
   bool includeSearch = true,
 }) {
   final routes = <RouteBase>[
@@ -743,9 +742,6 @@ List<RouteBase> _commonBranchRoutes(
       ),
     ),
   ];
-  if (!includeHistory) {
-    routes.removeWhere((route) => route is GoRoute && route.path == 'history');
-  }
   if (includeSearch) {
     routes.addAll(_searchRoutes(branchObserver, prefix: 'search/'));
   }
@@ -861,18 +857,6 @@ List<RouteBase> _settingsSubRoutes(
       ],
     ),
     GoRoute(
-      path: 'history',
-      pageBuilder: (context, state) =>
-          _page(context, state, observer, const HistorySettingsPage()),
-      routes: [
-        GoRoute(
-          path: 'view',
-          pageBuilder: (context, state) =>
-              _page(context, state, observer, const HistoryPage()),
-        ),
-      ],
-    ),
-    GoRoute(
       path: 'muted',
       pageBuilder: (context, state) =>
           _page(context, state, observer, const MutedItemsPage()),
@@ -919,7 +903,6 @@ StatefulShellBranch _branch({
   required GlobalKey<NavigatorState> rootNavigatorKey,
   required RouteObserver<ModalRoute<dynamic>> rootObserver,
   required String restorationScopeId,
-  bool includeHistory = true,
   bool includeSearch = true,
   List<RouteBase> routes = const [],
 }) {
@@ -927,7 +910,6 @@ StatefulShellBranch _branch({
     observer,
     rootNavigatorKey: rootNavigatorKey,
     rootObserver: rootObserver,
-    includeHistory: includeHistory,
     includeSearch: includeSearch,
   );
   return StatefulShellBranch(
@@ -1180,10 +1162,6 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
             rootNavigatorKey: appRootNavigatorKey,
             rootObserver: appRootRouteObserver,
             restorationScopeId: 'settings',
-            // The settings subtree owns 'history' (its settings page plus
-            // /settings/history/view), so the common history route would
-            // collide — same exclusion the old root-level route used.
-            includeHistory: false,
             routes: _settingsSubRoutes(settingsRouteObserver),
           ),
         ],
@@ -1660,7 +1638,7 @@ Future<void> openCommentReplies(
 }
 
 Future<void> openHistory(BuildContext context) async {
-  await _push(context, '/settings/history/view');
+  await _push(context, '${_currentStackRoot(context)}/history');
 }
 
 Future<void> openLogin(

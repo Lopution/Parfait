@@ -173,7 +173,8 @@
   "settingsBrowseHint": "ローカル非表示・画質",
   "downloadSettings": "ダウンロード設定",
   "historySettings": "履歴",
-  "historyView": "閲覧履歴を見る",
+  "historyRecordLocal": "ローカルに閲覧履歴を記録",
+  "historyRecordPixiv": "Pixivの閲覧履歴に記録",
   "historyEmpty": "閲覧履歴はありません",
   "historyLoadFailed": "履歴の読み込みに失敗しました",
   "historyDelete": "履歴を削除",
@@ -336,8 +337,6 @@
   "qualityLarge": "大サイズ",
   "qualityOriginal": "オリジナル",
   "scaleQuality": "ビューア画質（オリジナル）",
-  "localHistory": "ローカル閲覧履歴",
-  "pixivHistory": "Pixiv 閲覧履歴",
   "blockR18": "R-18作品をローカルで非表示",
   "blockAI": "AI作品をローカルで非表示",
   "hideMuted": "ミュートした作品を非表示",
@@ -458,7 +457,6 @@
   "translateBaiduHint": "百度翻訳の標準版は認証不要ですが月 5 万文字・毎秒 1 回までで、コメント翻訳には足りません。高級版は個人の実名認証（氏名 + 身分証番号）が必要で、月 100 万文字・毎秒 10 回です。認証情報は翻訳リクエストにのみ使用します。",
   "translateLlmCredentialHint": "HTTPS エンドポイントのみ。翻訳は固定プロンプトで、モデルや詳細パラメータは変更できません。コメント本文と翻訳は保存されません。",
   "translateCredentialHint": "翻訳の認証情報は通常の設定に保存せず、必要な場合は安全なストレージで管理します。",
-  "historySettingsHint": "履歴機能がこのスイッチを読み取ります。無効にすると新しい履歴を追加しません。",
   "downloadTasksEmpty": "ダウンロードタスクはありません",
   "downloadQueued": "待機中",
   "downloadRunning": "ダウンロード中",
@@ -591,19 +589,6 @@
   "aboutAttributionText": "著作権およびメンテナンス：Lopution。",
   "settingsReadFailed": "設定の読み込みに失敗しました",
   "settingsWriteFailed": "設定の保存に失敗しました",
-  "settingsSummaryOn": "オン",
-  "settingsSummaryOff": "オフ",
-  "settingsHistorySummary": "ローカル {local} · Pixiv {pixiv}",
-  "@settingsHistorySummary": {
-    "placeholders": {
-      "local": {
-        "type": "String"
-      },
-      "pixiv": {
-        "type": "String"
-      }
-    }
-  },
   "settingsMutedSummary": "ミュート項目 {count} 件",
   "@settingsMutedSummary": {
     "placeholders": {

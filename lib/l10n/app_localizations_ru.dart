@@ -539,7 +539,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get historySettings => 'История';
 
   @override
-  String get historyView => 'Открыть историю просмотров';
+  String get historyRecordLocal => 'Сохранять историю на устройстве';
+
+  @override
+  String get historyRecordPixiv => 'Записывать в историю Pixiv';
 
   @override
   String get historyEmpty => 'История просмотров пуста';
@@ -852,12 +855,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get scaleQuality => 'Качество просмотра (оригинал)';
 
   @override
-  String get localHistory => 'Локальная история просмотров';
-
-  @override
-  String get pixivHistory => 'История просмотров Pixiv';
-
-  @override
   String get blockR18 => 'Локально скрывать работы R-18';
 
   @override
@@ -1147,10 +1144,6 @@ class AppLocalizationsRu extends AppLocalizations {
       'Данные перевода не записываются в обычные настройки; при необходимости они хранятся в защищённом хранилище.';
 
   @override
-  String get historySettingsHint =>
-      'Модуль истории читает эти переключатели; отключённая история не получает новые записи.';
-
-  @override
   String get downloadTasksEmpty => 'Нет задач загрузки';
 
   @override
@@ -1357,17 +1350,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get settingsWriteFailed => 'Не удалось сохранить настройки';
-
-  @override
-  String get settingsSummaryOn => 'Вкл';
-
-  @override
-  String get settingsSummaryOff => 'Выкл';
-
-  @override
-  String settingsHistorySummary(String local, String pixiv) {
-    return 'Локально: $local · Pixiv: $pixiv';
-  }
 
   @override
   String settingsMutedSummary(int count) {

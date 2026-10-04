@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
-import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/download/download_destination.dart';
@@ -14,12 +13,10 @@ import '../../core/download/naming_rule.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../l10n/context.dart';
-import '../../l10n/lookup.dart';
+import '../../app/widgets/settings/persist_settings.dart';
 import 'saf_tree_name.dart';
 
-String settingsText(BuildContext context, String key) {
-  return l10nLookup(context.l10n, key);
-}
+export '../../app/widgets/settings/persist_settings.dart';
 
 /// The settings column cap (D1): on wide surfaces the page body is centered
 /// at [ContentWidths.settings]; below the cap the constraint is a no-op, so
@@ -82,33 +79,6 @@ Future<bool> confirmDiscardDraft(BuildContext context) async {
     ),
   );
   return leave == true;
-}
-
-/// Wraps an immediate settings write: failures surface as a snackbar and the
-/// controller keeps the old value (SettingsController._writeTail rolls back).
-/// [failureMessageKey] selects the failure text; defaults to the generic
-/// `settingsWriteFailed`.
-Future<bool> persistSettings(
-  BuildContext context,
-  Future<void> Function() action, {
-  String? failureMessageKey,
-}) async {
-  try {
-    await action();
-    return true;
-  } on Object catch (error) {
-    if (context.mounted) {
-      showErrorSnackBar(
-        context,
-        action: settingsText(
-          context,
-          failureMessageKey ?? 'settingsWriteFailed',
-        ),
-        error: error,
-      );
-    }
-    return false;
-  }
 }
 
 Widget settingsUnavailable(

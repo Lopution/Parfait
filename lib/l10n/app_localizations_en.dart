@@ -538,7 +538,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get historySettings => 'History';
 
   @override
-  String get historyView => 'View browsing history';
+  String get historyRecordLocal => 'Record local history';
+
+  @override
+  String get historyRecordPixiv => 'Record to Pixiv history';
 
   @override
   String get historyEmpty => 'No browsing history';
@@ -850,12 +853,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scaleQuality => 'Viewer quality (original)';
 
   @override
-  String get localHistory => 'Local browsing history';
-
-  @override
-  String get pixivHistory => 'Pixiv browsing history';
-
-  @override
   String get blockR18 => 'Locally block R-18 works';
 
   @override
@@ -1145,10 +1142,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Translation credentials are never written to ordinary settings; secure storage owns them when needed.';
 
   @override
-  String get historySettingsHint =>
-      'The history module reads these switches; disabled histories do not receive new records.';
-
-  @override
   String get downloadTasksEmpty => 'No download tasks';
 
   @override
@@ -1356,17 +1349,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsWriteFailed => 'Failed to save settings';
-
-  @override
-  String get settingsSummaryOn => 'On';
-
-  @override
-  String get settingsSummaryOff => 'Off';
-
-  @override
-  String settingsHistorySummary(String local, String pixiv) {
-    return 'Local $local · Pixiv $pixiv';
-  }
 
   @override
   String settingsMutedSummary(int count) {

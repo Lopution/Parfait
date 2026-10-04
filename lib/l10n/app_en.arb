@@ -173,7 +173,8 @@
   "settingsBrowseHint": "Local blocking, image quality",
   "downloadSettings": "Download settings",
   "historySettings": "History",
-  "historyView": "View browsing history",
+  "historyRecordLocal": "Record local history",
+  "historyRecordPixiv": "Record to Pixiv history",
   "historyEmpty": "No browsing history",
   "historyLoadFailed": "Failed to load history",
   "historyDelete": "Delete history",
@@ -336,8 +337,6 @@
   "qualityLarge": "Large",
   "qualityOriginal": "Original",
   "scaleQuality": "Viewer quality (original)",
-  "localHistory": "Local browsing history",
-  "pixivHistory": "Pixiv browsing history",
   "blockR18": "Locally block R-18 works",
   "blockAI": "Locally block AI works",
   "hideMuted": "Hide muted works",
@@ -458,7 +457,6 @@
   "translateBaiduHint": "Baidu standard needs no verification but allows only 50k chars/month at 1 QPS, too little for comments; premium requires personal real-name verification (name + ID number) for 1M chars/month at 10 QPS. Credentials are used only for translation requests.",
   "translateLlmCredentialHint": "HTTPS endpoints only; translation uses a fixed prompt without model/advanced knobs. Comment text and translations are never persisted.",
   "translateCredentialHint": "Translation credentials are never written to ordinary settings; secure storage owns them when needed.",
-  "historySettingsHint": "The history module reads these switches; disabled histories do not receive new records.",
   "downloadTasksEmpty": "No download tasks",
   "downloadQueued": "Queued",
   "downloadRunning": "Downloading",
@@ -591,19 +589,6 @@
   "aboutAttributionText": "Copyright and maintained by Lopution.",
   "settingsReadFailed": "Failed to read settings",
   "settingsWriteFailed": "Failed to save settings",
-  "settingsSummaryOn": "On",
-  "settingsSummaryOff": "Off",
-  "settingsHistorySummary": "Local {local} · Pixiv {pixiv}",
-  "@settingsHistorySummary": {
-    "placeholders": {
-      "local": {
-        "type": "String"
-      },
-      "pixiv": {
-        "type": "String"
-      }
-    }
-  },
   "settingsMutedSummary": "{count} muted items",
   "@settingsMutedSummary": {
     "placeholders": {

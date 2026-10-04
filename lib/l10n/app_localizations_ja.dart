@@ -523,7 +523,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get historySettings => '履歴';
 
   @override
-  String get historyView => '閲覧履歴を見る';
+  String get historyRecordLocal => 'ローカルに閲覧履歴を記録';
+
+  @override
+  String get historyRecordPixiv => 'Pixivの閲覧履歴に記録';
 
   @override
   String get historyEmpty => '閲覧履歴はありません';
@@ -823,12 +826,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get scaleQuality => 'ビューア画質（オリジナル）';
 
   @override
-  String get localHistory => 'ローカル閲覧履歴';
-
-  @override
-  String get pixivHistory => 'Pixiv 閲覧履歴';
-
-  @override
   String get blockR18 => 'R-18作品をローカルで非表示';
 
   @override
@@ -1108,9 +1105,6 @@ class AppLocalizationsJa extends AppLocalizations {
       '翻訳の認証情報は通常の設定に保存せず、必要な場合は安全なストレージで管理します。';
 
   @override
-  String get historySettingsHint => '履歴機能がこのスイッチを読み取ります。無効にすると新しい履歴を追加しません。';
-
-  @override
   String get downloadTasksEmpty => 'ダウンロードタスクはありません';
 
   @override
@@ -1310,17 +1304,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsWriteFailed => '設定の保存に失敗しました';
-
-  @override
-  String get settingsSummaryOn => 'オン';
-
-  @override
-  String get settingsSummaryOff => 'オフ';
-
-  @override
-  String settingsHistorySummary(String local, String pixiv) {
-    return 'ローカル $local · Pixiv $pixiv';
-  }
 
   @override
   String settingsMutedSummary(int count) {

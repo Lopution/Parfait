@@ -506,7 +506,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get historySettings => '历史记录';
 
   @override
-  String get historyView => '查看浏览历史';
+  String get historyRecordLocal => '记录本地浏览历史';
+
+  @override
+  String get historyRecordPixiv => '记录到 Pixiv 浏览历史';
 
   @override
   String get historyEmpty => '暂无浏览历史';
@@ -804,12 +807,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get scaleQuality => '查看质量（原图）';
 
   @override
-  String get localHistory => '本地浏览历史';
-
-  @override
-  String get pixivHistory => 'Pixiv 浏览历史';
-
-  @override
   String get blockR18 => '本地屏蔽 R-18 作品';
 
   @override
@@ -1085,9 +1082,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get translateCredentialHint => '翻译凭据不会写入普通设置；需要时由安全存储管理。';
 
   @override
-  String get historySettingsHint => '历史记录开关由历史模块读取；关闭后不会新增对应记录。';
-
-  @override
   String get downloadTasksEmpty => '暂无下载任务';
 
   @override
@@ -1284,17 +1278,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsWriteFailed => '设置保存失败';
-
-  @override
-  String get settingsSummaryOn => '开';
-
-  @override
-  String get settingsSummaryOff => '关';
-
-  @override
-  String settingsHistorySummary(String local, String pixiv) {
-    return '本地 $local · Pixiv $pixiv';
-  }
 
   @override
   String settingsMutedSummary(int count) {

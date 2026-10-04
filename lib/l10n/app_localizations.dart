@@ -1056,11 +1056,17 @@ abstract class AppLocalizations {
   /// **'历史记录'**
   String get historySettings;
 
-  /// No description provided for @historyView.
+  /// No description provided for @historyRecordLocal.
   ///
   /// In zh, this message translates to:
-  /// **'查看浏览历史'**
-  String get historyView;
+  /// **'记录本地浏览历史'**
+  String get historyRecordLocal;
+
+  /// No description provided for @historyRecordPixiv.
+  ///
+  /// In zh, this message translates to:
+  /// **'记录到 Pixiv 浏览历史'**
+  String get historyRecordPixiv;
 
   /// No description provided for @historyEmpty.
   ///
@@ -1613,18 +1619,6 @@ abstract class AppLocalizations {
   /// **'查看质量（原图）'**
   String get scaleQuality;
 
-  /// No description provided for @localHistory.
-  ///
-  /// In zh, this message translates to:
-  /// **'本地浏览历史'**
-  String get localHistory;
-
-  /// No description provided for @pixivHistory.
-  ///
-  /// In zh, this message translates to:
-  /// **'Pixiv 浏览历史'**
-  String get pixivHistory;
-
   /// No description provided for @blockR18.
   ///
   /// In zh, this message translates to:
@@ -2153,12 +2147,6 @@ abstract class AppLocalizations {
   /// **'翻译凭据不会写入普通设置；需要时由安全存储管理。'**
   String get translateCredentialHint;
 
-  /// No description provided for @historySettingsHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'历史记录开关由历史模块读取；关闭后不会新增对应记录。'**
-  String get historySettingsHint;
-
   /// No description provided for @downloadTasksEmpty.
   ///
   /// In zh, this message translates to:
@@ -2518,24 +2506,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'设置保存失败'**
   String get settingsWriteFailed;
-
-  /// No description provided for @settingsSummaryOn.
-  ///
-  /// In zh, this message translates to:
-  /// **'开'**
-  String get settingsSummaryOn;
-
-  /// No description provided for @settingsSummaryOff.
-  ///
-  /// In zh, this message translates to:
-  /// **'关'**
-  String get settingsSummaryOff;
-
-  /// No description provided for @settingsHistorySummary.
-  ///
-  /// In zh, this message translates to:
-  /// **'本地 {local} · Pixiv {pixiv}'**
-  String settingsHistorySummary(String local, String pixiv);
 
   /// No description provided for @settingsMutedSummary.
   ///

@@ -173,7 +173,8 @@
   "settingsBrowseHint": "本地屏蔽、图片画质",
   "downloadSettings": "下载设置",
   "historySettings": "历史记录",
-  "historyView": "查看浏览历史",
+  "historyRecordLocal": "记录本地浏览历史",
+  "historyRecordPixiv": "记录到 Pixiv 浏览历史",
   "historyEmpty": "暂无浏览历史",
   "historyLoadFailed": "历史记录加载失败",
   "historyDelete": "删除历史记录",
@@ -336,8 +337,6 @@
   "qualityLarge": "大图",
   "qualityOriginal": "原图",
   "scaleQuality": "查看质量（原图）",
-  "localHistory": "本地浏览历史",
-  "pixivHistory": "Pixiv 浏览历史",
   "blockR18": "本地屏蔽 R-18 作品",
   "blockAI": "本地屏蔽 AI 作品",
   "hideMuted": "直接隐藏被屏蔽的作品",
@@ -458,7 +457,6 @@
   "translateBaiduHint": "百度翻译标准版无需认证，但只有 5 万字符/月、每秒 1 次，评论翻译基本不够；高级版需个人实名认证（姓名 + 身份证号），100 万字符/月、每秒 10 次。凭据仅用于翻译请求。",
   "translateLlmCredentialHint": "仅允许 HTTPS 接口；翻译使用固定提示词，不开放模型与高级参数。评论正文与译文不会持久化。",
   "translateCredentialHint": "翻译凭据不会写入普通设置；需要时由安全存储管理。",
-  "historySettingsHint": "历史记录开关由历史模块读取；关闭后不会新增对应记录。",
   "downloadTasksEmpty": "暂无下载任务",
   "downloadQueued": "排队中",
   "downloadRunning": "下载中",
@@ -591,19 +589,6 @@
   "aboutAttributionText": "版权所有及维护：Lopution。",
   "settingsReadFailed": "读取设置失败",
   "settingsWriteFailed": "设置保存失败",
-  "settingsSummaryOn": "开",
-  "settingsSummaryOff": "关",
-  "settingsHistorySummary": "本地 {local} · Pixiv {pixiv}",
-  "@settingsHistorySummary": {
-    "placeholders": {
-      "local": {
-        "type": "String"
-      },
-      "pixiv": {
-        "type": "String"
-      }
-    }
-  },
   "settingsMutedSummary": "{count} 个屏蔽项",
   "@settingsMutedSummary": {
     "placeholders": {
