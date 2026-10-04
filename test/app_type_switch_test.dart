@@ -35,7 +35,7 @@ Widget _boxHost({
     home: MediaQuery(
       data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
       child: Scaffold(
-        // Stands in for RootSwipeSwitcher: a translucent horizontal drag
+        // Stands in for TabSwipeSwitcher: a translucent horizontal drag
         // detector around the page.
         body: GestureDetector(
           behavior: HitTestBehavior.translucent,
@@ -141,7 +141,7 @@ void main() {
     await tester.pump();
     expect(scrollable.position.pixels, greaterThan(0));
     // An overflowing row owns the drag, like any deeper horizontal
-    // scrollable under RootSwipeSwitcher.
+    // scrollable under TabSwipeSwitcher.
     expect(pageSwipes, 0);
   });
 

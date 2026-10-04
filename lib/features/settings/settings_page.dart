@@ -10,7 +10,6 @@ import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/func_bottom_nav.dart';
-import '../../app/widgets/root_swipe_switcher.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings/settings_group.dart';
@@ -59,16 +58,14 @@ class SettingsPage extends ConsumerWidget {
       // keyboard) — a relayout storm across all five live branches.
       resizeToAvoidBottomInset: false,
       appBar: AppBar(title: Text(context.l10n.settingsTitle)),
-      body: RootSwipeSwitcher(
-        child: settings.when(
-          loading: () => const FeedLoading(),
-          error: (error, _) => SettingsLoadError(
-            error: error,
-            onRetry: () => ref.read(settingsProvider.notifier).reload(),
-          ),
-          data: (settings) =>
-              _SettingsList(accounts: accounts, settings: settings),
+      body: settings.when(
+        loading: () => const FeedLoading(),
+        error: (error, _) => SettingsLoadError(
+          error: error,
+          onRetry: () => ref.read(settingsProvider.notifier).reload(),
         ),
+        data: (settings) =>
+            _SettingsList(accounts: accounts, settings: settings),
       ),
     );
   }

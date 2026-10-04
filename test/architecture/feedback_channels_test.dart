@@ -71,7 +71,7 @@ final _selectionControlOwners = <RegExp, Set<String>>{
 const _silentNavigationFiles = <String>{
   'lib/app/widgets/app_tab_bar.dart',
   'lib/app/widgets/func_bottom_nav.dart',
-  'lib/app/widgets/root_swipe_switcher.dart',
+  'lib/app/widgets/tab_swipe_switcher.dart',
 };
 
 /// Owner file for UI clipboard writes. core/ keeps its own platform uses

@@ -14,9 +14,9 @@ import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/app_tab_bar.dart';
-import '../../app/widgets/branch_slide_stack.dart';
+import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/func_bottom_nav.dart';
-import '../../app/widgets/root_swipe_switcher.dart';
+import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../l10n/context.dart';
@@ -79,7 +79,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final channel = BranchSlideStack.maybeOf(context)?.reTapEvents;
+    final channel = HomeBranchStack.reTapOf(context);
     if (identical(channel, _reTapChannel)) return;
     _reTapChannel?.removeListener(_onBranchReTap);
     _reTapChannel = channel;
@@ -201,7 +201,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
             ),
         ],
       ),
-      body: RootSwipeSwitcher(
+      body: TabSwipeSwitcher(
         tabController: _tabController,
         // A neighbor the finger is about to uncover has to exist before
         // the slide starts — same offscreen-page warmup ViewPager does.

@@ -211,12 +211,12 @@ class _FuncBottomNavState extends State<FuncBottomNav>
       },
       textDirection: textDirection,
       // InkResponse's pressed-highlight fade duration.
-      fadeDuration: MotionTokens.resolve(context, MotionTokens.inkFade),
+      fadeDuration: MotionTokens.resolve(context, MotionTokens.fast),
     );
     _landingInk = splash;
     _landingHighlight = highlight;
     _landingInkTimer = Timer(
-      MotionTokens.resolve(context, MotionTokens.inkHold),
+      MotionTokens.resolve(context, MotionTokens.fast),
       () {
         splash?.confirm();
         highlight?.deactivate();
@@ -254,7 +254,7 @@ class _FuncBottomNavState extends State<FuncBottomNav>
     // Matches the TabBar's kTabScrollDuration sweep above.
     _indicatorController.duration = MotionTokens.resolve(
       context,
-      MotionTokens.navIndicator,
+      MotionTokens.tabSwitch,
     );
     // The labels are localized. A locale switch rebuilds this stateful bar,
     // so widths measured under the previous language must not drive the new
@@ -601,12 +601,12 @@ class FuncShellBottomNav extends ConsumerStatefulWidget {
   /// (ViewPager `onPageSelected` parity).
   final int selectedIndex;
 
-  /// Slot-tap callback — the owning [BranchSlidePager] decides between a
+  /// Slot-tap callback — the owning [HomeBranchStack] decides between a
   /// same-branch root reset and an animated slide.
   final ValueChanged<int> onSelected;
 
   /// 1 = fully shown, 0 = slid entirely below the screen edge. Owned by
-  /// [BranchSlideStack], which drives it from scroll deltas bubbling out
+  /// [HomeBranchStack], which drives it from scroll deltas bubbling out
   /// of the branch Navigators — the bar floats over the strip, so sliding
   /// never reflows the page underneath.
   final AnimationController scrollVisibility;

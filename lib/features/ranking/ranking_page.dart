@@ -11,10 +11,10 @@ import '../../core/i18n/replica_language.dart';
 import '../../core/network/api_error.dart';
 
 import '../../app/widgets/app_tab_bar.dart';
-import '../../app/widgets/branch_slide_stack.dart';
+import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/func_bottom_nav.dart';
-import '../../app/widgets/root_swipe_switcher.dart';
+import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../core/illust/ranking_repository.dart';
@@ -69,7 +69,7 @@ class _RankingPageState extends State<RankingPage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final channel = BranchSlideStack.maybeOf(context)?.reTapEvents;
+    final channel = HomeBranchStack.reTapOf(context);
     if (identical(channel, _reTapChannel)) return;
     _reTapChannel?.removeListener(_onBranchReTap);
     _reTapChannel = channel;
@@ -170,7 +170,7 @@ class _RankingPageState extends State<RankingPage>
           ],
         ),
       ),
-      body: RootSwipeSwitcher(
+      body: TabSwipeSwitcher(
         tabController: _tabController,
         // Warm the neighbor slots before a drag uncovers them — the strip
         // slide shows real feeds instead of blank placeholders.

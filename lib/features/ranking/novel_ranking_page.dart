@@ -4,12 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/motion/feed_entrance.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/app_tab_bar.dart';
-import '../../app/widgets/branch_slide_stack.dart';
+import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/novel_entry.dart';
 import '../../app/widgets/replica_empty_state.dart';
-import '../../app/widgets/root_swipe_switcher.dart';
+import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/i18n/replica_language.dart';
 import '../../core/network/api_error.dart';
@@ -149,7 +149,7 @@ class _NovelRankingPageState extends State<NovelRankingPage>
           ],
         ),
       ),
-      body: RootSwipeSwitcher(
+      body: TabSwipeSwitcher(
         tabController: _tabController,
         // Warm the neighbor slots before a drag uncovers them.
         onPrepareAdjacent: _prepareAdjacent,

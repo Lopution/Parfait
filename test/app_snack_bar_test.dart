@@ -58,7 +58,7 @@ Widget _shellPage() => Scaffold(
 
 /// Mounts the real shell bar as an overlay sibling of the branch strip —
 /// the same layering the home shell uses, with [HomeShellChrome] computed
-/// the way [BranchSlideStack] computes it, so the bar's resting extent is
+/// the way [HomeBranchStack] computes it, so the bar's resting extent is
 /// available on the first frame instead of a post-layout measurement.
 Future<({ProviderContainer container, AnimationController scrollVisibility})>
 _pumpShell(WidgetTester tester) async {

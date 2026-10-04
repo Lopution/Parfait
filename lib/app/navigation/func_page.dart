@@ -13,7 +13,7 @@ import 'package:material_ui/material_ui.dart'
 import '../../core/settings/app_settings.dart' show PageTransitionStyle;
 import '../motion/motion_tokens.dart';
 import '../motion/page_transitions.dart';
-import '../widgets/branch_slide_stack.dart' show BranchActivityScope;
+import '../widgets/home_branch_stack.dart' show BranchActivityScope;
 
 /// The app's standard route page, animated by [transitionStyle]:
 /// - [PageTransitionStyle.system]: Android gets

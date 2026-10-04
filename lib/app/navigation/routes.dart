@@ -70,7 +70,7 @@ import 'func_page.dart';
 import '../pixiv_image.dart';
 import '../startup_gate.dart';
 import '../widgets/app_snack_bar.dart';
-import '../widgets/branch_slide_stack.dart';
+import '../widgets/home_branch_stack.dart';
 import '../widgets/feed/feed_grid.dart';
 import '../widgets/func_bottom_nav.dart';
 
@@ -1095,12 +1095,10 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
       ),
       StatefulShellRoute(
         restorationScopeId: 'home-shell',
-        // Branch Navigators sit side by side and slide like a ViewPager —
-        // the outer half of the nested-pager pair the root pages'
-        // RootSwipeSwitcher completes. The strip slides in branch order,
-        // which is also the bottom bar's visual order.
+        // Branch Navigators stay mounted in place and fade through when the
+        // selected home destination changes.
         navigatorContainerBuilder: (context, navigationShell, children) =>
-            BranchSlideStack(shell: navigationShell, children: children),
+            HomeBranchStack(shell: navigationShell, children: children),
         pageBuilder: (context, state, navigationShell) => NoTransitionPage(
           key: state.pageKey,
           restorationId: RestorationScope.maybeOf(context) == null

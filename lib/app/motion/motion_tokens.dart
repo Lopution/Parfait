@@ -26,7 +26,7 @@ abstract final class MotionTokens {
   static const fast = Duration(milliseconds: 180);
   static const fastCurve = Curves.easeOut;
 
-  /// Medium UI transitions (root-back exit hint window pieces).
+  /// Medium UI transitions.
   static const medium = Duration(milliseconds: 200);
 
   /// Card press feedback: rest scale while pressed (the motion is the
@@ -43,8 +43,14 @@ abstract final class MotionTokens {
   /// Alert/confirm dialog presentation.
   static const dialog = Duration(milliseconds: 220);
 
-  /// Bottom-nav indicator sweep, matching the app bar's kTabScrollDuration.
-  static const navIndicator = Duration(milliseconds: 300);
+  /// Fade-through transition between home branches.
+  static const branchSwitch = Duration(milliseconds: 300);
+
+  /// Selected navigation destination animation.
+  static const navDestination = Duration(milliseconds: 500);
+
+  /// In-page tab switch, matching the app bar's kTabScrollDuration.
+  static const tabSwitch = Duration(milliseconds: 300);
 
   /// Bottom-nav scroll hide/show — Material `HideViewOnScrollBehavior`
   /// timings and interpolators: slide-in (show) decelerates over 225ms
@@ -54,11 +60,6 @@ abstract final class MotionTokens {
   static const navBarShowCurve = Cubic(0, 0, 0.2, 1);
   static const navBarHide = Duration(milliseconds: 175);
   static const navBarHideCurve = Cubic(0.4, 0, 1, 1);
-
-  /// Landing-ink replay timing on the branch-swap bottom bar: how long the
-  /// synthetic press holds before confirming, and the pressed-highlight fade.
-  static const inkHold = Duration(milliseconds: 130);
-  static const inkFade = Duration(milliseconds: 200);
 
   /// SmoothWheelScroll's per-wheel animated scroll duration.
   static const wheelScroll = Duration(milliseconds: 240);
