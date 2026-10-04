@@ -1322,6 +1322,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadQueuedMessage => '已加入下载队列';
 
   @override
+  String get downloadAlreadyQueued => '已在下载队列中';
+
+  @override
   String get downloadSubmissionFailed => '下载失败';
 
   @override

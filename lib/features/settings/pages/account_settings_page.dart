@@ -22,6 +22,9 @@ import '../../../core/settings/server_display_settings.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 
+String _accountSubtitle(BuildContext context, Account account) =>
+    '${context.l10n.accountId}: ${account.id}';
+
 /// Signed-in account summary on the settings hub: 58dp avatar and display
 /// type, not a settings row — it lives inside the first [SettingsGroup] and
 /// opens the profile page.
@@ -46,7 +49,7 @@ class AccountSummaryTile extends StatelessWidget {
       subtitle: Text(
         value == null
             ? context.l10n.accountProfile
-            : value.mailAddress ?? '${context.l10n.accountId}: ${value.id}',
+            : _accountSubtitle(context, value),
       ),
       trailing: value == null ? null : const Icon(Icons.chevron_right),
       onTap: value == null ? null : () => openMe(context),
@@ -155,8 +158,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                                 leading: _AccountAvatar(account: account),
                                 title: Text(account.name),
                                 subtitle: Text(
-                                  account.mailAddress ??
-                                      '${context.l10n.accountId}: ${account.id}',
+                                  _accountSubtitle(context, account),
                                 ),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,

@@ -15,7 +15,8 @@ import '../../../app/motion/hero_transition.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/download/download_providers.dart';
-import '../../../core/download/download_task.dart' show DownloadEvent;
+import '../../../core/download/download_task.dart'
+    show DownloadEvent, DownloadGroupSubmission;
 import '../../../core/illust/illust_download_controller.dart';
 import '../../../core/share/share_service.dart';
 import '../../../core/network/compat/image_demand.dart';
@@ -314,15 +315,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
       return;
     }
     if (!mounted) return;
-    AppHaptics.success();
-    showAppSnackBar(
-      context,
-      context.l10n.downloadQueuedMessage,
-      action: SnackBarAction(
-        label: context.l10n.downloadViewResult,
-        onPressed: () => unawaited(openDownloadTasks(context)),
-      ),
-    );
+    showDownloadSubmittedSnackBar(context);
   }
 
   Future<void> _share(IllustEntity entity) async {
@@ -421,8 +414,9 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                   title: Text(l10n.downloadAll),
                   onTap: () async {
                     Navigator.of(sheetContext).pop();
+                    late final DownloadGroupSubmission submission;
                     try {
-                      await ref
+                      submission = await ref
                           .read(illustDownloadControllerProvider)
                           .downloadAll(entity);
                     } catch (error) {
@@ -436,14 +430,9 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                       return;
                     }
                     if (!mounted) return;
-                    AppHaptics.success();
-                    showAppSnackBar(
+                    showDownloadSubmittedSnackBar(
                       context,
-                      l10n.downloadQueuedMessage,
-                      action: SnackBarAction(
-                        label: l10n.downloadViewResult,
-                        onPressed: () => unawaited(openDownloadTasks(context)),
-                      ),
+                      alreadyQueued: submission.group == null,
                     );
                   },
                 ),
@@ -452,7 +441,9 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                   title: Text(l10n.viewerOpenDetail),
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    openIllust(context, entity.id);
+                    // The viewer is opened from this work's detail page;
+                    // closing it reveals the existing detail route below.
+                    Navigator.of(context).pop();
                   },
                 ),
               ],

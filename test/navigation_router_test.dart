@@ -11,6 +11,7 @@ import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/user/user_repository.dart';
+import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/features/bookmark/bookmark_tags_page.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
@@ -18,6 +19,7 @@ import 'package:parfait/features/new/new_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/search/reverse_image_search_page.dart';
 import 'package:parfait/features/search/search_page.dart';
+import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/features/search/tag_search_page.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -153,6 +155,62 @@ void main() {
     expect(find.byType(RankingPage), findsOneWidget);
   });
 
+  testWidgets('search input and results stay on the requesting stack', (
+    tester,
+  ) async {
+    final router = await pumpRouter(tester, '/ranking');
+    final ranking = find.byType(RankingPage);
+
+    unawaited(openSearchInput(tester.element(ranking), initialKeyword: '猫'));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/ranking/search/input');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/ranking');
+
+    unawaited(
+      openSearchResults(
+        tester.element(find.byType(RankingPage)),
+        const IllustSearchQuery(keyword: '猫'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/ranking/search/results');
+    expect(find.byType(SearchResultPage), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/ranking');
+  });
+
+  testWidgets('branch pushes are rejected outside the visible branch', (
+    tester,
+  ) async {
+    final router = await pumpRouter(tester, '/recommended');
+    expect(pushStaysInStack(router, '/recommended/illust/1'), isTrue);
+    expect(pushStaysInStack(router, '/ranking/illust/1'), isFalse);
+    expect(pushStaysInStack(router, '/downloads'), isTrue);
+
+    router.go('/recommended/illust/1/viewer/0');
+    await tester.pumpAndSettle();
+    expect(pushStaysInStack(router, '/recommended/illust/2'), isFalse);
+  });
+
+  testWidgets('update prompt navigation uses one settings shell', (
+    tester,
+  ) async {
+    final router = await pumpRouter(tester, '/me');
+    goToAbout(router);
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/settings/about');
+    expect(
+      find.byType(StatefulNavigationShell, skipOffstage: false),
+      findsOneWidget,
+    );
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/settings');
+  });
+
   testWidgets('bottom bar hides on pushed branch routes and returns at root', (
     tester,
   ) async {
@@ -226,7 +284,7 @@ void main() {
     expect(find.byType(RecommendedHomePage), findsOneWidget);
   });
 
-  testWidgets('openDownloadTasks lands on the settings tasks route', (
+  testWidgets('openDownloadTasks lands on the root downloads route', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -242,9 +300,49 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(router.state.uri.path, '/settings/tasks');
+    expect(router.state.uri.path, '/downloads');
     expect(find.byType(DownloadTasksPage), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/recommended');
   });
+
+  for (final origin in [
+    '/recommended',
+    '/ranking',
+    '/new',
+    '/search',
+    '/settings',
+    '/me',
+    '/reverse-image',
+    '/downloads',
+  ]) {
+    testWidgets('downloads return to $origin with one home shell', (
+      tester,
+    ) async {
+      final overlay = ['/me', '/reverse-image', '/downloads'].contains(origin);
+      final router = await pumpRouter(
+        tester,
+        overlay ? '/recommended' : origin,
+      );
+      if (overlay) {
+        unawaited(router.push<void>(origin));
+        await tester.pumpAndSettle();
+      }
+      unawaited(openDownloadTasks(tester.element(find.byType(Scaffold).last)));
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/downloads');
+      expect(find.byType(DownloadTasksPage), findsOneWidget);
+      expect(
+        find.byType(StatefulNavigationShell, skipOffstage: false),
+        findsOneWidget,
+      );
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, origin);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('pop slides the outgoing page as a snapshot texture', (
     tester,

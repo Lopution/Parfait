@@ -1348,6 +1348,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadQueuedMessage => 'ダウンロードキューに追加しました';
 
   @override
+  String get downloadAlreadyQueued => 'すでにダウンロードキューにあります';
+
+  @override
   String get downloadSubmissionFailed => 'ダウンロードに失敗しました';
 
   @override

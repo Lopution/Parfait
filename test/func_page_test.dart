@@ -187,6 +187,54 @@ Future<void> _gestureProgress(double progress) =>
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets('a throwing back-gesture commit releases the Navigator', (
+    tester,
+  ) async {
+    final key = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Navigator(
+          key: key,
+          onGenerateRoute: (_) =>
+              MaterialPageRoute<void>(builder: (_) => const SizedBox.shrink()),
+        ),
+      ),
+    );
+    final navigator = key.currentState!;
+    navigator.didStartUserGesture();
+    expect(navigator.userGestureInProgress, isTrue);
+
+    expect(
+      () => commitBackGestureGuarded(navigator, () => throw StateError('pop')),
+      throwsStateError,
+    );
+    expect(navigator.userGestureInProgress, isFalse);
+  });
+
+  testWidgets('a successful back-gesture commit is not stopped twice', (
+    tester,
+  ) async {
+    final key = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Navigator(
+          key: key,
+          onGenerateRoute: (_) =>
+              MaterialPageRoute<void>(builder: (_) => const SizedBox.shrink()),
+        ),
+      ),
+    );
+    final navigator = key.currentState!;
+    var committed = false;
+    commitBackGestureGuarded(navigator, () {
+      committed = true;
+    });
+    expect(committed, isTrue);
+    expect(navigator.userGestureInProgress, isFalse);
+  });
+
   testWidgets('the back gesture drives the route and commits', (tester) async {
     final route = await _pushSecondPage(tester);
 

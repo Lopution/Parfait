@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../haptics/app_haptics.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/entity/comment_entity.dart';
@@ -427,11 +428,43 @@ SearchRatioPattern? _searchRatio(String? raw) {
   return null;
 }
 
+List<RouteBase> _searchRoutes(
+  RouteObserver<ModalRoute<dynamic>> observer, {
+  required String prefix,
+}) {
+  return [
+    GoRoute(
+      path: '${prefix}input',
+      pageBuilder: (context, state) => _modalPage(
+        context,
+        state,
+        observer,
+        SearchInputPage(
+          initialKeyword: state.uri.queryParameters['q'] ?? '',
+          initialType: _searchType(state.uri.queryParameters['type']),
+          onTypeChanged: (keyword, type) =>
+              replaceSearchInput(context, keyword: keyword, type: type),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: '${prefix}results',
+      pageBuilder: (context, state) => _page(
+        context,
+        state,
+        observer,
+        SearchResultPage(query: _searchQuery(state)),
+      ),
+    ),
+  ];
+}
+
 List<RouteBase> _commonBranchRoutes(
   RouteObserver<ModalRoute<dynamic>> branchObserver, {
   required GlobalKey<NavigatorState> rootNavigatorKey,
   required RouteObserver<ModalRoute<dynamic>> rootObserver,
   bool includeHistory = true,
+  bool includeSearch = true,
 }) {
   final routes = <RouteBase>[
     GoRoute(
@@ -713,7 +746,28 @@ List<RouteBase> _commonBranchRoutes(
   if (!includeHistory) {
     routes.removeWhere((route) => route is GoRoute && route.path == 'history');
   }
+  if (includeSearch) {
+    routes.addAll(_searchRoutes(branchObserver, prefix: 'search/'));
+  }
   return routes;
+}
+
+GoRoute _overlayRoute(
+  String path, {
+  required GlobalKey<NavigatorState> rootNavigatorKey,
+  required RouteObserver<ModalRoute<dynamic>> rootObserver,
+  required GoRouterPageBuilder pageBuilder,
+}) {
+  return GoRoute(
+    path: path,
+    parentNavigatorKey: rootNavigatorKey,
+    pageBuilder: pageBuilder,
+    routes: _commonBranchRoutes(
+      rootObserver,
+      rootNavigatorKey: rootNavigatorKey,
+      rootObserver: rootObserver,
+    ),
+  );
 }
 
 /// Settings subpages grafted under the `/settings` home branch. They take
@@ -861,6 +915,7 @@ StatefulShellBranch _branch({
   required RouteObserver<ModalRoute<dynamic>> rootObserver,
   required String restorationScopeId,
   bool includeHistory = true,
+  bool includeSearch = true,
   List<RouteBase> routes = const [],
 }) {
   final commonRoutes = _commonBranchRoutes(
@@ -868,6 +923,7 @@ StatefulShellBranch _branch({
     rootNavigatorKey: rootNavigatorKey,
     rootObserver: rootObserver,
     includeHistory: includeHistory,
+    includeSearch: includeSearch,
   );
   return StatefulShellBranch(
     navigatorKey: navigatorKey,
@@ -999,8 +1055,10 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
           ),
         ],
       ),
-      GoRoute(
-        path: '/reverse-image',
+      _overlayRoute(
+        '/reverse-image',
+        rootNavigatorKey: appRootNavigatorKey,
+        rootObserver: appRootRouteObserver,
         pageBuilder: (context, state) => _page(
           context,
           state,
@@ -1011,28 +1069,28 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
                 : null,
           ),
         ),
-        // Results open illust/user pages on top of the reverse-image page
-        // itself (root stack). Pushing a shell location from here would stack
-        // a second home shell on the root navigator.
-        routes: _commonBranchRoutes(
-          appRootRouteObserver,
-          rootNavigatorKey: appRootNavigatorKey,
-          rootObserver: appRootRouteObserver,
-        ),
       ),
       // The personal profile is an app-level flow pushed on the root
       // navigator, not a home tab: /me renders over the home shell so the
       // settings branch stays reachable even while the account/profile
       // cannot load. Common routes stay mounted so the shared facade keeps
       // working from inside profile pages.
-      GoRoute(
-        path: '/me',
+      _overlayRoute(
+        '/me',
+        rootNavigatorKey: appRootNavigatorKey,
+        rootObserver: appRootRouteObserver,
         pageBuilder: (context, state) =>
             _page(context, state, appRootRouteObserver, const MePage()),
-        routes: _commonBranchRoutes(
+      ),
+      _overlayRoute(
+        '/downloads',
+        rootNavigatorKey: appRootNavigatorKey,
+        rootObserver: appRootRouteObserver,
+        pageBuilder: (context, state) => _page(
+          context,
+          state,
           appRootRouteObserver,
-          rootNavigatorKey: appRootNavigatorKey,
-          rootObserver: appRootRouteObserver,
+          const DownloadTasksPage(),
         ),
       ),
       StatefulShellRoute(
@@ -1107,34 +1165,8 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
             rootNavigatorKey: appRootNavigatorKey,
             rootObserver: appRootRouteObserver,
             restorationScopeId: 'search',
-            routes: [
-              GoRoute(
-                path: 'input',
-                pageBuilder: (context, state) => _modalPage(
-                  context,
-                  state,
-                  searchRouteObserver,
-                  SearchInputPage(
-                    initialKeyword: state.uri.queryParameters['q'] ?? '',
-                    initialType: _searchType(state.uri.queryParameters['type']),
-                    onTypeChanged: (keyword, type) => replaceSearchInput(
-                      context,
-                      keyword: keyword,
-                      type: type,
-                    ),
-                  ),
-                ),
-              ),
-              GoRoute(
-                path: 'results',
-                pageBuilder: (context, state) => _page(
-                  context,
-                  state,
-                  searchRouteObserver,
-                  SearchResultPage(query: _searchQuery(state)),
-                ),
-              ),
-            ],
+            includeSearch: false,
+            routes: _searchRoutes(searchRouteObserver, prefix: ''),
           ),
           _branch(
             path: '/settings',
@@ -1202,22 +1234,35 @@ Future<void> routeExternalIntent(
 /// Every page that can host a detail/user/tag push has the common routes
 /// mounted under it: the five home tabs and the root-level reverse-image and
 /// settings pages. Pushes stay inside the stack the user is looking at.
-const _stackRoots = <String>[
+const _branchRoots = <String>[
   '/recommended',
   '/ranking',
   '/new',
   '/search',
-  '/me',
   '/settings',
-  '/reverse-image',
 ];
+
+const _overlayRoots = <String>['/me', '/reverse-image', '/downloads'];
+
+const _stackRoots = <String>[..._branchRoots, ..._overlayRoots];
+
+String? _stackRootOf(String path) {
+  for (final root in _stackRoots) {
+    if (path == root || path.startsWith('$root/')) return root;
+  }
+  return null;
+}
 
 String _currentStackRoot(BuildContext context) {
   final path = GoRouter.of(context).state.uri.path;
-  return _stackRoots.firstWhere(
-    (root) => path == root || path.startsWith('$root/'),
-    orElse: () => '/recommended',
-  );
+  return _stackRootOf(path) ?? '/recommended';
+}
+
+String _searchPath(BuildContext context, String leaf) {
+  final path = GoRouter.of(context).state.uri.path;
+  final root = _stackRootOf(path);
+  if (root == null) return '/search/$leaf';
+  return root == '/search' ? '/search/$leaf' : '$root/search/$leaf';
 }
 
 Future<void> _push(
@@ -1225,7 +1270,31 @@ Future<void> _push(
   String location, {
   Object? extra,
 }) async {
+  final router = GoRouter.of(context);
+  assert(
+    pushStaysInStack(router, location),
+    'push of $location leaves the stack of ${router.state.uri}',
+  );
   await context.push<void>(location, extra: extra);
+}
+
+/// Branch locations must be pushed from their own visible branch stack. A
+/// branch push from an overlay, another branch, or a root-level page such as
+/// the viewer would create a second shell or bury the target below that page.
+@visibleForTesting
+bool pushStaysInStack(GoRouter router, String location) {
+  final target = _stackRootOf(Uri.parse(location).path);
+  if (target == null || !_branchRoots.contains(target)) return true;
+  final current = router.routerDelegate.currentConfiguration;
+  final currentRoot = _stackRootOf(current.uri.path);
+  if (currentRoot == null) {
+    // Standalone root-level hosts (for example a deep-link test router) do
+    // not have a shell branch to preserve; their root search route is safe.
+    return true;
+  }
+  return currentRoot == target &&
+      current.last.route.parentNavigatorKey !=
+          router.routerDelegate.navigatorKey;
 }
 
 Future<void> openIllust(
@@ -1286,6 +1355,11 @@ Future<void> openSettings(BuildContext context) async {
   context.go('/settings');
 }
 
+/// The update prompt can be shown above any route, including root overlays.
+/// Going to the about page keeps a single home shell instead of pushing a
+/// settings branch below the page that displayed the prompt.
+void goToAbout(GoRouter router) => router.go('/settings/about');
+
 Future<void> openNovel(BuildContext context, int novelId) async {
   await _push(context, '${_currentStackRoot(context)}/novel/$novelId');
 }
@@ -1298,11 +1372,30 @@ Future<void> openNewNovels(BuildContext context) async {
   await _push(context, '${_currentStackRoot(context)}/new-novels');
 }
 
-/// Download tasks live under the settings shell — the SnackBar "查看"
-/// action lands there directly regardless of which stack submitted the
-/// download.
+/// Download tasks are an app-level page over the current stack.
 Future<void> openDownloadTasks(BuildContext context) async {
-  await _push(context, '/settings/tasks');
+  await _push(context, '/downloads');
+}
+
+/// Binds the SnackBar action to the router while the submitting page is
+/// alive, so it remains valid after that page is popped or disposed.
+void showDownloadSubmittedSnackBar(
+  BuildContext context, {
+  bool alreadyQueued = false,
+}) {
+  final router = GoRouter.maybeOf(context);
+  final l10n = context.l10n;
+  if (!alreadyQueued) AppHaptics.success();
+  showAppSnackBar(
+    context,
+    alreadyQueued ? l10n.downloadAlreadyQueued : l10n.downloadQueuedMessage,
+    action: router == null
+        ? null
+        : SnackBarAction(
+            label: l10n.downloadViewResult,
+            onPressed: () => unawaited(router.push<void>('/downloads')),
+          ),
+  );
 }
 
 Future<void> openWatchLater(BuildContext context) async {
@@ -1361,7 +1454,7 @@ Future<void> openSearchInput(
   SearchResultType type = SearchResultType.illust,
 }) async {
   final location = Uri(
-    path: '/search/input',
+    path: _searchPath(context, 'input'),
     queryParameters: {'q': initialKeyword, 'type': type.name},
   ).toString();
   await _push(context, location);
@@ -1373,7 +1466,7 @@ void replaceSearchInput(
   required SearchResultType type,
 }) {
   final location = Uri(
-    path: '/search/input',
+    path: _searchPath(context, 'input'),
     queryParameters: {'q': keyword, 'type': type.name},
   ).toString();
   context.replace(location);
@@ -1443,7 +1536,7 @@ Future<void> openSearchResults(BuildContext context, SearchQuery query) async {
     return;
   }
   final location = Uri(
-    path: '/search/results',
+    path: _searchPath(context, 'results'),
     queryParameters: _searchQueryParameters(query),
   ).toString();
   await _push(context, location);
@@ -1456,7 +1549,7 @@ void replaceSearchResults(BuildContext context, SearchQuery query) {
     return;
   }
   final location = Uri(
-    path: '/search/results',
+    path: _searchPath(context, 'results'),
     queryParameters: _searchQueryParameters(query),
   ).toString();
   context.replace(location);

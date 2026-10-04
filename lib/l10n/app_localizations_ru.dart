@@ -1395,6 +1395,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadQueuedMessage => 'Добавлено в очередь загрузки';
 
   @override
+  String get downloadAlreadyQueued => 'Уже в очереди загрузки';
+
+  @override
   String get downloadSubmissionFailed => 'Не удалось скачать';
 
   @override

@@ -38,7 +38,7 @@ class IllustDownloadCoordinator {
 
   /// Download All: one request per page URL, page index = list position.
   /// Repeated submissions while tasks are live dedupe to the same tasks.
-  Future<List<DownloadTaskSnapshot>> downloadAllPages({
+  Future<DownloadGroupSubmission> downloadAllPages({
     required IllustEntity work,
     required List<Uri> pageUrls,
     NamingRule? namingRule,
@@ -55,12 +55,12 @@ class IllustDownloadCoordinator {
     if (requests.isEmpty) {
       throw const FormatException('work has no downloadable pages');
     }
-    final group = _manager.submitGroup(requests);
-    final first = _manager.taskById(group.jobIds.first);
-    if (first != null) {
+    final submission = _manager.submitGroup(requests);
+    final first = submission.tasks.first;
+    if (submission.group != null) {
       await _exportCaption(work, requests.first, first);
     }
-    return [for (final id in group.jobIds) _manager.taskById(id)!];
+    return submission;
   }
 
   /// Per-page requests a bulk author submission needs. Exposed so the
@@ -86,7 +86,7 @@ class IllustDownloadCoordinator {
   /// Bulk author download: one group containing every
   /// downloadable page of every enumerated work. An empty request set is a
   /// caller-visible error, never a silent no-op.
-  Future<DownloadGroupSnapshot> downloadAuthorWorks({
+  Future<DownloadGroupSubmission> downloadAuthorWorks({
     required List<IllustEntity> works,
     NamingRule? namingRule,
   }) async {
@@ -94,20 +94,21 @@ class IllustDownloadCoordinator {
     if (requests.isEmpty) {
       throw const FormatException('author works have no downloadable pages');
     }
-    final group = _manager.submitGroup(requests);
+    final submission = _manager.submitGroup(requests);
     // Caption sidecars ride the same submission; per-work dedupe keeps this
     // idempotent when the same author is re-enqueued later.
     final workById = {for (final work in works) work.id: work};
     final seen = <int>{};
+    if (submission.group == null) return submission;
     for (var i = 0; i < requests.length; i++) {
       final request = requests[i];
       if (!seen.add(request.illustId)) continue;
       final work = workById[request.illustId];
-      final snapshot = _manager.taskById(group.jobIds[i]);
-      if (work == null || snapshot == null) continue;
+      final snapshot = submission.tasks[i];
+      if (work == null) continue;
       await _exportCaption(work, request, snapshot);
     }
-    return group;
+    return submission;
   }
 
   DownloadTaskSnapshot? taskFor({

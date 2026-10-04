@@ -625,6 +625,7 @@
   "viewerNoImages": "No images to display",
   "downloadAll": "Download All",
   "downloadQueuedMessage": "Added to the download queue",
+  "downloadAlreadyQueued": "Already in the download queue",
   "downloadSubmissionFailed": "Download failed",
   "downloadFailurePermission": "Storage permission missing",
   "downloadFailureResource": "Device resources exhausted or the file is too large",

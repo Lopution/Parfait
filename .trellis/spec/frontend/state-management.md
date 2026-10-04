@@ -1177,6 +1177,16 @@ after recovery. Each
 job emits one terminal event. Groups capture one submission boundary and
 aggregate child states without replacing child ownership.
 
+Group integrity is an explicit runtime invariant: each task belongs to the
+group captured in its submission snapshot, a group's `jobIds` contain only
+its current tasks, and removing the last child removes the group. A fresh
+submission replaces an existing terminal task for the same identity; when
+the old attempt has a resumable output, its resume anchor and frozen name
+transfer to the new attempt. `submitGroup` returns one task per request plus
+an optional group snapshot; a null group means every request deduped onto a
+live task from an earlier group. Retrying after an account change may dedupe
+into another live group, but never adds that task to the old group.
+
 Pending output is owned by an opaque owner record containing the job and
 account identity; it must not expose temporary filesystem paths or
 credentials. MediaStore writes use pending rows and become visible only after
@@ -1192,13 +1202,20 @@ destination identity exactly match the current context may be restored as
 unknown records become observable `orphaned` records. Pending MediaStore rows
 are cleaned only through an exact owner match (C22); unmatched pending rows
 are reported and never blindly deleted. Cleanup failure remains visible in
-recovery diagnostics and in Settings → Downloader (`DownloadTasksPage`),
+recovery diagnostics and in the Download Tasks page (`/downloads`,
+`DownloadTasksPage`),
 where `retryable` and `orphaned` jobs stay user-visible. A crash observed in
 `finalizing` is treated as `orphaned` rather than retried, because the output
 may already have become visible. Group membership is rebuilt from child
 snapshots before the recovered group status is exposed. HTTP `Retry-After` and the
 stable auth/rate/network/storage/permission/decode/resource failure classes
 are retained in the job snapshot without storing request headers or tokens.
+
+Before recovery restores any jobs, records are deduplicated by `dedupeKey` and
+only the newest `snapshot.submittedAt` is kept. Older records are removed,
+their unfinished pending outputs are cleaned through their exact owner, and
+their job IDs are reported in `DownloadRecoveryReport.supersededJobIds`; old
+groups are never registered.
 
 A submission snapshot may also carry optional **display fields** —
 `thumbnailUrl` and `totalPages` — that let the management list render the
@@ -1239,8 +1256,8 @@ are account-id scoped.
 
 **C5 bootstrap**: `ParfaitApp.initState` reads `downloadManagerProvider`
 (`app.dart`). That constructs the manager and fires a one-time recovery scan.
-Recovery never auto-resends a download; the user retries from Settings →
-Downloader.
+Recovery never auto-resends a download; the user retries from the Download
+Tasks page (`/downloads`).
 
 **C6 widget gate**: `WidgetCoordinator.start` / `ensureStarted` consult
 `WidgetInstanceGate` (`hasAnyWidget` on Android). No live instance means no

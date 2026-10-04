@@ -280,7 +280,7 @@ class _SettingsList extends ConsumerWidget {
                 subtitle: Text(
                   context.l10n.settingsDownloadTasksSummary(activeTasks),
                 ),
-                onTap: () => openSettingsPage(context, '/settings/tasks'),
+                onTap: () => unawaited(openDownloadTasks(context)),
               ),
             ],
           ),

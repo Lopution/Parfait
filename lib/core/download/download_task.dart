@@ -178,6 +178,28 @@ enum DownloadGroupStatus {
   orphaned,
 }
 
+/// Result of one group submission. A null [group] means every request was
+/// deduplicated onto a live task from an earlier submission, so no new group
+/// was created. [tasks] always stays aligned with the request order.
+@immutable
+class DownloadGroupSubmission {
+  const DownloadGroupSubmission({required this.group, required this.tasks});
+
+  final DownloadGroupSnapshot? group;
+  final List<DownloadTaskSnapshot> tasks;
+
+  // Compatibility accessors keep existing task-list consumers source-stable
+  // while they migrate to the explicit nullable [group] field.
+  int get length => tasks.length;
+  DownloadTaskSnapshot operator [](int index) => tasks[index];
+  String get id => group?.id ?? '';
+  List<String> get jobIds => group?.jobIds ?? const [];
+  DownloadSubmissionSnapshot get submission =>
+      group?.submission ?? tasks.first.submission!;
+  DownloadGroupStatus get status => group?.status ?? DownloadGroupStatus.queued;
+  int get childCount => group?.childCount ?? 0;
+}
+
 /// Read-only aggregate view for Download All/Ugoira-style submissions.
 @immutable
 class DownloadGroupSnapshot {

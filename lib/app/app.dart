@@ -150,7 +150,7 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
       shellBarVisible: ref.read(homeShellBarVisibleProvider),
       reduceMotion: settings?.reduceMotion ?? false,
       animationSpeed: settings?.animationSpeed ?? AnimationSpeed.normal,
-      onOpen: () => _router.push<void>('/settings/about'),
+      onOpen: () => goToAbout(_router),
     );
   }
 

@@ -181,6 +181,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     return VisibilityDetector(
       key: ValueKey('ugoira-${widget.illustId}'),
       onVisibilityChanged: (info) {
+        if (_disposed) return;
         final activeScheduler = _scheduler;
         _visible = info.visibleFraction > 0;
         if (activeScheduler == null) return;
