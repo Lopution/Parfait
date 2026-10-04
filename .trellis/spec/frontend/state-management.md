@@ -598,7 +598,10 @@ paragraph ID plus offset; it is not a copy of the novel body or API JSON.
   serialized and never report success after a failed request.
 - Local history reads `localHistoryEnabledProvider`; Pixiv sync reads
   `pixivHistoryEnabledProvider`. Disabling either switch stops new writes for
-  that channel and does not delete existing local rows automatically.
+  that channel and does not delete existing local rows automatically. The
+  two switches live in the history page's overflow menu (checkable
+  `AppMenuEntry`s), not on a settings page — they stay reachable signed out
+  because they are global settings.
 - `HistoryTracker` uses production `StopwatchHistoryClock`; it accumulates
   only route-visible foreground segments. It has no periodic timer. Pixiv
   enqueueing starts at 10 seconds and only the newly unsubmitted duration is
@@ -1311,8 +1314,9 @@ verification code, using a third-party IdP or a full-screen IME all leave the
 foreground, so any stricter lifecycle rule breaks login. Recoverable errors
 keep the session and say so; only unrecoverable ones abort it.
 
-Root back handling is lifecycle-aware: the one-second double-back window is
-cleared when a child route is pushed or the app leaves the resumed state.
+Root back handling follows the Predictive Back Contract in
+component-guidelines.md: the Recommended root delegates to the system, and
+every other branch root returns to Recommended.
 
 Android evidence must identify the verified MuMu serial, state/API level,
 proxy/VPN state, WebView provider, route and failure scope. `MuMu
