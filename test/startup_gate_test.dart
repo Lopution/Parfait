@@ -243,8 +243,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(HomePage), findsOneWidget);
-    // The fifth destination is settings; the profile opens from its card.
-    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+    // The fifth destination is Me; the profile opens from its card.
+    expect(find.byIcon(Icons.person_outline), findsOneWidget);
   });
 
   testWidgets('reauth-required current account falls back to login', (

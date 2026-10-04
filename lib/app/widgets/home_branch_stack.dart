@@ -2,8 +2,6 @@ import 'package:animations/animations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../l10n/context.dart';
-import '../icons/app_icons.dart';
 import '../layout/app_breakpoints.dart';
 import '../motion/motion_tokens.dart';
 import '../navigation/home_shell_metrics.dart';
@@ -188,35 +186,21 @@ class _HomeBranchStackState extends State<HomeBranchStack>
     final extended = AppBreakpoints.useExtendedRail(
       MediaQuery.sizeOf(context).width,
     );
-    final labels = [
-      context.l10n.homeRecommended,
-      context.l10n.homeRanking,
-      context.l10n.newTitle,
-      context.l10n.searchTitle,
-      context.l10n.settingsTitle,
-    ];
+    final destinations = homeDestinations(context);
     return NavigationRail(
       selectedIndex: _current,
       onDestinationSelected: _select,
       extended: extended,
       labelType: extended ? null : NavigationRailLabelType.all,
       destinations: [
-        for (var i = 0; i < _railIcons.length; i++)
+        for (final d in destinations)
           NavigationRailDestination(
-            icon: Icon(_railIcons[i], size: 26),
-            label: Text(labels[i]),
+            icon: Icon(d.icon, size: 26),
+            label: Text(d.label),
           ),
       ],
     );
   }
-
-  static const _railIcons = [
-    AppIcons.home,
-    AppIcons.ranking,
-    AppIcons.n,
-    AppIcons.search,
-    Icons.settings_outlined,
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -267,7 +251,6 @@ class _HomeBranchStackState extends State<HomeBranchStack>
                 onSelected: _select,
                 scrollVisibility: _navVisibility,
                 visibleExtent: _navBarVisibleExtent,
-                indicatorAnimation: AlwaysStoppedAnimation(_current.toDouble()),
               ),
             ),
         ],

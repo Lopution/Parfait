@@ -82,7 +82,7 @@ const _bottomBar = [
   'homeRanking',
   'newTitle',
   'searchTitle',
-  'settingsTitle',
+  'homeMe',
 ];
 
 const _profileWorkTypes = [

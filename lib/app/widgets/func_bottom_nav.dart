@@ -1,5 +1,5 @@
-import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,48 +12,46 @@ import '../navigation/home_shell_metrics.dart';
 import '../theme/func_semantic_tokens.dart';
 import 'fit_label.dart';
 
-/// Primary bottom navigation for narrow layouts.
-///
-/// Tap feedback and the selection indicator replicate the app bar's `TabBar`
-/// exactly: `InkWell` + `overlayColor` (primary 10% pressed, onSurface 8%
-/// hovered) with the theme's `InkSparkle`/`InkRipple` splash — which takes
-/// its colour from the pressed overlay resolve, like a real `InkResponse`
-/// splash — and a 3dp underline whose left/right edges are eased
-/// asymmetrically (M3 `TabIndicatorAnimation.elastic`) so the line
-/// stretches toward the destination before contracting.
-class FuncBottomNav extends StatefulWidget {
+/// The five home destinations in branch order, shared by the bottom bar
+/// and the wide-layout navigation rail.
+List<FuncBottomNavDestination> homeDestinations(BuildContext context) => [
+  FuncBottomNavDestination(
+    icon: AppIcons.home,
+    label: context.l10n.homeRecommended,
+  ),
+  FuncBottomNavDestination(
+    icon: AppIcons.ranking,
+    label: context.l10n.homeRanking,
+  ),
+  FuncBottomNavDestination(icon: AppIcons.n, label: context.l10n.newTitle),
+  FuncBottomNavDestination(
+    icon: AppIcons.search,
+    label: context.l10n.searchTitle,
+  ),
+  FuncBottomNavDestination(
+    icon: Icons.person_outline,
+    label: context.l10n.homeMe,
+  ),
+];
+
+/// Primary bottom navigation for narrow layouts, an M3 navigation bar:
+/// 64dp tall with a 56×32 pill indicator behind the selected destination's
+/// icon. Only the pill paints ink — the whole cell still takes the tap,
+/// the same split `NavigationBar` makes through its `_IndicatorInkWell`.
+class FuncBottomNav extends StatelessWidget {
   const FuncBottomNav({
     super.key,
     required this.destinations,
     required this.selectedIndex,
     required this.onSelected,
-    this.visible = true,
-    this.replayLandingInk = true,
-    this.indicatorAnimation,
   });
 
   final List<FuncBottomNavDestination> destinations;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
 
-  /// Continuous strip position for the indicator to track — the branch
-  /// pager's `tab.animation`. The shell-level bar passes it so the
-  /// underline slides with the finger through a drag exactly like the
-  /// TabBar's indicator follows `controller.animation`. Null
-  /// keeps the discrete elastic replay used by per-branch bars.
-  final Animation<double>? indicatorAnimation;
-
-  /// False while this bar belongs to an IndexedStack branch that is not the
-  /// current one — the branch swap rebuilds every branch's bar, but only the
-  /// visible one may spend ink on the landing splash.
-  final bool visible;
-
-  /// Whether a selection change replays the tapped item's landing ink. The
-  /// replay exists for per-branch bars, whose InkWell is discarded by the
-  /// branch swap; a shell-level bar survives the switch, so its real ink
-  /// is still playing and a replay would double-draw.
-  final bool replayLandingInk;
-
+  /// M3 navigation bar indicator: a 56×32 stadium behind the icon.
+  static const Size indicatorSize = Size(56, 32);
   static const double _height = 64;
 
   /// Rendered height the bar occupies at rest: the fixed row plus the
@@ -63,421 +61,86 @@ class FuncBottomNav extends StatefulWidget {
   /// first frame without measuring the laid-out bar.
   static double restingExtent(double bottomSafeInset) =>
       _height + bottomSafeInset;
-  static const double _indicatorHeight = 3;
-
-  @override
-  State<FuncBottomNav> createState() => _FuncBottomNavState();
-}
-
-class _FuncBottomNavState extends State<FuncBottomNav>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _indicatorController;
-  late int _indicatorFrom;
-
-  /// The last selected index shared across bar instances. Each branch-root
-  /// page mounts its own bar, so the indicator's "from" index would
-  /// otherwise always equal the destination on first build — no elastic
-  /// stretch would ever play. Seeding from the static keeps the animation
-  /// continuous across the instantaneous branch swap.
-  static int? _lastSelectedIndex;
-
-  /// One key per destination so the landing ink can locate the tapped
-  /// item's render box after the branch swap.
-  late final List<GlobalKey> _itemKeys;
-
-  /// A branch switch discards the tapped item's InkWell along with the old
-  /// branch page: its real ink keeps playing in a subtree that is no
-  /// longer painted, so the user sees nothing. Re-issuing the same two
-  /// features a real press paints — the pressed [InkHighlight] block and
-  /// the theme splash — on the destination item restores the landing half
-  /// of the tap, identical to what the top TabBar shows (the top bar is
-  /// one instance across switches, so it never loses its own ink).
-  InteractiveInkFeature? _landingInk;
-  InkHighlight? _landingHighlight;
-  Timer? _landingInkTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _itemKeys = [
-      for (var i = 0; i < widget.destinations.length; i++) GlobalKey(),
-    ];
-    // Seeded by the tap that triggered this branch switch — recorded at
-    // press time so the ordering cannot race against rebuilds.
-    _indicatorFrom = _lastSelectedIndex ?? widget.selectedIndex;
-    // Duration set in didChangeDependencies.
-    _indicatorController = AnimationController(vsync: this, value: 1.0);
-    if (_indicatorFrom != widget.selectedIndex &&
-        widget.indicatorAnimation == null) {
-      // This bar mounted because the user switched branches: play the
-      // elastic indicator + the landing half of the tap's ink. A tracked
-      // indicator needs neither — it paints straight from the strip
-      // position.
-      _indicatorController.value = 0;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (MotionTokens.enabled(context)) {
-          _indicatorController.forward();
-          if (widget.replayLandingInk) _spawnLandingInk();
-        } else {
-          _indicatorController.value = 1;
-        }
-      });
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant FuncBottomNav oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.destinations.length != widget.destinations.length) {
-      // The replay timer and features capture the old item keys' render
-      // boxes — release them before the keys are replaced.
-      _releaseLandingInk();
-      _itemKeys
-        ..clear()
-        ..addAll([
-          for (var i = 0; i < widget.destinations.length; i++) GlobalKey(),
-        ]);
-    }
-    if (oldWidget.selectedIndex != widget.selectedIndex) {
-      _indicatorFrom = oldWidget.selectedIndex;
-      if (widget.indicatorAnimation == null && MotionTokens.enabled(context)) {
-        _indicatorController.forward(from: 0);
-        if (widget.replayLandingInk) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _spawnLandingInk();
-          });
-        }
-      } else {
-        _indicatorController.value = 1;
-      }
-    }
-  }
-
-  /// Paints the same two ink features a real `InkResponse` press produces
-  /// on the destination item: the flat pressed `InkHighlight` plus the
-  /// theme's splash (InkSparkle on Android). Both take their colour from
-  /// `overlayColor` resolved with `pressed` — primary 10% — exactly as
-  /// `InkResponse` colours its own splash, so the replay reads identically
-  /// to the pink press the top bar shows. The timing mirrors a real tap:
-  /// ~130ms held, then the splash confirms and the highlight fades.
-  void _spawnLandingInk() {
-    if (!widget.visible) return;
-    final index = widget.selectedIndex;
-    if (index < 0 || index >= _itemKeys.length) return;
-    final itemContext = _itemKeys[index].currentContext;
-    if (itemContext == null) return;
-    final box = itemContext.findRenderObject() as RenderBox?;
-    final material = Material.maybeOf(itemContext);
-    if (box == null || !box.attached || !box.hasSize || material == null) {
-      return;
-    }
-    final theme = Theme.of(itemContext);
-    final pressedColor =
-        _resolveDestinationOverlay(theme.colorScheme, const {
-          WidgetState.selected,
-          WidgetState.pressed,
-        }) ??
-        theme.splashColor;
-    // Ink features self-register with the controller in their constructor —
-    // calling addInkFeature again would double-add the same feature. A
-    // confirmed feature removes and disposes itself, so the reference must
-    // be cleared via onRemoved rather than re-disposed.
-    _releaseLandingInk();
-    Rect rectCallback() => Offset.zero & box.size;
-    final textDirection = Directionality.of(itemContext);
-    InteractiveInkFeature? splash;
-    splash = theme.splashFactory.create(
-      controller: material,
-      referenceBox: box,
-      position: box.size.center(Offset.zero),
-      color: pressedColor,
-      textDirection: textDirection,
-      containedInkWell: true,
-      rectCallback: rectCallback,
-      onRemoved: () {
-        if (identical(_landingInk, splash)) _landingInk = null;
-      },
-    );
-    InkHighlight? highlight;
-    highlight = InkHighlight(
-      controller: material,
-      referenceBox: box,
-      color: pressedColor,
-      shape: BoxShape.rectangle,
-      rectCallback: rectCallback,
-      onRemoved: () {
-        if (identical(_landingHighlight, highlight)) _landingHighlight = null;
-      },
-      textDirection: textDirection,
-      // InkResponse's pressed-highlight fade duration.
-      fadeDuration: MotionTokens.resolve(context, MotionTokens.fast),
-    );
-    _landingInk = splash;
-    _landingHighlight = highlight;
-    _landingInkTimer = Timer(
-      MotionTokens.resolve(context, MotionTokens.fast),
-      () {
-        splash?.confirm();
-        highlight?.deactivate();
-      },
-    );
-  }
-
-  void _releaseLandingInk() {
-    _landingInkTimer?.cancel();
-    _landingInkTimer = null;
-    _landingInk?.dispose();
-    _landingHighlight?.dispose();
-  }
-
-  @override
-  void deactivate() {
-    // The ink feature's tickers are vsync'd on this bar's own Material — a
-    // descendant that unmounts before this state. InkWell handles the same
-    // teardown in deactivate(): kill the feature here so the inner
-    // Material's ticker accounting is already clean by the time it unmounts.
-    _releaseLandingInk();
-    super.deactivate();
-  }
-
-  @override
-  void dispose() {
-    _releaseLandingInk();
-    _indicatorController.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Matches the TabBar's kTabScrollDuration sweep above.
-    _indicatorController.duration = MotionTokens.resolve(
-      context,
-      MotionTokens.tabSwitch,
-    );
-    // The labels are localized. A locale switch rebuilds this stateful bar,
-    // so widths measured under the previous language must not drive the new
-    // indicator geometry.
-    _labelWidths.clear();
-  }
-
-  // TabBar elastic edges: the trailing edge accelerates in (ease-in sine)
-  // while the leading edge decelerates out (ease-out sine), stretching the
-  // line in the direction of travel.
-  static double _accelerate(double t) => 1.0 - math.cos(t * math.pi / 2);
-  static double _decelerate(double t) => math.sin(t * math.pi / 2);
-
-  Rect _indicatorRect(double itemWidth, int index, double labelWidth) {
-    final center = itemWidth * index + itemWidth / 2;
-    return Rect.fromCenter(
-      center: Offset(center, 0),
-      width: labelWidth,
-      height: FuncBottomNav._indicatorHeight,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Material(
-      color: colors.surfaceContainerLowest,
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: FuncBottomNav._height,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final itemWidth =
-                  constraints.maxWidth / widget.destinations.length;
-              // Measured and drawn in this one style (colour aside), so the
-              // indicator spans exactly the painted label.
-              final labelStyle = DefaultTextStyle.of(
-                context,
-              ).style.merge(_labelStyle);
-              // Uniform label scale: every destination shares one size,
-              // shrunk until the widest translation fits its slot, down to
-              // LabelFit.minScale; past that the labels ellipsize.
-              final fit = LabelFit.group(
-                labels: [for (final d in widget.destinations) d.label],
-                style: labelStyle,
-                textScaler: MediaQuery.textScalerOf(context),
-                textDirection: Directionality.of(context),
-                slotWidth: _labelSlot(itemWidth),
-              );
-              return AnimatedBuilder(
-                animation: widget.indicatorAnimation ?? _indicatorController,
-                builder: (context, _) {
-                  final tracking = widget.indicatorAnimation;
-                  late final double left;
-                  late final double right;
-                  late final int selected;
-                  if (tracking != null) {
-                    // Continuous strip position — the indicator is a pure
-                    // lerp of the two slots it sits between, the same
-                    // geometry TabBar paints from controller.animation.
-                    final pos = tracking.value.clamp(
-                      0.0,
-                      widget.destinations.length - 1.0,
-                    );
-                    final lower = pos.floor();
-                    final upper = math.min(
-                      pos.ceil(),
-                      widget.destinations.length - 1,
-                    );
-                    final frac = pos - lower;
-                    final from = _indicatorRect(
-                      itemWidth,
-                      lower,
-                      _labelWidth(context, lower, itemWidth, labelStyle, fit),
-                    );
-                    final to = _indicatorRect(
-                      itemWidth,
-                      upper,
-                      _labelWidth(context, upper, itemWidth, labelStyle, fit),
-                    );
-                    left = from.left + (to.left - from.left) * frac;
-                    right = from.right + (to.right - from.right) * frac;
-                    // onPageSelected parity: the active item flips at the
-                    // midpoint, matching the pager's warped tab.index.
-                    selected = pos.round();
-                  } else {
-                    // The SDK TabController animates the tab value with
-                    // Curves.ease (animateTo's default); _IndicatorPainter
-                    // then feeds that eased progress into the
-                    // accelerate/decelerate sine pair. Ease the raw
-                    // controller value the same way — feeding it linearly
-                    // shifts the stretch timing off the TabBar's rhythm.
-                    final progress = Curves.ease.transform(
-                      _indicatorController.value,
-                    );
-                    final from = _indicatorRect(
-                      itemWidth,
-                      _indicatorFrom,
-                      _labelWidth(
-                        context,
-                        _indicatorFrom,
-                        itemWidth,
-                        labelStyle,
-                        fit,
-                      ),
-                    );
-                    final to = _indicatorRect(
-                      itemWidth,
-                      widget.selectedIndex,
-                      _labelWidth(
-                        context,
-                        widget.selectedIndex,
-                        itemWidth,
-                        labelStyle,
-                        fit,
-                      ),
-                    );
-                    final movingRight = widget.selectedIndex > _indicatorFrom;
-                    final leftT = movingRight
-                        ? _accelerate(progress)
-                        : _decelerate(progress);
-                    final rightT = movingRight
-                        ? _decelerate(progress)
-                        : _accelerate(progress);
-                    left = from.left + (to.left - from.left) * leftT;
-                    right = from.right + (to.right - from.right) * rightT;
-                    selected = widget.selectedIndex;
-                  }
-                  return Stack(
-                    children: [
-                      Row(
-                        children: [
-                          for (var i = 0; i < widget.destinations.length; i++)
-                            Expanded(
-                              child: _FuncBottomNavItem(
-                                key: _itemKeys[i],
-                                destination: widget.destinations[i],
-                                labelStyle: labelStyle,
-                                labelFit: fit,
-                                selected: i == selected,
-                                onTap: () {
-                                  // Record the pre-switch index at press
-                                  // time: the destination bar mounts in
-                                  // the same frame and seeds its elastic
-                                  // "from" position from it.
-                                  _lastSelectedIndex = widget.selectedIndex;
-                                  widget.onSelected(i);
-                                },
-                              ),
-                            ),
-                        ],
-                      ),
-                      Positioned(
-                        left: left,
-                        // indicatorPadding: EdgeInsets.only(bottom: 5) on
-                        // the TabBar above.
-                        bottom: 5,
-                        width: math.max(0.0, right - left),
-                        height: FuncBottomNav._indicatorHeight,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: colors.primary,
-                            // M3 primary+label indicator: top corners
-                            // rounded by the indicator weight.
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(
-                                FuncBottomNav._indicatorHeight,
-                              ),
-                              topRight: Radius.circular(
-                                FuncBottomNav._indicatorHeight,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  // TabBar `indicatorSize: label` — the underline spans the label text, not
-  // the whole destination. Measuring the label's intrinsic width keeps the
-  // bottom indicator the same proportion as the top bar's.
-  final Map<(String, double), double> _labelWidths = {};
-
-  static const _labelStyle = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w500,
-  );
 
   /// Room for a label inside its destination.
   static double _labelSlot(double itemWidth) =>
       math.max(0.0, itemWidth - 2 * _labelInset);
 
-  static const _labelInset = 6.0;
+  static const double _labelInset = 6.0;
 
-  /// The painted width of destination [index]'s label.
-  double _labelWidth(
-    BuildContext context,
-    int index,
-    double itemWidth,
-    TextStyle labelStyle,
-    LabelFit fit,
-  ) {
-    final label = widget.destinations[index].label;
-    final measured = _labelWidths.putIfAbsent(
-      (label, fit.scale),
-      () => LabelFit.measureLabel(
-        label,
-        labelStyle,
-        fit.scaler(MediaQuery.textScalerOf(context)),
-        Directionality.of(context),
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final navTheme = NavigationBarTheme.of(context);
+    return Material(
+      color: colors.surfaceContainerLowest,
+      child: SafeArea(
+        top: false,
+        // The labels are exempt from the user's text scale past
+        // NavigationBar's own 1.3 ceiling — measurement and drawing read
+        // the same clamped scaler inside.
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.3,
+          child: SizedBox(
+            height: _height,
+            child: Semantics(
+              role: ui.SemanticsRole.tabBar,
+              explicitChildNodes: true,
+              container: true,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // The ambient default lives below this widget's Material —
+                  // read it here so labels inherit the app font, not whatever
+                  // style floats above the shell.
+                  final ambient = DefaultTextStyle.of(context).style;
+                  // The theme's label style merged over the ambient keeps the
+                  // inherited font family; state colours never change
+                  // metrics, so one resolution serves the group's fit
+                  // measurement.
+                  final measureStyle = ambient.merge(
+                    navTheme.labelTextStyle?.resolve(const <WidgetState>{}),
+                  );
+                  final itemWidth = constraints.maxWidth / destinations.length;
+                  // Uniform label scale: every destination shares one
+                  // size, shrunk until the widest translation fits its
+                  // slot, down to LabelFit.minScale; past that the labels
+                  // ellipsize.
+                  final fit = LabelFit.group(
+                    labels: [for (final d in destinations) d.label],
+                    style: measureStyle,
+                    textScaler: MediaQuery.textScalerOf(context),
+                    textDirection: Directionality.of(context),
+                    slotWidth: _labelSlot(itemWidth),
+                  );
+                  return Row(
+                    children: [
+                      for (var i = 0; i < destinations.length; i++)
+                        Expanded(
+                          child: MergeSemantics(
+                            child: Semantics(
+                              role: ui.SemanticsRole.tab,
+                              selected: i == selectedIndex,
+                              child: _FuncBottomNavItem(
+                                destination: destinations[i],
+                                index: i,
+                                count: destinations.length,
+                                selected: i == selectedIndex,
+                                ambientStyle: ambient,
+                                labelFit: fit,
+                                onTap: () => onSelected(i),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
       ),
     );
-    // An ellipsized label fills its slot.
-    return math.min(measured, _labelSlot(itemWidth));
   }
 }
 
@@ -490,8 +153,7 @@ class FuncBottomNavDestination {
 
 /// Destination overlay mirroring `_TabsPrimaryDefaultsM3`: pressed always
 /// resolves primary 10%; hover/focus split on selected like the TabBar's
-/// tabs. Shared by the item's `InkWell.overlayColor` and the branch-swap
-/// landing replay, which resolves `{selected, pressed}` for its ink.
+/// tabs. Shared by every item's ink response.
 Color? _resolveDestinationOverlay(ColorScheme colors, Set<WidgetState> states) {
   if (states.contains(WidgetState.selected)) {
     if (states.contains(WidgetState.pressed)) {
@@ -517,71 +179,186 @@ Color? _resolveDestinationOverlay(ColorScheme colors, Set<WidgetState> states) {
   return null;
 }
 
-class _FuncBottomNavItem extends StatelessWidget {
+/// One destination cell: an icon over its label, vertically centred in the
+/// 64dp row. Owns the selection animation behind its pill so selecting a
+/// destination grows the pill from its centre — the M3 indicator expand.
+class _FuncBottomNavItem extends StatefulWidget {
   const _FuncBottomNavItem({
-    super.key,
     required this.destination,
-    required this.labelStyle,
-    required this.labelFit,
+    required this.index,
+    required this.count,
     required this.selected,
+    required this.ambientStyle,
+    required this.labelFit,
     required this.onTap,
   });
 
   final FuncBottomNavDestination destination;
-  final TextStyle labelStyle;
-  final LabelFit labelFit;
+  final int index;
+  final int count;
   final bool selected;
+
+  /// The ambient default text style; the theme's resolved label style is
+  /// merged over it so the label keeps the inherited font family.
+  final TextStyle ambientStyle;
+  final LabelFit labelFit;
   final VoidCallback onTap;
+
+  @override
+  State<_FuncBottomNavItem> createState() => _FuncBottomNavItemState();
+}
+
+class _FuncBottomNavItemState extends State<_FuncBottomNavItem>
+    with SingleTickerProviderStateMixin {
+  /// Locates the pill for [_PillInkWell]'s rect callback.
+  final GlobalKey _pillKey = GlobalKey();
+  late final AnimationController _selection;
+
+  @override
+  void initState() {
+    super.initState();
+    _selection = AnimationController(
+      vsync: this,
+      value: widget.selected ? 1 : 0,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _selection.duration = MotionTokens.resolve(
+      context,
+      MotionTokens.navDestination,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _FuncBottomNavItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selected == oldWidget.selected) return;
+    if (MotionTokens.enabled(context)) {
+      if (widget.selected) {
+        _selection.forward();
+      } else {
+        _selection.reverse();
+      }
+    } else {
+      _selection.value = widget.selected ? 1 : 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _selection.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final color = selected ? colors.primary : colors.onSurfaceVariant;
-    // Same ink as the TabBar above: the theme's InkSparkle splash (no
-    // splashFactory override) coloured by the pressed overlay resolve, a
-    // pink pressed InkHighlight, and overlay states mirroring
-    // _TabsPrimaryDefaultsM3 — pressed/hover/focus resolve identically
-    // for selected and unselected tabs. `selected` is a widget-side prop
-    // InkResponse's controller doesn't know, so it is merged in here.
-    final selectedStates = <WidgetState>{if (selected) WidgetState.selected};
-    return InkWell(
-      onTap: onTap,
-      overlayColor: WidgetStateProperty.resolveWith(
-        (states) => _resolveDestinationOverlay(
-          colors,
-          selectedStates.toSet()..addAll(states),
-        ),
-      ),
-      highlightColor: Colors.transparent,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    final navTheme = NavigationBarTheme.of(context);
+    final states = widget.selected
+        ? const <WidgetState>{WidgetState.selected}
+        : const <WidgetState>{};
+    final iconTheme =
+        navTheme.iconTheme?.resolve(states) ?? const IconThemeData();
+    final labelStyle = widget.ambientStyle.merge(
+      navTheme.labelTextStyle?.resolve(states),
+    );
+    return Semantics(
+      button: true,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Icon(destination.icon, size: 24, color: color),
-          const SizedBox(height: FuncSpacing.xxs),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: _FuncBottomNavState._labelInset,
+          _PillInkWell(
+            pillKey: _pillKey,
+            overlayColor: WidgetStateProperty.resolveWith(
+              (inkStates) => _resolveDestinationOverlay(colors, {
+                if (widget.selected) WidgetState.selected,
+                ...inkStates,
+              }),
             ),
-            child: FitLabel(
-              destination.label,
-              fit: labelFit,
-              style: labelStyle.copyWith(color: color),
+            onTap: widget.onTap,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Stack(
+                  key: _pillKey,
+                  alignment: Alignment.center,
+                  children: [
+                    NavigationIndicator(
+                      animation: _selection,
+                      width: FuncBottomNav.indicatorSize.width,
+                      height: FuncBottomNav.indicatorSize.height,
+                      color: navTheme.indicatorColor,
+                      shape: const StadiumBorder(),
+                    ),
+                    IconTheme.merge(
+                      data: iconTheme,
+                      child: Icon(widget.destination.icon, size: 24),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: FuncSpacing.xs),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: FuncBottomNav._labelInset,
+                  ),
+                  child: FitLabel(
+                    widget.destination.label,
+                    fit: widget.labelFit,
+                    style: labelStyle,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: FuncSpacing.xs),
+          // A label-only overlay so the merged node reads "推荐，标签 1/5"
+          // like a real NavigationBar destination.
+          Semantics(
+            label: MaterialLocalizations.of(
+              context,
+            ).tabLabel(tabIndex: widget.index + 1, tabCount: widget.count),
+          ),
         ],
       ),
     );
   }
 }
 
+/// The destination's tap target: the whole cell takes the pointer, but ink
+/// is confined to the pill — the same rect-callback trick the SDK's
+/// `_IndicatorInkWell` uses.
+class _PillInkWell extends InkResponse {
+  const _PillInkWell({
+    required this.pillKey,
+    super.overlayColor,
+    super.onTap,
+    super.child,
+  }) : super(
+         containedInkWell: true,
+         highlightColor: Colors.transparent,
+         customBorder: const StadiumBorder(),
+       );
+
+  final GlobalKey pillKey;
+
+  @override
+  RectCallback? getRectCallback(RenderBox referenceBox) {
+    return () {
+      final pill = pillKey.currentContext!.findRenderObject()! as RenderBox;
+      final rect = pill.localToGlobal(Offset.zero) & pill.size;
+      return referenceBox.globalToLocal(rect.topLeft) & pill.size;
+    };
+  }
+}
+
 /// The single bottom bar at the home-shell layer: a **sibling** of the
-/// branch pager, floating
-/// over the strip instead of riding inside a page. It never translates
-/// with a branch slide; while the current branch's root route is covered
-/// by a pushed route (reported by [BranchRootScaffold] into
-/// [branchStackCoveredProvider]) it slides away, as if a whole new screen
-/// had been pushed over the home pager.
+/// branch stack, floating
+/// over the pages instead of riding inside one. While the current branch's
+/// root route is covered by a pushed route (reported by
+/// [BranchRootScaffold] into [branchStackCoveredProvider]) it slides away,
+/// as if a whole new screen had been pushed over the home pages.
 ///
 /// It also publishes its presence to [homeShellBarVisibleProvider] so the
 /// app-level update prompt — presented by a messenger above the shell —
@@ -593,21 +370,18 @@ class FuncShellBottomNav extends ConsumerStatefulWidget {
     required this.onSelected,
     required this.scrollVisibility,
     required this.visibleExtent,
-    required this.indicatorAnimation,
   });
 
-  /// Current branch index — the pager's warped `tab.index`, so the
-  /// selected item flips exactly when a drag crosses the midpoint
-  /// (ViewPager `onPageSelected` parity).
+  /// Current branch index.
   final int selectedIndex;
 
   /// Slot-tap callback — the owning [HomeBranchStack] decides between a
-  /// same-branch root reset and an animated slide.
+  /// same-branch root reset and a branch switch.
   final ValueChanged<int> onSelected;
 
   /// 1 = fully shown, 0 = slid entirely below the screen edge. Owned by
   /// [HomeBranchStack], which drives it from scroll deltas bubbling out
-  /// of the branch Navigators — the bar floats over the strip, so sliding
+  /// of the branch Navigators — the bar floats over the pages, so sliding
   /// never reflows the page underneath.
   final AnimationController scrollVisibility;
 
@@ -616,10 +390,6 @@ class FuncShellBottomNav extends ConsumerStatefulWidget {
   /// below — the Hero landing clip reads it through
   /// [HomeShellChrome.bottomBarVisibleExtent].
   final ValueNotifier<double> visibleExtent;
-
-  /// The strip's continuous position (the pager's `tab.animation`) — the
-  /// indicator tracks it, sliding with the finger like the TabBar's does.
-  final Animation<double> indicatorAnimation;
 
   @override
   ConsumerState<FuncShellBottomNav> createState() => _FuncShellBottomNavState();
@@ -771,16 +541,9 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
       ),
     );
     _syncCovered(covered);
-    final labels = [
-      context.l10n.homeRecommended,
-      context.l10n.homeRanking,
-      context.l10n.newTitle,
-      context.l10n.searchTitle,
-      context.l10n.settingsTitle,
-    ];
     // The bar is an overlay that *slides* out of the screen —
-    // the strip uses a full-height layout so nothing reflows under the
-    // finger. Two stacked transitions: covered (pushed route) over scroll
+    // the pages use a full-height layout so nothing reflows underneath.
+    // Two stacked transitions: covered (pushed route) over scroll
     // (auto-hide), either one wins the hide.
     _restingExtent = FuncBottomNav.restingExtent(
       MediaQuery.paddingOf(context).bottom,
@@ -797,29 +560,13 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
           Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero),
         ),
         child: FuncBottomNav(
+          destinations: homeDestinations(context),
           selectedIndex: widget.selectedIndex,
           onSelected: widget.onSelected,
-          // One persistent instance — the real tap ink survives the branch
-          // switch, so the landing replay would double-draw; the indicator
-          // tracks the strip position directly instead of replaying.
-          replayLandingInk: false,
-          indicatorAnimation: widget.indicatorAnimation,
-          destinations: [
-            for (var i = 0; i < labels.length; i++)
-              FuncBottomNavDestination(icon: _icons[i], label: labels[i]),
-          ],
         ),
       ),
     );
   }
-
-  static const _icons = [
-    AppIcons.home,
-    AppIcons.ranking,
-    AppIcons.n,
-    AppIcons.search,
-    Icons.settings_outlined,
-  ];
 }
 
 /// Trailing spacer for branch-root scrollables. The navigation bar floats

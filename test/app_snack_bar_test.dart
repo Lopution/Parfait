@@ -95,7 +95,6 @@ _pumpShell(WidgetTester tester) async {
                     onSelected: (_) {},
                     scrollVisibility: scrollVisibility,
                     visibleExtent: visibleExtent,
-                    indicatorAnimation: const AlwaysStoppedAnimation(0),
                   ),
                 ),
               ],

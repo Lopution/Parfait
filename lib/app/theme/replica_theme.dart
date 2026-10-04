@@ -193,7 +193,7 @@ ThemeData replicaTheme(
       iconTheme: WidgetStateProperty.resolveWith((states) {
         return IconThemeData(
           color: states.contains(WidgetState.selected)
-              ? colorScheme.primary
+              ? colorScheme.onPrimaryContainer
               : colorScheme.onSurfaceVariant,
         );
       }),
@@ -210,7 +210,7 @@ ThemeData replicaTheme(
     navigationRailTheme: NavigationRailThemeData(
       backgroundColor: background,
       indicatorColor: colorScheme.primaryContainer,
-      selectedIconTheme: IconThemeData(color: colorScheme.primary),
+      selectedIconTheme: IconThemeData(color: colorScheme.onPrimaryContainer),
       unselectedIconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
     ),
     segmentedButtonTheme: SegmentedButtonThemeData(

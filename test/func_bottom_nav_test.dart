@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -93,6 +95,24 @@ void main() {
     );
   }
 
+  Finder indicatorAt(int index) => find
+      .descendant(
+        of: find.byType(FuncBottomNav),
+        matching: find.byType(NavigationIndicator),
+      )
+      .at(index);
+
+  /// The pill's painted X scale: 1 fully grown, 0 absent.
+  double pillScale(WidgetTester tester, int index) => tester
+      .widget<Transform>(
+        find.descendant(
+          of: indicatorAt(index),
+          matching: find.byType(Transform),
+        ),
+      )
+      .transform
+      .storage[0];
+
   testWidgets('renders every destination label', (tester) async {
     await tester.pumpWidget(host());
     for (final d in destinations) {
@@ -107,43 +127,23 @@ void main() {
     expect(tapped, 3);
   });
 
-  testWidgets('branch switch landing replay settles cleanly', (tester) async {
-    // A branch swap used to rebuild a per-branch bar with a new
-    // selectedIndex — the didUpdateWidget path this exercises. The replay
-    // spawns an InkHighlight + theme splash on the destination item,
-    // holds ~130ms, then confirms/fades both.
-    await tester.pumpWidget(host());
-    await tester.pumpWidget(host(selected: 2));
-    // Run the whole lifecycle: 130ms hold + splash fade + 200ms highlight
-    // fade + margin. Any ticker leak, double registration, or teardown
-    // assertion surfaces as an exception here.
-    await tester.pump(const Duration(milliseconds: 800));
-    expect(tester.takeException(), isNull);
-
-    // A rapid second switch while the first replay is still alive must
-    // also settle: the pending features are released, not left ticking.
-    await tester.pumpWidget(host(selected: 4));
-    await tester.pump(const Duration(milliseconds: 40));
+  testWidgets('a 56x32 pill sits behind only the selected icon', (
+    tester,
+  ) async {
     await tester.pumpWidget(host(selected: 1));
-    await tester.pump(const Duration(milliseconds: 800));
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('destinations ink matches the app bar TabBar', (tester) async {
-    await tester.pumpWidget(host());
-    final wells = tester.widgetList<InkWell>(find.byType(InkWell)).toList();
-    expect(wells, hasLength(destinations.length));
-    for (final well in wells) {
-      // No splashFactory override: the items inherit the theme's splash —
-      // the same InkSparkle the TabBar above resolves.
-      expect(well.splashFactory, isNull);
-      expect(well.overlayColor, isNotNull);
+    await tester.pumpAndSettle();
+    for (var i = 0; i < destinations.length; i++) {
+      expect(
+        tester.getSize(
+          find.descendant(of: indicatorAt(i), matching: find.byType(Ink)),
+        ),
+        FuncBottomNav.indicatorSize,
+      );
+      expect(pillScale(tester, i), i == 1 ? 1.0 : 0.0);
     }
   });
 
-  testWidgets('indicator re-animates on every selection change', (
-    tester,
-  ) async {
+  testWidgets('the pill grows from the centre on selection', (tester) async {
     var selected = 0;
     await tester.pumpWidget(
       StatefulBuilder(
@@ -160,25 +160,111 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    double indicatorLeft() =>
-        tester.widget<Positioned>(find.byType(Positioned)).left!;
-
-    // Switch 0 -> 2: mid-flight the indicator is between positions.
     await tester.tap(find.text('新作'));
-    await tester.pump(const Duration(milliseconds: 150));
-    final midFirst = indicatorLeft();
+    // The selection controllers start on the tap's rebuild frame; the next
+    // frame lands mid-flight, the arriving pill part-grown and the
+    // leaving one part-shrunk.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(pillScale(tester, 2), greaterThan(0));
+    expect(pillScale(tester, 0), lessThan(1));
     await tester.pumpAndSettle();
-    final settledTwo = indicatorLeft();
-    expect(midFirst, isNot(settledTwo));
+    expect(pillScale(tester, 2), 1.0);
+    expect(pillScale(tester, 0), 0.0);
+  });
 
-    // Switch 2 -> 4 must animate again — previously a reused instance kept
-    // a settled indicator because the animation never re-triggered.
-    await tester.tap(find.text('我的'));
-    await tester.pump(const Duration(milliseconds: 150));
-    final midSecond = indicatorLeft();
-    await tester.pumpAndSettle();
-    expect(midSecond, isNot(indicatorLeft()));
-    expect(midSecond, isNot(settledTwo));
+  testWidgets('destinations carry tab, selected and tabLabel semantics', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(selected: 2));
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Semantics &&
+            w.properties.role == ui.SemanticsRole.tab &&
+            w.properties.selected == true,
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w is Semantics &&
+            w.properties.role == ui.SemanticsRole.tab &&
+            w.properties.selected == false,
+      ),
+      findsNWidgets(destinations.length - 1),
+    );
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Semantics && w.properties.button == true,
+      ),
+      findsNWidgets(destinations.length),
+    );
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is Semantics && w.properties.label == 'Tab 1 of 5',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('labels draw at most 1.3x platform text scale', (tester) async {
+    Future<double> paintedScale(double platformScale) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(platformScale)),
+              child: Scaffold(
+                bottomNavigationBar: FuncBottomNav(
+                  destinations: destinations,
+                  selectedIndex: 0,
+                  onSelected: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final text = tester.widget<Text>(find.text('推荐'));
+      return text.textScaler!.scale(12);
+    }
+
+    // 12sp at 1.3x = 15.6 logical px; at 2.0x the bar's own clamp must
+    // produce the same value instead of 24.
+    expect(await paintedScale(1.3), moreOrLessEquals(15.6));
+    expect(await paintedScale(2.0), moreOrLessEquals(15.6));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ink is confined to the pill', (tester) async {
+    await tester.pumpWidget(host());
+    // find.byType never hits subclasses — the destinations use a private
+    // InkResponse type, so match by `is` instead.
+    final inks = tester
+        .widgetList<InkResponse>(
+          find.descendant(
+            of: find.byType(FuncBottomNav),
+            matching: find.byWidgetPredicate((w) => w is InkResponse),
+          ),
+        )
+        .toList();
+    expect(inks, hasLength(destinations.length));
+    for (final ink in inks) {
+      // No splashFactory override: the items inherit the theme's splash.
+      expect(ink.splashFactory, isNull);
+      expect(ink.overlayColor, isNotNull);
+      expect(ink.containedInkWell, isTrue);
+      expect(ink.highlightColor, Colors.transparent);
+      expect(ink.customBorder, isA<StadiumBorder>());
+      final rect = ink.getRectCallback(
+        tester.renderObject<RenderBox>(find.byWidget(ink)),
+      )!();
+      expect(rect.size, FuncBottomNav.indicatorSize);
+    }
   });
 
   Future<void> pumpBar(
@@ -243,75 +329,6 @@ void main() {
     expect(fitLabels(tester).map((label) => label.fit).toSet(), {
       LabelFit.none,
     });
-  });
-
-  // The indicator is measured, the label drawn: a style mismatch between
-  // the two (the bar used to measure without the inherited font) shows as
-  // an underline narrower or wider than the text.
-  for (final (name, bar) in [
-    ('zh', destinations),
-    (
-      'mid-scale',
-      const [
-        FuncBottomNavDestination(icon: Icons.home_outlined, label: 'abcdefgh'),
-        FuncBottomNavDestination(icon: Icons.bar_chart, label: 'b'),
-        FuncBottomNavDestination(icon: Icons.new_releases, label: 'c'),
-        FuncBottomNavDestination(icon: Icons.search, label: 'd'),
-        FuncBottomNavDestination(icon: Icons.person_outline, label: 'e'),
-      ],
-    ),
-    ('ellipsized', ruDestinations),
-  ]) {
-    testWidgets('the indicator spans the painted label ($name)', (
-      tester,
-    ) async {
-      await pumpBar(tester, bar);
-      await tester.pumpAndSettle();
-      final indicator = tester.getRect(
-        find.descendant(
-          of: find.byType(FuncBottomNav),
-          matching: find.byType(Positioned),
-        ),
-      );
-      final label = tester.getRect(
-        find.descendant(
-          of: find.byType(FuncBottomNav),
-          matching: find.text(bar.first.label),
-        ),
-      );
-      expect(indicator.width, moreOrLessEquals(label.width, epsilon: 0.01));
-      expect(indicator.center.dx, moreOrLessEquals(label.center.dx));
-    });
-  }
-
-  testWidgets('labels stay legible at 1.3x platform text scale', (
-    tester,
-  ) async {
-    // 12sp remains the label base; _labelScale only shrinks below it when
-    // the slot cannot fit. At 1.3x the same rule applies — no truncation.
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: const TextScaler.linear(1.3)),
-            child: Scaffold(
-              bottomNavigationBar: FuncBottomNav(
-                destinations: destinations,
-                selectedIndex: 0,
-                onSelected: (_) {},
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    expect(tester.takeException(), isNull);
-    for (final d in destinations) {
-      expect(find.text(d.label), findsOneWidget);
-    }
   });
 
   testWidgets('shell bar collapses on scroll down and returns on scroll up', (

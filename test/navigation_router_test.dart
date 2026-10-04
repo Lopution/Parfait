@@ -414,7 +414,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.byType(NavigationRail),
-        matching: find.byIcon(Icons.settings_outlined),
+        matching: find.byIcon(Icons.person_outline),
       ),
     );
     await tester.pump();
