@@ -72,7 +72,7 @@ class MotionSettingsPage extends ConsumerWidget {
                       for (final speed in AnimationSpeed.values)
                         AppSegment<AnimationSpeed>(
                           value: speed,
-                          label: _animationSpeedText(context, speed),
+                          label: animationSpeedLabel(context, speed),
                         ),
                     ],
                     selected: settings.animationSpeed,
@@ -218,11 +218,3 @@ String _transitionStyleHint(BuildContext context, PageTransitionStyle style) =>
       PageTransitionStyle.zoom => context.l10n.pageTransitionStyleZoomHint,
       PageTransitionStyle.slide => context.l10n.pageTransitionStyleSlideHint,
     };
-
-String _animationSpeedText(BuildContext context, AnimationSpeed s) {
-  return switch (s) {
-    AnimationSpeed.fast => context.l10n.animationSpeedFast,
-    AnimationSpeed.normal => context.l10n.animationSpeedNormal,
-    AnimationSpeed.slow => context.l10n.animationSpeedSlow,
-  };
-}

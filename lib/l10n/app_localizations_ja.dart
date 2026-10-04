@@ -112,7 +112,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get loginClipboardHint =>
-      'ログイン済みの端末で「設定 → アカウント認証情報をエクスポート」からコピーし、ここに戻ってインポートしてください。';
+      'ログイン済みの端末で「マイページ → アカウント管理 → アカウント認証情報をエクスポート」からコピーし、ここに戻ってインポートしてください。';
 
   @override
   String get accountTransferSensitiveWarning =>
@@ -212,7 +212,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get agreementPrivacyBody =>
-      '設定、キャッシュ、閲覧履歴、あとで見る、ダウンロードしたファイルはすべてこの端末に保存されます。本アプリには統計、広告、クラッシュ報告の仕組みがなく、データを開発者のサーバーに送信しません。\n\nクラッシュログはこの端末にのみ保存され、「設定 → このアプリについて → ログをエクスポート」で共有するかどうかはご自身で決められます。\n\nアプリのアンインストールやデータの消去でこれらは削除されます（公開フォルダに保存したダウンロードファイルを除く）。';
+      '設定、キャッシュ、閲覧履歴、あとで見る、ダウンロードしたファイルはすべてこの端末に保存されます。本アプリには統計、広告、クラッシュ報告の仕組みがなく、データを開発者のサーバーに送信しません。\n\nクラッシュログはこの端末にのみ保存され、「マイページ → このアプリについて → ログをエクスポート」で共有するかどうかはご自身で決められます。\n\nアプリのアンインストールやデータの消去でこれらは削除されます（公開フォルダに保存したダウンロードファイルを除く）。';
 
   @override
   String get agreementDisclaimerTitle => '免責事項';
@@ -227,9 +227,6 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get agreementUpdates =>
       '本規約は機能や法律の変更に応じて更新されることがあります。更新後も利用を続けた場合、更新後の規約に同意したものとします。';
-
-  @override
-  String get settingsTitle => '設定';
 
   @override
   String get settingsGroupAppearance => '外観';
@@ -515,6 +512,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get browseSettings => 'ブラウズ設定';
+
+  @override
+  String get settingsBrowseHint => 'ローカル非表示・画質';
 
   @override
   String get downloadSettings => 'ダウンロード設定';

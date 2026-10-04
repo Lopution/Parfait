@@ -90,7 +90,7 @@ Parfait 是 Android 上的 pixiv 第三方客户端，可以浏览、收藏和�
 
 本项目只在 GitHub Releases 发布。网盘、群文件等其他渠道都是第三方转载，可能被改动过，请以 Releases 为准，或按下方的证书指纹核对。
 
-之后的更新可以在「设置 → 关于 → 检查更新」中完成：应用会下载新版本，校验签名、哈希和签名证书后再交给系统安装。也可以用 [Obtainium](https://github.com/ImranR98/Obtainium) 订阅本仓库的 Releases。
+之后的更新可以在「我的 → 关于 → 检查更新」中完成：应用会下载新版本，校验签名、哈希和签名证书后再交给系统安装。也可以用 [Obtainium](https://github.com/ImranR98/Obtainium) 订阅本仓库的 Releases。
 
 Windows 版还在准备中，之后会以预览版发布。
 
@@ -129,7 +129,7 @@ Signer #1 certificate SHA-256 digest: d0b41afc87b7d207511a52bd8ccca6563c673c2df1
 <details>
 <summary>打不开页面或图片加载很慢？</summary>
 
-在「设置 → 网络」中运行「分层连通性探测」，按结论调整网络模式；图片慢可以在「设置 → 浏览设置 → 图片源」中选择「自动」或其他镜像。
+在「我的 → 网络」中运行「分层连通性探测」，按结论调整网络模式；图片慢可以在「我的 → 网络 → 图片源」中选择「自动」或其他镜像。
 
 </details>
 
@@ -143,7 +143,7 @@ Parfait 源自 git-xiaocao 的 Pixiv Func，基于其开源代码重写，并非
 <details>
 <summary>遇到问题怎么反馈？</summary>
 
-请在 [Issues](https://github.com/Lopution/Parfait/issues) 中描述问题和复现步骤。在「设置 → 关于 → 导出日志」中可以导出本机日志，附在 Issue 里能帮助定位问题；提交前请确认日志里没有你不想公开的内容。
+请在 [Issues](https://github.com/Lopution/Parfait/issues) 中描述问题和复现步骤。在「我的 → 关于 → 导出日志」中可以导出本机日志，附在 Issue 里能帮助定位问题；提交前请确认日志里没有你不想公开的内容。
 
 </details>
 

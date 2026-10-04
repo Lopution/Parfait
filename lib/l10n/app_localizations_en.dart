@@ -112,7 +112,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loginClipboardHint =>
-      'On a signed-in device, open Settings → Export account credential to copy it, then come back here to import.';
+      'On a signed-in device, open Me → Accounts → Export account credential to copy it, then come back here to import.';
 
   @override
   String get accountTransferSensitiveWarning =>
@@ -217,7 +217,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agreementPrivacyBody =>
-      'Settings, caches, browsing history, Watch later and downloaded files are stored on this device. The app has no analytics, ads or crash reporting, and sends none of your data to the developer\'s servers.\n\nCrash logs stay on this device; you decide whether to share them through Settings → About → Export logs.\n\nUninstalling the app or clearing its data deletes this content (downloads saved to public folders excepted).';
+      'Settings, caches, browsing history, Watch later and downloaded files are stored on this device. The app has no analytics, ads or crash reporting, and sends none of your data to the developer\'s servers.\n\nCrash logs stay on this device; you decide whether to share them through Me → About → Export logs.\n\nUninstalling the app or clearing its data deletes this content (downloads saved to public folders excepted).';
 
   @override
   String get agreementDisclaimerTitle => 'Disclaimer';
@@ -232,9 +232,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get agreementUpdates =>
       'This agreement may change as features or laws change; continuing to use the app after a change means you accept the updated agreement.';
-
-  @override
-  String get settingsTitle => 'Settings';
 
   @override
   String get settingsGroupAppearance => 'Appearance';
@@ -530,6 +527,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get browseSettings => 'Browse settings';
+
+  @override
+  String get settingsBrowseHint => 'Local blocking, image quality';
 
   @override
   String get downloadSettings => 'Download settings';

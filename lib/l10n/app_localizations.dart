@@ -297,7 +297,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginClipboardHint.
   ///
   /// In zh, this message translates to:
-  /// **'先在已登录的设备上打开「设置 → 导出账号凭据」复制，再回到这里导入。'**
+  /// **'先在已登录的设备上打开「我的 → 账号管理 → 导出账号凭据」复制，再回到这里导入。'**
   String get loginClipboardHint;
 
   /// No description provided for @accountTransferSensitiveWarning.
@@ -471,7 +471,7 @@ abstract class AppLocalizations {
   /// No description provided for @agreementPrivacyBody.
   ///
   /// In zh, this message translates to:
-  /// **'设置、缓存、浏览历史、稍后再看与下载文件都保存在本机。本应用没有统计、广告或崩溃上报，不会把你的数据发送到开发者的服务器。\n\n崩溃日志只保存在本机，由你决定是否通过「设置 → 关于 → 导出日志」分享。\n\n卸载应用或清除数据会删除这些内容（保存到公共目录的下载文件除外）。'**
+  /// **'设置、缓存、浏览历史、稍后再看与下载文件都保存在本机。本应用没有统计、广告或崩溃上报，不会把你的数据发送到开发者的服务器。\n\n崩溃日志只保存在本机，由你决定是否通过「我的 → 关于 → 导出日志」分享。\n\n卸载应用或清除数据会删除这些内容（保存到公共目录的下载文件除外）。'**
   String get agreementPrivacyBody;
 
   /// No description provided for @agreementDisclaimerTitle.
@@ -497,12 +497,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'协议可能随功能或法律变化而更新；更新后继续使用即表示接受更新后的协议。'**
   String get agreementUpdates;
-
-  /// No description provided for @settingsTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'设置'**
-  String get settingsTitle;
 
   /// No description provided for @settingsGroupAppearance.
   ///
@@ -1043,6 +1037,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'浏览设置'**
   String get browseSettings;
+
+  /// No description provided for @settingsBrowseHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地屏蔽、图片画质'**
+  String get settingsBrowseHint;
 
   /// No description provided for @downloadSettings.
   ///

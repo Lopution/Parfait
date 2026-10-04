@@ -211,7 +211,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
           ],
         ),
         // Same entry as the ranking page's novel ranking. Other feature
-        // entries (watchlist, local novels) live in settings' content
+        // entries (watchlist, local novels) live in the Me tab's content
         // group.
         actions: [
           if (widget.type == NewFeedType.illust)

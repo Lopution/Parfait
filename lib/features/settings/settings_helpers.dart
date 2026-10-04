@@ -175,6 +175,14 @@ String imageSourceLabel(BuildContext context, ImageSourceMode mode) {
   };
 }
 
+String animationSpeedLabel(BuildContext context, AnimationSpeed speed) {
+  return switch (speed) {
+    AnimationSpeed.fast => context.l10n.animationSpeedFast,
+    AnimationSpeed.normal => context.l10n.animationSpeedNormal,
+    AnimationSpeed.slow => context.l10n.animationSpeedSlow,
+  };
+}
+
 String networkModeLabel(BuildContext context, NetworkMode mode) {
   return switch (mode) {
     NetworkMode.automatic => context.l10n.networkModeAutomatic,

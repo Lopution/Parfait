@@ -51,12 +51,11 @@ class AccountSummaryTile extends StatelessWidget {
         style: FuncSemanticTokens.of(context).display,
       ),
       subtitle: Text(
-        value == null
-            ? context.l10n.accountProfile
-            : _accountSubtitle(context, value),
+        value == null ? context.l10n.login : _accountSubtitle(context, value),
       ),
-      trailing: value == null ? null : const Icon(Icons.chevron_right),
-      onTap: value == null ? null : () => openMe(context),
+      trailing: const Icon(Icons.chevron_right),
+      // A signed-out card used to be a dead end; it opens the login page.
+      onTap: value == null ? () => openLogin(context) : () => openMe(context),
     );
   }
 }

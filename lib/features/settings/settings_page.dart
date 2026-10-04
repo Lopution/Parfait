@@ -54,7 +54,7 @@ class SettingsPage extends ConsumerWidget {
       // every time the IME animates (e.g. the push that hides the search
       // keyboard) — a relayout storm across all five live branches.
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(title: Text(context.l10n.settingsTitle)),
+      appBar: AppBar(title: Text(context.l10n.homeMe)),
       body: settings.when(
         loading: () => const FeedLoading(),
         error: (error, _) => SettingsLoadError(
@@ -108,19 +108,6 @@ class _SettingsList extends ConsumerWidget {
         .tasks
         .where((task) => !isTerminal(task.status))
         .length;
-    final imageSource = switch (settings.imageSourceMode) {
-      ImageSourceMode.auto =>
-        ref.watch(autoImageSourceWinnerProvider) == null
-            ? context.l10n.imageSourceAuto
-            : context.l10n.imageSourceAutoWinner(
-                ref.watch(autoImageSourceWinnerProvider)!,
-              ),
-      ImageSourceMode.custom =>
-        settings.imageSource.isNotEmpty
-            ? settings.imageSource
-            : context.l10n.imageSourceCustomUnset,
-      final mode => imageSourceLabel(context, mode),
-    };
     // Hub layout: tiles are grouped by intent under labeled section
     // headers instead of a flat list with bare dividers. Destructive/
     // transfer actions (backup) sit in their own "data" group.
@@ -136,12 +123,46 @@ class _SettingsList extends ConsumerWidget {
           bottom: FuncSpacing.xl,
         ),
         children: [
+          SettingsGroup(children: [AccountSummaryTile(account: account)]),
           SettingsGroup(
+            title: Text(context.l10n.settingsGroupLibrary),
             children: [
-              AccountSummaryTile(account: account),
+              SettingsTile(
+                icon: Icons.history,
+                title: context.l10n.historySettings,
+                onTap: () => openHistory(context),
+              ),
+              SettingsTile(
+                icon: Icons.bookmark_border,
+                title: context.l10n.watchLaterTitle,
+                onTap: () => openWatchLater(context),
+              ),
+              SettingsTile(
+                icon: Icons.collections_bookmark_outlined,
+                title: context.l10n.watchlistTitle,
+                onTap: () => openWatchlist(context),
+              ),
+              SettingsTile(
+                icon: Icons.menu_book_outlined,
+                title: context.l10n.localNovelsTitle,
+                onTap: () => openLocalNovels(context),
+              ),
+              SettingsTile(
+                icon: Icons.downloading_outlined,
+                title: context.l10n.downloaderSettings,
+                subtitle: Text(
+                  context.l10n.settingsDownloadTasksSummary(activeTasks),
+                ),
+                onTap: () => unawaited(openDownloadTasks(context)),
+              ),
+            ],
+          ),
+          SettingsGroup(
+            title: Text(context.l10n.accountSettings),
+            children: [
               SettingsTile(
                 icon: Icons.manage_accounts_outlined,
-                title: context.l10n.accountSettings,
+                title: context.l10n.accountManagement,
                 subtitle: Text(account?.name ?? context.l10n.signedOut),
                 onTap: () => openSettingsPage(context, '/settings/account'),
               ),
@@ -170,6 +191,16 @@ class _SettingsList extends ConsumerWidget {
                 ),
                 onTap: () => openSettingsPage(context, '/settings/translate'),
               ),
+              SettingsTile(
+                icon: Icons.animation,
+                title: context.l10n.motionSettings,
+                subtitle: Text(
+                  settings.reduceMotion
+                      ? context.l10n.reduceMotion
+                      : animationSpeedLabel(context, settings.animationSpeed),
+                ),
+                onTap: () => openSettingsPage(context, '/settings/motion'),
+              ),
             ],
           ),
           SettingsGroup(
@@ -178,7 +209,10 @@ class _SettingsList extends ConsumerWidget {
               SettingsTile(
                 icon: Icons.image_outlined,
                 title: context.l10n.browseSettings,
-                subtitle: Text(imageSource),
+                // No single value summarizes the page now that the image
+                // source lives in network settings — a static hint instead,
+                // same as the backup tile.
+                subtitle: Text(context.l10n.settingsBrowseHint),
                 onTap: () => openSettingsPage(context, '/settings/browse'),
               ),
               SettingsTile(
@@ -190,54 +224,6 @@ class _SettingsList extends ConsumerWidget {
                       : context.l10n.settingsMutedSummary(mutedCount),
                 ),
                 onTap: () => openSettingsPage(context, '/settings/muted'),
-              ),
-              // The history tile stays a configuration entry (D5): its
-              // summary shows the switch states; the content view lives in
-              // the library group below.
-              SettingsTile(
-                icon: Icons.manage_history,
-                title: context.l10n.historySettings,
-                subtitle: Text(
-                  context.l10n.settingsHistorySummary(
-                    settings.enableHistory
-                        ? context.l10n.settingsSummaryOn
-                        : context.l10n.settingsSummaryOff,
-                    settings.enablePixivHistory
-                        ? context.l10n.settingsSummaryOn
-                        : context.l10n.settingsSummaryOff,
-                  ),
-                ),
-                onTap: () => openSettingsPage(context, '/settings/history'),
-              ),
-            ],
-          ),
-          // Content destinations (not preferences) sit in their own group so
-          // the preference sections stay unmixed.
-          SettingsGroup(
-            title: Text(context.l10n.settingsGroupLibrary),
-            children: [
-              SettingsTile(
-                icon: Icons.bookmark_border,
-                title: context.l10n.watchLaterTitle,
-                onTap: () => openWatchLater(context),
-              ),
-              SettingsTile(
-                icon: Icons.collections_bookmark_outlined,
-                title: context.l10n.watchlistTitle,
-                onTap: () => openWatchlist(context),
-              ),
-              SettingsTile(
-                icon: Icons.menu_book_outlined,
-                title: context.l10n.localNovelsTitle,
-                onTap: () => openLocalNovels(context),
-              ),
-              // D5: direct content entry — the history configuration tile
-              // above keeps owning the switches; this one opens the content
-              // view.
-              SettingsTile(
-                icon: Icons.history,
-                title: context.l10n.historyView,
-                onTap: () => openHistory(context),
               ),
             ],
           ),
@@ -258,14 +244,6 @@ class _SettingsList extends ConsumerWidget {
                   '${downloadDestinationLabel(context, settings.downloadDestination)}',
                 ),
                 onTap: () => openSettingsPage(context, '/settings/download'),
-              ),
-              SettingsTile(
-                icon: Icons.downloading_outlined,
-                title: context.l10n.downloaderSettings,
-                subtitle: Text(
-                  context.l10n.settingsDownloadTasksSummary(activeTasks),
-                ),
-                onTap: () => unawaited(openDownloadTasks(context)),
               ),
             ],
           ),
