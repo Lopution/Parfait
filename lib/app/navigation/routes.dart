@@ -1259,7 +1259,9 @@ String _currentStackRoot(BuildContext context) {
 }
 
 String _searchPath(BuildContext context, String leaf) {
-  final root = _currentStackRoot(context);
+  final path = GoRouter.of(context).state.uri.path;
+  final root = _stackRootOf(path);
+  if (root == null) return '/search/$leaf';
   return root == '/search' ? '/search/$leaf' : '$root/search/$leaf';
 }
 
@@ -1284,9 +1286,14 @@ bool pushStaysInStack(GoRouter router, String location) {
   final target = _stackRootOf(Uri.parse(location).path);
   if (target == null || !_branchRoots.contains(target)) return true;
   final current = router.routerDelegate.currentConfiguration;
-  return _stackRootOf(current.uri.path) == target &&
-      current.last.route.parentNavigatorKey !=
-          router.routerDelegate.navigatorKey;
+  final currentRoot = _stackRootOf(current.uri.path);
+  if (currentRoot == null) {
+    // Standalone root-level hosts (for example a deep-link test router) do
+    // not have a shell branch to preserve; their root search route is safe.
+    return true;
+  }
+  return currentRoot == target &&
+      current.last.route.parentNavigatorKey != router.routerDelegate.navigatorKey;
 }
 
 Future<void> openIllust(
