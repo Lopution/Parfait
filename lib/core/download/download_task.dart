@@ -183,10 +183,7 @@ enum DownloadGroupStatus {
 /// was created. [tasks] always stays aligned with the request order.
 @immutable
 class DownloadGroupSubmission {
-  const DownloadGroupSubmission({
-    required this.group,
-    required this.tasks,
-  });
+  const DownloadGroupSubmission({required this.group, required this.tasks});
 
   final DownloadGroupSnapshot? group;
   final List<DownloadTaskSnapshot> tasks;

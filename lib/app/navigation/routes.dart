@@ -1293,7 +1293,8 @@ bool pushStaysInStack(GoRouter router, String location) {
     return true;
   }
   return currentRoot == target &&
-      current.last.route.parentNavigatorKey != router.routerDelegate.navigatorKey;
+      current.last.route.parentNavigatorKey !=
+          router.routerDelegate.navigatorKey;
 }
 
 Future<void> openIllust(

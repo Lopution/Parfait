@@ -157,7 +157,9 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                                 selected: state.currentId == account.id,
                                 leading: _AccountAvatar(account: account),
                                 title: Text(account.name),
-                                subtitle: Text(_accountSubtitle(context, account)),
+                                subtitle: Text(
+                                  _accountSubtitle(context, account),
+                                ),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
