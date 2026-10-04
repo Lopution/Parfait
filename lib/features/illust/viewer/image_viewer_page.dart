@@ -436,7 +436,9 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                   title: Text(l10n.viewerOpenDetail),
                   onTap: () {
                     Navigator.of(sheetContext).pop();
-                    openIllust(context, entity.id);
+                    // The viewer is opened from this work's detail page;
+                    // closing it reveals the existing detail route below.
+                    Navigator.of(context).pop();
                   },
                 ),
               ],

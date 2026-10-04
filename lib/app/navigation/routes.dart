@@ -1234,23 +1234,28 @@ Future<void> routeExternalIntent(
 /// Every page that can host a detail/user/tag push has the common routes
 /// mounted under it: the five home tabs and the root-level reverse-image and
 /// settings pages. Pushes stay inside the stack the user is looking at.
-const _stackRoots = <String>[
+const _branchRoots = <String>[
   '/recommended',
   '/ranking',
   '/new',
   '/search',
-  '/me',
   '/settings',
-  '/reverse-image',
-  '/downloads',
 ];
+
+const _overlayRoots = <String>['/me', '/reverse-image', '/downloads'];
+
+const _stackRoots = <String>[..._branchRoots, ..._overlayRoots];
+
+String? _stackRootOf(String path) {
+  for (final root in _stackRoots) {
+    if (path == root || path.startsWith('$root/')) return root;
+  }
+  return null;
+}
 
 String _currentStackRoot(BuildContext context) {
   final path = GoRouter.of(context).state.uri.path;
-  return _stackRoots.firstWhere(
-    (root) => path == root || path.startsWith('$root/'),
-    orElse: () => '/recommended',
-  );
+  return _stackRootOf(path) ?? '/recommended';
 }
 
 String _searchPath(BuildContext context, String leaf) {
@@ -1263,7 +1268,25 @@ Future<void> _push(
   String location, {
   Object? extra,
 }) async {
+  final router = GoRouter.of(context);
+  assert(
+    pushStaysInStack(router, location),
+    'push of $location leaves the stack of ${router.state.uri}',
+  );
   await context.push<void>(location, extra: extra);
+}
+
+/// Branch locations must be pushed from their own visible branch stack. A
+/// branch push from an overlay, another branch, or a root-level page such as
+/// the viewer would create a second shell or bury the target below that page.
+@visibleForTesting
+bool pushStaysInStack(GoRouter router, String location) {
+  final target = _stackRootOf(Uri.parse(location).path);
+  if (target == null || !_branchRoots.contains(target)) return true;
+  final current = router.routerDelegate.currentConfiguration;
+  return _stackRootOf(current.uri.path) == target &&
+      current.last.route.parentNavigatorKey !=
+          router.routerDelegate.navigatorKey;
 }
 
 Future<void> openIllust(
@@ -1323,6 +1346,11 @@ Future<void> openMe(BuildContext context) async {
 Future<void> openSettings(BuildContext context) async {
   context.go('/settings');
 }
+
+/// The update prompt can be shown above any route, including root overlays.
+/// Going to the about page keeps a single home shell instead of pushing a
+/// settings branch below the page that displayed the prompt.
+void goToAbout(GoRouter router) => router.go('/settings/about');
 
 Future<void> openNovel(BuildContext context, int novelId) async {
   await _push(context, '${_currentStackRoot(context)}/novel/$novelId');

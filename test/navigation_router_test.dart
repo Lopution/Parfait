@@ -182,6 +182,35 @@ void main() {
     expect(router.state.uri.path, '/ranking');
   });
 
+  testWidgets('branch pushes are rejected outside the visible branch', (
+    tester,
+  ) async {
+    final router = await pumpRouter(tester, '/recommended');
+    expect(pushStaysInStack(router, '/recommended/illust/1'), isTrue);
+    expect(pushStaysInStack(router, '/ranking/illust/1'), isFalse);
+    expect(pushStaysInStack(router, '/downloads'), isTrue);
+
+    router.go('/recommended/illust/1/viewer/0');
+    await tester.pumpAndSettle();
+    expect(pushStaysInStack(router, '/recommended/illust/2'), isFalse);
+  });
+
+  testWidgets('update prompt navigation uses one settings shell', (
+    tester,
+  ) async {
+    final router = await pumpRouter(tester, '/me');
+    goToAbout(router);
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/settings/about');
+    expect(
+      find.byType(StatefulNavigationShell, skipOffstage: false),
+      findsOneWidget,
+    );
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/settings');
+  });
+
   testWidgets('bottom bar hides on pushed branch routes and returns at root', (
     tester,
   ) async {
