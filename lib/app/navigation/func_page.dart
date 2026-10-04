@@ -108,6 +108,10 @@ class _FuncPageRoute<T> extends PageRoute<T> {
   }
 
   @override
+  void handleCommitBackGesture() =>
+      commitBackGestureGuarded(navigator, super.handleCommitBackGesture);
+
+  @override
   Widget buildPage(
     BuildContext context,
     Animation<double> animation,
@@ -181,6 +185,22 @@ class _FuncPageRoute<T> extends PageRoute<T> {
           : transition,
       child: child,
     );
+  }
+}
+
+/// Ends a Navigator user gesture when the route's pop throws. Flutter's
+/// [TransitionRoute] normally stops the gesture after [NavigatorState.pop]
+/// returns, so a synchronous error would otherwise leave the Navigator
+/// absorbing all later pointers.
+@visibleForTesting
+void commitBackGestureGuarded(NavigatorState? navigator, VoidCallback commit) {
+  try {
+    commit();
+  } catch (_) {
+    if (navigator?.userGestureInProgress ?? false) {
+      navigator!.didStopUserGesture();
+    }
+    rethrow;
   }
 }
 
