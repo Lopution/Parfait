@@ -973,6 +973,53 @@ void main() {
     expect(find.text('无账号'), findsNothing);
   });
 
+  testWidgets('account summaries show the ID instead of the email', (
+    tester,
+  ) async {
+    const account = Account(
+      id: '42',
+      userId: 42,
+      name: 'tester',
+      mailAddress: 'private@example.invalid',
+    );
+    await tester.pumpWidget(
+      const MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: Locale('zh', 'CN'),
+        home: Scaffold(body: AccountSummaryTile(account: account)),
+      ),
+    );
+    expect(find.text('账号 ID: 42'), findsOneWidget);
+    expect(find.text('private@example.invalid'), findsNothing);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(
+            FakeSettingsRepository(baseTestSettings()),
+          ),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            FakeAccountMetadataRepository(
+              accounts: const [account],
+              currentId: account.id,
+            ),
+          ),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: AccountSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('账号 ID: 42'), findsOneWidget);
+    expect(find.text('private@example.invalid'), findsNothing);
+  });
+
   testWidgets(
     'account switch spins the target row and disables the list mid-commit',
     (tester) async {
