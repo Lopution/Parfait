@@ -87,6 +87,8 @@ state or action.
   waits for image preload before navigating.
 - A router is rebuilt from settings/account changes, discarding branch stacks
   and restoration state.
+- A route facade hard-codes a branch path for a page that can be opened from
+  another stack; use the current stack root and the `_push` integrity assertion.
 - A shared state widget (`FeedEmpty`/`FeedError`/`FeedTail` family) carries an
   English fallback label. User-visible strings are `required` parameters so a
   call site that forgets `context.l10n.*` fails to compile instead of shipping
@@ -697,6 +699,21 @@ values and are updated through the route facade. An entity or input passed as
 route `extra` accelerates the first frame but is not the restoration source.
 The router instance stays stable while settings, account, or providers update.
 
+## Stack Integrity Contract
+
+The router has five branch roots (`/recommended`, `/ranking`, `/new`,
+`/search`, `/settings`) and app-level overlay roots (`/me`, `/reverse-image`,
+`/downloads`). Content opened from a page stays under that page's current
+stack; switching branches is reserved for the shell's bottom bar or side
+navigation. Route facades use `_push` with a debug assertion that a branch
+push remains in the current branch, while overlay routes may be opened from
+any stack.
+
+The image viewer may open only overlay destinations. A viewer action that
+returns to the work detail closes the viewer rather than pushing a second
+detail page. Feedback actions that outlive their page bind the router while
+the message is shown, instead of reading a disposed page context later.
+
 ## Predictive Back Contract
 
 The Android application enables `android:enableOnBackInvokedCallback`. Pages
@@ -738,6 +755,11 @@ route.popGestureEnabled`; the binding then sends the rest of that gesture
 to it alone. It mirrors Material's private predictive-back detector
 without its visuals — a framework change there shows up in
 `func_page_test.dart`'s gesture tests.
+
+The route's commit path is guarded: if a pop throws after the route has
+already reported `didPop`, the guard ends any lingering user gesture before
+rethrowing. This keeps the Navigator from absorbing later pointers while
+leaving the original error observable.
 `transitionDuration` is `MotionTokens.pageTransitionAndroid` (350 ms — the
 builder's own 800 ms dragged) on Android and `MotionTokens.pageTransition`
 elsewhere, both through `MotionTokens.resolve`, so the animation speed
