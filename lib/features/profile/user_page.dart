@@ -448,7 +448,7 @@ class _UserPageState extends ConsumerState<UserPage>
       ),
     );
     if (submitted != null && mounted) {
-      showDownloadSubmittedSnackBar(context);
+      showDownloadSubmittedSnackBar(context, alreadyQueued: submitted == 0);
     }
   }
 

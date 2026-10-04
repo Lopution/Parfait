@@ -156,9 +156,6 @@ class DownloadManager {
   }) {
     _checkUsable();
     validateDownloadUrl(request.url, target: request.target);
-    final name = frozenName ?? request.displayName;
-    validateDisplayName(name);
-
     final ownerContext = context ?? _submissionContext?.call();
     if (requireOwnedSubmissions && ownerContext == null) {
       throw const _DownloadOwnershipException(
@@ -178,6 +175,17 @@ class DownloadManager {
     if (existing != null && !isTerminal(existing.snapshot.status)) {
       return existing.snapshot;
     }
+
+    // A terminal attempt is replaced by the new submission. Preserve its
+    // resumable output and frozen name so a retry-like fresh request can
+    // continue the same bytes without leaving the old record in its group.
+    final inheritedName = existing?.resumeAnchor == null
+        ? null
+        : existing!.displayName;
+    final inheritedAnchor = existing?.resumeAnchor;
+    if (existing != null) _retire(existing);
+    final name = frozenName ?? inheritedName ?? request.displayName;
+    validateDisplayName(name);
 
     final id = 'download_${request.illustId}_${request.pageIndex}_$_nextSeq';
     _nextSeq++;
@@ -206,7 +214,7 @@ class DownloadManager {
     );
     // The anchor must be attached before _schedule() runs the job: _run
     // reads it synchronously before its first await (D8).
-    job.resumeAnchor = resumeAnchor;
+    job.resumeAnchor = resumeAnchor ?? inheritedAnchor;
     _jobs[key] = job;
     _notifyChange();
     _persist(job);
@@ -216,31 +224,45 @@ class DownloadManager {
 
   /// Creates an explicit group for Download All and Ugoira-style multi-step
   /// work. All children capture one submission context before any dispatch.
-  DownloadGroupSnapshot submitGroup(
+  DownloadGroupSubmission submitGroup(
     List<DownloadRequest> requests, {
-    String? groupId,
     DownloadSubmissionContext? context,
   }) {
     _checkUsable();
     if (requests.isEmpty) {
       throw ArgumentError('a download group must contain a request');
     }
-    final resolvedGroupId = groupId ?? 'download_group_${_nextGroupSeq++}';
+    final resolvedGroupId = 'download_group_${_nextGroupSeq++}';
     final ownerContext = context ?? _submissionContext?.call();
     final children = [
       for (final request in requests)
         submit(request, groupId: resolvedGroupId, context: ownerContext),
     ];
-    final submission = children.first.submission;
+    final newChildren = [
+      for (final child in children)
+        if (child.submission?.groupId == resolvedGroupId) child,
+    ];
+    if (newChildren.isEmpty) {
+      return DownloadGroupSubmission(
+        group: null,
+        tasks: List.unmodifiable(children),
+      );
+    }
+    final submission = newChildren.first.submission;
     if (submission == null) {
-      throw StateError('download group child has no submission snapshot');
+      throw StateError('new download group child has no submission snapshot');
     }
     _groups[resolvedGroupId] = _DownloadGroup(
       id: resolvedGroupId,
-      jobIds: [for (final child in children) child.id],
+      jobIds: [for (final child in newChildren) child.id],
       submission: submission,
     );
-    return _groupSnapshot(_groups[resolvedGroupId]!);
+    final result = DownloadGroupSubmission(
+      group: _groupSnapshot(_groups[resolvedGroupId]!),
+      tasks: List.unmodifiable(children),
+    );
+    _notifyChange();
+    return result;
   }
 
   /// Pauses a queued or running task and preserves its written bytes when the
@@ -317,24 +339,21 @@ class DownloadManager {
       return null;
     }
     final anchor = job.resumeAnchor;
-    _jobs.remove(job.key);
-    _persistRemove(job.id);
-    final oldJobId = job.id;
     final groupId = job.snapshot.groupId;
+    _retire(job);
     final retried = _submit(
       job.request,
       frozenName: job.displayName,
       groupId: groupId,
       resumeAnchor: anchor,
     );
-    final group = groupId == null ? null : _groups[groupId];
-    if (group != null) {
-      final index = group.jobIds.indexOf(oldJobId);
-      if (index >= 0) {
-        group.jobIds[index] = retried.id;
-      } else if (!group.jobIds.contains(retried.id)) {
-        group.jobIds.add(retried.id);
-      }
+    if (groupId != null && retried.submission?.groupId == groupId) {
+      final group = _groups[groupId] ??= _DownloadGroup(
+        id: groupId,
+        jobIds: [],
+        submission: retried.submission!,
+      );
+      if (!group.jobIds.contains(retried.id)) group.jobIds.add(retried.id);
     }
     return retried;
   }
@@ -377,6 +396,16 @@ class DownloadManager {
   bool dismiss(String taskId) {
     final job = _findById(taskId);
     if (job == null || !isTerminal(job.snapshot.status)) return false;
+    _retire(job);
+    _notifyChange();
+    return true;
+  }
+
+  /// Removes a task from its lookup map, group membership and durable store.
+  /// Preserved output is intentionally left untouched so a replacement can
+  /// take ownership of its resume anchor; unowned output remains observable
+  /// to the existing recovery scan.
+  void _retire(_Job job) {
     _jobs.remove(job.key);
     final groupId = job.snapshot.groupId;
     final group = groupId == null ? null : _groups[groupId];
@@ -385,8 +414,6 @@ class DownloadManager {
       if (group.jobIds.isEmpty) _groups.remove(groupId);
     }
     _persistRemove(job.id);
-    _notifyChange();
-    return true;
   }
 
   /// Drops every terminal task — the "clear finished" affordance. Running
@@ -1325,6 +1352,7 @@ class DownloadManager {
     final children = [
       for (final id in group.jobIds) _findById(id)?.snapshot,
     ].whereType<DownloadTaskSnapshot>().toList(growable: false);
+    assert(children.isNotEmpty, 'download groups must contain a task');
     final childStatuses = [for (final child in children) child.status];
     var receivedBytes = 0;
     var totalBytes = 0;

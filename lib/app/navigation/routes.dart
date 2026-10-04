@@ -1375,16 +1375,18 @@ void showDownloadSubmittedSnackBar(
   BuildContext context, {
   bool alreadyQueued = false,
 }) {
-  final router = GoRouter.of(context);
+  final router = GoRouter.maybeOf(context);
   final l10n = context.l10n;
   if (!alreadyQueued) AppHaptics.success();
   showAppSnackBar(
     context,
     alreadyQueued ? l10n.downloadAlreadyQueued : l10n.downloadQueuedMessage,
-    action: SnackBarAction(
-      label: l10n.downloadViewResult,
-      onPressed: () => unawaited(router.push<void>('/downloads')),
-    ),
+    action: router == null
+        ? null
+        : SnackBarAction(
+            label: l10n.downloadViewResult,
+            onPressed: () => unawaited(router.push<void>('/downloads')),
+          ),
   );
 }
 

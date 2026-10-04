@@ -482,6 +482,107 @@ void main() {
   });
 
   group('dismiss / clearTerminal (D2)', () {
+    test('replacing a completed group task removes the old group', () async {
+      final transport = FakeTransport()
+        ..responses.addAll([
+          ScriptedResponse(
+            contentLength: 1,
+            chunks: [
+              [1],
+            ],
+          ),
+          ScriptedResponse(
+            contentLength: 1,
+            chunks: [
+              [2],
+            ],
+          ),
+        ]);
+      final recovery = MemoryDownloadRecoveryStore();
+      final manager = DownloadManager(
+        transport: transport,
+        sinkFactory: MemorySinkFactory(),
+        recoveryStore: recovery,
+      );
+      addTearDown(manager.dispose);
+
+      final first = manager.submitGroup([request()]);
+      await _Watcher(manager).pumpUntilTerminal();
+      final oldId = first.tasks.single.id;
+      expect(manager.groups, hasLength(1));
+
+      final replacement = manager.submit(request());
+      expect(replacement.id, isNot(oldId));
+      expect(manager.groups, isEmpty);
+      expect(manager.tasks, hasLength(1));
+      await manager.flushPersistence();
+      expect(recovery.records.any((record) => record.jobId == oldId), isFalse);
+    });
+
+    test('a repeated live group submission creates no second group', () async {
+      final gate = Completer<void>();
+      final manager = DownloadManager(
+        transport: FakeTransport()..responses.add(gatedResponse(gate)),
+        sinkFactory: MemorySinkFactory(),
+      );
+      addTearDown(manager.dispose);
+
+      final first = manager.submitGroup([request()]);
+      await Future<void>.delayed(Duration.zero);
+      final second = manager.submitGroup([request()]);
+      expect(second.group, isNull);
+      expect(second.tasks.single.id, first.tasks.single.id);
+      expect(manager.groups, hasLength(1));
+      gate.complete();
+      await _Watcher(manager).pumpUntilTerminal();
+    });
+
+    test(
+      'a second group replaces every terminal page in one new group',
+      () async {
+        final transport = FakeTransport()
+          ..responses.addAll([
+            ScriptedResponse(error: StateError('offline')),
+            ScriptedResponse(error: StateError('offline')),
+            ScriptedResponse(
+              contentLength: 1,
+              chunks: [
+                [1],
+              ],
+            ),
+            ScriptedResponse(
+              contentLength: 1,
+              chunks: [
+                [2],
+              ],
+            ),
+          ]);
+        final manager = DownloadManager(
+          transport: transport,
+          sinkFactory: MemorySinkFactory(),
+          maxConcurrent: 2,
+        );
+        addTearDown(manager.dispose);
+
+        final first = manager.submitGroup([
+          request(pageIndex: 0),
+          request(pageIndex: 1),
+        ]);
+        await _Watcher(manager).pumpUntilTerminal();
+        final oldIds = first.tasks.map((task) => task.id).toSet();
+
+        final second = manager.submitGroup([
+          request(pageIndex: 0),
+          request(pageIndex: 1),
+        ]);
+        expect(second.group, isNotNull);
+        expect(second.group!.childCount, 2);
+        expect(second.group!.jobIds.toSet().intersection(oldIds), isEmpty);
+        expect(manager.groups, hasLength(1));
+        expect(manager.groups.single.id, second.group!.id);
+      },
+    );
+
     test(
       'dismiss removes a terminal task, its group slot and record',
       () async {

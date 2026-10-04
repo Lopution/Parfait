@@ -89,14 +89,14 @@ class _AuthorWorksDownloadDialogState
     // Submission failure (ownership, validation, channel) must stay visible —
     // it surfaces as the dialog's failure state instead of a silent pop.
     try {
-      final group = await ref
+      final submission = await ref
           .read(illustDownloadCoordinatorProvider)
           .downloadAuthorWorks(
             works: works,
             namingRule: ref.read(namingRuleProvider),
           );
       if (!mounted) return;
-      Navigator.of(context).pop(group.childCount);
+      Navigator.of(context).pop(submission.group?.childCount ?? 0);
     } catch (error) {
       if (!mounted) return;
       setState(() {

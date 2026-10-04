@@ -6,7 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../core/download/download_providers.dart';
-import '../../../core/download/download_task.dart' show DownloadEvent;
+import '../../../core/download/download_task.dart'
+    show DownloadEvent, DownloadGroupSubmission;
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/history/history_models.dart';
@@ -329,8 +330,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
           IconButton(
             tooltip: context.l10n.downloadAll,
             onPressed: () async {
+              late final DownloadGroupSubmission submission;
               try {
-                await download.downloadAll(entity);
+                submission = await download.downloadAll(entity);
               } catch (error) {
                 // Any submission failure must be visible on device: the
                 // manager/ownership/channel errors that are not
@@ -345,7 +347,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 return;
               }
               if (!context.mounted) return;
-              showDownloadSubmittedSnackBar(context);
+              showDownloadSubmittedSnackBar(
+                context,
+                alreadyQueued: submission.group == null,
+              );
             },
             icon: const Icon(Icons.file_download_outlined),
           ),

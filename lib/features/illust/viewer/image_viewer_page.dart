@@ -15,7 +15,8 @@ import '../../../app/motion/hero_transition.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/download/download_providers.dart';
-import '../../../core/download/download_task.dart' show DownloadEvent;
+import '../../../core/download/download_task.dart'
+    show DownloadEvent, DownloadGroupSubmission;
 import '../../../core/illust/illust_download_controller.dart';
 import '../../../core/share/share_service.dart';
 import '../../../core/network/compat/image_demand.dart';
@@ -413,8 +414,9 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                   title: Text(l10n.downloadAll),
                   onTap: () async {
                     Navigator.of(sheetContext).pop();
+                    late final DownloadGroupSubmission submission;
                     try {
-                      await ref
+                      submission = await ref
                           .read(illustDownloadControllerProvider)
                           .downloadAll(entity);
                     } catch (error) {
@@ -428,7 +430,10 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                       return;
                     }
                     if (!mounted) return;
-                    showDownloadSubmittedSnackBar(context);
+                    showDownloadSubmittedSnackBar(
+                      context,
+                      alreadyQueued: submission.group == null,
+                    );
                   },
                 ),
                 ListTile(

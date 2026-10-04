@@ -91,9 +91,14 @@ class _DownloadAction extends CardAction {
     IllustEntity entity,
   ) async {
     try {
-      await ref.read(illustDownloadControllerProvider).downloadAll(entity);
+      final submission = await ref
+          .read(illustDownloadControllerProvider)
+          .downloadAll(entity);
       if (context.mounted) {
-        showDownloadSubmittedSnackBar(context);
+        showDownloadSubmittedSnackBar(
+          context,
+          alreadyQueued: submission.group == null,
+        );
       }
     } catch (error) {
       AppHaptics.error();

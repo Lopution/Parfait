@@ -69,24 +69,14 @@ class _IllustDownloadController {
   }
 
   /// Download All (beta56 downloadAll): every page, deduped by the manager.
-  Future<List<DownloadTaskSnapshot>> downloadAll(IllustEntity entity) async {
+  Future<DownloadGroupSubmission> downloadAll(IllustEntity entity) async {
     final urls = <String>[
       for (var i = 0; i < entity.pageCount; i++) ?entity.originalUrlAt(i),
     ];
     if (urls.isEmpty) {
       throw const FormatException('work has no original image URL');
     }
-    // Retry failed/canceled pages first so Download All from the error state
-    // re-enqueues instead of dedupe-skipping.
     final coordinator = _ref.watch(illustDownloadCoordinatorProvider);
-    for (var i = 0; i < entity.pageCount; i++) {
-      final existing = coordinator.taskFor(illustId: entity.id, pageIndex: i);
-      if (existing != null &&
-          (existing.status == DownloadStatus.failed ||
-              existing.status == DownloadStatus.canceled)) {
-        _manager.retry(existing.id);
-      }
-    }
     return coordinator.downloadAllPages(
       work: entity,
       pageUrls: [for (final url in urls) Uri.parse(url)],
