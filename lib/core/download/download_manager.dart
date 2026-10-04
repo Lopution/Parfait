@@ -450,9 +450,9 @@ class DownloadManager {
   }) async {
     await flushPersistence();
     final context = currentContext ?? _submissionContext?.call();
-    List<DownloadRecoveryRecord> records;
+    List<DownloadRecoveryRecord> loadedRecords;
     try {
-      records = await _recoveryStore.load();
+      loadedRecords = await _recoveryStore.load();
     } on Object catch (error) {
       _lastRecoveryError = error;
       return DownloadRecoveryReport(error: error);
@@ -483,6 +483,44 @@ class DownloadManager {
     final cleanupFailed = <String>{};
     final cleanupFailedPending = <int>{};
     final matchedPending = <int>{};
+    final supersededJobIds = <String>[];
+
+    // A crash or an upgrade can leave more than one durable attempt for the
+    // same identity. Keep the newest submission and retire older records
+    // before rebuilding jobs or groups, so stale groups cannot reappear.
+    final latestByDedupeKey = <String, DownloadRecoveryRecord>{};
+    for (final record in loadedRecords) {
+      final current = latestByDedupeKey[record.dedupeKey];
+      if (current == null ||
+          !record.snapshot.submittedAt.isBefore(current.snapshot.submittedAt)) {
+        latestByDedupeKey[record.dedupeKey] = record;
+      }
+    }
+    final records = <DownloadRecoveryRecord>[];
+    for (final record in loadedRecords) {
+      if (identical(latestByDedupeKey[record.dedupeKey], record)) {
+        records.add(record);
+        continue;
+      }
+      final scannedPending = pendingByOwner[record.owner.ownerId];
+      final pendingId = record.pendingMediaStoreId ?? scannedPending?.id;
+      if (pendingId != null) matchedPending.add(pendingId);
+      var cleanupOk = true;
+      if (pendingId != null &&
+          record.status != DownloadStatus.succeeded &&
+          record.resumeAnchor == null) {
+        cleanupOk = await _cleanupPendingOutput(pendingId, record.owner);
+        if (!cleanupOk) {
+          cleanupFailed.add(record.jobId);
+          cleanupFailedPending.add(pendingId);
+        }
+      }
+      if (record.status == DownloadStatus.succeeded && pendingId != null) {
+        orphanedPending.add(pendingId);
+      }
+      _persistRemove(record.jobId);
+      supersededJobIds.add(record.jobId);
+    }
     final recordsByOwner = <String, DownloadRecoveryRecord>{};
     for (final record in records) {
       recordsByOwner[record.owner.ownerId] = record;
@@ -628,6 +666,7 @@ class DownloadManager {
       orphanedPendingOutputIds: orphanedPending.toList(growable: false),
       restoredJobIds: restored,
       skippedJobIds: skipped,
+      supersededJobIds: supersededJobIds,
       cleanupFailedJobIds: cleanupFailed.toList(growable: false),
       cleanupFailedPendingOutputIds: cleanupFailedPending.toList(
         growable: false,

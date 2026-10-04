@@ -816,6 +816,70 @@ void main() {
     await changesSubscription.cancel();
   });
 
+  test('recovery keeps the newest record for one identity', () async {
+    final request = _request();
+    final oldSnapshot = DownloadSubmissionSnapshot(
+      snapshotId: 'submission-old',
+      jobId: 'job-old',
+      groupId: 'group-old',
+      request: request,
+      accountId: 'account-a',
+      submittedAt: DateTime.utc(2026, 9, 1),
+    );
+    final newSnapshot = DownloadSubmissionSnapshot(
+      snapshotId: 'submission-new',
+      jobId: 'job-new',
+      groupId: 'group-new',
+      request: request,
+      accountId: 'account-a',
+      submittedAt: DateTime.utc(2026, 9, 1, 0, 1),
+    );
+    final store = MemoryDownloadRecoveryStore();
+    await store.upsert(
+      DownloadRecoveryRecord(
+        jobId: oldSnapshot.jobId,
+        dedupeKey: request.dedupeKey,
+        snapshot: oldSnapshot,
+        owner: const DownloadOutputOwner(
+          ownerId: 'output-old',
+          jobId: 'job-old',
+          accountId: 'account-a',
+        ),
+        status: DownloadStatus.running,
+      ),
+    );
+    await store.upsert(
+      DownloadRecoveryRecord(
+        jobId: newSnapshot.jobId,
+        dedupeKey: request.dedupeKey,
+        snapshot: newSnapshot,
+        owner: const DownloadOutputOwner(
+          ownerId: 'output-new',
+          jobId: 'job-new',
+          accountId: 'account-a',
+        ),
+        status: DownloadStatus.running,
+      ),
+    );
+    final manager = DownloadManager(
+      transport: _Transport(_Response()),
+      sinkFactory: MemorySinkFactory(),
+      submissionContext: () => _context(),
+      recoveryStore: store,
+    );
+    addTearDown(manager.dispose);
+
+    final report = await manager.recover();
+
+    expect(report.supersededJobIds, ['job-old']);
+    expect(manager.taskById('job-old'), isNull);
+    expect(manager.taskById('job-new')!.status, DownloadStatus.retryable);
+    expect(manager.groupById('group-old'), isNull);
+    expect(manager.groupById('group-new')!.jobIds, ['job-new']);
+    await manager.flushPersistence();
+    expect(store.records.map((record) => record.jobId), ['job-new']);
+  });
+
   test('a custom-template file name survives recovery unchanged', () {
     // `{author_id}`/`{w}`/`{h}` come from submission-time metadata that the
     // record never persists; the frozen serialized name must be used.

@@ -373,6 +373,7 @@ class DownloadRecoveryReport {
     this.orphanedPendingOutputIds = const [],
     this.restoredJobIds = const [],
     this.skippedJobIds = const [],
+    this.supersededJobIds = const [],
     this.cleanupFailedJobIds = const [],
     this.cleanupFailedPendingOutputIds = const [],
     this.error,
@@ -383,6 +384,7 @@ class DownloadRecoveryReport {
   final List<int> orphanedPendingOutputIds;
   final List<String> restoredJobIds;
   final List<String> skippedJobIds;
+  final List<String> supersededJobIds;
   final List<String> cleanupFailedJobIds;
   final List<int> cleanupFailedPendingOutputIds;
   final Object? error;
