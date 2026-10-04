@@ -844,6 +844,11 @@ List<RouteBase> _settingsSubRoutes(
           _page(context, state, observer, const BrowseSettingsPage()),
     ),
     GoRoute(
+      path: 'motion',
+      pageBuilder: (context, state) =>
+          _page(context, state, observer, const MotionSettingsPage()),
+    ),
+    GoRoute(
       path: 'download',
       pageBuilder: (context, state) =>
           _page(context, state, observer, const DownloadSettingsPage()),

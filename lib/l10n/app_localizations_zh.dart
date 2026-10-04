@@ -891,6 +891,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get animationSpeedReduceHint => '开启「减少动态效果」时不播放动画，速度不生效';
 
   @override
+  String get motionSettings => '动效与触感';
+
+  @override
   String get motionPageTransition => '页面转场';
 
   @override

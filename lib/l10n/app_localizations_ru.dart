@@ -943,6 +943,9 @@ class AppLocalizationsRu extends AppLocalizations {
       'Пока включено «Меньше анимаций», анимации не воспроизводятся и скорость не действует';
 
   @override
+  String get motionSettings => 'Анимация и отклик';
+
+  @override
   String get motionPageTransition => 'Переход между страницами';
 
   @override

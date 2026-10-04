@@ -941,6 +941,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Animations are off while Reduce motion is on, so the speed has no effect';
 
   @override
+  String get motionSettings => 'Motion & haptics';
+
+  @override
   String get motionPageTransition => 'Page transition';
 
   @override

@@ -365,6 +365,7 @@
   "animationSpeedSlow": "Медленно",
   "animationSpeedHint": "Действует на все анимации приложения; системные эффекты, например рябь, не меняются",
   "animationSpeedReduceHint": "Пока включено «Меньше анимаций», анимации не воспроизводятся и скорость не действует",
+  "motionSettings": "Анимация и отклик",
   "motionPageTransition": "Переход между страницами",
   "pageTransitionStyleSystem": "Системный",
   "pageTransitionStyleSystemHint": "Системный переход Android с предиктивным «Назад»",

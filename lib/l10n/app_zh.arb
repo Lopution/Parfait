@@ -365,6 +365,7 @@
   "animationSpeedSlow": "慢",
   "animationSpeedHint": "作用于应用内全部动画；水波纹等系统控件动画不受影响",
   "animationSpeedReduceHint": "开启「减少动态效果」时不播放动画，速度不生效",
+  "motionSettings": "动效与触感",
   "motionPageTransition": "页面转场",
   "pageTransitionStyleSystem": "系统默认",
   "pageTransitionStyleSystemHint": "安卓系统转场，支持预测性返回",

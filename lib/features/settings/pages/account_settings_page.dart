@@ -8,15 +8,19 @@ import '../../../app/motion/removal.dart';
 import '../../../app/navigation/routes.dart' show openLogin, openMe;
 import '../../../app/person_avatar.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/settings/settings_action_tile.dart';
 import '../../../app/widgets/settings/settings_control.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_group_content.dart';
+import '../../../app/widgets/settings/settings_tile.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/settings_load_error.dart';
 import '../../../core/auth/account.dart';
 import '../../../core/auth/account_store.dart';
+import '../../../core/auth/account_transfer.dart';
+import '../../../core/auth/account_transfer_service.dart';
 import '../../../core/errors/error_category.dart';
 import '../../../core/settings/server_display_settings.dart';
 import '../../../l10n/context.dart';
@@ -202,6 +206,16 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                                     : () => _switchTo(account),
                               ),
                             ),
+                          // Credential export is a visible entry, not a
+                          // hidden gesture: the tile exists only for a
+                          // signed-in account and the warning dialog still
+                          // gates the actual copy.
+                          if (state.current != null)
+                            SettingsTile(
+                              icon: Icons.send_to_mobile,
+                              title: context.l10n.accountTransferExportTitle,
+                              onTap: _confirmCopyAccount,
+                            ),
                         ],
                       ),
                       // Server-side display preferences only exist for a
@@ -250,6 +264,79 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
     );
     if (!saved) _removals.restore([account.id]);
   }
+
+  /// Credential export is destructive-adjacent (plaintext tokens on the
+  /// system clipboard): the entry is a visible tile, and this dialog carries
+  /// the warning before any byte is copied.
+  Future<void> _confirmCopyAccount() async {
+    final l10n = context.l10n;
+    final confirmed = await showAppDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.accountTransferExportTitle),
+        content: Text(l10n.accountTransferWarning),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.confirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      _copyAccount();
+    }
+  }
+
+  void _copyAccount() {
+    unawaited(() async {
+      try {
+        await ref
+            .read(accountTransferServiceProvider)
+            .exportCurrentToClipboard();
+        if (!mounted) return;
+        showAppSnackBar(context, context.l10n.accountTransferCopied);
+        // Android <13 cannot mark the clipboard entry as sensitive; the
+        // credential sits in the system clipboard in plaintext. Never do
+        // this silently (R4: 安全降级，不能静默少做一件事).
+        final capabilities = await ref
+            .read(transferClipboardProvider)
+            .capabilities();
+        if (!capabilities.sensitiveMarkSupported && mounted) {
+          showAppSnackBar(
+            context,
+            context.l10n.accountTransferSensitiveWarning,
+            duration: const Duration(seconds: 5),
+            replaceCurrent: false,
+          );
+        }
+      } on AccountTransferException catch (error) {
+        if (!mounted) return;
+        showAppSnackBar(context, _transferErrorText(context, error.code));
+      }
+    }());
+  }
+}
+
+String _transferErrorText(BuildContext context, AccountTransferErrorCode code) {
+  final key = switch (code) {
+    AccountTransferErrorCode.corrupt => 'accountTransferCorrupt',
+    AccountTransferErrorCode.credentialInvalid =>
+      'accountTransferCredentialInvalid',
+    AccountTransferErrorCode.verificationUnavailable =>
+      'accountTransferVerificationUnavailable',
+    AccountTransferErrorCode.noUsableAccount => 'accountTransferNoAccount',
+    AccountTransferErrorCode.credentialUnavailable =>
+      'accountTransferCredentialUnavailable',
+    AccountTransferErrorCode.clipboardUnavailable =>
+      'accountTransferClipboardUnavailable',
+    AccountTransferErrorCode.storageFailure => 'accountTransferStorageFailure',
+  };
+  return settingsText(context, key);
 }
 
 /// Server-authoritative display preferences of the current account. The

@@ -365,6 +365,7 @@
   "animationSpeedSlow": "遅い",
   "animationSpeedHint": "アプリ内のすべてのアニメーションに適用されます。波紋などのシステム効果は変わりません",
   "animationSpeedReduceHint": "「視覚効果を減らす」がオンの間はアニメーションを再生しないため、速度は反映されません",
+  "motionSettings": "モーションと触覚",
   "motionPageTransition": "画面遷移",
   "pageTransitionStyleSystem": "システムのデフォルト",
   "pageTransitionStyleSystemHint": "Android システムの遷移。予測型「戻る」に対応",

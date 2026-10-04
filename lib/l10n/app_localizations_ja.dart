@@ -911,6 +911,9 @@ class AppLocalizationsJa extends AppLocalizations {
       '「視覚効果を減らす」がオンの間はアニメーションを再生しないため、速度は反映されません';
 
   @override
+  String get motionSettings => 'モーションと触覚';
+
+  @override
   String get motionPageTransition => '画面遷移';
 
   @override

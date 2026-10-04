@@ -365,6 +365,7 @@
   "animationSpeedSlow": "Slow",
   "animationSpeedHint": "Applies to every in-app animation; system effects such as ripples are unaffected",
   "animationSpeedReduceHint": "Animations are off while Reduce motion is on, so the speed has no effect",
+  "motionSettings": "Motion & haptics",
   "motionPageTransition": "Page transition",
   "pageTransitionStyleSystem": "System default",
   "pageTransitionStyleSystemHint": "Android system transition with predictive back",

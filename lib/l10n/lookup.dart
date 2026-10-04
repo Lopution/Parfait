@@ -301,6 +301,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'maxDownloadCount' => l10n.maxDownloadCount,
   'maxDownloadCountHint' => l10n.maxDownloadCountHint,
   'motionPageTransition' => l10n.motionPageTransition,
+  'motionSettings' => l10n.motionSettings,
   'muteAuthor' => l10n.muteAuthor,
   'muteFailed' => l10n.muteFailed,
   'muteTagInputHint' => l10n.muteTagInputHint,

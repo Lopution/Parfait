@@ -1787,6 +1787,12 @@ abstract class AppLocalizations {
   /// **'开启「减少动态效果」时不播放动画，速度不生效'**
   String get animationSpeedReduceHint;
 
+  /// No description provided for @motionSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'动效与触感'**
+  String get motionSettings;
+
   /// No description provided for @motionPageTransition.
   ///
   /// In zh, this message translates to:

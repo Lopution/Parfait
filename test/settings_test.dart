@@ -761,7 +761,7 @@ void main() {
     expect(repository.value.detailQuality, DetailQuality.original);
   });
 
-  Future<void> pumpBrowse(
+  Future<void> pumpMotion(
     WidgetTester tester,
     FakeSettingsRepository repository,
   ) async {
@@ -772,7 +772,7 @@ void main() {
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
-          home: BrowseSettingsPage(),
+          home: MotionSettingsPage(),
         ),
       ),
     );
@@ -794,7 +794,7 @@ void main() {
       final repository = FakeSettingsRepository(baseTestSettings());
       debugDefaultTargetPlatformOverride = platform;
       try {
-        await pumpBrowse(tester, repository);
+        await pumpMotion(tester, repository);
 
         final selector = speedSelector();
         expect(selector, findsOneWidget);
@@ -826,7 +826,7 @@ void main() {
       final repository = FakeSettingsRepository(baseTestSettings());
       debugDefaultTargetPlatformOverride = platform;
       try {
-        await pumpBrowse(tester, repository);
+        await pumpMotion(tester, repository);
         expect(find.text('页面转场', skipOffstage: false), findsOneWidget);
         for (final label in ['系统默认', '共享轴', '缩放', '侧滑']) {
           expect(find.text(label, skipOffstage: false), findsOneWidget);
@@ -852,7 +852,7 @@ void main() {
 
   testWidgets('the press feedback switch persists', (tester) async {
     final repository = FakeSettingsRepository(baseTestSettings());
-    await pumpBrowse(tester, repository);
+    await pumpMotion(tester, repository);
     final row = find.text('按压反馈', skipOffstage: false);
     await _scrollCentered(tester, row);
     expect(find.text('按下卡片时轻微缩小'), findsOneWidget);
@@ -867,7 +867,7 @@ void main() {
     final repository = FakeSettingsRepository(
       baseTestSettings().copyWith(reduceMotion: true),
     );
-    await pumpBrowse(tester, repository);
+    await pumpMotion(tester, repository);
 
     await _scrollCentered(tester, speedSelector());
     final button = tester.widget<SegmentedButton<AnimationSpeed>>(
@@ -1882,7 +1882,7 @@ void main() {
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
 
-          home: SettingsPage(),
+          home: AccountSettingsPage(),
         ),
       ),
     );
@@ -1943,7 +1943,7 @@ void main() {
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
 
-            home: SettingsPage(),
+            home: AccountSettingsPage(),
           ),
         ),
       );
@@ -2200,7 +2200,7 @@ void main() {
     expect(find.byType(NetworkAdvancedSettingsPage), findsNothing);
   });
 
-  testWidgets('browse image source selects a preset and a custom proxy', (
+  testWidgets('network image source selects a preset and a custom proxy', (
     tester,
   ) async {
     final repository = FakeSettingsRepository(baseTestSettings());
@@ -2211,14 +2211,13 @@ void main() {
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
-          home: BrowseSettingsPage(),
+          home: NetworkSettingsPage(),
         ),
       ),
     );
     await tester.pump();
-    // The custom input sits at the bottom after the R4
-    // regroup — a tall surface builds every lazy row so
-    // ensureVisible-based scrolling below stays legal.
+    // A tall surface builds every lazy row so ensureVisible-based
+    // scrolling below stays legal.
     tester.view.physicalSize = const Size(800, 4800);
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pump();
@@ -2226,6 +2225,10 @@ void main() {
     expect(find.text('pixiv.cat 镜像'), findsOneWidget);
     expect(find.text('pixiv.re 镜像'), findsOneWidget);
     expect(find.text('pixiv.nl 镜像'), findsOneWidget);
+
+    // The source section sits right after the network mode group.
+    double dyOf(String text) => tester.getCenter(find.text(text)).dy;
+    expect(dyOf('网络模式'), lessThan(dyOf('图片源')));
 
     await _scrollCentered(tester, find.text('pixiv.cat 镜像'));
     await tester.tap(find.text('pixiv.cat 镜像'));
@@ -2267,7 +2270,7 @@ void main() {
     expect(repository.value.imageSource, 'https://proxy.example.com/pixiv');
   });
 
-  testWidgets('browse image source rejects an invalid custom input', (
+  testWidgets('network image source rejects an invalid custom input', (
     tester,
   ) async {
     final repository = FakeSettingsRepository(baseTestSettings());
@@ -2278,14 +2281,13 @@ void main() {
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
-          home: BrowseSettingsPage(),
+          home: NetworkSettingsPage(),
         ),
       ),
     );
     await tester.pump();
-    // The custom input sits at the bottom after the R4
-    // regroup — a tall surface builds every lazy row so
-    // ensureVisible-based scrolling below stays legal.
+    // A tall surface builds every lazy row so ensureVisible-based
+    // scrolling below stays legal.
     tester.view.physicalSize = const Size(800, 4800);
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pump();
@@ -2300,7 +2302,7 @@ void main() {
     expect(find.textContaining('无效自定义源'), findsOneWidget);
   });
 
-  testWidgets('browse page groups preferences first and source last', (
+  testWidgets('browse page keeps only blocking and quality groups', (
     tester,
   ) async {
     final repository = FakeSettingsRepository(baseTestSettings());
@@ -2323,14 +2325,18 @@ void main() {
 
     double dyOf(String text) => tester.getCenter(find.text(text)).dy;
     expect(dyOf('本地屏蔽 R-18 作品'), lessThan(dyOf('预览质量')));
-    expect(dyOf('预览质量'), lessThan(dyOf('触感强度')));
-    expect(dyOf('触感强度'), lessThan(dyOf('图片源')));
+
+    // Motion controls live on the motion page; the image source moved to
+    // network settings — neither still renders here.
+    expect(find.text('触感强度'), findsNothing);
+    expect(find.text('页面转场'), findsNothing);
+    expect(find.text('图片源'), findsNothing);
 
     // R4: pixivHistory has a single owner — the history settings page.
     expect(find.text('Pixiv 浏览历史'), findsNothing);
   });
 
-  testWidgets('browse custom input draft asks before leaving', (tester) async {
+  testWidgets('network custom input draft asks before leaving', (tester) async {
     final repository = FakeSettingsRepository(baseTestSettings());
     await tester.pumpWidget(
       ProviderScope(
@@ -2345,7 +2351,7 @@ void main() {
                 child: FilledButton(
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => const BrowseSettingsPage(),
+                      builder: (_) => const NetworkSettingsPage(),
                     ),
                   ),
                   child: const Text('open'),
@@ -2363,7 +2369,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.byType(BrowseSettingsPage), findsNothing);
+    expect(find.byType(NetworkSettingsPage), findsNothing);
 
     // Dirty draft: system back opens the discard dialog and 取消 stays.
     await tester.tap(find.text('open'));
@@ -2380,18 +2386,18 @@ void main() {
     expect(find.text('放弃未保存的修改？'), findsOneWidget);
     await tester.tap(find.text('取消').last);
     await tester.pumpAndSettle();
-    expect(find.byType(BrowseSettingsPage), findsOneWidget);
+    expect(find.byType(NetworkSettingsPage), findsOneWidget);
 
     // 放弃 leaves the page and drops the draft.
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     await tester.tap(find.text('放弃修改'));
     await tester.pumpAndSettle();
-    expect(find.byType(BrowseSettingsPage), findsNothing);
+    expect(find.byType(NetworkSettingsPage), findsNothing);
   });
 
   testWidgets(
-    'browse image source apply-and-test applies then probes the live pipeline',
+    'network image source apply-and-test applies then probes the live pipeline',
     (tester) async {
       final repository = FakeSettingsRepository(baseTestSettings());
       final backend = RecordingClient();
@@ -2412,14 +2418,13 @@ void main() {
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
-            home: BrowseSettingsPage(),
+            home: NetworkSettingsPage(),
           ),
         ),
       );
       await tester.pump();
-      // The custom input sits at the bottom after the R4
-      // regroup — a tall surface builds every lazy row so
-      // ensureVisible-based scrolling below stays legal.
+      // A tall surface builds every lazy row so ensureVisible-based
+      // scrolling below stays legal.
       tester.view.physicalSize = const Size(800, 4800);
       addTearDown(tester.view.resetPhysicalSize);
       await tester.pump();
@@ -2535,7 +2540,7 @@ void main() {
     await check(const TranslateSettingsPage(), '关闭', '百度翻译');
     await check(const DownloadSettingsPage(), '作品 ID（默认）', '标题 - ID');
     await check(const NetworkSettingsPage(), '自动', '仅直连');
-    await check(const BrowseSettingsPage(), '官方源', 'pixiv.cat 镜像');
+    await check(const NetworkSettingsPage(), '官方源', 'pixiv.cat 镜像');
     await check(const DownloadDestinationPage(), '相册', '文件夹（系统目录选择）');
 
     // Unmount and unwind the third-party reachability probe timeouts.
@@ -2596,7 +2601,7 @@ void main() {
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
-            home: BrowseSettingsPage(),
+            home: MotionSettingsPage(),
           ),
         ),
       );
