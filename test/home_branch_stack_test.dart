@@ -354,4 +354,64 @@ void main() {
       expect(events, [0]);
     });
   });
+
+  group('touch exploration', () {
+    final settingsList = find.descendant(
+      of: find.byType(SettingsPage),
+      matching: find.byType(ListView),
+    );
+
+    testWidgets('the bottom bar stays on screen while scrolling', (
+      tester,
+    ) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(accessibleNavigation: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await _pumpHome(tester, location: '/settings');
+      final nav = find.byType(FuncBottomNav);
+      final shownTop = tester.getTopLeft(nav).dy;
+
+      // A TalkBack user cannot find a bar that slid off screen, so the
+      // scroll-hide path is parked while touch exploration is on.
+      await tester.drag(settingsList, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(nav).dy, closeTo(shownTop, 0.5));
+    });
+
+    testWidgets('starting touch exploration brings a hidden bar back', (
+      tester,
+    ) async {
+      await _pumpHome(tester, location: '/settings');
+      final nav = find.byType(FuncBottomNav);
+      final shownTop = tester.getTopLeft(nav).dy;
+
+      // Hide with a real scroll first.
+      await tester.drag(settingsList, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
+
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(accessibleNavigation: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(nav).dy, closeTo(shownTop, 0.5));
+    });
+
+    testWidgets('semantics alone does not pin the bar', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pumpHome(tester, location: '/settings');
+      final nav = find.byType(FuncBottomNav);
+
+      // Services that only open the semantics tree do not set
+      // accessibleNavigation — the bar keeps its hide-on-scroll.
+      await tester.drag(settingsList, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
+      handle.dispose();
+    });
+  });
 }
