@@ -1,20 +1,23 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/navigation/routes.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
-import '../../app/widgets/replica_switch_tile.dart';
 import '../../app/widgets/scrollable_form_shell.dart';
+import '../../app/widgets/settings/settings_choice_tile.dart';
+import '../../app/widgets/settings/settings_group.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/i18n/replica_language.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../l10n/lookup.dart';
-import '../../app/theme/func_semantic_tokens.dart';
 
+/// The guide's only setup step: pick a language, then sign in. The choice
+/// applies as soon as it is tapped — this page's own text follows it.
+/// Theme and everything else stay in settings.
 class LanguagePage extends ConsumerWidget {
   const LanguagePage({super.key});
 
@@ -47,50 +50,38 @@ class LanguagePage extends ConsumerWidget {
     AppSettings settings,
   ) {
     final language = ReplicaLanguage.fromTag(settings.languageTag);
-    void next() => context.push<void>('/welcome/theme');
+    String text(String key) => l10nLookupFor(language.locale, key);
+
+    Future<void> next() async {
+      await ref.read(settingsProvider.notifier).completeGuide();
+      if (!context.mounted) return;
+      await openLogin(context, isFirst: true, returnToHomeOnSuccess: true);
+    }
 
     return ScrollableFormShell(
       // Wrapping centered title — long translations take a second line
       // instead of shrinking to an unreadable size.
       header: Text(
-        l10nLookupFor(language.locale, 'selectLanguage'),
+        text('selectLanguage'),
         textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        style: Theme.of(context).textTheme.headlineMedium,
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
+      content: SettingsGroup(
         children: [
-          for (final item in _items) ...[
-            ReplicaSwitchTile(
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: FuncSpacing.sm,
-                horizontal: FuncSpacing.xl,
-              ),
-              value: settings.languageTag == item.$2,
-              title: Text(
-                item.$1,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+          for (final (name, tag) in _items)
+            SettingsChoiceTile(
+              selected: settings.languageTag == tag,
+              title: Text(name),
               onTap: () =>
-                  ref.read(settingsProvider.notifier).selectLanguage(item.$2),
+                  ref.read(settingsProvider.notifier).selectLanguage(tag),
             ),
-            const Divider(),
-          ],
         ],
       ),
       primaryAction: ReplicaButton(
-        label: l10nLookupFor(language.locale, 'next'),
+        label: text('next'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: FuncTokens.lightBackground,
         onPressed: next,
-      ),
-      // Skipping this step lands on the same next page; the choice stays
-      // changeable in settings later.
-      secondary: TextButton(
-        onPressed: next,
-        child: Text(l10nLookupFor(language.locale, 'setupLater')),
       ),
     );
   }

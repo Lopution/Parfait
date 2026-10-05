@@ -24,13 +24,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get selectLanguage => 'Выберите язык';
 
   @override
-  String get selectTheme => 'Выберите свою любимую тему';
-
-  @override
   String get next => 'Далее';
-
-  @override
-  String get setupLater => 'Настроить позже';
 
   @override
   String get dark => 'Тёмный';

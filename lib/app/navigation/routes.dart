@@ -44,7 +44,6 @@ import '../../features/login/login_webview_page.dart';
 import '../../features/new/new_page.dart';
 import '../../features/novel/novel_page.dart';
 import '../../features/onboarding/language_page.dart';
-import '../../features/onboarding/theme_page.dart';
 import '../../features/onboarding/user_agreement_page.dart';
 import '../../features/onboarding/welcome_page.dart';
 import '../../features/profile/profile_edit_page.dart';
@@ -978,11 +977,6 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
               appRootRouteObserver,
               const LanguagePage(),
             ),
-          ),
-          GoRoute(
-            path: 'theme',
-            pageBuilder: (context, state) =>
-                _page(context, state, appRootRouteObserver, const ThemePage()),
           ),
         ],
       ),

@@ -24,13 +24,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get selectLanguage => '选择您的语言';
 
   @override
-  String get selectTheme => '选择喜欢的主题';
-
-  @override
   String get next => '下一步';
-
-  @override
-  String get setupLater => '稍后设置';
 
   @override
   String get dark => '黑暗';

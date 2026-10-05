@@ -132,23 +132,11 @@ abstract class AppLocalizations {
   /// **'选择您的语言'**
   String get selectLanguage;
 
-  /// No description provided for @selectTheme.
-  ///
-  /// In zh, this message translates to:
-  /// **'选择喜欢的主题'**
-  String get selectTheme;
-
   /// No description provided for @next.
   ///
   /// In zh, this message translates to:
   /// **'下一步'**
   String get next;
-
-  /// No description provided for @setupLater.
-  ///
-  /// In zh, this message translates to:
-  /// **'稍后设置'**
-  String get setupLater;
 
   /// No description provided for @dark.
   ///

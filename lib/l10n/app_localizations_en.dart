@@ -24,13 +24,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectLanguage => 'Select your language';
 
   @override
-  String get selectTheme => 'Choose your favorite theme';
-
-  @override
   String get next => 'Next';
-
-  @override
-  String get setupLater => 'Set up later';
 
   @override
   String get dark => 'Dark';

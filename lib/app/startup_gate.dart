@@ -66,7 +66,6 @@ class StartupGate extends ConsumerWidget {
           if (!_ensureLocation(context, const {
             '/welcome',
             '/welcome/language',
-            '/welcome/theme',
           })) {
             return child;
           }
