@@ -22,7 +22,7 @@ Widget _host(Widget child) {
 }
 
 void main() {
-  testWidgets('author header stat chips announce label+value as one node', (
+  testWidgets('about-page stats announce label+value as one node', (
     tester,
   ) async {
     ProfileStatisticData stat({VoidCallback? onTap}) => ProfileStatisticData(
@@ -33,10 +33,10 @@ void main() {
       onTap: onTap,
     );
 
-    // A tappable chip is a single button node announcing "label, value" —
+    // A tappable row is a single button node announcing "label, value" —
     // the inner visuals are excluded so the pair never double-announces.
     await tester.pumpWidget(
-      _host(ProfileStatistic(statistic: stat(onTap: () {}), compact: true)),
+      _host(ProfileStatistic(statistic: stat(onTap: () {}))),
     );
     expect(find.bySemanticsLabel('关注, 12'), findsOneWidget);
     expect(

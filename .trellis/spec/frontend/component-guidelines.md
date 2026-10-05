@@ -153,7 +153,7 @@ state or action.
 light/dark `ThemeData`. `ColorScheme.fromSeed` uses `FuncTokens.primary`,
 while semantic background, surface, text, subdued, and error values are
 mapped from `FuncTokens` for the current brightness. AppBar, NavigationBar,
-NavigationRail, SegmentedButton, TabBar, Card, Chip, Dialog, BottomSheet,
+NavigationRail, TabBar, Card, Chip, Dialog, BottomSheet,
 SnackBar, and Switch styles are defined there.
 
 **Platform font.** No font family is bundled: text renders in the platform
@@ -191,7 +191,7 @@ viewer passes `FuncTokens.transparent` instead.
 **Pink discipline.** `primary` is reserved for primary actions, selected
 states, and indicators. `secondary`/`secondaryContainer` are neutral grays —
 tonal buttons and progress tracks are deliberately not pink. Selected
-control states (`SegmentedButton`, `NavigationRail`, `NavigationBar`,
+control states (`NavigationRail`, `NavigationBar`,
 `EntityRow`) use `primaryContainer`/`onPrimaryContainer`. On a selected
 `EntityRow` the title and the check icon resolve to opaque
 `onPrimaryContainer`; subtitle and meta text keep the hierarchy with
@@ -419,13 +419,28 @@ its use case calls for:
 | A setting with one value from a short list | `SettingsMenuTile` (current value + menu) | image qualities, animation speed, haptic strength |
 | A two-way property | A switch (`SettingsControl`) | the bookmark sheet's "private" |
 | A choice of action | Buttons, one per action | the follow sheet |
-| A list filter | A "current value ▾" button opening an `AppMenuButton` | — |
+| A list filter | `FilterMenuButton`: a "current value ▾" button opening a menu | own bookmarks and follows (Profile Header Contract) |
 
-`test/architecture/no_segmented_test.dart` scans `lib/` for the segmented
-family (`SegmentedButton`, `AppSegmentedButton`, `AppSegment`,
-`AppTypeSwitch`, `SliverAppTypeSwitch`, `segmentedButtonTheme`). Its
-allow-list holds only the profile work-type row and the files behind it
-(see the Compact Type Switch Contract) and may only shrink.
+`test/architecture/no_segmented_test.dart` keeps the segmented family —
+`SegmentedButton`, `segmentedButtonTheme` and the removed wrappers
+`AppSegmentedButton`, `AppSegment`, `AppTypeSwitch`, `SliverAppTypeSwitch`,
+`ProfileWorkTypeSwitch` — out of `lib/` entirely.
+
+**`FilterMenuButton<T>`** (`lib/app/widgets/filter_menu_button.dart`):
+`label` is the button text (the current value, with the filter's name
+when the value alone is unclear: "Tag: All"); `options` are
+`AppMenuEntry`s, the one matching `value` checked; a different pick plays
+`select` and calls `onChanged`, the current one changes nothing. An
+optional last entry (`moreLabel` / `onMore`) leaves the menu for a fuller
+picker. Owning test: `selection_controls_haptics_test.dart`.
+
+**New works.** The new-works page does not switch type in place: its
+illustration page carries a book action in the AppBar (`newNovels`
+tooltip) that pushes the common `new-novels` route — the same `NewPage`
+with `type: NewFeedType.novel` and no book action — mirroring how the
+novel ranking opens. Each page keeps its own scope in the URL
+(`/new?scope=` and `.../new-novels?scope=`); an old `type=novel` link
+lands on illustrations.
 
 **Follow sheet.** `showFollowActionsSheet` (long press on
 `FollowSwitchButton`, the profile header's follow-privately entry) shows
@@ -474,66 +489,6 @@ Owning tests: `search_catalog_test.dart`, `spotlight_feed_test.dart`, the
 `content: search home with Spotlight` and `content: Spotlight list`
 matrices.
 
-## Compact Type Switch Contract
-
-Only the profile work-type row still uses this control; nothing else may
-(Choice Controls Contract).
-
-`AppTypeSwitch` is the shared compact segmented selector for a feed's
-content type. The box form is a left-aligned row at least the minimum
-interactive height tall (48dp at the default text scale; larger text grows
-it) whose segments scroll horizontally when they overflow.
-The sliver form, `SliverAppTypeSwitch`, is the same row wrapped for use as
-the first sliver of a feed: it scrolls away with the content and floats
-back in on an upward drag, animating with the bottom-bar show/hide
-`MotionTokens` (or `AnimationStyle.noAnimation` under reduced motion).
-
-The row scrolls on its own parentless `BouncingScrollPhysics`, installed
-with `ScrollConfiguration.of(context).copyWith(physics: ...)`, so it takes
-horizontal drags only when its segments overflow. Inherited physics would
-break two things: inside `PullToRefresh` a sideways drag would arm a
-refresh (see the Shared Pull-to-Refresh Contract), and
-`FuncScrollBehavior`'s always-scrollable parent would let a row that fits
-claim the drag, so a swipe starting on it would never reach
-`TabSwipeSwitcher`. `app_type_switch_test.dart` proves both — a fitting
-row under `FuncScrollBehavior` hands the swipe to an enclosing horizontal
-drag detector, and sideways drags on fitting and overflowing rows never
-call `onRefresh` — and the `the work type row on a real feed` group in
-`user_profile_test.dart` repeats the refresh half on a real profile feed.
-
-The sliver form clamps `constraints.overlap` at zero before handing it to
-`SliverFloatingHeader`. `PullToRefresh` lays out non-clamping, so an
-overscroll hands the first sliver a negative overlap; unclamped, the header
-parks at the viewport top while the list overshoots and the refresh
-indicator paints over the switch row. The clamp keeps the row traveling
-with the list while positive overlaps — which the Hero return clip reads —
-pass through untouched. `app_type_switch_test.dart` proves the row's top
-edge tracks the first card's during a pull; `user_profile_test.dart`
-repeats that on a real profile feed. Neither test asserts the refresh
-indicator's bottom against the row top.
-
-`AppTypeSwitch` enables `emptySelectionAllowed` and reports an empty
-selection as the current value, so a tap on the active segment reaches
-`onSelected` as a re-tap — hosts map it to scroll-to-top, matching the
-Branch Re-tap Contract. Loading, error, and empty feed states keep the
-selector reachable by rendering the box form as a fixed header above the
-status widget; only a loaded feed uses the floating sliver.
-
-The profile page is the only consumer. The new-works page no longer
-switches type in place: its illustration page carries a book action in the
-AppBar (`newNovels` tooltip) that pushes the common `new-novels` route —
-the same `NewPage` with `type: NewFeedType.novel` and no book action —
-mirroring how the novel ranking opens. Each page keeps its own scope in the
-URL (`/new?scope=` and `.../new-novels?scope=`); an old `type=novel` link
-lands on illustrations. Each profile feed
-(`ProfileIllustFeed`, `ProfileNovelFeed`, `UserSeriesFeed`) takes a
-`typeSwitch` sliver parameter and inserts it *after*
-`HeaderLocator.sliver()` inside the nested list — the locator must come
-first so the shell can find it — while loading, error, and empty states
-render the switch through `aboveState` so it stays reachable. The profile
-tab delegate (`ReplicaProfileTabsDelegate`) no longer hosts the switch:
-it is a constant 56dp `AppTabBar`; the old 64dp `ChoiceChip` row is gone.
-
 ## Multi-Locale Layout Contract
 
 ### 1. Scope / Trigger
@@ -557,7 +512,7 @@ a row of controls, or a page.
 - **User content** — titles, user names, tags, captions, comments — may
   ellipsize as before.
 - No layout errors (overflow) in any locale or profile.
-- A widget that measures its own text (the bottom bar, `AppSegmentedButton`)
+- A widget that measures its own text (the bottom bar, `AppTabBar`)
   measures with the exact style and text scaler it paints with, so the
   measured width equals the painted width.
 
@@ -569,10 +524,9 @@ When a cell fails, fix it in this order, never with a per-language branch:
    dialog text, status lines, rows of buttons (`Wrap`, `OverflowBar`).
    Remove `maxLines`/`ellipsis` from UI text; give text-field helpers
    `helperMaxLines`.
-2. **Scroll**: tab rows (`AppTabBar`) and `AppTypeSwitch`, per their
-   contracts.
+2. **Scroll**: tab rows (`AppTabBar`), per its contract.
 3. **Uniform scale**: groups of compact labels share one `LabelFit`
-   (bottom bar, segmented buttons), floor 0.8.
+   (bottom bar), floor 0.8.
 4. **Shorten the translation**, keeping its meaning; review all four
    languages together. Chinese is the template and changes only when its
    own layout needs it. Every change is listed in the PR as key, language,
@@ -607,14 +561,6 @@ class FitLabel extends StatelessWidget {
       TextAlign textAlign = TextAlign.center});
 }
 
-// lib/app/widgets/app_segmented_button.dart
-final class AppSegment<T> { const AppSegment({required T value, required String label}); }
-class AppSegmentedButton<T> extends StatelessWidget {
-  const AppSegmentedButton({required List<AppSegment<T>> segments,
-      required T selected, required ValueChanged<T>? onSelected,
-      VoidCallback? onReselected, bool haptics = true});
-}
-
 // lib/app/widgets/selection_app_bar.dart
 AppBar selectionAppBar(BuildContext context, {required int count,
     required VoidCallback onClose, required List<Widget> actions});
@@ -625,15 +571,6 @@ AppBar selectionAppBar(BuildContext context, {required int count,
   ellipsizing the widest label. `FitLabel` never measures (it works under
   intrinsic-size queries); the host computes the fit from the slot it lays
   out.
-- `AppSegmentedButton` is the only place that builds a `SegmentedButton`
-  (`test/architecture` enforces it), and only the profile work-type row
-  uses it (Choice Controls Contract). Single choice, equal-width segments,
-  no check icon — the selected fill marks the choice, so labels never shift
-  when the selection moves. Padding is explicit (`FuncSpacing.md` per side)
-  and the label style is `labelLarge`, so the slot it measures against,
-  `maxWidth / n − 2 × (padding + density dx)`, is the slot it paints in.
-  A different pick plays the select haptic unless `haptics: false`;
-  `onReselected` makes a re-tap on the selected segment reach the host.
 - `selectionAppBar` is the top bar of every list in selection mode
   (history, download tasks): close, the count, batch actions on
   `primaryContainer`. Its title is the bare number with
@@ -672,8 +609,7 @@ AppBar selectionAppBar(BuildContext context, {required int count,
 
 - `harness_test.dart`: glyph widths per script; the detector catches cut,
   clipped, overflowing and over-shrunk UI text and ignores user content.
-- `fit_label_test.dart`, `app_segmented_button_test.dart`,
-  `func_bottom_nav_test.dart`: measured width equals painted width; the
+- `fit_label_test.dart`, `func_bottom_nav_test.dart`: measured width equals painted width; the
   scale never drops below 0.8; truncation brings the tooltip.
 - `compact_controls_test.dart`, `settings_layout_test.dart`,
   `entry_layout_test.dart`, `content_layout_test.dart`,
@@ -712,8 +648,8 @@ Text(l10n.illustDetailCreateDate(date)); // wraps
 page's flexible header.
 
 **Measured extent.** `maxExtent` is never hard-coded for text-bearing
-content. The identity block (banner spacer, action row, name/account
-lines, statistics grid) lays out at natural height inside an
+content. The identity block (banner spacer, name row, statistics line)
+lays out at natural height inside an
 `OverflowBox`, and the `_ReportSize` render object reports its height in
 a post-frame callback; the host stores the value as `expandedExtent`, so
 width, locale, and text-scale changes re-size the header without code
@@ -743,11 +679,45 @@ plain surface icons with no fill. The whole header is wrapped in
 theme.brightness)`, so the status bar paints light icons over artwork
 only and restores the root default otherwise.
 
-**Statistics.** `ProfileStatistic` cells render through
-`ProfileStatisticsGrid`: equal-width columns, column count chosen
-6 → 3 → 2 → 1 by the widest intrinsic cell, row height set by the tallest
-cell in the row. There is no horizontal scroll ancestor — all six stats
-stay on screen.
+**Name row.** Below the avatar's lower half: the name (`titleLarge` w700,
+one line, ellipsized) over `@account`, then on the same row the share
+`IconButton` and the main action — `FollowSwitchButton` on another user's
+page, a tonal "edit profile" button on your own. The main action is
+capped at 45% of the row, so at 320dp and 1.3x text the name ellipsizes
+before anything wraps.
+
+**Statistics line.** `ProfileStatLine` (`profile_statistics.dart`) under
+the name row: "N following · N My Pixiv" (`profileFollowingCount`,
+`profileMyPixivCount`, counts through `AppFormat.count`). Each stat is
+its own text link, at least 48dp tall, one semantics node labelled with
+its text; following opens the following tab, My Pixiv opens its tab on
+your own page and is plain text elsewhere (another user's My Pixiv list
+has no tab). A preview snapshot without detail counters shows no line
+rather than zeros. On a narrow screen the line wraps. Work counts live on
+the tabs; the about tab lists every count (`ProfileStatistic` rows).
+
+**Tabs.** `UserPage` builds one tab per work type the user has — illust,
+manga, novel, series, each only when its count is above zero — labelled
+"name count" (`AppFormat.count`; `AppTabBar` draws labels with tabular
+figures). Series counts illust series only: the series tab lists
+`/v1/user/illust-series`, and no endpoint lists a user's novel series.
+Another user's page puts the work tabs first, then bookmarks, following,
+about; your own keeps bookmarks, following, fans, My Pixiv first and the
+work tabs last. A preview snapshot without counters keeps all four work
+tabs, without counts. The tab controller is rebuilt when the set of tabs
+changes on refresh; the selected tab stays selected if it survives,
+otherwise the first tab is selected. `ReplicaProfileTabsDelegate` takes
+the labels and is a constant 56dp `AppTabBar`.
+
+**Filters.** On your own page the bookmarks and following lists carry
+`ProfileFilterBar` fixed above the list: a visibility `FilterMenuButton`
+(public/private, shared by both lists) and, for bookmarks, a tag filter
+("Tag: All ▾") listing all bookmarks plus your first ten illust bookmark
+tags; when there are more (or the list has not loaded) a last "More
+tags…" entry opens the bookmark tag page. The tag filters the profile
+feed in place (`ProfileFeedKey.bookmarkTag`); a visibility change clears
+it. The overflow menu no longer carries visibility or bookmark tags —
+only share, edit, bulk download and copy link.
 
 **Tests Required** (`test/user_profile_test.dart`):
 
@@ -756,6 +726,16 @@ stay on screen.
   at or above the tab bar's top edge; the measured extent tracks
   refreshed identity content; a drag collapse/expand changes the header
   height monotonically with no jumps.
+- Name row at 320dp / 1.3x for both pages: the long name ellipsizes, share
+  and the main action stay on its row, the statistics line sits below.
+- Tabs: only types with works, with counts; no works opens on the first
+  other tab; a tab that disappears on refresh falls back to the first.
+- Stats: following opens its tab with a 48dp target; another user's My
+  Pixiv is no button. `profile_statistics_test.dart` covers the line on
+  its own (one line, semantics, wrapping).
+- Filters: visible on your own bookmarks and follows only, menus filter
+  the feed, a visibility change clears the tag, more than ten tags add the
+  tag-page entry; the overflow menu lists no filters.
 - R6: `SystemChrome.latestStyle` reads `statusBarIconBrightness ==
   Brightness.light` while a cover is expanded, and the root default
   (`dark` under the light theme) once collapsed or without a cover.
@@ -1290,8 +1270,7 @@ fires the `ReTapChannel`. Consumers read it through
   a selector toggle, or a selection change.
 - In-page re-taps follow the same rule locally, calling
   `reTapScrollToTop` on that slot's own `ScrollController`: a `TabBar`
-  `onTap` on the selected index while `!controller.indexIsChanging`, or an
-  `AppTypeSwitch` `onSelected` that reports the current value.
+  `onTap` on the selected index while `!controller.indexIsChanging`.
 
 Owning tests: the re-tap group in `test/home_branch_stack_test.dart`
 (emit-once-per-tap, pop-to-root, programmatic silence), plus per-page
@@ -1356,8 +1335,7 @@ const PullToRefresh({
   out with `ScrollConfiguration.of(context).copyWith(physics: ...)`;
   otherwise a sideways drag past its start edge arms the refresh header.
   An explicit `physics:` on the scrollable is not enough — `Scrollable`
-  applies it on top of the inherited physics. `AppTypeSwitch` is the
-  reference.
+  applies it on top of the inherited physics.
 - Indicator behavior, stated as observable outcomes:
   - A pull that reverses before release moves the indicator back with the
     finger; releasing below the threshold cancels without calling `onRefresh`.
@@ -1472,11 +1450,11 @@ consumer and a planner row.
 
 - **Components own their haptic.** `SettingsControl` and
   `ReplicaSwitchTile` (toggleOn/Off), `SettingsChoiceTile` (select on a
-  different entry), `SettingsMenuTile` (select on a different option),
-  `AppSegmentedButton` (select on a different non-empty selection), `AppChoiceChip` (single: select, and `onSelected` runs only
+  different entry), `SettingsMenuTile` and `FilterMenuButton` (select on a
+  different option), `AppChoiceChip` (single: select, and `onSelected` runs only
   for an unselected chip; `.toggle`: toggleOn/Off), `AppSlider` (tick per
   division; continuous sliders are silent). External value changes never
-  vibrate. The architecture test confines raw `SegmentedButton`,
+  vibrate. The architecture test confines raw
   `ChoiceChip`/`FilterChip`, `Slider`, `Switch`/`SwitchListTile` and
   `Radio`/`RadioListTile` to these wrappers.
 - **Store mutations vibrate on the settled outcome, at the call site.**

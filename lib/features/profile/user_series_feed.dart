@@ -14,7 +14,6 @@ import '../../core/series/series_feed_controller.dart';
 import '../../core/series/series_models.dart';
 import '../../core/series/series_store.dart';
 import '../../l10n/context.dart';
-import 'profile_work_type_switch.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 
 /// Profile work-tab section: the user's public illust series as a card
@@ -27,56 +26,42 @@ const _gridPadding = EdgeInsets.all(FuncSpacing.sm);
 const _gridMainAxisSpacing = FuncSpacing.sm;
 
 class UserSeriesFeed extends ConsumerWidget {
-  const UserSeriesFeed({super.key, required this.userId, this.typeSwitch});
+  const UserSeriesFeed({super.key, required this.userId});
 
   final int userId;
-
-  /// Work tab only: the compact section selector this feed hosts (D3).
-  final ProfileWorkTypeSwitch? typeSwitch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(userSeriesFeedProvider(userId));
-    final typeSwitch = this.typeSwitch;
-    Widget wrapState(Widget state) =>
-        typeSwitch?.aboveState(context, state) ?? state;
     return async.when(
-      loading: () => wrapState(
-        IllustGridSkeleton(
-          label: context.l10n.contentLoading,
-          padding: _gridPadding,
-          mainAxisSpacing: _gridMainAxisSpacing,
-        ),
+      loading: () => IllustGridSkeleton(
+        label: context.l10n.contentLoading,
+        padding: _gridPadding,
+        mainAxisSpacing: _gridMainAxisSpacing,
       ),
-      error: (error, _) => wrapState(
-        FeedError(
-          title: context.l10n.seriesLoadFailed,
-          error: error,
-          retryLabel: context.l10n.retry,
-          onRetry: () =>
-              ref.read(userSeriesFeedProvider(userId).notifier).retryInitial(),
-        ),
+      error: (error, _) => FeedError(
+        title: context.l10n.seriesLoadFailed,
+        error: error,
+        retryLabel: context.l10n.retry,
+        onRetry: () =>
+            ref.read(userSeriesFeedProvider(userId).notifier).retryInitial(),
       ),
       data: (feed) {
         if (feed.showInitialError) {
-          return wrapState(
-            FeedError(
-              title: context.l10n.seriesLoadFailed,
-              error: feed.initialError ?? const ApiParseError('unknown error'),
-              retryLabel: context.l10n.retry,
-              onRetry: () => ref
-                  .read(userSeriesFeedProvider(userId).notifier)
-                  .retryInitial(),
-            ),
+          return FeedError(
+            title: context.l10n.seriesLoadFailed,
+            error: feed.initialError ?? const ApiParseError('unknown error'),
+            retryLabel: context.l10n.retry,
+            onRetry: () => ref
+                .read(userSeriesFeedProvider(userId).notifier)
+                .retryInitial(),
           );
         }
         if (feed.showInitialSpinner) {
-          return wrapState(
-            IllustGridSkeleton(
-              label: context.l10n.contentLoading,
-              padding: _gridPadding,
-              mainAxisSpacing: _gridMainAxisSpacing,
-            ),
+          return IllustGridSkeleton(
+            label: context.l10n.contentLoading,
+            padding: _gridPadding,
+            mainAxisSpacing: _gridMainAxisSpacing,
           );
         }
         final store = ref.watch(illustSeriesStoreProvider);
@@ -105,7 +90,6 @@ class UserSeriesFeed extends ConsumerWidget {
               scrollCacheExtent: kFeedCacheExtent,
               slivers: [
                 const HeaderLocator.sliver(),
-                if (typeSwitch != null) typeSwitch.sliver(context),
                 if (entities.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,

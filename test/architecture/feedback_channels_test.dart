@@ -8,7 +8,7 @@
 //     pinned below)
 //   - `HapticFeedback.` callsites outside lib/app/haptics/: zero —
 //     AppHaptics and its platform driver are the only owners
-//   - raw selection controls (SegmentedButton, ChoiceChip/FilterChip,
+//   - raw selection controls (ChoiceChip/FilterChip,
 //     Slider, Switch/SwitchListTile, Radio) only inside the wrapper that
 //     builds their haptic in
 //   - navigation chrome (tab bar, bottom nav, root swipe) plays no haptic:
@@ -47,9 +47,6 @@ const _hapticsOwnerDir = 'lib/app/haptics/';
 /// a silent one (and a raw segmented button would also skip the shared
 /// label fitting).
 final _selectionControlOwners = <RegExp, Set<String>>{
-  RegExp(r'(?<![A-Za-z])SegmentedButton<'): {
-    'lib/app/widgets/app_segmented_button.dart',
-  },
   RegExp(r'(?<![A-Za-z])(?:ChoiceChip|FilterChip)\('): {
     'lib/app/widgets/app_choice_chip.dart',
   },
@@ -216,7 +213,7 @@ void main() {
       isEmpty,
       reason:
           'raw selection controls outside their wrappers (use '
-          'AppSegmentedButton / AppChoiceChip / AppSlider / SettingsControl / '
+          'AppChoiceChip / AppSlider / SettingsControl / '
           'SettingsChoiceTile):\n${violations.join('\n')}',
     );
   });

@@ -5,7 +5,7 @@ import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/widgets/app_choice_chip.dart';
 import 'package:parfait/app/widgets/app_menu_button.dart';
-import 'package:parfait/app/widgets/app_segmented_button.dart';
+import 'package:parfait/app/widgets/filter_menu_button.dart';
 import 'package:parfait/app/widgets/app_slider.dart';
 import 'package:parfait/app/widgets/replica_switch_tile.dart';
 import 'package:parfait/app/widgets/settings/settings_choice_tile.dart';
@@ -172,62 +172,62 @@ void main() {
     });
   });
 
-  group('AppSegmentedButton', () {
-    Widget picker(
-      int value,
-      ValueChanged<int> set, {
-      bool haptics = true,
-      VoidCallback? onReselected,
-    }) => AppSegmentedButton<int>(
-      segments: const [
-        AppSegment(value: 0, label: 'zero'),
-        AppSegment(value: 1, label: 'one'),
-      ],
-      selected: value,
-      haptics: haptics,
-      onSelected: set,
-      onReselected: onReselected,
-    );
-
-    testWidgets('picking another segment selects', (tester) async {
-      final haptics = recordHaptics();
-      await _pump<int>(tester, 0, picker);
-      await tester.tap(find.text('one'));
-      await tester.pump();
-      expect(haptics.roles, [HapticRole.select]);
-    });
-
-    testWidgets('a re-tap reaches onReselected and stays silent', (
+  group('FilterMenuButton', () {
+    testWidgets('the button shows the value; a new pick selects', (
       tester,
     ) async {
       final haptics = recordHaptics();
-      var picked = 0;
-      var reselected = 0;
+      var changes = 0;
+      var more = 0;
       await _pump<int>(
         tester,
         0,
-        (value, set) => picker(value, (next) {
-          picked++;
-          set(next);
-        }, onReselected: () => reselected++),
+        (value, set) => FilterMenuButton<int>(
+          label: value == 0 ? 'zero ▾' : 'one ▾',
+          value: value,
+          options: const [
+            AppMenuEntry(value: 0, label: 'zero'),
+            AppMenuEntry(value: 1, label: 'one'),
+          ],
+          onChanged: (next) {
+            changes++;
+            set(next);
+          },
+          moreLabel: 'more',
+          onMore: () => more++,
+        ),
       );
-      await tester.tap(find.text('zero'));
-      await tester.pump();
-      expect(reselected, 1);
-      expect(picked, 0);
-      expect(haptics.played, isEmpty);
-    });
+      Finder item(String label) => find.descendant(
+        of: find.byType(MenuItemButton),
+        matching: find.text(label),
+      );
+      Future<void> pick(String label) async {
+        await tester.tap(find.byType(OutlinedButton));
+        await tester.pumpAndSettle();
+        await tester.tap(item(label));
+        await tester.pumpAndSettle();
+      }
 
-    testWidgets('haptics: false leaves the haptic to the host', (tester) async {
-      final haptics = recordHaptics();
-      await _pump<int>(
-        tester,
-        0,
-        (value, set) => picker(value, set, haptics: false),
+      await tester.tap(find.byType(OutlinedButton));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(item('zero')),
+        isSemantics(isChecked: true, hasCheckedState: true),
       );
-      await tester.tap(find.text('one'));
-      await tester.pump();
+      await tester.tap(item('zero'));
+      await tester.pumpAndSettle();
+      expect(changes, 0);
       expect(haptics.played, isEmpty);
+
+      await pick('one');
+      expect(changes, 1);
+      expect(haptics.roles, [HapticRole.select]);
+      expect(find.text('one ▾'), findsOneWidget);
+
+      // The extra entry leaves the menu; it is no value.
+      await pick('more');
+      expect(more, 1);
+      expect(changes, 1);
     });
   });
 

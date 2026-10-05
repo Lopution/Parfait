@@ -1588,6 +1588,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileMyPixiv => 'My Pixiv';
 
   @override
+  String profileFollowingCount(String count) {
+    return '$count following';
+  }
+
+  @override
+  String profileMyPixivCount(String count) {
+    return '$count My Pixiv';
+  }
+
+  @override
+  String get profileTagFilterAll => 'Tag: All';
+
+  @override
+  String profileTagFilter(String tag) {
+    return 'Tag: $tag';
+  }
+
+  @override
+  String get profileTagAny => 'All';
+
+  @override
+  String get profileTagMore => 'More tags…';
+
+  @override
   String get profileAbout => 'About';
 
   @override

@@ -695,6 +695,45 @@
   "profileFollowing": "关注",
   "profileFans": "粉丝",
   "profileMyPixiv": "好P友",
+  "profileFollowingCount": "{count} 关注",
+  "@profileFollowingCount": {
+    "description": "Profile header: following count, a link to the following list. count is already formatted.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "profileMyPixivCount": "{count} 好P友",
+  "@profileMyPixivCount": {
+    "description": "Profile header: My Pixiv count. count is already formatted.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "profileTagFilterAll": "标签：全部",
+  "@profileTagFilterAll": {
+    "description": "Own bookmarks filter button when no tag is picked."
+  },
+  "profileTagFilter": "标签：{tag}",
+  "@profileTagFilter": {
+    "description": "Own bookmarks filter button showing the picked tag.",
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "profileTagAny": "全部",
+  "@profileTagAny": {
+    "description": "Tag filter menu: no tag filter."
+  },
+  "profileTagMore": "更多标签…",
+  "@profileTagMore": {
+    "description": "Tag filter menu: opens the full bookmark tag list."
+  },
   "profileAbout": "关于",
   "profileIllust": "插画",
   "profileManga": "漫画",

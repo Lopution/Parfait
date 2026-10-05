@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
@@ -16,6 +17,7 @@ import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'bookmark_world.dart';
 import 'fake_account.dart';
 import 'memory_feed_snapshot_store.dart';
 import 'test_preferences.dart';
@@ -182,6 +184,7 @@ Future<ProviderContainer> makeProfileWorld({
   bool twoAccounts = false,
   FakeFollowRepository? follows,
   UserRepository? users,
+  BookmarkRepository? bookmarks,
   OutboundUrlOpener? outboundUrlOpener,
   ShareService? shareService,
 }) async {
@@ -219,6 +222,10 @@ Future<ProviderContainer> makeProfileWorld({
       if (shareService != null)
         shareServiceProvider.overrideWithValue(shareService),
       if (users != null) userRepositoryProvider.overrideWithValue(users),
+      // Own bookmarks list their tags in the filter bar.
+      bookmarkRepositoryProvider.overrideWithValue(
+        bookmarks ?? RecordingBookmarkRepository(),
+      ),
     ],
   );
   await container.read(accountStoreProvider.future);

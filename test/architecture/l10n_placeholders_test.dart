@@ -50,6 +50,9 @@ const _textPlaceholderKeys = <String, String>{
   'localNovelsDeleteConfirm': 'novel title',
   'localNovelFileEncoding': 'detected charset name',
   'localNovelFileImportedAt': 'formatted date',
+  'profileFollowingCount': 'compact count (AppFormat.count)',
+  'profileMyPixivCount': 'compact count (AppFormat.count)',
+  'profileTagFilter': 'bookmark tag name',
 };
 
 const _textTypes = {'String', 'Object'};

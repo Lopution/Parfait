@@ -5,10 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/motion/press_scale.dart';
-import 'package:parfait/core/profile/profile_models.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_series_section.dart';
 import 'package:parfait/features/profile/profile_header_delegate.dart';
-import 'package:parfait/features/profile/profile_work_type_switch.dart';
 import 'package:parfait/features/profile/user_series_feed.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -143,59 +141,20 @@ void main() {
     expect(find.byTooltip('下一话'), findsNothing);
   });
 
-  testWidgets('work selector offers the series section option', (tester) async {
-    // The selector moved out of the pinned tab bar into each work feed
-    // (D3): `ProfileWorkTypeSwitch` is the value object feeds render as a
-    // floating sliver — this mounts that sliver directly.
-    ProfileWorkSection? selected;
-
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => CustomScrollView(
-              slivers: [
-                ProfileWorkTypeSwitch(
-                  selected: ProfileWorkSection.illust,
-                  onSelected: (section) => selected = section,
-                ).sliver(context),
-                const SliverFillRemaining(),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    for (final label in ['插画', '漫画', '小说', '系列']) {
-      expect(
-        find.widgetWithText(SegmentedButton<ProfileWorkSection>, label),
-        findsOneWidget,
+  testWidgets('the profile tab bar is a constant toolbar height', (
+    tester,
+  ) async {
+    final controller = TabController(length: 4, vsync: tester);
+    addTearDown(controller.dispose);
+    for (var index = 0; index < controller.length; index++) {
+      controller.index = index;
+      final delegate = ReplicaProfileTabsDelegate(
+        controller: controller,
+        labels: const ['插画 12', '系列 3', '收藏', '关注'],
+        onTabTap: (_) {},
       );
-    }
-
-    await tester.tap(find.text('系列'));
-    expect(selected, ProfileWorkSection.series);
-
-    // The tab bar itself is now a constant toolbar height on every tab —
-    // no 64dp selector strip under it anymore.
-    for (final isMe in [false, true]) {
-      final controller = TabController(length: isMe ? 5 : 4, vsync: tester);
-      addTearDown(controller.dispose);
-      for (var index = 0; index < controller.length; index++) {
-        controller.index = index;
-        final delegate = ReplicaProfileTabsDelegate(
-          controller: controller,
-          isMe: isMe,
-          onTabTap: (_) {},
-        );
-        expect(delegate.minExtent, kToolbarHeight);
-        expect(delegate.maxExtent, kToolbarHeight);
-      }
+      expect(delegate.minExtent, kToolbarHeight);
+      expect(delegate.maxExtent, kToolbarHeight);
     }
   });
 }

@@ -9,48 +9,36 @@ import '../../core/network/api_error.dart';
 import '../../core/novel/novel_feed_controller.dart';
 import '../../core/novel/novel_store.dart';
 import '../../l10n/context.dart';
-import 'profile_work_type_switch.dart';
 
 class ProfileNovelFeed extends ConsumerWidget {
-  const ProfileNovelFeed({super.key, required this.userId, this.typeSwitch});
+  const ProfileNovelFeed({super.key, required this.userId});
 
   final int userId;
-
-  /// Work tab only: the compact section selector this feed hosts (D3).
-  final ProfileWorkTypeSwitch? typeSwitch;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(userNovelFeedProvider(userId));
-    final typeSwitch = this.typeSwitch;
-    Widget wrapState(Widget state) =>
-        typeSwitch?.aboveState(context, state) ?? state;
     return async.when(
-      loading: () => wrapState(const FeedLoading()),
-      error: (error, _) => wrapState(
-        FeedError(
-          title: context.l10n.profileLoadFailed,
-          error: error,
-          retryLabel: context.l10n.profileRetry,
-          onRetry: () =>
-              ref.read(userNovelFeedProvider(userId).notifier).retryInitial(),
-        ),
+      loading: () => const FeedLoading(),
+      error: (error, _) => FeedError(
+        title: context.l10n.profileLoadFailed,
+        error: error,
+        retryLabel: context.l10n.profileRetry,
+        onRetry: () =>
+            ref.read(userNovelFeedProvider(userId).notifier).retryInitial(),
       ),
       data: (feed) {
         if (feed.showInitialError) {
-          return wrapState(
-            FeedError(
-              title: context.l10n.profileLoadFailed,
-              error: feed.initialError ?? const ApiParseError('unknown error'),
-              retryLabel: context.l10n.profileRetry,
-              onRetry: () => ref
-                  .read(userNovelFeedProvider(userId).notifier)
-                  .retryInitial(),
-            ),
+          return FeedError(
+            title: context.l10n.profileLoadFailed,
+            error: feed.initialError ?? const ApiParseError('unknown error'),
+            retryLabel: context.l10n.profileRetry,
+            onRetry: () =>
+                ref.read(userNovelFeedProvider(userId).notifier).retryInitial(),
           );
         }
         if (feed.showInitialSpinner) {
-          return wrapState(const FeedLoading());
+          return const FeedLoading();
         }
         final storedNovels = ref.watch(novelStoreProvider);
         final novels = [
@@ -77,7 +65,6 @@ class ProfileNovelFeed extends ConsumerWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 const HeaderLocator.sliver(),
-                if (typeSwitch != null) typeSwitch.sliver(context),
                 if (novels.isEmpty)
                   // Same centred empty state as the works tab — not a
                   // top-aligned list item.

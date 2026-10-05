@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -9,13 +10,11 @@ import '../../app/pixiv_image.dart';
 import '../../app/system_ui.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../core/user/user_entity.dart';
-import '../../core/user/user_repository.dart';
 import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/follow_switch_button.dart';
 import '../../app/widgets/image_overlay_button.dart';
 import '../../l10n/context.dart';
-import '../../l10n/lookup.dart';
 import 'profile_statistics.dart';
 
 /// Pure geometry snapshot used by [ReplicaProfileHeaderDelegate] and tests.
@@ -81,17 +80,13 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.user,
     required this.isMe,
     required this.selectedTabIndex,
-    required this.showRestrictSelector,
-    required this.restrict,
-    required this.onRestrictChanged,
     required this.onShare,
-    this.statistics = const [],
+    this.stats = const [],
     this.isFollowed = false,
     this.onEditProfile,
     this.onToggleFollow,
     this.onFollowPrivately,
     this.onCopyLink,
-    this.onOpenBookmarkTags,
     this.onDownloadAll,
     required this.onExpandedExtentMeasured,
     this.expandedExtent,
@@ -101,19 +96,15 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   final UserEntity user;
   final bool isMe;
   final int selectedTabIndex;
-  final bool showRestrictSelector;
-  final UserRestrict restrict;
-  final ValueChanged<UserRestrict> onRestrictChanged;
   final ValueChanged<BuildContext> onShare;
-  final List<ProfileStatisticData> statistics;
+
+  /// The statistics line under the name: following and My Pixiv.
+  final List<ProfileHeaderStat> stats;
   final bool isFollowed;
   final VoidCallback? onEditProfile;
   final VoidCallback? onToggleFollow;
   final VoidCallback? onFollowPrivately;
   final VoidCallback? onCopyLink;
-
-  /// Own-profile bookmarks tab only: opens the bookmark-tag collection.
-  final VoidCallback? onOpenBookmarkTags;
 
   /// Works tab only: bulk-downloads every illust/manga work of the author.
   final VoidCallback? onDownloadAll;
@@ -186,29 +177,6 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         label: context.l10n.followPrivately,
         icon: Icons.lock_outline,
         onSelected: (_) => onFollowPrivately!(),
-      ),
-    if (isMe && showRestrictSelector) ...[
-      _ProfileHeaderAction(
-        value: 'restrictPublic',
-        label: context.l10n.restrictPublic,
-        icon: Icons.public,
-        checked: restrict == UserRestrict.public,
-        onSelected: (_) => onRestrictChanged(UserRestrict.public),
-      ),
-      _ProfileHeaderAction(
-        value: 'restrictPrivate',
-        label: context.l10n.restrictPrivate,
-        icon: Icons.lock_outline,
-        checked: restrict == UserRestrict.private,
-        onSelected: (_) => onRestrictChanged(UserRestrict.private),
-      ),
-    ],
-    if (onOpenBookmarkTags != null)
-      _ProfileHeaderAction(
-        value: 'bookmarkTags',
-        label: context.l10n.bookmarkTags,
-        icon: Icons.label_outline,
-        onSelected: (_) => onOpenBookmarkTags!(),
       ),
     if (onDownloadAll != null)
       _ProfileHeaderAction(
@@ -301,7 +269,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                                 user: user,
                                 bannerHeight: bannerHeight,
                                 actions: actions,
-                                statistics: statistics,
+                                stats: stats,
                               ),
                             ),
                           ),
@@ -376,18 +344,14 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     return oldDelegate.user != user ||
         oldDelegate.isMe != isMe ||
         oldDelegate.selectedTabIndex != selectedTabIndex ||
-        oldDelegate.showRestrictSelector != showRestrictSelector ||
-        oldDelegate.restrict != restrict ||
         oldDelegate.onEditProfile != onEditProfile ||
         oldDelegate.isFollowed != isFollowed ||
         oldDelegate.onToggleFollow != onToggleFollow ||
         oldDelegate.onFollowPrivately != onFollowPrivately ||
         oldDelegate.onCopyLink != onCopyLink ||
-        oldDelegate.onOpenBookmarkTags != onOpenBookmarkTags ||
         oldDelegate.onDownloadAll != onDownloadAll ||
         oldDelegate.onShare != onShare ||
-        oldDelegate.statistics != statistics ||
-        oldDelegate.onRestrictChanged != onRestrictChanged ||
+        !listEquals(oldDelegate.stats, stats) ||
         oldDelegate.expandedExtent != expandedExtent ||
         oldDelegate.onExpandedExtentMeasured != onExpandedExtentMeasured ||
         oldDelegate.topInset != topInset;
@@ -427,25 +391,31 @@ class _ProfileBackground extends StatelessWidget {
 
 /// Everything below the toolbar while expanded, laid out at natural
 /// height: a banner spacer (the banner itself is painted by the layered
-/// header), the overlapping 80dp avatar, the share/main action row, the
-/// name/account lines and the statistics grid. The measured height of this
-/// widget drives [ReplicaProfileHeaderDelegate.expandedExtent].
+/// header), the overlapping 80dp avatar, the name row — name and @account
+/// on the left, share and the main action on the right — and the
+/// statistics line. The measured height of this widget drives
+/// [ReplicaProfileHeaderDelegate.expandedExtent].
 class _ExpandedIdentity extends StatelessWidget {
   const _ExpandedIdentity({
     required this.user,
     required this.bannerHeight,
     required this.actions,
-    required this.statistics,
+    required this.stats,
   });
+
+  /// The main action never takes more than this share of the name row; a
+  /// long name ellipsizes first, and the button's own label fitting
+  /// handles anything wider.
+  static const mainActionMaxShare = 0.45;
 
   final UserEntity user;
   final double bannerHeight;
   final List<_ProfileHeaderAction> actions;
-  final List<ProfileStatisticData> statistics;
+  final List<ProfileHeaderStat> stats;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     _ProfileHeaderAction? share;
     _ProfileHeaderAction? main;
     for (final action in actions) {
@@ -464,28 +434,49 @@ class _ExpandedIdentity extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(height: bannerHeight),
-            // The action row sits in the avatar's lower half, right of it.
-            // The avatar's top half overlaps the banner.
+            // The avatar's lower half.
+            const SizedBox(height: avatarRadius + FuncSpacing.sm),
             Padding(
-              padding: const EdgeInsetsDirectional.only(
-                start: FuncSpacing.lg + avatarRadius * 2 + FuncSpacing.md,
-                end: FuncSpacing.lg,
-              ),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  minHeight: avatarRadius + FuncSpacing.sm,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  crossAxisAlignment: CrossAxisAlignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+              child: LayoutBuilder(
+                builder: (context, constraints) => Row(
                   children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            key: const ValueKey('profile-expanded-name'),
+                            user.name,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (user.account.isNotEmpty)
+                            Text(
+                              '@${user.account}',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
                     if (share?.buildInline != null)
                       share!.buildInline!(context),
                     if (main?.buildInline != null)
-                      Flexible(
-                        child: Padding(
-                          padding: const EdgeInsetsDirectional.only(
-                            start: FuncSpacing.sm,
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(
+                          start: FuncSpacing.xs,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth * mainActionMaxShare,
                           ),
                           child: main!.buildInline!(context),
                         ),
@@ -494,44 +485,16 @@ class _ExpandedIdentity extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: FuncSpacing.sm),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    key: const ValueKey('profile-expanded-name'),
-                    user.name,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (user.account.isNotEmpty) ...[
-                    const SizedBox(height: FuncSpacing.xxs),
-                    Text(
-                      user.account,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: FuncSpacing.md),
-                  // Equal-width grid instead of a horizontal scroll strip:
-                  // the stats must all stay visible without scrolling (R3).
-                  ProfileStatisticsGrid(
-                    statistics: [
-                      for (final statistic in statistics)
-                        ProfileStatistic(statistic: statistic, compact: true),
-                    ],
-                  ),
-                  const SizedBox(height: FuncSpacing.md),
-                ],
+            if (stats.isNotEmpty)
+              Padding(
+                // The links carry their own xs inset; line their text up
+                // with the name.
+                padding: const EdgeInsets.symmetric(
+                  horizontal: FuncSpacing.lg - FuncSpacing.xs,
+                ),
+                child: ProfileStatLine(stats: stats),
               ),
-            ),
+            const SizedBox(height: FuncSpacing.sm),
           ],
         ),
         // 80dp avatar centred on the banner's bottom edge, left-aligned.
@@ -594,7 +557,6 @@ class _ProfileHeaderAction {
     required this.icon,
     required this.onSelected,
     this.primary = false,
-    this.checked,
     this.buildInline,
   });
 
@@ -603,7 +565,6 @@ class _ProfileHeaderAction {
   final IconData icon;
   final ValueChanged<BuildContext> onSelected;
   final bool primary;
-  final bool? checked;
   final WidgetBuilder? buildInline;
 }
 
@@ -637,12 +598,7 @@ class _ProfileHeaderMoreButton extends StatelessWidget {
       onSelected: (anchorContext, action) => action.onSelected(anchorContext),
       entries: [
         for (final action in entries)
-          AppMenuEntry(
-            value: action,
-            icon: action.icon,
-            label: action.label,
-            checked: action.checked,
-          ),
+          AppMenuEntry(value: action, icon: action.icon, label: action.label),
       ],
     );
   }
@@ -735,19 +691,17 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-/// Pinned profile tab bar. The work-section selector used to live under it
-/// as a 64dp chip row; it now belongs to each work feed via
-/// `ProfileWorkTypeSwitch` (Compact Type Switch Contract), so this bar is a
-/// constant 56dp on every tab.
+/// Pinned profile tab bar, a constant 56dp: one tab per work type the user
+/// has (with its count), then the profile's other tabs.
 class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   ReplicaProfileTabsDelegate({
     required this.controller,
-    required this.isMe,
+    required this.labels,
     required this.onTabTap,
   });
 
   final TabController controller;
-  final bool isMe;
+  final List<String> labels;
   final ValueChanged<int> onTabTap;
 
   @override
@@ -756,29 +710,12 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   @override
   double get maxExtent => minExtent;
 
-  String _text(BuildContext context, String key) =>
-      l10nLookup(context.l10n, key);
-
   @override
   Widget build(
     BuildContext context,
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    final labels = isMe
-        ? [
-            'profileBookmarked',
-            'profileFollowing',
-            'profileFans',
-            'profileMyPixiv',
-            'profileWork',
-          ]
-        : [
-            'profileWork',
-            'profileBookmarked',
-            'profileFollowing',
-            'profileAbout',
-          ];
     return Material(
       key: const ValueKey('profile-tabs'),
       color: Theme.of(context).scaffoldBackgroundColor,
@@ -787,7 +724,7 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
         child: AppTabBar(
           controller: controller,
           onTap: onTabTap,
-          labels: [for (final label in labels) _text(context, label)],
+          labels: labels,
         ),
       ),
     );
@@ -796,6 +733,6 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(covariant ReplicaProfileTabsDelegate oldDelegate) =>
       oldDelegate.controller != controller ||
-      oldDelegate.isMe != isMe ||
+      !listEquals(oldDelegate.labels, labels) ||
       oldDelegate.onTabTap != onTabTap;
 }

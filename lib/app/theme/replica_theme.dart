@@ -230,12 +230,6 @@ ThemeData replicaTheme(
       selectedIconTheme: IconThemeData(color: colorScheme.onPrimaryContainer),
       unselectedIconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
     ),
-    segmentedButtonTheme: SegmentedButtonThemeData(
-      style: SegmentedButton.styleFrom(
-        selectedBackgroundColor: colorScheme.primaryContainer,
-        selectedForegroundColor: colorScheme.onPrimaryContainer,
-      ),
-    ),
     cardTheme: CardThemeData(
       color: colorScheme.surfaceContainer,
       surfaceTintColor: FuncTokens.transparent,

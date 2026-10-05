@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/motion/state_fade.dart';
+import '../../app/format/app_format.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/widgets/app_snack_bar.dart';
@@ -21,13 +24,13 @@ import '../../core/user/follow_store.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import 'author_works_download_dialog.dart';
+import 'profile_filter_bar.dart';
 import 'profile_illust_feed.dart';
 import 'profile_novel_feed.dart';
 import 'profile_skeleton.dart';
 import 'profile_user_feed.dart';
 import 'profile_header_delegate.dart';
 import 'profile_statistics.dart';
-import 'profile_work_type_switch.dart';
 import 'user_series_feed.dart';
 import '../../core/profile/profile_models.dart';
 import '../../core/share/share_service.dart';
@@ -99,16 +102,38 @@ class MePage extends ConsumerWidget {
   }
 }
 
-enum _ProfileStatTarget { following, myPixiv, illust, manga, novel, series }
+/// One profile tab. The work tabs come first on another user's page and
+/// last on your own; each appears only when the user has works of its type.
+enum _ProfileTab {
+  illust(ProfileWorkSection.illust),
+  manga(ProfileWorkSection.manga),
+  novel(ProfileWorkSection.novel),
+  series(ProfileWorkSection.series),
+  bookmarks(null),
+  following(null),
+  fans(null),
+  myPixiv(null),
+  about(null);
+
+  const _ProfileTab(this.section);
+
+  final ProfileWorkSection? section;
+}
 
 class _UserPageState extends ConsumerState<UserPage>
     with TickerProviderStateMixin {
-  late final TabController _tabController;
-  late final List<String> _tabKeys;
   late final ScrollController _outerScrollController;
-  late final List<GlobalKey<_ProfileTabBodyState>> _bodyKeys;
-  ProfileWorkSection _workSection = ProfileWorkSection.illust;
+
+  /// Built with the first loaded profile and rebuilt whenever the visible
+  /// tabs change (a refresh that adds or drops a work type).
+  TabController? _tabController;
+  List<_ProfileTab> _tabs = const [];
+  final _bodyKeys = <_ProfileTab, GlobalKey<_ProfileTabBodyState>>{};
   UserRestrict _restrict = UserRestrict.public;
+
+  /// Own bookmarks only: the tag filter, null for every bookmark. Tags are
+  /// per visibility, so a visibility change clears it.
+  String? _bookmarkTag;
   int _selectedIndex = 0;
   bool _staleBannerVisible = true;
 
@@ -120,57 +145,106 @@ class _UserPageState extends ConsumerState<UserPage>
   @override
   void initState() {
     super.initState();
-    _tabKeys = widget.isMe
-        ? const [
-            'profileBookmarked',
-            'profileFollowing',
-            'profileFans',
-            'profileMyPixiv',
-            'profileWork',
-          ]
-        : const [
-            'profileWork',
-            'profileBookmarked',
-            'profileFollowing',
-            'profileAbout',
-          ];
     _outerScrollController = ScrollController();
-    _bodyKeys = [
-      for (var index = 0; index < _tabKeys.length; index++)
-        GlobalKey<_ProfileTabBodyState>(),
-    ];
-    _tabController = TabController(length: _tabKeys.length, vsync: this)
-      ..addListener(_onTabChanged);
   }
 
   @override
   void dispose() {
     _tabController
-      ..removeListener(_onTabChanged)
+      ?..removeListener(_onTabChanged)
       ..dispose();
     _outerScrollController.dispose();
     super.dispose();
   }
 
+  _ProfileTab? get _selectedTab => _tabs.isEmpty ? null : _tabs[_selectedIndex];
+
+  /// Work types with something to show. Without the detail counters (a
+  /// preview snapshot after a failed load) every type stays reachable.
+  List<_ProfileTab> _tabsFor(UserEntity user) {
+    final works = [
+      if (!user.hasDetail || user.totalIllusts > 0) _ProfileTab.illust,
+      if (!user.hasDetail || user.totalManga > 0) _ProfileTab.manga,
+      if (!user.hasDetail || user.totalNovels > 0) _ProfileTab.novel,
+      // The series tab lists illust series only (no endpoint lists a
+      // user's novel series), so only they count.
+      if (!user.hasDetail || user.totalIllustSeries > 0) _ProfileTab.series,
+    ];
+    return widget.isMe
+        ? [
+            _ProfileTab.bookmarks,
+            _ProfileTab.following,
+            _ProfileTab.fans,
+            _ProfileTab.myPixiv,
+            ...works,
+          ]
+        : [
+            ...works,
+            _ProfileTab.bookmarks,
+            _ProfileTab.following,
+            _ProfileTab.about,
+          ];
+  }
+
+  /// Keeps the tab controller in step with [tabs]. The selected tab stays
+  /// selected when it survives the change; otherwise the first tab is.
+  TabController _syncTabs(List<_ProfileTab> tabs) {
+    final current = _tabController;
+    if (current != null && listEquals(tabs, _tabs)) return current;
+    final kept = _selectedTab;
+    final index = kept == null ? 0 : math.max(0, tabs.indexOf(kept));
+    if (current != null) {
+      current.removeListener(_onTabChanged);
+      // The tab bar still listens until this frame swaps controllers.
+      WidgetsBinding.instance.addPostFrameCallback((_) => current.dispose());
+    }
+    _tabs = tabs;
+    _selectedIndex = index;
+    return _tabController = TabController(
+      length: tabs.length,
+      initialIndex: index,
+      vsync: this,
+    )..addListener(_onTabChanged);
+  }
+
   void _onTabChanged() {
-    if (_tabController.index == _selectedIndex ||
-        _tabController.indexIsChanging) {
+    final controller = _tabController!;
+    if (controller.index == _selectedIndex || controller.indexIsChanging) {
       return;
     }
-    setState(() => _selectedIndex = _tabController.index);
+    setState(() => _selectedIndex = controller.index);
   }
 
   void _onTabTap(int index) {
-    if (index == _selectedIndex && !_tabController.indexIsChanging) {
+    if (index == _selectedIndex && !_tabController!.indexIsChanging) {
       _scrollActiveTabToTop();
     }
+  }
+
+  String _tabLabel(_ProfileTab tab, UserEntity user) {
+    final l10n = context.l10n;
+    String work(String name, int count) =>
+        user.hasDetail ? '$name ${AppFormat.count(context, count)}' : name;
+    return switch (tab) {
+      _ProfileTab.illust => work(l10n.profileIllust, user.totalIllusts),
+      _ProfileTab.manga => work(l10n.profileManga, user.totalManga),
+      _ProfileTab.novel => work(l10n.profileNovel, user.totalNovels),
+      _ProfileTab.series => work(l10n.profileSeries, user.totalIllustSeries),
+      _ProfileTab.bookmarks => l10n.profileBookmarked,
+      _ProfileTab.following => l10n.profileFollowing,
+      _ProfileTab.fans => l10n.profileFans,
+      _ProfileTab.myPixiv => l10n.profileMyPixiv,
+      _ProfileTab.about => l10n.profileAbout,
+    };
   }
 
   void _scrollActiveTabToTop() {
     final animated = MotionTokens.enabled(context);
     final duration = MotionTokens.resolve(context, MotionTokens.fast);
     const curve = Curves.easeOutCubic;
-    _bodyKeys[_selectedIndex].currentState?.scrollToTop(
+    final tab = _selectedTab;
+    if (tab == null) return;
+    _bodyKeys[tab]?.currentState?.scrollToTop(
       animated: animated,
       duration: duration,
       curve: curve,
@@ -231,62 +305,100 @@ class _UserPageState extends ConsumerState<UserPage>
     position.setPixels(0);
   }
 
-  ProfileFeedKey? _feedKeyFor(int index) {
-    if (widget.isMe) {
-      return switch (index) {
-        0 => ProfileFeedKey(
-          userId: widget.userId,
-          kind: ProfileFeedKind.bookmarks,
-          restrict: _restrict,
-        ),
-        1 => ProfileFeedKey(
-          userId: widget.userId,
-          kind: ProfileFeedKind.following,
-          restrict: _restrict,
-        ),
-        2 => ProfileFeedKey(userId: widget.userId, kind: ProfileFeedKind.fans),
-        3 => ProfileFeedKey(
-          userId: widget.userId,
-          kind: ProfileFeedKind.myPixiv,
-        ),
-        4 => ProfileFeedKey(
-          userId: widget.userId,
-          kind: ProfileFeedKind.work,
-          workType: _workSection.wireWorkType,
-        ),
-        _ => null,
-      };
-    }
-    return switch (index) {
-      0 => ProfileFeedKey(
-        userId: widget.userId,
+  ProfileFeedKey? _feedKeyFor(_ProfileTab tab) {
+    final userId = widget.userId;
+    return switch (tab) {
+      _ProfileTab.illust ||
+      _ProfileTab.manga ||
+      _ProfileTab.novel ||
+      _ProfileTab.series => ProfileFeedKey(
+        userId: userId,
         kind: ProfileFeedKind.work,
-        workType: _workSection.wireWorkType,
+        workType: tab.section!.wireWorkType,
       ),
-      1 => ProfileFeedKey(
-        userId: widget.userId,
+      _ProfileTab.bookmarks => ProfileFeedKey(
+        userId: userId,
         kind: ProfileFeedKind.bookmarks,
         restrict: _restrict,
+        bookmarkTag: _bookmarkTag,
       ),
-      2 => ProfileFeedKey(
-        userId: widget.userId,
+      _ProfileTab.following => ProfileFeedKey(
+        userId: userId,
         kind: ProfileFeedKind.following,
         restrict: _restrict,
+      ),
+      _ProfileTab.fans => ProfileFeedKey(
+        userId: userId,
+        kind: ProfileFeedKind.fans,
+      ),
+      _ProfileTab.myPixiv => ProfileFeedKey(
+        userId: userId,
+        kind: ProfileFeedKind.myPixiv,
+      ),
+      _ProfileTab.about => null,
+    };
+  }
+
+  void _onRestrictChanged(UserRestrict restrict) {
+    setState(() {
+      _restrict = restrict;
+      _bookmarkTag = null;
+    });
+  }
+
+  /// Own profile: the filters above the bookmarks and follows lists.
+  Widget? _filterBarFor(_ProfileTab tab) {
+    if (!widget.isMe) return null;
+    return switch (tab) {
+      _ProfileTab.bookmarks => ProfileFilterBar(
+        restrict: _restrict,
+        onRestrictChanged: _onRestrictChanged,
+        tag: _bookmarkTag,
+        onTagChanged: (tag) => setState(() => _bookmarkTag = tag),
+      ),
+      _ProfileTab.following => ProfileFilterBar(
+        restrict: _restrict,
+        onRestrictChanged: _onRestrictChanged,
       ),
       _ => null,
     };
   }
 
-  void _onSectionChanged(ProfileWorkSection section) {
-    if (section == _workSection) {
-      _scrollActiveTabToTop();
-      return;
-    }
-    setState(() => _workSection = section);
+  /// Opens [tab] — or, when it is already open, scrolls it to the top. Null
+  /// when the profile has no such tab.
+  VoidCallback? _openTab(_ProfileTab tab) {
+    if (!_tabs.contains(tab)) return null;
+    return () {
+      final index = _tabs.indexOf(tab);
+      if (index == _selectedIndex) {
+        _scrollActiveTabToTop();
+      } else {
+        _tabController!.animateTo(index);
+      }
+    };
   }
 
-  void _onRestrictChanged(UserRestrict restrict) {
-    setState(() => _restrict = restrict);
+  /// The header's statistics line. A preview snapshot has no counters, so
+  /// it shows none rather than zeros.
+  List<ProfileHeaderStat> _headerStats(UserEntity user) {
+    if (!user.hasDetail) return const [];
+    final l10n = context.l10n;
+    return [
+      ProfileHeaderStat(
+        id: 'following',
+        text: l10n.profileFollowingCount(
+          AppFormat.count(context, user.totalFollowUsers),
+        ),
+        onTap: _openTab(_ProfileTab.following),
+      ),
+      ProfileHeaderStat(
+        id: 'myPixiv',
+        text: l10n.profileMyPixivCount(
+          AppFormat.count(context, user.totalMyPixivUsers),
+        ),
+        onTap: _openTab(_ProfileTab.myPixiv),
+      ),
+    ];
   }
 
   List<ProfileStatisticData> _profileStatistics(UserEntity user) => [
@@ -295,93 +407,46 @@ class _UserPageState extends ConsumerState<UserPage>
       icon: AppIcons.follow,
       label: context.l10n.profileFollowing,
       value: user.totalFollowUsers,
-      onTap: () => _navigateToStatistic(_ProfileStatTarget.following),
+      onTap: _openTab(_ProfileTab.following),
     ),
     ProfileStatisticData(
       id: 'myPixiv',
       icon: AppIcons.friend,
       label: context.l10n.profileMyPixiv,
       value: user.totalMyPixivUsers,
-      onTap: widget.isMe
-          ? () => _navigateToStatistic(_ProfileStatTarget.myPixiv)
-          : null,
+      onTap: _openTab(_ProfileTab.myPixiv),
     ),
     ProfileStatisticData(
       id: 'illust',
       icon: Icons.palette_outlined,
       label: context.l10n.profileIllust,
       value: user.totalIllusts,
-      onTap: () => _navigateToStatistic(_ProfileStatTarget.illust),
+      onTap: _openTab(_ProfileTab.illust),
     ),
     ProfileStatisticData(
       id: 'manga',
       icon: Icons.menu_book_outlined,
       label: context.l10n.profileManga,
       value: user.totalManga,
-      onTap: () => _navigateToStatistic(_ProfileStatTarget.manga),
+      onTap: _openTab(_ProfileTab.manga),
     ),
     ProfileStatisticData(
       id: 'novel',
       icon: Icons.auto_stories_outlined,
       label: context.l10n.profileNovel,
       value: user.totalNovels,
-      onTap: () => _navigateToStatistic(_ProfileStatTarget.novel),
+      onTap: _openTab(_ProfileTab.novel),
     ),
     ProfileStatisticData(
       id: 'series',
       icon: Icons.collections_bookmark_outlined,
       label: context.l10n.profileSeries,
-      // The series section hosts illust series only, so the count mirrors
-      // what the destination lists (W3 D4: novel series stays unlisted).
+      // The series tab hosts illust series only, so the count mirrors what
+      // the destination lists (W3 D4: novel series stays unlisted).
       value: user.totalIllustSeries,
-      onTap: () => _navigateToStatistic(_ProfileStatTarget.series),
+      onTap: _openTab(_ProfileTab.series),
     ),
   ];
-
-  void _navigateToStatistic(_ProfileStatTarget target) {
-    switch (target) {
-      case _ProfileStatTarget.following:
-        _navigateToTab('profileFollowing');
-        break;
-      case _ProfileStatTarget.myPixiv:
-        _navigateToTab('profileMyPixiv');
-        break;
-      case _ProfileStatTarget.illust:
-        _navigateToWorkSection(ProfileWorkSection.illust);
-        break;
-      case _ProfileStatTarget.manga:
-        _navigateToWorkSection(ProfileWorkSection.manga);
-        break;
-      case _ProfileStatTarget.novel:
-        _navigateToWorkSection(ProfileWorkSection.novel);
-        break;
-      case _ProfileStatTarget.series:
-        _navigateToWorkSection(ProfileWorkSection.series);
-        break;
-    }
-  }
-
-  void _navigateToTab(String key) {
-    final index = _tabKeys.indexOf(key);
-    if (index < 0) return;
-    if (index == _selectedIndex) {
-      _scrollActiveTabToTop();
-    } else {
-      _tabController.animateTo(index);
-    }
-  }
-
-  void _navigateToWorkSection(ProfileWorkSection section) {
-    final workIndex = _tabKeys.indexOf('profileWork');
-    if (workIndex < 0) return;
-    final sameSection = _workSection == section;
-    if (!sameSection) setState(() => _workSection = section);
-    if (workIndex == _selectedIndex) {
-      if (sameSection) _scrollActiveTabToTop();
-    } else {
-      _tabController.animateTo(workIndex);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -453,6 +518,8 @@ class _UserPageState extends ConsumerState<UserPage>
   }
 
   Widget _buildProfile(UserEntity user, {ApiError? staleError}) {
+    final tabController = _syncTabs(_tabsFor(user));
+    final selectedTab = _selectedTab;
     final statistics = _profileStatistics(user);
     final followed = widget.isMe
         ? user.isFollowed ?? false
@@ -461,13 +528,8 @@ class _UserPageState extends ConsumerState<UserPage>
               ) ??
               user.isFollowed ??
               false;
-    final showRestrictSelector =
-        widget.isMe && (_selectedIndex == 0 || _selectedIndex == 1);
-    final workTabIndex = widget.isMe ? _tabKeys.length - 1 : 0;
     final canBulkDownload =
-        _selectedIndex == workTabIndex &&
-        (_workSection == ProfileWorkSection.illust ||
-            _workSection == ProfileWorkSection.manga);
+        selectedTab == _ProfileTab.illust || selectedTab == _ProfileTab.manga;
     return Column(
       children: [
         if (staleError != null && _staleBannerVisible)
@@ -519,9 +581,6 @@ class _UserPageState extends ConsumerState<UserPage>
                     }
                   },
                   selectedTabIndex: _selectedIndex,
-                  showRestrictSelector: showRestrictSelector,
-                  restrict: _restrict,
-                  onRestrictChanged: _onRestrictChanged,
                   onShare: (originContext) =>
                       unawaited(_shareProfile(originContext, ref, user)),
                   isFollowed: followed,
@@ -540,13 +599,8 @@ class _UserPageState extends ConsumerState<UserPage>
                           ),
                         ),
                   onCopyLink: () => unawaited(_copyProfileLink(context, user)),
-                  statistics: statistics,
+                  stats: _headerStats(user),
                   onEditProfile: widget.isMe ? widget.onEditProfile : null,
-                  // Bookmarks tab only: the tag collection entry sits in the
-                  // collapsed toolbar next to the restrict selector.
-                  onOpenBookmarkTags: widget.isMe && _selectedIndex == 0
-                      ? () => openBookmarkTags(context, restrict: _restrict)
-                      : null,
                   onDownloadAll: canBulkDownload ? _downloadAuthorWorks : null,
                   topInset: MediaQuery.viewPaddingOf(context).top,
                 ),
@@ -554,25 +608,23 @@ class _UserPageState extends ConsumerState<UserPage>
               SliverPersistentHeader(
                 pinned: true,
                 delegate: ReplicaProfileTabsDelegate(
-                  controller: _tabController,
-                  isMe: widget.isMe,
+                  controller: tabController,
+                  labels: [for (final tab in _tabs) _tabLabel(tab, user)],
                   onTabTap: _onTabTap,
                 ),
               ),
             ],
             body: TabBarView(
-              controller: _tabController,
+              controller: tabController,
               children: [
-                for (var index = 0; index < _tabKeys.length; index++)
+                for (final tab in _tabs)
                   _ProfileTabBody(
-                    key: _bodyKeys[index],
+                    key: _bodyKeys.putIfAbsent(tab, GlobalKey.new),
                     user: user,
                     userId: widget.userId,
-                    isMe: widget.isMe,
-                    tabIndex: index,
-                    feedKey: _feedKeyFor(index),
-                    workSection: _workSection,
-                    onSectionChanged: _onSectionChanged,
+                    isSeries: tab == _ProfileTab.series,
+                    feedKey: _feedKeyFor(tab),
+                    filterBar: _filterBarFor(tab),
                     statistics: statistics,
                   ),
               ],
@@ -589,27 +641,22 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
     super.key,
     required this.user,
     required this.userId,
-    required this.isMe,
-    required this.tabIndex,
+    required this.isSeries,
     required this.feedKey,
-    required this.workSection,
-    required this.onSectionChanged,
+    this.filterBar,
     required this.statistics,
   });
 
   final UserEntity user;
   final int userId;
-  final bool isMe;
-  final int tabIndex;
+
+  /// The series tab lists series from its own endpoint; its [feedKey]'s
+  /// wire work type is unused.
+  final bool isSeries;
   final ProfileFeedKey? feedKey;
 
-  /// The work-tab selector value; only meaningful when [feedKey] is a
-  /// `ProfileFeedKind.work` key (other tabs ignore it).
-  final ProfileWorkSection workSection;
-
-  /// Work feeds surface this through their own `SliverAppTypeSwitch` row:
-  /// tapping a section swaps the feed, re-tapping scrolls to top.
-  final ValueChanged<ProfileWorkSection> onSectionChanged;
+  /// Fixed above the feed: the own profile's list filters.
+  final Widget? filterBar;
   final List<ProfileStatisticData> statistics;
 
   @override
@@ -663,36 +710,35 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final feed = _buildFeed();
+    final filterBar = widget.filterBar;
+    if (filterBar == null) return feed;
+    return Column(
+      children: [
+        filterBar,
+        Expanded(child: feed),
+      ],
+    );
+  }
+
+  Widget _buildFeed() {
     final feedKey = widget.feedKey;
     if (feedKey == null) {
       return _ProfileAbout(user: widget.user, statistics: widget.statistics);
     }
-    // D3: the work tab's selector floats inside whichever feed is showing,
-    // so it scrolls with that feed instead of pinning under the tab bar.
-    final typeSwitch = feedKey.kind == ProfileFeedKind.work
-        ? ProfileWorkTypeSwitch(
-            selected: widget.workSection,
-            onSelected: widget.onSectionChanged,
-          )
-        : null;
-    if (feedKey.kind == ProfileFeedKind.work &&
-        widget.workSection == ProfileWorkSection.series) {
-      // The series section is a display selector over its own endpoint; the
-      // wire workType fallback on feedKey is unused here.
-      return UserSeriesFeed(userId: widget.userId, typeSwitch: typeSwitch);
-    }
+    if (widget.isSeries) return UserSeriesFeed(userId: widget.userId);
     if (feedKey.workType == UserWorkType.novel) {
       // TabController.indexIsChanging is false during a drag gesture. Keep
       // the page mounted for both tap and swipe transitions so the destination
       // never becomes a zero-size blank child mid-flight.
-      return ProfileNovelFeed(userId: feedKey.userId, typeSwitch: typeSwitch);
+      return ProfileNovelFeed(userId: feedKey.userId);
     }
     if (feedKey.kind == ProfileFeedKind.following ||
         feedKey.kind == ProfileFeedKind.fans ||
         feedKey.kind == ProfileFeedKind.myPixiv) {
       return ProfileUserFeed(feedKey: feedKey);
     }
-    return ProfileIllustFeed(feedKey: feedKey, typeSwitch: typeSwitch);
+    return ProfileIllustFeed(feedKey: feedKey);
   }
 }
 

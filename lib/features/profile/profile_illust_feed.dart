@@ -13,72 +13,48 @@ import '../../core/network/api_error.dart';
 import '../../core/profile/profile_feed_controller.dart';
 import '../../core/profile/profile_models.dart';
 import '../../l10n/context.dart';
-import 'profile_work_type_switch.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 
 /// Grid padding shared by this feed and `ProfileSkeleton`'s grid block.
 const gridPadding = EdgeInsets.all(FuncSpacing.sm);
 
 class ProfileIllustFeed extends ConsumerWidget {
-  const ProfileIllustFeed({
-    super.key,
-    required this.feedKey,
-    this.localFilter,
-    this.typeSwitch,
-  });
+  const ProfileIllustFeed({super.key, required this.feedKey, this.localFilter});
 
   final ProfileFeedKey feedKey;
   final String? localFilter;
 
-  /// Work tab only: the compact section selector this feed hosts (D3). Null
-  /// for feeds that are not the work tab (e.g. the bookmark-tag page).
-  final ProfileWorkTypeSwitch? typeSwitch;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(profileIllustFeedProvider(feedKey));
-    final typeSwitch = this.typeSwitch;
-    // Loading/error/empty states keep the switch as a fixed header so the
-    // section stays switchable — same slot the floating version occupies
-    // once data arrives.
-    Widget wrapState(Widget state) =>
-        typeSwitch?.aboveState(context, state) ?? state;
     return async.when(
-      loading: () => wrapState(
-        IllustGridSkeleton(
-          label: context.l10n.contentLoading,
-          padding: gridPadding,
-        ),
+      loading: () => IllustGridSkeleton(
+        label: context.l10n.contentLoading,
+        padding: gridPadding,
       ),
-      error: (error, _) => wrapState(
-        FeedError(
-          title: context.l10n.profileLoadFailed,
-          error: error,
-          retryLabel: context.l10n.profileRetry,
-          onRetry: () => ref
-              .read(profileIllustFeedProvider(feedKey).notifier)
-              .retryInitial(),
-        ),
+      error: (error, _) => FeedError(
+        title: context.l10n.profileLoadFailed,
+        error: error,
+        retryLabel: context.l10n.profileRetry,
+        onRetry: () => ref
+            .read(profileIllustFeedProvider(feedKey).notifier)
+            .retryInitial(),
       ),
       data: (feed) {
         if (feed.showInitialError) {
-          return wrapState(
-            FeedError(
-              title: context.l10n.profileLoadFailed,
-              error: feed.initialError ?? const ApiParseError('unknown error'),
-              retryLabel: context.l10n.profileRetry,
-              onRetry: () => ref
-                  .read(profileIllustFeedProvider(feedKey).notifier)
-                  .retryInitial(),
-            ),
+          return FeedError(
+            title: context.l10n.profileLoadFailed,
+            error: feed.initialError ?? const ApiParseError('unknown error'),
+            retryLabel: context.l10n.profileRetry,
+            onRetry: () => ref
+                .read(profileIllustFeedProvider(feedKey).notifier)
+                .retryInitial(),
           );
         }
         if (feed.showInitialSpinner) {
-          return wrapState(
-            IllustGridSkeleton(
-              label: context.l10n.contentLoading,
-              padding: gridPadding,
-            ),
+          return IllustGridSkeleton(
+            label: context.l10n.contentLoading,
+            padding: gridPadding,
           );
         }
         final store = ref.watch(illustStoreProvider);
@@ -116,7 +92,6 @@ class ProfileIllustFeed extends ConsumerWidget {
               scrollCacheExtent: kFeedCacheExtent,
               slivers: [
                 const HeaderLocator.sliver(),
-                if (typeSwitch != null) typeSwitch.sliver(context),
                 if (visibleEntities.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,
