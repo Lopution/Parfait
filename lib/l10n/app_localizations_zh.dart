@@ -2500,6 +2500,17 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get badgeUgoira => '动图';
+
+  @override
+  String get badgeAi => 'AI 生成';
+
+  @override
+  String rankLabel(int rank) {
+    return '第 $rank 名';
+  }
+
+  @override
   String get illustInfoJump => '跳到作品信息区';
 
   @override

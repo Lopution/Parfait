@@ -1166,6 +1166,9 @@
       }
     }
   },
+  "badgeUgoira": "Анимация",
+  "badgeAi": "Создано ИИ",
+  "rankLabel": "{rank}-е место",
   "illustInfoJump": "К информации о работе",
   "@illustInfoJump": {
     "description": "Scrolls to the artwork info section"

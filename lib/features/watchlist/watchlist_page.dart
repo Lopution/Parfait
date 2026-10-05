@@ -176,7 +176,6 @@ class _WatchlistEntryTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final seenAsync = ref.watch(_watchlistSeenProvider(entry.key));
     final latest = entry.latestContentId;
     final hasNew =
@@ -208,13 +207,7 @@ class _WatchlistEntryTile extends ConsumerWidget {
           context.l10n.seriesWorksCount(entry.publishedContentCount!),
       ].join(' · '),
       badge: hasNew
-          ? EntityBadge(
-              color: theme.colorScheme.error,
-              child: Text(
-                context.l10n.watchlistNewContent,
-                style: theme.textTheme.labelSmall,
-              ),
-            )
+          ? EntityBadge(label: context.l10n.watchlistNewContent)
           : null,
       semanticLabel: '${entry.title}, ${entry.userName}',
       onTap: canOpen ? () => unawaited(_viewLatest(context, ref)) : null,

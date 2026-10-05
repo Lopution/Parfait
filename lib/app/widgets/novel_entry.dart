@@ -17,7 +17,7 @@ import 'entity_row.dart';
 /// - [NovelEntry.regular]: lists where novels are the primary content
 ///   (search results, new works, profile feed) — 68×88 cover, r6.
 /// - [NovelEntry.ranking]: ranked lists — compact density plus the rank
-///   badge.
+///   leading the title.
 ///
 /// Every variant shares the same identity line (title, author, word count
 /// meta), the work-id key, the [openNovel] primary action, and the
@@ -91,8 +91,8 @@ class NovelEntry extends StatelessWidget {
          semanticLabel: semanticLabel,
        );
 
-  /// Ranked list density — compact cover plus a rank badge pinned to its
-  /// top-left corner.
+  /// Ranked list density — compact cover plus the rank leading the title
+  /// line.
   NovelEntry.ranking({
     Key? key,
     required NovelEntity entity,
@@ -123,7 +123,7 @@ class NovelEntry extends StatelessWidget {
   final double _coverHeight;
   final double _coverRadius;
 
-  /// Rank badge value — set only by [NovelEntry.ranking].
+  /// Ranking position — set only by [NovelEntry.ranking].
   final int? rank;
 
   /// Reading-progress slot (W5 semantics): `null` renders nothing, `0.0`
@@ -171,8 +171,8 @@ class NovelEntry extends StatelessWidget {
                   ),
           ),
         ),
-        badge: rank == null ? null : EntityRankBadge(rank!),
         title: entity.title,
+        titleLeading: rank == null ? null : EntityRankLabel(rank!),
         subtitle: entity.user.name,
         meta:
             '${AppFormat.count(context, entity.textLength)} ${context.l10n.novelWords}',
@@ -181,7 +181,12 @@ class NovelEntry extends StatelessWidget {
         onTap: onTap ?? () => openNovel(context, entity.id),
         onLongPress: onLongPress,
         selected: selected,
-        semanticLabel: semanticLabel,
+        semanticLabel:
+            semanticLabel ??
+            (rank == null
+                ? null
+                : '${context.l10n.rankLabel(rank!)}, ${entity.title}, '
+                      '${entity.user.name}'),
       ),
     );
   }

@@ -607,9 +607,7 @@ class _NovelHistoryEntry extends StatelessWidget {
                     const Positioned(
                       left: 7,
                       top: 7,
-                      child: EntityBadge(
-                        child: Icon(Icons.menu_book_outlined, size: 18),
-                      ),
+                      child: EntityBadge(icon: Icons.menu_book_outlined),
                     ),
                   ],
                 ),

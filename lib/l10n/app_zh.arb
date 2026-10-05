@@ -1166,6 +1166,23 @@
       }
     }
   },
+  "badgeUgoira": "动图",
+  "@badgeUgoira": {
+    "description": "Spoken label of the animated-work badge on an artwork thumbnail"
+  },
+  "badgeAi": "AI 生成",
+  "@badgeAi": {
+    "description": "Spoken label of the AI badge on an artwork thumbnail"
+  },
+  "rankLabel": "第 {rank} 名",
+  "@rankLabel": {
+    "description": "Spoken ranking position before a work title in ranking lists",
+    "placeholders": {
+      "rank": {
+        "type": "int"
+      }
+    }
+  },
   "illustInfoJump": "跳到作品信息区",
   "@illustInfoJump": {
     "description": "Jump to the artwork info section"

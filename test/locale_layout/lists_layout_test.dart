@@ -3,6 +3,10 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:parfait/app/widgets/feed/illust_card.dart';
+import 'package:parfait/app/widgets/novel_entry.dart';
+import 'package:parfait/core/novel/novel_entity.dart';
+import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_repository.dart';
@@ -17,6 +21,8 @@ import 'package:parfait/features/watchlist/watchlist_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
 import '../helpers/bookmark_world.dart';
+import '../helpers/card_world.dart';
+import '../helpers/illust_fixtures.dart';
 import '../helpers/comment_world.dart';
 import '../helpers/download_world.dart';
 import '../helpers/fake_account.dart';
@@ -193,5 +199,57 @@ void main() {
       await tester.pump();
     });
     await mockNetworkImagesFor(() => _expectSettled(tester, locale, profile));
+  });
+
+  // A three-digit rank beside the title, and every corner badge, on the
+  // narrowest two-column card.
+  localeLayoutMatrix('lists: ranked entries', (tester, locale, profile) async {
+    final (container, _, _) = await makeCardWorld();
+    final novel = NovelEntity(
+      id: 9,
+      title: 'a ranked novel with a long title',
+      caption: '',
+      user: const UserEntity(id: 8, name: 'author', account: 'author'),
+      tags: const [],
+      textLength: 123456,
+      contentVersion: 'v9',
+      paragraphs: const [],
+    );
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        localeLayoutApp(
+          locale: locale,
+          container: container,
+          home: Scaffold(
+            body: ListView(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final id in [7, 8])
+                      Expanded(
+                        child: IllustCard(
+                          entity: parseIllust(
+                            illustJson(
+                              id,
+                              type: 'ugoira',
+                              xRestrict: 1,
+                              aiType: 2,
+                              pageCount: 12,
+                            ),
+                          ),
+                          rank: 100 + id,
+                        ),
+                      ),
+                  ],
+                ),
+                NovelEntry.ranking(entity: novel, rank: 128),
+              ],
+            ),
+          ),
+        ),
+      );
+      await _expectSettled(tester, locale, profile);
+    });
   });
 }

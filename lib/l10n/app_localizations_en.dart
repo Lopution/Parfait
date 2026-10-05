@@ -2595,6 +2595,17 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get badgeUgoira => 'Animated';
+
+  @override
+  String get badgeAi => 'AI-generated';
+
+  @override
+  String rankLabel(int rank) {
+    return 'No. $rank';
+  }
+
+  @override
   String get illustInfoJump => 'Jump to artwork info';
 
   @override

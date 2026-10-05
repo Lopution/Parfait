@@ -314,7 +314,7 @@ void main() {
     expect(fixture.requests.last.queryParameters['mode'], 'day_r18');
   });
 
-  testWidgets('rank badges land on the ranked entries', (tester) async {
+  testWidgets('ranks land on the ranked entries', (tester) async {
     final (container, fixture) = await _makeWorld();
     addTearDown(container.dispose);
 
@@ -333,8 +333,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // The first day-mode page carries works 1 and 2; each card pins its
-      // rank pill to the top-left badge cluster (O5).
+      // The first day-mode page carries works 1 and 2; each card leads its
+      // title line with the rank.
       final cards = find.byType(IllustCard);
       expect(cards, findsNWidgets(2));
       expect(

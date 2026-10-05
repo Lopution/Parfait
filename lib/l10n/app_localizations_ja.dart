@@ -2529,6 +2529,17 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get badgeUgoira => 'うごイラ';
+
+  @override
+  String get badgeAi => 'AI生成';
+
+  @override
+  String rankLabel(int rank) {
+    return '$rank位';
+  }
+
+  @override
   String get illustInfoJump => '作品情報へ移動';
 
   @override

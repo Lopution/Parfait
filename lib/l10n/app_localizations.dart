@@ -4847,6 +4847,24 @@ abstract class AppLocalizations {
   /// **'共 {count} 页'**
   String illustPagesTotal(int count);
 
+  /// Spoken label of the animated-work badge on an artwork thumbnail
+  ///
+  /// In zh, this message translates to:
+  /// **'动图'**
+  String get badgeUgoira;
+
+  /// Spoken label of the AI badge on an artwork thumbnail
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 生成'**
+  String get badgeAi;
+
+  /// Spoken ranking position before a work title in ranking lists
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {rank} 名'**
+  String rankLabel(int rank);
+
   /// Jump to the artwork info section
   ///
   /// In zh, this message translates to:

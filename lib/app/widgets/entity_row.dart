@@ -17,6 +17,7 @@ class EntityRow extends StatelessWidget {
     super.key,
     required this.leading,
     required this.title,
+    this.titleLeading,
     this.subtitle,
     this.meta,
     this.badge,
@@ -43,6 +44,10 @@ class EntityRow extends StatelessWidget {
   /// Already-localized primary text.
   final String title;
 
+  /// Marker at the start of the title line, baseline-aligned with it — the
+  /// ranking position ([EntityRankLabel]).
+  final Widget? titleLeading;
+
   /// Secondary line — the author by convention.
   final String? subtitle;
 
@@ -51,8 +56,8 @@ class EntityRow extends StatelessWidget {
   /// the same line must appear outside a row (history grid cells).
   final String? meta;
 
-  /// Overlay badge pinned to the leading slot's top-left corner — rank
-  /// pills, "New" markers. Use [EntityBadge] for the shared container.
+  /// Overlay badge pinned to the leading slot's top-left corner — "New"
+  /// markers. Use [EntityBadge] for the shared container.
   final Widget? badge;
 
   /// Reading-progress slot. `null` = no progress record → nothing renders;
@@ -146,13 +151,15 @@ class EntityRow extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: selected ? selectedText : null,
+                          _titleLine(
+                            Text(
+                              title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: selected ? selectedText : null,
+                              ),
                             ),
                           ),
                           if (subtitle != null) ...[
@@ -202,6 +209,20 @@ class EntityRow extends StatelessWidget {
       ),
     );
   }
+
+  Widget _titleLine(Widget text) {
+    final leading = titleLeading;
+    if (leading == null) return text;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        leading,
+        const SizedBox(width: FuncSpacing.xs),
+        Expanded(child: text),
+      ],
+    );
+  }
 }
 
 /// Shared meta-line presentation: the caption token, one line, ellipsized.
@@ -229,58 +250,89 @@ class EntityMetaText extends StatelessWidget {
   }
 }
 
-/// Rank pill shared by the ranked variants — the [EntityBadge] container
-/// filled with the primary color. Both `NovelEntry.ranking` and the
-/// `IllustCard(rank:)` top-left cluster render through this one widget so
-/// the marker cannot drift into two look-alikes.
-class EntityRankBadge extends StatelessWidget {
-  const EntityRankBadge(this.rank, {super.key});
+/// Ranking position at the start of a title line: plain digits in
+/// `titleSmall`, bold and tabular, `onSurface` — no medal, no top-three
+/// color. `IllustCard(rank:)` and `NovelEntry(ranking:)` both render it so
+/// the marker cannot drift into two look-alikes; the position never sits on
+/// the artwork.
+class EntityRankLabel extends StatelessWidget {
+  const EntityRankLabel(this.rank, {super.key});
 
   final int rank;
 
   @override
   Widget build(BuildContext context) {
-    return EntityBadge(
-      color: Theme.of(context).colorScheme.primary,
-      child: Text('$rank', style: const TextStyle(fontWeight: FontWeight.bold)),
+    final theme = Theme.of(context);
+    return Text(
+      '$rank',
+      style: theme.textTheme.titleSmall!
+          .copyWith(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
+          )
+          .tabular,
     );
   }
 }
 
-/// The one badge container every object surface shares — illust card
-/// corners and entity-row overlays use the same radius, fill and padding.
-/// The default fill is the neutral dark scrim; semantic variants inject a
-/// [ColorScheme] color (R-18 → primary, AI → error, rank → primary).
+/// Corner badge over artwork: one scrim, shape and type scale for every
+/// marker, legible on light and dark images alike. The look ignores the
+/// theme brightness — the badge sits on the image, not on the page — and
+/// no badge picks its own color: R-18 and AI differ by their text.
 class EntityBadge extends StatelessWidget {
-  const EntityBadge({super.key, required this.child, this.color});
+  const EntityBadge({super.key, this.icon, this.label, this.semanticsLabel})
+    : assert(icon != null || label != null, 'a badge shows an icon or text');
 
-  final Widget child;
+  /// Minimum height; larger text scales grow the badge instead of clipping.
+  static const double height = 20;
+  static const double iconSize = 14;
 
-  /// Semantic fill color; `null` paints the neutral scrim shared by the
-  /// informational badges (page count, ugoira marker).
-  final Color? color;
+  /// Badge geometry rather than page spacing, so it stays off the
+  /// [FuncSpacing] ladder.
+  static const double _inset = 6;
+
+  final IconData? icon;
+  final String? label;
+
+  /// Spoken instead of the visible content — an icon-only badge needs it,
+  /// and a terse label ("AI") reads better spelled out.
+  final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: FuncSpacing.xs,
-        vertical: FuncSpacing.xxs,
+    final icon = this.icon;
+    final label = this.label;
+    final style = Theme.of(context).textTheme.labelSmall!
+        .copyWith(color: FuncTokens.onImageControl, fontWeight: FontWeight.w600)
+        .tabular;
+    final badge = DecoratedBox(
+      decoration: const BoxDecoration(
+        color: FuncTokens.imageControl,
+        borderRadius: FuncShape.badge,
       ),
-      decoration: BoxDecoration(
-        color: color ?? const Color(0x99343838),
-        borderRadius: FuncShape.control,
-      ),
-      child: DefaultTextStyle(
-        style: const TextStyle(color: FuncTokens.lightBackground),
-        child: IconTheme(
-          data: const IconThemeData(
-            color: FuncTokens.lightBackground,
-            size: 22,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: height),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: _inset),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null)
+                Icon(icon, size: iconSize, color: FuncTokens.onImageControl),
+              if (icon != null && label != null)
+                const SizedBox(width: FuncSpacing.xxs),
+              if (label != null) Text(label, style: style, softWrap: false),
+            ],
           ),
-          child: child,
         ),
       ),
+    );
+    final semanticsLabel = this.semanticsLabel;
+    if (semanticsLabel == null) return badge;
+    return Semantics(
+      label: semanticsLabel,
+      excludeSemantics: true,
+      child: badge,
     );
   }
 }

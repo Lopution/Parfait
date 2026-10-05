@@ -2599,6 +2599,17 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get badgeUgoira => 'Анимация';
+
+  @override
+  String get badgeAi => 'Создано ИИ';
+
+  @override
+  String rankLabel(int rank) {
+    return '$rank-е место';
+  }
+
+  @override
   String get illustInfoJump => 'К информации о работе';
 
   @override
