@@ -42,6 +42,7 @@ import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/features/profile/user_page.dart' as profile;
 import 'package:parfait/app/widgets/settings/settings_control.dart';
 import 'package:parfait/app/widgets/settings/settings_group.dart';
+import 'package:parfait/app/widgets/settings/settings_menu_tile.dart';
 import 'package:parfait/app/widgets/settings/settings_tile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -699,9 +700,10 @@ void main() {
     }
   });
 
-  testWidgets('browse quality choices use typed segmented buttons', (
+  testWidgets('quality rows show the current value and pick from a menu', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     final repository = FakeSettingsRepository(baseTestSettings());
     await tester.pumpWidget(
       ProviderScope(
@@ -714,51 +716,64 @@ void main() {
         ),
       ),
     );
-    // Tall surface: the source list above grew a row, and unmounted
-    // off-viewport selectors must not shrink the segment assertions.
     tester.view.physicalSize = const Size(800, 3200);
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pump();
     await tester.pump();
-    final selectorFinder = find.byWidgetPredicate(
-      (widget) =>
-          widget is SegmentedButton<PreviewQuality> ||
-          widget is SegmentedButton<DetailQuality> ||
-          widget is SegmentedButton<ViewQuality>,
-      skipOffstage: false,
-    );
-    final selectors = tester
-        .widgetList<SegmentedButton<dynamic>>(selectorFinder)
-        .toList();
-    expect(selectors, hasLength(3));
-    expect(selectors[0].segments.map((segment) => segment.value).toList(), [
-      PreviewQuality.medium,
-      PreviewQuality.large,
-    ]);
-    expect(selectors[1].segments.map((segment) => segment.value).toList(), [
-      DetailQuality.large,
-      DetailQuality.original,
-    ]);
-    expect(selectors[2].segments.map((segment) => segment.value).toList(), [
-      ViewQuality.large,
-      ViewQuality.original,
-    ]);
 
-    // The mirror section above pushes the quality selectors below the fold;
-    // scroll each into view before tapping.
-    await _scrollCentered(tester, selectorFinder.at(0));
-    await tester.tap(
-      find.descendant(of: selectorFinder.at(0), matching: find.text('大图')),
+    final preview = find.byType(SettingsMenuTile<PreviewQuality>);
+    expect(find.byType(SettingsMenuTile<DetailQuality>), findsOneWidget);
+    expect(find.byType(SettingsMenuTile<ViewQuality>), findsOneWidget);
+    // The row is one button reading its title and current value.
+    final row = find.descendant(of: preview, matching: find.byType(ListTile));
+    expect(
+      tester.getSemantics(row),
+      isSemantics(isButton: true, label: '预览质量\n中图'),
     );
+
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+    Finder item(String label) => find.ancestor(
+      of: find.text(label),
+      matching: find.byType(MenuItemButton),
+    );
+    expect(find.byType(MenuItemButton), findsNWidgets(2));
+    expect(
+      tester.getSemantics(item('中图')),
+      isSemantics(hasCheckedState: true, isChecked: true),
+    );
+    expect(
+      tester.getSemantics(item('大图')),
+      isSemantics(hasCheckedState: true, isChecked: false),
+    );
+
+    // Back closes the menu, not the page.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(MenuItemButton), findsNothing);
+    expect(find.byType(BrowseSettingsPage), findsOneWidget);
+
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+    await tester.tap(item('大图'));
     await tester.pumpAndSettle();
     expect(repository.value.previewQuality, PreviewQuality.large);
-
-    await _scrollCentered(tester, selectorFinder.at(1));
-    await tester.tap(
-      find.descendant(of: selectorFinder.at(1), matching: find.text('原图')),
+    expect(
+      find.descendant(of: preview, matching: find.text('大图')),
+      findsOneWidget,
     );
+
+    final detail = find.descendant(
+      of: find.byType(SettingsMenuTile<DetailQuality>),
+      matching: find.byType(ListTile),
+    );
+    await tester.tap(detail);
+    await tester.pumpAndSettle();
+    expect(find.byType(MenuItemButton), findsNWidgets(2));
+    await tester.tap(item('原图'));
     await tester.pumpAndSettle();
     expect(repository.value.detailQuality, DetailQuality.original);
+    semantics.dispose();
   });
 
   Future<void> pumpMotion(
@@ -782,13 +797,13 @@ void main() {
     await tester.pump();
   }
 
-  Finder speedSelector() => find.byWidgetPredicate(
-    (widget) => widget is SegmentedButton<AnimationSpeed>,
-    skipOffstage: false,
+  Finder speedRow() => find.descendant(
+    of: find.byType(SettingsMenuTile<AnimationSpeed>),
+    matching: find.byType(ListTile),
   );
 
   for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
-    testWidgets('animation speed is a three-way picker on ${platform.name}', (
+    testWidgets('animation speed is a three-way menu on ${platform.name}', (
       tester,
     ) async {
       final repository = FakeSettingsRepository(baseTestSettings());
@@ -796,20 +811,23 @@ void main() {
       try {
         await pumpMotion(tester, repository);
 
-        final selector = speedSelector();
-        expect(selector, findsOneWidget);
-        await _scrollCentered(tester, selector);
+        final row = speedRow();
+        expect(row, findsOneWidget);
+        await _scrollCentered(tester, row);
         expect(find.text('动画速度'), findsOneWidget);
         expect(find.text('作用于应用内全部动画；水波纹等系统控件动画不受影响'), findsOneWidget);
-        final segments = tester
-            .widget<SegmentedButton<AnimationSpeed>>(selector)
-            .segments
-            .map((segment) => segment.value)
-            .toList();
-        expect(segments, AnimationSpeed.values);
 
+        await tester.tap(row);
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(MenuItemButton),
+          findsNWidgets(AnimationSpeed.values.length),
+        );
         await tester.tap(
-          find.descendant(of: selector, matching: find.text('慢')),
+          find.descendant(
+            of: find.byType(MenuItemButton),
+            matching: find.text('慢'),
+          ),
         );
         await tester.pumpAndSettle();
         expect(repository.value.animationSpeed, AnimationSpeed.slow);
@@ -869,11 +887,11 @@ void main() {
     );
     await pumpMotion(tester, repository);
 
-    await _scrollCentered(tester, speedSelector());
-    final button = tester.widget<SegmentedButton<AnimationSpeed>>(
-      speedSelector(),
-    );
-    expect(button.onSelectionChanged, isNull);
+    await _scrollCentered(tester, speedRow());
+    expect(tester.widget<ListTile>(speedRow()).enabled, isFalse);
+    await tester.tap(speedRow());
+    await tester.pumpAndSettle();
+    expect(find.byType(MenuItemButton), findsNothing);
     expect(find.text('开启「减少动态效果」时不播放动画，速度不生效'), findsOneWidget);
   });
 
@@ -2724,7 +2742,7 @@ void main() {
       // The group sits below the fold of a lazily-built list — scroll it
       // into the viewport first (finders cannot reach an unbuilt child).
       await tester.scrollUntilVisible(
-        find.byType(SegmentedButton<HapticStrength>),
+        find.byType(SettingsMenuTile<HapticStrength>),
         300,
         scrollable: find.byType(Scrollable).first,
         maxScrolls: 20,
@@ -2738,14 +2756,24 @@ void main() {
     ) async {
       final driver = recordHaptics();
       final repository = await pumpPage(tester, driver);
-      await tester.tap(find.text('强'));
-      await tester.pumpAndSettle();
+      Future<void> pick(String label) async {
+        await tester.tap(find.byType(SettingsMenuTile<HapticStrength>));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byType(MenuItemButton),
+            matching: find.text(label),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await pick('强');
       expect(repository.value.hapticStrength, HapticStrength.strong);
       expect(repository.saved.last.hapticStrength, HapticStrength.strong);
       expect(driver.played, [(HapticRole.confirm, HapticStrength.strong)]);
 
-      await tester.tap(find.text('关'));
-      await tester.pumpAndSettle();
+      await pick('关');
       expect(repository.value.hapticStrength, HapticStrength.off);
       // Off has nothing to preview.
       expect(driver.played, hasLength(1));
