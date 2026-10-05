@@ -2969,6 +2969,30 @@ abstract class AppLocalizations {
   /// **'{count} 好P友'**
   String profileMyPixivCount(String count);
 
+  /// Own bookmarks filter button when no tag is picked.
+  ///
+  /// In zh, this message translates to:
+  /// **'标签：全部'**
+  String get profileTagFilterAll;
+
+  /// Own bookmarks filter button showing the picked tag.
+  ///
+  /// In zh, this message translates to:
+  /// **'标签：{tag}'**
+  String profileTagFilter(String tag);
+
+  /// Tag filter menu: no tag filter.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get profileTagAny;
+
+  /// Tag filter menu: opens the full bookmark tag list.
+  ///
+  /// In zh, this message translates to:
+  /// **'更多标签…'**
+  String get profileTagMore;
+
   /// No description provided for @profileAbout.
   ///
   /// In zh, this message translates to:

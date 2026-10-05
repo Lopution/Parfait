@@ -713,6 +713,27 @@
       }
     }
   },
+  "profileTagFilterAll": "标签：全部",
+  "@profileTagFilterAll": {
+    "description": "Own bookmarks filter button when no tag is picked."
+  },
+  "profileTagFilter": "标签：{tag}",
+  "@profileTagFilter": {
+    "description": "Own bookmarks filter button showing the picked tag.",
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "profileTagAny": "全部",
+  "@profileTagAny": {
+    "description": "Tag filter menu: no tag filter."
+  },
+  "profileTagMore": "更多标签…",
+  "@profileTagMore": {
+    "description": "Tag filter menu: opens the full bookmark tag list."
+  },
   "profileAbout": "关于",
   "profileIllust": "插画",
   "profileManga": "漫画",

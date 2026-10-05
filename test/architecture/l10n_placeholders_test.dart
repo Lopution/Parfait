@@ -52,6 +52,7 @@ const _textPlaceholderKeys = <String, String>{
   'localNovelFileImportedAt': 'formatted date',
   'profileFollowingCount': 'compact count (AppFormat.count)',
   'profileMyPixivCount': 'compact count (AppFormat.count)',
+  'profileTagFilter': 'bookmark tag name',
 };
 
 const _textTypes = {'String', 'Object'};

@@ -24,6 +24,7 @@ import '../../core/user/follow_store.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import 'author_works_download_dialog.dart';
+import 'profile_filter_bar.dart';
 import 'profile_illust_feed.dart';
 import 'profile_novel_feed.dart';
 import 'profile_skeleton.dart';
@@ -129,6 +130,10 @@ class _UserPageState extends ConsumerState<UserPage>
   List<_ProfileTab> _tabs = const [];
   final _bodyKeys = <_ProfileTab, GlobalKey<_ProfileTabBodyState>>{};
   UserRestrict _restrict = UserRestrict.public;
+
+  /// Own bookmarks only: the tag filter, null for every bookmark. Tags are
+  /// per visibility, so a visibility change clears it.
+  String? _bookmarkTag;
   int _selectedIndex = 0;
   bool _staleBannerVisible = true;
 
@@ -315,6 +320,7 @@ class _UserPageState extends ConsumerState<UserPage>
         userId: userId,
         kind: ProfileFeedKind.bookmarks,
         restrict: _restrict,
+        bookmarkTag: _bookmarkTag,
       ),
       _ProfileTab.following => ProfileFeedKey(
         userId: userId,
@@ -334,7 +340,28 @@ class _UserPageState extends ConsumerState<UserPage>
   }
 
   void _onRestrictChanged(UserRestrict restrict) {
-    setState(() => _restrict = restrict);
+    setState(() {
+      _restrict = restrict;
+      _bookmarkTag = null;
+    });
+  }
+
+  /// Own profile: the filters above the bookmarks and follows lists.
+  Widget? _filterBarFor(_ProfileTab tab) {
+    if (!widget.isMe) return null;
+    return switch (tab) {
+      _ProfileTab.bookmarks => ProfileFilterBar(
+        restrict: _restrict,
+        onRestrictChanged: _onRestrictChanged,
+        tag: _bookmarkTag,
+        onTagChanged: (tag) => setState(() => _bookmarkTag = tag),
+      ),
+      _ProfileTab.following => ProfileFilterBar(
+        restrict: _restrict,
+        onRestrictChanged: _onRestrictChanged,
+      ),
+      _ => null,
+    };
   }
 
   /// Opens [tab] — or, when it is already open, scrolls it to the top. Null
@@ -501,10 +528,6 @@ class _UserPageState extends ConsumerState<UserPage>
               ) ??
               user.isFollowed ??
               false;
-    final showRestrictSelector =
-        widget.isMe &&
-        (selectedTab == _ProfileTab.bookmarks ||
-            selectedTab == _ProfileTab.following);
     final canBulkDownload =
         selectedTab == _ProfileTab.illust || selectedTab == _ProfileTab.manga;
     return Column(
@@ -558,9 +581,6 @@ class _UserPageState extends ConsumerState<UserPage>
                     }
                   },
                   selectedTabIndex: _selectedIndex,
-                  showRestrictSelector: showRestrictSelector,
-                  restrict: _restrict,
-                  onRestrictChanged: _onRestrictChanged,
                   onShare: (originContext) =>
                       unawaited(_shareProfile(originContext, ref, user)),
                   isFollowed: followed,
@@ -581,12 +601,6 @@ class _UserPageState extends ConsumerState<UserPage>
                   onCopyLink: () => unawaited(_copyProfileLink(context, user)),
                   stats: _headerStats(user),
                   onEditProfile: widget.isMe ? widget.onEditProfile : null,
-                  // Bookmarks tab only: the tag collection entry sits in the
-                  // collapsed toolbar next to the restrict selector.
-                  onOpenBookmarkTags:
-                      widget.isMe && selectedTab == _ProfileTab.bookmarks
-                      ? () => openBookmarkTags(context, restrict: _restrict)
-                      : null,
                   onDownloadAll: canBulkDownload ? _downloadAuthorWorks : null,
                   topInset: MediaQuery.viewPaddingOf(context).top,
                 ),
@@ -610,6 +624,7 @@ class _UserPageState extends ConsumerState<UserPage>
                     userId: widget.userId,
                     isSeries: tab == _ProfileTab.series,
                     feedKey: _feedKeyFor(tab),
+                    filterBar: _filterBarFor(tab),
                     statistics: statistics,
                   ),
               ],
@@ -628,6 +643,7 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
     required this.userId,
     required this.isSeries,
     required this.feedKey,
+    this.filterBar,
     required this.statistics,
   });
 
@@ -638,6 +654,9 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
   /// wire work type is unused.
   final bool isSeries;
   final ProfileFeedKey? feedKey;
+
+  /// Fixed above the feed: the own profile's list filters.
+  final Widget? filterBar;
   final List<ProfileStatisticData> statistics;
 
   @override
@@ -691,6 +710,18 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final feed = _buildFeed();
+    final filterBar = widget.filterBar;
+    if (filterBar == null) return feed;
+    return Column(
+      children: [
+        filterBar,
+        Expanded(child: feed),
+      ],
+    );
+  }
+
+  Widget _buildFeed() {
     final feedKey = widget.feedKey;
     if (feedKey == null) {
       return _ProfileAbout(user: widget.user, statistics: widget.statistics);

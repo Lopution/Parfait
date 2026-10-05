@@ -5,6 +5,7 @@ import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/widgets/app_choice_chip.dart';
 import 'package:parfait/app/widgets/app_menu_button.dart';
+import 'package:parfait/app/widgets/filter_menu_button.dart';
 import 'package:parfait/app/widgets/app_slider.dart';
 import 'package:parfait/app/widgets/replica_switch_tile.dart';
 import 'package:parfait/app/widgets/settings/settings_choice_tile.dart';
@@ -168,6 +169,65 @@ void main() {
       );
       await pick(tester, 'one');
       expect(haptics.played, isEmpty);
+    });
+  });
+
+  group('FilterMenuButton', () {
+    testWidgets('the button shows the value; a new pick selects', (
+      tester,
+    ) async {
+      final haptics = recordHaptics();
+      var changes = 0;
+      var more = 0;
+      await _pump<int>(
+        tester,
+        0,
+        (value, set) => FilterMenuButton<int>(
+          label: value == 0 ? 'zero ▾' : 'one ▾',
+          value: value,
+          options: const [
+            AppMenuEntry(value: 0, label: 'zero'),
+            AppMenuEntry(value: 1, label: 'one'),
+          ],
+          onChanged: (next) {
+            changes++;
+            set(next);
+          },
+          moreLabel: 'more',
+          onMore: () => more++,
+        ),
+      );
+      Finder item(String label) => find.descendant(
+        of: find.byType(MenuItemButton),
+        matching: find.text(label),
+      );
+      Future<void> pick(String label) async {
+        await tester.tap(find.byType(OutlinedButton));
+        await tester.pumpAndSettle();
+        await tester.tap(item(label));
+        await tester.pumpAndSettle();
+      }
+
+      await tester.tap(find.byType(OutlinedButton));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(item('zero')),
+        isSemantics(isChecked: true, hasCheckedState: true),
+      );
+      await tester.tap(item('zero'));
+      await tester.pumpAndSettle();
+      expect(changes, 0);
+      expect(haptics.played, isEmpty);
+
+      await pick('one');
+      expect(changes, 1);
+      expect(haptics.roles, [HapticRole.select]);
+      expect(find.text('one ▾'), findsOneWidget);
+
+      // The extra entry leaves the menu; it is no value.
+      await pick('more');
+      expect(more, 1);
+      expect(changes, 1);
     });
   });
 

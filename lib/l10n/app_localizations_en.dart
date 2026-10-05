@@ -1598,6 +1598,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get profileTagFilterAll => 'Tag: All';
+
+  @override
+  String profileTagFilter(String tag) {
+    return 'Tag: $tag';
+  }
+
+  @override
+  String get profileTagAny => 'All';
+
+  @override
+  String get profileTagMore => 'More tags…';
+
+  @override
   String get profileAbout => 'About';
 
   @override

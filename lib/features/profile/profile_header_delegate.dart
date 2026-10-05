@@ -10,7 +10,6 @@ import '../../app/pixiv_image.dart';
 import '../../app/system_ui.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../core/user/user_entity.dart';
-import '../../core/user/user_repository.dart';
 import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/follow_switch_button.dart';
@@ -81,9 +80,6 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.user,
     required this.isMe,
     required this.selectedTabIndex,
-    required this.showRestrictSelector,
-    required this.restrict,
-    required this.onRestrictChanged,
     required this.onShare,
     this.stats = const [],
     this.isFollowed = false,
@@ -91,7 +87,6 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     this.onToggleFollow,
     this.onFollowPrivately,
     this.onCopyLink,
-    this.onOpenBookmarkTags,
     this.onDownloadAll,
     required this.onExpandedExtentMeasured,
     this.expandedExtent,
@@ -101,9 +96,6 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   final UserEntity user;
   final bool isMe;
   final int selectedTabIndex;
-  final bool showRestrictSelector;
-  final UserRestrict restrict;
-  final ValueChanged<UserRestrict> onRestrictChanged;
   final ValueChanged<BuildContext> onShare;
 
   /// The statistics line under the name: following and My Pixiv.
@@ -113,9 +105,6 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   final VoidCallback? onToggleFollow;
   final VoidCallback? onFollowPrivately;
   final VoidCallback? onCopyLink;
-
-  /// Own-profile bookmarks tab only: opens the bookmark-tag collection.
-  final VoidCallback? onOpenBookmarkTags;
 
   /// Works tab only: bulk-downloads every illust/manga work of the author.
   final VoidCallback? onDownloadAll;
@@ -188,29 +177,6 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         label: context.l10n.followPrivately,
         icon: Icons.lock_outline,
         onSelected: (_) => onFollowPrivately!(),
-      ),
-    if (isMe && showRestrictSelector) ...[
-      _ProfileHeaderAction(
-        value: 'restrictPublic',
-        label: context.l10n.restrictPublic,
-        icon: Icons.public,
-        checked: restrict == UserRestrict.public,
-        onSelected: (_) => onRestrictChanged(UserRestrict.public),
-      ),
-      _ProfileHeaderAction(
-        value: 'restrictPrivate',
-        label: context.l10n.restrictPrivate,
-        icon: Icons.lock_outline,
-        checked: restrict == UserRestrict.private,
-        onSelected: (_) => onRestrictChanged(UserRestrict.private),
-      ),
-    ],
-    if (onOpenBookmarkTags != null)
-      _ProfileHeaderAction(
-        value: 'bookmarkTags',
-        label: context.l10n.bookmarkTags,
-        icon: Icons.label_outline,
-        onSelected: (_) => onOpenBookmarkTags!(),
       ),
     if (onDownloadAll != null)
       _ProfileHeaderAction(
@@ -378,18 +344,14 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     return oldDelegate.user != user ||
         oldDelegate.isMe != isMe ||
         oldDelegate.selectedTabIndex != selectedTabIndex ||
-        oldDelegate.showRestrictSelector != showRestrictSelector ||
-        oldDelegate.restrict != restrict ||
         oldDelegate.onEditProfile != onEditProfile ||
         oldDelegate.isFollowed != isFollowed ||
         oldDelegate.onToggleFollow != onToggleFollow ||
         oldDelegate.onFollowPrivately != onFollowPrivately ||
         oldDelegate.onCopyLink != onCopyLink ||
-        oldDelegate.onOpenBookmarkTags != onOpenBookmarkTags ||
         oldDelegate.onDownloadAll != onDownloadAll ||
         oldDelegate.onShare != onShare ||
         !listEquals(oldDelegate.stats, stats) ||
-        oldDelegate.onRestrictChanged != onRestrictChanged ||
         oldDelegate.expandedExtent != expandedExtent ||
         oldDelegate.onExpandedExtentMeasured != onExpandedExtentMeasured ||
         oldDelegate.topInset != topInset;
@@ -595,7 +557,6 @@ class _ProfileHeaderAction {
     required this.icon,
     required this.onSelected,
     this.primary = false,
-    this.checked,
     this.buildInline,
   });
 
@@ -604,7 +565,6 @@ class _ProfileHeaderAction {
   final IconData icon;
   final ValueChanged<BuildContext> onSelected;
   final bool primary;
-  final bool? checked;
   final WidgetBuilder? buildInline;
 }
 
@@ -638,12 +598,7 @@ class _ProfileHeaderMoreButton extends StatelessWidget {
       onSelected: (anchorContext, action) => action.onSelected(anchorContext),
       entries: [
         for (final action in entries)
-          AppMenuEntry(
-            value: action,
-            icon: action.icon,
-            label: action.label,
-            checked: action.checked,
-          ),
+          AppMenuEntry(value: action, icon: action.icon, label: action.label),
       ],
     );
   }

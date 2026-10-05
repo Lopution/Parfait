@@ -1523,6 +1523,20 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get profileTagFilterAll => '标签：全部';
+
+  @override
+  String profileTagFilter(String tag) {
+    return '标签：$tag';
+  }
+
+  @override
+  String get profileTagAny => '全部';
+
+  @override
+  String get profileTagMore => '更多标签…';
+
+  @override
   String get profileAbout => '关于';
 
   @override

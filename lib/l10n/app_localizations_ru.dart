@@ -1600,6 +1600,20 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get profileTagFilterAll => 'Тег: все';
+
+  @override
+  String profileTagFilter(String tag) {
+    return 'Тег: $tag';
+  }
+
+  @override
+  String get profileTagAny => 'Все';
+
+  @override
+  String get profileTagMore => 'Другие теги…';
+
+  @override
   String get profileAbout => 'О пользователе';
 
   @override

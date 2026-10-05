@@ -15,7 +15,6 @@ import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/user/follow_store.dart';
 import 'package:parfait/core/user/user_entity.dart';
-import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/features/profile/profile_header_delegate.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
@@ -436,9 +435,6 @@ void main() {
                 user: const UserEntity(id: 42, name: 'u', account: 'u'),
                 isMe: false,
                 selectedTabIndex: 0,
-                showRestrictSelector: false,
-                restrict: UserRestrict.public,
-                onRestrictChanged: (_) {},
                 onShare: (_) {},
                 onToggleFollow: () {},
                 expandedExtent: extent,

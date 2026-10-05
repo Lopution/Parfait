@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
@@ -38,6 +39,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
+import 'helpers/bookmark_world.dart';
 import 'helpers/profile_world.dart';
 import 'helpers/test_preferences.dart';
 
@@ -372,9 +374,6 @@ void main() {
       user: sampleUser(42),
       isMe: true,
       selectedTabIndex: 0,
-      showRestrictSelector: false,
-      restrict: UserRestrict.public,
-      onRestrictChanged: (_) {},
       onShare: (_) {},
       onExpandedExtentMeasured: (_) {},
     );
@@ -387,9 +386,6 @@ void main() {
       user: sampleUser(42),
       isMe: true,
       selectedTabIndex: 0,
-      showRestrictSelector: false,
-      restrict: UserRestrict.public,
-      onRestrictChanged: (_) {},
       onShare: (_) {},
       expandedExtent: 247,
       onExpandedExtentMeasured: (_) {},
@@ -417,9 +413,6 @@ void main() {
                       user: sampleUser(42),
                       isMe: true,
                       selectedTabIndex: 0,
-                      showRestrictSelector: false,
-                      restrict: UserRestrict.public,
-                      onRestrictChanged: (_) {},
                       onShare: (_) {},
                       expandedExtent: extent,
                       onExpandedExtentMeasured: onMeasured,
@@ -480,9 +473,6 @@ void main() {
                             user: user,
                             isMe: true,
                             selectedTabIndex: 0,
-                            showRestrictSelector: false,
-                            restrict: UserRestrict.public,
-                            onRestrictChanged: (_) {},
                             onShare: (_) {},
                             expandedExtent: extent,
                             onExpandedExtentMeasured: onMeasured,
@@ -560,9 +550,6 @@ void main() {
                       user: sampleUser(42),
                       isMe: true,
                       selectedTabIndex: 0,
-                      showRestrictSelector: false,
-                      restrict: UserRestrict.public,
-                      onRestrictChanged: (_) {},
                       onShare: (_) {},
                       expandedExtent: extent,
                       onExpandedExtentMeasured: onMeasured,
@@ -608,12 +595,8 @@ void main() {
                       ),
                       isMe: true,
                       selectedTabIndex: 0,
-                      showRestrictSelector: true,
-                      restrict: UserRestrict.public,
-                      onRestrictChanged: (_) {},
                       onShare: (_) {},
                       onEditProfile: () {},
-                      onOpenBookmarkTags: () {},
                       onDownloadAll: () {},
                       expandedExtent: extent,
                       onExpandedExtentMeasured: onMeasured,
@@ -662,12 +645,8 @@ void main() {
                         user: sampleUser(42),
                         isMe: true,
                         selectedTabIndex: 0,
-                        showRestrictSelector: true,
-                        restrict: UserRestrict.public,
-                        onRestrictChanged: (_) {},
                         onShare: (_) {},
                         onEditProfile: () {},
-                        onOpenBookmarkTags: () {},
                         onDownloadAll: () {},
                         expandedExtent: extent,
                         onExpandedExtentMeasured: onMeasured,
@@ -691,9 +670,10 @@ void main() {
       expect(find.text('分享用户'), findsOneWidget);
       // Inline main action + menu item.
       expect(find.text('编辑个人资料'), findsNWidgets(2));
-      expect(find.text('公开'), findsOneWidget);
-      expect(find.text('私密'), findsOneWidget);
-      expect(find.text('收藏标签'), findsOneWidget);
+      // The list filters sit over the lists now, not in the overflow.
+      expect(find.text('公开'), findsNothing);
+      expect(find.text('私密'), findsNothing);
+      expect(find.text('收藏标签'), findsNothing);
       expect(find.text('下载全部作品'), findsOneWidget);
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
@@ -706,8 +686,6 @@ void main() {
       expect(find.text('分享用户'), findsOneWidget);
       // Collapsed: the inline identity is offstage, only the menu item.
       expect(find.text('编辑个人资料'), findsOneWidget);
-      expect(find.text('公开'), findsOneWidget);
-      expect(find.text('收藏标签'), findsOneWidget);
       expect(find.text('下载全部作品'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       controller.dispose();
@@ -725,9 +703,6 @@ void main() {
               user: sampleUser(42),
               isMe: true,
               selectedTabIndex: 0,
-              showRestrictSelector: false,
-              restrict: UserRestrict.public,
-              onRestrictChanged: (_) {},
               onShare: (_) {},
               expandedExtent: extent,
               onExpandedExtentMeasured: onMeasured,
@@ -785,9 +760,6 @@ void main() {
                 user: sampleUser(42),
                 isMe: true,
                 selectedTabIndex: 0,
-                showRestrictSelector: false,
-                restrict: UserRestrict.public,
-                onRestrictChanged: (_) {},
                 onShare: (_) => shareCount++,
                 expandedExtent: extent,
                 onExpandedExtentMeasured: onMeasured,
@@ -861,9 +833,6 @@ void main() {
                 user: coverUser,
                 isMe: true,
                 selectedTabIndex: 0,
-                showRestrictSelector: false,
-                restrict: UserRestrict.public,
-                onRestrictChanged: (_) {},
                 onShare: (_) {},
                 expandedExtent: extent,
                 onExpandedExtentMeasured: onMeasured,
@@ -944,9 +913,6 @@ void main() {
               user: sampleUser(42),
               isMe: true,
               selectedTabIndex: 0,
-              showRestrictSelector: false,
-              restrict: UserRestrict.public,
-              onRestrictChanged: (_) {},
               onShare: (_) {},
               expandedExtent: extent,
               onExpandedExtentMeasured: onMeasured,
@@ -1014,9 +980,6 @@ void main() {
                       user: user,
                       isMe: true,
                       selectedTabIndex: 0,
-                      showRestrictSelector: false,
-                      restrict: UserRestrict.public,
-                      onRestrictChanged: (_) {},
                       onShare: (_) {},
                       expandedExtent: extent,
                       onExpandedExtentMeasured: onMeasured,
@@ -1130,6 +1093,12 @@ void main() {
     // Manga and series are empty, and novel series have no list of their
     // own: neither gets a tab.
     expect(_tabLabels(tester), ['插画 1.2万', '小说 3', '收藏', '关注', '关于']);
+    // Another user's lists have no filters to offer.
+    await tester.tap(find.text('收藏'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('profile-filter-restrict')), findsNothing);
+    await tester.tap(find.text('插画 1.2万'));
+    await tester.pumpAndSettle();
     expect(find.byType(ChoiceChip), findsNothing);
     expect(repository.requests, contains('works:42:illust:first'));
     expect(find.byType(EasyRefresh), findsOneWidget);
@@ -1146,6 +1115,134 @@ void main() {
     await tester.tap(find.text('收藏'));
     await tester.pumpAndSettle();
     expect(_selectedTabIndex(tester), 2);
+  });
+
+  testWidgets('own bookmarks and follows filter above the list', (
+    tester,
+  ) async {
+    final users = FakeUserRepository(
+      detail: sampleUser(100).copyWith(hasDetail: true),
+    );
+    final bookmarks = RecordingBookmarkRepository()
+      ..tagPage = const UserBookmarkTagPage(
+        tags: [
+          UserBookmarkTag(name: 'cat', count: 3),
+          UserBookmarkTag(name: 'dog', count: 1),
+        ],
+        nextUrl: null,
+      );
+    final container = await makeProfileWorld(
+      users: users,
+      bookmarks: bookmarks,
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: MePage(onEditProfile: () {}),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final restrictFilter = find.byKey(
+      const ValueKey('profile-filter-restrict'),
+    );
+    final tagFilter = find.byKey(const ValueKey('profile-filter-tag'));
+    Finder menuItem(String label) => find.descendant(
+      of: find.byType(MenuItemButton),
+      matching: find.text(label),
+    );
+
+    expect(_tabLabels(tester), ['收藏', '关注', '粉丝', '好P友']);
+    expect(
+      find.descendant(of: restrictFilter, matching: find.text('公开')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: tagFilter, matching: find.text('标签：全部')),
+      findsOneWidget,
+    );
+    expect(tester.getSize(tagFilter).height, greaterThanOrEqualTo(48));
+
+    // Two tags fit the menu: no detour to the tag page.
+    await tester.tap(tagFilter);
+    await tester.pumpAndSettle();
+    expect(menuItem('全部'), findsOneWidget);
+    expect(menuItem('dog'), findsOneWidget);
+    expect(menuItem('更多标签…'), findsNothing);
+    await tester.tap(menuItem('cat'));
+    await tester.pumpAndSettle();
+    expect(users.requests, contains('bookmarks:100:public:cat'));
+    expect(
+      find.descendant(of: tagFilter, matching: find.text('标签：cat')),
+      findsOneWidget,
+    );
+
+    // A visibility change clears the tag: tags are per visibility.
+    await tester.tap(restrictFilter);
+    await tester.pumpAndSettle();
+    await tester.tap(menuItem('私密'));
+    await tester.pumpAndSettle();
+    expect(users.requests, contains('bookmarks:100:private:'));
+    expect(
+      find.descendant(of: tagFilter, matching: find.text('标签：全部')),
+      findsOneWidget,
+    );
+
+    // Follows: the visibility filter alone, sharing the same value.
+    await tester.tap(
+      find.descendant(of: find.byType(TabBar), matching: find.text('关注')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: restrictFilter.hitTestable(),
+        matching: find.text('私密'),
+      ),
+      findsOneWidget,
+    );
+    expect(tagFilter.hitTestable(), findsNothing);
+  });
+
+  testWidgets('a long tag list sends the rest to the tag page', (tester) async {
+    final bookmarks = RecordingBookmarkRepository()
+      ..tagPage = UserBookmarkTagPage(
+        tags: [
+          for (var i = 0; i < 11; i++)
+            UserBookmarkTag(name: 'tag $i', count: 1),
+        ],
+        nextUrl: null,
+      );
+    final container = await makeProfileWorld(
+      users: FakeUserRepository(
+        detail: sampleUser(100).copyWith(hasDetail: true),
+      ),
+      bookmarks: bookmarks,
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: MePage(onEditProfile: () {}),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('profile-filter-tag')));
+    await tester.pumpAndSettle();
+    Finder menuItem(String label) => find.descendant(
+      of: find.byType(MenuItemButton),
+      matching: find.text(label),
+    );
+    expect(menuItem('tag 9'), findsOneWidget);
+    expect(menuItem('tag 10'), findsNothing);
+    expect(menuItem('更多标签…'), findsOneWidget);
   });
 
   testWidgets('a profile without works opens on its first other tab', (
@@ -1841,9 +1938,6 @@ void main() {
                       user: sampleUser(42),
                       isMe: true,
                       selectedTabIndex: 0,
-                      showRestrictSelector: false,
-                      restrict: UserRestrict.public,
-                      onRestrictChanged: (_) {},
                       onShare: (_) {},
                       expandedExtent: extent,
                       onExpandedExtentMeasured: onMeasured,
