@@ -252,14 +252,19 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.more_vert));
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    // A row-anchored menu with the one action, not a bottom sheet.
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(
+      find.widgetWithIcon(MenuItemButton, Icons.delete_outline),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byIcon(Icons.delete_outline));
     await tester.pumpAndSettle();
-    // The sheet popped and the shared confirm dialog (showAppDialog →
+    // The menu closed and the shared confirm dialog (showAppDialog →
     // AlertDialog) is up — its opening fired the explicit vibration;
     // the neutral overflow menu itself stayed silent.
-    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byType(MenuItemButton), findsNothing);
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(haptics.roles, [HapticRole.confirm]);
     expect(
@@ -346,7 +351,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.more_vert));
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.delete_outline), findsOneWidget);
-    // Close the sheet and drain its settle timer before teardown.
+    // Close the menu and drain its settle timer before teardown.
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
   });
