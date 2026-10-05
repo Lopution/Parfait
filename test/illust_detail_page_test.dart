@@ -185,8 +185,8 @@ Future<void> longPressImage(WidgetTester tester) async {
 
 // Hidden chrome stays mounted (Opacity 0 + ExcludeSemantics — dropping it
 // from the tree races the semantics flush). Visibility assertions check
-// the bars' opacity and the toggle icon rather than whether finders still
-// see the (mounted) counter text.
+// the bars' opacity rather than whether finders still see the (mounted)
+// counter text.
 void expectViewerChrome(WidgetTester tester, {required bool visible}) {
   final bars = tester
       .widgetList<Opacity>(
@@ -197,10 +197,6 @@ void expectViewerChrome(WidgetTester tester, {required bool visible}) {
   for (final bar in bars) {
     expect(bar.opacity, visible ? 1.0 : 0.0);
   }
-  expect(
-    find.byIcon(visible ? Icons.fullscreen : Icons.fullscreen_exit),
-    findsOneWidget,
-  );
 }
 
 /// The fixture's `create_date` as the device shows it.
@@ -247,13 +243,12 @@ void main() {
           ),
         );
         await tester.pump();
-        // The counter lives in both chrome bars (top title + bottom
-        // jump-to-page entry).
-        expect(find.text('2 / 2'), findsNWidgets(2));
+        // One page counter, in the top bar.
+        expect(find.text('2 / 2'), findsOneWidget);
 
         await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
         await tester.pumpAndSettle();
-        expect(find.text('1 / 2'), findsNWidgets(2));
+        expect(find.text('1 / 2'), findsOneWidget);
       });
     });
 
@@ -462,7 +457,7 @@ void main() {
             1000,
           );
           await tester.pumpAndSettle();
-          expect(find.text('2 / 2'), findsNWidgets(2));
+          expect(find.text('2 / 2'), findsOneWidget);
           expectViewerChrome(tester, visible: false);
 
           // A route swap (replaceImageViewerPage builds a fresh widget on a
@@ -581,7 +576,7 @@ void main() {
       },
     );
 
-    testWidgets('the page counter opens the jump-to-page sheet', (
+    testWidgets('the page counter opens the thumbnail jump sheet', (
       tester,
     ) async {
       await mockNetworkImagesFor(() async {
@@ -601,13 +596,66 @@ void main() {
           ),
         );
         await tester.pump();
-        expect(find.text('1 / 3'), findsNWidgets(2));
+        expect(find.text('1 / 3'), findsOneWidget);
 
-        await tester.tap(find.text('1 / 3').last);
+        await tester.tap(find.text('1 / 3'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('3'));
+        // A grid of thumbnails, the current page marked selected.
+        for (var page = 0; page < 3; page++) {
+          expect(
+            tester.getSemantics(find.byKey(ValueKey('viewer-jump-page-$page'))),
+            matchesSemantics(
+              label: '第 ${page + 1} 页，共 3 页',
+              isButton: true,
+              hasSelectedState: true,
+              isSelected: page == 0,
+              hasTapAction: true,
+            ),
+          );
+        }
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('viewer-jump-page-2')),
+            matching: find.byType(PixivImage),
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.byKey(const ValueKey('viewer-jump-page-2')));
         await tester.pumpAndSettle();
-        expect(find.text('3 / 3'), findsNWidgets(2));
+        expect(find.text('3 / 3'), findsOneWidget);
+        expect(find.byKey(const ValueKey('viewer-jump-page-2')), findsNothing);
+      });
+    });
+
+    testWidgets('the jump sheet opens on the current page of a long work', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: ImageViewerPage(
+              urls: [
+                for (var i = 0; i < 60; i++) 'https://i.pximg.net/$i/large.jpg',
+              ],
+              initialPage: 50,
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.tap(find.text('51 / 60'));
+        await tester.pumpAndSettle();
+
+        final current = find.byKey(const ValueKey('viewer-jump-page-50'));
+        expect(current, findsOneWidget);
+        final sheet = tester.getRect(find.byType(GridView));
+        final cell = tester.getRect(current);
+        expect(sheet.top, lessThanOrEqualTo(cell.top));
+        expect(sheet.bottom, greaterThanOrEqualTo(cell.bottom));
+        // Cells keep about 96dp and at least three columns.
+        expect(cell.width, inInclusiveRange(72, 120));
       });
     });
 
@@ -630,7 +678,9 @@ void main() {
         expect(find.byIcon(Icons.info_outline), findsNothing);
         // Entity-independent chrome stays available.
         expect(find.byIcon(Icons.fit_screen), findsOneWidget);
-        expect(find.byIcon(Icons.fullscreen), findsOneWidget);
+        // A tap on the artwork hides the chrome: no fullscreen button.
+        expect(find.byIcon(Icons.fullscreen), findsNothing);
+        expect(find.byIcon(Icons.fullscreen_exit), findsNothing);
       });
     });
 
@@ -800,10 +850,10 @@ void main() {
           // Arrows page forward/back.
           await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
           await tester.pumpAndSettle();
-          expect(find.text('2 / 2'), findsNWidgets(2));
+          expect(find.text('2 / 2'), findsOneWidget);
           await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
           await tester.pumpAndSettle();
-          expect(find.text('1 / 2'), findsNWidgets(2));
+          expect(find.text('1 / 2'), findsOneWidget);
 
           // +/- zoom in place, 0 resets.
           await tester.sendKeyEvent(LogicalKeyboardKey.equal);
@@ -861,7 +911,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(scale(), greaterThan(1.0));
           // The pager must not consume the wheel event — still page 1.
-          expect(find.text('1 / 2'), findsNWidgets(2));
+          expect(find.text('1 / 2'), findsOneWidget);
           await tester.sendEventToBinding(
             PointerScrollEvent(
               position: center,
@@ -880,7 +930,7 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          expect(find.text('2 / 2'), findsNWidgets(2));
+          expect(find.text('2 / 2'), findsOneWidget);
           await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
         });
       },

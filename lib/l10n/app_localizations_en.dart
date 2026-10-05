@@ -2596,12 +2596,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get viewerEnterFullscreen => 'Enter fullscreen';
-
-  @override
-  String get viewerExitFullscreen => 'Exit fullscreen';
-
-  @override
   String get viewerFitScreen => 'Fit to screen';
 
   @override

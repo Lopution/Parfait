@@ -2530,12 +2530,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get viewerEnterFullscreen => '全画面表示';
-
-  @override
-  String get viewerExitFullscreen => '全画面を終了';
-
-  @override
   String get viewerFitScreen => '画面に合わせる';
 
   @override

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -26,6 +27,7 @@ import '../../../app/system_ui.dart';
 import '../../../app/theme/func_tokens.dart';
 import '../../../l10n/lookup.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/entity_row.dart' show EntityBadge;
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../l10n/context.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
@@ -53,7 +55,7 @@ void debugResetViewerSession() {
 }
 
 /// Fullscreen horizontal viewer replicating beta56 ImageScalePage
-/// (R3): `n / total` title, horizontal paging, per-page zoom clamped to
+/// (R3): `n / total` counter in the top bar, horizontal paging, per-page zoom clamped to
 /// 0.9–6.0, initial page restored, swiping suspended while zoomed.
 class ImageViewerPage extends ConsumerStatefulWidget {
   const ImageViewerPage({
@@ -335,48 +337,39 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     }
   }
 
-  /// Page counter → jump sheet: same destination as a swipe, routed through
-  /// PageController so `onPageChanged` still replaces the route.
-  void _openPageSheet() {
-    unawaited(
-      showAppBottomSheet<void>(
-        context: context,
-        showDragHandle: true,
-        builder: (sheetContext) {
-          return SafeArea(
-            child: GridView.builder(
-              shrinkWrap: true,
-              padding: const EdgeInsets.all(FuncSpacing.lg),
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 72,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-              ),
-              itemCount: _pageCount,
-              itemBuilder: (context, index) {
-                final active = index == _activePage;
-                return InkWell(
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _pageController.jumpToPage(index);
-                  },
-                  child: Center(
-                    child: Text(
-                      '${index + 1}',
-                      style: TextStyle(
-                        fontWeight: active
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          );
-        },
-      ),
+  /// Page counter → thumbnail jump sheet: same destination as a swipe,
+  /// routed through PageController so `onPageChanged` still replaces the
+  /// route. A jump across many pages does not animate the pages between.
+  ///
+  /// The jump waits until the sheet has finished closing: while the modal
+  /// route is still on screen it blocks the viewer's semantics, and the
+  /// counter's label changing under it trips the semantics flush
+  /// (`node.built`).
+  Future<void> _openPageSheet() async {
+    final entity = widget.entity;
+    TransitionRoute<int>? sheetRoute;
+    final page = await showAppBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        sheetRoute ??= ModalRoute.of(sheetContext) as TransitionRoute<int>?;
+        return SafeArea(
+          child: _PageJumpGrid(
+            count: _pageCount,
+            current: _activePage,
+            // The square tier when the work is known; a cold deep link only
+            // has the viewer URLs, decoded at the cell size.
+            thumbnailFor: (page) =>
+                entity?.squareUrlAt(page) ?? widget.urls[page],
+            onSelected: (page) => Navigator.of(sheetContext).pop(page),
+          ),
+        );
+      },
     );
+    if (page == null) return;
+    await sheetRoute?.completed;
+    if (!mounted) return;
+    _pageController.jumpToPage(page);
   }
 
   /// Info sheet — the viewer stays put; meta (title/author/date/id/pages)
@@ -750,10 +743,10 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     );
   }
 
-  /// Top chrome: back affordance + the `n / total` counter. The counter is
-  /// plain text here — it becomes a jump-to-page entry with the bottom
-  /// toolbar (stage C13).
+  /// Top chrome: back affordance + the `n / total` counter, the viewer's
+  /// only page counter. Tapping it opens the thumbnail jump sheet.
   Widget _buildTopBar(BuildContext context) {
+    final color = FuncTokens.lightBackground;
     return Material(
       color: Colors.transparent,
       child: SafeArea(
@@ -762,17 +755,26 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
           children: [
             // Imperative pop: explicit exits never route through the
             // system-back intercept chain (W1 split).
-            BackButton(
-              color: FuncTokens.lightBackground,
-              onPressed: _imperativePop,
-            ),
+            BackButton(color: color, onPressed: _imperativePop),
             const Spacer(),
+            // Empty state honesty: no misleading "1 / 0" counter.
             if (_pageCount > 0)
-              Padding(
-                padding: const EdgeInsets.only(right: FuncSpacing.lg),
-                child: Text(
-                  '${_activePage + 1} / $_pageCount',
-                  style: TextStyle(color: FuncTokens.lightBackground).tabular,
+              TextButton(
+                key: const Key('viewer-page-counter'),
+                style: TextButton.styleFrom(
+                  foregroundColor: color,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: FuncSpacing.lg,
+                  ),
+                  minimumSize: const Size.square(kMinInteractiveDimension),
+                  textStyle: Theme.of(context).textTheme.bodyMedium?.tabular,
+                ),
+                onPressed: _openPageSheet,
+                // Inside the button, so its one node carries both the
+                // count and what tapping it does.
+                child: Tooltip(
+                  message: context.l10n.viewerJumpToPage,
+                  child: Text('${_activePage + 1} / $_pageCount'),
                 ),
               ),
           ],
@@ -781,9 +783,10 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     );
   }
 
-  /// Bottom chrome: page counter (jump sheet) on the left; fit / fullscreen
-  /// / save / share / info on the right. Entity-bound actions render only
-  /// when the route resolved an entity (deep-link snapshot case skips them).
+  /// Bottom chrome: fit / save / share / info at the end. A single tap on
+  /// the artwork (or F) hides the chrome, so there is no fullscreen button.
+  /// Entity-bound actions render only when the route resolved an entity
+  /// (deep-link snapshot case skips them).
   Widget _buildBottomBar(BuildContext context, IllustPageSaveState? saveState) {
     final entity = widget.entity;
     final l10n = context.l10n;
@@ -795,42 +798,11 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
         top: false,
         child: Row(
           children: [
-            // Empty state honesty: no misleading "1 / 0" counter. The jump
-            // slot stays mounted but inert (consistent with the disabled
-            // action buttons rather than a layout that loses its chrome).
-            Tooltip(
-              message: l10n.viewerJumpToPage,
-              child: InkWell(
-                onTap: hasPages ? _openPageSheet : null,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: FuncSpacing.lg,
-                    vertical: FuncSpacing.md,
-                  ),
-                  child: hasPages
-                      ? Text(
-                          '${_activePage + 1} / $_pageCount',
-                          style: TextStyle(color: color).tabular,
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ),
-            ),
             const Spacer(),
             IconButton(
               tooltip: l10n.viewerFitScreen,
               onPressed: hasPages ? _resetZoom : null,
               icon: Icon(Icons.fit_screen, color: color),
-            ),
-            IconButton(
-              tooltip: _chromeVisible
-                  ? l10n.viewerEnterFullscreen
-                  : l10n.viewerExitFullscreen,
-              onPressed: hasPages ? _toggleChrome : null,
-              icon: Icon(
-                _chromeVisible ? Icons.fullscreen : Icons.fullscreen_exit,
-                color: color,
-              ),
             ),
             if (entity != null) ...[
               IconButton(
@@ -962,6 +934,158 @@ class _ChromeEdgeBarState extends State<_ChromeEdgeBar>
             ),
             child: widget.child,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The jump sheet's thumbnail grid: about [_cellExtent] per cell, at least
+/// [_minColumns] across. The current page carries a primary outline and
+/// opens scrolled into view.
+class _PageJumpGrid extends StatefulWidget {
+  const _PageJumpGrid({
+    required this.count,
+    required this.current,
+    required this.thumbnailFor,
+    required this.onSelected,
+  });
+
+  static const double _cellExtent = 96;
+  static const int _minColumns = 3;
+  static const double _spacing = FuncSpacing.sm;
+  static const double _padding = FuncSpacing.lg;
+
+  /// The grid scrolls past this share of the screen height.
+  static const double _maxHeightFactor = 0.6;
+
+  final int count;
+  final int current;
+  final String Function(int page) thumbnailFor;
+  final ValueChanged<int> onSelected;
+
+  @override
+  State<_PageJumpGrid> createState() => _PageJumpGridState();
+}
+
+class _PageJumpGridState extends State<_PageJumpGrid> {
+  ScrollController? _scroll;
+
+  @override
+  void dispose() {
+    _scroll?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = _PageJumpGrid._spacing;
+        const padding = _PageJumpGrid._padding;
+        final inner = constraints.maxWidth - padding * 2;
+        final columns = math.max(
+          _PageJumpGrid._minColumns,
+          ((inner + spacing) / (_PageJumpGrid._cellExtent + spacing)).floor(),
+        );
+        final cell = (inner - spacing * (columns - 1)) / columns;
+        final rows = (widget.count / columns).ceil();
+        final rowExtent = cell + spacing;
+        final contentHeight = rows * rowExtent - spacing + padding * 2;
+        final height = math.min(
+          contentHeight,
+          MediaQuery.sizeOf(context).height * _PageJumpGrid._maxHeightFactor,
+        );
+        // The current page's row opens with one row of context above it.
+        final currentRow = widget.current ~/ columns;
+        _scroll ??= ScrollController(
+          initialScrollOffset: ((currentRow - 1) * rowExtent).clamp(
+            0,
+            math.max(0, contentHeight - height),
+          ),
+        );
+        return SizedBox(
+          height: height,
+          child: GridView.builder(
+            controller: _scroll,
+            padding: const EdgeInsets.all(padding),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              mainAxisSpacing: spacing,
+              crossAxisSpacing: spacing,
+            ),
+            itemCount: widget.count,
+            itemBuilder: (context, page) => _PageThumbnail(
+              page: page,
+              count: widget.count,
+              url: widget.thumbnailFor(page),
+              extent: cell,
+              current: page == widget.current,
+              onTap: () => widget.onSelected(page),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PageThumbnail extends StatelessWidget {
+  const _PageThumbnail({
+    required this.page,
+    required this.count,
+    required this.url,
+    required this.extent,
+    required this.current,
+    required this.onTap,
+  });
+
+  static const double _outline = 2;
+  static const double _badgeInset = FuncSpacing.xs;
+
+  final int page;
+  final int count;
+  final String url;
+  final double extent;
+  final bool current;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Semantics(
+      key: ValueKey('viewer-jump-page-$page'),
+      container: true,
+      button: true,
+      selected: current,
+      label: context.l10n.viewerPageLabel(page + 1, count),
+      onTap: onTap,
+      excludeSemantics: true,
+      child: ClipRRect(
+        borderRadius: FuncShape.control,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            PixivImage.feed(url, layoutWidth: extent),
+            PositionedDirectional(
+              start: _badgeInset,
+              bottom: _badgeInset,
+              child: EntityBadge(label: '${page + 1}'),
+            ),
+            Material(
+              type: MaterialType.transparency,
+              child: InkWell(onTap: onTap),
+            ),
+            if (current)
+              IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: FuncShape.control,
+                    border: Border.all(color: primary, width: _outline),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

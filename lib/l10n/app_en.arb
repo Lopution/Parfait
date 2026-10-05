@@ -1131,8 +1131,6 @@
       }
     }
   },
-  "viewerEnterFullscreen": "Enter fullscreen",
-  "viewerExitFullscreen": "Exit fullscreen",
   "viewerFitScreen": "Fit to screen",
   "viewerSavePage": "Save current page",
   "viewerJumpToPage": "Jump to page",
