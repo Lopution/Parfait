@@ -22,6 +22,7 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
+import 'package:parfait/app/theme/func_tokens.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
@@ -107,60 +108,97 @@ void main() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
-  testWidgets('every corner badge uses the shared EntityBadge container', (
-    tester,
-  ) async {
-    final container = await _makeWorld();
-    addTearDown(container.dispose);
-    await _pumpCard(
-      tester,
-      container,
-      IllustCard(
-        entity: parseIllust(
-          illustJson(1, xRestrict: 1, aiType: 2, pageCount: 3),
-        ),
-      ),
+  group('corner badges', () {
+    final entity = parseIllust(
+      illustJson(1, type: 'ugoira', xRestrict: 1, aiType: 2, pageCount: 3),
     );
 
-    // R-18 + pageCount + AI = three badges; each is the shared container —
-    // the same radius and padding, only the semantic fill differs.
-    final badges = find
-        .descendant(
+    Finder badgeWith(Finder content) =>
+        find.ancestor(of: content, matching: find.byType(EntityBadge));
+
+    BoxDecoration fillOf(WidgetTester tester, Finder badge) =>
+        tester
+                .widget<DecoratedBox>(
+                  find.descendant(
+                    of: badge,
+                    matching: find.byType(DecoratedBox),
+                  ),
+                )
+                .decoration
+            as BoxDecoration;
+
+    for (final brightness in Brightness.values) {
+      testWidgets('one scrim, shape and size in the ${brightness.name} theme', (
+        tester,
+      ) async {
+        final container = await _makeWorld();
+        addTearDown(container.dispose);
+        await _pumpCard(
+          tester,
+          container,
+          IllustCard(entity: entity),
+          theme: replicaTheme(brightness),
+        );
+
+        final badges = find.descendant(
           of: find.byType(IllustCard),
           matching: find.byType(EntityBadge),
-        )
-        .evaluate()
-        .toList();
-    expect(badges, hasLength(3));
-    for (final badge in badges) {
-      final containerWidget = tester.widget<Container>(
-        find.descendant(
-          of: find.byWidget(badge.widget),
-          matching: find.byType(Container),
-        ),
-      );
-      expect(
-        (containerWidget.decoration as BoxDecoration).borderRadius,
-        FuncShape.control,
-      );
-      expect(
-        containerWidget.padding,
-        const EdgeInsets.symmetric(
-          horizontal: FuncSpacing.xs,
-          vertical: FuncSpacing.xxs,
-        ),
-      );
+        );
+        expect(badges, findsNWidgets(4));
+        for (var i = 0; i < 4; i++) {
+          final fill = fillOf(tester, badges.at(i));
+          // The scrim ignores the theme and never takes a semantic color:
+          // AI is no longer painted as an error.
+          expect(fill.color, FuncTokens.imageControl);
+          expect(fill.borderRadius, FuncShape.badge);
+          expect(tester.getSize(badges.at(i)).height, EntityBadge.height);
+        }
+
+        // Each marker keeps its corner, 7dp inside the image.
+        final image = tester.getRect(find.byType(PixivImage));
+        final r18 = tester.getRect(badgeWith(find.text('R-18')));
+        final pages = tester.getRect(badgeWith(find.text('3')));
+        final ugoira = tester.getRect(
+          badgeWith(find.byIcon(Icons.gif_box_outlined)),
+        );
+        final ai = tester.getRect(badgeWith(find.text('AI')));
+        expect(r18.topLeft - image.topLeft, const Offset(7, 7));
+        expect(image.topRight - pages.topRight, const Offset(7, -7));
+        expect(ugoira.bottomLeft - image.bottomLeft, const Offset(7, -7));
+        expect(image.bottomRight - ai.bottomRight, const Offset(7, 7));
+      });
     }
-    expect(find.text('R-18'), findsOneWidget);
-    expect(
-      find.text('3'),
-      findsOneWidget,
-    ); // page count    expect(find.text('AI'), findsOneWidget);
+
+    testWidgets('icons and spoken labels', (tester) async {
+      final container = await _makeWorld();
+      addTearDown(container.dispose);
+      await _pumpCard(tester, container, IllustCard(entity: entity));
+
+      // The page count leads with an icon.
+      expect(
+        find.descendant(
+          of: badgeWith(find.text('3')),
+          matching: find.byIcon(Icons.photo_library_outlined),
+        ),
+        findsOneWidget,
+      );
+      // Each badge speaks a full word inside the card's merged label; the
+      // icon-only ugoira badge would otherwise be silent.
+      final label = tester
+          .getSemantics(find.byType(PixivImage))
+          .getSemanticsData()
+          .label;
+      expect(label.split('\n'), [
+        'illust 1, author',
+        'R-18',
+        '动图',
+        '共 3 页',
+        'AI 生成',
+      ]);
+    });
   });
 
-  testWidgets('rank badge stacks above R-18 in the top-left cluster', (
-    tester,
-  ) async {
+  testWidgets('the rank leads the title line, not the image', (tester) async {
     final container = await _makeWorld();
     addTearDown(container.dispose);
     await _pumpCard(
@@ -168,26 +206,20 @@ void main() {
       container,
       IllustCard(entity: parseIllust(illustJson(2, xRestrict: 1)), rank: 7),
     );
-    expect(find.text('7'), findsOneWidget);
-    expect(find.text('R-18'), findsOneWidget);
-    // Both pills share the primary semantic fill, staggered vertically:
-    // the rank sits directly above R-18 on the same left edge (PRD R2).
-    final rankBadge = find.ancestor(
-      of: find.text('7'),
-      matching: find.byType(EntityBadge),
-    );
-    final r18Badge = find.ancestor(
-      of: find.text('R-18'),
-      matching: find.byType(EntityBadge),
-    );
+
+    expect(find.byType(EntityRankLabel), findsOneWidget);
     expect(
-      tester.widget<EntityBadge>(rankBadge).color,
-      Theme.of(tester.element(find.byType(IllustCard))).colorScheme.primary,
+      find.ancestor(of: find.text('7'), matching: find.byType(EntityBadge)),
+      findsNothing,
     );
-    final rankTopLeft = tester.getTopLeft(rankBadge);
-    final r18TopLeft = tester.getTopLeft(r18Badge);
-    expect(rankTopLeft.dx, r18TopLeft.dx);
-    expect(rankTopLeft.dy, lessThan(r18TopLeft.dy));
+    // Below the image, on the title's baseline, ahead of the title.
+    final image = tester.getRect(find.byType(PixivImage));
+    final rank = tester.getRect(find.text('7'));
+    final title = tester.getRect(find.text('illust 2'));
+    expect(rank.top, greaterThanOrEqualTo(image.bottom));
+    expect(rank.right, lessThan(title.left));
+    expect(rank.bottom, moreOrLessEquals(title.bottom, epsilon: 2));
+    expect(find.bySemanticsLabel('第 7 名, illust 2'), findsOneWidget);
   });
 
   testWidgets('the loading placeholder reads the container surface tier', (

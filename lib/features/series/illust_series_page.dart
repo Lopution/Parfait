@@ -9,6 +9,7 @@ import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pixiv_image.dart';
+import '../../app/widgets/author_row.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
@@ -214,18 +215,7 @@ class _SeriesHeader extends ConsumerWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: FuncSpacing.xs),
-                    InkWell(
-                      onTap: () => openUser(context, detail.userId),
-                      child: Text(
-                        detail.userName,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.primary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                    AuthorRow(userId: detail.userId, name: detail.userName),
                     if (detail.workCount != null)
                       Text(
                         context.l10n.seriesWorksCount(detail.workCount!),

@@ -227,7 +227,7 @@ void main() {
     expect(fixture.requests.last.queryParameters['mode'], 'day_male');
   });
 
-  testWidgets('rank badges land on the ranked novel entries', (tester) async {
+  testWidgets('ranks land on the ranked novel entries', (tester) async {
     final (container, fixture) = await _makeWorld();
     addTearDown(container.dispose);
 
@@ -245,8 +245,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // The first day-mode page carries novels 1 and 2; each entry pins
-      // its rank pill to the cover's top-left corner (O4).
+      // The first day-mode page carries novels 1 and 2; each entry leads
+      // its title line with the rank.
       final entries = find.byType(NovelEntry);
       expect(entries, findsNWidgets(2));
       expect(

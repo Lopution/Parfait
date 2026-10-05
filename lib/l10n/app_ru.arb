@@ -1166,6 +1166,12 @@
       }
     }
   },
+  "badgeUgoira": "Анимация",
+  "badgeAi": "Создано ИИ",
+  "rankLabel": "{rank}-е место",
+  "openAuthorProfile": "Открыть профиль автора",
+  "expandText": "Развернуть",
+  "collapseText": "Свернуть",
   "illustInfoJump": "К информации о работе",
   "@illustInfoJump": {
     "description": "Scrolls to the artwork info section"
@@ -1191,6 +1197,9 @@
   "@watchLaterRemoved": {
     "description": "SnackBar shown after removing a watch-later entry; offers undo"
   },
+  "bookmarkRemoved": "Удалено из закладок",
+  "followRemoved": "Вы отписались",
+  "muteRemoved": "Скрытие снято",
   "watchlistOpenContents": "Открыть содержание",
   "@watchlistOpenContents": {
     "description": "Watchlist sheet action: open the manga series contents page"

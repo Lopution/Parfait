@@ -1166,6 +1166,12 @@
       }
     }
   },
+  "badgeUgoira": "Animated",
+  "badgeAi": "AI-generated",
+  "rankLabel": "No. {rank}",
+  "openAuthorProfile": "Open the author's profile",
+  "expandText": "Show more",
+  "collapseText": "Show less",
   "illustInfoJump": "Jump to artwork info",
   "@illustInfoJump": {
     "description": "Scrolls to the artwork info section"
@@ -1191,6 +1197,9 @@
   "@watchLaterRemoved": {
     "description": "SnackBar shown after removing a watch-later entry; offers undo"
   },
+  "bookmarkRemoved": "Removed from bookmarks",
+  "followRemoved": "Unfollowed",
+  "muteRemoved": "Unmuted",
   "watchlistOpenContents": "Open contents",
   "@watchlistOpenContents": {
     "description": "Watchlist sheet action: open the manga series contents page"

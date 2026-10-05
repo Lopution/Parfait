@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
+import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/widgets/card_actions/illust_card_actions.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/feed/muted_cover.dart';
@@ -92,6 +93,84 @@ void main() {
       );
       expect(find.bySemanticsLabel(label), findsWidgets);
     }
+  });
+
+  testWidgets('the sheet names the work it acts on', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final (container, _, _) = await makeCardWorld();
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
+      );
+      await _openSheet(tester);
+    });
+
+    final sheet = find.byType(BottomSheet);
+    Finder inSheet(Finder finder) =>
+        find.descendant(of: sheet, matching: finder);
+    final thumbnail = tester.widget<PixivImage>(
+      inSheet(find.byType(PixivImage)),
+    );
+    expect(thumbnail.url, 'https://i.pximg.net/7/square.jpg');
+    expect(
+      tester.getSize(inSheet(find.byType(PixivImage))),
+      const Size.square(48),
+    );
+    expect(inSheet(find.text('illust 7')), findsOneWidget);
+    expect(inSheet(find.text('author')), findsOneWidget);
+    // Above the first action.
+    expect(
+      tester.getBottomLeft(inSheet(find.text('author'))).dy,
+      lessThanOrEqualTo(
+        tester.getTopLeft(find.widgetWithText(ListTile, '收藏')).dy,
+      ),
+    );
+    expect(find.bySemanticsLabel('illust 7'), findsWidgets);
+    semantics.dispose();
+  });
+
+  testWidgets('a muted work keeps its thumbnail hidden in the sheet', (
+    tester,
+  ) async {
+    final (container, _, _) = await makeCardWorld();
+    await container.read(muteStoreProvider.notifier).toggleWork(7);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
+      );
+      await _openSheet(tester);
+    });
+
+    final sheet = find.byType(BottomSheet);
+    expect(
+      find.descendant(of: sheet, matching: find.byType(PixivImage)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: sheet,
+        matching: find.byIcon(Icons.visibility_off_outlined),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('unmuting from the card offers Undo', (tester) async {
+    final (container, _, _) = await makeCardWorld();
+    await container.read(muteStoreProvider.notifier).toggleWork(7);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
+      );
+      await _openSheet(tester);
+      await _tapEntry(tester, '解除屏蔽此作品');
+    });
+    expect(container.read(muteStoreProvider).isWorkMuted(7), isFalse);
+    expect(find.text('已解除屏蔽'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(SnackBarAction, '撤销'));
+    await tester.pumpAndSettle();
+    expect(container.read(muteStoreProvider).isWorkMuted(7), isTrue);
   });
 
   testWidgets('watch-later action adds, then the sheet offers remove', (

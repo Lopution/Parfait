@@ -11,7 +11,9 @@ import '../../../../app/theme/func_semantic_tokens.dart';
 import '../../../../app/widgets/errors/error_details.dart';
 import '../../../../app/widgets/author_summary.dart';
 import '../../../../app/widgets/tag_chips.dart';
+import '../../../../app/widgets/unmute_undo.dart';
 import '../../../../core/entity/illust_entity.dart';
+import '../../../../core/mute/mute_models.dart';
 import '../../../../core/mute/mute_store.dart';
 import '../../../../l10n/context.dart';
 import '../../../../app/widgets/caption_rich_text.dart';
@@ -132,17 +134,12 @@ class InfoBlock extends ConsumerWidget {
                   onTap: () {
                     if (blockMode) {
                       unawaited(
-                        muteStore.toggleTag(tag.name).catchError((
-                          Object error,
-                        ) {
-                          if (context.mounted) {
-                            showErrorSnackBar(
-                              context,
-                              action: context.l10n.muteFailed,
-                              error: error,
-                            );
-                          }
-                        }),
+                        _toggleTagMute(
+                          context,
+                          muteStore,
+                          tag.name,
+                          muted: mutedTags.contains(tag.name),
+                        ),
                       );
                     } else {
                       openTagSearch(context, tag.name);
@@ -225,18 +222,12 @@ class InfoBlock extends ConsumerWidget {
                   onTap: () {
                     Navigator.of(sheetContext).pop();
                     unawaited(
-                      ref
-                          .read(muteStoreProvider.notifier)
-                          .toggleTag(tag.name)
-                          .catchError((Object error) {
-                            if (context.mounted) {
-                              showErrorSnackBar(
-                                context,
-                                action: context.l10n.muteFailed,
-                                error: error,
-                              );
-                            }
-                          }),
+                      _toggleTagMute(
+                        context,
+                        ref.read(muteStoreProvider.notifier),
+                        tag.name,
+                        muted: muted,
+                      ),
                     );
                   },
                 ),
@@ -285,4 +276,23 @@ class _StatItem extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Mutes or unmutes [tag]; a failure shows the error, a landed unmute
+/// offers Undo.
+Future<void> _toggleTagMute(
+  BuildContext context,
+  MuteStore store,
+  String tag, {
+  required bool muted,
+}) async {
+  try {
+    await store.toggleTag(tag);
+  } on Object catch (error) {
+    if (context.mounted) {
+      showErrorSnackBar(context, action: context.l10n.muteFailed, error: error);
+    }
+    return;
+  }
+  if (muted && context.mounted) showUnmuteUndo(context, MuteKey.tag(tag));
 }

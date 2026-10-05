@@ -50,8 +50,8 @@ class IllustCard extends StatefulWidget {
   final IllustEntity entity;
   final String heroScope;
 
-  /// Optional rank badge (ranking lists) — pins a numbered pill to the
-  /// top-left badge cluster, ahead of R-18.
+  /// Ranking position (ranking lists), shown at the start of the title line
+  /// ([EntityRankLabel]) and read as "No. n, title".
   final int? rank;
 
   /// Optional meta line under the author (the history page's date row).
@@ -134,7 +134,6 @@ class _IllustCardBody extends ConsumerWidget {
     WidgetRef ref,
     double cardWidth,
   ) {
-    final colorScheme = Theme.of(context).colorScheme;
     final cardDecodeWidth = PixivImage.decodeWidthFor(cardWidth);
     // Beta56 IllustPreviewer semantics: the preview height follows the
     // original aspect ratio up to 1:2. Taller works crop to the top of
@@ -219,7 +218,7 @@ class _IllustCardBody extends ConsumerWidget {
                 ? MutedCover(reasonLabel: mutedHit.label, child: image)
                 : Stack(
                     fit: StackFit.expand,
-                    children: [image, ..._buildBadges(context, colorScheme)],
+                    children: [image, ..._buildBadges(context)],
                   ),
           ),
         ),
@@ -269,51 +268,37 @@ class _IllustCardBody extends ConsumerWidget {
     );
   }
 
-  List<Widget> _buildBadges(BuildContext context, ColorScheme colorScheme) {
-    final rank = this.rank;
+  List<Widget> _buildBadges(BuildContext context) {
+    final l10n = context.l10n;
+    // Four fixed corner slots, 7dp inside the image. The ranking position
+    // is not a badge — it leads the title line.
     return [
-      // The four corner slots are fixed; rank joins the top-left cluster
-      // stacked vertically above R-18 so a ranked R-18 work keeps both
-      // markers without widening the corner cluster.
-      if (rank != null || entity.isR18)
+      if (entity.isR18)
+        const Positioned(left: 7, top: 7, child: EntityBadge(label: 'R-18')),
+      if (entity.isUgoira)
         Positioned(
           left: 7,
-          top: 7,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (rank != null) ...[
-                EntityRankBadge(rank),
-                if (entity.isR18) const SizedBox(height: FuncSpacing.xs),
-              ],
-              if (entity.isR18)
-                EntityBadge(
-                  color: colorScheme.primary,
-                  child: const Text('R-18'),
-                ),
-            ],
-          ),
-        ),
-      if (entity.isUgoira)
-        const Positioned(
-          left: 7,
           bottom: 7,
-          child: EntityBadge(child: Icon(Icons.gif_box_outlined, size: 30)),
+          child: EntityBadge(
+            icon: Icons.gif_box_outlined,
+            semanticsLabel: l10n.badgeUgoira,
+          ),
         ),
       if (entity.pageCount > 1)
         Positioned(
           right: 7,
           top: 7,
           child: EntityBadge(
-            child: Text(AppFormat.count(context, entity.pageCount)),
+            icon: Icons.photo_library_outlined,
+            label: AppFormat.count(context, entity.pageCount),
+            semanticsLabel: l10n.illustPagesTotal(entity.pageCount),
           ),
         ),
       if (entity.isAi)
         Positioned(
           right: 7,
           bottom: 7,
-          child: EntityBadge(color: colorScheme.error, child: const Text('AI')),
+          child: EntityBadge(label: 'AI', semanticsLabel: l10n.badgeAi),
         ),
     ];
   }
@@ -328,14 +313,7 @@ class _IllustCardBody extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                entity.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: FuncSemanticTokens.of(
-                  context,
-                ).label.copyWith(fontWeight: FontWeight.bold),
-              ),
+              _buildTitleLine(context),
               Text(
                 entity.user.name,
                 maxLines: 1,
@@ -348,6 +326,32 @@ class _IllustCardBody extends ConsumerWidget {
         ),
         BookmarkSwitchButton(illustId: entity.id, title: entity.title),
       ],
+    );
+  }
+
+  Widget _buildTitleLine(BuildContext context) {
+    final title = Text(
+      entity.title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: FuncSemanticTokens.of(
+        context,
+      ).label.copyWith(fontWeight: FontWeight.bold),
+    );
+    final rank = this.rank;
+    if (rank == null) return title;
+    return Semantics(
+      label: '${context.l10n.rankLabel(rank)}, ${entity.title}',
+      excludeSemantics: true,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          EntityRankLabel(rank),
+          const SizedBox(width: FuncSpacing.xs),
+          Expanded(child: title),
+        ],
+      ),
     );
   }
 

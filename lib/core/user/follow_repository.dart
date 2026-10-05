@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../entity/json_read.dart';
 import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import 'follow_models.dart';
@@ -14,6 +15,10 @@ abstract interface class FollowRepository {
   });
 
   Future<void> delete(int userId, {CancelToken? cancelToken});
+
+  /// Visibility of the current follow (`/v1/user/follow/detail`); null when
+  /// the user is not followed.
+  Future<FollowRestrict?> fetchRestrict(int userId, {CancelToken? cancelToken});
 }
 
 /// Pixiv follow mutations. The shared HTTP client owns authentication,
@@ -47,6 +52,27 @@ class _PixivFollowRepository implements FollowRepository {
       cancelToken: cancelToken,
       allowAuthReplay: true,
     );
+  }
+
+  @override
+  Future<FollowRestrict?> fetchRestrict(
+    int userId, {
+    CancelToken? cancelToken,
+  }) async {
+    final json = await _client.getJson(
+      PixivClientIdentity.appApiBase.replace(
+        path: '/v1/user/follow/detail',
+        queryParameters: {'user_id': '$userId'},
+      ),
+      cancelToken: cancelToken,
+    );
+    final detail = readMap(json['follow_detail']);
+    if (detail['is_followed'] != true) return null;
+    return switch (readOptionalString(detail['restrict'])) {
+      'private' => FollowRestrict.private,
+      'public' => FollowRestrict.public,
+      _ => null,
+    };
   }
 }
 

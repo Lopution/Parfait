@@ -1,11 +1,28 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../actionqueue/action_bootstrap.dart';
 import '../actionqueue/action_models.dart';
+import '../mutation/mutation_models.dart';
 import '../network/api_error.dart';
 import 'bookmark_models.dart';
 import 'bookmark_repository.dart';
 import 'bookmark_store.dart';
+
+/// What an unbookmark removed — enough to put it back exactly, visibility
+/// and tags included.
+@immutable
+class RemovedBookmark {
+  const RemovedBookmark({
+    required this.key,
+    required this.restrict,
+    this.tags = const [],
+  });
+
+  final BookmarkKey key;
+  final BookmarkRestrict restrict;
+  final List<String> tags;
+}
 
 /// UI-facing bookmark actions: store begin → repository call → commit/fail.
 ///
@@ -18,14 +35,61 @@ class _BookmarkActions {
 
   /// Short-press behaviour (beta56 changeBookmarkState): not bookmarked →
   /// public add; bookmarked → delete. Pending entries suppress the request.
-  Future<void> toggle(BookmarkKey key) async {
+  ///
+  /// Returns what a delete removed, for Undo. Null when nothing was removed
+  /// (an add, a suppressed request, a failure or a queued delete) or when
+  /// the original state could not be read — then there is no Undo: guessing
+  /// "public" would expose a private bookmark.
+  Future<RemovedBookmark?> toggle(BookmarkKey key) async {
     final store = _ref.read(bookmarkStoreProvider.notifier);
     final entry = store.entryOf(key);
-    final op = (entry?.bookmarked ?? false)
-        ? store.beginDelete(key)
-        : store.beginAdd(key, BookmarkRestrict.public);
-    if (op == null) return;
-    await _run(store, op);
+    if (entry == null || !entry.bookmarked) {
+      final op = store.beginAdd(key, BookmarkRestrict.public);
+      if (op != null) await _run(store, op);
+      return null;
+    }
+    final op = store.beginDelete(key);
+    if (op == null) return null;
+    final removed =
+        _confirmedLocally(key, entry) ?? await _fetchRemoved(key, op);
+    return await _run(store, op) ? removed : null;
+  }
+
+  /// The local entry is exact only right after an add confirmed in this
+  /// session: remote observations carry the visibility but never the tags.
+  static RemovedBookmark? _confirmedLocally(
+    BookmarkKey key,
+    BookmarkEntry entry,
+  ) {
+    final restrict = entry.restrict;
+    if (restrict == null ||
+        entry.status != MutationStatus.confirmed ||
+        entry.confirmedRevision == null) {
+      return null;
+    }
+    return RemovedBookmark(key: key, restrict: restrict, tags: entry.tags);
+  }
+
+  /// Reads visibility and tags from the server before the delete; null
+  /// when that fails — the delete still goes ahead, without Undo.
+  Future<RemovedBookmark?> _fetchRemoved(BookmarkKey key, BookmarkOp op) async {
+    try {
+      final detail = await _ref
+          .read(bookmarkRepositoryProvider)
+          .fetchDetail(key, cancelToken: op.cancelToken);
+      final restrict = detail.restrict;
+      if (!detail.isBookmarked || restrict == null) return null;
+      return RemovedBookmark(
+        key: key,
+        restrict: restrict,
+        tags: [
+          for (final tag in detail.tags)
+            if (tag.isRegistered) tag.name,
+        ],
+      );
+    } on Object {
+      return null;
+    }
   }
 
   /// Sheet confirm: add (or overwrite an existing bookmark — the server treats
@@ -42,7 +106,8 @@ class _BookmarkActions {
     await _run(store, op);
   }
 
-  Future<void> _run(BookmarkStore store, BookmarkOp op) async {
+  /// True when the server confirmed [op].
+  Future<bool> _run(BookmarkStore store, BookmarkOp op) async {
     final repository = _ref.read(bookmarkRepositoryProvider);
     try {
       switch ((op.key.type, op.kind)) {
@@ -69,17 +134,18 @@ class _BookmarkActions {
       // A completed mutation is connectivity evidence — piggyback a queue
       // drain so earlier offline intents replay immediately.
       pumpActionQueue(_ref);
+      return true;
     } on ApiCancelled {
       // Cancellation restores the confirmed view without an error banner.
       store.fail(op, const ApiCancelled());
     } on ApiError catch (error) {
-      if (await _enqueueOffline(op, error)) return;
-      store.fail(op, error);
+      if (!await _enqueueOffline(op, error)) store.fail(op, error);
     } on Object catch (error) {
       // Unexpected failures must never leave a pending entry stuck; the
       // error stays observable in the store entry and the UI.
       store.fail(op, error);
     }
+    return false;
   }
 
   /// Connectivity-class failures persist the intent instead of failing the

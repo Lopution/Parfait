@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/app/widgets/novel_entry.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -105,13 +106,34 @@ void main() {
     expect(find.byKey(const ValueKey('novel-42')), findsOneWidget);
   });
 
-  testWidgets('ranking variant shows the rank badge on the cover', (
+  testWidgets('ranking variant leads the title line with the rank', (
     tester,
   ) async {
     await tester.pumpWidget(
       _host(NovelEntry.ranking(entity: _novel(3), rank: 3)),
     );
+    final rank = find.byType(EntityRankLabel);
+    expect(rank, findsOneWidget);
     expect(find.text('3'), findsOneWidget);
+    // Beside the title on one baseline, not pinned over the cover.
+    expect(find.byType(EntityBadge), findsNothing);
+    expect(
+      tester.getBottomLeft(find.text('3')).dy,
+      moreOrLessEquals(
+        tester.getBottomLeft(find.text('novel 3')).dy,
+        epsilon: 2,
+      ),
+    );
+    expect(
+      tester.getTopRight(find.text('3')).dx,
+      lessThan(tester.getTopLeft(find.text('novel 3')).dx),
+    );
+    expect(
+      tester.getTopLeft(find.text('3')).dx,
+      greaterThan(tester.getTopRight(find.byType(ClipRRect)).dx),
+    );
+    // The row reads the position first.
+    expect(find.bySemanticsLabel('第 3 名, novel 3, author'), findsOneWidget);
   });
 
   testWidgets('missing cover keeps the clipped placeholder', (tester) async {

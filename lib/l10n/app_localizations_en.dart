@@ -2595,6 +2595,26 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get badgeUgoira => 'Animated';
+
+  @override
+  String get badgeAi => 'AI-generated';
+
+  @override
+  String rankLabel(int rank) {
+    return 'No. $rank';
+  }
+
+  @override
+  String get openAuthorProfile => 'Open the author\'s profile';
+
+  @override
+  String get expandText => 'Show more';
+
+  @override
+  String get collapseText => 'Show less';
+
+  @override
   String get illustInfoJump => 'Jump to artwork info';
 
   @override
@@ -2610,6 +2630,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get watchLaterRemoved => 'Removed from Watch later';
+
+  @override
+  String get bookmarkRemoved => 'Removed from bookmarks';
+
+  @override
+  String get followRemoved => 'Unfollowed';
+
+  @override
+  String get muteRemoved => 'Unmuted';
 
   @override
   String get watchlistOpenContents => 'Open contents';

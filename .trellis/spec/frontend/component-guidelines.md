@@ -723,6 +723,14 @@ route only pops itself while `isCurrent`. A non-dismissible barrier stays
 opaque and silent. Semantics match `ModalBarrier` (label, tap and dismiss
 actions where the platform supports dismissing a barrier, `BlockSemantics`).
 
+A row's secondary actions open from an `AppMenuButton` on the row, not a
+bottom sheet with one entry (the local novels row: Delete, still
+confirmed). The card long-press sheet (`showCardActionSheet`) names its
+subject: a header with a 48dp thumbnail, the title and the author, read
+as one heading, and the whole sheet labelled with the title. A work the
+card shows blurred keeps its thumbnail hidden in the header. The sheet is
+`isScrollControlled` so every action fits without the default 9/16 cap.
+
 Owning tests: `app_menu_button_test.dart` (outside press closes, no
 scroll or tap passes through, back closes the menu first, checked and
 disabled rows, reduced motion, 320-wide ru truncation) and
@@ -753,6 +761,49 @@ the bar.
 Widget tests for this contract pump `material_ui`'s `MaterialApp` and query
 `material_ui`'s `SnackBar` and `ScaffoldMessenger` types. Cover both stale
 queue replacement and an explicit ordered sequence.
+
+A reversible action reports through `showUndoSnackBar` (see the Undo
+Contract), never through a plain message plus a hand-built
+`SnackBarAction`.
+
+## Undo Contract
+
+Reversible actions run immediately and offer Undo; only irreversible ones
+(deleting an imported file, clearing history) ask for confirmation first.
+Unfollow, unbookmark, unmute and watch-later removal have no confirmation
+dialog.
+
+- `showUndoSnackBar(context, message, onUndo:)`
+  (`lib/app/widgets/undo_snack_bar.dart`) captures the
+  `ProviderContainer`, the messenger and the localizations when it shows.
+  Undo plays `AppHaptics.select()` and runs `onUndo(container)`, so it
+  still works after the page that offered it is gone. A failed undo is
+  recorded in `CrashLog` and reported on the captured messenger (one of
+  the approved `showAppSnackBarOn` call sites).
+- Bookmarks and follows go through `toggleBookmarkWithUndo(context, key)`
+  and `toggleFollowWithUndo(context, userId)` — the only UI entry points
+  to `bookmarkActionsProvider.toggle` / `followActionsProvider.toggle`.
+  The actions return what a delete removed (`RemovedBookmark` with
+  restrict and tags, `RemovedFollow` with restrict); Undo re-adds through
+  `addWithRestrict`.
+- The snapshot is exact or absent. A bookmark entry is trusted only right
+  after an add confirmed in this session (`status == confirmed`): remote
+  observations carry visibility but never tags. Otherwise the action reads
+  `fetchDetail` (registered tags only) before the delete; a follow with an
+  unknown restrict reads `FollowRepository.fetchRestrict`
+  (`/v1/user/follow/detail`). When the lookup fails, the delete still
+  goes ahead and no Undo is offered — never guess "public": restoring a
+  private bookmark or follow as public would expose it. A queued (offline)
+  or failed delete offers no Undo either.
+- Unmute offers Undo through `showUnmuteUndo(context, MuteKey, user:)`.
+  The mute store only toggles, so Undo skips an entry that is muted again
+  by then.
+
+Owning tests: `bookmark_actions_test.dart`, `follow_actions_test.dart`
+(local snapshot, lookup, failed lookup), `undo_flows_test.dart` (private
+and tagged restores, Undo after the page closed, no Undo without the
+original visibility), `muted_items_page_test.dart` and
+`card_action_test.dart` (unmute Undo).
 
 ## Route Restoration Contract
 
@@ -1359,7 +1410,8 @@ consumer and a planner row.
   `ChoiceChip`/`FilterChip`, `Slider`, `Switch`/`SwitchListTile` and
   `Radio`/`RadioListTile` to these wrappers.
 - **Store mutations vibrate on the settled outcome, at the call site.**
-  `toggleBookmark`, `toggleFollow` and `WatchlistToggle` read the entry
+  `toggleBookmarkWithUndo`, `toggleFollowWithUndo` and `WatchlistToggle`
+  read the entry
   before, await the action, then read it again: a pending (queued) or
   cancelled entry is silent, an error plays `error`, a landed change plays
   its role. Do not `ref.listen` the store for haptics — a replay landing
@@ -1486,6 +1538,55 @@ Wrap the subject in `MotionScope(reduce:, speed:)` and step frames with
 (effectsFast), 225 ms (spatialFast) and 320 ms (spatialDefault) at normal
 speed. Cover reduced motion for every new motion. Golden tests whose
 subject fades in pump past the fade before comparing.
+
+## Artwork Badges Contract
+
+Every marker painted over artwork is an `EntityBadge(icon:, label:,
+semanticsLabel:)` (`lib/app/widgets/entity_row.dart`): the
+`FuncTokens.imageControl` scrim with `onImageControl` content, legible on
+light and dark images and identical in both themes; at least
+`EntityBadge.height` (20) tall with a 6dp inset and `FuncShape.badge`
+corners; 14dp icons; `labelSmall` w600 tabular text. No badge picks its own
+color — R-18 and AI differ by their text, not by a fill.
+
+`IllustCard` keeps four fixed corners, 7dp inside the image: R-18 top-left,
+page count top-right (`Icons.photo_library_outlined` + compact count, read
+as `illustPagesTotal`), ugoira bottom-left (icon only, read as
+`badgeUgoira`), AI bottom-right (read as `badgeAi`). The labels merge into
+the card's semantics.
+
+A ranking position is not a badge: `EntityRankLabel` leads the title line
+(`titleSmall`, bold, tabular, `onSurface`, 4dp before the title, no medal
+or top-three color) in `IllustCard(rank:)` and, through
+`EntityRow.titleLeading`, in `NovelEntry.ranking`. The line reads
+"`rankLabel`, title". Owning tests: `illust_card_badges_test.dart`,
+`novel_entry_test.dart`, and the `lists: ranked entries` locale matrix.
+
+## Author Row Contract
+
+An author shown as a link is an `AuthorRow(userId:, name:, avatarUrl:,
+trailing:)` (`lib/app/widgets/author_row.dart`): the whole avatar + name
+row is one `InkWell` at least 48dp tall that calls `openUser`, announced
+as one button labelled with the name and hinted `openAuthorProfile`.
+`AuthorSummary` (compact, 32dp avatar) draws the content; `trailing` (a
+follow button) stays a separate target outside the ink. Never make only
+the name text tappable. Inside a card the card itself is the target, so
+the card's byline stays plain text. Where navigation needs a step first
+(the novel info sheet closes before opening the profile), keep
+`AuthorSummary` with padding that makes the target 48dp. Owning test:
+`author_row_test.dart`.
+
+## Expandable Text Contract
+
+Long user text (captions, descriptions) uses `ExpandableText(span,
+maxLines:)` (`lib/app/widgets/expandable_text.dart`). A `TextPainter` at
+the laid-out width decides whether the text exceeds `maxLines`; text that
+fits shows no toggle. Collapsed text ellipsizes; the toggle is a
+`TextButton` under the text, end-aligned (`expandText` / `collapseText`),
+merged with `expanded` semantics. Links in the span stay tappable in both
+states. The height change animates with `AnimatedSize` at
+`MotionTokens.medium` through the motion gate; the state is not persisted.
+Owning test: `expandable_text_test.dart`.
 
 ## Management List Rows
 

@@ -19,7 +19,7 @@ void main() {
           title: 'A title',
           subtitle: 'An author',
           meta: '1234 words',
-          badge: EntityBadge(child: Text('7')),
+          badge: EntityBadge(label: '7'),
           trailing: Icon(Icons.more_vert),
         ),
       ),

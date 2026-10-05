@@ -2500,6 +2500,26 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get badgeUgoira => '动图';
+
+  @override
+  String get badgeAi => 'AI 生成';
+
+  @override
+  String rankLabel(int rank) {
+    return '第 $rank 名';
+  }
+
+  @override
+  String get openAuthorProfile => '打开作者主页';
+
+  @override
+  String get expandText => '展开';
+
+  @override
+  String get collapseText => '收起';
+
+  @override
   String get illustInfoJump => '跳到作品信息区';
 
   @override
@@ -2515,6 +2535,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get watchLaterRemoved => '已从稍后再看移除';
+
+  @override
+  String get bookmarkRemoved => '已取消收藏';
+
+  @override
+  String get followRemoved => '已取消关注';
+
+  @override
+  String get muteRemoved => '已解除屏蔽';
 
   @override
   String get watchlistOpenContents => '打开目录';

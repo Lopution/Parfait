@@ -1166,6 +1166,35 @@
       }
     }
   },
+  "badgeUgoira": "动图",
+  "@badgeUgoira": {
+    "description": "Spoken label of the animated-work badge on an artwork thumbnail"
+  },
+  "badgeAi": "AI 生成",
+  "@badgeAi": {
+    "description": "Spoken label of the AI badge on an artwork thumbnail"
+  },
+  "rankLabel": "第 {rank} 名",
+  "@rankLabel": {
+    "description": "Spoken ranking position before a work title in ranking lists",
+    "placeholders": {
+      "rank": {
+        "type": "int"
+      }
+    }
+  },
+  "openAuthorProfile": "打开作者主页",
+  "@openAuthorProfile": {
+    "description": "Screen-reader hint on an author row: tapping opens the author's profile"
+  },
+  "expandText": "展开",
+  "@expandText": {
+    "description": "Button under collapsed long text (captions, descriptions) that shows all of it"
+  },
+  "collapseText": "收起",
+  "@collapseText": {
+    "description": "Button under expanded long text that collapses it again"
+  },
   "illustInfoJump": "跳到作品信息区",
   "@illustInfoJump": {
     "description": "Jump to the artwork info section"
@@ -1185,11 +1214,23 @@
   },
   "undo": "撤销",
   "@undo": {
-    "description": "SnackBar action that restores a just-removed watch-later entry"
+    "description": "SnackBar action that reverses a just-made removal (watch later, bookmark, follow, mute)"
   },
   "watchLaterRemoved": "已从稍后再看移除",
   "@watchLaterRemoved": {
     "description": "SnackBar shown after removing a watch-later entry; offers undo"
+  },
+  "bookmarkRemoved": "已取消收藏",
+  "@bookmarkRemoved": {
+    "description": "SnackBar after removing a bookmark; offers undo"
+  },
+  "followRemoved": "已取消关注",
+  "@followRemoved": {
+    "description": "SnackBar after unfollowing a user; offers undo"
+  },
+  "muteRemoved": "已解除屏蔽",
+  "@muteRemoved": {
+    "description": "SnackBar after unmuting a tag, user or work; offers undo"
   },
   "watchlistOpenContents": "打开目录",
   "@watchlistOpenContents": {

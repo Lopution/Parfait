@@ -22,6 +22,9 @@ abstract final class FuncShape {
   /// Inner corners of a segmented list: the edges where two segments of one
   /// group face each other (the group's outer edge stays [card]).
   static const BorderRadius segment = BorderRadius.all(Radius.circular(4));
+
+  /// Corner badges over artwork (R-18, page count, AI).
+  static const BorderRadius badge = BorderRadius.all(Radius.circular(4));
   static const BorderRadius control = BorderRadius.all(Radius.circular(8));
   static const BorderRadius pill = BorderRadius.all(Radius.circular(999));
   static const BorderRadius dialog = BorderRadius.all(Radius.circular(28));

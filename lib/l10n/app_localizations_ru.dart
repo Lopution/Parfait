@@ -2599,6 +2599,26 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get badgeUgoira => 'Анимация';
+
+  @override
+  String get badgeAi => 'Создано ИИ';
+
+  @override
+  String rankLabel(int rank) {
+    return '$rank-е место';
+  }
+
+  @override
+  String get openAuthorProfile => 'Открыть профиль автора';
+
+  @override
+  String get expandText => 'Развернуть';
+
+  @override
+  String get collapseText => 'Свернуть';
+
+  @override
   String get illustInfoJump => 'К информации о работе';
 
   @override
@@ -2614,6 +2634,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get watchLaterRemoved => 'Удалено из «Посмотреть позже»';
+
+  @override
+  String get bookmarkRemoved => 'Удалено из закладок';
+
+  @override
+  String get followRemoved => 'Вы отписались';
+
+  @override
+  String get muteRemoved => 'Скрытие снято';
 
   @override
   String get watchlistOpenContents => 'Открыть содержание';

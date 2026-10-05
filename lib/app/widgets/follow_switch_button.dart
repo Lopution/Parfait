@@ -16,17 +16,29 @@ import '../../l10n/lookup.dart';
 import '../../l10n/context.dart';
 import 'app_segmented_button.dart';
 import 'fit_label.dart';
+import 'undo_snack_bar.dart';
 
 /// Toggles the follow of [userId] and plays the haptic of the settled
 /// outcome: select when the change lands either way, error on failure. A
 /// queued (offline) or cancelled toggle stays silent — its replay lands
-/// out of context.
-Future<void> toggleFollow(WidgetRef ref, int userId) async {
+/// out of context. An unfollow offers Undo, which follows again with the
+/// old visibility.
+Future<void> toggleFollowWithUndo(BuildContext context, int userId) async {
   // Read up front: the toggle may outlive the widget that started it.
-  final store = ref.read(followStoreProvider.notifier);
+  final container = ProviderScope.containerOf(context, listen: false);
+  final store = container.read(followStoreProvider.notifier);
   final before = store.entryOf(userId)?.followed ?? false;
-  await ref.read(followActionsProvider).toggle(userId);
+  final removed = await container.read(followActionsProvider).toggle(userId);
   _playFollowOutcome(store.entryOf(userId), before: before);
+  if (removed != null && context.mounted) {
+    showUndoSnackBar(
+      context,
+      context.l10n.followRemoved,
+      onUndo: (container) => container
+          .read(followActionsProvider)
+          .addWithRestrict(removed.userId, removed.restrict),
+    );
+  }
 }
 
 void _playFollowOutcome(FollowEntry? after, {required bool? before}) {
@@ -131,7 +143,7 @@ class FollowSwitchButton extends ConsumerWidget {
             button: true,
             toggled: followed,
             label: semanticLabel,
-            onTap: () => toggleFollow(ref, userId),
+            onTap: () => toggleFollowWithUndo(context, userId),
             onLongPress: followed
                 ? null
                 : () => _showRestrictSheet(context, ref),
@@ -156,7 +168,7 @@ class FollowSwitchButton extends ConsumerWidget {
                   // click sound).
                   enableFeedback: false,
                 ),
-                onPressed: () => toggleFollow(ref, userId),
+                onPressed: () => toggleFollowWithUndo(context, userId),
                 onLongPress: followed
                     ? null
                     : () => _showRestrictSheet(context, ref),

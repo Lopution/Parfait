@@ -9,6 +9,7 @@ import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_group_content.dart';
+import '../../../app/widgets/unmute_undo.dart';
 import '../../../core/entity/illust_store.dart';
 import '../../../core/mute/mute_models.dart';
 import '../../../core/mute/mute_store.dart';
@@ -43,11 +44,17 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
   }
 
   /// The row leaves first, then the unmute is sent; a failed write brings
-  /// the row back with the error.
-  Future<void> _unmute(MuteKey key, Future<void> Function() action) async {
+  /// the row back with the error, a landed one offers Undo. A user unmute
+  /// passes [user] so Undo can mute it again.
+  Future<void> _unmute(
+    MuteKey key,
+    Future<void> Function() action, {
+    MutedUser? user,
+  }) async {
     await _removals.playExit([key]);
     try {
       await action();
+      if (mounted) showUnmuteUndo(context, key, user: user);
     } on Object catch (error) {
       _removals.restore([key]);
       if (mounted) {
@@ -187,6 +194,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
                             _unmute(
                               MuteKey.user(user.userId),
                               () => store.toggleUser(user),
+                              user: user,
                             ),
                           ),
                         ),

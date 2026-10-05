@@ -4847,6 +4847,42 @@ abstract class AppLocalizations {
   /// **'共 {count} 页'**
   String illustPagesTotal(int count);
 
+  /// Spoken label of the animated-work badge on an artwork thumbnail
+  ///
+  /// In zh, this message translates to:
+  /// **'动图'**
+  String get badgeUgoira;
+
+  /// Spoken label of the AI badge on an artwork thumbnail
+  ///
+  /// In zh, this message translates to:
+  /// **'AI 生成'**
+  String get badgeAi;
+
+  /// Spoken ranking position before a work title in ranking lists
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {rank} 名'**
+  String rankLabel(int rank);
+
+  /// Screen-reader hint on an author row: tapping opens the author's profile
+  ///
+  /// In zh, this message translates to:
+  /// **'打开作者主页'**
+  String get openAuthorProfile;
+
+  /// Button under collapsed long text (captions, descriptions) that shows all of it
+  ///
+  /// In zh, this message translates to:
+  /// **'展开'**
+  String get expandText;
+
+  /// Button under expanded long text that collapses it again
+  ///
+  /// In zh, this message translates to:
+  /// **'收起'**
+  String get collapseText;
+
   /// Jump to the artwork info section
   ///
   /// In zh, this message translates to:
@@ -4865,7 +4901,7 @@ abstract class AppLocalizations {
   /// **'已选 {n} 项'**
   String selectedCount(int n);
 
-  /// SnackBar action that restores a just-removed watch-later entry
+  /// SnackBar action that reverses a just-made removal (watch later, bookmark, follow, mute)
   ///
   /// In zh, this message translates to:
   /// **'撤销'**
@@ -4876,6 +4912,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已从稍后再看移除'**
   String get watchLaterRemoved;
+
+  /// SnackBar after removing a bookmark; offers undo
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消收藏'**
+  String get bookmarkRemoved;
+
+  /// SnackBar after unfollowing a user; offers undo
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消关注'**
+  String get followRemoved;
+
+  /// SnackBar after unmuting a tag, user or work; offers undo
+  ///
+  /// In zh, this message translates to:
+  /// **'已解除屏蔽'**
+  String get muteRemoved;
 
   /// Watchlist sheet action: open the manga series contents page
   ///

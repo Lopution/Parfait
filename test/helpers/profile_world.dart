@@ -25,6 +25,10 @@ class FakeFollowRepository implements FollowRepository {
   Completer<void>? gate;
   Object? failure;
 
+  /// What `fetchRestrict` answers; [restrictFailure] makes it throw.
+  FollowRestrict? remoteRestrict = FollowRestrict.public;
+  Object? restrictFailure;
+
   @override
   Future<void> add(
     int userId, {
@@ -45,6 +49,16 @@ class FakeFollowRepository implements FollowRepository {
     if (activeGate != null) await activeGate.future;
     final error = failure;
     if (error != null) throw error;
+  }
+
+  @override
+  Future<FollowRestrict?> fetchRestrict(
+    int userId, {
+    CancelToken? cancelToken,
+  }) async {
+    requests.add('restrict:$userId');
+    if (restrictFailure case final error?) throw error;
+    return remoteRestrict;
   }
 }
 

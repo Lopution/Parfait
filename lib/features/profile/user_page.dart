@@ -527,7 +527,7 @@ class _UserPageState extends ConsumerState<UserPage>
                   isFollowed: followed,
                   onToggleFollow: widget.isMe
                       ? null
-                      : () => toggleFollow(ref, user.id),
+                      : () => toggleFollowWithUndo(context, user.id),
                   onFollowPrivately: widget.isMe
                       ? null
                       : () => unawaited(

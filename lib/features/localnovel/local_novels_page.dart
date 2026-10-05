@@ -10,6 +10,7 @@ import '../../app/motion/app_overlays.dart';
 import '../../app/motion/removal.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pull_to_refresh.dart';
+import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/entity_row.dart';
@@ -112,6 +113,8 @@ class _LocalNovelsPageState extends ConsumerState<LocalNovelsPage> {
   }
 }
 
+enum _LocalNovelAction { delete }
+
 class _LocalNovelTile extends ConsumerWidget {
   const _LocalNovelTile({required this.novel});
 
@@ -151,32 +154,21 @@ class _LocalNovelTile extends ConsumerWidget {
       // so the affordance is audible, not only visible.
       semanticLabel: '${novel.title}, $meta',
       onTap: () => openLocalNovelReader(context, novel.id),
-      trailing: IconButton(
-        icon: const Icon(Icons.more_vert),
-        tooltip: MaterialLocalizations.of(context).showMenuTooltip,
-        onPressed: () => _openActions(context),
-      ),
-    );
-  }
-
-  Future<void> _openActions(BuildContext context) async {
-    await showAppBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: Text(sheetContext.l10n.localNovelsDelete),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                unawaited(_confirmDelete(context));
-              },
-            ),
-          ],
-        ),
+      // A row-anchored menu, not a sheet: one action does not need a
+      // surface rising from the screen edge.
+      trailing: AppMenuButton<_LocalNovelAction>(
+        entries: [
+          AppMenuEntry(
+            value: _LocalNovelAction.delete,
+            icon: Icons.delete_outline,
+            label: context.l10n.localNovelsDelete,
+          ),
+        ],
+        onSelected: (_, action) => switch (action) {
+          // Deleting removes the imported file — irreversible, so it keeps
+          // its confirmation (D5).
+          _LocalNovelAction.delete => unawaited(_confirmDelete(context)),
+        },
       ),
     );
   }

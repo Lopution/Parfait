@@ -1166,6 +1166,12 @@
       }
     }
   },
+  "badgeUgoira": "うごイラ",
+  "badgeAi": "AI生成",
+  "rankLabel": "{rank}位",
+  "openAuthorProfile": "作者のページを開く",
+  "expandText": "もっと見る",
+  "collapseText": "閉じる",
   "illustInfoJump": "作品情報へ移動",
   "@illustInfoJump": {
     "description": "Scrolls to the artwork info section"
@@ -1191,6 +1197,9 @@
   "@watchLaterRemoved": {
     "description": "SnackBar shown after removing a watch-later entry; offers undo"
   },
+  "bookmarkRemoved": "ブックマークを解除しました",
+  "followRemoved": "フォローを解除しました",
+  "muteRemoved": "ミュートを解除しました",
   "watchlistOpenContents": "目次を開く",
   "@watchlistOpenContents": {
     "description": "Watchlist sheet action: open the manga series contents page"

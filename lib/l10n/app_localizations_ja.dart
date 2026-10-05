@@ -2529,6 +2529,26 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get badgeUgoira => 'うごイラ';
+
+  @override
+  String get badgeAi => 'AI生成';
+
+  @override
+  String rankLabel(int rank) {
+    return '$rank位';
+  }
+
+  @override
+  String get openAuthorProfile => '作者のページを開く';
+
+  @override
+  String get expandText => 'もっと見る';
+
+  @override
+  String get collapseText => '閉じる';
+
+  @override
   String get illustInfoJump => '作品情報へ移動';
 
   @override
@@ -2544,6 +2564,15 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get watchLaterRemoved => 'あとで見るから削除しました';
+
+  @override
+  String get bookmarkRemoved => 'ブックマークを解除しました';
+
+  @override
+  String get followRemoved => 'フォローを解除しました';
+
+  @override
+  String get muteRemoved => 'ミュートを解除しました';
 
   @override
   String get watchlistOpenContents => '目次を開く';
