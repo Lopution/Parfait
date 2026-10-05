@@ -15,6 +15,7 @@ import 'package:parfait/core/bookmark/bookmark_store.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/share/share_service.dart';
 import 'package:parfait/features/settings/pages/muted_items_page.dart';
+import 'package:parfait/core/watchlater/watch_later_repository.dart';
 import 'package:parfait/core/watchlater/watch_later_store.dart';
 import 'package:parfait/features/watchlater/watchlater_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
@@ -209,7 +210,9 @@ void main() {
     final (container, _, repository) = await makeCardWorld();
     final entity = parseIllust(illustJson(9));
     const originalAddedAt = 1726800000000;
-    await repository.add('100', entity, addedAt: originalAddedAt);
+    await repository.restoreAll('100', [
+      WatchLaterEntry(addedAt: originalAddedAt, entity: entity),
+    ]);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
       await tester.pump();
@@ -337,7 +340,7 @@ void main() {
     expect(find.text('illust 21'), findsWidgets);
     expect(find.byType(IllustCard), findsOneWidget);
 
-    await repository.remove('100', 21);
+    await repository.removeAll('100', [21]);
     container.invalidate(watchLaterStoreProvider);
     await mockNetworkImagesFor(() async {
       await tester.pumpAndSettle();

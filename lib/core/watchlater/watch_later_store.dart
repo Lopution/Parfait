@@ -11,6 +11,9 @@ final watchLaterDatabaseProvider = Provider<WatchLaterDatabase>((ref) {
   return database;
 });
 
+/// What [WatchLaterStore.removeAll] took off whose list.
+typedef WatchLaterRemoval = ({String accountId, List<WatchLaterEntry> entries});
+
 final watchLaterRepositoryProvider = Provider<WatchLaterRepository>((ref) {
   return WatchLaterRepository(database: ref.watch(watchLaterDatabaseProvider));
 });
@@ -42,25 +45,36 @@ class WatchLaterStore extends AsyncNotifier<List<WatchLaterEntry>> {
     return true;
   }
 
-  /// Undo for the remove flow: re-inserts [entry] with its original
-  /// `addedAt` so the row lands back at its old position instead of
-  /// jumping to the front like a fresh [add] would. Returns false when no
-  /// account is logged in.
-  Future<bool> restore(WatchLaterEntry entry) async {
+  /// Removes [illustIds] from the current account's list in one
+  /// transaction. The result is what [restoreAll] needs to undo it; null
+  /// when signed out or none of the ids is on the list.
+  Future<WatchLaterRemoval?> removeAll(Iterable<int> illustIds) async {
     final accountId = _accountId;
-    if (accountId == null) return false;
-    await ref
-        .read(watchLaterRepositoryProvider)
-        .add(accountId, entry.entity, addedAt: entry.addedAt);
+    if (accountId == null) return null;
+    final ids = illustIds.toSet();
+    final entries = [
+      for (final entry in state.value ?? const <WatchLaterEntry>[])
+        if (ids.contains(entry.entity.id)) entry,
+    ];
+    if (entries.isEmpty) return null;
+    await ref.read(watchLaterRepositoryProvider).removeAll(accountId, [
+      for (final entry in entries) entry.entity.id,
+    ]);
     ref.invalidateSelf();
-    return true;
+    return (accountId: accountId, entries: entries);
   }
 
-  Future<void> remove(int illustId) async {
-    final accountId = _accountId;
-    if (accountId == null) return;
-    await ref.read(watchLaterRepositoryProvider).remove(accountId, illustId);
+  /// Undo for [removeAll]: re-inserts the entries with their original
+  /// `addedAt`, so they land back at their old positions. Returns false —
+  /// and restores nothing — once another account (or none) is current:
+  /// the entries belong to the account they were removed from.
+  Future<bool> restoreAll(WatchLaterRemoval removal) async {
+    if (_accountId != removal.accountId) return false;
+    await ref
+        .read(watchLaterRepositoryProvider)
+        .restoreAll(removal.accountId, removal.entries);
     ref.invalidateSelf();
+    return true;
   }
 
   Future<void> clear() async {

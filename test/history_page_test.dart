@@ -122,7 +122,7 @@ void main() {
       historyRecord(3, type: HistoryContentType.novel),
     ]);
 
-    await tester.tap(find.byTooltip('管理'));
+    await tester.tap(find.widgetWithText(TextButton, '管理'));
     await tester.pump();
     expect(_selectionTitle('已选 0 项'), findsOneWidget);
 

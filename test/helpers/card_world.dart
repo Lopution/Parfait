@@ -102,25 +102,37 @@ class MemoryWatchLaterRepository extends WatchLaterRepository {
       List.unmodifiable(_account(accountId));
 
   @override
-  Future<void> add(
-    String accountId,
-    IllustEntity entity, {
-    int? addedAt,
-  }) async {
+  Future<void> add(String accountId, IllustEntity entity) async {
     final rows = _account(accountId);
     rows.removeWhere((entry) => entry.entity.id == entity.id);
     rows.insert(
       0,
       WatchLaterEntry(
-        addedAt: addedAt ?? DateTime.now().millisecondsSinceEpoch,
+        addedAt: DateTime.now().millisecondsSinceEpoch,
         entity: entity,
       ),
     );
   }
 
   @override
-  Future<void> remove(String accountId, int illustId) async {
-    _account(accountId).removeWhere((entry) => entry.entity.id == illustId);
+  Future<void> restoreAll(
+    String accountId,
+    Iterable<WatchLaterEntry> entries,
+  ) async {
+    final rows = _account(accountId);
+    for (final entry in entries) {
+      rows
+        ..removeWhere((row) => row.entity.id == entry.entity.id)
+        ..add(entry);
+    }
+    // Newest first, like the database query.
+    rows.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+  }
+
+  @override
+  Future<void> removeAll(String accountId, Iterable<int> illustIds) async {
+    final ids = illustIds.toSet();
+    _account(accountId).removeWhere((entry) => ids.contains(entry.entity.id));
   }
 
   @override
