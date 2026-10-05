@@ -19,6 +19,7 @@ import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/search/reverse_image_search_page.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
+import 'package:parfait/features/spotlight/spotlight_feed_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -201,6 +202,26 @@ void main() {
       ),
     );
     expect(find.byType(SpotlightArticleCard), findsNWidgets(5));
+  });
+
+  localeLayoutMatrix('content: Spotlight list', (
+    tester,
+    locale,
+    profile,
+  ) async {
+    final (container, _) = await makeSpotlightWorld();
+    addTearDown(container.dispose);
+    await _pumpChecked(
+      tester,
+      locale,
+      profile,
+      localeLayoutApp(
+        locale: locale,
+        container: container,
+        home: const SpotlightFeedPage(),
+      ),
+    );
+    expect(find.byType(SpotlightArticleCard), findsWidgets);
   });
 
   localeLayoutMatrix('content: reverse image search', (
