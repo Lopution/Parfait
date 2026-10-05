@@ -19,7 +19,7 @@ import '../theme/func_semantic_tokens.dart';
 /// - [contentMaxWidth] is a role-based content width (see
 ///   [ContentWidths]), not a breakpoint.
 ///
-/// Consumers: onboarding welcome/language/theme pages and the login page.
+/// Consumers: onboarding welcome/language pages and the login page.
 class ScrollableFormShell extends StatelessWidget {
   const ScrollableFormShell({
     super.key,
@@ -44,7 +44,7 @@ class ScrollableFormShell extends StatelessWidget {
   final Widget primaryAction;
 
   /// Optional secondary affordance rendered under [primaryAction]
-  /// (e.g. a "set up later" skip button).
+  /// (e.g. a secondary sign-in choice).
   final Widget? secondary;
 
   /// Role-based content width cap — a `ContentWidths` role constant, not

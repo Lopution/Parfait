@@ -24,13 +24,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get selectLanguage => '言語の選択';
 
   @override
-  String get selectTheme => 'テーマの選択';
-
-  @override
   String get next => '次へ';
-
-  @override
-  String get setupLater => 'あとで設定する';
 
   @override
   String get dark => 'ダーク';
@@ -625,6 +619,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get profileEditChooseImage => '画像を選択';
 
   @override
+  String get profileChangeAvatar => 'アイコンを変更';
+
+  @override
+  String get profileChangeBackground => '背景画像を変更';
+
+  @override
   String get profileEditSave => 'プロフィールを保存';
 
   @override
@@ -865,6 +865,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mutedEmpty => 'ミュート項目はありません';
 
   @override
+  String muteEmptyHint(String action) {
+    return '作品カードを長押しして「$action」を選択';
+  }
+
+  @override
   String get muteTagInputHint => 'ミュートするタグ';
 
   @override
@@ -1036,9 +1041,61 @@ class AppLocalizationsJa extends AppLocalizations {
   String get namingPreview => 'プレビュー';
 
   @override
-  String namingTemplateVariables(String variables) {
-    return '変数：$variables。不正な文字は _ に置換され、長い名前は切り詰められます。';
-  }
+  String get namingVarArtist => '作者名';
+
+  @override
+  String get namingVarTitle => 'タイトル';
+
+  @override
+  String get namingVarId => '作品 ID';
+
+  @override
+  String get namingVarAuthorId => '作者 ID';
+
+  @override
+  String get namingVarPage => 'ページ番号（0 から）';
+
+  @override
+  String get namingVarPage1 => 'ページ番号（1 から）';
+
+  @override
+  String get namingVarPages => '総ページ数';
+
+  @override
+  String get namingVarExt => '拡張子';
+
+  @override
+  String get namingVarW => '幅';
+
+  @override
+  String get namingVarH => '高さ';
+
+  @override
+  String get namingVarDate => '日付';
+
+  @override
+  String get namingVarCreated => '日時';
+
+  @override
+  String get namingVarSeries => 'シリーズ名';
+
+  @override
+  String get namingVarSeriesOrder => 'シリーズ内の番号';
+
+  @override
+  String get namingVarChapters => 'シリーズの総話数';
+
+  @override
+  String get namingSampleArtist => '作者名';
+
+  @override
+  String get namingSampleTitle => '作品タイトル';
+
+  @override
+  String get namingSampleSeries => 'シリーズ名';
+
+  @override
+  String get namingTemplateSanitizeNote => '不正な文字は _ に置換され、長い名前は切り詰められます。';
 
   @override
   String get notConfigured => '未設定';
@@ -1156,13 +1213,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadRemoveRecord => '一覧から削除';
 
   @override
-  String downloadBatchCancelConfirm(int count) {
-    return '選択した $count 件のダウンロードをキャンセルしますか？未完了の進捗は破棄されます。';
+  String get downloadOpenWork => '作品を開く';
+
+  @override
+  String get downloadClearCompleted => '完了したタスクを消去';
+
+  @override
+  String downloadTasksRemoved(int count) {
+    return '$count件の記録を削除しました';
   }
 
   @override
-  String downloadBatchRemoveConfirm(int count) {
-    return '選択した $count 件のレコードを一覧から削除しますか？ダウンロード済みファイルは残ります。';
+  String downloadBatchCancelConfirm(int count) {
+    return '選択した $count 件のダウンロードをキャンセルしますか？未完了の進捗は破棄されます。';
   }
 
   @override

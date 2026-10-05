@@ -62,6 +62,10 @@ class _StubAccountStore extends AccountStore {
     ],
     currentId: '100',
   );
+
+  /// Switches without the metadata repository or network session.
+  void select(String accountId) =>
+      state = AsyncData(state.requireValue.copyWith(currentId: accountId));
 }
 
 void main() {
@@ -117,7 +121,7 @@ void main() {
     await repository.add('200', _illust(2));
     expect(await repository.list('100'), hasLength(1));
     expect((await repository.list('200')).single.entity.id, 2);
-    await repository.remove('100', 1);
+    await repository.removeAll('100', [1]);
     expect(await repository.list('100'), isEmpty);
     expect(await repository.list('200'), hasLength(1));
   });
@@ -156,9 +160,53 @@ void main() {
       expect(await store.add(_illust(9)), isTrue);
       await container.read(watchLaterStoreProvider.future);
       expect(store.contains(9), isTrue);
-      await store.remove(9);
+      await store.removeAll([9]);
       await container.read(watchLaterStoreProvider.future);
       expect(store.contains(9), isFalse);
+    });
+
+    Future<List<int>> ids() async => [
+      for (final entry in await container.read(watchLaterStoreProvider.future))
+        entry.entity.id,
+    ];
+
+    test('removeAll is undone in the old order', () async {
+      for (var id = 1; id <= 4; id++) {
+        now = DateTime.utc(2026, 9, id);
+        await repository.add('100', _illust(id));
+      }
+      expect(await ids(), [4, 3, 2, 1]);
+      final store = container.read(watchLaterStoreProvider.notifier);
+
+      final removal = await store.removeAll([3, 1, 99]);
+      expect(removal!.accountId, '100');
+      expect([for (final e in removal.entries) e.entity.id], [3, 1]);
+      expect(await ids(), [4, 2]);
+
+      expect(await store.restoreAll(removal), isTrue);
+      expect(await ids(), [4, 3, 2, 1]);
+    });
+
+    test('removeAll of ids not on the list removes nothing', () async {
+      await repository.add('100', _illust(1));
+      await container.read(watchLaterStoreProvider.future);
+      final store = container.read(watchLaterStoreProvider.notifier);
+      expect(await store.removeAll([2]), isNull);
+      expect(await ids(), [1]);
+    });
+
+    test('undo after an account switch restores nothing', () async {
+      await repository.add('100', _illust(1));
+      await container.read(watchLaterStoreProvider.future);
+      final store = container.read(watchLaterStoreProvider.notifier);
+      final removal = await store.removeAll([1]);
+
+      (container.read(accountStoreProvider.notifier) as _StubAccountStore)
+          .select('200');
+      await container.read(watchLaterStoreProvider.future);
+      expect(await store.restoreAll(removal!), isFalse);
+      expect(await repository.list('100'), isEmpty);
+      expect(await repository.list('200'), isEmpty);
     });
   });
 }

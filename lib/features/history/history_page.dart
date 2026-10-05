@@ -13,12 +13,12 @@ import '../../app/pixiv_image.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/press_scale.dart';
 import '../../app/motion/removal.dart';
-import '../../app/motion/state_icon_switcher.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/haptics/app_haptics.dart';
 import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/entity_row.dart';
+import '../../app/widgets/selectable_tile.dart';
 import '../../app/widgets/selection_app_bar.dart';
 import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
@@ -121,11 +121,12 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             : AppBar(
                 title: Text(context.l10n.historySettings),
                 actions: [
+                  // Spelled out like every list's manage entry: an icon
+                  // alone did not read as "manage".
                   if (accountId != null)
-                    IconButton(
-                      tooltip: context.l10n.manage,
+                    TextButton(
                       onPressed: _enterManaging,
-                      icon: const Icon(Icons.checklist_outlined),
+                      child: Text(context.l10n.manage),
                     ),
                   // The overflow stays visible signed out: the record
                   // switches are global settings; only delete-all needs
@@ -456,7 +457,6 @@ class _HistoryEntry extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
     // Known-illust cells render the shared IllustCard; its own long-press
     // would open the card action sheet, but in history the gesture is the
     // selection-mode entry/toggle, so the page
@@ -475,46 +475,12 @@ class _HistoryEntry extends ConsumerWidget {
         entity: ref.watch(novelStoreProvider)[record.contentId],
       ),
     };
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      // In selection mode the whole cell is the selection unit (M3: no
-      // nested secondary actions) — any press toggles, the card's own
-      // navigation is absorbed.
-      onTap: managing ? () => onToggle(recordKey) : null,
+    return SelectableTile(
+      managing: managing,
+      selected: selected,
+      onToggle: () => onToggle(recordKey),
       onLongPress: longPress,
-      child: Stack(
-        children: [
-          AbsorbPointer(absorbing: managing, child: child),
-          if (managing)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: FuncShape.card,
-                    border: selected
-                        ? Border.all(color: colorScheme.primary, width: 2)
-                        : null,
-                    color: selected
-                        ? colorScheme.primary.withValues(alpha: 0.14)
-                        : null,
-                  ),
-                ),
-              ),
-            ),
-          Positioned(
-            top: 8,
-            right: 8,
-            child: IgnorePointer(
-              child: StateIconSwitcher(
-                value: selected,
-                child: selected
-                    ? Icon(Icons.check_circle, color: colorScheme.primary)
-                    : const SizedBox.shrink(),
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: child,
     );
   }
 }

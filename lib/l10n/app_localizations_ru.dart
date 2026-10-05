@@ -24,13 +24,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get selectLanguage => 'Выберите язык';
 
   @override
-  String get selectTheme => 'Выберите свою любимую тему';
-
-  @override
   String get next => 'Далее';
-
-  @override
-  String get setupLater => 'Настроить позже';
 
   @override
   String get dark => 'Тёмный';
@@ -645,6 +639,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get profileEditChooseImage => 'Выбрать изображение';
 
   @override
+  String get profileChangeAvatar => 'Сменить аватар';
+
+  @override
+  String get profileChangeBackground => 'Сменить фон';
+
+  @override
   String get profileEditSave => 'Сохранить профиль';
 
   @override
@@ -896,6 +896,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get mutedEmpty => 'Ничего не заглушено';
 
   @override
+  String muteEmptyHint(String action) {
+    return 'Нажмите и удерживайте карточку работы и выберите «$action»';
+  }
+
+  @override
   String get muteTagInputHint => 'Тег для заглушения';
 
   @override
@@ -1076,9 +1081,62 @@ class AppLocalizationsRu extends AppLocalizations {
   String get namingPreview => 'Предпросмотр';
 
   @override
-  String namingTemplateVariables(String variables) {
-    return 'Переменные: $variables; недопустимые символы заменяются на _, длинные имена обрезаются.';
-  }
+  String get namingVarArtist => 'Имя автора';
+
+  @override
+  String get namingVarTitle => 'Название';
+
+  @override
+  String get namingVarId => 'ID работы';
+
+  @override
+  String get namingVarAuthorId => 'ID автора';
+
+  @override
+  String get namingVarPage => 'Страница (с 0)';
+
+  @override
+  String get namingVarPage1 => 'Страница (с 1)';
+
+  @override
+  String get namingVarPages => 'Всего страниц';
+
+  @override
+  String get namingVarExt => 'Расширение';
+
+  @override
+  String get namingVarW => 'Ширина';
+
+  @override
+  String get namingVarH => 'Высота';
+
+  @override
+  String get namingVarDate => 'Дата';
+
+  @override
+  String get namingVarCreated => 'Дата и время';
+
+  @override
+  String get namingVarSeries => 'Название серии';
+
+  @override
+  String get namingVarSeriesOrder => 'Номер в серии';
+
+  @override
+  String get namingVarChapters => 'Всего эпизодов в серии';
+
+  @override
+  String get namingSampleArtist => 'Автор';
+
+  @override
+  String get namingSampleTitle => 'Название';
+
+  @override
+  String get namingSampleSeries => 'Серия';
+
+  @override
+  String get namingTemplateSanitizeNote =>
+      'Недопустимые символы заменяются на _, длинные имена обрезаются.';
 
   @override
   String get notConfigured => 'Не настроено';
@@ -1196,13 +1254,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadRemoveRecord => 'Убрать из списка';
 
   @override
-  String downloadBatchCancelConfirm(int count) {
-    return 'Отменить выбранные загрузки ($count)? Незавершённый прогресс будет потерян.';
+  String get downloadOpenWork => 'Открыть работу';
+
+  @override
+  String get downloadClearCompleted => 'Очистить завершённые';
+
+  @override
+  String downloadTasksRemoved(int count) {
+    return 'Удалено записей: $count';
   }
 
   @override
-  String downloadBatchRemoveConfirm(int count) {
-    return 'Убрать выбранные записи ($count) из списка? Скачанные файлы останутся.';
+  String downloadBatchCancelConfirm(int count) {
+    return 'Отменить выбранные загрузки ($count)? Незавершённый прогресс будет потерян.';
   }
 
   @override

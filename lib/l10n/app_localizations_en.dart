@@ -24,13 +24,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectLanguage => 'Select your language';
 
   @override
-  String get selectTheme => 'Choose your favorite theme';
-
-  @override
   String get next => 'Next';
-
-  @override
-  String get setupLater => 'Set up later';
 
   @override
   String get dark => 'Dark';
@@ -644,6 +638,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileEditChooseImage => 'Choose image';
 
   @override
+  String get profileChangeAvatar => 'Change avatar';
+
+  @override
+  String get profileChangeBackground => 'Change background';
+
+  @override
   String get profileEditSave => 'Save profile';
 
   @override
@@ -894,6 +894,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mutedEmpty => 'Nothing muted yet';
 
   @override
+  String muteEmptyHint(String action) {
+    return 'Long-press a work\'s card and choose \"$action\"';
+  }
+
+  @override
   String get muteTagInputHint => 'Tag to mute';
 
   @override
@@ -1072,9 +1077,62 @@ class AppLocalizationsEn extends AppLocalizations {
   String get namingPreview => 'Preview';
 
   @override
-  String namingTemplateVariables(String variables) {
-    return 'Variables: $variables; illegal characters become _, and long names are trimmed.';
-  }
+  String get namingVarArtist => 'Artist name';
+
+  @override
+  String get namingVarTitle => 'Title';
+
+  @override
+  String get namingVarId => 'Work ID';
+
+  @override
+  String get namingVarAuthorId => 'Artist ID';
+
+  @override
+  String get namingVarPage => 'Page (from 0)';
+
+  @override
+  String get namingVarPage1 => 'Page (from 1)';
+
+  @override
+  String get namingVarPages => 'Page count';
+
+  @override
+  String get namingVarExt => 'Extension';
+
+  @override
+  String get namingVarW => 'Width';
+
+  @override
+  String get namingVarH => 'Height';
+
+  @override
+  String get namingVarDate => 'Date';
+
+  @override
+  String get namingVarCreated => 'Date and time';
+
+  @override
+  String get namingVarSeries => 'Series name';
+
+  @override
+  String get namingVarSeriesOrder => 'Number in series';
+
+  @override
+  String get namingVarChapters => 'Episodes in series';
+
+  @override
+  String get namingSampleArtist => 'Artist';
+
+  @override
+  String get namingSampleTitle => 'Title';
+
+  @override
+  String get namingSampleSeries => 'Series';
+
+  @override
+  String get namingTemplateSanitizeNote =>
+      'Illegal characters become _, and long names are trimmed.';
 
   @override
   String get notConfigured => 'Not configured';
@@ -1194,13 +1252,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadRemoveRecord => 'Remove';
 
   @override
-  String downloadBatchCancelConfirm(int count) {
-    return 'Cancel the $count selected download(s)? Unfinished progress will be discarded.';
+  String get downloadOpenWork => 'Open the work';
+
+  @override
+  String get downloadClearCompleted => 'Clear completed';
+
+  @override
+  String downloadTasksRemoved(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Removed $count tasks',
+      one: 'Removed 1 task',
+    );
+    return '$_temp0';
   }
 
   @override
-  String downloadBatchRemoveConfirm(int count) {
-    return 'Remove the $count selected record(s)? Only the records are removed — downloaded files stay.';
+  String downloadBatchCancelConfirm(int count) {
+    return 'Cancel the $count selected download(s)? Unfinished progress will be discarded.';
   }
 
   @override

@@ -12,6 +12,7 @@ import 'package:parfait/app/icons/app_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:parfait/app/widgets/follow_switch_button.dart';
 import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/mute/mute_models.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
@@ -518,7 +519,9 @@ void main() {
       await container.read(settingsProvider.future);
       await container.read(settingsProvider.notifier).setLocalBlockR18(true);
       container.read(muteStoreProvider);
-      await container.read(muteStoreProvider.notifier).toggleWork(103);
+      await container
+          .read(muteStoreProvider.notifier)
+          .muteWork(const MutedWork(illustId: 103));
 
       await mockNetworkImagesFor(() async {
         await pumpUsers(tester, container);

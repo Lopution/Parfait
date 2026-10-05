@@ -5,7 +5,6 @@ import 'package:parfait/core/i18n/replica_language.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/login/login_page.dart';
 import 'package:parfait/features/onboarding/language_page.dart';
-import 'package:parfait/features/onboarding/theme_page.dart';
 import 'package:parfait/features/onboarding/user_agreement_page.dart';
 import 'package:parfait/features/onboarding/welcome_page.dart';
 
@@ -14,13 +13,12 @@ import '../helpers/locale_layout.dart';
 import '../helpers/settings_world.dart';
 import '../helpers/test_preferences.dart';
 
-/// First-run pages. Login, language and theme read the persisted language
+/// First-run pages. Login and language read the persisted language
 /// tag; the others the app locale — the world sets both.
 final _pages = <String, (Widget, {int actions})>{
   'login': (const LoginPage(isFirst: true), actions: 2),
   'welcome': (const WelcomePage(), actions: 1),
   'language': (const LanguagePage(), actions: 1),
-  'theme': (const ThemePage(), actions: 1),
   'user agreement': (const UserAgreementPage(), actions: 0),
 };
 

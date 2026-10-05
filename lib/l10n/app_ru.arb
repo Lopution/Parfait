@@ -5,9 +5,7 @@
   "welcome2": "Начнется первоначальная настройка",
   "start": "Начать",
   "selectLanguage": "Выберите язык",
-  "selectTheme": "Выберите свою любимую тему",
   "next": "Далее",
-  "setupLater": "Настроить позже",
   "dark": "Тёмный",
   "light": "Светлый",
   "system": "Как в системе",
@@ -207,6 +205,8 @@
   "profileEditImageChoose": "Выберите поддерживаемое изображение",
   "profileEditImageFailed": "Не удалось обработать изображение",
   "profileEditChooseImage": "Выбрать изображение",
+  "profileChangeAvatar": "Сменить аватар",
+  "profileChangeBackground": "Сменить фон",
   "profileEditSave": "Сохранить профиль",
   "profileEditLeaveTitle": "Отменить несохранённые изменения?",
   "profileEditLeaveDetail": "Изменения ещё не отправлены и будут потеряны.",
@@ -350,6 +350,7 @@
   "mutedUsersSection": "Пользователи",
   "mutedWorksSection": "Работы",
   "mutedEmpty": "Ничего не заглушено",
+  "muteEmptyHint": "Нажмите и удерживайте карточку работы и выберите «{action}»",
   "muteTagInputHint": "Тег для заглушения",
   "muteWork": "Заглушить работу",
   "unmuteWork": "Снять заглушение работы",
@@ -429,14 +430,25 @@
   },
   "namingTemplateInvalid": "Шаблон содержит недопустимые переменные или символы",
   "namingPreview": "Предпросмотр",
-  "namingTemplateVariables": "Переменные: {variables}; недопустимые символы заменяются на _, длинные имена обрезаются.",
-  "@namingTemplateVariables": {
-    "placeholders": {
-      "variables": {
-        "type": "String"
-      }
-    }
-  },
+  "namingVarArtist": "Имя автора",
+  "namingVarTitle": "Название",
+  "namingVarId": "ID работы",
+  "namingVarAuthorId": "ID автора",
+  "namingVarPage": "Страница (с 0)",
+  "namingVarPage1": "Страница (с 1)",
+  "namingVarPages": "Всего страниц",
+  "namingVarExt": "Расширение",
+  "namingVarW": "Ширина",
+  "namingVarH": "Высота",
+  "namingVarDate": "Дата",
+  "namingVarCreated": "Дата и время",
+  "namingVarSeries": "Название серии",
+  "namingVarSeriesOrder": "Номер в серии",
+  "namingVarChapters": "Всего эпизодов в серии",
+  "namingSampleArtist": "Автор",
+  "namingSampleTitle": "Название",
+  "namingSampleSeries": "Серия",
+  "namingTemplateSanitizeNote": "Недопустимые символы заменяются на _, длинные имена обрезаются.",
   "notConfigured": "Не настроено",
   "translateProvider": "Сервис перевода",
   "translateGoogle": "Google Translate",
@@ -474,16 +486,11 @@
   "downloadProcessing": "Обработка",
   "downloadViewResult": "Открыть",
   "downloadRemoveRecord": "Убрать из списка",
+  "downloadOpenWork": "Открыть работу",
+  "downloadClearCompleted": "Очистить завершённые",
+  "downloadTasksRemoved": "Удалено записей: {count}",
   "downloadBatchCancelConfirm": "Отменить выбранные загрузки ({count})? Незавершённый прогресс будет потерян.",
   "@downloadBatchCancelConfirm": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "downloadBatchRemoveConfirm": "Убрать выбранные записи ({count}) из списка? Скачанные файлы останутся.",
-  "@downloadBatchRemoveConfirm": {
     "placeholders": {
       "count": {
         "type": "int"

@@ -98,7 +98,7 @@ class _SettingsList extends ConsumerWidget {
     // convention): concrete values, never a description of the title.
     final muted = ref.watch(muteStoreProvider);
     final mutedCount =
-        muted.tags.length + muted.users.length + muted.workIds.length;
+        muted.tags.length + muted.users.length + muted.works.length;
     // One-time snapshot per design: the page does not subscribe to the
     // manager's `changes` stream, so this count refreshes with the next
     // page rebuild rather than live.

@@ -5,9 +5,7 @@
   "welcome2": "初期設定を開始します",
   "start": "開始",
   "selectLanguage": "言語の選択",
-  "selectTheme": "テーマの選択",
   "next": "次へ",
-  "setupLater": "あとで設定する",
   "dark": "ダーク",
   "light": "ライト",
   "system": "システムのデフォルト",
@@ -207,6 +205,8 @@
   "profileEditImageChoose": "対応する画像を選択してください",
   "profileEditImageFailed": "画像の処理に失敗しました",
   "profileEditChooseImage": "画像を選択",
+  "profileChangeAvatar": "アイコンを変更",
+  "profileChangeBackground": "背景画像を変更",
   "profileEditSave": "プロフィールを保存",
   "profileEditLeaveTitle": "未保存の変更を破棄しますか？",
   "profileEditLeaveDetail": "変更はまだ送信されていないため、離れると失われます。",
@@ -350,6 +350,7 @@
   "mutedUsersSection": "ミュートユーザー",
   "mutedWorksSection": "ミュート作品",
   "mutedEmpty": "ミュート項目はありません",
+  "muteEmptyHint": "作品カードを長押しして「{action}」を選択",
   "muteTagInputHint": "ミュートするタグ",
   "muteWork": "この作品をミュート",
   "unmuteWork": "この作品のミュートを解除",
@@ -429,14 +430,25 @@
   },
   "namingTemplateInvalid": "未対応の変数または不正な文字を含みます",
   "namingPreview": "プレビュー",
-  "namingTemplateVariables": "変数：{variables}。不正な文字は _ に置換され、長い名前は切り詰められます。",
-  "@namingTemplateVariables": {
-    "placeholders": {
-      "variables": {
-        "type": "String"
-      }
-    }
-  },
+  "namingVarArtist": "作者名",
+  "namingVarTitle": "タイトル",
+  "namingVarId": "作品 ID",
+  "namingVarAuthorId": "作者 ID",
+  "namingVarPage": "ページ番号（0 から）",
+  "namingVarPage1": "ページ番号（1 から）",
+  "namingVarPages": "総ページ数",
+  "namingVarExt": "拡張子",
+  "namingVarW": "幅",
+  "namingVarH": "高さ",
+  "namingVarDate": "日付",
+  "namingVarCreated": "日時",
+  "namingVarSeries": "シリーズ名",
+  "namingVarSeriesOrder": "シリーズ内の番号",
+  "namingVarChapters": "シリーズの総話数",
+  "namingSampleArtist": "作者名",
+  "namingSampleTitle": "作品タイトル",
+  "namingSampleSeries": "シリーズ名",
+  "namingTemplateSanitizeNote": "不正な文字は _ に置換され、長い名前は切り詰められます。",
   "notConfigured": "未設定",
   "translateProvider": "翻訳サービス",
   "translateGoogle": "Google Translate",
@@ -474,16 +486,11 @@
   "downloadProcessing": "処理中",
   "downloadViewResult": "表示",
   "downloadRemoveRecord": "一覧から削除",
+  "downloadOpenWork": "作品を開く",
+  "downloadClearCompleted": "完了したタスクを消去",
+  "downloadTasksRemoved": "{count}件の記録を削除しました",
   "downloadBatchCancelConfirm": "選択した {count} 件のダウンロードをキャンセルしますか？未完了の進捗は破棄されます。",
   "@downloadBatchCancelConfirm": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "downloadBatchRemoveConfirm": "選択した {count} 件のレコードを一覧から削除しますか？ダウンロード済みファイルは残ります。",
-  "@downloadBatchRemoveConfirm": {
     "placeholders": {
       "count": {
         "type": "int"

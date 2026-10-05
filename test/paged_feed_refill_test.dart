@@ -5,6 +5,7 @@ import 'helpers/test_preferences.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
+import 'package:parfait/core/mute/mute_models.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
@@ -282,7 +283,9 @@ void main() {
     await container.read(accountStoreProvider.future);
     await container.read(settingsProvider.future);
     // Work mute is local-only: seeding through the store needs no server.
-    await container.read(muteStoreProvider.notifier).toggleWork(2);
+    await container
+        .read(muteStoreProvider.notifier)
+        .muteWork(const MutedWork(illustId: 2));
 
     final state = await container.read(_refillFeedProvider(script).future);
 
@@ -304,7 +307,9 @@ void main() {
       addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       await container.read(settingsProvider.future);
-      await container.read(muteStoreProvider.notifier).toggleWork(2);
+      await container
+          .read(muteStoreProvider.notifier)
+          .muteWork(const MutedWork(illustId: 2));
 
       final state = await container.read(_refillFeedProvider(script).future);
 

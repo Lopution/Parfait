@@ -132,23 +132,11 @@ abstract class AppLocalizations {
   /// **'选择您的语言'**
   String get selectLanguage;
 
-  /// No description provided for @selectTheme.
-  ///
-  /// In zh, this message translates to:
-  /// **'选择喜欢的主题'**
-  String get selectTheme;
-
   /// No description provided for @next.
   ///
   /// In zh, this message translates to:
   /// **'下一步'**
   String get next;
-
-  /// No description provided for @setupLater.
-  ///
-  /// In zh, this message translates to:
-  /// **'稍后设置'**
-  String get setupLater;
 
   /// No description provided for @dark.
   ///
@@ -1260,6 +1248,18 @@ abstract class AppLocalizations {
   /// **'选择图片'**
   String get profileEditChooseImage;
 
+  /// Screen-reader label of the tappable avatar on the profile edit page.
+  ///
+  /// In zh, this message translates to:
+  /// **'更换头像'**
+  String get profileChangeAvatar;
+
+  /// Screen-reader label of the tappable background image on the profile edit page.
+  ///
+  /// In zh, this message translates to:
+  /// **'更换背景图'**
+  String get profileChangeBackground;
+
   /// No description provided for @profileEditSave.
   ///
   /// In zh, this message translates to:
@@ -1697,6 +1697,12 @@ abstract class AppLocalizations {
   /// **'暂无屏蔽条目'**
   String get mutedEmpty;
 
+  /// Hint in an empty group of the muted items page: where this kind of mute is made. action is the card menu label (muteAuthor or muteWork).
+  ///
+  /// In zh, this message translates to:
+  /// **'长按作品卡片，选择「{action}」'**
+  String muteEmptyHint(String action);
+
   /// No description provided for @muteTagInputHint.
   ///
   /// In zh, this message translates to:
@@ -2021,11 +2027,119 @@ abstract class AppLocalizations {
   /// **'预览'**
   String get namingPreview;
 
-  /// No description provided for @namingTemplateVariables.
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
   ///
   /// In zh, this message translates to:
-  /// **'变量：{variables}；非法字符自动替换为 _，超长自动裁剪。'**
-  String namingTemplateVariables(String variables);
+  /// **'作者名'**
+  String get namingVarArtist;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'标题'**
+  String get namingVarTitle;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品 ID'**
+  String get namingVarId;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'作者 ID'**
+  String get namingVarAuthorId;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'页码（从 0 开始）'**
+  String get namingVarPage;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'页码（从 1 开始）'**
+  String get namingVarPage1;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'总页数'**
+  String get namingVarPages;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'扩展名'**
+  String get namingVarExt;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'宽度'**
+  String get namingVarW;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'高度'**
+  String get namingVarH;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'日期'**
+  String get namingVarDate;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'日期和时间'**
+  String get namingVarCreated;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列名'**
+  String get namingVarSeries;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列内序号'**
+  String get namingVarSeriesOrder;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列总话数'**
+  String get namingVarChapters;
+
+  /// Sample value in the naming template preview.
+  ///
+  /// In zh, this message translates to:
+  /// **'作者名'**
+  String get namingSampleArtist;
+
+  /// Sample value in the naming template preview.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品标题'**
+  String get namingSampleTitle;
+
+  /// Sample value in the naming template preview.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列名'**
+  String get namingSampleSeries;
+
+  /// No description provided for @namingTemplateSanitizeNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'非法字符自动替换为 _，超长自动裁剪。'**
+  String get namingTemplateSanitizeNote;
 
   /// No description provided for @notConfigured.
   ///
@@ -2249,17 +2363,29 @@ abstract class AppLocalizations {
   /// **'移除'**
   String get downloadRemoveRecord;
 
+  /// Screen-reader hint of a download task row: tapping opens its work
+  ///
+  /// In zh, this message translates to:
+  /// **'打开作品'**
+  String get downloadOpenWork;
+
+  /// Download tasks app-bar action: removes the records of successfully finished tasks
+  ///
+  /// In zh, this message translates to:
+  /// **'清除已完成'**
+  String get downloadClearCompleted;
+
+  /// Undo prompt after download task records were removed
+  ///
+  /// In zh, this message translates to:
+  /// **'已移除 {count} 条记录'**
+  String downloadTasksRemoved(int count);
+
   /// No description provided for @downloadBatchCancelConfirm.
   ///
   /// In zh, this message translates to:
   /// **'取消选中的 {count} 项下载？未完成的进度会被丢弃。'**
   String downloadBatchCancelConfirm(int count);
-
-  /// No description provided for @downloadBatchRemoveConfirm.
-  ///
-  /// In zh, this message translates to:
-  /// **'移除选中的 {count} 项记录？仅移除记录，已下载文件保留。'**
-  String downloadBatchRemoveConfirm(int count);
 
   /// No description provided for @resumeDownload.
   ///

@@ -34,12 +34,12 @@ const _textPlaceholderKeys = <String, String>{
   // status, not an exception (design §2.4 class 5 precedent).
   'loginNetworkError': 'HTTP status and host',
   'backupExported': 'exported file name',
+  'muteEmptyHint': 'card menu label of the mute action',
   'backupImportPrompt': 'account name stored in the backup',
   'imageSourceTestOk': 'HTTP status of a successful probe',
   'imageSourceAutoWinner': 'selected mirror host',
   'safStorageSdCard': 'storage volume label',
   'namingTemplateHint': 'naming-template variable tokens',
-  'namingTemplateVariables': 'naming-template variable list',
   'downloadGroupAuthorTitle': 'author name',
   // `reason` is always errorCategoryText output (showErrorSnackBar).
   'errorWithReason': 'localized action and category',

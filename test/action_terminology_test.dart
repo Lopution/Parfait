@@ -33,7 +33,7 @@ void main() {
         zh.removeAccount,
         zh.removeAccountConfirm,
         zh.downloadRemoveRecord,
-        zh.downloadBatchRemoveConfirm(2),
+        zh.downloadTasksRemoved(2),
         zh.cardActionRemoveWatchLater,
         zh.watchLaterRemoved,
       ]) {

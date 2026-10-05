@@ -26,10 +26,11 @@ class ThemeSettingsPage extends ConsumerWidget {
         titleKey: 'themeSettings',
       );
     }
+    // The default comes first.
     final items = [
-      (AppSettings.darkTheme, context.l10n.dark),
-      (AppSettings.lightTheme, context.l10n.light),
       (AppSettings.systemTheme, context.l10n.system),
+      (AppSettings.lightTheme, context.l10n.light),
+      (AppSettings.darkTheme, context.l10n.dark),
     ];
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n.themeSettings)),

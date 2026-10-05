@@ -10,7 +10,6 @@ import '../../../core/illust/illust_download_controller.dart';
 import '../../../core/mute/mute_models.dart';
 import '../../../core/mute/mute_store.dart';
 import '../../../core/share/share_service.dart';
-import '../../../core/watchlater/watch_later_repository.dart';
 import '../../../core/watchlater/watch_later_store.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../l10n/context.dart';
@@ -142,24 +141,16 @@ class _WatchLaterAction extends CardAction {
   ) async {
     final store = ref.read(watchLaterStoreProvider.notifier);
     if (_saved(ref, entity)) {
-      // Capture the entry before removing so undo can pin its original
-      // addedAt — a plain re-add would refresh the timestamp and land the
-      // row at the front instead of its old position.
-      final removed =
-          (ref.read(watchLaterStoreProvider).value ?? const <WatchLaterEntry>[])
-              .where((entry) => entry.entity.id == entity.id)
-              .firstOrNull;
-      await store.remove(entity.id);
-      if (context.mounted) {
+      // The removal keeps the entry's original addedAt and its account:
+      // undo puts it back in place, and only on that account's list.
+      final removal = await store.removeAll([entity.id]);
+      if (removal != null && context.mounted) {
         showUndoSnackBar(
           context,
           context.l10n.watchLaterRemoved,
-          onUndo: (container) async {
-            final store = container.read(watchLaterStoreProvider.notifier);
-            removed != null
-                ? await store.restore(removed)
-                : await store.add(entity);
-          },
+          onUndo: (container) => container
+              .read(watchLaterStoreProvider.notifier)
+              .restoreAll(removal),
         );
       }
     } else {
@@ -207,9 +198,21 @@ class _MuteWorkAction extends CardAction {
     WidgetRef ref,
     IllustEntity entity,
   ) async {
-    final wasMuted = ref.read(muteStoreProvider).isWorkMuted(entity.id);
+    final store = ref.read(muteStoreProvider.notifier);
+    // What the list kept for it, so Undo brings that entry back as it was.
+    final removed = ref.read(muteStoreProvider).works[entity.id];
     try {
-      await ref.read(muteStoreProvider.notifier).toggleWork(entity.id);
+      if (removed != null) {
+        await store.unmuteWork(entity.id);
+      } else {
+        await store.muteWork(
+          MutedWork(
+            illustId: entity.id,
+            title: entity.title,
+            thumbnailUrl: entity.imageUrls.squareMedium,
+          ),
+        );
+      }
     } catch (error) {
       if (context.mounted) {
         showErrorSnackBar(
@@ -220,8 +223,8 @@ class _MuteWorkAction extends CardAction {
       }
       return;
     }
-    if (wasMuted && context.mounted) {
-      showUnmuteUndo(context, MuteKey.work(entity.id));
+    if (removed != null && context.mounted) {
+      showUnmuteUndo(context, MuteKey.work(entity.id), work: removed);
     }
   }
 }

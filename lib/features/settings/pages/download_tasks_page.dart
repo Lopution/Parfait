@@ -15,6 +15,7 @@ import '../../../app/widgets/app_menu_button.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/selection_app_bar.dart';
+import '../../../app/widgets/undo_snack_bar.dart';
 import '../../../core/download/download_manager.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart';
@@ -157,19 +158,44 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
         if (_selected.contains(task.id) && isTerminal(task.status)) task.id,
     ];
     if (targets.isEmpty) return;
-    final confirmed = await _confirmBatch(
-      context,
-      title: context.l10n.downloadRemoveRecord,
-      body: context.l10n.downloadBatchRemoveConfirm(targets.length),
-    );
-    if (!confirmed) return;
-    await _dismissWithExit(_removals, _manager, targets);
-    if (mounted) _exitManaging();
+    _exitManaging();
+    await _removeTasks(targets);
   }
 
-  /// Batch confirm through the shared dialog — its opening is the
-  /// explicit-vibration role; canceling and record removal both discard
-  /// something (partial output / the durable record).
+  /// Plays the exit of the rows of [taskIds] — plus [groupId]'s header when
+  /// the whole group goes — then drops the records and offers Undo (D5:
+  /// a record is not the file, so removal is reversible). A task that left
+  /// the terminal state meanwhile (a retry landed) is kept, and its rows
+  /// return.
+  Future<void> _removeTasks(List<String> taskIds, {String? groupId}) async {
+    final header = [?(groupId == null ? null : _groupRowKey(groupId))];
+    await _removals.playExit([...taskIds.map(_taskRowKey), ...header]);
+    final removal = _manager.dismissAll(taskIds);
+    final gone = removal.taskIds.toSet();
+    final kept = [
+      for (final id in taskIds)
+        if (!gone.contains(id)) _taskRowKey(id),
+    ];
+    if (kept.isNotEmpty) _removals.restore([...kept, ...header]);
+    if (removal.isEmpty || !mounted) return;
+    final manager = _manager;
+    showUndoSnackBar(
+      context,
+      context.l10n.downloadTasksRemoved(removal.count),
+      onUndo: (_) async => manager.restore(removal),
+    );
+  }
+
+  /// Every successfully finished task — failed and canceled ones may still
+  /// be retried, so "clear completed" leaves them.
+  List<String> get _completedTaskIds => [
+    for (final task in _manager.tasks)
+      if (task.status == DownloadStatus.succeeded) task.id,
+  ];
+
+  /// Batch-cancel confirm through the shared dialog — its opening is the
+  /// explicit-vibration role; canceling deletes partial output, which Undo
+  /// could not bring back.
   Future<bool> _confirmBatch(
     BuildContext context, {
     required String title,
@@ -279,6 +305,15 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
             : AppBar(
                 title: Text(context.l10n.downloaderSettings),
                 actions: [
+                  if (tasks.any(
+                    (task) => task.status == DownloadStatus.succeeded,
+                  ))
+                    IconButton(
+                      tooltip: context.l10n.downloadClearCompleted,
+                      onPressed: () => _removeTasks(_completedTaskIds),
+                      icon: const Icon(Icons.cleaning_services_outlined),
+                    ),
+                  // Spelled out: an icon alone did not read as "manage".
                   if (tasks.isNotEmpty)
                     TextButton(
                       onPressed: _enterManaging,
@@ -351,6 +386,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
             manager: _manager,
             expanded: expanded,
             onToggleExpanded: () => _toggleGroupExpanded(group.id),
+            onRemove: _removeTasks,
           ),
         );
       case _GroupChildEntry(:final task, :final last):
@@ -384,6 +420,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
       selected: _selected.contains(task.id),
       onToggle: () => _toggleSelected(task.id),
       onEnterManaging: () => _enterManaging(task.id),
+      onRemove: () => _removeTasks([task.id]),
       dense: dense,
     );
   }
@@ -397,23 +434,10 @@ String _taskRowKey(String taskId) => 'download-task-$taskId';
 const _maxGrowingRows = 16;
 String _groupRowKey(String groupId) => 'download-group-$groupId';
 
-/// Plays the exit of the rows of [taskIds] — plus [groupId]'s header when
-/// the whole group goes — then drops the records. A task that left the
-/// terminal state meanwhile (a retry landed) is kept, and its rows return.
-Future<void> _dismissWithExit(
-  RemovalController removals,
-  DownloadManager manager,
-  List<String> taskIds, {
-  String? groupId,
-}) async {
-  final header = [?(groupId == null ? null : _groupRowKey(groupId))];
-  await removals.playExit([...taskIds.map(_taskRowKey), ...header]);
-  final kept = [
-    for (final id in taskIds)
-      if (!manager.dismiss(id)) _taskRowKey(id),
-  ];
-  if (kept.isNotEmpty) removals.restore([...kept, ...header]);
-}
+/// Removes task rows (and a whole group's header) with Undo; owned by the
+/// page so the Undo prompt outlives the removed rows.
+typedef _RemoveTasks =
+    Future<void> Function(List<String> taskIds, {String? groupId});
 
 /// The lazy list's flat entries (§3.1): a group header, one child of an
 /// expanded group, or an ungrouped task.
@@ -705,6 +729,7 @@ class _DownloadTaskRow extends StatelessWidget {
     required this.selected,
     required this.onToggle,
     required this.onEnterManaging,
+    required this.onRemove,
     this.dense = false,
   });
 
@@ -717,6 +742,7 @@ class _DownloadTaskRow extends StatelessWidget {
   final bool selected;
   final VoidCallback onToggle;
   final VoidCallback onEnterManaging;
+  final VoidCallback onRemove;
 
   /// Group children render smaller thumbnails aligned under the header's
   /// text column.
@@ -769,42 +795,51 @@ class _DownloadTaskRow extends StatelessWidget {
     final statusText = info == null
         ? downloadVisualText(l10n, state)
         : '${downloadVisualText(l10n, state)} · $info';
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: managing ? onToggle : null,
-        onLongPress: managing ? null : onEnterManaging,
-        // Entering management plays AppHaptics.confirm and toggles play
-        // select; the ink response's own vibration would double them.
-        enableFeedback: false,
-        child: _DownloadRowLayout(
-          thumbnailUrl: task.submission?.request.thumbnailUrl,
-          thumbnailSize: dense ? 40 : 56,
-          title: downloadTaskTitle(task),
-          titleNote: downloadTaskPageLabel(l10n, task),
-          subtitle: downloadTaskSubtitle(task),
-          status: _DownloadStatusLine(state: state, text: statusText),
-          progress: downloadVisualShowsProgress(state)
-              ? LinearProgressIndicator(
-                  value: downloadProgressValue(state, task.progress),
-                  borderRadius: FuncShape.pill,
-                )
-              : null,
-          detail: _failureReason(context, task),
-          errorDetails: _failureDetailsError(task),
-          titleAction: managing
-              ? StateIconSwitcher(
-                  value: selected,
-                  child: Icon(
-                    key: ValueKey('download-select-${task.id}'),
-                    selected
-                        ? Icons.check_circle
-                        : Icons.radio_button_unchecked,
-                    color: selected ? colorScheme.primary : null,
-                  ),
-                )
-              : null,
-          actions: managing ? const [] : _taskActions(context),
+    // Outside management the row opens its work; the action strip keeps
+    // its own targets.
+    return Semantics(
+      container: true,
+      button: true,
+      onTapHint: managing ? null : l10n.downloadOpenWork,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: managing
+              ? onToggle
+              : () => unawaited(openIllust(context, task.illustId)),
+          onLongPress: managing ? null : onEnterManaging,
+          // Entering management plays AppHaptics.confirm and toggles play
+          // select; the ink response's own vibration would double them.
+          enableFeedback: false,
+          child: _DownloadRowLayout(
+            thumbnailUrl: task.submission?.request.thumbnailUrl,
+            thumbnailSize: dense ? 40 : 56,
+            title: downloadTaskTitle(task),
+            titleNote: downloadTaskPageLabel(l10n, task),
+            subtitle: downloadTaskSubtitle(task),
+            status: _DownloadStatusLine(state: state, text: statusText),
+            progress: downloadVisualShowsProgress(state)
+                ? LinearProgressIndicator(
+                    value: downloadProgressValue(state, task.progress),
+                    borderRadius: FuncShape.pill,
+                  )
+                : null,
+            detail: _failureReason(context, task),
+            errorDetails: _failureDetailsError(task),
+            titleAction: managing
+                ? StateIconSwitcher(
+                    value: selected,
+                    child: Icon(
+                      key: ValueKey('download-select-${task.id}'),
+                      selected
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      color: selected ? colorScheme.primary : null,
+                    ),
+                  )
+                : null,
+            actions: managing ? const [] : _taskActions(context),
+          ),
         ),
       ),
     );
@@ -864,8 +899,7 @@ class _DownloadTaskRow extends StatelessWidget {
         _DownloadAction(
           label: l10n.downloadRemoveRecord,
           icon: Icons.remove_circle_outline,
-          onPressed: () =>
-              _dismissWithExit(RemovalScope.of(context), manager, [task.id]),
+          onPressed: onRemove,
         ),
       ],
       DownloadStatus.succeeded => [
@@ -877,16 +911,14 @@ class _DownloadTaskRow extends StatelessWidget {
         _DownloadAction(
           label: l10n.downloadRemoveRecord,
           icon: Icons.remove_circle_outline,
-          onPressed: () =>
-              _dismissWithExit(RemovalScope.of(context), manager, [task.id]),
+          onPressed: onRemove,
         ),
       ],
       DownloadStatus.orphaned => [
         _DownloadAction(
           label: l10n.downloadRemoveRecord,
           icon: Icons.remove_circle_outline,
-          onPressed: () =>
-              _dismissWithExit(RemovalScope.of(context), manager, [task.id]),
+          onPressed: onRemove,
         ),
       ],
     };
@@ -904,6 +936,7 @@ class _DownloadGroupHeader extends StatelessWidget {
     required this.manager,
     required this.expanded,
     required this.onToggleExpanded,
+    required this.onRemove,
   });
 
   final DownloadGroupSnapshot group;
@@ -911,6 +944,7 @@ class _DownloadGroupHeader extends StatelessWidget {
   final DownloadManager manager;
   final bool expanded;
   final VoidCallback onToggleExpanded;
+  final _RemoveTasks onRemove;
 
   bool get _everyRetryablePaused {
     final retryable = [
@@ -981,11 +1015,8 @@ class _DownloadGroupHeader extends StatelessWidget {
     List<DownloadTaskSnapshot> children,
   ) {
     final l10n = context.l10n;
-    void dismissChildren() => _dismissWithExit(
-      RemovalScope.of(context),
-      manager,
-      [for (final child in children) child.id],
-      groupId: group.id,
+    void dismissChildren() => unawaited(
+      onRemove([for (final child in children) child.id], groupId: group.id),
     );
 
     return switch (group.status) {

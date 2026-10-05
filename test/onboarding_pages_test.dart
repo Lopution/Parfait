@@ -5,11 +5,11 @@ import 'package:go_router/go_router.dart';
 
 import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/app/widgets/replica_button.dart';
+import 'package:parfait/app/widgets/settings/settings_choice_tile.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/settings/settings_repository.dart';
 import 'package:parfait/features/onboarding/language_page.dart';
-import 'package:parfait/features/onboarding/theme_page.dart';
 import 'package:parfait/features/onboarding/user_agreement_page.dart';
 import 'package:parfait/features/onboarding/welcome_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
@@ -96,7 +96,6 @@ void main() {
     final pages = <String, Widget>{
       'welcome': const WelcomePage(),
       'language': const LanguagePage(),
-      'theme': const ThemePage(),
     };
     for (final scale in const [1.0, 1.3]) {
       for (final size in _viewports) {
@@ -135,7 +134,6 @@ void main() {
                 path: 'language',
                 builder: (_, _) => const LanguagePage(),
               ),
-              GoRoute(path: 'theme', builder: (_, _) => const ThemePage()),
             ],
           ),
           GoRoute(
@@ -188,36 +186,16 @@ void main() {
       expect(r.state.uri.path, '/welcome/language');
     });
 
-    testWidgets('language next pushes the theme page', (tester) async {
-      final r = await pumpFlow(tester, initialLocation: '/welcome/language');
-      expect(find.byType(LanguagePage), findsOneWidget);
-
-      await tester.tap(find.byType(ReplicaButton));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(ThemePage), findsOneWidget);
-      expect(r.state.uri.path, '/welcome/theme');
-    });
-
-    testWidgets('language later button advances like next', (tester) async {
-      final r = await pumpFlow(tester, initialLocation: '/welcome/language');
-
-      await tester.tap(find.text('稍后设置'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(ThemePage), findsOneWidget);
-      expect(r.state.uri.path, '/welcome/theme');
-    });
-
-    testWidgets('theme next completes the guide and opens login', (
+    testWidgets('language next completes the guide and opens login', (
       tester,
     ) async {
       final repository = _StubSettingsRepository();
       final r = await pumpFlow(
         tester,
-        initialLocation: '/welcome/theme',
+        initialLocation: '/welcome/language',
         repository: repository,
       );
+      expect(find.byType(LanguagePage), findsOneWidget);
 
       await tester.tap(find.byType(ReplicaButton));
       await tester.pumpAndSettle();
@@ -229,25 +207,53 @@ void main() {
       expect(r.state.uri.queryParameters['return'], 'true');
     });
 
-    testWidgets('theme later button advances like next', (tester) async {
+    testWidgets('the language page has one action and no skip', (tester) async {
+      await pumpFlow(tester, initialLocation: '/welcome/language');
+
+      expect(find.byType(ReplicaButton), findsOneWidget);
+      expect(find.byType(TextButton), findsNothing);
+      expect(find.text('稍后设置'), findsNothing);
+    });
+  });
+
+  group('language choice', () {
+    testWidgets('options are single-choice rows that apply at once', (
+      tester,
+    ) async {
+      addTearDown(tester.view.reset);
       final repository = _StubSettingsRepository();
-      final r = await pumpFlow(
+      await pumpPage(
         tester,
-        initialLocation: '/welcome/theme',
+        const Size(390, 844),
+        const LanguagePage(),
         repository: repository,
       );
 
-      await tester.tap(find.text('稍后设置'));
+      expect(find.byType(SettingsChoiceTile), findsNWidgets(4));
+      expect(
+        tester.getSemantics(find.widgetWithText(SettingsChoiceTile, '简体中文')),
+        isSemantics(isSelected: true, hasSelectedState: true),
+      );
+
+      await tester.tap(find.text('日本語'));
       await tester.pumpAndSettle();
 
-      expect(repository.saved.last.guideCompleted, isTrue);
-      expect(find.text('LOGIN-MARKER'), findsOneWidget);
-      expect(r.state.uri.path, '/login');
+      expect(repository.saved.last.languageTag, 'ja-JP');
+      expect(
+        tester.getSemantics(find.widgetWithText(SettingsChoiceTile, '日本語')),
+        isSemantics(isSelected: true, hasSelectedState: true),
+      );
+      expect(
+        tester.getSemantics(find.widgetWithText(SettingsChoiceTile, '简体中文')),
+        isSemantics(isSelected: false, hasSelectedState: true),
+      );
+      // The page's own text follows the choice right away.
+      expect(find.text('言語の選択'), findsOneWidget);
     });
   });
 
   group('titles', () {
-    testWidgets('language/theme titles wrap instead of shrinking', (
+    testWidgets('the language title wraps instead of shrinking', (
       tester,
     ) async {
       addTearDown(tester.view.reset);
@@ -260,16 +266,9 @@ void main() {
         textScale: 1.3,
       );
       expect(find.byType(FittedBox), findsNothing);
-      expect(find.text('选择您的语言'), findsOneWidget);
-
-      await pumpPage(
-        tester,
-        const Size(320, 568),
-        const ThemePage(),
-        textScale: 1.3,
-      );
-      expect(find.byType(FittedBox), findsNothing);
-      expect(find.text('选择喜欢的主题'), findsOneWidget);
+      final title = tester.widget<Text>(find.text('选择您的语言'));
+      final theme = Theme.of(tester.element(find.text('选择您的语言')));
+      expect(title.style, theme.textTheme.headlineMedium);
     });
 
     testWidgets('welcome lockup lines wrap instead of shrinking', (
@@ -282,7 +281,25 @@ void main() {
       expect(find.byType(FittedBox), findsNothing);
       final line = tester.widget<Text>(find.text('感谢使用Parfait'));
       expect(line.maxLines, isNull);
-      expect(line.style!.fontSize, 24);
+      final theme = Theme.of(tester.element(find.text('感谢使用Parfait')));
+      expect(line.style, theme.textTheme.headlineMedium);
+    });
+
+    testWidgets('welcome shows the app mark as decoration', (tester) async {
+      addTearDown(tester.view.reset);
+      await pumpPage(tester, const Size(390, 844), const WelcomePage());
+
+      final mark = tester.widget<Image>(find.byType(Image));
+      expect(
+        (mark.image as AssetImage).assetName,
+        'assets/branding/parfait_icon.png',
+      );
+      expect(mark.width, 96);
+      expect(mark.excludeFromSemantics, isTrue);
+      final detail = tester.widget<Text>(find.text('下面将进行首次启动设置'));
+      final theme = Theme.of(tester.element(find.text('下面将进行首次启动设置')));
+      expect(detail.style!.fontSize, theme.textTheme.bodyLarge!.fontSize);
+      expect(detail.style!.color, theme.colorScheme.onSurfaceVariant);
     });
   });
   group('user agreement', () {

@@ -49,31 +49,64 @@ class WatchLaterRepository {
   }
 
   /// Idempotent: re-adding an existing work refreshes `added_at` and the
-  /// stored payload instead of failing. Passing [addedAt] pins the
-  /// timestamp — the watch-later undo path uses it so a restored entry
-  /// lands back at its old position instead of jumping to the front.
-  Future<void> add(
-    String accountId,
-    IllustEntity entity, {
-    int? addedAt,
-  }) async {
+  /// stored payload instead of failing.
+  Future<void> add(String accountId, IllustEntity entity) async {
     final db = await _database.database;
-    await db.insert(WatchLaterDatabase.table, {
-      'account_id': accountId,
-      'illust_id': entity.id,
-      'added_at': addedAt ?? _now().millisecondsSinceEpoch,
-      'payload': jsonEncode(entity.toJson()),
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
-  }
-
-  Future<void> remove(String accountId, int illustId) async {
-    final db = await _database.database;
-    await db.delete(
+    await db.insert(
       WatchLaterDatabase.table,
-      where: 'account_id = ? AND illust_id = ?',
-      whereArgs: [accountId, illustId],
+      _row(accountId, entity, _now().millisecondsSinceEpoch),
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
+
+  /// Puts [entries] back with their own `added_at` in one transaction, so
+  /// each lands at its old position instead of jumping to the front.
+  Future<void> restoreAll(
+    String accountId,
+    Iterable<WatchLaterEntry> entries,
+  ) async {
+    final db = await _database.database;
+    await db.transaction((txn) async {
+      final batch = txn.batch();
+      for (final entry in entries) {
+        batch.insert(
+          WatchLaterDatabase.table,
+          _row(accountId, entry.entity, entry.addedAt),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
+  /// Removes [illustIds] in one transaction.
+  Future<void> removeAll(String accountId, Iterable<int> illustIds) async {
+    final ids = illustIds.toSet();
+    if (ids.isEmpty) return;
+    final db = await _database.database;
+    await db.transaction((txn) async {
+      final batch = txn.batch();
+      for (final id in ids) {
+        batch.delete(
+          WatchLaterDatabase.table,
+          where: 'account_id = ? AND illust_id = ?',
+          whereArgs: [accountId, id],
+        );
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
+  static Map<String, Object> _row(
+    String accountId,
+    IllustEntity entity,
+    int addedAt,
+  ) => {
+    'account_id': accountId,
+    'illust_id': entity.id,
+    'added_at': addedAt,
+    'payload': jsonEncode(entity.toJson()),
+  };
 
   Future<void> clear(String accountId) async {
     final db = await _database.database;

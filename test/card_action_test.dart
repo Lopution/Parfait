@@ -12,9 +12,11 @@ import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/feed/muted_cover.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
+import 'package:parfait/core/mute/mute_models.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/share/share_service.dart';
 import 'package:parfait/features/settings/pages/muted_items_page.dart';
+import 'package:parfait/core/watchlater/watch_later_repository.dart';
 import 'package:parfait/core/watchlater/watch_later_store.dart';
 import 'package:parfait/features/watchlater/watchlater_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
@@ -133,7 +135,9 @@ void main() {
     tester,
   ) async {
     final (container, _, _) = await makeCardWorld();
-    await container.read(muteStoreProvider.notifier).toggleWork(7);
+    await container
+        .read(muteStoreProvider.notifier)
+        .muteWork(const MutedWork(illustId: 7));
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
@@ -157,7 +161,9 @@ void main() {
 
   testWidgets('unmuting from the card offers Undo', (tester) async {
     final (container, _, _) = await makeCardWorld();
-    await container.read(muteStoreProvider.notifier).toggleWork(7);
+    await container
+        .read(muteStoreProvider.notifier)
+        .muteWork(const MutedWork(illustId: 7));
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
@@ -209,7 +215,9 @@ void main() {
     final (container, _, repository) = await makeCardWorld();
     final entity = parseIllust(illustJson(9));
     const originalAddedAt = 1726800000000;
-    await repository.add('100', entity, addedAt: originalAddedAt);
+    await repository.restoreAll('100', [
+      WatchLaterEntry(addedAt: originalAddedAt, entity: entity),
+    ]);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
       await tester.pump();
@@ -337,7 +345,7 @@ void main() {
     expect(find.text('illust 21'), findsWidgets);
     expect(find.byType(IllustCard), findsOneWidget);
 
-    await repository.remove('100', 21);
+    await repository.removeAll('100', [21]);
     container.invalidate(watchLaterStoreProvider);
     await mockNetworkImagesFor(() async {
       await tester.pumpAndSettle();
@@ -360,6 +368,10 @@ void main() {
       container.read(muteStoreProvider.select((s) => s.isWorkMuted(31))),
       isTrue,
     );
+    // The management list shows what was kept at mute time.
+    final kept = container.read(muteStoreProvider).works[31]!;
+    expect(kept.title, entity.title);
+    expect(kept.thumbnailUrl, entity.imageUrls.squareMedium);
     // Work mute is local-only: no mute/edit request may leave the client.
     expect(
       fixture.posts.where((u) => u.path.endsWith('/v1/mute/edit')),
@@ -408,7 +420,9 @@ void main() {
   ) async {
     final (container, _, _) = await makeCardWorld();
     final entity = parseIllust(illustJson(51));
-    await container.read(muteStoreProvider.notifier).toggleWork(51);
+    await container
+        .read(muteStoreProvider.notifier)
+        .muteWork(const MutedWork(illustId: 51));
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(_cardApp(container, IllustCard(entity: entity)));
       await tester.pump();
@@ -450,7 +464,9 @@ void main() {
       'mute_limit_count': 500,
     };
     // Seed a local work mute before the page builds.
-    await container.read(muteStoreProvider.notifier).toggleWork(41);
+    await container
+        .read(muteStoreProvider.notifier)
+        .muteWork(const MutedWork(illustId: 41));
 
     await tester.pumpWidget(_cardApp(container, const MutedItemsPage()));
     await tester.pumpAndSettle();

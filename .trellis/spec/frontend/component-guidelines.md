@@ -1827,6 +1827,92 @@ reading". The watchlist sheet uses the same continue wording. The
 caption is an `ExpandableText` folded at three lines. Owning test:
 `series_feed_test.dart`.
 
+## Library, Settings and Onboarding Contract
+
+**Selecting several entries.** A list whose entries can be removed in
+batches (download tasks, history, watch later) enters selection with a
+"manage" `TextButton` (`l10n.manage`) in the app bar, shown only when
+the list has entries — a spelled-out word, not an icon (an icon alone
+was unreadable in testing). Selection swaps the bar for
+`selectionAppBar` (close, count, select all, the batch actions). System
+back leaves selection before it leaves the page. Grid entries wrap in `SelectableTile`
+(`lib/app/widgets/selectable_tile.dart`): while managing, the whole
+tile toggles on tap and long press, the child's own gestures are
+absorbed, a selected tile gets a tinted frame and a check and is
+announced selected; outside management a long press is the child's
+(watch later opens the card sheet) or the page's (history enters
+selection). Removing never asks first: the entries play their exit
+(`RemovalController.playExit`), the store removes them in one write, and
+`showUndoSnackBar` puts them back in their old places. Batch removal
+leaves selection first.
+
+**Undoable removals.** A removal returns what undo needs, and undo
+restores positions, not just membership. `DownloadManager.dismissAll`
+removes finished tasks only (records, never files) and returns a
+`DownloadRemoval`; `restore` re-inserts each task into its own group at
+its old index, rebuilds a group removed with its last task, skips a
+task whose dedupe key was submitted again in the meantime, and
+persists. "Clear completed" (an icon with a tooltip, shown only when a
+task succeeded) passes the succeeded ids to `dismissAll`. Batch cancel
+keeps its confirmation — it stops work that cannot be undone. A
+download task row opens its work on tap (`downloadOpenWork` tap hint);
+while managing it selects. `WatchLaterStore.removeAll` returns a
+`WatchLaterRemoval` (account id and the entries with their original
+`addedAt`); `restoreAll` re-inserts them so they sort back into place,
+and restores nothing once another account is current. Owning tests:
+`download_manager_test.dart`, `download_tasks_page_test.dart`,
+`watch_later_store_test.dart`, `watchlater_page_test.dart`.
+
+**Muted items.** Work mutes are `MutedWork {illustId, title,
+thumbnailUrl}` captured from the card when muted; the stored list
+(`muted_works_<account>`) and the backup (`mutes.works`) are written as
+objects, and `MutedWork.fromJson` also reads the earlier bare ids
+(backups: `mutes.workIds`). The store has `muteWork` / `unmuteWork`, no
+toggle; unmute undo passes the removed `MutedWork` (or `MutedUser`) so
+the entry comes back whole. The management page shows a muted author
+with `PersonAvatar(radius: 20)` and a muted work with a 48dp
+`FuncShape.control` thumbnail blurred like `MutedCover` (sigma 10) —
+the user hid it, the list does not show it plainly. A work without a
+stored title or thumbnail falls back to a loaded copy, then to "#id"
+and a placeholder icon. An empty author or work group shows one
+non-interactive line saying where those mutes are made
+(`muteEmptyHint(action)` with the card menu label); there is no
+page-wide empty state. Owning tests: `muted_items_page_test.dart`,
+`mute_store_test.dart`, `backup_test.dart`.
+
+**Onboarding.** The guide is welcome → language → sign-in. The welcome
+page shows the app mark (`assets/branding/parfait_icon.png`, 96dp,
+excluded from semantics), a `headlineMedium` title and a `bodyLarge`
+`onSurfaceVariant` line. The language page lists the languages as
+`SettingsChoiceTile`s in a `SettingsGroup`; a pick applies at once and
+the page's own text (read with `l10nLookupFor` from the persisted
+language) follows it. Its single action completes the guide and opens
+sign-in (`openLogin(isFirst: true, returnToHomeOnSuccess: true)`);
+there is no "set up later" and no theme step — the theme is in
+settings, whose options list the default first (follow system, light,
+dark). Owning tests: `onboarding_pages_test.dart`, `settings_test.dart`.
+
+**Naming template variables.** Under the custom template field, one
+`ActionChip` per `NamingRule.supportedVariables` entry, labelled with
+what it inserts (`namingVar…`) and announced as "meaning, {variable}".
+A tap inserts `{variable}` at the cursor or over the selection (at the
+end when the field has no cursor yet), moves the cursor after it and
+keeps the field focused; an insertion that would pass the field's
+128-character limit is dropped. An insertion is an unsaved edit like
+typing: the preview updates, save is offered and leaving asks first.
+The preview has a localized sample for every variable, so every chip
+visibly changes it. Owning
+test: `download_settings_page_test.dart`.
+
+**Profile images.** On the profile edit page the avatar and the
+background image are the controls: ink over the image, a 24dp
+`primaryContainer` edit badge in the corner, one `Semantics(button)`
+node labelled `profileChangeAvatar` / `profileChangeBackground`. A field
+the current route cannot change is a plain image with
+`profileEditFieldUnsupported` under it; while editing is unavailable the
+page notice explains and no image is a control. Owning test:
+`profile_edit_test.dart`.
+
 ## Management List Rows
 
 Management-style lists (Settings → Download Tasks and any future
