@@ -55,8 +55,9 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
 
   factory FuncSemanticTokens.fromBrightness(
     Brightness brightness,
-    TextTheme textTheme,
-  ) {
+    TextTheme textTheme, {
+    required Color primary,
+  }) {
     final dark = brightness == Brightness.dark;
     final text = dark ? FuncTokens.darkText : FuncTokens.lightText;
     final textSecondary = dark
@@ -75,7 +76,7 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       contentTertiary: dark
           ? FuncTokens.darkText.withValues(alpha: 0.35)
           : FuncTokens.lightText.withValues(alpha: 0.35),
-      brand: FuncTokens.primary,
+      brand: primary,
       onBrand: FuncTokens.lightBackground,
       danger: FuncTokens.danger,
       success: FuncTokens.success,
@@ -128,7 +129,11 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
   static FuncSemanticTokens of(BuildContext context) {
     final theme = Theme.of(context);
     return theme.extension<FuncSemanticTokens>() ??
-        FuncSemanticTokens.fromBrightness(theme.brightness, theme.textTheme);
+        FuncSemanticTokens.fromBrightness(
+          theme.brightness,
+          theme.textTheme,
+          primary: theme.colorScheme.primary,
+        );
   }
 
   @override

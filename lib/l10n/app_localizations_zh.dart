@@ -488,6 +488,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get themeSettings => '主题';
 
   @override
+  String get followSystemColors => '跟随系统取色';
+
+  @override
+  String get followSystemColorsHint => '用壁纸或系统强调色作为主题色';
+
+  @override
+  String get followSystemColorsUnavailable => '当前系统不提供系统取色';
+
+  @override
   String get languageSettings => '语言';
 
   @override

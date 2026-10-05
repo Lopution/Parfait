@@ -520,6 +520,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeSettings => 'Theme';
 
   @override
+  String get followSystemColors => 'Use system colors';
+
+  @override
+  String get followSystemColorsHint =>
+      'Take the theme color from your wallpaper or system accent';
+
+  @override
+  String get followSystemColorsUnavailable => 'Not available on this system';
+
+  @override
   String get languageSettings => 'Language';
 
   @override

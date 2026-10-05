@@ -505,6 +505,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get themeSettings => 'テーマ';
 
   @override
+  String get followSystemColors => 'システムの色を使用';
+
+  @override
+  String get followSystemColorsHint => '壁紙やシステムのアクセントカラーをテーマ色にします';
+
+  @override
+  String get followSystemColorsUnavailable => 'このシステムでは利用できません';
+
+  @override
   String get languageSettings => '言語';
 
   @override

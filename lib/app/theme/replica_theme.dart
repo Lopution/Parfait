@@ -8,8 +8,13 @@ import 'func_tokens.dart';
 /// harness loads its own Latin and CJK stand-ins and names them here.
 /// The app leaves it null and keeps the engine's system fallback chain
 /// behind the platform font.
+///
+/// [systemColors] is the platform accent palette (dynamic color); only the
+/// accent roles are taken from it — neutrals stay on FuncTokens so every
+/// surface tier keeps the app's ladder.
 ThemeData replicaTheme(
   Brightness brightness, {
+  ColorScheme? systemColors,
   List<String>? fontFamilyFallback,
 }) {
   final dark = brightness == Brightness.dark;
@@ -42,34 +47,39 @@ ThemeData replicaTheme(
     brightness: brightness,
   ).textTheme.apply(bodyColor: text, displayColor: text);
 
-  final colorScheme =
-      ColorScheme.fromSeed(
-        seedColor: FuncTokens.primary,
-        brightness: brightness,
-      ).copyWith(
-        primary: FuncTokens.primary,
-        secondary: textSecondary,
-        surface: background,
-        surfaceContainerLowest: background,
-        surfaceContainerLow: containerLow,
-        surfaceContainer: container,
-        surfaceContainerHigh: containerHigh,
-        surfaceContainerHighest: containerHighest,
-        onPrimary: FuncTokens.lightBackground,
-        secondaryContainer: containerHighest,
-        onSecondary: background,
-        onSecondaryContainer: text,
-        onSurface: text,
-        onSurfaceVariant: textSecondary,
-        inverseSurface: inverseSurface,
-        onInverseSurface: onInverseSurface,
-        // Borders/dividers keep the faint subdued alpha; only text uses the
-        // readable secondary color.
-        outline: subdued,
-        outlineVariant: subdued,
-        error: FuncTokens.error,
-        onError: FuncTokens.lightBackground,
-      );
+  final seeded = ColorScheme.fromSeed(
+    seedColor: systemColors?.primary ?? FuncTokens.primary,
+    brightness: brightness,
+  );
+  final colorScheme = seeded.copyWith(
+    primary: systemColors?.primary ?? FuncTokens.primary,
+    primaryContainer: systemColors?.primaryContainer ?? seeded.primaryContainer,
+    onPrimaryContainer:
+        systemColors?.onPrimaryContainer ?? seeded.onPrimaryContainer,
+    inversePrimary: systemColors?.inversePrimary ?? seeded.inversePrimary,
+    surfaceTint: systemColors?.surfaceTint ?? seeded.surfaceTint,
+    secondary: textSecondary,
+    surface: background,
+    surfaceContainerLowest: background,
+    surfaceContainerLow: containerLow,
+    surfaceContainer: container,
+    surfaceContainerHigh: containerHigh,
+    surfaceContainerHighest: containerHighest,
+    onPrimary: systemColors?.onPrimary ?? FuncTokens.lightBackground,
+    secondaryContainer: containerHighest,
+    onSecondary: background,
+    onSecondaryContainer: text,
+    onSurface: text,
+    onSurfaceVariant: textSecondary,
+    inverseSurface: inverseSurface,
+    onInverseSurface: onInverseSurface,
+    // Borders/dividers keep the faint subdued alpha; only text uses the
+    // readable secondary color.
+    outline: subdued,
+    outlineVariant: subdued,
+    error: FuncTokens.error,
+    onError: FuncTokens.lightBackground,
+  );
 
   // One type scale feeds both TextTheme roles and the semantic token ramp
   // (FuncSemanticTokens derives its type slots from these roles).
@@ -129,8 +139,14 @@ ThemeData replicaTheme(
     // No bundled font: the platform family renders everything, with the
     // engine's system fallback chain covering scripts it lacks.
     fontFamilyFallback: fontFamilyFallback,
-    primaryColor: FuncTokens.primary,
-    extensions: [FuncSemanticTokens.fromBrightness(brightness, textTheme)],
+    primaryColor: colorScheme.primary,
+    extensions: [
+      FuncSemanticTokens.fromBrightness(
+        brightness,
+        textTheme,
+        primary: colorScheme.primary,
+      ),
+    ],
     // Keep app hints floating so their entrance and exit use the same
     // readable fade behavior across copy, saved, and exit messages.
     snackBarTheme:
@@ -172,7 +188,7 @@ ThemeData replicaTheme(
     iconTheme: IconThemeData(color: text),
     bottomNavigationBarTheme: BottomNavigationBarThemeData(
       backgroundColor: background,
-      selectedItemColor: FuncTokens.primary,
+      selectedItemColor: colorScheme.primary,
       unselectedItemColor: textSecondary,
     ),
     bottomAppBarTheme: BottomAppBarThemeData(
@@ -181,9 +197,9 @@ ThemeData replicaTheme(
       elevation: 0,
     ),
     tabBarTheme: TabBarThemeData(
-      labelColor: FuncTokens.primary,
+      labelColor: colorScheme.primary,
       unselectedLabelColor: textSecondary,
-      indicatorColor: FuncTokens.primary,
+      indicatorColor: colorScheme.primary,
       dividerColor: FuncTokens.transparent,
     ),
     navigationBarTheme: NavigationBarThemeData(

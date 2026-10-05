@@ -521,6 +521,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get themeSettings => 'Тема';
 
   @override
+  String get followSystemColors => 'Системные цвета';
+
+  @override
+  String get followSystemColorsHint =>
+      'Цвет темы берётся из обоев или системного акцента';
+
+  @override
+  String get followSystemColorsUnavailable => 'Недоступно в этой системе';
+
+  @override
   String get languageSettings => 'Язык';
 
   @override

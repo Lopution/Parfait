@@ -1020,6 +1020,24 @@ abstract class AppLocalizations {
   /// **'主题'**
   String get themeSettings;
 
+  /// No description provided for @followSystemColors.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随系统取色'**
+  String get followSystemColors;
+
+  /// No description provided for @followSystemColorsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'用壁纸或系统强调色作为主题色'**
+  String get followSystemColorsHint;
+
+  /// No description provided for @followSystemColorsUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前系统不提供系统取色'**
+  String get followSystemColorsUnavailable;
+
   /// No description provided for @languageSettings.
   ///
   /// In zh, this message translates to:
