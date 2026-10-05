@@ -40,6 +40,7 @@ import 'package:parfait/features/settings/network_settings_page.dart';
 import 'package:parfait/features/settings/saf_tree_name.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/features/profile/user_page.dart' as profile;
+import 'package:parfait/app/widgets/settings/settings_choice_tile.dart';
 import 'package:parfait/app/widgets/settings/settings_control.dart';
 import 'package:parfait/app/widgets/settings/settings_group.dart';
 import 'package:parfait/app/widgets/settings/settings_menu_tile.dart';
@@ -1001,6 +1002,20 @@ void main() {
 
     SwitchListTile followSwitch(WidgetTester tester) => tester
         .widget<SwitchListTile>(find.widgetWithText(SwitchListTile, '跟随系统取色'));
+
+    testWidgets('theme options list the default first', (tester) async {
+      mockAccent(() async => null);
+      await pumpThemePage(tester);
+      await tester.pumpAndSettle();
+
+      final titles = [
+        for (final tile in tester.widgetList<SettingsChoiceTile>(
+          find.byType(SettingsChoiceTile),
+        ))
+          (tile.title as Text).data,
+      ];
+      expect(titles, ['跟随系统', '明亮', '黑暗']);
+    });
 
     testWidgets('a system palette enables the switch and it persists', (
       tester,
