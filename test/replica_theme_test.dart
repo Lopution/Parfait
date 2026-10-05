@@ -286,7 +286,9 @@ void main() {
       required double fontSize,
       required FontWeight weight,
     }) {
-      expect(style?.fontFamily, 'Montserrat');
+      // No bundled family: the platform default (Roboto) carries Latin
+      // and digits.
+      expect(style?.fontFamily, 'Roboto');
       expect(style?.fontSize, fontSize);
       expect(style?.fontWeight, weight);
     }
@@ -363,7 +365,7 @@ void main() {
       // geometry-less in material_ui's color-only default textTheme, so only
       // the family and color are pinned here.
       final railStyle = paragraphStyle('rail');
-      expect(railStyle?.fontFamily, 'Montserrat');
+      expect(railStyle?.fontFamily, 'Roboto');
       expect(railStyle?.color, replicaTheme(brightness).colorScheme.primary);
 
       await tester.tap(find.text('toast'));

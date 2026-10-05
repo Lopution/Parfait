@@ -61,14 +61,14 @@ void main() {
       letterSpacing: 0,
     );
 
-    testWidgets('Latin measures in Montserrat', (tester) async {
+    testWidgets('Latin measures in Roboto', (tester) async {
       final paragraph = await _pumpText(
         tester,
         const Text('Recommended', style: style),
       );
       expect(
         paragraph.size.width,
-        moreOrLessEquals(_directWidth('Recommended', 'Montserrat')),
+        moreOrLessEquals(_directWidth('Recommended', 'Roboto')),
       );
       // FlutterTest would draw 11 one-em squares.
       expect(paragraph.size.width, lessThan(11 * 14 * 0.8));
@@ -81,7 +81,7 @@ void main() {
         const Text(text, style: style),
         locale: const Locale('ru'),
       );
-      // Not Montserrat's missing-glyph boxes, not one-em squares.
+      // Not the test font's 1em squares.
       expect(
         paragraph.size.width,
         moreOrLessEquals(_directWidth(text, 'Roboto'), epsilon: 0.5),
@@ -153,7 +153,7 @@ void main() {
     testWidgets('catches a FittedBox shrinking UI text below 0.8', (
       tester,
     ) async {
-      final width = _directWidth(_short, 'Montserrat');
+      final width = _directWidth(_short, 'Roboto');
       await _pumpText(
         tester,
         SizedBox(
