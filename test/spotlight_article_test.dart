@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +18,8 @@ import 'package:parfait/core/spotlight/spotlight_article_controller.dart';
 import 'package:parfait/core/spotlight/spotlight_models.dart';
 import 'package:parfait/core/spotlight/spotlight_repository.dart';
 import 'package:parfait/features/spotlight/spotlight_article_page.dart';
+import 'package:parfait/app/theme/func_semantic_tokens.dart';
+import 'package:parfait/app/widgets/author_row.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -36,10 +39,11 @@ const _articleHtml = '''
     <p>开篇段落 <a href="https://www.pixiv.net/artworks/12345">作品链接</a> 收尾。</p>
     <h2>小节标题</h2>
     <p><img src="https://i.pximg.net/c/600x600/spotlight/x.jpg"></p>
-    <div class="illust">
+    <div class="am__work">
+      <a href="/users/42"><img src="https://i.pximg.net/user-profile/42.jpg"></a>
+      <h3><a href="/artworks/777">作品标题</a></h3>
+      <p class="am__work__user-name">by <a href="/users/42">作者名</a></p>
       <a href="/artworks/777"><img src="https://i.pximg.net/t/777.jpg"></a>
-      <h3>作品标题</h3>
-      <p><a href="/users/42">作者名</a></p>
     </div>
   </div>
 </article>
@@ -222,6 +226,38 @@ void main() {
       expect(card.userName, '作者名');
       expect(card.userId, 42);
       expect(card.imageUrl, 'https://i.pximg.net/t/777.jpg');
+      expect(card.userAvatarUrl, 'https://i.pximg.net/user-profile/42.jpg');
+    });
+
+    test('reads work cards from a real pixivision article', () {
+      final body = parseSpotlightArticle(
+        File('test/fixtures/pixivision/article_10943.html').readAsStringSync(),
+      );
+
+      expect(body.title, '轻盈步伐 - 凉鞋插画特辑 -');
+      // The header holds category, date, title and tags — no lead text.
+      expect(body.description, isNull);
+      final cards = body.blocks.whereType<SpotlightIllustCard>().toList();
+      expect(cards, hasLength(2));
+      final first = cards.first;
+      expect(first.illustId, 117332546);
+      expect(first.title, '休假');
+      expect(first.userName, '茶壶泡泡');
+      expect(first.userId, 80088127);
+      // The avatar comes first in the card: the work image is the one
+      // inside the artwork link, not the first image.
+      expect(
+        first.imageUrl,
+        'https://i.pximg.net/c/768x1200_80/img-master/img/2024/03/28/21/51/'
+        '58/117332546_p0_master1200.jpg',
+      );
+      expect(first.userAvatarUrl, contains('/user-profile/'));
+      // Card parts never leak out as loose headings, paragraphs or images.
+      expect(body.blocks.whereType<SpotlightHeading>(), isEmpty);
+      expect(
+        body.blocks.whereType<SpotlightImage>().map((image) => image.url),
+        ['https://embed.pixiv.net/pixivision/zh/a/10943/ogimage.jpg'],
+      );
     });
 
     test('descends into the _feature body variant', () {
@@ -413,6 +449,68 @@ void main() {
       await tapSelectableLink(tester, '作品链接');
       await tester.pumpAndSettle();
       expect(router.state.uri.path, '/recommended/illust/12345');
+    });
+  });
+
+  group('article work cards', () {
+    Finder workImage(String title) => find.byWidgetPredicate(
+      (widget) => widget is Semantics && widget.properties.label == title,
+    );
+
+    testWidgets('a work is a full-width image that opens the artwork', (
+      tester,
+    ) async {
+      final router = await pumpArticle(tester);
+      final image = workImage('作品标题');
+      await tester.ensureVisible(image);
+      await tester.pumpAndSettle();
+
+      final list = tester.getRect(find.byType(ListView));
+      expect(
+        tester.getRect(image).width,
+        closeTo(list.width - 2 * FuncSpacing.lg, 0.5),
+      );
+      expect(
+        tester.getSemantics(image),
+        isSemantics(isButton: true, hasTapAction: true, label: '作品标题'),
+      );
+      // No card frame or trailing arrow around the work any more.
+      expect(find.byType(Card), findsNothing);
+      expect(find.byIcon(Icons.chevron_right), findsNothing);
+
+      await tester.tap(image);
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/recommended/illust/777');
+    });
+
+    testWidgets('the author row opens the author', (tester) async {
+      final router = await pumpArticle(tester);
+      await tester.ensureVisible(find.text('作者名'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('作者名'));
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/recommended/user/42');
+    });
+
+    testWidgets('an author without a user id is plain text', (tester) async {
+      const html = '''
+<html><body><article><header><h1>t</h1></header><div class="am__body">
+  <div class="am__work">
+    <h3><a href="/artworks/778">无作者链接</a></h3>
+    <p class="am__work__user-name">by <a href="https://example.com/">外部作者</a></p>
+    <a href="/artworks/778"><img src="https://i.pximg.net/t/778.jpg"></a>
+  </div>
+</div></article></body></html>
+''';
+      await pumpArticle(tester, html: html);
+
+      expect(find.text('外部作者'), findsOneWidget);
+      expect(find.byType(AuthorRow), findsNothing);
+      expect(
+        tester.getSemantics(find.text('外部作者')),
+        isNot(isSemantics(isButton: true)),
+      );
     });
   });
 

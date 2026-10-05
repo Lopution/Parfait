@@ -20,7 +20,7 @@ import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 
 /// In-app pixivision article reader: renders the parsed [SpotlightBlock]s —
-/// headings, link-aware paragraphs, images and `.illust` artwork cards —
+/// headings, link-aware paragraphs, images and `.am__work` artwork cards —
 /// instead of a full webview. Pixiv artwork/user links route natively;
 /// everything else opens externally.
 class SpotlightArticlePage extends ConsumerWidget {
@@ -236,20 +236,34 @@ class _SpotlightBlockViewState extends State<_SpotlightBlockView> {
 /// (PixivImage); pixivision's own CDN does not, so it goes through
 /// CachedNetworkImage.
 class _ArticleImage extends StatelessWidget {
-  const _ArticleImage({required this.url});
+  const _ArticleImage({required this.url, this.placeholder});
 
   final String url;
 
+  /// Shown until the image decodes; null keeps each widget's default.
+  final Widget? placeholder;
+
   @override
   Widget build(BuildContext context) {
+    final placeholder = this.placeholder;
     final host = Uri.tryParse(url)?.host ?? '';
     if (host.endsWith('pximg.net')) {
-      return PixivImage(url: url, fit: BoxFit.contain);
+      return PixivImage(
+        url: url,
+        fit: BoxFit.contain,
+        placeholderWidget: placeholder,
+      );
     }
-    return CachedNetworkImage(imageUrl: url, fit: BoxFit.contain);
+    return CachedNetworkImage(
+      imageUrl: url,
+      fit: BoxFit.contain,
+      placeholder: placeholder == null ? null : (_, _) => placeholder,
+    );
   }
 }
 
+/// A work from the article, the way pixivision shows it: the image at
+/// full column width, then its title and author.
 class _SpotlightIllustCardView extends StatelessWidget {
   const _SpotlightIllustCardView({required this.card});
 
@@ -258,50 +272,85 @@ class _SpotlightIllustCardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => openIllust(context, card.illustId),
-        child: Padding(
-          padding: const EdgeInsets.all(FuncSpacing.md),
-          child: Row(
-            children: [
-              if (card.imageUrl != null)
-                ClipRRect(
-                  borderRadius: FuncShape.control,
-                  child: SizedBox(
-                    width: 72,
-                    height: 72,
-                    child: _ArticleImage(url: card.imageUrl!),
-                  ),
-                ),
-              if (card.imageUrl != null) const SizedBox(width: FuncSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: FuncSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (card.imageUrl case final imageUrl?)
+            Semantics(
+              container: true,
+              button: true,
+              label: card.title,
+              child: ClipRRect(
+                borderRadius: FuncShape.card,
+                child: Stack(
                   children: [
-                    Text(
-                      card.title,
-                      style: theme.textTheme.titleSmall,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (card.userName case final userName?)
-                      if (card.userId case final userId?)
-                        AuthorRow(userId: userId, name: userName)
-                      else
-                        Text(
-                          userName,
-                          style: theme.textTheme.bodySmall,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                    _WorkImage(url: imageUrl),
+                    Positioned.fill(
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: InkWell(
+                          onTap: () => openIllust(context, card.illustId),
                         ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right),
-            ],
+            ),
+          const SizedBox(height: FuncSpacing.sm),
+          Text(
+            card.title,
+            style: theme.textTheme.titleSmall,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (card.userName case final userName?)
+            if (card.userId case final userId?)
+              AuthorRow(
+                userId: userId,
+                name: userName,
+                avatarUrl: card.userAvatarUrl,
+              )
+            else
+              Text(
+                userName,
+                style: theme.textTheme.bodySmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Square while loading; once decoded, the image's own ratio up to
+/// [_maxHeightFactor] × the width, letterboxed beyond that.
+class _WorkImage extends StatelessWidget {
+  const _WorkImage({required this.url});
+
+  final String url;
+
+  static const _maxHeightFactor = 1.5;
+
+  @override
+  Widget build(BuildContext context) {
+    final background = Theme.of(context).colorScheme.surfaceContainerHighest;
+    return LayoutBuilder(
+      builder: (context, constraints) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: constraints.maxWidth * _maxHeightFactor,
+        ),
+        child: ColoredBox(
+          color: background,
+          child: _ArticleImage(
+            url: url,
+            placeholder: AspectRatio(
+              aspectRatio: 1,
+              child: ColoredBox(color: background),
+            ),
           ),
         ),
       ),
