@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
@@ -12,10 +13,10 @@ import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/download/download_providers.dart';
-import 'package:parfait/core/download/download_recovery.dart';
 import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/download/pixiv_download_transport.dart';
+import 'package:parfait/features/settings/pages/download_task_presentation.dart';
 import 'package:parfait/features/settings/pages/download_tasks_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
@@ -61,6 +62,12 @@ Finder _groupHeader(String groupId) =>
 Finder _selectionTitle(String label) => find.byWidgetPredicate(
   (widget) => widget is Text && widget.semanticsLabel == label,
 );
+
+/// Lets the Undo prompt finish sliding in, then taps Undo.
+Future<void> _tapUndo(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 500));
+  await tester.tap(find.widgetWithText(SnackBarAction, '撤销'));
+}
 
 void main() {
   testWidgets('group header pauses, resumes and cancels children', (
@@ -393,6 +400,13 @@ void main() {
     expect(manager.tasks, isEmpty);
     await tester.pump();
     expect(find.text('暂无下载任务'), findsOneWidget);
+
+    // Undo puts the record and its row back.
+    await _tapUndo(tester);
+    await tester.pump();
+    await tester.pump();
+    expect(manager.taskById(task.id), isNotNull);
+    expect(_taskRow(task.id), findsOneWidget);
   });
 
   testWidgets('failed row offers retry and remove', (tester) async {
@@ -969,7 +983,7 @@ void main() {
   testWidgets(
     'selection mode batch-removes terminal and batch-cancels active',
     (tester) async {
-      var haptics = recordHaptics();
+      final haptics = recordHaptics();
 
       final gate = Completer<void>();
       final (container, manager, _) = await makeDownloadWorld(
@@ -1029,23 +1043,36 @@ void main() {
       }
       expect(find.byIcon(Icons.open_in_new), findsNothing);
 
-      // Batch remove qualifies only the terminal task — the confirm
-      // dialog opening fires the explicit vibration.
-      haptics = recordHaptics();
+      // Batch remove qualifies only the terminal task and asks for no
+      // confirmation — Undo brings the record back instead (D5).
+      final finished = manager.tasks.firstWhere(
+        (t) => t.status == DownloadStatus.succeeded,
+      );
       await tester.tap(find.byIcon(Icons.remove_circle_outline));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(haptics.roles, [HapticRole.confirm]);
-      expect(find.byType(AlertDialog), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, '移除'));
-      await tester.pump();
+      expect(find.byType(AlertDialog), findsNothing);
       await tester.pump(const Duration(milliseconds: 300));
       expect(manager.tasks.single.status, DownloadStatus.running);
       expect(_selectionTitle('已选 0 项'), findsNothing);
       expect(find.text('下载任务'), findsOneWidget);
+      expect(find.text('已移除 1 条记录'), findsOneWidget);
+      await _tapUndo(tester);
+      await tester.pump();
+      expect(manager.taskById(finished.id), isNotNull);
+      expect(manager.tasks.first.id, finished.id);
+      await tester.pump();
+      expect(_taskRow(finished.id), findsOneWidget);
+      ScaffoldMessenger.of(
+        tester.element(find.byType(DownloadTasksPage)),
+      ).removeCurrentSnackBar();
+      await tester.pump(const Duration(milliseconds: 300));
 
-      // Batch cancel on the running task also goes through the confirm
-      // dialog, then the task unwinds once its gate opens.
+      // Batch cancel on the running task still goes through the confirm
+      // dialog — canceling deletes partial output, which Undo cannot bring
+      // back — then the task unwinds once its gate opens.
+      final running = manager.tasks.firstWhere(
+        (t) => t.status == DownloadStatus.running,
+      );
       await tester.tap(find.widgetWithText(TextButton, '管理'));
       await tester.pump();
       await tester.tap(find.byIcon(Icons.select_all));
@@ -1058,10 +1085,11 @@ void main() {
       gate.complete();
       await pumpUntil(
         tester,
-        () => manager.tasks.single.status == DownloadStatus.canceled,
+        () => manager.taskById(running.id)!.status == DownloadStatus.canceled,
       );
       await tester.pump();
       expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(manager.taskById(finished.id)!.status, DownloadStatus.succeeded);
     },
   );
 
@@ -1177,4 +1205,179 @@ void main() {
       );
     },
   );
+
+  group('row tap, clear completed and undo', () {
+    /// The page under a stand-in router: a work opens as a text page.
+    Future<GoRouter> pumpRouted(
+      WidgetTester tester,
+      ProviderContainer container,
+    ) async {
+      final router = GoRouter(
+        initialLocation: '/downloads',
+        routes: [
+          GoRoute(
+            path: '/downloads',
+            builder: (_, _) => const DownloadTasksPage(),
+            routes: [
+              GoRoute(
+                path: 'illust/:id',
+                builder: (_, state) =>
+                    Text('opened ${state.pathParameters['id']}'),
+              ),
+            ],
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: const [Locale('zh')],
+            locale: const Locale('zh'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      return router;
+    }
+
+    List<ScriptedResponse> done(int count) => [
+      for (var i = 0; i < count; i++)
+        ScriptedResponse(
+          contentLength: 1,
+          chunks: [
+            [i],
+          ],
+        ),
+    ];
+
+    testWidgets('a task row opens its work; management taps select', (
+      tester,
+    ) async {
+      final (container, manager, _) = await makeDownloadWorld(
+        responses: done(1),
+      );
+      final task = manager.submit(downloadRequest(7));
+      await mockNetworkImagesFor(() async {
+        final router = await pumpRouted(tester, container);
+        await pumpUntil(
+          tester,
+          () => manager.tasks.single.status == DownloadStatus.succeeded,
+        );
+        await tester.pump();
+
+        final semantics = tester.ensureSemantics();
+        expect(
+          tester.getSemantics(
+            find
+                .descendant(
+                  of: _taskRow(task.id),
+                  matching: find.byType(Semantics),
+                )
+                .first,
+          ),
+          isSemantics(isButton: true, onTapHint: '打开作品'),
+        );
+        semantics.dispose();
+
+        await tester.tap(
+          find.text(downloadTaskTitle(manager.taskById(task.id)!)),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('opened 7'), findsOneWidget);
+        router.pop();
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.widgetWithText(TextButton, '管理'));
+        await tester.pump();
+        await tester.tap(
+          find.text(downloadTaskTitle(manager.taskById(task.id)!)),
+        );
+        await tester.pump();
+        expect(_selectionTitle('已选 1 项'), findsOneWidget);
+        expect(find.text('opened 7'), findsNothing);
+      });
+    });
+
+    testWidgets('clear completed leaves failures and is undone in place', (
+      tester,
+    ) async {
+      final (container, manager, _) = await makeDownloadWorld(
+        maxConcurrent: 1,
+        responses: [
+          ...done(1),
+          ScriptedResponse(contentLength: 1, error: StateError('boom')),
+          ...done(1),
+        ],
+      );
+      for (var id = 1; id <= 3; id++) {
+        manager.submit(downloadRequest(id));
+      }
+      final clear = find.byTooltip('清除已完成');
+      await mockNetworkImagesFor(() async {
+        await _pumpPage(tester, container);
+        expect(clear, findsNothing);
+        await pumpUntil(
+          tester,
+          () => manager.tasks.every((t) => isTerminal(t.status)),
+        );
+        await tester.pump();
+        final order = [for (final task in manager.tasks) task.id];
+
+        await tester.tap(clear);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(manager.tasks.single.status, DownloadStatus.failed);
+        expect(find.text('已移除 2 条记录'), findsOneWidget);
+        // Only failures left: nothing to clear.
+        expect(clear, findsNothing);
+
+        await _tapUndo(tester);
+        await tester.pump();
+        expect([for (final task in manager.tasks) task.id], order);
+      });
+    });
+
+    testWidgets('removing a finished group is undone with its header', (
+      tester,
+    ) async {
+      final (container, manager, _) = await makeDownloadWorld(
+        responses: done(2),
+      );
+      final group = manager.submitGroup([
+        downloadRequest(1),
+        downloadRequest(2),
+      ]);
+      await mockNetworkImagesFor(() async {
+        await _pumpPage(tester, container);
+        await pumpUntil(
+          tester,
+          () =>
+              manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
+        );
+        await tester.pump();
+
+        await tester.tap(
+          find.descendant(
+            of: _groupHeader(group.id),
+            matching: find.byIcon(Icons.remove_circle_outline),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(manager.groups, isEmpty);
+        expect(find.text('已移除 2 条记录'), findsOneWidget);
+
+        await _tapUndo(tester);
+        await tester.pump();
+        await tester.pump();
+        expect(manager.groups.single.id, group.id);
+        expect(manager.groups.single.jobIds, group.jobIds);
+        expect(_groupHeader(group.id), findsOneWidget);
+      });
+    });
+  });
 }

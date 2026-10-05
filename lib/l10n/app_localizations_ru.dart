@@ -1196,13 +1196,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadRemoveRecord => 'Убрать из списка';
 
   @override
-  String downloadBatchCancelConfirm(int count) {
-    return 'Отменить выбранные загрузки ($count)? Незавершённый прогресс будет потерян.';
+  String get downloadOpenWork => 'Открыть работу';
+
+  @override
+  String get downloadClearCompleted => 'Очистить завершённые';
+
+  @override
+  String downloadTasksRemoved(int count) {
+    return 'Удалено записей: $count';
   }
 
   @override
-  String downloadBatchRemoveConfirm(int count) {
-    return 'Убрать выбранные записи ($count) из списка? Скачанные файлы останутся.';
+  String downloadBatchCancelConfirm(int count) {
+    return 'Отменить выбранные загрузки ($count)? Незавершённый прогресс будет потерян.';
   }
 
   @override

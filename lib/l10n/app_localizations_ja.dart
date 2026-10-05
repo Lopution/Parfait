@@ -1156,13 +1156,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadRemoveRecord => '一覧から削除';
 
   @override
-  String downloadBatchCancelConfirm(int count) {
-    return '選択した $count 件のダウンロードをキャンセルしますか？未完了の進捗は破棄されます。';
+  String get downloadOpenWork => '作品を開く';
+
+  @override
+  String get downloadClearCompleted => '完了したタスクを消去';
+
+  @override
+  String downloadTasksRemoved(int count) {
+    return '$count件の記録を削除しました';
   }
 
   @override
-  String downloadBatchRemoveConfirm(int count) {
-    return '選択した $count 件のレコードを一覧から削除しますか？ダウンロード済みファイルは残ります。';
+  String downloadBatchCancelConfirm(int count) {
+    return '選択した $count 件のダウンロードをキャンセルしますか？未完了の進捗は破棄されます。';
   }
 
   @override

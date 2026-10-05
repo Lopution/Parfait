@@ -1133,13 +1133,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadRemoveRecord => '移除';
 
   @override
-  String downloadBatchCancelConfirm(int count) {
-    return '取消选中的 $count 项下载？未完成的进度会被丢弃。';
+  String get downloadOpenWork => '打开作品';
+
+  @override
+  String get downloadClearCompleted => '清除已完成';
+
+  @override
+  String downloadTasksRemoved(int count) {
+    return '已移除 $count 条记录';
   }
 
   @override
-  String downloadBatchRemoveConfirm(int count) {
-    return '移除选中的 $count 项记录？仅移除记录，已下载文件保留。';
+  String downloadBatchCancelConfirm(int count) {
+    return '取消选中的 $count 项下载？未完成的进度会被丢弃。';
   }
 
   @override

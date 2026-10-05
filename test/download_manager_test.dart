@@ -481,7 +481,7 @@ void main() {
     });
   });
 
-  group('dismiss / clearTerminal (D2)', () {
+  group('dismissAll / restore (D2)', () {
     test('replacing a completed group task removes the old group', () async {
       final transport = FakeTransport()
         ..responses.addAll([
@@ -584,7 +584,7 @@ void main() {
     );
 
     test(
-      'dismiss removes a terminal task, its group slot and record',
+      'dismissAll removes a terminal task, its group slot and record',
       () async {
         final transport = FakeTransport()
           ..responses.addAll([
@@ -624,11 +624,11 @@ void main() {
         // Dismiss one child: the task leaves the list and the group
         // shrinks in place; the durable record is cleaned.
         final firstId = group.jobIds.first;
-        expect(manager.dismiss(firstId), isTrue);
+        expect(manager.dismissAll([firstId]).taskIds, [firstId]);
         expect(manager.taskById(firstId), isNull);
         expect(manager.groups.single.jobIds, hasLength(1));
         // `changes` is a broadcast stream — the notification lands on a
-        // microtask, not synchronously inside dismiss().
+        // microtask, not synchronously inside dismissAll().
         await Future<void>.delayed(Duration.zero);
         expect(notifications, 1);
         await manager.flushPersistence();
@@ -639,13 +639,13 @@ void main() {
 
         // Dismissing the last child drops the now-empty group as well.
         final lastId = manager.tasks.single.id;
-        expect(manager.dismiss(lastId), isTrue);
+        expect(manager.dismissAll([lastId]).count, 1);
         expect(manager.tasks, isEmpty);
         expect(manager.groups, isEmpty);
       },
     );
 
-    test('dismiss on non-terminal work is a no-op', () async {
+    test('dismissAll skips non-terminal work', () async {
       final gate = Completer<void>();
       final transport = FakeTransport()
         ..responses.add(
@@ -672,17 +672,17 @@ void main() {
       }
       expect(manager.tasks.single.status, DownloadStatus.running);
 
-      // In-flight work is not history — dismiss refuses.
-      expect(manager.dismiss(snapshot.id), isFalse);
+      // In-flight work is not history — dismissAll skips it.
+      expect(manager.dismissAll([snapshot.id]).isEmpty, isTrue);
       expect(manager.tasks, hasLength(1));
 
       gate.complete();
       await _Watcher(manager).pumpUntilTerminal();
-      expect(manager.dismiss(snapshot.id), isTrue);
+      expect(manager.dismissAll([snapshot.id]).count, 1);
       expect(manager.tasks, isEmpty);
     });
 
-    test('clearTerminal drops only finished tasks', () async {
+    test('dismissAll of every task drops only finished ones', () async {
       final gate = Completer<void>();
       final transport = FakeTransport()
         ..responses.addAll([
@@ -727,14 +727,121 @@ void main() {
         await Future<void>.delayed(Duration.zero);
       }
 
-      expect(manager.clearTerminal(), 1);
+      List<String> all() => [for (final task in manager.tasks) task.id];
+      expect(manager.dismissAll(all()).count, 1);
       expect(manager.tasks, hasLength(1));
       expect(manager.tasks.single.status, DownloadStatus.running);
 
       gate.complete();
       await _Watcher(manager).pumpUntilTerminal();
-      expect(manager.clearTerminal(), 1);
+      expect(manager.dismissAll(all()).count, 1);
       expect(manager.tasks, isEmpty);
+    });
+
+    /// Three finished pages in one group plus one ungrouped task, in that
+    /// order; every record persisted.
+    Future<(DownloadManager, MemoryDownloadRecoveryStore)>
+    finishedWorld() async {
+      final transport = FakeTransport();
+      for (var i = 0; i < 4; i++) {
+        transport.responses.add(
+          ScriptedResponse(
+            contentLength: 1,
+            chunks: [
+              [i],
+            ],
+          ),
+        );
+      }
+      final recovery = MemoryDownloadRecoveryStore();
+      final manager = DownloadManager(
+        transport: transport,
+        sinkFactory: MemorySinkFactory(),
+        recoveryStore: recovery,
+      );
+      addTearDown(manager.dispose);
+      manager.submitGroup([
+        request(pageIndex: 0),
+        request(pageIndex: 1),
+        request(pageIndex: 2),
+      ]);
+      manager.submit(request(illustId: 7));
+      await _Watcher(manager).pumpUntilTerminal();
+      await manager.flushPersistence();
+      return (manager, recovery);
+    }
+
+    List<String> taskOrder(DownloadManager manager) => [
+      for (final task in manager.tasks) task.id,
+    ];
+
+    test('restore puts tasks back in place, in their group, '
+        'with their records', () async {
+      final (manager, recovery) = await finishedWorld();
+      final order = taskOrder(manager);
+      final groupOrder = manager.groups.single.jobIds;
+
+      final removal = manager.dismissAll([order[0], order[2], order[3]]);
+      expect(removal.count, 3);
+      expect(manager.groups.single.jobIds, [order[1]]);
+      await manager.flushPersistence();
+      expect(recovery.records, hasLength(1));
+
+      var notifications = 0;
+      final sub = manager.changes.listen((_) => notifications++);
+      addTearDown(sub.cancel);
+      manager.restore(removal);
+      await Future<void>.delayed(Duration.zero);
+      expect(notifications, 1);
+      expect(taskOrder(manager), order);
+      expect(manager.groups.single.jobIds, groupOrder);
+      await manager.flushPersistence();
+      expect(recovery.records, hasLength(4));
+    });
+
+    test('a group removed with its last task comes back', () async {
+      final (manager, _) = await finishedWorld();
+      final order = taskOrder(manager);
+      final group = manager.groups.single;
+
+      final removal = manager.dismissAll(order);
+      expect(manager.groups, isEmpty);
+      expect(manager.tasks, isEmpty);
+
+      manager.restore(removal);
+      expect(taskOrder(manager), order);
+      expect(manager.groups.single.id, group.id);
+      expect(manager.groups.single.jobIds, group.jobIds);
+    });
+
+    test('undoing an earlier removal rebuilds a group a later one '
+        'emptied', () async {
+      final (manager, _) = await finishedWorld();
+      final group = manager.groups.single;
+      final [first, second, third] = group.jobIds;
+
+      final earlier = manager.dismissAll([first]);
+      manager.dismissAll([second, third]);
+      expect(manager.groups, isEmpty);
+
+      manager.restore(earlier);
+      expect(manager.groups.single.id, group.id);
+      expect(manager.groups.single.jobIds, [first]);
+      expect(manager.taskById(first)?.groupId, group.id);
+    });
+
+    test('restore skips a task submitted anew meanwhile', () async {
+      final (manager, _) = await finishedWorld();
+      final ungrouped = taskOrder(manager).last;
+
+      final removal = manager.dismissAll([ungrouped]);
+      final fresh = manager.submit(request(illustId: 7));
+      expect(fresh.id, isNot(ungrouped));
+
+      manager.restore(removal);
+      expect(manager.taskById(ungrouped), isNull);
+      expect(manager.taskById(fresh.id), isNotNull);
+      expect(manager.tasks, hasLength(4));
     });
   });
 

@@ -474,16 +474,11 @@
   "downloadProcessing": "Processing",
   "downloadViewResult": "View",
   "downloadRemoveRecord": "Remove",
+  "downloadOpenWork": "Open the work",
+  "downloadClearCompleted": "Clear completed",
+  "downloadTasksRemoved": "{count, plural, =1{Removed 1 task} other{Removed {count} tasks}}",
   "downloadBatchCancelConfirm": "Cancel the {count} selected download(s)? Unfinished progress will be discarded.",
   "@downloadBatchCancelConfirm": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "downloadBatchRemoveConfirm": "Remove the {count} selected record(s)? Only the records are removed — downloaded files stay.",
-  "@downloadBatchRemoveConfirm": {
     "placeholders": {
       "count": {
         "type": "int"

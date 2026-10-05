@@ -390,15 +390,113 @@ class DownloadManager {
     }
   }
 
-  /// Removes a terminal task from the list along with its durable record.
-  /// In-flight work is not history — dismissing a non-terminal task is a
-  /// no-op; [cancel] must land first. Returns whether anything was removed.
-  bool dismiss(String taskId) {
-    final job = _findById(taskId);
-    if (job == null || !isTerminal(job.snapshot.status)) return false;
-    _retire(job);
+  /// Removes the terminal tasks among [taskIds] from the list along with
+  /// their durable records. In-flight work is not history — non-terminal and
+  /// unknown ids are skipped; [cancel] must land first. Preserved output and
+  /// finished files stay on disk, so [restore] can put the records back.
+  DownloadRemoval dismissAll(Iterable<String> taskIds) {
+    final targets = <_Job>[
+      for (final id in taskIds.toSet())
+        if (_findById(id) case final job? when isTerminal(job.snapshot.status))
+          job,
+    ];
+    if (targets.isEmpty) return const DownloadRemoval._([]);
+    // Positions are read before anything moves, so restore can replay them
+    // in ascending order.
+    final jobIndex = {for (final (i, key) in _jobs.keys.indexed) key: i};
+    final groupIndex = {for (final (i, id) in _groups.keys.indexed) id: i};
+    final removed = [
+      for (final job in targets)
+        _RemovedJob(
+          job: job,
+          index: jobIndex[job.key]!,
+          group: switch (_groups[job.snapshot.groupId]) {
+            null => null,
+            final group => (
+              id: group.id,
+              submission: group.submission,
+              index: groupIndex[group.id]!,
+              position: group.jobIds.indexOf(job.id),
+            ),
+          },
+        ),
+    ];
+    for (final entry in removed) {
+      _retire(entry.job);
+    }
     _notifyChange();
-    return true;
+    return DownloadRemoval._(removed);
+  }
+
+  /// Puts back what [dismissAll] removed: each task at its old place in the
+  /// list and in its own group, its record written again. A task whose
+  /// identity was submitted anew meanwhile stays removed — the new task
+  /// owns it. A group that went away (with these tasks or with a later
+  /// removal) comes back at its old place, holding only restored tasks.
+  /// After a restart restored records follow the store's order.
+  void restore(DownloadRemoval removal) {
+    if (_disposed || removal.isEmpty) return;
+    final restored = [
+      for (final removed in removal._jobs)
+        if (!_jobs.containsKey(removed.job.key)) removed,
+    ];
+    if (restored.isEmpty) return;
+    _insertInOrder(_jobs, [
+      for (final removed in restored)
+        (removed.index, MapEntry(removed.job.key, removed.job)),
+    ]);
+    final missingGroups = {
+      for (final removed in restored)
+        if (removed.group case final group? when !_groups.containsKey(group.id))
+          group.id: group,
+    };
+    _insertInOrder(_groups, [
+      for (final group in missingGroups.values)
+        (
+          group.index,
+          MapEntry(
+            group.id,
+            _DownloadGroup(
+              id: group.id,
+              jobIds: [],
+              submission: group.submission,
+            ),
+          ),
+        ),
+    ]);
+    final grouped = [
+      for (final removed in restored)
+        if (removed.group != null) removed,
+    ]..sort((a, b) => a.group!.position.compareTo(b.group!.position));
+    for (final removed in grouped) {
+      final jobIds = _groups[removed.group!.id]!.jobIds;
+      jobIds.insert(
+        removed.group!.position.clamp(0, jobIds.length),
+        removed.job.id,
+      );
+    }
+    for (final removed in restored) {
+      _persist(removed.job);
+    }
+    _notifyChange();
+  }
+
+  /// Inserts [items] into [map] at their old indexes. Replayed in ascending
+  /// order, each lands where it was as long as nothing else moved.
+  static void _insertInOrder<V>(
+    Map<String, V> map,
+    List<(int, MapEntry<String, V>)> items,
+  ) {
+    if (items.isEmpty) return;
+    final entries = map.entries.toList();
+    for (final (index, entry) in [
+      ...items,
+    ]..sort((a, b) => a.$1.compareTo(b.$1))) {
+      entries.insert(index.clamp(0, entries.length), entry);
+    }
+    map
+      ..clear()
+      ..addEntries(entries);
   }
 
   /// Removes a task from its lookup map, group membership and durable store.
@@ -414,16 +512,6 @@ class DownloadManager {
       if (group.jobIds.isEmpty) _groups.remove(groupId);
     }
     _persistRemove(job.id);
-  }
-
-  /// Drops every terminal task — the "clear finished" affordance. Running
-  /// work is untouched. Returns how many tasks were removed.
-  int clearTerminal() {
-    var removed = 0;
-    for (final job in List.of(_jobs.values)) {
-      if (dismiss(job.id)) removed++;
-    }
-    return removed;
   }
 
   /// Scans durable metadata after process start. Only a complete record whose
@@ -1546,6 +1634,41 @@ class _Job {
   void applySnapshot(DownloadTaskSnapshot value) {
     snapshot = value;
   }
+}
+
+/// What [DownloadManager.dismissAll] removed, kept so
+/// [DownloadManager.restore] can put it back. Opaque outside the manager.
+final class DownloadRemoval {
+  const DownloadRemoval._(this._jobs);
+
+  final List<_RemovedJob> _jobs;
+
+  /// Ids of the tasks that were removed.
+  List<String> get taskIds => [for (final removed in _jobs) removed.job.id];
+
+  int get count => _jobs.length;
+  bool get isEmpty => _jobs.isEmpty;
+}
+
+/// A removed task and where it sat: its index in the task list and, for a
+/// group child, its group (enough to bring the group back), the group's
+/// index among groups and the task's position in it.
+final class _RemovedJob {
+  const _RemovedJob({
+    required this.job,
+    required this.index,
+    required this.group,
+  });
+
+  final _Job job;
+  final int index;
+  final ({
+    String id,
+    DownloadSubmissionSnapshot submission,
+    int index,
+    int position,
+  })?
+  group;
 }
 
 class _DownloadGroup {

@@ -2249,17 +2249,29 @@ abstract class AppLocalizations {
   /// **'移除'**
   String get downloadRemoveRecord;
 
+  /// Screen-reader hint of a download task row: tapping opens its work
+  ///
+  /// In zh, this message translates to:
+  /// **'打开作品'**
+  String get downloadOpenWork;
+
+  /// Download tasks app-bar action: removes the records of successfully finished tasks
+  ///
+  /// In zh, this message translates to:
+  /// **'清除已完成'**
+  String get downloadClearCompleted;
+
+  /// Undo prompt after download task records were removed
+  ///
+  /// In zh, this message translates to:
+  /// **'已移除 {count} 条记录'**
+  String downloadTasksRemoved(int count);
+
   /// No description provided for @downloadBatchCancelConfirm.
   ///
   /// In zh, this message translates to:
   /// **'取消选中的 {count} 项下载？未完成的进度会被丢弃。'**
   String downloadBatchCancelConfirm(int count);
-
-  /// No description provided for @downloadBatchRemoveConfirm.
-  ///
-  /// In zh, this message translates to:
-  /// **'移除选中的 {count} 项记录？仅移除记录，已下载文件保留。'**
-  String downloadBatchRemoveConfirm(int count);
 
   /// No description provided for @resumeDownload.
   ///

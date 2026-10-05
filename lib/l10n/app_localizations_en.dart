@@ -1194,13 +1194,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadRemoveRecord => 'Remove';
 
   @override
-  String downloadBatchCancelConfirm(int count) {
-    return 'Cancel the $count selected download(s)? Unfinished progress will be discarded.';
+  String get downloadOpenWork => 'Open the work';
+
+  @override
+  String get downloadClearCompleted => 'Clear completed';
+
+  @override
+  String downloadTasksRemoved(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Removed $count tasks',
+      one: 'Removed 1 task',
+    );
+    return '$_temp0';
   }
 
   @override
-  String downloadBatchRemoveConfirm(int count) {
-    return 'Remove the $count selected record(s)? Only the records are removed — downloaded files stay.';
+  String downloadBatchCancelConfirm(int count) {
+    return 'Cancel the $count selected download(s)? Unfinished progress will be discarded.';
   }
 
   @override

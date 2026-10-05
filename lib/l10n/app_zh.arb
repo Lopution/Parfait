@@ -474,16 +474,25 @@
   "downloadProcessing": "处理中",
   "downloadViewResult": "查看",
   "downloadRemoveRecord": "移除",
-  "downloadBatchCancelConfirm": "取消选中的 {count} 项下载？未完成的进度会被丢弃。",
-  "@downloadBatchCancelConfirm": {
+  "downloadOpenWork": "打开作品",
+  "@downloadOpenWork": {
+    "description": "Screen-reader hint of a download task row: tapping opens its work"
+  },
+  "downloadClearCompleted": "清除已完成",
+  "@downloadClearCompleted": {
+    "description": "Download tasks app-bar action: removes the records of successfully finished tasks"
+  },
+  "downloadTasksRemoved": "已移除 {count} 条记录",
+  "@downloadTasksRemoved": {
+    "description": "Undo prompt after download task records were removed",
     "placeholders": {
       "count": {
         "type": "int"
       }
     }
   },
-  "downloadBatchRemoveConfirm": "移除选中的 {count} 项记录？仅移除记录，已下载文件保留。",
-  "@downloadBatchRemoveConfirm": {
+  "downloadBatchCancelConfirm": "取消选中的 {count} 项下载？未完成的进度会被丢弃。",
+  "@downloadBatchCancelConfirm": {
     "placeholders": {
       "count": {
         "type": "int"

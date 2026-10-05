@@ -474,16 +474,11 @@
   "downloadProcessing": "処理中",
   "downloadViewResult": "表示",
   "downloadRemoveRecord": "一覧から削除",
+  "downloadOpenWork": "作品を開く",
+  "downloadClearCompleted": "完了したタスクを消去",
+  "downloadTasksRemoved": "{count}件の記録を削除しました",
   "downloadBatchCancelConfirm": "選択した {count} 件のダウンロードをキャンセルしますか？未完了の進捗は破棄されます。",
   "@downloadBatchCancelConfirm": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "downloadBatchRemoveConfirm": "選択した {count} 件のレコードを一覧から削除しますか？ダウンロード済みファイルは残ります。",
-  "@downloadBatchRemoveConfirm": {
     "placeholders": {
       "count": {
         "type": "int"
