@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:parfait/app/widgets/app_segmented_button.dart';
 import 'package:parfait/app/widgets/app_tab_bar.dart';
 import 'package:parfait/app/widgets/app_type_switch.dart';
 import 'package:parfait/app/widgets/follow_switch_button.dart';
@@ -20,41 +19,20 @@ import '../helpers/fake_account.dart';
 import '../helpers/locale_layout.dart';
 import '../helpers/test_preferences.dart';
 
-/// Every segmented button's real label group (the l10n keys its host
-/// passes). Hosts' own paddings are covered by the page matrices.
-final _segmentGroups = <String, List<String>>{
-  'restrict (bookmark tags, bookmark and follow sheets)': [
-    'restrictPublic',
-    'restrictPrivate',
-  ],
-  'preview quality': ['qualityMedium', 'qualityLarge'],
-  'detail and view quality': ['qualityLarge', 'qualityOriginal'],
-  'animation speed': [
-    'animationSpeedFast',
-    'animationSpeedNormal',
-    'animationSpeedSlow',
-  ],
-  'haptic strength': [
-    'hapticStrengthOff',
-    'hapticStrengthLight',
-    'hapticStrengthStandard',
-    'hapticStrengthStrong',
-  ],
-  'search trending': [
-    for (final type in const [SearchResultType.illust, SearchResultType.novel])
-      type.labelKey,
-  ],
-  'spotlight category': [
-    for (final category in SpotlightCategory.values) category.labelKey,
-  ],
-};
-
 /// Every top tab row's real labels.
 final _tabGroups = <String, List<String>>{
   'ranking': [for (final mode in RankingMode.values) mode.labelKey],
   'novel ranking': [for (final mode in NovelRankingMode.values) mode.labelKey],
   'new': ['newFollowing', 'newEveryone', 'newMyPixiv'],
   'search results': [for (final type in SearchResultType.values) type.labelKey],
+  'search home': [
+    for (final type in const [SearchResultType.illust, SearchResultType.novel])
+      type.labelKey,
+  ],
+  'spotlight': [
+    for (final category in SpotlightCategory.values) category.labelKey,
+  ],
+  'bookmark tags': ['restrictPublic', 'restrictPrivate'],
   'watchlist': ['watchlistManga', 'watchlistNovel'],
   'recommended': [
     'recommendedIllust',
@@ -122,28 +100,6 @@ Future<void> _pumpControl(
 }
 
 void main() {
-  for (final MapEntry(key: name, value: keys) in _segmentGroups.entries) {
-    localeLayoutMatrix('segmented button: $name', (
-      tester,
-      locale,
-      profile,
-    ) async {
-      await _pumpControl(
-        tester,
-        locale,
-        (text) => AppSegmentedButton<int>(
-          segments: [
-            for (var i = 0; i < keys.length; i++)
-              AppSegment(value: i, label: text(keys[i])),
-          ],
-          selected: 0,
-          onSelected: (_) {},
-        ),
-      );
-      expectLocaleLayoutIntact(tester, locale: locale, profile: profile);
-    });
-  }
-
   for (final MapEntry(key: name, value: keys) in _tabGroups.entries) {
     localeLayoutMatrix('tab bar: $name', (tester, locale, profile) async {
       await _pumpControl(
