@@ -142,7 +142,7 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('label 101'), findsOneWidget);
-        expect(find.text('2026-09-01'), findsNWidgets(2));
+        expect(find.text('2026年9月1日'), findsNWidgets(2));
         expect(fixture.requests.single.queryParameters['category'], 'all');
 
         // Thumbnails are pximg URLs: they must carry the Pixiv referer

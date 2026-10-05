@@ -4876,6 +4876,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'图片加载中'**
   String get imageLoading;
+
+  /// Relative time: less than a minute ago
+  ///
+  /// In zh, this message translates to:
+  /// **'刚刚'**
+  String get timeJustNow;
+
+  /// Relative time: N minutes ago
+  ///
+  /// In zh, this message translates to:
+  /// **'{count, plural, other{{count} 分钟前}}'**
+  String timeMinutesAgo(int count);
+
+  /// Relative time: N hours ago
+  ///
+  /// In zh, this message translates to:
+  /// **'{count, plural, other{{count} 小时前}}'**
+  String timeHoursAgo(int count);
+
+  /// Relative time: N days ago (up to 7; older uses the absolute date)
+  ///
+  /// In zh, this message translates to:
+  /// **'{count, plural, other{{count} 天前}}'**
+  String timeDaysAgo(int count);
 }
 
 class _AppLocalizationsDelegate

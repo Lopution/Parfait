@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/format/app_format.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -537,7 +538,7 @@ class _IllustHistoryEntry extends StatelessWidget {
       // preview height and carries the visit date in the meta slot.
       return IllustCard(
         entity: entity,
-        meta: EntityMetaText(_formatHistoryDate(record.lastViewedAt)),
+        meta: EntityMetaText(AppFormat.relative(context, record.lastViewedAt)),
         onLongPress: onLongPress,
       );
     }
@@ -666,7 +667,7 @@ class _HistoryCardFrame extends StatelessWidget {
               FuncSpacing.xs,
               FuncSpacing.xs,
             ),
-            child: EntityMetaText(_formatHistoryDate(lastViewedAt)),
+            child: EntityMetaText(AppFormat.relative(context, lastViewedAt)),
           ),
         ],
       ),
@@ -777,11 +778,4 @@ Future<bool?> _confirmDelete(BuildContext context, {required String title}) {
       );
     },
   );
-}
-
-String _formatHistoryDate(DateTime value) {
-  final local = value.toLocal();
-  String two(int number) => number.toString().padLeft(2, '0');
-  return '${local.year}-${two(local.month)}-${two(local.day)} '
-      '${two(local.hour)}:${two(local.minute)}';
 }

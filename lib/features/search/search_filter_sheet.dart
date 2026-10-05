@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/format/app_format.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/search/search_models.dart';
 import '../../app/motion/app_overlays.dart';
@@ -104,11 +105,9 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
     });
   }
 
-  String _dateText(DateTime? value) {
+  String _dateText(BuildContext context, DateTime? value) {
     if (value == null) return '—';
-    return '${value.year.toString().padLeft(4, '0')}-'
-        '${value.month.toString().padLeft(2, '0')}-'
-        '${value.day.toString().padLeft(2, '0')}';
+    return AppFormat.date(context, value);
   }
 
   @override
@@ -226,7 +225,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
             const SizedBox(height: FuncSpacing.md),
             _DateFilterTile(
               label: context.l10n.searchStartDate,
-              value: _dateText(_filters.startDate),
+              value: _dateText(context, _filters.startDate),
               onTap: () => _pickDate(start: true),
               onClear: _filters.startDate == null
                   ? null
@@ -236,7 +235,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
             ),
             _DateFilterTile(
               label: context.l10n.searchEndDate,
-              value: _dateText(_filters.endDate),
+              value: _dateText(context, _filters.endDate),
               onTap: () => _pickDate(start: false),
               errorText: _invalidRange
                   ? context.l10n.searchInvalidDateRange

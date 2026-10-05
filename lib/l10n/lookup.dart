@@ -709,6 +709,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'tagActionUnmute' => l10n.tagActionUnmute,
   'tagCopied' => l10n.tagCopied,
   'themeSettings' => l10n.themeSettings,
+  'timeJustNow' => l10n.timeJustNow,
   'translateBaidu' => l10n.translateBaidu,
   'translateBaiduAppId' => l10n.translateBaiduAppId,
   'translateBaiduCredential' => l10n.translateBaiduCredential,

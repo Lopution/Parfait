@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/novel/novel_entity.dart';
 import '../../l10n/context.dart';
+import '../format/app_format.dart';
 import '../navigation/routes.dart';
 import '../pixiv_image.dart';
 import '../theme/func_semantic_tokens.dart';
@@ -173,7 +174,8 @@ class NovelEntry extends StatelessWidget {
         badge: rank == null ? null : EntityRankBadge(rank!),
         title: entity.title,
         subtitle: entity.user.name,
-        meta: '${entity.textLength} ${context.l10n.novelWords}',
+        meta:
+            '${AppFormat.count(context, entity.textLength)} ${context.l10n.novelWords}',
         progress: progress,
         trailing: trailing,
         onTap: onTap ?? () => openNovel(context, entity.id),

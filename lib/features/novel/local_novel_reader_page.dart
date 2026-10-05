@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/format/app_format.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/localnovel/local_novel_decoder.dart';
 import '../../core/localnovel/local_novel_repository.dart';
@@ -128,7 +129,11 @@ class _LocalNovelInfoSheet extends StatelessWidget {
           const SizedBox(height: FuncSpacing.xs),
           Text(l10n.localNovelFileEncoding(_encodingLabel(novel.encoding))),
           const SizedBox(height: FuncSpacing.xs),
-          Text(l10n.localNovelFileImportedAt(_formatDate(novel.importedAt))),
+          Text(
+            l10n.localNovelFileImportedAt(
+              AppFormat.date(context, novel.importedAt, withTime: true),
+            ),
+          ),
         ],
       ),
     );
@@ -146,13 +151,6 @@ class _LocalNovelInfoSheet extends StatelessWidget {
         // decoder defaults to UTF-8, which is also what the file contains.
         null => 'UTF-8',
       };
-
-  static String _formatDate(DateTime value) {
-    final local = value.toLocal();
-    String two(int number) => number.toString().padLeft(2, '0');
-    return '${local.year}-${two(local.month)}-${two(local.day)} '
-        '${two(local.hour)}:${two(local.minute)}';
-  }
 }
 
 /// `read_offset` persistence behind the stage: `load` maps the stored

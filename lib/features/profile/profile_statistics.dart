@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../app/format/app_format.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 
 @immutable
@@ -46,7 +47,7 @@ class ProfileStatistic extends StatelessWidget {
       ),
       container: true,
       button: statistic.onTap != null,
-      label: '${statistic.label}, ${statistic.value}',
+      label: '${statistic.label}, ${AppFormat.count(context, statistic.value)}',
       onTap: statistic.onTap,
       child: ExcludeSemantics(
         child: compact
@@ -65,7 +66,7 @@ class ProfileStatistic extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          '${statistic.value}',
+                          AppFormat.count(context, statistic.value),
                           maxLines: 1,
                           softWrap: false,
                           overflow: TextOverflow.ellipsis,
@@ -94,7 +95,7 @@ class ProfileStatistic extends StatelessWidget {
                 dense: true,
                 leading: Icon(statistic.icon, size: 18),
                 title: Text(statistic.label),
-                trailing: Text('${statistic.value}'),
+                trailing: Text(AppFormat.count(context, statistic.value)),
                 onTap: statistic.onTap,
               ),
       ),

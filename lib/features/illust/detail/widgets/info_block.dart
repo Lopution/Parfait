@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/format/app_format.dart';
 import '../../../../app/haptics/app_haptics.dart';
 import '../../../../app/motion/app_overlays.dart';
 import '../../../../app/navigation/routes.dart';
@@ -75,7 +76,7 @@ class InfoBlock extends ConsumerWidget {
                   createDate == null
                       ? context.l10n.illustDetailCreateDateUnknown
                       : context.l10n.illustDetailCreateDate(
-                          '${createDate.year}/${createDate.month}/${createDate.day}',
+                          AppFormat.date(context, createDate),
                         ),
                   // Wraps rather than ellipsizes: the stats keep their
                   // width and a long label never loses the date.
@@ -85,12 +86,12 @@ class InfoBlock extends ConsumerWidget {
               const SizedBox(width: FuncSpacing.md),
               _StatItem(
                 icon: Icons.remove_red_eye_outlined,
-                label: '${entity.totalView}',
+                label: AppFormat.count(context, entity.totalView),
               ),
               const SizedBox(width: FuncSpacing.sm),
               _StatItem(
                 icon: Icons.favorite_border,
-                label: '${entity.totalBookmarks}',
+                label: AppFormat.count(context, entity.totalBookmarks),
               ),
             ],
           ),

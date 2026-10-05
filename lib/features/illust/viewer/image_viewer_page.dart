@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../app/format/app_format.dart';
 import '../../../app/motion/drag_to_dismiss.dart';
 import '../../../app/haptics/app_haptics.dart';
 import '../../../app/motion/app_overlays.dart';
@@ -387,13 +388,13 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
         showDragHandle: true,
         builder: (sheetContext) {
           final l10n = context.l10n;
-          // Same date treatment as the detail page's InfoBlock: parse the
-          // ISO createDate into y/m/d instead of leaking the raw wire
-          // string into the sheet.
+          // Same date treatment as the detail page's InfoBlock: the ISO
+          // createDate goes through the locale format instead of leaking
+          // the raw wire string into the sheet.
           final createDate = DateTime.tryParse(entity.createDate ?? '');
           final dateText = createDate == null
               ? null
-              : '${createDate.year}/${createDate.month}/${createDate.day}';
+              : AppFormat.date(context, createDate);
           return SafeArea(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -771,7 +772,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                 padding: const EdgeInsets.only(right: FuncSpacing.lg),
                 child: Text(
                   '${_activePage + 1} / $_pageCount',
-                  style: TextStyle(color: FuncTokens.lightBackground),
+                  style: TextStyle(color: FuncTokens.lightBackground).tabular,
                 ),
               ),
           ],
@@ -809,7 +810,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                   child: hasPages
                       ? Text(
                           '${_activePage + 1} / $_pageCount',
-                          style: TextStyle(color: color),
+                          style: TextStyle(color: color).tabular,
                         )
                       : const SizedBox.shrink(),
                 ),

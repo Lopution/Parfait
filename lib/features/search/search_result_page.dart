@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/format/app_format.dart';
 import '../../app/person_avatar.dart';
 import '../../app/widgets/novel_entry.dart';
 import '../../app/pull_to_refresh.dart';
@@ -455,10 +456,8 @@ class _FilterSummaryBar extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onClear;
 
-  String _dateText(DateTime value) =>
-      '${value.year.toString().padLeft(4, '0')}-'
-      '${value.month.toString().padLeft(2, '0')}-'
-      '${value.day.toString().padLeft(2, '0')}';
+  String _dateText(BuildContext context, DateTime value) =>
+      AppFormat.date(context, value);
 
   List<String> _activeLabels(BuildContext context) {
     final l10n = context.l10n;
@@ -470,8 +469,8 @@ class _FilterSummaryBar extends StatelessWidget {
       if (filters.duration != null)
         searchText(context, filters.duration!.labelKey),
       if (filters.startDate != null || filters.endDate != null)
-        '${filters.startDate == null ? '…' : _dateText(filters.startDate!)}'
-            ' – ${filters.endDate == null ? '…' : _dateText(filters.endDate!)}',
+        '${filters.startDate == null ? '…' : _dateText(context, filters.startDate!)}'
+            ' – ${filters.endDate == null ? '…' : _dateText(context, filters.endDate!)}',
       if (filters.aiFilter != SearchAiFilter.all)
         searchText(context, filters.aiFilter.labelKey),
       if (filters.bookmarkMin != null || filters.bookmarkMax != null)

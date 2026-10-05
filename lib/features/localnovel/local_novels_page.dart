@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/format/app_format.dart';
 import '../../app/haptics/app_haptics.dart';
 import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
@@ -131,9 +132,7 @@ class _LocalNovelTile extends ConsumerWidget {
     final percent = _progressPercent;
     final meta = [
       context.l10n.localNovelsChars(novel.charCount),
-      '${novel.importedAt.year}-'
-          '${novel.importedAt.month.toString().padLeft(2, '0')}-'
-          '${novel.importedAt.day.toString().padLeft(2, '0')}',
+      AppFormat.date(context, novel.importedAt),
       if (percent != null) context.l10n.localNovelContinue(percent),
     ].join(' · ');
     return EntityRow(

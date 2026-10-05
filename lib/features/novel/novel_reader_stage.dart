@@ -548,9 +548,9 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                           textAlign: TextAlign.center,
                           semanticsLabel: l10n.novelReadingProgress,
                           maxLines: 1,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodyMedium?.copyWith(color: foreground),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: foreground)
+                              .tabular,
                         ),
                       ),
                     ),

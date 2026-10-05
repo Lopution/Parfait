@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/entity/illust_entity.dart';
+import '../../format/app_format.dart';
 import '../../../core/mute/mute_predicate.dart';
 import '../../../core/mute/mute_store.dart';
 import '../../../core/network/compat/network_providers.dart';
@@ -218,7 +219,7 @@ class _IllustCardBody extends ConsumerWidget {
                 ? MutedCover(reasonLabel: mutedHit.label, child: image)
                 : Stack(
                     fit: StackFit.expand,
-                    children: [image, ..._buildBadges(colorScheme)],
+                    children: [image, ..._buildBadges(context, colorScheme)],
                   ),
           ),
         ),
@@ -268,7 +269,7 @@ class _IllustCardBody extends ConsumerWidget {
     );
   }
 
-  List<Widget> _buildBadges(ColorScheme colorScheme) {
+  List<Widget> _buildBadges(BuildContext context, ColorScheme colorScheme) {
     final rank = this.rank;
     return [
       // The four corner slots are fixed; rank joins the top-left cluster
@@ -304,7 +305,9 @@ class _IllustCardBody extends ConsumerWidget {
         Positioned(
           right: 7,
           top: 7,
-          child: EntityBadge(child: Text('${entity.pageCount}')),
+          child: EntityBadge(
+            child: Text(AppFormat.count(context, entity.pageCount)),
+          ),
         ),
       if (entity.isAi)
         Positioned(

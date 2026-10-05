@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/format/app_format.dart';
 import '../../app/motion/press_scale.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pixiv_image.dart';
@@ -220,11 +221,11 @@ class _SpotlightArticleTile extends StatelessWidget {
                               ),
                             ),
                           if (article.subcategoryLabel.isNotEmpty &&
-                              article.publishDate.isNotEmpty)
+                              article.publishDate != null)
                             const SizedBox(width: FuncSpacing.sm),
-                          if (article.publishDate.isNotEmpty)
+                          if (article.publishDate != null)
                             Text(
-                              article.publishDate,
+                              AppFormat.date(context, article.publishDate!),
                               style: theme.textTheme.bodySmall,
                             ),
                         ],

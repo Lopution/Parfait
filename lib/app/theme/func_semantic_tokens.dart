@@ -206,3 +206,10 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
     );
   }
 }
+
+/// Digits of equal width, so a changing number does not shift its
+/// neighbours (counts, page numbers, progress).
+extension TabularFigures on TextStyle {
+  TextStyle get tabular =>
+      copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
+}
