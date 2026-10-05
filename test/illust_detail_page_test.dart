@@ -101,6 +101,15 @@ Future<void> openDetailMenu(
   await tester.pumpAndSettle();
 }
 
+/// The selection bar's count, or null outside the page-selection mode.
+String? selectionCount(WidgetTester tester) {
+  if (downloadSelectedButton.evaluate().isEmpty) return null;
+  return (tester.widget<AppBar>(find.byType(AppBar)).title! as Text).data;
+}
+
+/// The selection bar's download action.
+final downloadSelectedButton = find.byTooltip('Download selected pages');
+
 Future<void> pumpDetail(
   WidgetTester tester,
   ProviderContainer container, {
@@ -1068,10 +1077,10 @@ void main() {
       await tester.tap(find.text('Select pages to download'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Select pages to download'), findsOneWidget);
-      expect(find.text('0 of 2 selected'), findsOneWidget);
-      expect(find.text('Select all'), findsOneWidget);
-      expect(find.text('Cancel'), findsOneWidget);
+      expect(selectionCount(tester), isNotNull);
+      expect(selectionCount(tester), '0');
+      expect(find.byTooltip('Select all'), findsOneWidget);
+      expect(find.byTooltip('Cancel'), findsOneWidget);
     });
 
     testWidgets('single-page works keep only the download-all action', (
@@ -1102,20 +1111,25 @@ void main() {
         // The always-visible Download All entry exists; the selection
         // chrome does not.
         expect(find.byTooltip('Download All'), findsOneWidget);
-        expect(find.text('Select pages to download'), findsNothing);
+        expect(selectionCount(tester), isNull);
         expect(find.byIcon(Icons.radio_button_unchecked), findsNothing);
 
         await longPressImage(tester);
 
-        // Mode chrome: title + selected/total count + select-all +
-        // done + cancel. Done is disabled while nothing is selected.
-        expect(find.text('Select pages to download'), findsOneWidget);
-        expect(find.text('0 of 2 selected'), findsOneWidget);
-        expect(find.text('Select all'), findsOneWidget);
-        expect(find.text('Cancel'), findsOneWidget);
+        // The shared selection bar: count, select all, download, close.
+        // Download is disabled while nothing is selected.
+        expect(selectionCount(tester), isNotNull);
+        expect(selectionCount(tester), '0');
+        expect(find.byTooltip('Select all'), findsOneWidget);
+        expect(find.byTooltip('Cancel'), findsOneWidget);
         expect(
           tester
-              .widget<FilledButton>(find.widgetWithText(FilledButton, 'Done'))
+              .widget<IconButton>(
+                find.ancestor(
+                  of: downloadSelectedButton,
+                  matching: find.byType(IconButton),
+                ),
+              )
               .onPressed,
           isNull,
         );
@@ -1132,11 +1146,11 @@ void main() {
         final manager = container.read(downloadManagerProvider);
         expect(manager.tasks, isEmpty);
         expect(find.byIcon(Icons.check_circle), findsOneWidget);
-        expect(find.text('1 of 2 selected'), findsOneWidget);
+        expect(selectionCount(tester), '1');
 
-        // Done submits exactly the selected page and exits the mode.
+        // Download submits exactly the selected page and exits the mode.
         await mockNetworkImagesFor(() async {
-          await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+          await tester.tap(downloadSelectedButton);
           await tester.pump();
         });
         expect(manager.tasks, hasLength(1));
@@ -1154,7 +1168,7 @@ void main() {
         }
         expect(manager.tasks.single.status, DownloadStatus.succeeded);
         await tester.pump();
-        expect(find.text('Select pages to download'), findsNothing);
+        expect(selectionCount(tester), isNull);
         expect(transport.openedUrls, hasLength(1));
       },
     );
@@ -1166,16 +1180,16 @@ void main() {
       await pumpDetail(tester, container);
 
       await longPressImage(tester);
-      expect(find.text('0 of 2 selected'), findsOneWidget);
+      expect(selectionCount(tester), '0');
 
-      await tester.tap(find.text('Select all'));
+      await tester.tap(find.byTooltip('Select all'));
       await tester.pump();
-      expect(find.text('2 of 2 selected'), findsOneWidget);
+      expect(selectionCount(tester), '2');
 
       // Cancel exits the mode without submitting anything.
-      await tester.tap(find.text('Cancel'));
+      await tester.tap(find.byTooltip('Cancel'));
       await tester.pump();
-      expect(find.text('Select pages to download'), findsNothing);
+      expect(selectionCount(tester), isNull);
       expect(
         container.read(downloadManagerProvider).tasks,
         isEmpty,
@@ -1191,13 +1205,13 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
 
       await longPressImage(tester);
-      expect(find.text('Select pages to download'), findsOneWidget);
+      expect(selectionCount(tester), isNotNull);
 
       await tester.binding.handlePopRoute();
       await tester.pump(const Duration(milliseconds: 50));
       // The route stays; the mode is gone.
       expect(find.byType(IllustDetailPage), findsOneWidget);
-      expect(find.text('Select pages to download'), findsNothing);
+      expect(selectionCount(tester), isNull);
       expect(container.read(downloadManagerProvider).tasks, isEmpty);
     });
 
@@ -1245,7 +1259,7 @@ void main() {
         await tester.longPress(find.byType(UgoiraViewer));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
-        expect(find.text('Select pages to download'), findsNothing);
+        expect(selectionCount(tester), isNull);
         expect(find.text('选择要下载的页'), findsNothing);
         expect(container.read(downloadManagerProvider).tasks, isEmpty);
       },
@@ -1344,7 +1358,7 @@ void main() {
       await mockNetworkImagesFor(() async {
         await tester.tap(find.byIcon(Icons.radio_button_unchecked));
         await tester.pump();
-        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+        await tester.tap(downloadSelectedButton);
         await tester.pump(const Duration(milliseconds: 100));
       });
 
@@ -1370,7 +1384,7 @@ void main() {
       );
 
       await mockNetworkImagesFor(() async {
-        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+        await tester.tap(downloadSelectedButton);
         await tester.pump(const Duration(milliseconds: 100));
       });
       expect(manager.tasks.single.status, DownloadStatus.succeeded);
@@ -1388,8 +1402,8 @@ void main() {
       // The two-pane pager forwards the same long-press entry; the
       // selection bar is shared chrome, not a narrow-layout special case.
       await longPressImage(tester);
-      expect(find.text('Select pages to download'), findsOneWidget);
-      expect(find.text('0 of 2 selected'), findsOneWidget);
+      expect(selectionCount(tester), isNotNull);
+      expect(selectionCount(tester), '0');
       expect(find.byIcon(Icons.radio_button_unchecked), findsWidgets);
 
       await mockNetworkImagesFor(() async {
@@ -1397,10 +1411,10 @@ void main() {
         await tester.pump();
       });
       expect(find.byIcon(Icons.check_circle), findsOneWidget);
-      expect(find.text('1 of 2 selected'), findsOneWidget);
+      expect(selectionCount(tester), '1');
 
       await mockNetworkImagesFor(() async {
-        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+        await tester.tap(downloadSelectedButton);
         await tester.pump();
       });
       final manager = container.read(downloadManagerProvider);
@@ -1411,7 +1425,7 @@ void main() {
         }
       }
       expect(manager.tasks.single.pageIndex, 0);
-      expect(find.text('Select pages to download'), findsNothing);
+      expect(selectionCount(tester), isNull);
     });
 
     testWidgets('landscape narrow layout presents the same selection chrome', (
@@ -1436,7 +1450,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 700));
       await gesture.up();
       await tester.pump();
-      expect(find.text('Select pages to download'), findsOneWidget);
+      expect(selectionCount(tester), isNotNull);
       expect(find.byIcon(Icons.radio_button_unchecked), findsWidgets);
 
       await mockNetworkImagesFor(() async {
@@ -2243,13 +2257,13 @@ void main() {
         expect(find.byType(DetailPageCounter), findsOneWidget);
 
         await longPressImage(tester);
-        expect(find.text('0 of 2 selected'), findsOneWidget);
+        expect(selectionCount(tester), '0');
         expect(find.byIcon(Icons.radio_button_unchecked), findsWidgets);
         expect(find.byType(DetailPageCounter), findsNothing);
 
-        await tester.tap(find.text('Cancel'));
+        await tester.tap(find.byTooltip('Cancel'));
         await tester.pumpAndSettle();
-        expect(find.text('0 of 2 selected'), findsNothing);
+        expect(selectionCount(tester), isNull);
         expect(find.text('1 / 2'), findsOneWidget);
       });
     }
@@ -2288,24 +2302,16 @@ void main() {
       expect(find.byTooltip('Select pages to download'), findsNothing);
     });
 
-    testWidgets('the selection entry hides while selection mode is on', (
+    testWidgets('the selection bar replaces the app bar and its menu', (
       tester,
     ) async {
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container);
 
       await longPressImage(tester);
-      expect(find.text('0 of 2 selected'), findsOneWidget);
-
-      await openDetailMenu(tester);
-      expect(find.text('Share'), findsOneWidget);
-      expect(find.text('Jump to artwork info'), findsOneWidget);
-      // The bottom bar keeps its own "Select pages to download" title —
-      // what must be gone is the menu's re-entry item.
-      expect(
-        find.widgetWithText(MenuItemButton, 'Select pages to download'),
-        findsNothing,
-      );
+      expect(selectionCount(tester), '0');
+      expect(find.byTooltip('Show menu'), findsNothing);
+      expect(find.byTooltip('Download All'), findsNothing);
     });
 
     testWidgets('share goes through the ⋮ menu to the share boundary', (

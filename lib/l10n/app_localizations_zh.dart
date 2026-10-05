@@ -2467,15 +2467,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadSelectPages => '选择要下载的页';
 
   @override
-  String downloadSelectedCount(int selected, int total) {
-    return '已选 $selected / 共 $total 页';
-  }
+  String get downloadSelectedPages => '下载选中的页';
 
   @override
   String get selectAll => '全选';
-
-  @override
-  String get done => '完成';
 
   @override
   String viewerPageLabel(int page, int total) {

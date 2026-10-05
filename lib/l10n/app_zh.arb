@@ -1182,19 +1182,8 @@
   "hapticTierUnknown": "无法读取本机的振动能力",
   "hapticSystemOff": "系统已关闭触摸振动，应用内触感不会生效",
   "downloadSelectPages": "选择要下载的页",
-  "downloadSelectedCount": "已选 {selected} / 共 {total} 页",
-  "@downloadSelectedCount": {
-    "placeholders": {
-      "selected": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
+  "downloadSelectedPages": "下载选中的页",
   "selectAll": "全选",
-  "done": "完成",
   "viewerPageLabel": "第 {page} 页，共 {total} 页",
   "@viewerPageLabel": {
     "placeholders": {

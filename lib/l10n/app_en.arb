@@ -1104,19 +1104,8 @@
   "hapticTierUnknown": "Could not read this device's vibration capability",
   "hapticSystemOff": "Touch vibration is off in system settings, so app haptics will not play",
   "downloadSelectPages": "Select pages to download",
-  "downloadSelectedCount": "{selected} of {total} selected",
-  "@downloadSelectedCount": {
-    "placeholders": {
-      "selected": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
+  "downloadSelectedPages": "Download selected pages",
   "selectAll": "Select all",
-  "done": "Done",
   "viewerPageLabel": "Page {page} of {total}",
   "@viewerPageLabel": {
     "placeholders": {

@@ -2565,15 +2565,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadSelectPages => 'Выберите страницы для скачивания';
 
   @override
-  String downloadSelectedCount(int selected, int total) {
-    return 'Выбрано: $selected из $total';
-  }
+  String get downloadSelectedPages => 'Скачать выбранные страницы';
 
   @override
   String get selectAll => 'Выбрать все';
-
-  @override
-  String get done => 'Готово';
 
   @override
   String viewerPageLabel(int page, int total) {

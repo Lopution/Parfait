@@ -1104,19 +1104,8 @@
   "hapticTierUnknown": "Не удалось определить возможности вибрации устройства",
   "hapticSystemOff": "Вибрация при касании выключена в настройках системы, отклик приложения не сработает",
   "downloadSelectPages": "Выберите страницы для скачивания",
-  "downloadSelectedCount": "Выбрано: {selected} из {total}",
-  "@downloadSelectedCount": {
-    "placeholders": {
-      "selected": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
+  "downloadSelectedPages": "Скачать выбранные страницы",
   "selectAll": "Выбрать все",
-  "done": "Готово",
   "viewerPageLabel": "Страница {page} из {total}",
   "@viewerPageLabel": {
     "placeholders": {

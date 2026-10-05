@@ -2496,15 +2496,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadSelectPages => 'ダウンロードするページを選択';
 
   @override
-  String downloadSelectedCount(int selected, int total) {
-    return '$total 件中 $selected 件を選択';
-  }
+  String get downloadSelectedPages => '選択したページをダウンロード';
 
   @override
   String get selectAll => 'すべて選択';
-
-  @override
-  String get done => '完了';
 
   @override
   String viewerPageLabel(int page, int total) {

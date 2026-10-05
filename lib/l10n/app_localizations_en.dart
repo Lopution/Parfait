@@ -2562,15 +2562,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadSelectPages => 'Select pages to download';
 
   @override
-  String downloadSelectedCount(int selected, int total) {
-    return '$selected of $total selected';
-  }
+  String get downloadSelectedPages => 'Download selected pages';
 
   @override
   String get selectAll => 'Select all';
-
-  @override
-  String get done => 'Done';
 
   @override
   String viewerPageLabel(int page, int total) {
