@@ -445,6 +445,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'novelThemeSepia' => l10n.novelThemeSepia,
   'novelThemeSystem' => l10n.novelThemeSystem,
   'novelWords' => l10n.novelWords,
+  'openAuthorProfile' => l10n.openAuthorProfile,
   'openInBrowser' => l10n.openInBrowser,
   'openLink' => l10n.openLink,
   'pageTransitionStyleSharedAxis' => l10n.pageTransitionStyleSharedAxis,

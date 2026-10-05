@@ -2540,6 +2540,9 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get openAuthorProfile => '作者のページを開く';
+
+  @override
   String get illustInfoJump => '作品情報へ移動';
 
   @override

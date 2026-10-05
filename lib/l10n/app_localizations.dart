@@ -4865,6 +4865,12 @@ abstract class AppLocalizations {
   /// **'第 {rank} 名'**
   String rankLabel(int rank);
 
+  /// Screen-reader hint on an author row: tapping opens the author's profile
+  ///
+  /// In zh, this message translates to:
+  /// **'打开作者主页'**
+  String get openAuthorProfile;
+
   /// Jump to the artwork info section
   ///
   /// In zh, this message translates to:

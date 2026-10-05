@@ -2610,6 +2610,9 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get openAuthorProfile => 'Открыть профиль автора';
+
+  @override
   String get illustInfoJump => 'К информации о работе';
 
   @override

@@ -10,6 +10,7 @@ import '../../app/layout/content_widths.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/author_row.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/share/share_service.dart';
 import '../../core/spotlight/spotlight_article_controller.dart';
@@ -286,22 +287,16 @@ class _SpotlightIllustCardView extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (card.userName != null)
-                      GestureDetector(
-                        onTap: card.userId == null
-                            ? null
-                            : () => openUser(context, card.userId!),
-                        child: Text(
-                          card.userName!,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: card.userId == null
-                                ? null
-                                : theme.colorScheme.primary,
-                          ),
+                    if (card.userName case final userName?)
+                      if (card.userId case final userId?)
+                        AuthorRow(userId: userId, name: userName)
+                      else
+                        Text(
+                          userName,
+                          style: theme.textTheme.bodySmall,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                      ),
                   ],
                 ),
               ),

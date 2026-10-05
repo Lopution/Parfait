@@ -1169,6 +1169,7 @@
   "badgeUgoira": "うごイラ",
   "badgeAi": "AI生成",
   "rankLabel": "{rank}位",
+  "openAuthorProfile": "作者のページを開く",
   "illustInfoJump": "作品情報へ移動",
   "@illustInfoJump": {
     "description": "Scrolls to the artwork info section"

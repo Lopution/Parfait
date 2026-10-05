@@ -1169,6 +1169,7 @@
   "badgeUgoira": "Animated",
   "badgeAi": "AI-generated",
   "rankLabel": "No. {rank}",
+  "openAuthorProfile": "Open the author's profile",
   "illustInfoJump": "Jump to artwork info",
   "@illustInfoJump": {
     "description": "Scrolls to the artwork info section"

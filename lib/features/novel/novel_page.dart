@@ -154,6 +154,10 @@ class NovelPage extends ConsumerWidget {
             imageUrl: novel.user.profileImageUrl,
             avatarRadius: 16,
             compact: true,
+            // 32dp avatar + 2×8dp = the 48dp touch target. The sheet closes
+            // before opening the profile, so AuthorRow (which navigates by
+            // itself) does not fit here.
+            padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
             onTap: () {
               Navigator.of(sheetContext).pop();
               openUser(context, novel.user.id);

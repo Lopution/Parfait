@@ -2511,6 +2511,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get openAuthorProfile => '打开作者主页';
+
+  @override
   String get illustInfoJump => '跳到作品信息区';
 
   @override
