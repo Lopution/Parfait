@@ -1,5 +1,5 @@
 /// Session-only record of the most recently opened work inside each illust
-/// series — feeds the series page's 「返回第 n 话」 affordance.
+/// series — feeds the series page's 「继续第 n 话」 affordance.
 ///
 /// Deliberately in-memory only: the entry is a navigation aid for the
 /// current session, not a reading-progress contract. Persistent progress
@@ -8,7 +8,7 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// What the series page needs to offer「返回第 n 话」: which work, and its
+/// What the series page needs to offer「继续第 n 话」: which work, and its
 /// 1-based `content_order` label when the context probe carried it.
 typedef SeriesRecentOpenEntry = ({int illustId, int? contentOrder});
 

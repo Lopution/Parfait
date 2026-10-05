@@ -681,6 +681,9 @@
   "rankingWeekR18G": "ウィークリー (R-18G)",
   "rankingMonth": "マンスリー",
   "rankingEmpty": "ランキングの内容はありません",
+  "rankingPickDate": "日付を選択",
+  "rankingDateLabel": "{date}のランキング",
+  "rankingBackToLatest": "最新に戻る",
   "rankingLoadFailed": "{mode}の読み込みに失敗しました",
   "@rankingLoadFailed": {
     "placeholders": {
@@ -740,6 +743,7 @@
   "searchReverseNoResults": "一致する結果はありません",
   "searchReverseIntentFailed": "共有された画像を使用できません",
   "searchReverseOpenExternal": "ソースを開く",
+  "searchReverseSimilarity": "類似度 {percent}%",
   "searchReverseOpenFailed": "ソースリンクを開けません",
   "searchReverseRateLimited": "検索が混み合っています。しばらくしてからお試しください",
   "searchReverseRateLimitedWait": "約 {seconds} 秒後に再試行できます",
@@ -810,6 +814,12 @@
   "searchResolutionSection": "解像度",
   "searchWidth": "幅",
   "searchHeight": "高さ",
+  "searchRangeAtLeast": "{label} {value}以上",
+  "searchRangeAtMost": "{label} {value}以下",
+  "searchRangeBetween": "{label} {min}～{max}",
+  "searchDateFrom": "{date}以降",
+  "searchDateUntil": "{date}まで",
+  "searchDateBetween": "{start}～{end}",
   "searchDuration": "投稿日",
   "searchAllTime": "指定なし",
   "searchWithinDay": "1日以内",
@@ -854,6 +864,8 @@
   "commentLoadMoreFailed": "コメントをさらに読み込めませんでした",
   "commentNoResults": "コメントはありません",
   "commentReplies": "返信",
+  "commentViewReplies": "返信{count}件を表示",
+  "commentMoreActions": "その他の操作",
   "commentTranslate": "翻訳",
   "commentTranslation": "翻訳結果",
   "commentTranslationUnavailable": "翻訳は利用できません。設定で有効にしてください。",
@@ -1001,19 +1013,9 @@
   "@seriesStartReading": {
     "description": "Opens the first work in this series"
   },
-  "seriesBackToEpisode": "第 {order} 話へ戻る",
-  "@seriesBackToEpisode": {
-    "description": "Opens the most recently opened work in this series",
-    "placeholders": {
-      "order": {
-        "type": "int"
-      }
-    }
-  },
-  "seriesBackToLast": "前回開いた作品へ戻る",
-  "@seriesBackToLast": {
-    "description": "Opens the most recently opened work in this series (order unknown)"
-  },
+  "seriesContinueEpisode": "第{n}話から続ける",
+  "seriesContinue": "続きを読む",
+  "seriesStartFromFirst": "第1話から読む",
   "seriesPrevious": "前の作品",
   "seriesNext": "次の作品",
   "watchlistTitle": "ウォッチリスト",

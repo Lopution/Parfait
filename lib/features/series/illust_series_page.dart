@@ -10,6 +10,7 @@ import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/author_row.dart';
+import '../../app/widgets/expandable_text.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
@@ -174,7 +175,7 @@ class _SeriesHeader extends ConsumerWidget {
             );
       });
     }
-    // 「返回第 n 话」honest variant: only what the session memory recorded —
+    // 「继续第 n 话」honest variant: only what the session memory recorded —
     // this is a different state source than the markSeen cursor above (W4
     // gate: the two must not share one store).
     final recentOpenMap = ref.watch(seriesRecentOpenStoreProvider);
@@ -231,55 +232,75 @@ class _SeriesHeader extends ConsumerWidget {
             seriesKey: WatchlistKey(WatchlistType.manga, detail.id),
             detailAdded: detail.watchlistAdded,
           ),
-          // Action row: 开始阅读 → first work (parsed from
-          // illust_series_first_illust); 返回第 n 话 → the work this
-          // session last opened inside the series. Each button only
-          // renders when its own data source exists.
           if (detail.firstContentId != null || recent != null) ...[
             const SizedBox(height: FuncSpacing.sm),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                if (detail.firstContentId != null)
-                  FilledButton.tonalIcon(
-                    onPressed: () => openIllust(
-                      context,
-                      detail.firstContentId!,
-                      initialEntity: ref
-                          .read(illustStoreProvider)
-                          .get(detail.firstContentId!),
-                    ),
-                    icon: const Icon(Icons.play_arrow, size: 18),
-                    label: Text(context.l10n.seriesStartReading),
-                  ),
-                if (recent != null)
-                  FilledButton.tonalIcon(
-                    onPressed: () => openIllust(
-                      context,
-                      recent.illustId,
-                      initialEntity: ref
-                          .read(illustStoreProvider)
-                          .get(recent.illustId),
-                    ),
-                    icon: const Icon(Icons.history, size: 18),
-                    label: Text(
-                      recent.contentOrder != null
-                          ? context.l10n.seriesBackToEpisode(
-                              recent.contentOrder!,
-                            )
-                          : context.l10n.seriesBackToLast,
-                    ),
-                  ),
-              ],
+            _ReadingActions(
+              firstContentId: detail.firstContentId,
+              recent: recent,
             ),
           ],
           if (detail.caption.isNotEmpty) ...[
             const SizedBox(height: FuncSpacing.sm),
-            Text(detail.caption, style: theme.textTheme.bodySmall),
+            ExpandableText(
+              TextSpan(text: detail.caption),
+              maxLines: 3,
+              style: theme.textTheme.bodySmall,
+            ),
           ],
         ],
       ),
+    );
+  }
+}
+
+/// One primary way into the series. With a reading record (this session's
+/// last opened work) it continues there, and starting over from the first
+/// episode is the quieter second choice; without one it starts at the
+/// first episode.
+class _ReadingActions extends ConsumerWidget {
+  const _ReadingActions({required this.firstContentId, required this.recent});
+
+  /// Parsed from `illust_series_first_illust`; null when pixiv omits it.
+  final int? firstContentId;
+  final SeriesRecentOpenEntry? recent;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    void open(int illustId) => openIllust(
+      context,
+      illustId,
+      initialEntity: ref.read(illustStoreProvider).get(illustId),
+    );
+    final recent = this.recent;
+    final first = firstContentId;
+    if (recent == null) {
+      if (first == null) return const SizedBox.shrink();
+      return FilledButton.icon(
+        onPressed: () => open(first),
+        icon: const Icon(Icons.play_arrow),
+        label: Text(context.l10n.seriesStartReading),
+      );
+    }
+    final order = recent.contentOrder;
+    return OverflowBar(
+      spacing: FuncSpacing.sm,
+      overflowSpacing: FuncSpacing.xs,
+      children: [
+        FilledButton.icon(
+          onPressed: () => open(recent.illustId),
+          icon: const Icon(Icons.play_arrow),
+          label: Text(
+            order == null
+                ? context.l10n.seriesContinue
+                : context.l10n.seriesContinueEpisode(order),
+          ),
+        ),
+        if (first != null)
+          TextButton(
+            onPressed: () => open(first),
+            child: Text(context.l10n.seriesStartFromFirst),
+          ),
+      ],
     );
   }
 }

@@ -2915,6 +2915,24 @@ abstract class AppLocalizations {
   /// **'暂无榜单内容'**
   String get rankingEmpty;
 
+  /// Tooltip of the ranking date button
+  ///
+  /// In zh, this message translates to:
+  /// **'选择日期'**
+  String get rankingPickDate;
+
+  /// Bar under the ranking tabs while a past date is shown
+  ///
+  /// In zh, this message translates to:
+  /// **'{date} 的排行'**
+  String rankingDateLabel(String date);
+
+  /// Leaves a past ranking date
+  ///
+  /// In zh, this message translates to:
+  /// **'回到最新'**
+  String get rankingBackToLatest;
+
   /// No description provided for @rankingLoadFailed.
   ///
   /// In zh, this message translates to:
@@ -3227,6 +3245,12 @@ abstract class AppLocalizations {
   /// **'打开来源'**
   String get searchReverseOpenExternal;
 
+  /// Similarity of a reverse image search match
+  ///
+  /// In zh, this message translates to:
+  /// **'相似度 {percent}%'**
+  String searchReverseSimilarity(int percent);
+
   /// No description provided for @searchReverseOpenFailed.
   ///
   /// In zh, this message translates to:
@@ -3521,6 +3545,42 @@ abstract class AppLocalizations {
   /// **'高'**
   String get searchHeight;
 
+  /// Filter chip: a lower bound only, e.g. bookmarks or width
+  ///
+  /// In zh, this message translates to:
+  /// **'{label} {value} 以上'**
+  String searchRangeAtLeast(String label, String value);
+
+  /// Filter chip: an upper bound only
+  ///
+  /// In zh, this message translates to:
+  /// **'{label} {value} 以下'**
+  String searchRangeAtMost(String label, String value);
+
+  /// Filter chip: both bounds
+  ///
+  /// In zh, this message translates to:
+  /// **'{label} {min}–{max}'**
+  String searchRangeBetween(String label, String min, String max);
+
+  /// Filter chip: start date only
+  ///
+  /// In zh, this message translates to:
+  /// **'{date} 起'**
+  String searchDateFrom(String date);
+
+  /// Filter chip: end date only
+  ///
+  /// In zh, this message translates to:
+  /// **'截至 {date}'**
+  String searchDateUntil(String date);
+
+  /// Filter chip: a date range
+  ///
+  /// In zh, this message translates to:
+  /// **'{start} – {end}'**
+  String searchDateBetween(String start, String end);
+
   /// No description provided for @searchDuration.
   ///
   /// In zh, this message translates to:
@@ -3742,6 +3802,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'回复'**
   String get commentReplies;
+
+  /// Comment action that opens the replies to a comment
+  ///
+  /// In zh, this message translates to:
+  /// **'查看 {count} 条回复'**
+  String commentViewReplies(int count);
+
+  /// Tooltip of a comment's overflow menu (translate, delete)
+  ///
+  /// In zh, this message translates to:
+  /// **'更多操作'**
+  String get commentMoreActions;
 
   /// No description provided for @commentTranslate.
   ///
@@ -4481,17 +4553,23 @@ abstract class AppLocalizations {
   /// **'开始阅读'**
   String get seriesStartReading;
 
-  /// Opens the most recently opened work in this series
+  /// Opens the series episode the user last opened
   ///
   /// In zh, this message translates to:
-  /// **'返回第 {order} 话'**
-  String seriesBackToEpisode(int order);
+  /// **'继续第 {n} 话'**
+  String seriesContinueEpisode(int n);
 
-  /// Opens the most recently opened work in this series (order unknown)
+  /// Opens the series work the user last opened when its episode number is unknown
   ///
   /// In zh, this message translates to:
-  /// **'返回上次阅读的作品'**
-  String get seriesBackToLast;
+  /// **'继续阅读'**
+  String get seriesContinue;
+
+  /// Opens the first episode of a series the user has already been reading
+  ///
+  /// In zh, this message translates to:
+  /// **'从第 1 话开始'**
+  String get seriesStartFromFirst;
 
   /// No description provided for @seriesPrevious.
   ///

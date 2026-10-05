@@ -1516,6 +1516,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get rankingEmpty => 'ランキングの内容はありません';
 
   @override
+  String get rankingPickDate => '日付を選択';
+
+  @override
+  String rankingDateLabel(String date) {
+    return '$dateのランキング';
+  }
+
+  @override
+  String get rankingBackToLatest => '最新に戻る';
+
+  @override
   String rankingLoadFailed(String mode) {
     return '$modeの読み込みに失敗しました';
   }
@@ -1682,6 +1693,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchReverseOpenExternal => 'ソースを開く';
 
   @override
+  String searchReverseSimilarity(int percent) {
+    return '類似度 $percent%';
+  }
+
+  @override
   String get searchReverseOpenFailed => 'ソースリンクを開けません';
 
   @override
@@ -1836,6 +1852,36 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchHeight => '高さ';
 
   @override
+  String searchRangeAtLeast(String label, String value) {
+    return '$label $value以上';
+  }
+
+  @override
+  String searchRangeAtMost(String label, String value) {
+    return '$label $value以下';
+  }
+
+  @override
+  String searchRangeBetween(String label, String min, String max) {
+    return '$label $min～$max';
+  }
+
+  @override
+  String searchDateFrom(String date) {
+    return '$date以降';
+  }
+
+  @override
+  String searchDateUntil(String date) {
+    return '$dateまで';
+  }
+
+  @override
+  String searchDateBetween(String start, String end) {
+    return '$start～$end';
+  }
+
+  @override
   String get searchDuration => '投稿日';
 
   @override
@@ -1953,6 +1999,14 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get commentReplies => '返信';
+
+  @override
+  String commentViewReplies(int count) {
+    return '返信$count件を表示';
+  }
+
+  @override
+  String get commentMoreActions => 'その他の操作';
 
   @override
   String get commentTranslate => '翻訳';
@@ -2331,12 +2385,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get seriesStartReading => '読み始める';
 
   @override
-  String seriesBackToEpisode(int order) {
-    return '第 $order 話へ戻る';
+  String seriesContinueEpisode(int n) {
+    return '第$n話から続ける';
   }
 
   @override
-  String get seriesBackToLast => '前回開いた作品へ戻る';
+  String get seriesContinue => '続きを読む';
+
+  @override
+  String get seriesStartFromFirst => '第1話から読む';
 
   @override
   String get seriesPrevious => '前の作品';

@@ -294,10 +294,10 @@ void main() {
     await tester.tap(find.byIcon(Icons.more_vert));
     await tester.pumpAndSettle();
     expect(find.text('Open contents'), findsOneWidget);
-    expect(find.text('Back to part 4'), findsOneWidget);
+    expect(find.text('Continue episode 4'), findsOneWidget);
     expect(find.text('Unfollow series'), findsOneWidget);
 
-    await tester.tap(find.text('Back to part 4'));
+    await tester.tap(find.text('Continue episode 4'));
     await tester.pumpAndSettle();
     expect(find.text('illust 555'), findsOneWidget);
     router.pop();

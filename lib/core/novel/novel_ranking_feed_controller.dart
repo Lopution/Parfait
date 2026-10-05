@@ -1,22 +1,36 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
+import '../network/api_date.dart';
 import '../paging/paged_feed_controller.dart';
 import 'novel_snapshot_codec.dart';
 import 'novel_repository.dart';
 import 'novel_store.dart';
 
-/// One independent cursor/state machine per novel ranking mode.
+/// A novel ranking list: the mode and, for a past ranking, its date (null
+/// is the latest).
+typedef NovelRankingFeedKey = ({NovelRankingMode mode, DateTime? date});
+
+/// One independent cursor/state machine per novel ranking mode and date.
 class _NovelRankingFeedController extends PagedFeedController {
-  _NovelRankingFeedController(this.mode);
+  _NovelRankingFeedController(NovelRankingFeedKey key)
+    : mode = key.mode,
+      date = key.date;
 
   final NovelRankingMode mode;
+  final DateTime? date;
 
   @override
-  String get feedKey => 'novel-ranking:${mode.apiValue}';
+  String get feedKey => switch (date) {
+    null => 'novel-ranking:${mode.apiValue}',
+    final date => 'novel-ranking:${mode.apiValue}@${formatApiDate(date)}',
+  };
 
+  /// Only the latest ranking is a cold-start snapshot: a past date must
+  /// never overwrite it.
   @override
-  FeedSnapshotCodec? get snapshotCodec => const NovelSnapshotCodec();
+  FeedSnapshotCodec? get snapshotCodec =>
+      date == null ? const NovelSnapshotCodec() : null;
 
   /// C9: ranking is discovery content.
   @override
@@ -42,6 +56,7 @@ class _NovelRankingFeedController extends PagedFeedController {
         .fetchRanking(
           mode,
           cursor: context.cursor,
+          date: date,
           cancelToken: context.cancelToken,
         );
     return FeedPage(
@@ -56,7 +71,7 @@ class _NovelRankingFeedController extends PagedFeedController {
     if (rawCursor == null || rawCursor.isEmpty) return null;
     return ref
             .read(novelRepositoryProvider)
-            .validateRankingCursor(mode, cursor: rawCursor)
+            .validateRankingCursor(mode, cursor: rawCursor, date: date)
         ? rawCursor
         : null;
   }
@@ -66,5 +81,5 @@ final novelRankingFeedProvider =
     AsyncNotifierProvider.family<
       _NovelRankingFeedController,
       PagedFeedState,
-      NovelRankingMode
+      NovelRankingFeedKey
     >(_NovelRankingFeedController.new);

@@ -12,6 +12,7 @@ import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/app/widgets/novel_entry.dart';
 import 'package:parfait/core/novel/novel_ranking_feed_controller.dart';
 import 'package:parfait/core/novel/novel_repository.dart';
@@ -22,6 +23,7 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/test_preferences.dart';
 
 Map<String, dynamic> _novel(int id) => {
@@ -53,12 +55,15 @@ class _RankingFixture {
     final isFirst = request.url.queryParameters['offset'] == null;
     final start = isFirst ? 1 : 3;
     final nextMode = mismatchedNextMode?.apiValue ?? mode;
+    // Pixiv echoes a past ranking's date into next_url.
+    final date = request.url.queryParameters['date'];
     return http.Response(
       jsonEncode({
         'novels': [for (var id = start; id < start + 2; id++) _novel(id)],
         'next_url': isFirst
             ? 'https://app-api.pixiv.net/v1/novel/ranking'
-                  '?filter=for_android&mode=$nextMode&offset=30'
+                  '?filter=for_android&mode=$nextMode'
+                  '${date == null ? '' : '&date=$date'}&offset=30'
             : null,
       }),
       200,
@@ -81,6 +86,7 @@ Future<(ProviderContainer, _RankingFixture)> _makeWorld({
   final container = ProviderContainer(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
+      feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
       accountMetadataRepositoryProvider.overrideWithValue(
         FakeAccountMetadataRepository(
           accounts: const [Account(id: '100', userId: 100, name: 'tester')],
@@ -136,10 +142,13 @@ void main() {
     addTearDown(container.dispose);
 
     final day = await container.read(
-      novelRankingFeedProvider(NovelRankingMode.day).future,
+      novelRankingFeedProvider((mode: NovelRankingMode.day, date: null)).future,
     );
     final week = await container.read(
-      novelRankingFeedProvider(NovelRankingMode.week).future,
+      novelRankingFeedProvider((
+        mode: NovelRankingMode.week,
+        date: null,
+      )).future,
     );
     expect(day.ids, [1, 2]);
     expect(week.ids, [1, 2]);
@@ -153,13 +162,22 @@ void main() {
     ]);
 
     await container
-        .read(novelRankingFeedProvider(NovelRankingMode.day).notifier)
+        .read(
+          novelRankingFeedProvider((
+            mode: NovelRankingMode.day,
+            date: null,
+          )).notifier,
+        )
         .loadMore();
     final dayAfter = container
-        .read(novelRankingFeedProvider(NovelRankingMode.day))
+        .read(
+          novelRankingFeedProvider((mode: NovelRankingMode.day, date: null)),
+        )
         .requireValue;
     final weekAfter = container
-        .read(novelRankingFeedProvider(NovelRankingMode.week))
+        .read(
+          novelRankingFeedProvider((mode: NovelRankingMode.week, date: null)),
+        )
         .requireValue;
     expect(dayAfter.ids, [1, 2, 3, 4]);
     expect(weekAfter.ids, [1, 2]);
@@ -170,7 +188,9 @@ void main() {
     final (container, _) = await _makeWorld();
     addTearDown(container.dispose);
 
-    await container.read(novelRankingFeedProvider(NovelRankingMode.day).future);
+    await container.read(
+      novelRankingFeedProvider((mode: NovelRankingMode.day, date: null)).future,
+    );
     final store = container.read(novelStoreProvider);
     expect(store[1]?.title, 'novel ranking 1');
     expect(store[2]?.id, 2);
@@ -183,13 +203,18 @@ void main() {
     addTearDown(container.dispose);
 
     final state = await container.read(
-      novelRankingFeedProvider(NovelRankingMode.day).future,
+      novelRankingFeedProvider((mode: NovelRankingMode.day, date: null)).future,
     );
     expect(state.showInitialError, isTrue);
     expect(state.initialError, isNotNull);
     expect(
       container
-          .read(novelRankingFeedProvider(NovelRankingMode.day).notifier)
+          .read(
+            novelRankingFeedProvider((
+              mode: NovelRankingMode.day,
+              date: null,
+            )).notifier,
+          )
           .nextCursor,
       isNull,
     );
@@ -258,6 +283,105 @@ void main() {
         findsOneWidget,
       );
       expect(fixture.requests, isNotEmpty);
+    });
+  });
+
+  group('ranking date', () {
+    final pastDay = DateTime(2025, 10, 1);
+
+    test('a past day is requested and paged with its date', () async {
+      final (container, fixture) = await _makeWorld();
+      addTearDown(container.dispose);
+      final provider = novelRankingFeedProvider((
+        mode: NovelRankingMode.day,
+        date: pastDay,
+      ));
+
+      await container.read(provider.future);
+      await container.read(provider.notifier).loadMore();
+
+      expect(fixture.requests, hasLength(2));
+      for (final request in fixture.requests) {
+        expect(request.queryParameters['date'], '2025-10-01');
+      }
+    });
+
+    test('a cursor from another day is rejected', () async {
+      final (container, _) = await _makeWorld();
+      addTearDown(container.dispose);
+      final repository = container.read(novelRepositoryProvider);
+      const base = 'https://app-api.pixiv.net/v1/novel/ranking?mode=day';
+
+      expect(
+        repository.validateRankingCursor(
+          NovelRankingMode.day,
+          cursor: '$base&date=2025-10-01',
+          date: pastDay,
+        ),
+        isTrue,
+      );
+      expect(
+        repository.validateRankingCursor(
+          NovelRankingMode.day,
+          cursor: '$base&date=2025-09-30',
+          date: pastDay,
+        ),
+        isFalse,
+      );
+      expect(
+        repository.validateRankingCursor(
+          NovelRankingMode.day,
+          cursor: base,
+          date: pastDay,
+        ),
+        isFalse,
+      );
+      expect(
+        repository.validateRankingCursor(
+          NovelRankingMode.day,
+          cursor: '$base&date=2025-10-01',
+        ),
+        isFalse,
+      );
+    });
+
+    testWidgets('a past day shows its bar and goes back to latest', (
+      tester,
+    ) async {
+      final (container, fixture) = await _makeWorld();
+      addTearDown(container.dispose);
+      final routeWrites = <(NovelRankingMode, DateTime?)>[];
+
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              home: NovelRankingPage(
+                date: pastDay,
+                onRouteChanged: (mode, date) => routeWrites.add((mode, date)),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(fixture.requests.last.queryParameters['date'], '2025-10-01');
+        expect(find.textContaining('的排行'), findsOneWidget);
+        expect(find.byTooltip('选择日期'), findsOneWidget);
+
+        await tester.tap(find.text('回到最新'));
+        await tester.pumpAndSettle();
+        expect(routeWrites, [(NovelRankingMode.day, null)]);
+        expect(find.text('回到最新'), findsNothing);
+        expect(
+          fixture.requests.last.queryParameters.containsKey('date'),
+          isFalse,
+        );
+      });
     });
   });
 }

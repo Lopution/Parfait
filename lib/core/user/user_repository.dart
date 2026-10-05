@@ -24,10 +24,20 @@ String _userWorkTypeWire(UserWorkType type) {
 enum UserRelation { following, fans, myPixiv }
 
 class UserRelationPage {
-  const UserRelationPage({required this.users, required this.nextUrl});
+  const UserRelationPage({
+    required this.users,
+    required this.nextUrl,
+    this.previewIllusts = const {},
+  });
 
   final List<UserEntity> users;
   final String? nextUrl;
+
+  /// User id → up to [UserRelationPage.previewLimit] of their works, for
+  /// pages that ask the repository for previews (recommended users).
+  final Map<int, List<IllustEntity>> previewIllusts;
+
+  static const previewLimit = 3;
 }
 
 class UserIllustPage {
@@ -131,7 +141,7 @@ class _PixivUserRepository implements UserRepository {
       _target(request),
       cancelToken: cancelToken,
     );
-    return _parseUserPage(json);
+    return _parseUserPage(json, withPreviews: true);
   }
 
   @override
@@ -344,27 +354,51 @@ class _PixivUserRepository implements UserRepository {
     }
   }
 
-  UserRelationPage _parseUserPage(Map<String, dynamic> json) {
+  /// [withPreviews] also parses each user's preview works; only pages that
+  /// show them ask, so a malformed preview never breaks a plain user list.
+  UserRelationPage _parseUserPage(
+    Map<String, dynamic> json, {
+    bool withPreviews = false,
+  }) {
     final raw = json['user_previews'];
     if (raw is! List) {
       throw const ApiParseError('user_previews is missing or malformed');
     }
     try {
       final users = <UserEntity>[];
+      final previews = <int, List<IllustEntity>>{};
       for (final item in raw) {
         if (item is! Map<String, dynamic>) {
           throw const FormatException('user_previews contains a non-object');
         }
-        users.add(UserEntity.fromPreviewJson(item));
+        final user = UserEntity.fromPreviewJson(item);
+        users.add(user);
+        if (withPreviews) previews[user.id] = _previewIllusts(item);
       }
       return UserRelationPage(
         users: users,
         nextUrl: readNextUrl(json['next_url']),
+        previewIllusts: previews,
       );
     } on FormatException catch (error) {
       throw ApiParseError(error);
     }
   }
+}
+
+List<IllustEntity> _previewIllusts(Map<String, dynamic> preview) {
+  final raw = preview['illusts'];
+  if (raw == null) return const [];
+  if (raw is! List) {
+    throw const FormatException('user_previews.illusts is not a list');
+  }
+  return [
+    for (final item in raw.take(UserRelationPage.previewLimit))
+      if (item is Map<String, dynamic>)
+        IllustEntity.fromJson(item)
+      else
+        throw const FormatException('user_previews.illusts has a non-object'),
+  ];
 }
 
 enum UserRestrict { public, private }

@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../motion/motion_tokens.dart';
+import '../theme/func_semantic_tokens.dart';
 
 /// Upper bound on a menu's width (the M3 menu maximum). Long translations
 /// truncate inside it instead of widening the menu.
@@ -15,6 +16,7 @@ class AppMenuEntry<T> {
     this.icon,
     this.enabled = true,
     this.checked,
+    this.destructive = false,
   });
 
   final T value;
@@ -25,6 +27,10 @@ class AppMenuEntry<T> {
   /// Non-null makes the row a checkable item: a trailing check while true,
   /// and checked/unchecked semantics either way.
   final bool? checked;
+
+  /// Paints the row in the danger color (delete and other irreversible
+  /// actions).
+  final bool destructive;
 }
 
 /// Overflow or choice menu that closes like a native popup window.
@@ -81,7 +87,16 @@ class _AppMenuButtonState<T> extends State<AppMenuButton<T>> {
 
   Widget _item(AppMenuEntry<T> entry) {
     final checked = entry.checked;
+    final danger = entry.destructive
+        ? FuncSemanticTokens.of(context).danger
+        : null;
     Widget item = MenuItemButton(
+      style: danger == null
+          ? null
+          : MenuItemButton.styleFrom(
+              foregroundColor: danger,
+              iconColor: danger,
+            ),
       leadingIcon: entry.icon == null ? null : Icon(entry.icon, size: 20),
       trailingIcon: checked == true ? const Icon(Icons.check, size: 18) : null,
       onPressed: entry.enabled

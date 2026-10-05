@@ -3,21 +3,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/account_store.dart';
 import '../entity/illust_store.dart';
 import 'illust_snapshot_codec.dart';
+import '../network/api_date.dart';
 import '../network/next_page_parser.dart';
 import '../paging/paged_feed_controller.dart';
 import 'ranking_repository.dart';
 
-/// One independent cursor/state machine per ranking mode.
+/// A ranking list: the mode and, for a past ranking, its date (null is
+/// the latest).
+typedef RankingFeedKey = ({RankingMode mode, DateTime? date});
+
+/// One independent cursor/state machine per ranking mode and date.
 class _RankingFeedController extends PagedFeedController {
-  _RankingFeedController(this.mode);
+  _RankingFeedController(RankingFeedKey key) : mode = key.mode, date = key.date;
 
   final RankingMode mode;
+  final DateTime? date;
 
   @override
-  String get feedKey => 'ranking:${mode.apiValue}';
+  String get feedKey => switch (date) {
+    null => 'ranking:${mode.apiValue}',
+    final date => 'ranking:${mode.apiValue}@${formatApiDate(date)}',
+  };
 
+  /// Only the latest ranking is a cold-start snapshot: a past date must
+  /// never overwrite it.
   @override
-  FeedSnapshotCodec? get snapshotCodec => const IllustSnapshotCodec();
+  FeedSnapshotCodec? get snapshotCodec =>
+      date == null ? const IllustSnapshotCodec() : null;
 
   /// C9: ranking is discovery content.
   @override
@@ -43,7 +55,12 @@ class _RankingFeedController extends PagedFeedController {
     final bookmarkRevision = store.bookmarkRevisionNow();
     final page = await ref
         .read(rankingRepositoryProvider)
-        .fetchPage(mode, context.cursor, cancelToken: context.cancelToken);
+        .fetchPage(
+          mode,
+          context.cursor,
+          date: date,
+          cancelToken: context.cancelToken,
+        );
     return FeedPage(
       ids: [for (final illust in page.illusts) illust.id],
       nextCursor: page.nextUrl,
@@ -60,7 +77,7 @@ class _RankingFeedController extends PagedFeedController {
     if (rawCursor == null || rawCursor.isEmpty) return null;
     try {
       final request = NextPageParser.parse(rawCursor)!;
-      RankingRepository.validateModeCursor(request, mode);
+      RankingRepository.validateModeCursor(request, mode, date: date);
       return rawCursor;
     } on NextPageParseError {
       return null;
@@ -72,5 +89,5 @@ final rankingFeedControllerProvider =
     AsyncNotifierProvider.family<
       _RankingFeedController,
       PagedFeedState,
-      RankingMode
+      RankingFeedKey
     >(_RankingFeedController.new);

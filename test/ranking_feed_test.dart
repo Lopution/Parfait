@@ -26,6 +26,9 @@ import 'package:parfait/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
 import 'package:parfait/core/illust/ranking_repository.dart';
+import 'package:parfait/core/network/api_date.dart';
+import 'package:parfait/core/network/next_page_parser.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/core/illust/ranking_feed_controller.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
@@ -98,6 +101,8 @@ class _RankingFixture {
         : 0;
     final start = accountOffset + (isFirst ? 1 : 3);
     final nextMode = mismatchedNextMode?.apiValue ?? mode;
+    // Pixiv echoes a past ranking's date into next_url.
+    final date = request.url.queryParameters['date'];
     return http.Response(
       jsonEncode({
         'illusts': [
@@ -105,7 +110,8 @@ class _RankingFixture {
         ],
         'next_url': isFirst
             ? 'https://app-api.pixiv.net/v1/illust/ranking'
-                  '?filter=for_android&mode=$nextMode&offset=30'
+                  '?filter=for_android&mode=$nextMode'
+                  '${date == null ? '' : '&date=$date'}&offset=30'
             : null,
       }),
       200,
@@ -117,6 +123,7 @@ class _RankingFixture {
 Future<(ProviderContainer, _RankingFixture)> _makeWorld({
   _RankingFixture? fixture,
   bool twoAccounts = false,
+  MemoryFeedSnapshotStore? snapshots,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final activeFixture = fixture ?? _RankingFixture();
@@ -133,7 +140,9 @@ Future<(ProviderContainer, _RankingFixture)> _makeWorld({
   final container = ProviderContainer(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
-      feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
+      feedSnapshotStoreProvider.overrideWithValue(
+        snapshots ?? MemoryFeedSnapshotStore(),
+      ),
       accountMetadataRepositoryProvider.overrideWithValue(
         FakeAccountMetadataRepository(
           accounts: [
@@ -197,10 +206,13 @@ void main() {
     addTearDown(container.dispose);
 
     final day = await container.read(
-      rankingFeedControllerProvider(RankingMode.day).future,
+      rankingFeedControllerProvider((mode: RankingMode.day, date: null)).future,
     );
     final week = await container.read(
-      rankingFeedControllerProvider(RankingMode.week).future,
+      rankingFeedControllerProvider((
+        mode: RankingMode.week,
+        date: null,
+      )).future,
     );
     expect(day.ids, [1, 2]);
     expect(week.ids, [1, 2]);
@@ -210,13 +222,22 @@ void main() {
     ]);
 
     await container
-        .read(rankingFeedControllerProvider(RankingMode.day).notifier)
+        .read(
+          rankingFeedControllerProvider((
+            mode: RankingMode.day,
+            date: null,
+          )).notifier,
+        )
         .loadMore();
     final dayAfter = container
-        .read(rankingFeedControllerProvider(RankingMode.day))
+        .read(
+          rankingFeedControllerProvider((mode: RankingMode.day, date: null)),
+        )
         .requireValue;
     final weekAfter = container
-        .read(rankingFeedControllerProvider(RankingMode.week))
+        .read(
+          rankingFeedControllerProvider((mode: RankingMode.week, date: null)),
+        )
         .requireValue;
     expect(dayAfter.ids, [1, 2, 3, 4]);
     expect(weekAfter.ids, [1, 2]);
@@ -230,13 +251,18 @@ void main() {
     addTearDown(container.dispose);
 
     final state = await container.read(
-      rankingFeedControllerProvider(RankingMode.day).future,
+      rankingFeedControllerProvider((mode: RankingMode.day, date: null)).future,
     );
     expect(state.showInitialError, isTrue);
     expect(state.initialError, isNotNull);
     expect(
       container
-          .read(rankingFeedControllerProvider(RankingMode.day).notifier)
+          .read(
+            rankingFeedControllerProvider((
+              mode: RankingMode.day,
+              date: null,
+            )).notifier,
+          )
           .nextCursor,
       isNull,
     );
@@ -248,7 +274,10 @@ void main() {
       final (container, fixture) = await _makeWorld(twoAccounts: true);
       addTearDown(container.dispose);
 
-      final provider = rankingFeedControllerProvider(RankingMode.day);
+      final provider = rankingFeedControllerProvider((
+        mode: RankingMode.day,
+        date: null,
+      ));
       final firstStore = container.read(illustStoreProvider);
       expect((await container.read(provider.future)).ids, [1, 2]);
 
@@ -263,17 +292,218 @@ void main() {
     },
   );
 
+  group('ranking date', () {
+    final pastDay = DateTime(2025, 10, 1);
+
+    test('a past day is requested and paged with its date', () async {
+      final (container, fixture) = await _makeWorld();
+      addTearDown(container.dispose);
+      final provider = rankingFeedControllerProvider((
+        mode: RankingMode.day,
+        date: pastDay,
+      ));
+
+      await container.read(provider.future);
+      await container.read(provider.notifier).loadMore();
+
+      expect(fixture.requests, hasLength(2));
+      for (final request in fixture.requests) {
+        expect(request.queryParameters['date'], '2025-10-01');
+      }
+    });
+
+    test('a cursor from another day is rejected', () {
+      NextPageRequest cursor(String query) => NextPageParser.parse(
+        'https://app-api.pixiv.net/v1/illust/ranking?mode=day$query',
+      )!;
+
+      RankingRepository.validateModeCursor(
+        cursor('&date=2025-10-01'),
+        RankingMode.day,
+        date: pastDay,
+      );
+      expect(
+        () => RankingRepository.validateModeCursor(
+          cursor('&date=2025-09-30'),
+          RankingMode.day,
+          date: pastDay,
+        ),
+        throwsA(isA<NextPageParseError>()),
+      );
+      expect(
+        () => RankingRepository.validateModeCursor(
+          cursor(''),
+          RankingMode.day,
+          date: pastDay,
+        ),
+        throwsA(isA<NextPageParseError>()),
+      );
+      expect(
+        () => RankingRepository.validateModeCursor(
+          cursor('&date=2025-10-01'),
+          RankingMode.day,
+        ),
+        throwsA(isA<NextPageParseError>()),
+      );
+    });
+
+    test('only the latest ranking writes the cold-start snapshot', () async {
+      final snapshots = MemoryFeedSnapshotStore();
+      final (container, _) = await _makeWorld(snapshots: snapshots);
+      addTearDown(container.dispose);
+
+      await container.read(
+        rankingFeedControllerProvider((
+          mode: RankingMode.day,
+          date: pastDay,
+        )).future,
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(await snapshots.read('100', 'ranking:day'), isNull);
+      expect(await snapshots.read('100', 'ranking:day@2025-10-01'), isNull);
+
+      await container.read(
+        rankingFeedControllerProvider((
+          mode: RankingMode.day,
+          date: null,
+        )).future,
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(await snapshots.read('100', 'ranking:day'), isNotNull);
+    });
+
+    test('pickable days run from the first ranking to yesterday in Japan', () {
+      // 2026-10-05 02:00 in Japan is still 2026-10-04 in UTC.
+      final now = DateTime.utc(2026, 10, 4, 17);
+      expect(rankingLastDate(now: now), DateTime(2026, 10, 4));
+      expect(rankingDateOrLatest(DateTime(2026, 10, 4), now: now), isNotNull);
+      expect(rankingDateOrLatest(DateTime(2026, 10, 5), now: now), isNull);
+      expect(rankingDateOrLatest(DateTime(2007, 9, 13), now: now), isNotNull);
+      expect(rankingDateOrLatest(DateTime(2007, 9, 12), now: now), isNull);
+    });
+
+    Future<GoRouter> pumpRanking(
+      WidgetTester tester,
+      ProviderContainer container,
+      String location,
+    ) async {
+      final router = createPixivRouter(initialLocation: location);
+      addTearDown(router.dispose);
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+      return router;
+    }
+
+    testWidgets('the route carries the day across modes and back to latest', (
+      tester,
+    ) async {
+      final (container, fixture) = await _makeWorld();
+      addTearDown(container.dispose);
+
+      await mockNetworkImagesFor(() async {
+        final router = await pumpRanking(
+          tester,
+          container,
+          '/ranking?mode=day&date=2025-10-01',
+        );
+        expect(fixture.requests.last.queryParameters['mode'], 'day');
+        expect(fixture.requests.last.queryParameters['date'], '2025-10-01');
+        expect(find.textContaining('的排行'), findsOneWidget);
+
+        await tester.tap(find.byType(Tab).at(1));
+        await tester.pumpAndSettle();
+        expect(router.state.uri.queryParameters['mode'], 'dayR18');
+        expect(router.state.uri.queryParameters['date'], '2025-10-01');
+        expect(fixture.requests.last.queryParameters['mode'], 'day_r18');
+        expect(fixture.requests.last.queryParameters['date'], '2025-10-01');
+
+        await tester.tap(find.text('回到最新'));
+        await tester.pumpAndSettle();
+        expect(router.state.uri.queryParameters['mode'], 'dayR18');
+        expect(router.state.uri.queryParameters.containsKey('date'), isFalse);
+        expect(find.text('回到最新'), findsNothing);
+        expect(
+          fixture.requests.last.queryParameters.containsKey('date'),
+          false,
+        );
+      });
+    });
+
+    for (final raw in ['2999-01-01', '2007-09-12', '2025-13-01', 'yesterday']) {
+      testWidgets('date=$raw opens the latest ranking', (tester) async {
+        final (container, fixture) = await _makeWorld();
+        addTearDown(container.dispose);
+
+        await mockNetworkImagesFor(() async {
+          await pumpRanking(tester, container, '/ranking?mode=day&date=$raw');
+        });
+        expect(
+          fixture.requests.single.queryParameters.containsKey('date'),
+          false,
+        );
+        expect(find.text('回到最新'), findsNothing);
+      });
+    }
+
+    testWidgets('the picker stops at yesterday in Japan', (tester) async {
+      final (container, _) = await _makeWorld();
+      addTearDown(container.dispose);
+
+      await mockNetworkImagesFor(() async {
+        final router = await pumpRanking(tester, container, '/ranking');
+        await tester.tap(find.byTooltip('选择日期'));
+        await tester.pumpAndSettle();
+
+        final picker = tester.widget<DatePickerDialog>(
+          find.byType(DatePickerDialog),
+        );
+        expect(picker.firstDate, DateTime(2007, 9, 13));
+        expect(picker.lastDate, rankingLastDate());
+        // Nothing picked yet: the dialog opens on the newest pickable day.
+        expect(picker.initialDate, rankingLastDate());
+
+        await tester.tap(find.text('确定'));
+        await tester.pumpAndSettle();
+        expect(
+          router.state.uri.queryParameters['date'],
+          formatApiDate(rankingLastDate()),
+        );
+        expect(find.text('回到最新'), findsOneWidget);
+      });
+    });
+  });
+
   test('cancel returns an active feed to idle without an error', () async {
     final fixture = _RankingFixture()..blockResponses = true;
     final (container, _) = await _makeWorld(fixture: fixture);
     addTearDown(container.dispose);
 
     final future = container.read(
-      rankingFeedControllerProvider(RankingMode.day).future,
+      rankingFeedControllerProvider((mode: RankingMode.day, date: null)).future,
     );
     await Future<void>.delayed(Duration.zero);
     container
-        .read(rankingFeedControllerProvider(RankingMode.day).notifier)
+        .read(
+          rankingFeedControllerProvider((
+            mode: RankingMode.day,
+            date: null,
+          )).notifier,
+        )
         .cancel();
     final state = await future;
     expect(state.initialPhase.name, 'idle');
@@ -389,7 +619,12 @@ void main() {
         fixture.release = Completer<void>();
         unawaited(
           container
-              .read(rankingFeedControllerProvider(RankingMode.day).notifier)
+              .read(
+                rankingFeedControllerProvider((
+                  mode: RankingMode.day,
+                  date: null,
+                )).notifier,
+              )
               .refresh(),
         );
         await tester.pump();

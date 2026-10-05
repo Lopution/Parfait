@@ -12,6 +12,7 @@ import 'package:parfait/core/novel/novel_repository.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/spotlight/spotlight_models.dart';
 import 'package:parfait/core/user/follow_store.dart';
+import 'package:parfait/features/ranking/ranking_date.dart';
 import 'package:parfait/l10n/lookup.dart';
 
 import '../helpers/fake_account.dart';
@@ -126,6 +127,16 @@ void main() {
       ),
     );
     await settleLayout(tester);
+    expectLocaleLayoutIntact(tester, locale: locale, profile: profile);
+  });
+
+  localeLayoutMatrix('ranking date bar', (tester, locale, profile) async {
+    await _pumpControl(
+      tester,
+      locale,
+      (text) =>
+          RankingDateBar(date: DateTime(2025, 12, 28), onBackToLatest: () {}),
+    );
     expectLocaleLayoutIntact(tester, locale: locale, profile: profile);
   });
 

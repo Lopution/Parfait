@@ -681,6 +681,9 @@
   "rankingWeekR18G": "Еженедельно (R-18G)",
   "rankingMonth": "Ежемесячно",
   "rankingEmpty": "Нет содержимого рейтинга",
+  "rankingPickDate": "Выбрать дату",
+  "rankingDateLabel": "Рейтинг за {date}",
+  "rankingBackToLatest": "К последнему",
   "rankingLoadFailed": "Не удалось загрузить: {mode}",
   "@rankingLoadFailed": {
     "placeholders": {
@@ -740,6 +743,7 @@
   "searchReverseNoResults": "Совпадений не найдено",
   "searchReverseIntentFailed": "Общее изображение нельзя использовать",
   "searchReverseOpenExternal": "Открыть источник",
+  "searchReverseSimilarity": "Сходство: {percent} %",
   "searchReverseOpenFailed": "Не удалось открыть ссылку источника",
   "searchReverseRateLimited": "Слишком много запросов, попробуйте позже",
   "searchReverseRateLimitedWait": "Повторите попытку примерно через {seconds} с",
@@ -810,6 +814,12 @@
   "searchResolutionSection": "Разрешение",
   "searchWidth": "Ширина",
   "searchHeight": "Высота",
+  "searchRangeAtLeast": "{label}: от {value}",
+  "searchRangeAtMost": "{label}: до {value}",
+  "searchRangeBetween": "{label}: {min}–{max}",
+  "searchDateFrom": "С {date}",
+  "searchDateUntil": "По {date}",
+  "searchDateBetween": "{start} – {end}",
   "searchDuration": "Дата публикации",
   "searchAllTime": "Любое время",
   "searchWithinDay": "За день",
@@ -854,6 +864,8 @@
   "commentLoadMoreFailed": "Не удалось загрузить ещё комментарии",
   "commentNoResults": "Комментариев нет",
   "commentReplies": "Ответы",
+  "commentViewReplies": "Ответы: {count}",
+  "commentMoreActions": "Другие действия",
   "commentTranslate": "Перевести",
   "commentTranslation": "Перевод",
   "commentTranslationUnavailable": "Перевод недоступен. Включите его в настройках.",
@@ -1001,19 +1013,9 @@
   "@seriesStartReading": {
     "description": "Opens the first work in this series"
   },
-  "seriesBackToEpisode": "К части {order}",
-  "@seriesBackToEpisode": {
-    "description": "Opens the most recently opened work in this series",
-    "placeholders": {
-      "order": {
-        "type": "int"
-      }
-    }
-  },
-  "seriesBackToLast": "К последней открытой",
-  "@seriesBackToLast": {
-    "description": "Opens the most recently opened work in this series (order unknown)"
-  },
+  "seriesContinueEpisode": "Продолжить: эпизод {n}",
+  "seriesContinue": "Продолжить чтение",
+  "seriesStartFromFirst": "С первого эпизода",
   "seriesPrevious": "Предыдущая",
   "seriesNext": "Следующая",
   "watchlistTitle": "Отслеживаемое",

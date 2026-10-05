@@ -5,6 +5,8 @@ library;
 
 import 'package:flutter/foundation.dart';
 
+import '../network/api_date.dart';
+
 /// The result tabs exposed by the beta56 search input page.
 enum SearchResultType { illust, novel, user }
 
@@ -169,8 +171,8 @@ class SearchFilters {
     target.wireValue,
     sort.wireValue,
     duration?.wireValue ?? '',
-    startDate == null ? '' : _formatDate(startDate!),
-    endDate == null ? '' : _formatDate(endDate!),
+    startDate == null ? '' : formatApiDate(startDate!),
+    endDate == null ? '' : formatApiDate(endDate!),
     aiFilter.name,
     bookmarkMin?.toString() ?? '',
     bookmarkMax?.toString() ?? '',
@@ -191,8 +193,8 @@ class SearchFilters {
     'target': target.wireValue,
     'sort': sort.wireValue,
     if (duration != null) 'duration': duration!.wireValue,
-    if (startDate != null) 'startDate': _formatDate(startDate!),
-    if (endDate != null) 'endDate': _formatDate(endDate!),
+    if (startDate != null) 'startDate': formatApiDate(startDate!),
+    if (endDate != null) 'endDate': formatApiDate(endDate!),
     'aiFilter': aiFilter.name,
     if (bookmarkMin != null) 'bookmarkMin': bookmarkMin,
     if (bookmarkMax != null) 'bookmarkMax': bookmarkMax,
@@ -299,8 +301,8 @@ class SearchFilters {
       // false.
       'sort': includeIllustParams ? sort.wireValue : sort.novelSafe.wireValue,
       'filter': 'for_android',
-      if (range.$1 != null) 'start_date': _formatDate(range.$1!),
-      if (range.$2 != null) 'end_date': _formatDate(range.$2!),
+      if (range.$1 != null) 'start_date': formatApiDate(range.$1!),
+      if (range.$2 != null) 'end_date': formatApiDate(range.$2!),
       if (aiFilter.wireValue != null) 'search_ai_type': aiFilter.wireValue!,
       if (bookmarkMin != null) 'bookmark_num_min': '$bookmarkMin',
       if (bookmarkMax != null) 'bookmark_num_max': '$bookmarkMax',
@@ -447,6 +449,26 @@ sealed class SearchQuery {
   String get cacheKey => '$type|${keyword.trim()}';
 
   bool get isEmpty => keyword.trim().isEmpty;
+
+  /// The filters this query carries or, for a user query, holds on to so a
+  /// switch back to an artwork tab restores them.
+  SearchFilters get carriedFilters;
+
+  /// The same keyword and filters as a query for [type].
+  SearchQuery withType(SearchResultType type) => switch (type) {
+    SearchResultType.illust => IllustSearchQuery(
+      keyword: keyword,
+      filters: carriedFilters,
+    ),
+    SearchResultType.novel => NovelSearchQuery(
+      keyword: keyword,
+      filters: carriedFilters,
+    ),
+    SearchResultType.user => UserSearchQuery(
+      keyword: keyword,
+      retainedFilters: carriedFilters,
+    ),
+  };
 }
 
 @immutable
@@ -460,6 +482,9 @@ class IllustSearchQuery extends SearchQuery {
   final SearchResultType type = SearchResultType.illust;
 
   final SearchFilters filters;
+
+  @override
+  SearchFilters get carriedFilters => filters;
 
   @override
   String get cacheKey => '${super.cacheKey}|${filters.cacheKey}';
@@ -500,6 +525,9 @@ class NovelSearchQuery extends SearchQuery {
   final SearchFilters filters;
 
   @override
+  SearchFilters get carriedFilters => filters;
+
+  @override
   String get cacheKey => '${super.cacheKey}|${filters.cacheKey}';
 
   @override
@@ -526,10 +554,20 @@ class NovelSearchQuery extends SearchQuery {
 
 @immutable
 class UserSearchQuery extends SearchQuery {
-  const UserSearchQuery({required String keyword}) : super(keyword);
+  const UserSearchQuery({
+    required String keyword,
+    this.retainedFilters = SearchFilters.defaults,
+  }) : super(keyword);
 
   @override
   final SearchResultType type = SearchResultType.user;
+
+  /// Never sent to the API; only kept in the route so switching back to an
+  /// artwork tab restores the filters.
+  final SearchFilters retainedFilters;
+
+  @override
+  SearchFilters get carriedFilters => retainedFilters;
 
   @override
   Map<String, String> toQuery() {
@@ -540,25 +578,22 @@ class UserSearchQuery extends SearchQuery {
     return {'word': normalized, 'filter': 'for_android'};
   }
 
-  UserSearchQuery copyWith({String? keyword}) =>
-      UserSearchQuery(keyword: keyword ?? this.keyword);
+  UserSearchQuery copyWith({String? keyword}) => UserSearchQuery(
+    keyword: keyword ?? this.keyword,
+    retainedFilters: retainedFilters,
+  );
 
   @override
   bool operator ==(Object other) =>
-      other is UserSearchQuery && other.keyword == keyword;
+      other is UserSearchQuery &&
+      other.keyword == keyword &&
+      other.retainedFilters == retainedFilters;
 
   @override
-  int get hashCode => keyword.hashCode;
+  int get hashCode => Object.hash(keyword, retainedFilters);
 
   @override
-  String toString() => 'UserSearchQuery($keyword)';
-}
-
-String _formatDate(DateTime value) {
-  final year = value.year.toString().padLeft(4, '0');
-  final month = value.month.toString().padLeft(2, '0');
-  final day = value.day.toString().padLeft(2, '0');
-  return '$year-$month-$day';
+  String toString() => 'UserSearchQuery($keyword, $retainedFilters)';
 }
 
 bool _sameDay(DateTime? left, DateTime? right) =>

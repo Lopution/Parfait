@@ -33,7 +33,7 @@ class IllustSeriesSection extends ConsumerWidget {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
     // Opening a series work on the detail page records it as the session's
-    // most-recently-opened entry for the series page's 「返回第 n 话」.
+    // most-recently-opened entry for the series page's 「继续第 n 话」.
     // Post-frame because build must not write providers; the store dedupes
     // identical entries so rebuilds stay cheap.
     final accountId = ref.watch(historyAccountIdProvider);

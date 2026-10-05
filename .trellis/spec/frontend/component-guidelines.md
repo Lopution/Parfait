@@ -748,8 +748,10 @@ Overflow and choice menus use `AppMenuButton` /
 a pointer going down anywhere outside closes the menu and that touch is
 consumed — the page below neither scrolls nor taps. A `PopScope` with
 `canPop: !open` makes back close the menu before the page. Entries carry
-an optional icon, `enabled`, and `checked` (non-null renders a trailing
-check and checked semantics); `onSelected` receives the anchor's context;
+an optional icon, `enabled`, `checked` (non-null renders a trailing
+check and checked semantics) and `destructive` (label and icon in the
+`danger` color — delete and other irreversible actions, which still
+confirm before acting); `onSelected` receives the anchor's context;
 `style` forwards to the default `IconButton` (over-artwork palette);
 `anchorBuilder` replaces the anchor (the reverse-image engine chip). The
 panel is width-capped at `kAppMenuMaxWidth` with
@@ -862,8 +864,8 @@ restoration scope IDs. Feed scrollables use their stable `PageStorageKey` and
 `restorationId`; the key preserves in-process tab/mode switching and the
 restoration ID covers the Flutter restoration bucket.
 
-Ranking mode, search input/filter, and viewer page are durable path/query
-values and are updated through the route facade. An entity or input passed as
+Ranking mode and date, search input/filter/result type, and viewer page are
+durable path/query values and are updated through the route facade. An entity or input passed as
 route `extra` accelerates the first frame but is not the restoration source.
 The router instance stays stable while settings, account, or providers update.
 
@@ -1763,6 +1765,67 @@ merged with `expanded` semantics. Links in the span stay tappable in both
 states. The height change animates with `AnimatedSize` at
 `MotionTokens.medium` through the motion gate; the state is not persisted.
 Owning test: `expandable_text_test.dart`.
+
+## Discovery Pages Contract
+
+**Search results.** The result types (illustration, novel, user) are an
+`AppTabBar` on the results page. A tab switch replaces the route
+(`replaceSearchResults` with `query.withType(type)`), so the page keeps
+its State and the URL keeps the type. Switching carries the filters
+(`SearchQuery.carriedFilters`): a `UserSearchQuery` does not search with
+them but holds them as `retainedFilters`, so illustration → user →
+illustration comes back with the same filters. A results page built
+without `onTypeChanged` (the tag page) switches locally. The filter
+summary bar under the tabs shows only for work types; every part of it
+reads as words (`searchRangeAtLeast`, `searchDateFrom`, …), never a
+bare `≥`/`~` between numbers. Owning test: `search_result_page_test.dart`.
+
+**Ranking date.** A past ranking is the `date=yyyy-MM-dd` query
+parameter (`formatApiDate` / `parseApiDate`, strict and round-trip
+checked). `rankingDateOrLatest` maps a missing, malformed or
+out-of-range date to the latest ranking (null). The picker
+(`RankingDateButton`, app-bar action) allows `rankingFirstDate` through
+`rankingLastDate()` — yesterday in Japan, where rankings are
+published. A date is part of the feed identity: the family key is
+`(mode, date)`, the `feedKey` is `ranking:<mode>@<date>`, and a cursor
+from another day (or the latest) is rejected. Only the latest ranking
+has a snapshot codec — a past date must never overwrite the cold-start
+snapshot. While a date is shown, `RankingDateBar` sits at the top of
+the body, not in `AppBar.bottom`, so its label wraps at large text
+sizes; "back to latest" clears the date. Changing the date resets every
+mode's controller and keeps only the current tab loaded. Illustration
+and novel rankings follow the same rules. Owning tests:
+`ranking_feed_test.dart`, `novel_ranking_feed_test.dart`.
+
+**Recommended users.** A recommended user's card shows up to
+`UserRelationPage.previewLimit` (3) of the works pixiv sends with the
+user, in three equal square slots. The works merge into `IllustStore`;
+`userPreviewIdsProvider` (account-scoped) keeps only the ids. Works
+hidden by the local R-18/AI blocks or a mute are left out, never shown
+blurred; a user with no visible works shows no strip. Each thumbnail is
+its own button labelled with the work's title and opens the work. A
+malformed preview payload fails the page (`FormatException`), it is not
+silently dropped. Owning test: `recommended_home_test.dart`.
+
+**Comments.** Reply and, when there are replies, "view N replies"
+(`commentViewReplies`) are `TextButton`s under the body with their
+default 48dp targets, in an `OverflowBar` that wraps; reply is on
+`onSurfaceVariant`, the replies link on `primary`. Everything else —
+translate (disabled while a translation runs) and delete on the
+viewer's own comment (`destructive`, confirmed by the page) — is in a
+⋮ `AppMenuButton` (`commentMoreActions`) at the end of the row; with
+neither it is not built. No pill buttons. Owning test:
+`comment_item_test.dart`.
+
+**Series.** The series header has one primary button. With a reading
+record (`SeriesRecentOpenStore`, this session's last opened work) it is
+"continue episode n" (`seriesContinueEpisode`, or `seriesContinue`
+without an episode number), and "start from episode 1"
+(`seriesStartFromFirst`) is a `TextButton` beside it, absent when pixiv
+sends no first work. Without a record the only button is "start
+reading". The watchlist sheet uses the same continue wording. The
+caption is an `ExpandableText` folded at three lines. Owning test:
+`series_feed_test.dart`.
 
 ## Management List Rows
 

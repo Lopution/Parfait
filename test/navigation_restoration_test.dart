@@ -188,7 +188,9 @@ void main() {
   testWidgets('replaces and restores the selected ranking mode', (
     tester,
   ) async {
-    final router = createPixivRouter(initialLocation: '/ranking?mode=week');
+    final router = createPixivRouter(
+      initialLocation: '/ranking?mode=week&date=2025-10-01',
+    );
     addTearDown(router.dispose);
 
     await tester.pumpWidget(
@@ -210,9 +212,14 @@ void main() {
 
     expect(router.state.uri.path, '/ranking');
     expect(router.state.uri.queryParameters['mode'], 'weekR18');
+    expect(router.state.uri.queryParameters['date'], '2025-10-01');
     expect(
       tester.widget<RankingPage>(find.byType(RankingPage)).initialMode,
       RankingMode.weekR18,
+    );
+    expect(
+      tester.widget<RankingPage>(find.byType(RankingPage)).date,
+      DateTime(2025, 10, 1),
     );
 
     await tester.restartAndRestore();
@@ -220,9 +227,14 @@ void main() {
 
     expect(router.state.uri.path, '/ranking');
     expect(router.state.uri.queryParameters['mode'], 'weekR18');
+    expect(router.state.uri.queryParameters['date'], '2025-10-01');
     expect(
       tester.widget<RankingPage>(find.byType(RankingPage)).initialMode,
       RankingMode.weekR18,
+    );
+    expect(
+      tester.widget<RankingPage>(find.byType(RankingPage)).date,
+      DateTime(2025, 10, 1),
     );
   });
 
@@ -230,7 +242,7 @@ void main() {
     tester,
   ) async {
     final router = createPixivRouter(
-      initialLocation: '/ranking/novel-ranking?mode=week',
+      initialLocation: '/ranking/novel-ranking?mode=week&date=2025-10-01',
     );
     addTearDown(router.dispose);
 
@@ -253,28 +265,38 @@ void main() {
 
     // Same gesture family as the illust ranking: a tab tap writes the mode
     // back through context.replace.
-    await tester.tap(find.byType(Tab).at(0));
+    await tester.tap(find.byType(Tab).at(4));
     await tester.pumpAndSettle();
 
     expect(router.state.uri.path, '/ranking/novel-ranking');
-    expect(router.state.uri.queryParameters['mode'], 'day');
+    expect(router.state.uri.queryParameters['mode'], 'weekAi');
+    expect(router.state.uri.queryParameters['date'], '2025-10-01');
     expect(
       tester
           .widget<NovelRankingPage>(find.byType(NovelRankingPage))
           .initialMode,
-      NovelRankingMode.day,
+      NovelRankingMode.weekAi,
+    );
+    expect(
+      tester.widget<NovelRankingPage>(find.byType(NovelRankingPage)).date,
+      DateTime(2025, 10, 1),
     );
 
     await tester.restartAndRestore();
     await tester.pump();
 
     expect(router.state.uri.path, '/ranking/novel-ranking');
-    expect(router.state.uri.queryParameters['mode'], 'day');
+    expect(router.state.uri.queryParameters['mode'], 'weekAi');
+    expect(router.state.uri.queryParameters['date'], '2025-10-01');
     expect(
       tester
           .widget<NovelRankingPage>(find.byType(NovelRankingPage))
           .initialMode,
-      NovelRankingMode.day,
+      NovelRankingMode.weekAi,
+    );
+    expect(
+      tester.widget<NovelRankingPage>(find.byType(NovelRankingPage)).date,
+      DateTime(2025, 10, 1),
     );
   });
 

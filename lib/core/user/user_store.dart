@@ -67,3 +67,22 @@ class UserStore extends Notifier<Map<int, UserEntity>> {
 final userStoreProvider = NotifierProvider<UserStore, Map<int, UserEntity>>(
   UserStore.new,
 );
+
+/// User id → ids of the preview works shown with that user (recommended
+/// users). The works themselves live in the illust store. Account-scoped
+/// like [UserStore].
+class UserPreviewIds extends Notifier<Map<int, List<int>>> {
+  @override
+  Map<int, List<int>> build() {
+    ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
+    return const {};
+  }
+
+  void record(Map<int, List<int>> previews) {
+    if (previews.isEmpty) return;
+    state = {...state, ...previews};
+  }
+}
+
+final userPreviewIdsProvider =
+    NotifierProvider<UserPreviewIds, Map<int, List<int>>>(UserPreviewIds.new);

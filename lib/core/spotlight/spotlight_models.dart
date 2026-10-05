@@ -119,8 +119,8 @@ class SpotlightImage extends SpotlightBlock {
   final String url;
 }
 
-/// The `.illust` artwork card embedded in an article: `/artworks/<id>`
-/// link, h3 title, thumbnail and the author line.
+/// The `.am__work` artwork card embedded in an article: `/artworks/<id>`
+/// link, h3 title, work image and the author line with its avatar.
 class SpotlightIllustCard extends SpotlightBlock {
   const SpotlightIllustCard({
     required this.illustId,
@@ -128,6 +128,7 @@ class SpotlightIllustCard extends SpotlightBlock {
     this.imageUrl,
     this.userName,
     this.userId,
+    this.userAvatarUrl,
   });
 
   final int illustId;
@@ -135,4 +136,5 @@ class SpotlightIllustCard extends SpotlightBlock {
   final String? imageUrl;
   final String? userName;
   final int? userId;
+  final String? userAvatarUrl;
 }

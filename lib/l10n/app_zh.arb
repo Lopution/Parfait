@@ -681,6 +681,23 @@
   "rankingWeekR18G": "每周(R-18G)",
   "rankingMonth": "每月",
   "rankingEmpty": "暂无榜单内容",
+  "rankingPickDate": "选择日期",
+  "@rankingPickDate": {
+    "description": "Tooltip of the ranking date button"
+  },
+  "rankingDateLabel": "{date} 的排行",
+  "@rankingDateLabel": {
+    "description": "Bar under the ranking tabs while a past date is shown",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "rankingBackToLatest": "回到最新",
+  "@rankingBackToLatest": {
+    "description": "Leaves a past ranking date"
+  },
   "rankingLoadFailed": "{mode}加载失败",
   "@rankingLoadFailed": {
     "placeholders": {
@@ -773,6 +790,15 @@
   "searchReverseNoResults": "没有找到匹配结果",
   "searchReverseIntentFailed": "分享的图片无法使用",
   "searchReverseOpenExternal": "打开来源",
+  "searchReverseSimilarity": "相似度 {percent}%",
+  "@searchReverseSimilarity": {
+    "description": "Similarity of a reverse image search match",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "searchReverseOpenFailed": "无法打开来源链接",
   "searchReverseRateLimited": "搜索过于频繁，请稍后再试",
   "searchReverseRateLimitedWait": "约 {seconds} 秒后可重试",
@@ -843,6 +869,75 @@
   "searchResolutionSection": "分辨率",
   "searchWidth": "宽",
   "searchHeight": "高",
+  "searchRangeAtLeast": "{label} {value} 以上",
+  "@searchRangeAtLeast": {
+    "description": "Filter chip: a lower bound only, e.g. bookmarks or width",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "searchRangeAtMost": "{label} {value} 以下",
+  "@searchRangeAtMost": {
+    "description": "Filter chip: an upper bound only",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "searchRangeBetween": "{label} {min}–{max}",
+  "@searchRangeBetween": {
+    "description": "Filter chip: both bounds",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "min": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "searchDateFrom": "{date} 起",
+  "@searchDateFrom": {
+    "description": "Filter chip: start date only",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "searchDateUntil": "截至 {date}",
+  "@searchDateUntil": {
+    "description": "Filter chip: end date only",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "searchDateBetween": "{start} – {end}",
+  "@searchDateBetween": {
+    "description": "Filter chip: a date range",
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
   "searchDuration": "发布时间",
   "searchAllTime": "不限时间",
   "searchWithinDay": "一天内",
@@ -920,6 +1015,19 @@
   "commentLoadMoreFailed": "加载更多评论失败",
   "commentNoResults": "暂无评论",
   "commentReplies": "回复",
+  "commentViewReplies": "查看 {count} 条回复",
+  "@commentViewReplies": {
+    "description": "Comment action that opens the replies to a comment",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "commentMoreActions": "更多操作",
+  "@commentMoreActions": {
+    "description": "Tooltip of a comment's overflow menu (translate, delete)"
+  },
   "commentTranslate": "翻译",
   "commentTranslation": "翻译结果",
   "commentTranslationUnavailable": "翻译服务不可用，请在设置中开启。",
@@ -1076,18 +1184,22 @@
   "@seriesStartReading": {
     "description": "Opens the first work in this series"
   },
-  "seriesBackToEpisode": "返回第 {order} 话",
-  "@seriesBackToEpisode": {
-    "description": "Opens the most recently opened work in this series",
+  "seriesContinueEpisode": "继续第 {n} 话",
+  "@seriesContinueEpisode": {
+    "description": "Opens the series episode the user last opened",
     "placeholders": {
-      "order": {
+      "n": {
         "type": "int"
       }
     }
   },
-  "seriesBackToLast": "返回上次阅读的作品",
-  "@seriesBackToLast": {
-    "description": "Opens the most recently opened work in this series (order unknown)"
+  "seriesContinue": "继续阅读",
+  "@seriesContinue": {
+    "description": "Opens the series work the user last opened when its episode number is unknown"
+  },
+  "seriesStartFromFirst": "从第 1 话开始",
+  "@seriesStartFromFirst": {
+    "description": "Opens the first episode of a series the user has already been reading"
   },
   "seriesPrevious": "上一话",
   "seriesNext": "下一话",

@@ -99,6 +99,7 @@ const _snackBarOnCallSites = <String>{
 const _overlayAllowList = <String, Set<String>>{
   'lib/features/settings/pages/about_settings_page.dart': {'showLicensePage'},
   'lib/features/search/search_filter_sheet.dart': {'showDatePicker'},
+  'lib/features/ranking/ranking_date.dart': {'showDatePicker'},
 };
 
 /// Files allowed to contain `Hero(` — the members of the shared

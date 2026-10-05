@@ -1565,6 +1565,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rankingEmpty => 'No ranking content';
 
   @override
+  String get rankingPickDate => 'Pick a date';
+
+  @override
+  String rankingDateLabel(String date) {
+    return 'Ranking for $date';
+  }
+
+  @override
+  String get rankingBackToLatest => 'Back to latest';
+
+  @override
   String rankingLoadFailed(String mode) {
     return '$mode failed to load';
   }
@@ -1731,6 +1742,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchReverseOpenExternal => 'Open source';
 
   @override
+  String searchReverseSimilarity(int percent) {
+    return '$percent% similar';
+  }
+
+  @override
   String get searchReverseOpenFailed => 'Could not open the source link';
 
   @override
@@ -1889,6 +1905,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchHeight => 'Height';
 
   @override
+  String searchRangeAtLeast(String label, String value) {
+    return '$label: $value or more';
+  }
+
+  @override
+  String searchRangeAtMost(String label, String value) {
+    return '$label: up to $value';
+  }
+
+  @override
+  String searchRangeBetween(String label, String min, String max) {
+    return '$label: $min–$max';
+  }
+
+  @override
+  String searchDateFrom(String date) {
+    return 'From $date';
+  }
+
+  @override
+  String searchDateUntil(String date) {
+    return 'Until $date';
+  }
+
+  @override
+  String searchDateBetween(String start, String end) {
+    return '$start – $end';
+  }
+
+  @override
   String get searchDuration => 'Published';
 
   @override
@@ -2008,6 +2054,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commentReplies => 'Replies';
+
+  @override
+  String commentViewReplies(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'View $count replies',
+      one: 'View $count reply',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get commentMoreActions => 'More actions';
 
   @override
   String get commentTranslate => 'Translate';
@@ -2391,12 +2451,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get seriesStartReading => 'Start reading';
 
   @override
-  String seriesBackToEpisode(int order) {
-    return 'Back to part $order';
+  String seriesContinueEpisode(int n) {
+    return 'Continue episode $n';
   }
 
   @override
-  String get seriesBackToLast => 'Back to last opened';
+  String get seriesContinue => 'Continue reading';
+
+  @override
+  String get seriesStartFromFirst => 'Start from episode 1';
 
   @override
   String get seriesPrevious => 'Previous';

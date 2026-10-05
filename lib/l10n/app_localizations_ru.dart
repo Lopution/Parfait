@@ -1567,6 +1567,17 @@ class AppLocalizationsRu extends AppLocalizations {
   String get rankingEmpty => 'Нет содержимого рейтинга';
 
   @override
+  String get rankingPickDate => 'Выбрать дату';
+
+  @override
+  String rankingDateLabel(String date) {
+    return 'Рейтинг за $date';
+  }
+
+  @override
+  String get rankingBackToLatest => 'К последнему';
+
+  @override
   String rankingLoadFailed(String mode) {
     return 'Не удалось загрузить: $mode';
   }
@@ -1734,6 +1745,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchReverseOpenExternal => 'Открыть источник';
 
   @override
+  String searchReverseSimilarity(int percent) {
+    return 'Сходство: $percent %';
+  }
+
+  @override
   String get searchReverseOpenFailed => 'Не удалось открыть ссылку источника';
 
   @override
@@ -1894,6 +1910,36 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchHeight => 'Высота';
 
   @override
+  String searchRangeAtLeast(String label, String value) {
+    return '$label: от $value';
+  }
+
+  @override
+  String searchRangeAtMost(String label, String value) {
+    return '$label: до $value';
+  }
+
+  @override
+  String searchRangeBetween(String label, String min, String max) {
+    return '$label: $min–$max';
+  }
+
+  @override
+  String searchDateFrom(String date) {
+    return 'С $date';
+  }
+
+  @override
+  String searchDateUntil(String date) {
+    return 'По $date';
+  }
+
+  @override
+  String searchDateBetween(String start, String end) {
+    return '$start – $end';
+  }
+
+  @override
   String get searchDuration => 'Дата публикации';
 
   @override
@@ -2013,6 +2059,14 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get commentReplies => 'Ответы';
+
+  @override
+  String commentViewReplies(int count) {
+    return 'Ответы: $count';
+  }
+
+  @override
+  String get commentMoreActions => 'Другие действия';
 
   @override
   String get commentTranslate => 'Перевести';
@@ -2395,12 +2449,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get seriesStartReading => 'Начать чтение';
 
   @override
-  String seriesBackToEpisode(int order) {
-    return 'К части $order';
+  String seriesContinueEpisode(int n) {
+    return 'Продолжить: эпизод $n';
   }
 
   @override
-  String get seriesBackToLast => 'К последней открытой';
+  String get seriesContinue => 'Продолжить чтение';
+
+  @override
+  String get seriesStartFromFirst => 'С первого эпизода';
 
   @override
   String get seriesPrevious => 'Предыдущая';

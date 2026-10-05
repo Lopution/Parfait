@@ -244,7 +244,7 @@ class _WatchlistEntryTile extends ConsumerWidget {
 
   Future<void> _openActions(BuildContext context, WidgetRef ref) async {
     final accountId = ref.read(accountStoreProvider).value?.usableCurrent?.id;
-    // 「返回第 n 话」only exists when the session recorded an opened work —
+    // 「继续第 n 话」only exists when the session recorded an opened work —
     // novels never have a record (the store keys manga series only), so the
     // item simply does not render for them.
     final recent = entry.type == WatchlistType.manga && accountId != null
@@ -277,10 +277,10 @@ class _WatchlistEntryTile extends ConsumerWidget {
                   leading: const Icon(Icons.history),
                   title: Text(
                     recent.contentOrder != null
-                        ? sheetContext.l10n.seriesBackToEpisode(
+                        ? sheetContext.l10n.seriesContinueEpisode(
                             recent.contentOrder!,
                           )
-                        : sheetContext.l10n.seriesBackToLast,
+                        : sheetContext.l10n.seriesContinue,
                   ),
                   onTap: () {
                     Navigator.of(sheetContext).pop();

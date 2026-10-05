@@ -229,7 +229,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('header shows 开始阅读 and 返回第 n 话 from their own data sources', (
+  testWidgets('with a reading record: continue first, start over second', (
     tester,
   ) async {
     final (container, _) = await makeSeriesWorld();
@@ -244,25 +244,30 @@ void main() {
       await pumpSeriesPage(tester, container);
     });
 
-    expect(find.text('开始阅读'), findsOneWidget);
-    expect(find.text('返回第 2 话'), findsOneWidget);
+    final resume = find.widgetWithText(FilledButton, '继续第 2 话');
+    final startOver = find.widgetWithText(TextButton, '从第 1 话开始');
+    expect(resume, findsOneWidget);
+    expect(startOver, findsOneWidget);
+    expect(find.text('开始阅读'), findsNothing);
 
-    // 开始阅读 opens the first work (firstContentId=901).
-    await tester.tap(find.text('开始阅读'));
+    // 继续第 n 话 opens the session-recorded work (911), not the markSeen
+    // cursor's latest (912) — distinct state sources (W4 gate).
+    await tester.tap(resume);
     await tester.pumpAndSettle();
-    final detail = tester.widget<IllustDetailPage>(
+    final resumed = tester.widget<IllustDetailPage>(
       find.byType(IllustDetailPage),
     );
-    expect(detail.illustId, 901);
+    expect(resumed.illustId, 911);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
-    // 返回第 n 话 opens the session-recorded work (911), not the
-    // markSeen cursor's latest (912) — distinct state sources (W4 gate).
-    await tester.tap(find.text('返回第 2 话'));
+    // 从第 1 话开始 opens the first work (firstContentId=901).
+    await tester.tap(startOver);
     await tester.pumpAndSettle();
-    final back = tester.widget<IllustDetailPage>(find.byType(IllustDetailPage));
-    expect(back.illustId, 911);
+    final first = tester.widget<IllustDetailPage>(
+      find.byType(IllustDetailPage),
+    );
+    expect(first.illustId, 901);
 
     // markSeen is untouched and still tracked by its own store.
     final cursor = container.read(watchlistReadCursorProvider);
@@ -272,23 +277,43 @@ void main() {
     );
   });
 
-  testWidgets('返回第 n 话 renders only with a memory hit; falls back when the '
-      'order is unknown', (tester) async {
+  testWidgets('without a reading record only 开始阅读 shows; an unknown '
+      'order continues without a number', (tester) async {
     final (container, _) = await makeSeriesWorld();
     addTearDown(container.dispose);
 
     await mockNetworkImagesFor(() async {
       await pumpSeriesPage(tester, container);
     });
-    // No record → only 开始阅读 renders.
-    expect(find.text('开始阅读'), findsOneWidget);
-    expect(find.textContaining('返回'), findsNothing);
+    expect(find.widgetWithText(FilledButton, '开始阅读'), findsOneWidget);
+    expect(find.textContaining('继续'), findsNothing);
+    expect(find.text('从第 1 话开始'), findsNothing);
 
-    // Record without an order → fallback copy.
+    // Record without an order → the numberless copy.
     container
         .read(seriesRecentOpenStoreProvider.notifier)
         .record(accountId: '100', seriesId: 55, illustId: 910);
     await tester.pump();
-    expect(find.text('返回上次阅读的作品'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '继续阅读'), findsOneWidget);
+    expect(find.text('开始阅读'), findsNothing);
+  });
+
+  testWidgets('a long caption folds to three lines', (tester) async {
+    final caption = List.filled(40, 'a long series caption').join(' ');
+    final (container, _) = await makeSeriesWorld(
+      fixture: SeriesFixture()..caption = caption,
+    );
+    addTearDown(container.dispose);
+
+    await mockNetworkImagesFor(() async {
+      await pumpSeriesPage(tester, container);
+    });
+
+    Text captionText() => tester.widget<Text>(find.text(caption));
+    expect(captionText().maxLines, 3);
+    await tester.tap(find.widgetWithText(TextButton, '展开'));
+    await tester.pumpAndSettle();
+    expect(captionText().maxLines, isNull);
+    expect(find.widgetWithText(TextButton, '收起'), findsOneWidget);
   });
 }

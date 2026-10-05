@@ -12,6 +12,7 @@ import '../../app/widgets/replica_empty_state.dart';
 import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/i18n/replica_language.dart';
+import '../../core/network/api_date.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_ranking_feed_controller.dart';
 import '../../core/novel/novel_repository.dart';
@@ -19,20 +20,26 @@ import '../../core/novel/novel_store.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import 'ranking_date.dart';
+import 'ranking_page.dart' show RankingRouteChanged;
 
 /// Novel ranking page mirroring [RankingPage]: a horizontally scrollable
 /// 9-mode tab bar with one keyed feed body per mode. The active mode is
-/// route-durable (`?mode=`) — `initialMode` seeds the controller and the
-/// route writes echo back through [onModeChanged].
+/// route-durable (`?mode=`, `?date=`) — `initialMode` seeds the controller
+/// and the route writes echo back through [onRouteChanged].
 class NovelRankingPage extends StatefulWidget {
   const NovelRankingPage({
     super.key,
     this.initialMode = NovelRankingMode.day,
-    this.onModeChanged,
+    this.date,
+    this.onRouteChanged,
   });
 
   final NovelRankingMode initialMode;
-  final ValueChanged<NovelRankingMode>? onModeChanged;
+
+  /// The ranking day from the route; null is the latest.
+  final DateTime? date;
+  final RankingRouteChanged<NovelRankingMode>? onRouteChanged;
 
   @override
   State<NovelRankingPage> createState() => _NovelRankingPageState();
@@ -51,6 +58,7 @@ class _NovelRankingPageState extends State<NovelRankingPage>
   /// every loaded feed (and its visible entries) inside the swipe frame.
   final _bodies = <NovelRankingMode, Widget>{};
   int _selectedIndex = 0;
+  DateTime? _date;
 
   /// A context inside the Scaffold's notification scope, captured from the
   /// body's Builder: scroll announcements dispatched from here reach the
@@ -69,20 +77,21 @@ class _NovelRankingPageState extends State<NovelRankingPage>
     )..addListener(_handleTabChanged);
     _selectedIndex = _tabController.index;
     _loadedModes.add(_selectedIndex);
+    _date = widget.date;
   }
 
   @override
   void didUpdateWidget(NovelRankingPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     // context.replace keeps the page key, so a route write lands here as
-    // a widget update. Self-echoes (the write that just ran onModeChanged)
+    // a widget update. Self-echoes (the write that just ran onRouteChanged)
     // carry the current mode and no-op; only an externally changed param
     // moves the strip — the controller is never reset.
     final index = NovelRankingMode.values.indexOf(widget.initialMode);
     if (widget.initialMode != oldWidget.initialMode &&
         index != _tabController.index) {
       // The controller listener would echo this move back through
-      // onModeChanged → context.replace — suppress it: the route already
+      // onRouteChanged → context.replace — suppress it: the route already
       // carries this mode.
       _suppressRouteEcho = true;
       try {
@@ -91,6 +100,32 @@ class _NovelRankingPageState extends State<NovelRankingPage>
         _suppressRouteEcho = false;
       }
     }
+    if (widget.date != _date) _resetForDate(widget.date);
+  }
+
+  /// A different day is a different list in every mode: drop the cached
+  /// bodies and scroll positions, keep only the tab on screen loaded.
+  void _resetForDate(DateTime? date) {
+    final stale = _scrollControllers.values.toList();
+    _scrollControllers.clear();
+    _bodies.clear();
+    _loadedModes
+      ..clear()
+      ..add(_selectedIndex);
+    _date = date;
+    // The outgoing lists still hold these until the next frame unmounts
+    // them.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final controller in stale) {
+        controller.dispose();
+      }
+    });
+  }
+
+  void _changeDate(DateTime? date) {
+    if (date == _date) return;
+    setState(() => _resetForDate(date));
+    widget.onRouteChanged?.call(NovelRankingMode.values[_selectedIndex], date);
   }
 
   @override
@@ -117,7 +152,10 @@ class _NovelRankingPageState extends State<NovelRankingPage>
       _scrollControllerFor(NovelRankingMode.values[_selectedIndex]),
     );
     if (!_suppressRouteEcho) {
-      widget.onModeChanged?.call(NovelRankingMode.values[_selectedIndex]);
+      widget.onRouteChanged?.call(
+        NovelRankingMode.values[_selectedIndex],
+        _date,
+      );
     }
   }
 
@@ -154,6 +192,7 @@ class _NovelRankingPageState extends State<NovelRankingPage>
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,
+        actions: [RankingDateButton(date: _date, onChanged: _changeDate)],
         title: AppTabBar(
           controller: _tabController,
           onTap: (index) {
@@ -176,7 +215,7 @@ class _NovelRankingPageState extends State<NovelRankingPage>
       body: Builder(
         builder: (context) {
           _notificationContext = context;
-          return TabSwipeSwitcher(
+          final tabs = TabSwipeSwitcher(
             tabController: _tabController,
             // Warm the neighbor slots before a drag uncovers them.
             onPrepareAdjacent: _prepareAdjacent,
@@ -188,8 +227,8 @@ class _NovelRankingPageState extends State<NovelRankingPage>
                     _bodies.putIfAbsent(
                       mode,
                       () => _NovelRankingModeBody(
-                        key: ValueKey(mode),
-                        mode: mode,
+                        key: ValueKey((mode, _date)),
+                        feedKey: (mode: mode, date: _date),
                         scrollController: _scrollControllerFor(mode),
                         entrancePlayed: _entrancePlayed,
                       ),
@@ -198,6 +237,18 @@ class _NovelRankingPageState extends State<NovelRankingPage>
                     const SizedBox.shrink(),
               ],
             ),
+          );
+          // Always a Column, so the bar coming and going keeps the tab
+          // strip's element.
+          return Column(
+            children: [
+              if (_date case final date?)
+                RankingDateBar(
+                  date: date,
+                  onBackToLatest: () => _changeDate(null),
+                ),
+              Expanded(child: tabs),
+            ],
           );
         },
       ),
@@ -208,18 +259,25 @@ class _NovelRankingPageState extends State<NovelRankingPage>
 class _NovelRankingModeBody extends ConsumerWidget {
   const _NovelRankingModeBody({
     super.key,
-    required this.mode,
+    required this.feedKey,
     required this.scrollController,
     required this.entrancePlayed,
   });
 
-  final NovelRankingMode mode;
+  final NovelRankingFeedKey feedKey;
   final ScrollController scrollController;
   final Set<int> entrancePlayed;
 
+  /// Scroll restoration per list: a past day is a different list from the
+  /// latest one.
+  String get _listId => switch (feedKey.date) {
+    null => feedKey.mode.name,
+    final date => '${feedKey.mode.name}-${formatApiDate(date)}',
+  };
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(novelRankingFeedProvider(mode));
+    final state = ref.watch(novelRankingFeedProvider(feedKey));
     final store = ref.watch(novelStoreProvider);
     return state.when(
       loading: () => const FeedLoading(),
@@ -228,7 +286,7 @@ class _NovelRankingModeBody extends ConsumerWidget {
         error: error,
         retryLabel: context.l10n.retry,
         onRetry: () =>
-            ref.read(novelRankingFeedProvider(mode).notifier).retryInitial(),
+            ref.read(novelRankingFeedProvider(feedKey).notifier).retryInitial(),
       ),
       data: (feed) {
         if (feed.showInitialError) {
@@ -237,7 +295,7 @@ class _NovelRankingModeBody extends ConsumerWidget {
             error: feed.initialError ?? const ApiParseError('unknown error'),
             retryLabel: context.l10n.retry,
             onRetry: () => ref
-                .read(novelRankingFeedProvider(mode).notifier)
+                .read(novelRankingFeedProvider(feedKey).notifier)
                 .retryInitial(),
           );
         }
@@ -249,7 +307,7 @@ class _NovelRankingModeBody extends ConsumerWidget {
             message: context.l10n.rankingEmpty,
             retryLabel: context.l10n.retry,
             onRetry: () =>
-                ref.read(novelRankingFeedProvider(mode).notifier).refresh(),
+                ref.read(novelRankingFeedProvider(feedKey).notifier).refresh(),
           );
         }
 
@@ -259,13 +317,13 @@ class _NovelRankingModeBody extends ConsumerWidget {
         ];
         return PullToRefresh(
           onRefresh: () =>
-              ref.read(novelRankingFeedProvider(mode).notifier).refresh(),
+              ref.read(novelRankingFeedProvider(feedKey).notifier).refresh(),
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification is ScrollUpdateNotification &&
                   notification.metrics.extentAfter <
                       notification.metrics.viewportDimension * 1.2) {
-                ref.read(novelRankingFeedProvider(mode).notifier).loadMore();
+                ref.read(novelRankingFeedProvider(feedKey).notifier).loadMore();
               }
               return false;
             },
@@ -273,11 +331,11 @@ class _NovelRankingModeBody extends ConsumerWidget {
               controller: scrollController,
               basePhysics: const AlwaysScrollableScrollPhysics(),
               builder: (context, controller, physics) => CustomScrollView(
-                key: PageStorageKey('novel-ranking-${mode.name}'),
+                key: PageStorageKey('novel-ranking-$_listId'),
                 controller: controller,
                 physics: physics,
                 scrollCacheExtent: kFeedCacheExtent,
-                restorationId: 'novel-ranking-${mode.name}',
+                restorationId: 'novel-ranking-$_listId',
                 slivers: [
                   SliverPadding(
                     padding: const EdgeInsets.only(top: FuncSpacing.sm),
@@ -299,7 +357,7 @@ class _NovelRankingModeBody extends ConsumerWidget {
                     child: FeedTail(
                       feed: feed,
                       onRetry: () => ref
-                          .read(novelRankingFeedProvider(mode).notifier)
+                          .read(novelRankingFeedProvider(feedKey).notifier)
                           .retryLoadMore(),
                       errorTitle: context.l10n.rankingLoadMoreFailed,
                       retryLabel: context.l10n.retry,

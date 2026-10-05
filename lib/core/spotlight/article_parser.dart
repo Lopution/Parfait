@@ -10,9 +10,12 @@ import 'spotlight_models.dart';
 /// Structure:
 /// - `article .am__body` holds the content; the `_feature` layout nests the
 ///   real blocks one wrapper deeper.
-/// - `.illust` cards carry an `/artworks/<id>` link, an `h3` title, a
-///   thumbnail `img` and a `/users/<id>` author link.
-/// - `article header` carries the lead description.
+/// - `.am__work` cards carry the author avatar inside a `/users/<id>`
+///   link, an `h3` title, the author name inside `.am__work__user-name`
+///   and the work image inside an `/artworks/<id>` link — the avatar comes
+///   first, so the work image is never "the first img of the card".
+/// - `article header` carries category, date, title and tags; a lead
+///   paragraph, when present, is a `p` inside it.
 SpotlightArticleBody parseSpotlightArticle(String html) {
   final document = html_parser.parse(html);
   final article = document.querySelector('article');
@@ -50,15 +53,20 @@ SpotlightArticleBody parseSpotlightArticle(String html) {
   );
 }
 
-/// The header holds the lead paragraph(s); skip nav/ads that share the tag.
+/// Only the header's paragraphs: its category, date, title and tag list
+/// are not a description.
 String? _headerDescription(dom.Element? header) {
   if (header == null) return null;
-  final text = header.text.trim();
+  final text = header
+      .querySelectorAll('p')
+      .map((p) => p.text.trim())
+      .where((text) => text.isNotEmpty)
+      .join('\n');
   return text.isEmpty ? null : text;
 }
 
 void _collectBlock(dom.Element element, List<SpotlightBlock> out) {
-  if (element.classes.contains('illust')) {
+  if (element.classes.contains('am__work')) {
     final card = _parseIllustCard(element);
     if (card != null) out.add(card);
     return;
@@ -148,18 +156,21 @@ SpotlightIllustCard? _parseIllustCard(dom.Element element) {
   final link = element.querySelector('a[href*="/artworks/"]');
   final illustId = _idFromHref(link, _artworksPattern);
   if (illustId == null) return null;
-  final image = element.querySelector('img');
+  final image = element.querySelector('a[href*="/artworks/"] img');
   final title =
       element.querySelector('h3')?.text.trim() ??
       element.querySelector('h2, h4')?.text.trim() ??
       link?.text.trim() ??
       '';
   final userLink = element.querySelector('a[href*="/users/"]');
+  final avatar = element.querySelector('a[href*="/users/"] img');
+  final userName = element.querySelector('.am__work__user-name a')?.text.trim();
   return SpotlightIllustCard(
     illustId: illustId,
     title: title,
     imageUrl: image == null ? null : _imageUrl(image),
-    userName: userLink?.text.trim(),
+    userName: userName == null || userName.isEmpty ? null : userName,
     userId: _idFromHref(userLink, _usersPattern),
+    userAvatarUrl: avatar == null ? null : _imageUrl(avatar),
   );
 }

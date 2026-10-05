@@ -1490,6 +1490,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get rankingEmpty => '暂无榜单内容';
 
   @override
+  String get rankingPickDate => '选择日期';
+
+  @override
+  String rankingDateLabel(String date) {
+    return '$date 的排行';
+  }
+
+  @override
+  String get rankingBackToLatest => '回到最新';
+
+  @override
   String rankingLoadFailed(String mode) {
     return '$mode加载失败';
   }
@@ -1656,6 +1667,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchReverseOpenExternal => '打开来源';
 
   @override
+  String searchReverseSimilarity(int percent) {
+    return '相似度 $percent%';
+  }
+
+  @override
   String get searchReverseOpenFailed => '无法打开来源链接';
 
   @override
@@ -1809,6 +1825,36 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchHeight => '高';
 
   @override
+  String searchRangeAtLeast(String label, String value) {
+    return '$label $value 以上';
+  }
+
+  @override
+  String searchRangeAtMost(String label, String value) {
+    return '$label $value 以下';
+  }
+
+  @override
+  String searchRangeBetween(String label, String min, String max) {
+    return '$label $min–$max';
+  }
+
+  @override
+  String searchDateFrom(String date) {
+    return '$date 起';
+  }
+
+  @override
+  String searchDateUntil(String date) {
+    return '截至 $date';
+  }
+
+  @override
+  String searchDateBetween(String start, String end) {
+    return '$start – $end';
+  }
+
+  @override
   String get searchDuration => '发布时间';
 
   @override
@@ -1926,6 +1972,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get commentReplies => '回复';
+
+  @override
+  String commentViewReplies(int count) {
+    return '查看 $count 条回复';
+  }
+
+  @override
+  String get commentMoreActions => '更多操作';
 
   @override
   String get commentTranslate => '翻译';
@@ -2303,12 +2357,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get seriesStartReading => '开始阅读';
 
   @override
-  String seriesBackToEpisode(int order) {
-    return '返回第 $order 话';
+  String seriesContinueEpisode(int n) {
+    return '继续第 $n 话';
   }
 
   @override
-  String get seriesBackToLast => '返回上次阅读的作品';
+  String get seriesContinue => '继续阅读';
+
+  @override
+  String get seriesStartFromFirst => '从第 1 话开始';
 
   @override
   String get seriesPrevious => '上一话';

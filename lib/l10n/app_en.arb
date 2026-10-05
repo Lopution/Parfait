@@ -681,6 +681,9 @@
   "rankingWeekR18G": "Weekly (R-18G)",
   "rankingMonth": "Monthly",
   "rankingEmpty": "No ranking content",
+  "rankingPickDate": "Pick a date",
+  "rankingDateLabel": "Ranking for {date}",
+  "rankingBackToLatest": "Back to latest",
   "rankingLoadFailed": "{mode} failed to load",
   "@rankingLoadFailed": {
     "placeholders": {
@@ -740,6 +743,7 @@
   "searchReverseNoResults": "No matching results",
   "searchReverseIntentFailed": "The shared image cannot be used",
   "searchReverseOpenExternal": "Open source",
+  "searchReverseSimilarity": "{percent}% similar",
   "searchReverseOpenFailed": "Could not open the source link",
   "searchReverseRateLimited": "Too many searches, try again later",
   "searchReverseRateLimitedWait": "Try again in about {seconds} seconds",
@@ -810,6 +814,12 @@
   "searchResolutionSection": "Resolution",
   "searchWidth": "Width",
   "searchHeight": "Height",
+  "searchRangeAtLeast": "{label}: {value} or more",
+  "searchRangeAtMost": "{label}: up to {value}",
+  "searchRangeBetween": "{label}: {min}–{max}",
+  "searchDateFrom": "From {date}",
+  "searchDateUntil": "Until {date}",
+  "searchDateBetween": "{start} – {end}",
   "searchDuration": "Published",
   "searchAllTime": "Any time",
   "searchWithinDay": "Within a day",
@@ -854,6 +864,8 @@
   "commentLoadMoreFailed": "Failed to load more comments",
   "commentNoResults": "No comments",
   "commentReplies": "Replies",
+  "commentViewReplies": "{count, plural, one{View {count} reply} other{View {count} replies}}",
+  "commentMoreActions": "More actions",
   "commentTranslate": "Translate",
   "commentTranslation": "Translation",
   "commentTranslationUnavailable": "Translation is unavailable. Enable it in Settings.",
@@ -1001,19 +1013,9 @@
   "@seriesStartReading": {
     "description": "Opens the first work in this series"
   },
-  "seriesBackToEpisode": "Back to part {order}",
-  "@seriesBackToEpisode": {
-    "description": "Opens the most recently opened work in this series",
-    "placeholders": {
-      "order": {
-        "type": "int"
-      }
-    }
-  },
-  "seriesBackToLast": "Back to last opened",
-  "@seriesBackToLast": {
-    "description": "Opens the most recently opened work in this series (order unknown)"
-  },
+  "seriesContinueEpisode": "Continue episode {n}",
+  "seriesContinue": "Continue reading",
+  "seriesStartFromFirst": "Start from episode 1",
   "seriesPrevious": "Previous",
   "seriesNext": "Next",
   "watchlistTitle": "Watchlist",

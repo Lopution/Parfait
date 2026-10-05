@@ -5,6 +5,7 @@ import '../../app/format/app_format.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/app_menu_button.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/comments/comment_translation.dart';
 import '../../core/entity/comment_entity.dart';
@@ -12,8 +13,9 @@ import '../../app/navigation/routes.dart';
 import 'comment_text.dart';
 import '../../l10n/context.dart';
 
-/// One comment row. Replying is an explicit action icon; no long-press reply
-/// gesture is installed, matching beta56.
+/// One comment row. Reply and the replies link are text buttons under the
+/// body; translate and delete sit in the header's overflow menu. No
+/// long-press reply gesture is installed, matching beta56.
 class CommentItem extends ConsumerStatefulWidget {
   const CommentItem({
     super.key,
@@ -41,7 +43,9 @@ class _CommentItemState extends ConsumerState<CommentItem> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final account = ref.watch(accountStoreProvider).value?.usableCurrent;
-    final canDelete = account?.userId == widget.comment.user.id;
+    final canDelete =
+        account?.userId == widget.comment.user.id && widget.onDelete != null;
+    final showTranslate = widget.comment.content.trim().isNotEmpty;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         FuncSpacing.lg,
@@ -103,17 +107,21 @@ class _CommentItemState extends ConsumerState<CommentItem> {
                       ),
                     _Actions(
                       comment: widget.comment,
-                      canDelete: canDelete,
-                      showTranslate: widget.comment.content.trim().isNotEmpty,
-                      translating: _translating,
                       onReply: widget.onReply,
-                      onTranslate: _translate,
-                      onDelete: widget.onDelete,
                       onOpenReplies: widget.onOpenReplies,
                     ),
                   ],
                 ),
               ),
+              // The 48dp target centers its icon on the avatar.
+              if (showTranslate || canDelete)
+                _MoreMenu(
+                  showTranslate: showTranslate,
+                  translating: _translating,
+                  canDelete: canDelete,
+                  onTranslate: _translate,
+                  onDelete: widget.onDelete,
+                ),
             ],
           ),
           const Divider(height: 24),
@@ -232,133 +240,85 @@ class _CommentBody extends StatelessWidget {
   }
 }
 
-class _Actions extends StatelessWidget {
-  const _Actions({
-    required this.comment,
-    required this.canDelete,
+enum _CommentMenuAction { translate, delete }
+
+/// The header's overflow menu: translate and, on the viewer's own comment,
+/// delete. The caller confirms the delete — it cannot be undone.
+class _MoreMenu extends StatelessWidget {
+  const _MoreMenu({
     required this.showTranslate,
     required this.translating,
-    this.onReply,
-    this.onTranslate,
+    required this.canDelete,
+    required this.onTranslate,
     this.onDelete,
-    this.onOpenReplies,
   });
 
-  final CommentEntity comment;
-  final bool canDelete;
   final bool showTranslate;
   final bool translating;
-  final VoidCallback? onReply;
-  final VoidCallback? onTranslate;
+  final bool canDelete;
+  final VoidCallback onTranslate;
   final VoidCallback? onDelete;
-  final VoidCallback? onOpenReplies;
 
   @override
   Widget build(BuildContext context) {
-    // The replies pill sits at the end of the actions' line; when long
-    // labels do not fit, it drops to a line of its own under the actions,
-    // which wrap.
-    final repliesPill = comment.hasReplies && onOpenReplies != null
-        ? _ActionPill(
-            icon: Icons.forum_outlined,
-            label:
-                '${context.l10n.commentReplies} ${AppFormat.count(context, comment.replyCount)}',
-            onTap: onOpenReplies,
-          )
-        : null;
-    final actions = Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        if (onReply != null)
-          _ActionPill(
-            icon: Icons.reply_outlined,
-            label: context.l10n.commentReply,
-            onTap: onReply,
-          ),
-        if (showTranslate && onTranslate != null)
-          _ActionPill(
+    return AppMenuButton<_CommentMenuAction>(
+      tooltip: context.l10n.commentMoreActions,
+      entries: [
+        if (showTranslate)
+          AppMenuEntry(
+            value: _CommentMenuAction.translate,
             icon: Icons.translate_outlined,
             label: context.l10n.commentTranslate,
-            onTap: translating ? null : onTranslate,
+            enabled: !translating,
           ),
-        if (canDelete && onDelete != null)
-          _ActionPill(
+        if (canDelete)
+          AppMenuEntry(
+            value: _CommentMenuAction.delete,
             icon: Icons.delete_outline,
             label: context.l10n.commentDelete,
-            foreground: FuncSemanticTokens.of(context).danger,
-            onTap: onDelete,
+            destructive: true,
           ),
       ],
-    );
-    if (repliesPill == null) return actions;
-    return OverflowBar(
-      alignment: MainAxisAlignment.spaceBetween,
-      spacing: 8,
-      overflowSpacing: 8,
-      children: [actions, repliesPill],
+      onSelected: (_, action) => switch (action) {
+        _CommentMenuAction.translate => onTranslate(),
+        _CommentMenuAction.delete => onDelete?.call(),
+      },
     );
   }
 }
 
-/// One comment action: a pill with icon + label, identical geometry for
-/// every entry so the row's baselines and left edges always agree (pill
-/// background + 12sp bold label); mixing IconButton and TextButton primitives was what produced
-/// the misaligned reply/translate row.
-class _ActionPill extends StatelessWidget {
-  const _ActionPill({
-    required this.icon,
-    required this.label,
-    this.foreground,
-    this.onTap,
-  });
+/// Reply and, when there are any, the link to the replies: text buttons
+/// with the default 48dp target, wrapping onto a second line when long
+/// labels do not fit.
+class _Actions extends StatelessWidget {
+  const _Actions({required this.comment, this.onReply, this.onOpenReplies});
 
-  final IconData icon;
-  final String label;
-  final Color? foreground;
-  final VoidCallback? onTap;
+  final CommentEntity comment;
+  final VoidCallback? onReply;
+  final VoidCallback? onOpenReplies;
 
   @override
   Widget build(BuildContext context) {
-    final tokens = FuncSemanticTokens.of(context);
-    final color = foreground ?? tokens.contentSecondary;
-    final radius = FuncShape.pill;
-    return Opacity(
-      opacity: onTap == null ? 0.5 : 1,
-      child: Material(
-        color: tokens.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: radius,
-          side: BorderSide(color: tokens.divider),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: radius,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              FuncSpacing.md,
-              FuncSpacing.sm,
-              FuncSpacing.md,
-              FuncSpacing.sm,
+    final colors = Theme.of(context).colorScheme;
+    final showReplies = comment.hasReplies && onOpenReplies != null;
+    if (onReply == null && !showReplies) return const SizedBox.shrink();
+    return OverflowBar(
+      overflowAlignment: OverflowBarAlignment.start,
+      children: [
+        if (onReply != null)
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: colors.onSurfaceVariant,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 15, color: color),
-                const SizedBox(width: FuncSpacing.xs),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: color,
-                  ),
-                ),
-              ],
-            ),
+            onPressed: onReply,
+            child: Text(context.l10n.commentReply),
           ),
-        ),
-      ),
+        if (showReplies)
+          TextButton(
+            onPressed: onOpenReplies,
+            child: Text(context.l10n.commentViewReplies(comment.replyCount)),
+          ),
+      ],
     );
   }
 }
