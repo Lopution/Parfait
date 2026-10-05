@@ -1379,5 +1379,55 @@ void main() {
         expect(_groupHeader(group.id), findsOneWidget);
       });
     });
+
+    testWidgets('clearing a whole group plays its header out too', (
+      tester,
+    ) async {
+      final (container, manager, _) = await makeDownloadWorld(
+        responses: done(2),
+      );
+      final group = manager.submitGroup([
+        downloadRequest(1),
+        downloadRequest(2),
+      ]);
+      double headerOpacity() => tester
+          .widget<FadeTransition>(
+            find
+                .descendant(
+                  of: _groupHeader(group.id),
+                  matching: find.byType(FadeTransition),
+                )
+                .first,
+          )
+          .opacity
+          .value;
+      await mockNetworkImagesFor(() async {
+        await _pumpPage(tester, container);
+        await pumpUntil(
+          tester,
+          () =>
+              manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
+        );
+        await tester.pump();
+        expect(headerOpacity(), 1);
+
+        await tester.tap(find.byTooltip('清除已完成'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        // The header leaves with its rows, before the records drop.
+        expect(manager.groups, hasLength(1));
+        expect(headerOpacity(), lessThan(1));
+
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(manager.groups, isEmpty);
+        expect(_groupHeader(group.id), findsNothing);
+
+        await _tapUndo(tester);
+        await tester.pump();
+        await tester.pump();
+        expect(manager.groups.single.jobIds, group.jobIds);
+        expect(headerOpacity(), 1);
+      });
+    });
   });
 }

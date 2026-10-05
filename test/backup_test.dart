@@ -480,7 +480,11 @@ void main() {
           settings: const {'languageTag': 'ja', 'enableLocalBlockR18': true},
           muteTags: {'existing-tag', 'imported-tag'},
           muteUsers: const [MutedUser(userId: 42, name: 'a')],
-          muteWorks: _works([7, 9]),
+          muteWorks: {
+            ..._works([9]),
+            // The local entry predates titles: the file's fill it in.
+            7: const MutedWork(illustId: 7, title: 'seven', thumbnailUrl: 's7'),
+          },
           history: [
             _record(1, accountId: 'other-account', lastViewedAt: older),
             _record(2, accountId: 'other-account', lastViewedAt: newer),
@@ -502,6 +506,10 @@ void main() {
         expect(mute.tags, containsAll(['existing-tag', 'imported-tag']));
         expect(mute.users.keys, {42});
         expect(mute.works.keys, unorderedEquals([7, 9]));
+        expect(
+          mute.works[7],
+          const MutedWork(illustId: 7, title: 'seven', thumbnailUrl: 's7'),
+        );
         expect(
           world.api.edits.where((e) => e.containsKey('add_tags[]')),
           hasLength(1),
@@ -534,13 +542,16 @@ void main() {
           const MutedWork(illustId: 7),
         ); // not in the import → removed
         await store.muteWork(
-          const MutedWork(illustId: 8),
-        ); // in the import → kept
+          const MutedWork(illustId: 8, title: 'mine'),
+        ); // in the import → kept, its title too
 
         final envelope = BackupEnvelope(
           exportedAt: DateTime.utc(2026, 9, 20),
           settings: const {'languageTag': 'ru'},
-          muteWorks: _works([8, 9]),
+          muteWorks: {
+            ..._works([9]),
+            8: const MutedWork(illustId: 8, title: 'file', thumbnailUrl: 't8'),
+          },
           history: [_record(9, accountId: 'other', title: 'imported')],
         );
 
@@ -551,9 +562,12 @@ void main() {
 
         expect(result.workMutesChanged, 2); // +9, -7
         expect(result.historyRows, 1);
+        final works = container.read(muteStoreProvider).works;
+        expect(works.keys, unorderedEquals([8, 9]));
+        // Only what was missing comes from the file.
         expect(
-          container.read(muteStoreProvider).works.keys,
-          unorderedEquals([8, 9]),
+          works[8],
+          const MutedWork(illustId: 8, title: 'mine', thumbnailUrl: 't8'),
         );
 
         final rows = await world.history.page(accountId: '100', limit: 100);
