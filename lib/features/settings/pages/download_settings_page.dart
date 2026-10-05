@@ -284,8 +284,9 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
 
   /// Puts `{name}` at the cursor, replacing a selection; with no cursor
   /// yet it goes at the end. A variable that would push the template past
-  /// the field's limit is not inserted. Code edits don't fire `onChanged`,
-  /// so the draft flag and the preview are refreshed here.
+  /// the field's limit is not inserted — counted in characters, as the
+  /// field's own counter does. Code edits don't fire `onChanged`, so the
+  /// draft flag and the preview are refreshed here.
   void _insertVariable(String name) {
     final token = '{$name}';
     final value = _templateController.value;
@@ -293,7 +294,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
         ? value.selection
         : TextSelection.collapsed(offset: value.text.length);
     final text = value.text.replaceRange(selection.start, selection.end, token);
-    if (text.length > _templateMaxLength) return;
+    if (text.characters.length > _templateMaxLength) return;
     _templateController.value = TextEditingValue(
       text: text,
       selection: TextSelection.collapsed(

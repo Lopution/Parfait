@@ -155,4 +155,17 @@ void main() {
     await tapChip(tester, '宽度');
     expect(controller.text, '$full{w}');
   });
+
+  testWidgets('the limit counts characters, as the field does', (tester) async {
+    final controller = await pumpCustomTemplate(tester);
+    // 121 + 4 characters, but each emoji is two UTF-16 units.
+    final full = '{id}${'😀' * 121}';
+    controller.value = TextEditingValue(
+      text: full,
+      selection: TextSelection.collapsed(offset: full.length),
+    );
+
+    await tapChip(tester, '宽度');
+    expect(controller.text, '$full{w}');
+  });
 }
