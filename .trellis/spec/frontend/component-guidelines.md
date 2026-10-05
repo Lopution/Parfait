@@ -138,15 +138,42 @@ state or action.
   drags and bounces on its own, and selection cannot span paragraphs.
   `onboarding_pages_test.dart` drags a paragraph under
   `FuncScrollBehavior` and expects the page itself to scroll.
+- A date or count is formatted by hand (`'${d.year}-${d.month}'`,
+  `NumberFormat` at the call site, `'${n}k'`). User-facing dates go through
+  `AppFormat.date`/`relative` and counts through `AppFormat.count`, so every
+  locale gets its own form (zh「1.2万」, en "12K"); a number that changes in
+  place (progress, page index, counters) also takes `.tabular` so its
+  neighbours do not shift. Data formats (route query dates, file names)
+  stay out of `AppFormat` and are allow-listed with a reason in
+  `test/architecture/format_and_font_test.dart`.
 
 ## Material 3 Theme Contract
 
-`replicaTheme(Brightness)` is the single source of light/dark `ThemeData`.
-`ColorScheme.fromSeed` uses `FuncTokens.primary`, while semantic background,
-surface, text, subdued, and error values are mapped from `FuncTokens` for the
-current brightness. AppBar, NavigationBar, NavigationRail, SegmentedButton,
-TabBar, Card, Chip, Dialog, BottomSheet, SnackBar, and Switch styles are
-defined there.
+`replicaTheme(Brightness, {systemColors})` is the single source of
+light/dark `ThemeData`. `ColorScheme.fromSeed` uses `FuncTokens.primary`,
+while semantic background, surface, text, subdued, and error values are
+mapped from `FuncTokens` for the current brightness. AppBar, NavigationBar,
+NavigationRail, SegmentedButton, TabBar, Card, Chip, Dialog, BottomSheet,
+SnackBar, and Switch styles are defined there.
+
+**Platform font.** No font family is bundled: text renders in the platform
+font (Roboto on AOSP, the vendor font on OEM ROMs) with the engine's system
+fallback chain for CJK. `fontFamilyFallback` exists only for the layout test
+harness. `test/architecture/format_and_font_test.dart` fails on any
+Montserrat mention in `lib/` or `pubspec.yaml`.
+
+**System colors.** With `AppSettings.followSystemColors` on (default off),
+`app.dart` watches `systemColorSchemesProvider` (`dynamic_color` core
+palette on Android 12+, else the desktop accent, else null) and passes
+`systemColors:` per brightness. Only the accent roles come from it —
+`primary`, `onPrimary`, `primaryContainer`, `onPrimaryContainer`,
+`inversePrimary`, `surfaceTint`; neutrals and the surface ladder stay on
+`FuncTokens`. The settings row is disabled while the palette loads and
+shows an "unavailable" subtitle when the platform has none. Everything
+that paints the accent reads `Theme.of(context).colorScheme.primary` (or
+`FuncSemanticTokens.brand`, which mirrors it) — `FuncTokens.primary` is
+named only in `func_tokens.dart` and `replica_theme.dart`, enforced by the
+same architecture test.
 
 **Surface ladder.** Six monotonic M3 container tiers carry the whole
 elevation story. `surface` equals `surfaceContainerLowest` and is the page
@@ -178,9 +205,9 @@ unselected rows keep the default caption color.
 `dialogTheme` title/content, `navigationRailTheme` label styles) derive from
 the *resolved* `theme.textTheme` in the trailing `copyWith` block of
 `replicaTheme` — never from a raw `TextStyle` inside `ThemeData(...)`. Raw
-styles drop the Montserrat family (AppBar/SnackBar/Chip/Dialog install the
-style wholesale via `DefaultTextStyle`, no merge) and fall back to the
-platform font for Latin glyphs. Explicit sizes/weights stay; only family,
+styles drop the text theme's letter spacing, line height and fallback
+chain (AppBar/SnackBar/Chip/Dialog install the style wholesale via
+`DefaultTextStyle`, no merge). Explicit sizes/weights stay; only family,
 letter spacing, and line height come from the text theme.
 
 **Type scale.** One scale lives in `replicaTheme`'s `textTheme.copyWith`
@@ -188,7 +215,7 @@ block; nothing else may carry its own ramp. Roles: `titleLarge` 20/w600,
 `titleMedium` 16/w600, `titleSmall` 14/w500, `bodyLarge` 14/w500,
 `bodyMedium` 14/w400 (the default body), `bodySmall` 12/w400,
 `labelLarge` 14/w500, `labelSmall` 11/w500, `headlineSmall` 18/w500.
-`FuncSemanticTokens.fromBrightness(brightness, textTheme)` derives its
+`FuncSemanticTokens.fromBrightness(brightness, textTheme, primary:)` derives its
 type ramp from these roles — `display`/`title`/`body`/`label`/`caption`/
 `numeric` = `titleLarge`/`titleMedium`/`bodyMedium`/`labelLarge`/
 `bodySmall`(secondary color)/`labelLarge`(+tabular figures) — so the
@@ -201,9 +228,9 @@ token's equality with its role.
 
 **Spacing and shape tokens.** Feature code never writes a numeric
 `EdgeInsets.(all|symmetric|only|fromLTRB)` or `Radius.circular` — spacing
-resolves to `FuncSpacing` (xxs 4 … xxxl 48) and component radii to
-`FuncShape` (`control` 8, `card` 12, `dialog` 28, `sheet` top corners,
-`pill`). All-zero insets are `EdgeInsets.zero`; `SizedBox(width/height)`
+resolves to `FuncSpacing` (xxs 2, xs 4 … xxxl 48) and component radii to
+`FuncShape` (`segment` 4, `control` 8, `card` 12, `dialog` 28, `sheet` top
+corners, `pill`). All-zero insets are `EdgeInsets.zero`; `SizedBox(width/height)`
 used as a `Row`/`Column` gap takes the same tokens (fixed image/control
 dimensions are not spacing and stay literal). Absorption: pick the nearest
 token in density order (6 → `sm` when unsure, 10 → `md` for card-text
@@ -549,8 +576,8 @@ AppBar selectionAppBar(BuildContext context, {required int count,
 - `test/locale_layout/` runs every covered page in each supported locale ×
   `LayoutProfile`: `regular` (360×780, text 1.0) and `compact` (320×568,
   text 1.3). Its `flutter_test_config.dart` loads real glyph widths:
-  Montserrat for Latin, Roboto (the SDK's material fonts) for Cyrillic,
-  and a generated CJK box font (full-width 1em, half-width 0.5em, Noto
+  Roboto (the SDK's material fonts, standing in for the platform font) for
+  Latin and Cyrillic, and a generated CJK box font (full-width 1em, half-width 0.5em, Noto
   Sans CJK line metrics). A missing font fails the run; other test
   directories keep the default test font.
 - Register a page with `localeLayoutMatrix(name, body)`, build it with
@@ -1504,11 +1531,17 @@ reintroduce it or hand-build group containers.
 - `SettingsGroup` owns the group chrome: an optional `title` rendered as
   a `Semantics(header: true)` label in `titleSmall`/`onSurfaceVariant`
   (never `primary` — the brand color is reserved for actions, selection,
-  and indicators), one rounded `surfaceContainer` `Material` clipped at
-  `FuncShape.card` holding `children`, and an optional `footer` rendered
-  below the container. Explanatory copy that used to sit above the rows
-  belongs in `footer` so the rows come first. Empty `children` render no
-  container. Rows are separated by their own padding — never `Divider`.
+  and indicators), the rows as an M3 Expressive segmented list, and an
+  optional `footer` rendered below the rows. Every child is its own
+  `surfaceContainer` `Material` (clip `antiAlias`, so ink stays inside the
+  segment), `SettingsGroup.segmentGap` (2dp) apart; `segmentRadius(index,
+  count)` gives the group's outer edge `FuncShape.card` corners and every
+  edge facing another segment `FuncShape.segment`. A single-row group is
+  one card. A composite control (a `SegmentedButton` in
+  `SettingsGroupContent`) is one child and therefore one segment — the
+  group never splits a child. Explanatory copy that used to sit above the
+  rows belongs in `footer` so the rows come first. Empty `children` render
+  no segment. The gap is the only separator — never `Divider`.
   Spacing between groups is `FuncSpacing.xl`; the page `ListView` keeps
   only `top: sm, bottom: xl` padding because the group supplies the
   horizontal margins.
@@ -1517,7 +1550,9 @@ reintroduce it or hand-build group containers.
   - `SettingsTile` navigates to a subpage: optional `icon`, chevron
     trailing.
   - `SettingsControl` is the `SwitchListTile` toggle; it plays the
-    toggle haptic (see Haptics Contract).
+    toggle haptic (see Haptics Contract). `onChanged: null` disables the
+    row (a setting the platform cannot honour yet, e.g. system colors
+    while the palette loads).
   - `SettingsChoiceTile` is one option in a single-choice list. It always
     sets `ListTile.selected` and, when selected, shows a `primary`
     `Icons.check` trailing. `RadioListTile` is deprecated in this Flutter
