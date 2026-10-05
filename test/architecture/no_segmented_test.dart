@@ -13,18 +13,8 @@ final _segmented = RegExp(
   r'AppTypeSwitch|SliverAppTypeSwitch|segmentedButtonTheme)(?![A-Za-z])',
 );
 
-/// The profile work-type row is the last user; it becomes tabs with the
-/// profile rework, which deletes these files and empties this list.
-const _remaining = <String>{
-  'lib/app/widgets/app_segmented_button.dart',
-  'lib/app/widgets/app_type_switch.dart',
-  'lib/app/theme/replica_theme.dart',
-  'lib/features/profile/profile_work_type_switch.dart',
-  'lib/features/profile/user_page.dart',
-};
-
 void main() {
-  test('no segmented buttons outside the profile work-type row', () {
+  test('no segmented buttons', () {
     final hits = {
       for (final entity in Directory('lib').listSync(recursive: true))
         if (entity is File &&
@@ -33,11 +23,9 @@ void main() {
           entity.path,
     };
     expect(
-      hits.difference(_remaining),
+      hits,
       isEmpty,
       reason: 'use tabs, SettingsMenuTile, a switch or buttons instead',
     );
-    // A list that only shrinks: a file that dropped the control leaves it.
-    expect(_remaining.difference(hits), isEmpty);
   });
 }

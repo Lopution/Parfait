@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/widgets/app_tab_bar.dart';
-import 'package:parfait/app/widgets/app_type_switch.dart';
 import 'package:parfait/app/widgets/follow_switch_button.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/core/auth/account.dart';
@@ -63,13 +62,6 @@ const _bottomBar = [
   'homeMe',
 ];
 
-const _profileWorkTypes = [
-  'profileIllust',
-  'profileManga',
-  'profileNovel',
-  'profileSeries',
-];
-
 Future<void> _pumpControl(
   WidgetTester tester,
   Locale locale,
@@ -113,26 +105,6 @@ void main() {
       expectLocaleLayoutIntact(tester, locale: locale, profile: profile);
     });
   }
-
-  localeLayoutMatrix('type switch: profile works', (
-    tester,
-    locale,
-    profile,
-  ) async {
-    await _pumpControl(
-      tester,
-      locale,
-      (text) => AppTypeSwitch<int>(
-        options: [
-          for (var i = 0; i < _profileWorkTypes.length; i++)
-            (value: i, label: text(_profileWorkTypes[i])),
-        ],
-        selected: 0,
-        onSelected: (_) {},
-      ),
-    );
-    expectLocaleLayoutIntact(tester, locale: locale, profile: profile);
-  });
 
   localeLayoutMatrix('bottom bar', (tester, locale, profile) async {
     await tester.pumpWidget(

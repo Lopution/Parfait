@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -15,7 +16,6 @@ import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/follow_switch_button.dart';
 import '../../app/widgets/image_overlay_button.dart';
 import '../../l10n/context.dart';
-import '../../l10n/lookup.dart';
 import 'profile_statistics.dart';
 
 /// Pure geometry snapshot used by [ReplicaProfileHeaderDelegate] and tests.
@@ -735,19 +735,17 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-/// Pinned profile tab bar. The work-section selector used to live under it
-/// as a 64dp chip row; it now belongs to each work feed via
-/// `ProfileWorkTypeSwitch` (Compact Type Switch Contract), so this bar is a
-/// constant 56dp on every tab.
+/// Pinned profile tab bar, a constant 56dp: one tab per work type the user
+/// has (with its count), then the profile's other tabs.
 class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   ReplicaProfileTabsDelegate({
     required this.controller,
-    required this.isMe,
+    required this.labels,
     required this.onTabTap,
   });
 
   final TabController controller;
-  final bool isMe;
+  final List<String> labels;
   final ValueChanged<int> onTabTap;
 
   @override
@@ -756,29 +754,12 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   @override
   double get maxExtent => minExtent;
 
-  String _text(BuildContext context, String key) =>
-      l10nLookup(context.l10n, key);
-
   @override
   Widget build(
     BuildContext context,
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    final labels = isMe
-        ? [
-            'profileBookmarked',
-            'profileFollowing',
-            'profileFans',
-            'profileMyPixiv',
-            'profileWork',
-          ]
-        : [
-            'profileWork',
-            'profileBookmarked',
-            'profileFollowing',
-            'profileAbout',
-          ];
     return Material(
       key: const ValueKey('profile-tabs'),
       color: Theme.of(context).scaffoldBackgroundColor,
@@ -787,7 +768,7 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
         child: AppTabBar(
           controller: controller,
           onTap: onTabTap,
-          labels: [for (final label in labels) _text(context, label)],
+          labels: labels,
         ),
       ),
     );
@@ -796,6 +777,6 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(covariant ReplicaProfileTabsDelegate oldDelegate) =>
       oldDelegate.controller != controller ||
-      oldDelegate.isMe != isMe ||
+      !listEquals(oldDelegate.labels, labels) ||
       oldDelegate.onTabTap != onTabTap;
 }

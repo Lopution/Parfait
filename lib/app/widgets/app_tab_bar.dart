@@ -5,7 +5,8 @@ import '../theme/func_semantic_tokens.dart';
 /// The single entry point for top-of-page tab rows (D3). Labels always
 /// render at the themed size — they are never shrunk to fit. When the
 /// widest label fits every equal slot, the row divides the width evenly;
-/// otherwise it scrolls from the start edge.
+/// otherwise it scrolls from the start edge. Counts in labels use tabular
+/// figures.
 class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
   const AppTabBar({
     super.key,
@@ -25,6 +26,11 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
   final ValueChanged<int>? onTap;
 
   static const _labelPadding = EdgeInsets.symmetric(horizontal: FuncSpacing.md);
+
+  /// Merged into the tab bar's own label style, which keeps its colours.
+  static const _tabular = TextStyle(
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
 
   @override
   Size get preferredSize => TabBar(
@@ -53,7 +59,7 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
         );
         for (final label in labels) {
           for (final style in styles) {
-            painter.text = TextSpan(text: label, style: style);
+            painter.text = TextSpan(text: label, style: style?.merge(_tabular));
             painter.layout();
             if (painter.width > widest) {
               widest = painter.width;
@@ -73,7 +79,17 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
           indicatorPadding: const EdgeInsets.only(bottom: FuncSpacing.xs),
           labelPadding: _labelPadding,
           onTap: onTap,
-          tabs: [for (final label in labels) Tab(text: label)],
+          tabs: [
+            for (final label in labels)
+              Tab(
+                child: Text(
+                  label,
+                  style: _tabular,
+                  softWrap: false,
+                  overflow: TextOverflow.fade,
+                ),
+              ),
+          ],
         );
       },
     );

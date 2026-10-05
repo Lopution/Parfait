@@ -140,14 +140,6 @@ void main() {
           home: Scaffold(
             body: Column(
               children: [
-                SegmentedButton<int>(
-                  segments: const [
-                    ButtonSegment(value: 0, label: Text('S1')),
-                    ButtonSegment(value: 1, label: Text('S2')),
-                  ],
-                  selected: const {0},
-                  onSelectionChanged: (_) {},
-                ),
                 SizedBox(
                   width: 120,
                   height: 200,
@@ -175,15 +167,6 @@ void main() {
       // Swapping the app's theme runs through AnimatedTheme — let the
       // transition finish before reading themed colors.
       await tester.pumpAndSettle();
-
-      // The segment's painted surface is the innermost Material above its
-      // label — that is what the resolved backgroundColor lands on.
-      final segmentSurface = tester.widget<Material>(
-        find
-            .ancestor(of: find.text('S1'), matching: find.byType(Material))
-            .first,
-      );
-      expect(segmentSurface.color, theme.colorScheme.primaryContainer);
 
       // Every destination builds its indicator; the unselected one is
       // collapsed by its animation but carries the same themed color.

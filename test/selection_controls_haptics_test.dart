@@ -5,7 +5,6 @@ import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/widgets/app_choice_chip.dart';
 import 'package:parfait/app/widgets/app_menu_button.dart';
-import 'package:parfait/app/widgets/app_segmented_button.dart';
 import 'package:parfait/app/widgets/app_slider.dart';
 import 'package:parfait/app/widgets/replica_switch_tile.dart';
 import 'package:parfait/app/widgets/settings/settings_choice_tile.dart';
@@ -168,65 +167,6 @@ void main() {
         (value, set) => tile(value, set, haptics: false),
       );
       await pick(tester, 'one');
-      expect(haptics.played, isEmpty);
-    });
-  });
-
-  group('AppSegmentedButton', () {
-    Widget picker(
-      int value,
-      ValueChanged<int> set, {
-      bool haptics = true,
-      VoidCallback? onReselected,
-    }) => AppSegmentedButton<int>(
-      segments: const [
-        AppSegment(value: 0, label: 'zero'),
-        AppSegment(value: 1, label: 'one'),
-      ],
-      selected: value,
-      haptics: haptics,
-      onSelected: set,
-      onReselected: onReselected,
-    );
-
-    testWidgets('picking another segment selects', (tester) async {
-      final haptics = recordHaptics();
-      await _pump<int>(tester, 0, picker);
-      await tester.tap(find.text('one'));
-      await tester.pump();
-      expect(haptics.roles, [HapticRole.select]);
-    });
-
-    testWidgets('a re-tap reaches onReselected and stays silent', (
-      tester,
-    ) async {
-      final haptics = recordHaptics();
-      var picked = 0;
-      var reselected = 0;
-      await _pump<int>(
-        tester,
-        0,
-        (value, set) => picker(value, (next) {
-          picked++;
-          set(next);
-        }, onReselected: () => reselected++),
-      );
-      await tester.tap(find.text('zero'));
-      await tester.pump();
-      expect(reselected, 1);
-      expect(picked, 0);
-      expect(haptics.played, isEmpty);
-    });
-
-    testWidgets('haptics: false leaves the haptic to the host', (tester) async {
-      final haptics = recordHaptics();
-      await _pump<int>(
-        tester,
-        0,
-        (value, set) => picker(value, set, haptics: false),
-      );
-      await tester.tap(find.text('one'));
-      await tester.pump();
       expect(haptics.played, isEmpty);
     });
   });

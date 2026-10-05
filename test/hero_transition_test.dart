@@ -22,7 +22,6 @@ import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
-import 'package:parfait/app/widgets/app_type_switch.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -358,9 +357,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('Hero pop flight stays below the floating type switch', (
-    tester,
-  ) async {
+  testWidgets('Hero pop flight stays below a floating row', (tester) async {
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(() {
@@ -379,13 +376,12 @@ void main() {
         home: Scaffold(
           body: CustomScrollView(
             slivers: [
-              SliverAppTypeSwitch<String>(
-                options: const [
-                  (value: 'illust', label: '插画'),
-                  (value: 'novel', label: '小说'),
-                ],
-                selected: 'illust',
-                onSelected: (_) {},
+              const SliverFloatingHeader(
+                child: SizedBox(
+                  key: ValueKey('floating-row'),
+                  height: 48,
+                  child: Text('floating row'),
+                ),
               ),
               SliverList(
                 delegate: SliverChildListDelegate([
@@ -409,13 +405,13 @@ void main() {
     await tester.pump();
 
     // Scroll the list up so the hero's landing slot slides under the
-    // switch row, then reverse slightly: the row floats back in on top.
+    // floating row, then reverse slightly: the row floats back in on top.
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -120));
     await tester.pumpAndSettle();
     await tester.drag(find.byType(CustomScrollView), const Offset(0, 30));
     await tester.pumpAndSettle();
 
-    final rowRect = tester.getRect(find.byType(AppTypeSwitch<String>));
+    final rowRect = tester.getRect(find.byKey(const ValueKey('floating-row')));
     final heroRect = tester.getRect(
       find.byWidgetPredicate((w) => w is Hero && w.tag == 'float-switch-hero'),
     );
@@ -467,7 +463,7 @@ void main() {
     expect(
       lastClip!.top,
       closeTo(rowRect.bottom, 1.5),
-      reason: 'the return clip must land at the switch row bottom edge',
+      reason: 'the return clip must land at the floating row bottom edge',
     );
     await tester.pumpAndSettle();
   });
