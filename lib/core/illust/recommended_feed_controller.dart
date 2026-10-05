@@ -97,6 +97,8 @@ class _RecommendedFeedController extends PagedFeedController {
 
   Future<FeedPage> _fetchUsers(FeedRequestContext context) async {
     final store = ref.read(userStoreProvider.notifier);
+    final illustStore = ref.read(illustStoreProvider);
+    final bookmarkRevision = illustStore.bookmarkRevisionNow();
     final page = await ref
         .read(userRepositoryProvider)
         .fetchRecommended(
@@ -106,7 +108,17 @@ class _RecommendedFeedController extends PagedFeedController {
     return FeedPage(
       ids: [for (final item in page.users) item.id],
       nextCursor: page.nextUrl,
-      commit: (_) => store.mergeAll(page.users),
+      commit: (_) {
+        store.mergeAll(page.users);
+        illustStore.mergeAll(
+          page.previewIllusts.values.expand((illusts) => illusts),
+          bookmarkSnapshotRevision: bookmarkRevision,
+        );
+        ref.read(userPreviewIdsProvider.notifier).record({
+          for (final MapEntry(:key, :value) in page.previewIllusts.entries)
+            key: [for (final illust in value) illust.id],
+        });
+      },
     );
   }
 

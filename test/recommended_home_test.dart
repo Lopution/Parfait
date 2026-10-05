@@ -9,7 +9,15 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/icons/app_icons.dart';
-import 'package:parfait/app/motion/press_scale.dart';
+import 'package:go_router/go_router.dart';
+import 'package:parfait/app/widgets/follow_switch_button.dart';
+import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/mute/mute_store.dart';
+import 'package:parfait/core/network/api_error.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
+import 'package:parfait/core/user/follow_store.dart';
+import 'package:parfait/core/user/user_repository.dart';
+import 'package:parfait/core/user/user_store.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
@@ -50,6 +58,18 @@ String _novelJson(int id) => jsonEncode({
   'image_urls': {'medium': 'https://i.pximg.net/n$id.png'},
 });
 
+/// Preview works per recommended user: user 1 has four (one R-18), user 2
+/// none, user 3 one.
+final _userPreviewIllusts = <int, List<Map<String, dynamic>>>{
+  1: [
+    illustJson(101),
+    illustJson(102, xRestrict: 1),
+    illustJson(103),
+    illustJson(104),
+  ],
+  3: [illustJson(301)],
+};
+
 class _ApiFixture {
   _ApiFixture({this.illustCount = 5});
 
@@ -64,6 +84,9 @@ class _ApiFixture {
   /// When set, `/v1/illust/recommended` awaits it — holds the illust
   /// feed's initial load in flight.
   Completer<void>? pendingRecommended;
+
+  /// Once set, every user preview carries a malformed `illusts` field.
+  bool malformedPreviews = false;
 
   final requests = <String>[];
 
@@ -101,7 +124,7 @@ class _ApiFixture {
           headers: {'content-type': 'application/json'},
         );
       }
-      if (path == '/v1/user/recommended') {
+      if (path == '/v1/user/recommended' || path == '/v1/user/following') {
         return http.Response(
           jsonEncode({
             'user_previews': [
@@ -114,8 +137,11 @@ class _ApiFixture {
                     'profile_image_urls': {
                       'medium': 'https://i.pximg.net/u$i.png',
                     },
+                    'is_followed': i == 3,
                   },
-                  'illusts': <Object?>[],
+                  'illusts': malformedPreviews
+                      ? 'not a list'
+                      : [...?_userPreviewIllusts[i]],
                   'novels': <Object?>[],
                 },
             ],
@@ -409,10 +435,162 @@ void main() {
     });
     expect(fixture.requests, contains('/v1/user/recommended?filter=for_ios'));
     expect(find.text('user 1'), findsOneWidget);
-    expect(
-      find.ancestor(of: find.text('user 1'), matching: find.byType(PressScale)),
-      findsOneWidget,
+    expect(find.text('@user1'), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_right), findsNothing);
+  });
+
+  group('recommended users', () {
+    Finder thumbnail(int id) => find.byWidgetPredicate(
+      (widget) =>
+          widget is Semantics && widget.properties.label == 'illust $id',
     );
+
+    Future<GoRouter> pumpUsers(
+      WidgetTester tester,
+      ProviderContainer container,
+    ) async {
+      final router = createPixivRouter(
+        initialLocation: '/recommended?type=user',
+      );
+      addTearDown(router.dispose);
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+      return router;
+    }
+
+    test('the feed keeps up to three preview works per user', () async {
+      final (container, _) = await _makeWorld();
+      addTearDown(container.dispose);
+
+      await container.read(
+        recommendedFeedProvider((type: RecommendedContentType.user)).future,
+      );
+
+      expect(container.read(userPreviewIdsProvider), {
+        1: [101, 102, 103],
+        2: <int>[],
+        3: [301],
+      });
+      expect(container.read(illustStoreProvider).get(103)?.title, 'illust 103');
+      expect(container.read(illustStoreProvider).get(104), isNull);
+    });
+
+    test('plain user lists ignore malformed previews', () async {
+      final (container, fixture) = await _makeWorld();
+      addTearDown(container.dispose);
+      fixture.malformedPreviews = true;
+      final repository = container.read(userRepositoryProvider);
+
+      final following = await repository.fetchRelation(
+        100,
+        relation: UserRelation.following,
+      );
+      expect(following.users.map((user) => user.id), [1, 2, 3]);
+      expect(following.previewIllusts, isEmpty);
+      // Recommended users do read previews, so the same payload is a
+      // parse error there.
+      await expectLater(
+        repository.fetchRecommended(),
+        throwsA(isA<ApiParseError>()),
+      );
+    });
+
+    testWidgets('shows previews, skipping blocked and muted works', (
+      tester,
+    ) async {
+      final (container, _) = await _makeWorld();
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+      await container.read(settingsProvider.notifier).setLocalBlockR18(true);
+      container.read(muteStoreProvider);
+      await container.read(muteStoreProvider.notifier).toggleWork(103);
+
+      await mockNetworkImagesFor(() async {
+        await pumpUsers(tester, container);
+      });
+
+      expect(thumbnail(101), findsOneWidget);
+      expect(thumbnail(102), findsNothing); // R-18 with the local block on
+      expect(thumbnail(103), findsNothing); // muted
+      expect(thumbnail(301), findsOneWidget);
+      expect(
+        tester.getSemantics(thumbnail(101)),
+        isSemantics(isButton: true, hasTapAction: true, label: 'illust 101'),
+      );
+      // A lone preview keeps its third of the row.
+      final row = tester.getRect(
+        find.ancestor(of: find.text('user 3'), matching: find.byType(Card)),
+      );
+      expect(tester.getRect(thumbnail(301)).width, lessThan(row.width / 3));
+    });
+
+    testWidgets('follow state comes from the follow store', (tester) async {
+      final (container, _) = await _makeWorld();
+      addTearDown(container.dispose);
+
+      await mockNetworkImagesFor(() async {
+        await pumpUsers(tester, container);
+      });
+
+      Finder followButtonOf(String name) => find.descendant(
+        of: find.ancestor(of: find.text(name), matching: find.byType(Card)),
+        matching: find.byType(FollowSwitchButton),
+      );
+      expect(
+        find.descendant(
+          of: followButtonOf('user 3'),
+          matching: find.text('已关注'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: followButtonOf('user 1'),
+          matching: find.text('关注'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        container.read(followStoreProvider.notifier).entryOf(3)?.followed,
+        isTrue,
+      );
+    });
+
+    testWidgets('the user area opens the user, a thumbnail the work', (
+      tester,
+    ) async {
+      final (container, _) = await _makeWorld();
+      addTearDown(container.dispose);
+
+      await mockNetworkImagesFor(() async {
+        final router = await pumpUsers(tester, container);
+
+        await tester.tap(thumbnail(101));
+        await tester.pumpAndSettle();
+        expect(router.state.uri.path, '/recommended/illust/101');
+
+        router.pop();
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('user 1'));
+        await tester.pumpAndSettle();
+        expect(router.state.uri.path, '/recommended/user/1');
+      });
+    });
   });
 
   testWidgets('branch re-tap scrolls the active feed to top without refetch', (
