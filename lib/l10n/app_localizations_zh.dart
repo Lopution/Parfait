@@ -1683,9 +1683,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchReverseEngineSwitch => '切换引擎';
 
   @override
-  String get searchNoRepresentative => '该标签暂无代表作品';
-
-  @override
   String get searchFilters => '筛选';
 
   @override
@@ -2081,13 +2078,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get followed => '已关注';
 
   @override
-  String get followUser => '关注用户';
-
-  @override
   String get followPrivately => '私密关注';
 
   @override
   String get unfollow => '取消关注';
+
+  @override
+  String get followPublicAction => '公开关注';
+
+  @override
+  String get followSwitchToPrivate => '改为私密关注';
+
+  @override
+  String get followSwitchToPublic => '改为公开关注';
 
   @override
   String get followFailed => '关注操作失败';
@@ -2376,6 +2379,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get spotlightTitle => '特辑';
+
+  @override
+  String get spotlightSeeAll => '全部';
 
   @override
   String get spotlightArticleLoadFailed => '文章加载失败';

@@ -1,14 +1,17 @@
 import 'dart:io';
 
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:parfait/app/widgets/feed/spotlight_article_card.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
 import 'package:parfait/core/reverse_image/reverse_image_provider.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/search/search_repository.dart';
+import 'package:parfait/core/search/search_trending_controller.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_series_section.dart';
@@ -16,6 +19,7 @@ import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/search/reverse_image_search_page.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
+import 'package:parfait/features/spotlight/spotlight_feed_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -26,6 +30,7 @@ import '../helpers/profile_world.dart';
 import '../helpers/reverse_image_world.dart';
 import '../helpers/search_world.dart';
 import '../helpers/series_world.dart';
+import '../helpers/spotlight_world.dart';
 import '../helpers/test_preferences.dart';
 
 /// A profile with every header field filled and counts in the thousands.
@@ -166,6 +171,58 @@ void main() {
       );
     });
   }
+
+  localeLayoutMatrix('content: search home with Spotlight', (
+    tester,
+    locale,
+    profile,
+  ) async {
+    final (container, _) = await makeSpotlightWorld(
+      fixture: SpotlightFixture()..firstPageSize = 5,
+    );
+    addTearDown(container.dispose);
+    await _pumpChecked(
+      tester,
+      locale,
+      profile,
+      UncontrolledProviderScope(
+        container: container,
+        child: localeLayoutApp(
+          locale: locale,
+          overrides: [
+            trendingTagsProvider.overrideWith(
+              (ref, _) => [
+                for (var i = 1; i <= 6; i++)
+                  TrendingTag(name: 'a long trending tag name $i'),
+              ],
+            ),
+          ],
+          home: const SearchPage(),
+        ),
+      ),
+    );
+    expect(find.byType(SpotlightArticleCard), findsNWidgets(5));
+  });
+
+  localeLayoutMatrix('content: Spotlight list', (
+    tester,
+    locale,
+    profile,
+  ) async {
+    final (container, _) = await makeSpotlightWorld();
+    addTearDown(container.dispose);
+    await _pumpChecked(
+      tester,
+      locale,
+      profile,
+      localeLayoutApp(
+        locale: locale,
+        container: container,
+        home: const SpotlightFeedPage(),
+      ),
+    );
+    expect(find.byType(SpotlightArticleCard), findsWidgets);
+  });
 
   localeLayoutMatrix('content: reverse image search', (
     tester,

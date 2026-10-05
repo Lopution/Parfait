@@ -344,7 +344,7 @@ void main() {
     expect(requests.last.uri.queryParameters['offset'], '30');
   });
 
-  testWidgets('BookmarkTagsPage lists tags and switches restrict', (
+  testWidgets('BookmarkTagsPage lists each visibility in its own tab', (
     tester,
   ) async {
     final repository = _FakeTagRepository();
@@ -378,13 +378,51 @@ void main() {
       tags: [UserBookmarkTag(name: 'hidden', count: 2)],
       nextUrl: null,
     );
-    await tester.tap(find.text('私密'));
+    expect(find.widgetWithText(Tab, '公开'), findsOneWidget);
+    await tester.tap(find.widgetWithText(Tab, '私密'));
     await tester.pumpAndSettle();
 
     expect(find.text('hidden'), findsOneWidget);
+    expect(find.text('procreate'), findsNothing);
     expect(repository.requests.last, 'tags:100:private');
     expect(find.text('已显示全部标签'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    // A swipe back returns to the public list without refetching it.
+    await tester.fling(find.text('hidden'), const Offset(400, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text('procreate'), findsOneWidget);
+    expect(repository.requests, ['tags:100:public', 'tags:100:private']);
+  });
+
+  testWidgets('BookmarkTagsPage opens on the requested visibility', (
+    tester,
+  ) async {
+    final repository = _FakeTagRepository();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+    final container = ProviderContainer(
+      overrides: [
+        accountStoreProvider.overrideWith(StubAccountStore.new),
+        bookmarkRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          locale: Locale('zh', 'CN'),
+          supportedLocales: [Locale('zh', 'CN')],
+          localizationsDelegates: appLocalizationsDelegates,
+          home: BookmarkTagsPage(initialRestrict: BookmarkRestrict.private),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final tabs = tester.widget<TabBar>(find.byType(TabBar));
+    expect(tabs.controller!.index, 1);
+    expect(repository.requests, ['tags:100:private']);
   });
 
   testWidgets('BookmarkTagsPage retries a failed load-more request', (

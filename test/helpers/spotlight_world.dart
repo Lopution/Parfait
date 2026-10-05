@@ -41,6 +41,9 @@ class SpotlightFixture {
   /// requested one — the feed must reject the cursor before page two.
   String? mismatchedNextCategory;
 
+  /// Articles on page one, ids from 101.
+  int firstPageSize = 2;
+
   http.Client client() => MockClient((request) async {
     requests.add(request.url);
     if (request.url.path != '/v1/spotlight/articles') {
@@ -51,8 +54,8 @@ class SpotlightFixture {
     if (offset == null) {
       return _ok({
         'spotlight_articles': [
-          spotlightArticleJson(101, category: category),
-          spotlightArticleJson(102, category: category),
+          for (var id = 101; id < 101 + firstPageSize; id++)
+            spotlightArticleJson(id, category: category),
         ],
         'next_url':
             'https://app-api.pixiv.net/v1/spotlight/articles'
@@ -61,7 +64,9 @@ class SpotlightFixture {
       });
     }
     return _ok({
-      'spotlight_articles': [spotlightArticleJson(103, category: category)],
+      'spotlight_articles': [
+        spotlightArticleJson(101 + firstPageSize, category: category),
+      ],
       'next_url': null,
     });
   });

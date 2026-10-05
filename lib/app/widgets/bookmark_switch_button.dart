@@ -22,7 +22,7 @@ import '../theme/func_tokens.dart';
 import '../widgets/errors/error_details.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
-import 'app_segmented_button.dart';
+import 'settings/settings_control.dart';
 import 'app_choice_chip.dart';
 import 'undo_snack_bar.dart';
 
@@ -527,29 +527,29 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                           style: FuncSemanticTokens.of(context).caption,
                         ),
                         const SizedBox(height: FuncSpacing.lg),
-                        AppSegmentedButton<BookmarkRestrict>(
-                          segments: [
-                            AppSegment(
-                              value: BookmarkRestrict.public,
-                              label: l10n.restrictPublic,
-                            ),
-                            AppSegment(
-                              value: BookmarkRestrict.private,
-                              label: l10n.restrictPrivate,
-                            ),
-                          ],
-                          selected: _restrict,
-                          // The whole edit area is inert while an existing
-                          // bookmark's detail is still in flight: the tag
-                          // editor is replaced by the spinner and the
-                          // selector locks too — a mid-load restrict change
-                          // would dirty the draft so the arriving prefill
-                          // kept the empty tag list and overwrote the
-                          // persisted tags.
-                          onSelected: (awaitingPrefill && !prefillFailed)
-                              ? null
-                              : (restrict) =>
-                                    setState(() => _restrict = restrict),
+                        // The sheet paints its colour on a DecoratedBox; the
+                        // row needs its own Material for the ink.
+                        Material(
+                          type: MaterialType.transparency,
+                          child: SettingsControl(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(l10n.restrictPrivate),
+                            value: _restrict == BookmarkRestrict.private,
+                            // The whole edit area is inert while an existing
+                            // bookmark's detail is still in flight: the tag
+                            // editor is replaced by the spinner and the
+                            // switch locks too — a mid-load restrict change
+                            // would dirty the draft so the arriving prefill
+                            // kept the empty tag list and overwrote the
+                            // persisted tags.
+                            onChanged: (awaitingPrefill && !prefillFailed)
+                                ? null
+                                : (private) => setState(
+                                    () => _restrict = private
+                                        ? BookmarkRestrict.private
+                                        : BookmarkRestrict.public,
+                                  ),
+                          ),
                         ),
                       ],
                     ),

@@ -77,7 +77,7 @@ class _StaticSearchRepository implements SearchRepository {
     SearchResultType type = SearchResultType.illust,
     CancelToken? cancelToken,
   }) async => [
-    for (var index = 0; index < 18; index++)
+    for (var index = 0; index < 30; index++)
       TrendingTag(name: 'tag-${index + 1}'),
   ];
 }
@@ -110,9 +110,7 @@ Widget _routerApp(
       if (searchRepository != null)
         searchRepositoryProvider.overrideWithValue(searchRepository),
       if (trendingTags != null)
-        trendingTagsProvider.overrideWithValue(
-          AsyncData<List<TrendingTag>>(trendingTags),
-        ),
+        trendingTagsProvider.overrideWith((ref, _) => trendingTags),
       if (httpHandler != null)
         pixivHttpClientProvider.overrideWith(
           (ref) => PixivHttpClient(
@@ -455,7 +453,7 @@ void main() {
       _routerApp(
         router,
         trendingTags: [
-          for (var index = 0; index < 18; index++)
+          for (var index = 0; index < 30; index++)
             TrendingTag(name: 'tag-${index + 1}'),
         ],
       ),
@@ -466,7 +464,7 @@ void main() {
     final scrollable = tester.state<ScrollableState>(
       find
           .descendant(
-            of: find.byKey(const PageStorageKey('search-home')),
+            of: find.byKey(const PageStorageKey('search-home-illust')),
             matching: find.byType(Scrollable),
           )
           .first,
@@ -481,7 +479,7 @@ void main() {
     final restoredScrollable = tester.state<ScrollableState>(
       find
           .descendant(
-            of: find.byKey(const PageStorageKey('search-home')),
+            of: find.byKey(const PageStorageKey('search-home-illust')),
             matching: find.byType(Scrollable),
           )
           .first,

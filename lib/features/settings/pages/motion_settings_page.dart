@@ -5,11 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/haptics/app_haptics.dart';
 import '../../../app/haptics/haptics_driver.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
-import '../../../app/widgets/app_segmented_button.dart';
+import '../../../app/widgets/app_menu_button.dart';
 import '../../../app/widgets/settings/settings_choice_tile.dart';
 import '../../../app/widgets/settings/settings_control.dart';
 import '../../../app/widgets/settings/settings_group.dart';
-import '../../../app/widgets/settings/settings_group_content.dart';
+import '../../../app/widgets/settings/settings_menu_tile.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
@@ -59,35 +59,33 @@ class MotionSettingsPage extends ConsumerWidget {
               ],
             ),
             SettingsGroup(
-              title: Text(context.l10n.animationSpeed),
               footer: Text(
                 settings.reduceMotion
                     ? context.l10n.animationSpeedReduceHint
                     : context.l10n.animationSpeedHint,
               ),
               children: [
-                SettingsGroupContent(
-                  child: AppSegmentedButton<AnimationSpeed>(
-                    segments: [
-                      for (final speed in AnimationSpeed.values)
-                        AppSegment<AnimationSpeed>(
-                          value: speed,
-                          label: animationSpeedLabel(context, speed),
+                SettingsMenuTile<AnimationSpeed>(
+                  title: context.l10n.animationSpeed,
+                  value: settings.animationSpeed,
+                  options: [
+                    for (final speed in AnimationSpeed.values)
+                      AppMenuEntry<AnimationSpeed>(
+                        value: speed,
+                        label: animationSpeedLabel(context, speed),
+                      ),
+                  ],
+                  // Greyed out while reduce motion is on: the gate
+                  // collapses every animation to zero, so the speed
+                  // has nothing to drive (footnote explains why).
+                  onChanged: settings.reduceMotion
+                      ? null
+                      : (speed) => persistSettings(
+                          context,
+                          () => ref
+                              .read(settingsProvider.notifier)
+                              .setAnimationSpeed(speed),
                         ),
-                    ],
-                    selected: settings.animationSpeed,
-                    // Greyed out while reduce motion is on: the gate
-                    // collapses every animation to zero, so the speed
-                    // has nothing to drive (footnote explains why).
-                    onSelected: settings.reduceMotion
-                        ? null
-                        : (speed) => persistSettings(
-                            context,
-                            () => ref
-                                .read(settingsProvider.notifier)
-                                .setAnimationSpeed(speed),
-                          ),
-                  ),
                 ),
               ],
             ),
@@ -139,7 +137,6 @@ class _HapticStrengthGroup extends ConsumerWidget {
     final l10n = context.l10n;
     final capability = ref.watch(hapticsCapabilityProvider);
     return SettingsGroup(
-      title: Text(l10n.hapticStrength),
       footer: switch (capability) {
         AsyncData(:final value) => Text(
           [
@@ -151,28 +148,27 @@ class _HapticStrengthGroup extends ConsumerWidget {
         _ => null,
       },
       children: [
-        SettingsGroupContent(
-          child: AppSegmentedButton<HapticStrength>(
-            segments: [
-              for (final strength in HapticStrength.values)
-                AppSegment<HapticStrength>(
-                  value: strength,
-                  label: _hapticStrengthText(context, strength),
-                ),
-            ],
-            selected: selected,
-            // The preview below is this picker's haptic.
-            haptics: false,
-            onSelected: (strength) {
-              AppHaptics.preview(strength);
-              persistSettings(
-                context,
-                () => ref
-                    .read(settingsProvider.notifier)
-                    .setHapticStrength(strength),
-              );
-            },
-          ),
+        SettingsMenuTile<HapticStrength>(
+          title: l10n.hapticStrength,
+          value: selected,
+          options: [
+            for (final strength in HapticStrength.values)
+              AppMenuEntry<HapticStrength>(
+                value: strength,
+                label: _hapticStrengthText(context, strength),
+              ),
+          ],
+          // The preview below is this picker's haptic.
+          haptics: false,
+          onChanged: (strength) {
+            AppHaptics.preview(strength);
+            persistSettings(
+              context,
+              () => ref
+                  .read(settingsProvider.notifier)
+                  .setHapticStrength(strength),
+            );
+          },
         ),
       ],
     );

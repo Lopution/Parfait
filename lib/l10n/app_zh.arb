@@ -770,7 +770,6 @@
     }
   },
   "searchReverseEngineSwitch": "切换引擎",
-  "searchNoRepresentative": "该标签暂无代表作品",
   "searchFilters": "筛选",
   "searchReset": "重置",
   "searchApply": "应用",
@@ -931,9 +930,20 @@
   "restrictPrivate": "私密",
   "follow": "关注",
   "followed": "已关注",
-  "followUser": "关注用户",
   "followPrivately": "私密关注",
   "unfollow": "取消关注",
+  "followPublicAction": "公开关注",
+  "@followPublicAction": {
+    "description": "Follow sheet, not followed yet: follow publicly (primary action, next to followPrivately)."
+  },
+  "followSwitchToPrivate": "改为私密关注",
+  "@followSwitchToPrivate": {
+    "description": "Follow sheet, followed publicly: switch the follow to private."
+  },
+  "followSwitchToPublic": "改为公开关注",
+  "@followSwitchToPublic": {
+    "description": "Follow sheet, followed privately: switch the follow to public."
+  },
   "followFailed": "关注操作失败",
   "userPreviewFollow": "关注",
   "novelLoading": "正在加载小说",
@@ -1094,6 +1104,10 @@
   },
   "profileSeries": "系列",
   "spotlightTitle": "特辑",
+  "spotlightSeeAll": "全部",
+  "@spotlightSeeAll": {
+    "description": "Search guide: trailing link of the Spotlight section header; opens the full Spotlight list."
+  },
   "spotlightArticleLoadFailed": "文章加载失败",
   "spotlightCategoryAll": "全部",
   "spotlightCategoryIllust": "插画",

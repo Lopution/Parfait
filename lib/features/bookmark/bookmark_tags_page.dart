@@ -8,13 +8,13 @@ import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_tags_controller.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
-import '../../app/widgets/app_segmented_button.dart';
+import '../../app/widgets/app_tab_bar.dart';
 
-/// The signed-in user's bookmark tag collection (`/v1/user/bookmark-tags/`),
-/// public/private switchable. Tapping a tag opens the filtered bookmarks
-/// feed. Illust-only for now — the novel twin endpoint is wired in the
-/// repository but has no UI consumer yet.
-class BookmarkTagsPage extends ConsumerStatefulWidget {
+/// The signed-in user's bookmark tag collection (`/v1/user/bookmark-tags/`)
+/// in two tabs, public and private. Tapping a tag opens the filtered
+/// bookmarks feed. Illust-only for now — the novel twin endpoint is wired in
+/// the repository but has no UI consumer yet.
+class BookmarkTagsPage extends StatefulWidget {
   const BookmarkTagsPage({
     super.key,
     this.initialRestrict = BookmarkRestrict.public,
@@ -23,73 +23,87 @@ class BookmarkTagsPage extends ConsumerStatefulWidget {
   final BookmarkRestrict initialRestrict;
 
   @override
-  ConsumerState<BookmarkTagsPage> createState() => _BookmarkTagsPageState();
+  State<BookmarkTagsPage> createState() => _BookmarkTagsPageState();
 }
 
-class _BookmarkTagsPageState extends ConsumerState<BookmarkTagsPage> {
-  late BookmarkRestrict _restrict;
+class _BookmarkTagsPageState extends State<BookmarkTagsPage>
+    with SingleTickerProviderStateMixin {
+  static const _restricts = [BookmarkRestrict.public, BookmarkRestrict.private];
+
+  late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _restrict = widget.initialRestrict;
+    _tabController = TabController(
+      length: _restricts.length,
+      vsync: this,
+      initialIndex: _restricts.indexOf(widget.initialRestrict),
+    );
   }
 
   @override
   void didUpdateWidget(covariant BookmarkTagsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialRestrict != widget.initialRestrict) {
-      _restrict = widget.initialRestrict;
+      _tabController.index = _restricts.indexOf(widget.initialRestrict);
     }
   }
 
-  BookmarkTagQuery get _query => (BookmarkEntityType.illust, _restrict);
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final async = ref.watch(userBookmarkTagsProvider(_query));
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.bookmarkTags)),
-      body: Column(
+      appBar: AppBar(
+        title: Text(l10n.bookmarkTags),
+        // The lists sit inside the TabBarView's page view.
+        notificationPredicate: (notification) => notification.depth == 1,
+        bottom: AppTabBar(
+          controller: _tabController,
+          labels: [l10n.restrictPublic, l10n.restrictPrivate],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
-            child: AppSegmentedButton<BookmarkRestrict>(
-              segments: [
-                AppSegment(
-                  value: BookmarkRestrict.public,
-                  label: l10n.restrictPublic,
-                ),
-                AppSegment(
-                  value: BookmarkRestrict.private,
-                  label: l10n.restrictPrivate,
-                ),
-              ],
-              selected: _restrict,
-              onSelected: (restrict) => setState(() => _restrict = restrict),
-            ),
-          ),
-          Expanded(
-            child: PullToRefresh(
-              onRefresh: () =>
-                  ref.read(userBookmarkTagsProvider(_query).notifier).refresh(),
-              child: async.when(
-                loading: () => const Center(child: FeedLoading()),
-                error: (error, _) => FeedError(
-                  title: l10n.bookmarkTagsLoadFailed,
-                  error: error,
-                  retryLabel: l10n.retry,
-                  onRetry: () => ref
-                      .read(userBookmarkTagsProvider(_query).notifier)
-                      .refresh(),
-                ),
-                data: (state) =>
-                    _TagList(query: _query, state: state, restrict: _restrict),
-              ),
-            ),
-          ),
+          for (final restrict in _restricts) _RestrictTags(restrict: restrict),
         ],
+      ),
+    );
+  }
+}
+
+/// One visibility's tags, refreshable and paged.
+class _RestrictTags extends ConsumerWidget {
+  const _RestrictTags({required this.restrict});
+
+  final BookmarkRestrict restrict;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final BookmarkTagQuery query = (BookmarkEntityType.illust, restrict);
+    final async = ref.watch(userBookmarkTagsProvider(query));
+    return PullToRefresh(
+      onRefresh: () =>
+          ref.read(userBookmarkTagsProvider(query).notifier).refresh(),
+      child: async.when(
+        loading: () => const Center(child: FeedLoading()),
+        error: (error, _) => FeedError(
+          title: l10n.bookmarkTagsLoadFailed,
+          error: error,
+          retryLabel: l10n.retry,
+          onRetry: () =>
+              ref.read(userBookmarkTagsProvider(query).notifier).refresh(),
+        ),
+        data: (state) =>
+            _TagList(query: query, state: state, restrict: restrict),
       ),
     );
   }

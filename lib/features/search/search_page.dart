@@ -8,33 +8,38 @@ import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/feed/spotlight_article_card.dart';
 import '../../app/widgets/func_bottom_nav.dart';
+import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/search/search_autocomplete_controller.dart';
 import '../../core/search/search_models.dart';
 import '../../core/search/search_repository.dart';
 import '../../core/search/search_trending_controller.dart';
 import '../../core/settings/settings_controller.dart';
+import '../../core/spotlight/spotlight_feed_controller.dart';
+import '../../core/spotlight/spotlight_models.dart';
+import '../../core/spotlight/spotlight_store.dart';
 import 'search_filter_sheet.dart';
 import 'search_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/theme/func_semantic_tokens.dart';
-import '../../app/widgets/app_segmented_button.dart';
-import '../../app/haptics/app_haptics.dart';
 
-/// Search guide shown by the Home bottom-navigation entry.
+/// Search guide shown by the Home bottom-navigation entry: a search field
+/// and the reverse-image camera in the app bar, then one tab per work kind
+/// (illust & manga, novel) with that kind's trending tags. The illust tab
+/// leads with the newest Spotlight articles.
 ///
-/// Restoration tiers: the trending kind is
-/// session memory — `trendingKindProvider` resets to illust after process
-/// death, and `trendingTagsProvider` stays non-autoDispose on purpose so
-/// leaving the branch does not re-request. Scroll offset rides
-/// `PageStorageKey('search-home')` + `restorationId` as before; the
-/// explicit [_scrollController] only exists so the branch re-tap channel
-/// can address this scrollable (on desktop `SmoothWheelScroll` would
-/// otherwise own a private controller `PrimaryScrollController` cannot
-/// reach).
+/// Restoration tiers: the selected tab is session memory —
+/// `trendingKindProvider` resets to illust after process death, and
+/// `trendingTagsProvider` stays non-autoDispose on purpose so leaving the
+/// branch does not re-request. Each tab's scroll offset rides its own
+/// `PageStorageKey` + `restorationId`; the explicit scroll controllers
+/// exist so the branch and tab re-tap can address the visible list (on
+/// desktop `SmoothWheelScroll` would otherwise own a private controller
+/// `PrimaryScrollController` cannot reach).
 class SearchHomePage extends ConsumerStatefulWidget {
   const SearchHomePage({super.key});
 
@@ -42,9 +47,32 @@ class SearchHomePage extends ConsumerStatefulWidget {
   ConsumerState<SearchHomePage> createState() => _SearchHomePageState();
 }
 
-class _SearchHomePageState extends ConsumerState<SearchHomePage> {
-  final _scrollController = ScrollController();
+class _SearchHomePageState extends ConsumerState<SearchHomePage>
+    with SingleTickerProviderStateMixin {
+  static const _types = [SearchResultType.illust, SearchResultType.novel];
+
+  late final TabController _tabController;
+  final _scrollControllers = <SearchResultType, ScrollController>{};
+  final _loaded = <SearchResultType>{};
   ReTapChannel? _reTapChannel;
+
+  /// A context inside the Scaffold's notification scope (see
+  /// [announceTabScroll]).
+  late BuildContext _notificationContext;
+
+  SearchResultType get _active => _types[_tabController.index];
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = _types.indexOf(ref.read(trendingKindProvider));
+    _tabController = TabController(
+      length: _types.length,
+      vsync: this,
+      initialIndex: math.max(0, initial),
+    )..addListener(_onTabChanged);
+    _loaded.add(_active);
+  }
 
   @override
   void didChangeDependencies() {
@@ -59,8 +87,52 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage> {
   @override
   void dispose() {
     _reTapChannel?.removeListener(_onBranchReTap);
-    _scrollController.dispose();
+    _tabController
+      ..removeListener(_onTabChanged)
+      ..dispose();
+    for (final controller in _scrollControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  ScrollController _scrollControllerFor(SearchResultType type) =>
+      _scrollControllers.putIfAbsent(
+        type,
+        () => ScrollController(
+          onAttach: (_) {
+            // A first-visited tab mounts after the switch announcement.
+            if (type == _active) {
+              announceTabScroll(
+                _notificationContext,
+                _scrollControllers[type]!,
+              );
+            }
+          },
+        ),
+      );
+
+  void _onTabChanged() {
+    final type = _active;
+    if (ref.read(trendingKindProvider) == type) return;
+    ref.read(trendingKindProvider.notifier).select(type);
+    setState(() => _loaded.add(type));
+    announceTabScroll(_notificationContext, _scrollControllerFor(type));
+  }
+
+  void _prepareAdjacent(int index) {
+    final neighbours = {
+      for (final i in [index - 1, index + 1])
+        if (i >= 0 && i < _types.length) _types[i],
+    };
+    if (_loaded.containsAll(neighbours)) return;
+    setState(() => _loaded.addAll(neighbours));
+  }
+
+  void _onTabTap(int index) {
+    if (index == _tabController.index && !_tabController.indexIsChanging) {
+      reTapScrollToTop(context, _scrollControllerFor(_active));
+    }
   }
 
   /// Branch-level re-tap (bottom bar same-destination tap): the channel
@@ -74,182 +146,60 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
-      reTapScrollToTop(context, _scrollController);
+      reTapScrollToTop(context, _scrollControllerFor(_active));
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final trendingType = ref.watch(trendingKindProvider);
-    final trending = ref.watch(trendingTagsProvider);
+    final l10n = context.l10n;
     return Scaffold(
       // Root pages own no inline composer: leaving the default `true`
       // would subscribe this whole subtree to per-frame viewInsets churn
       // every time the IME animates (e.g. the push that hides the search
       // keyboard) — a relayout storm across all five live branches.
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(title: Text(context.l10n.searchTitle)),
-      body: SmoothWheelScroll(
-        controller: _scrollController,
-        builder: (context, controller, physics) => CustomScrollView(
-          key: const PageStorageKey('search-home'),
-          restorationId: 'search-home',
-          controller: controller,
-          physics: physics,
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                FuncSpacing.lg,
-                FuncSpacing.lg,
-                FuncSpacing.lg,
-                FuncSpacing.md,
-              ),
-              sliver: SliverToBoxAdapter(
-                child: _SearchGuideBox(onTap: () => openSearchInput(context)),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-              sliver: SliverToBoxAdapter(
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                    ),
-                    onPressed: () => openReverseImageSearch(context),
-                    icon: const Icon(Icons.image_search_outlined),
-                    label: Text(context.l10n.searchReverseImage),
-                  ),
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                FuncSpacing.lg,
-                FuncSpacing.sm,
-                FuncSpacing.lg,
-                0,
-              ),
-              sliver: SliverToBoxAdapter(
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.tonalIcon(
-                    onPressed: () => openSpotlight(context),
-                    icon: const Icon(Icons.newspaper_outlined),
-                    label: Text(context.l10n.spotlightTitle),
-                  ),
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                FuncSpacing.lg,
-                FuncSpacing.xl,
-                FuncSpacing.lg,
-                FuncSpacing.sm,
-              ),
-              sliver: SliverToBoxAdapter(
-                // The type switch moves under the title when both do
-                // not fit on one line.
-                child: Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: FuncSpacing.md,
-                  runSpacing: FuncSpacing.sm,
-                  children: [
-                    Text(
-                      context.l10n.searchTrending,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    AppSegmentedButton<SearchResultType>(
-                      segments: [
-                        for (final type in const [
-                          SearchResultType.illust,
-                          SearchResultType.novel,
-                        ])
-                          AppSegment(
-                            value: type,
-                            label: searchText(context, type.labelKey),
-                          ),
-                      ],
-                      selected: trendingType,
-                      onSelected: (type) =>
-                          ref.read(trendingKindProvider.notifier).select(type),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            trending.when(
-              loading: () => const SliverToBoxAdapter(
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(FuncSpacing.xxl),
-                    child: CircularProgressIndicator(),
-                  ),
-                ),
-              ),
-              error: (error, _) => SliverToBoxAdapter(
-                child: FeedError(
-                  title: context.l10n.searchTrendingFailed,
-                  error: error,
-                  retryLabel: context.l10n.searchRetry,
-                  onRetry: () => ref.invalidate(trendingTagsProvider),
-                  scrollable: false,
-                ),
-              ),
-              data: (tags) {
-                if (tags.isEmpty) {
-                  return SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(FuncSpacing.xxl),
-                      child: Center(child: Text(context.l10n.searchNoTrending)),
-                    ),
-                  );
-                }
-                return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(
-                    FuncSpacing.lg,
-                    0,
-                    FuncSpacing.lg,
-                    FuncSpacing.xxl,
-                  ),
-                  sliver: SliverLayoutBuilder(
-                    builder: (context, constraints) {
-                      // The SliverGridDelegateWithMaxCrossAxisExtent
-                      // formula, floored at three columns: narrow phones
-                      // keep a readable three-column grid while wider
-                      // surfaces still add columns as the width allows.
-                      final columns = math.max(
-                        3,
-                        ((constraints.crossAxisExtent + 10) / (160 + 10))
-                            .ceil(),
-                      );
-                      final tileWidth =
-                          (constraints.crossAxisExtent - 10 * (columns - 1)) /
-                          columns;
-                      return SliverGrid.builder(
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: columns,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
-                        ),
-                        itemCount: tags.length,
-                        itemBuilder: (context, index) => _TrendingTagTile(
-                          tag: tags[index],
-                          type: trendingType,
-                          tileWidth: tileWidth,
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-            const SliverToBoxAdapter(child: FuncNavBarSpacer()),
+      appBar: AppBar(
+        title: _SearchField(
+          onTap: () => openSearchInput(context, type: _active),
+        ),
+        actions: [
+          IconButton(
+            tooltip: l10n.searchReverseImage,
+            onPressed: () => openReverseImageSearch(context),
+            icon: const Icon(Icons.photo_camera_outlined),
+          ),
+        ],
+        bottom: AppTabBar(
+          controller: _tabController,
+          onTap: _onTabTap,
+          labels: [
+            for (final type in _types) searchText(context, type.labelKey),
           ],
         ),
+      ),
+      body: Builder(
+        builder: (context) {
+          _notificationContext = context;
+          return TabSwipeSwitcher(
+            tabController: _tabController,
+            onPrepareAdjacent: _prepareAdjacent,
+            child: TabSlideStack(
+              controller: _tabController,
+              children: [
+                for (final type in _types)
+                  if (_loaded.contains(type))
+                    _TrendingTab(
+                      key: ValueKey(type),
+                      type: type,
+                      scrollController: _scrollControllerFor(type),
+                    )
+                  else
+                    const SizedBox.shrink(),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -261,25 +211,305 @@ class SearchPage extends SearchHomePage {
   const SearchPage({super.key});
 }
 
-class _SearchGuideBox extends StatelessWidget {
-  const _SearchGuideBox({required this.onTap});
+/// Looks like a search field, acts as a button: the input page owns typing.
+class _SearchField extends StatelessWidget {
+  const _SearchField({required this.onTap});
+
+  static const double height = 48;
 
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SearchBar(
-      constraints: const BoxConstraints(minHeight: 56),
-      padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
-        EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Semantics(
+      button: true,
+      child: Material(
+        color: colors.surfaceContainerHigh,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: height),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+              child: Row(
+                children: [
+                  Icon(Icons.search, color: colors.onSurfaceVariant),
+                  const SizedBox(width: FuncSpacing.md),
+                  Expanded(
+                    // One line only: the input page body spells out what
+                    // can be searched.
+                    child: Text(
+                      context.l10n.searchBarHint,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
-      // One line only: a search bar hint cannot wrap, so it stays short;
-      // the input page body spells out what can be searched.
-      hintText: context.l10n.searchBarHint,
-      leading: const Icon(Icons.search),
-      trailing: const [Icon(Icons.chevron_right)],
-      onTap: onTap,
-      readOnly: true,
+    );
+  }
+}
+
+/// One tab of the search guide: the Spotlight section (illust tab only),
+/// then the trending tags for [type].
+class _TrendingTab extends ConsumerWidget {
+  const _TrendingTab({
+    super.key,
+    required this.type,
+    required this.scrollController,
+  });
+
+  final SearchResultType type;
+  final ScrollController scrollController;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final trending = ref.watch(trendingTagsProvider(type));
+    return SmoothWheelScroll(
+      controller: scrollController,
+      builder: (context, controller, physics) => CustomScrollView(
+        key: PageStorageKey('search-home-${type.name}'),
+        restorationId: 'search-home-${type.name}',
+        controller: controller,
+        physics: physics,
+        slivers: [
+          if (type == SearchResultType.illust)
+            const SliverToBoxAdapter(child: _SpotlightSection()),
+          SliverToBoxAdapter(
+            child: _SectionHeader(title: context.l10n.searchTrending),
+          ),
+          trending.when(
+            loading: () => const SliverToBoxAdapter(
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(FuncSpacing.xxl),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            ),
+            error: (error, _) => SliverToBoxAdapter(
+              child: FeedError(
+                title: context.l10n.searchTrendingFailed,
+                error: error,
+                retryLabel: context.l10n.searchRetry,
+                onRetry: () => ref.invalidate(trendingTagsProvider(type)),
+                scrollable: false,
+              ),
+            ),
+            data: (tags) => tags.isEmpty
+                ? SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(FuncSpacing.xxl),
+                      child: Center(child: Text(context.l10n.searchNoTrending)),
+                    ),
+                  )
+                : _TrendingGrid(tags: tags, type: type),
+          ),
+          const SliverToBoxAdapter(child: FuncNavBarSpacer()),
+        ],
+      ),
+    );
+  }
+}
+
+/// A section title on the search guide. With [onTap] the whole row is one
+/// target (at least 48dp tall) ending in [action] and a chevron.
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, this.action, this.onTap});
+
+  final String title;
+  final String? action;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final action = this.action;
+    final row = ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: kMinInteractiveDimension),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium,
+              ),
+            ),
+            if (action != null) ...[
+              Text(
+                action,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              Icon(Icons.chevron_right, color: theme.colorScheme.primary),
+            ],
+          ],
+        ),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: FuncSpacing.sm),
+      child: onTap == null
+          ? Semantics(header: true, child: row)
+          : MergeSemantics(
+              child: Semantics(
+                header: true,
+                button: true,
+                child: InkWell(onTap: onTap, child: row),
+              ),
+            ),
+    );
+  }
+}
+
+/// The newest Spotlight articles in a horizontal strip; the header opens
+/// the full list. Shares the Spotlight list's first page ("all").
+class _SpotlightSection extends ConsumerWidget {
+  const _SpotlightSection();
+
+  static const int maxArticles = 5;
+  static const double cardWidth = 200;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final async = ref.watch(spotlightFeedProvider(SpotlightCategory.all));
+    final store = ref.watch(spotlightArticleStoreProvider);
+    final feed = async.value;
+    final articles = [
+      for (final id in feed?.ids ?? const <int>[])
+        if (store[id] != null) store[id]!,
+    ].take(maxArticles).toList();
+    final failed = async.hasError || (feed?.showInitialError ?? false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionHeader(
+          title: l10n.spotlightTitle,
+          action: l10n.spotlightSeeAll,
+          onTap: () => openSpotlight(context),
+        ),
+        if (articles.isNotEmpty)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+            // Equal card heights whatever the title length.
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (index, article) in articles.indexed) ...[
+                    if (index > 0) const SizedBox(width: FuncSpacing.sm),
+                    SizedBox(
+                      width: cardWidth,
+                      child: SpotlightArticleCard(
+                        article: article,
+                        imageWidth: cardWidth,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          )
+        else if (failed)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+            child: Row(
+              children: [
+                Expanded(child: Text(l10n.spotlightLoadFailed)),
+                TextButton(
+                  onPressed: () => ref
+                      .read(
+                        spotlightFeedProvider(SpotlightCategory.all).notifier,
+                      )
+                      .retryInitial(),
+                  child: Text(l10n.retry),
+                ),
+              ],
+            ),
+          )
+        else if (feed == null || feed.showInitialSpinner)
+          const Padding(
+            padding: EdgeInsets.all(FuncSpacing.lg),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+      ],
+    );
+  }
+}
+
+/// Trending tags, trimmed to whole rows so the last row is never a lone
+/// tile.
+class _TrendingGrid extends StatelessWidget {
+  const _TrendingGrid({required this.tags, required this.type});
+
+  static const double _spacing = 10;
+  static const double _maxTileWidth = 160;
+  static const int _minColumns = 3;
+
+  final List<TrendingTag> tags;
+  final SearchResultType type;
+
+  /// Whole rows only; fewer tags than one row still show.
+  static int shownCount(int count, int columns) =>
+      count >= columns ? count - count % columns : count;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(
+        FuncSpacing.lg,
+        FuncSpacing.xs,
+        FuncSpacing.lg,
+        FuncSpacing.xxl,
+      ),
+      sliver: SliverLayoutBuilder(
+        builder: (context, constraints) {
+          // The SliverGridDelegateWithMaxCrossAxisExtent formula, floored
+          // at three columns: narrow phones keep a readable three-column
+          // grid while wider surfaces still add columns as the width
+          // allows.
+          final columns = math.max(
+            _minColumns,
+            ((constraints.crossAxisExtent + _spacing) /
+                    (_maxTileWidth + _spacing))
+                .ceil(),
+          );
+          final tileWidth =
+              (constraints.crossAxisExtent - _spacing * (columns - 1)) /
+              columns;
+          return SliverGrid.builder(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              crossAxisSpacing: _spacing,
+              mainAxisSpacing: _spacing,
+            ),
+            itemCount: shownCount(tags.length, columns),
+            itemBuilder: (context, index) => _TrendingTagTile(
+              tag: tags[index],
+              type: type,
+              tileWidth: tileWidth,
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -291,6 +521,10 @@ class _TrendingTagTile extends StatelessWidget {
     required this.tileWidth,
   });
 
+  /// The scrim covers the bottom of the image only, under the label.
+  static const double _scrimFraction = 0.4;
+  static const Color _scrimColor = Color(0x99000000);
+
   final TrendingTag tag;
   final SearchResultType type;
 
@@ -298,85 +532,77 @@ class _TrendingTagTile extends StatelessWidget {
   /// lands in, not the half-screen two-column estimate.
   final double tileWidth;
 
-  void _openRepresentative(BuildContext context) {
-    AppHaptics.longPress();
-    final representative = tag.representative;
-    if (representative == null) {
-      showAppSnackBar(context, context.l10n.searchNoRepresentative);
-      return;
-    }
-    openIllust(context, representative.id, initialEntity: representative);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final representative = tag.representative;
-    return GestureDetector(
-      // Tapping still means "search this tag" — the image is context, not a
-      // new primary action. Opening the representative work stays secondary.
-      onTap: () => openSearchResults(
-        context,
-        type == SearchResultType.novel
-            ? NovelSearchQuery(keyword: tag.name)
-            : IllustSearchQuery(keyword: tag.name),
+    final label = Text(
+      '#${tag.displayName}',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      textAlign: representative == null ? TextAlign.center : TextAlign.start,
+      style: theme.textTheme.labelMedium?.copyWith(
+        color: representative == null
+            ? scheme.onSurface
+            : FuncTokens.lightBackground,
+        fontWeight: FontWeight.w600,
       ),
-      onLongPress: () => _openRepresentative(context),
-      child: ClipRRect(
-        borderRadius: FuncShape.card,
-        child: ColoredBox(
-          color: scheme.surfaceContainer,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (representative != null)
-                PixivImage.feed(
-                  representative.imageUrls.squareMedium,
-                  layoutWidth: tileWidth,
-                  fit: BoxFit.cover,
-                ),
-              if (representative != null)
-                // Without a scrim the label is unreadable over a bright
-                // thumbnail; without an image the scrim would darken the
-                // plain card for no reason.
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.center,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0x00000000), Color(0xB3000000)],
+    );
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        // Tapping searches the tag; the image is context.
+        onTap: () => openSearchResults(
+          context,
+          type == SearchResultType.novel
+              ? NovelSearchQuery(keyword: tag.name)
+              : IllustSearchQuery(keyword: tag.name),
+        ),
+        child: ClipRRect(
+          borderRadius: FuncShape.card,
+          child: ColoredBox(
+            color: scheme.surfaceContainer,
+            child: representative == null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(FuncSpacing.sm),
+                      child: label,
                     ),
+                  )
+                : Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      PixivImage.feed(
+                        representative.imageUrls.squareMedium,
+                        layoutWidth: tileWidth,
+                        fit: BoxFit.cover,
+                      ),
+                      const Align(
+                        alignment: Alignment.bottomCenter,
+                        child: FractionallySizedBox(
+                          widthFactor: 1,
+                          heightFactor: _scrimFraction,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0x00000000), _scrimColor],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.bottomLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.all(FuncSpacing.sm),
+                          child: label,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              Align(
-                alignment: representative == null
-                    ? Alignment.center
-                    : Alignment.bottomLeft,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: FuncSpacing.sm,
-                    vertical: FuncSpacing.sm,
-                  ),
-                  child: Text(
-                    '#${tag.displayName}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: representative == null
-                        ? TextAlign.center
-                        : TextAlign.start,
-                    style: TextStyle(
-                      color: representative == null
-                          ? scheme.onSurface
-                          : FuncTokens.lightBackground,
-                      fontWeight: FontWeight.w600,
-                      shadows: representative == null
-                          ? null
-                          : const [Shadow(blurRadius: 4)],
-                    ),
-                  ),
-                ),
-              ),
-            ],
           ),
         ),
       ),

@@ -14,7 +14,6 @@ import '../theme/func_tokens.dart';
 import 'errors/error_details.dart';
 import '../../l10n/lookup.dart';
 import '../../l10n/context.dart';
-import 'app_segmented_button.dart';
 import 'fit_label.dart';
 import 'undo_snack_bar.dart';
 
@@ -74,9 +73,9 @@ class FollowSwitchButton extends ConsumerWidget {
   String _text(BuildContext context, String key) =>
       l10nLookup(context.l10n, key);
 
-  Future<void> _showRestrictSheet(BuildContext context, WidgetRef ref) async {
+  Future<void> _showActionsSheet(BuildContext context, WidgetRef ref) async {
     AppHaptics.longPress();
-    await showFollowRestrictSheet(
+    await showFollowActionsSheet(
       context,
       ref,
       userId: userId,
@@ -144,9 +143,7 @@ class FollowSwitchButton extends ConsumerWidget {
             toggled: followed,
             label: semanticLabel,
             onTap: () => toggleFollowWithUndo(context, userId),
-            onLongPress: followed
-                ? null
-                : () => _showRestrictSheet(context, ref),
+            onLongPress: () => _showActionsSheet(context, ref),
             child: ExcludeSemantics(
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
@@ -169,9 +166,7 @@ class FollowSwitchButton extends ConsumerWidget {
                   enableFeedback: false,
                 ),
                 onPressed: () => toggleFollowWithUndo(context, userId),
-                onLongPress: followed
-                    ? null
-                    : () => _showRestrictSheet(context, ref),
+                onLongPress: () => _showActionsSheet(context, ref),
                 // Drawn in the button's text style, measured in the same.
                 child: FitLabel(
                   semanticLabel,
@@ -192,115 +187,151 @@ class FollowSwitchButton extends ConsumerWidget {
   }
 }
 
-/// Opens the same public/private follow sheet used by [FollowSwitchButton].
-/// Profile header overflow actions use this entry point so a compact toolbar
-/// does not grow a second follow restriction implementation.
-Future<void> showFollowRestrictSheet(
+enum _FollowSheetAction { followPublic, followPrivate, unfollow }
+
+/// The follow sheet of [FollowSwitchButton]'s long press and the profile
+/// header: direct actions for the current state — follow publicly or
+/// privately; once followed, switch the visibility or unfollow (with Undo).
+Future<void> showFollowActionsSheet(
   BuildContext context,
   WidgetRef ref, {
   required int userId,
   required String userName,
   String userAccount = '',
 }) async {
-  var restrict = FollowRestrict.public;
-  final selected = await showAppBottomSheet<FollowRestrict>(
+  final action = await showAppBottomSheet<_FollowSheetAction>(
     context: context,
     backgroundColor: FuncTokens.transparent,
-    builder: (sheetContext) => StatefulBuilder(
-      builder: (sheetContext, setState) {
-        final colors = Theme.of(sheetContext).colorScheme;
-        final contentMaxWidth =
-            MediaQuery.widthOf(sheetContext) >= AppBreakpoints.expanded
-            ? ContentWidths.form
-            : double.infinity;
-        return Align(
-          // Same cap as the bookmark edit sheet: form sheets center at
-          // ContentWidths.form on expanded surfaces (parent §5.5).
-          alignment: Alignment.topCenter,
-          heightFactor: 1.0,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: contentMaxWidth),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(
-                FuncSpacing.xl,
-                FuncSpacing.lg,
-                FuncSpacing.xl,
-                FuncSpacing.xl,
-              ),
-              decoration: BoxDecoration(
-                color: colors.surfaceContainer,
-                borderRadius: FuncShape.sheet,
-              ),
-              child: SafeArea(
-                top: false,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _followText(sheetContext, 'followUser'),
-                      style: Theme.of(sheetContext).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: FuncSpacing.sm),
-                    Text(
-                      userName,
-                      style: FuncSemanticTokens.of(sheetContext).title,
-                    ),
-                    if (userAccount.isNotEmpty)
-                      Text(
-                        userAccount,
-                        style: FuncSemanticTokens.of(sheetContext).caption,
-                      ),
-                    const SizedBox(height: FuncSpacing.lg),
-                    AppSegmentedButton<FollowRestrict>(
-                      segments: [
-                        AppSegment(
-                          value: FollowRestrict.public,
-                          label: _followText(sheetContext, 'restrictPublic'),
-                        ),
-                        AppSegment(
-                          value: FollowRestrict.private,
-                          label: _followText(sheetContext, 'restrictPrivate'),
-                        ),
-                      ],
-                      selected: restrict,
-                      onSelected: (value) => setState(() => restrict = value),
-                    ),
-                    const SizedBox(height: FuncSpacing.lg),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.of(sheetContext).pop(),
-                            child: Text(_followText(sheetContext, 'cancel')),
-                          ),
-                        ),
-                        const SizedBox(width: FuncSpacing.md),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () =>
-                                Navigator.of(sheetContext).pop(restrict),
-                            child: Text(_followText(sheetContext, 'confirm')),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+    builder: (_) => _FollowActionsSheet(
+      userId: userId,
+      userName: userName,
+      userAccount: userAccount,
     ),
   );
-  if (selected != null && context.mounted) {
-    final store = ref.read(followStoreProvider.notifier);
-    await ref.read(followActionsProvider).addWithRestrict(userId, selected);
-    // A restrict change on an existing follow lands without flipping it,
-    // so any settled success counts.
-    _playFollowOutcome(store.entryOf(userId), before: null);
+  if (action == null || !context.mounted) return;
+  final store = ref.read(followStoreProvider.notifier);
+  switch (action) {
+    case _FollowSheetAction.unfollow:
+      // The entry may have changed while the sheet was open; a toggle on
+      // an unfollowed user would follow instead.
+      if (store.entryOf(userId)?.followed ?? false) {
+        await toggleFollowWithUndo(context, userId);
+      }
+    case _FollowSheetAction.followPublic || _FollowSheetAction.followPrivate:
+      await ref
+          .read(followActionsProvider)
+          .addWithRestrict(
+            userId,
+            action == _FollowSheetAction.followPrivate
+                ? FollowRestrict.private
+                : FollowRestrict.public,
+          );
+      // A visibility change on an existing follow lands without flipping
+      // it, so any settled success counts.
+      _playFollowOutcome(store.entryOf(userId), before: null);
+  }
+}
+
+class _FollowActionsSheet extends ConsumerWidget {
+  const _FollowActionsSheet({
+    required this.userId,
+    required this.userName,
+    required this.userAccount,
+  });
+
+  static const _buttonSize = Size.fromHeight(kMinInteractiveDimension);
+
+  final int userId;
+  final String userName;
+  final String userAccount;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entry = ref.watch(
+      followStoreProvider.select((state) => state[userId]),
+    );
+    final followed = entry?.followed ?? false;
+    final restrict = entry?.restrict;
+    final colors = Theme.of(context).colorScheme;
+    final tokens = FuncSemanticTokens.of(context);
+    final contentMaxWidth =
+        MediaQuery.widthOf(context) >= AppBreakpoints.expanded
+        ? ContentWidths.form
+        : double.infinity;
+    void pick(_FollowSheetAction action) => Navigator.of(context).pop(action);
+    Widget outlined(String key, _FollowSheetAction action) => OutlinedButton(
+      style: OutlinedButton.styleFrom(minimumSize: _buttonSize),
+      onPressed: () => pick(action),
+      child: Text(_followText(context, key)),
+    );
+    final actions = followed
+        ? [
+            // An unknown visibility offers both switches.
+            if (restrict != FollowRestrict.private)
+              outlined(
+                'followSwitchToPrivate',
+                _FollowSheetAction.followPrivate,
+              ),
+            if (restrict != FollowRestrict.public)
+              outlined('followSwitchToPublic', _FollowSheetAction.followPublic),
+            outlined('unfollow', _FollowSheetAction.unfollow),
+          ]
+        : [
+            FilledButton(
+              style: FilledButton.styleFrom(minimumSize: _buttonSize),
+              onPressed: () => pick(_FollowSheetAction.followPublic),
+              child: Text(_followText(context, 'followPublicAction')),
+            ),
+            outlined('followPrivately', _FollowSheetAction.followPrivate),
+          ];
+    return Align(
+      // Same cap as the bookmark edit sheet: form sheets center at
+      // ContentWidths.form on expanded surfaces (parent §5.5).
+      alignment: Alignment.topCenter,
+      heightFactor: 1.0,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: contentMaxWidth),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(
+            FuncSpacing.xl,
+            FuncSpacing.lg,
+            FuncSpacing.xl,
+            FuncSpacing.xl,
+          ),
+          decoration: BoxDecoration(
+            color: colors.surfaceContainer,
+            borderRadius: FuncShape.sheet,
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                MergeSemantics(
+                  child: Semantics(
+                    header: true,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(userName, style: tokens.title),
+                        if (userAccount.isNotEmpty)
+                          Text(userAccount, style: tokens.caption),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: FuncSpacing.lg),
+                for (final (index, action) in actions.indexed) ...[
+                  if (index > 0) const SizedBox(height: FuncSpacing.sm),
+                  action,
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
