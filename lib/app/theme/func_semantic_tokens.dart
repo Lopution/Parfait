@@ -18,6 +18,10 @@ abstract final class FuncSpacing {
 /// Named corner radii so cards and controls do not share one radius.
 abstract final class FuncShape {
   static const BorderRadius card = BorderRadius.all(Radius.circular(12));
+
+  /// Inner corners of a segmented list: the edges where two segments of one
+  /// group face each other (the group's outer edge stays [card]).
+  static const BorderRadius segment = BorderRadius.all(Radius.circular(4));
   static const BorderRadius control = BorderRadius.all(Radius.circular(8));
   static const BorderRadius pill = BorderRadius.all(Radius.circular(999));
   static const BorderRadius dialog = BorderRadius.all(Radius.circular(28));
