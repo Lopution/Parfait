@@ -1171,7 +1171,8 @@ Future<void> PixivImage.preload(
 - Settings account-card tests assert exactly one profile push and no settings
   icon on the resulting `MePage`.
 - Caption tests assert non-empty captions are visible without a `简介`
-  control and preserve rich-link behavior.
+  control and preserve rich-link behavior (the collapse rules are in the
+  Artwork Detail Layout Contract).
 - Hero flight tests cover a partially visible card, a nested pinned header, and
   a push from a profile-like feed; both directions must move the global clip
   continuously between endpoint chrome boundaries. Tests must inspect the
@@ -1180,9 +1181,9 @@ Future<void> PixivImage.preload(
   first-frame tests assert the avatar slot and provider exist before the detail
   request settles.
 - Detail counter tests assert a single-page work shows no page number, the
-  multi-page counter follows scrolling and hides once scrolling reaches the
-  InfoBlock, and a six-page long work reaches the InfoBlock through the ⋮
-  menu.
+  multi-page counter follows scrolling (a manga work, so every page is
+  shown) and hides once scrolling reaches the InfoBlock, and a six-page
+  long work reaches the InfoBlock through the ⋮ menu.
 
 ### 7. Wrong vs Correct
 
@@ -1212,6 +1213,133 @@ onTapDown: (_) => unawaited(
   PixivImage.preload(context, previewUrl, cacheManager: cacheManager),
 );
 onTap: () => Navigator.push(detailRoute); // do not await the preload
+```
+
+## Artwork Detail Layout Contract
+
+### 1. Info block
+
+`InfoBlock` (`lib/features/illust/detail/widgets/info_block.dart`) runs
+top to bottom:
+
+1. Title: selectable `titleLarge`, no line cap.
+2. `AuthorRow` (`illust-author-row`) with a compact `FollowSwitchButton` as
+   `trailing`. Your own work (`usableCurrent.userId` is the author) has no
+   follow button.
+3. One metadata line (`illust-detail-meta`): date · views · bookmarks, see
+   below.
+4. Caption: `CaptionRichText(caption:, maxLines: InfoBlock.captionLines)`
+   (4), which collapses through `ExpandableText`. Links work in both
+   states; a caption that fits shows no toggle.
+5. Tags.
+6. Footer (`illust-detail-footer`): `W×H · ID n` as one `SelectableText`
+   in the metadata style, so the ID can still be copied.
+7. The comments button.
+
+The metadata line is one `Text.rich` in `bodySmall` / `onSurfaceVariant`,
+tabular. The icons are `WidgetSpan`s at the text size. It wraps rather
+than truncating, so the date never drops. The date is
+`AppFormat.date` and the counts are `AppFormat.count`. Screen readers hear
+one sentence, `detailMetaSemantics(date, views, bookmarks)`, with the
+icons excluded; without a posting date the line shows only the counts and
+reads `detailMetaCountsSemantics`. The block uses the theme's text roles
+only: there is no separate numeric style.
+
+### 2. Multi-image works
+
+On the narrow (single scroll) layout, an illustration (`IllustType.illust`)
+with more than one page shows only page 1, followed by a full-width
+`TextButton` (`illust-expand-pages`, at least 48dp tall):
+`detailExpandPages(n)` with a trailing `Icons.expand_more`, merged with
+`expanded: false` semantics. Tapping it shows every page and the button
+goes away; there is no collapse, because collapsing would jump the scroll
+position. Manga shows every page; ugoira and single-page works are
+unchanged. Entering page selection expands the set first, since every page
+has to be on screen to be picked. The state lives in the page's `State`
+and is not persisted. Page 1 stays the Hero endpoint.
+
+The new pages appear without an `AnimatedSize`: the page list is a lazy
+sliver, and wrapping it in a box to animate the height would build every
+full-size page at once. The two-pane layout pages one image at a time and
+is not collapsed.
+
+### 3. Page selection
+
+Page selection replaces the detail AppBar with `selectionAppBar`: the
+count as the title, then select all and download selected
+(`downloadSelectedPages`, disabled while nothing is picked). Close and
+system back (`PopScope(canPop: false)` while selecting) leave the mode.
+The ⋮ menu is not reachable while selecting, so its page-selection entry
+needs no in-mode guard. A submitted selection shows
+`showDownloadSubmittedSnackBar` and leaves the mode.
+
+### 4. Image viewer
+
+- One page counter: `n / total` in the top bar, a `TextButton`
+  (`viewer-page-counter`) with tabular figures that opens the jump sheet.
+  Its `Tooltip` (`viewerJumpToPage`) sits inside the button, so the
+  button's single node carries both the count and the tooltip.
+- No fullscreen button. A single tap on the artwork and the desktop `F`
+  key toggle the chrome.
+- The jump sheet is a thumbnail grid: cells of about 96dp, at least three
+  columns, at most 60% of the screen tall, and it opens scrolled to the
+  current page's row (one row of context above). Each cell is the page's
+  square tier (`squareUrlAt`; a cold deep link without an entity falls
+  back to the viewer URL, decoded at the cell size) with an `EntityBadge`
+  page number at the bottom-start. The current page has a 2dp `primary`
+  outline. Each cell is one button node (`viewer-jump-page-<i>`) read as
+  `viewerPageLabel`, with `selected` on the current page.
+- A pick pops the sheet with the page, waits for the sheet route's
+  `completed`, then calls `jumpToPage`. A long jump does not animate the
+  pages in between.
+
+### 5. Tests required
+
+- `illust_detail_page_test.dart`: info block order; the author row follows
+  in place and your own work has no follow button; the metadata line's
+  local date, compact counts and spoken sentence, including an unknown
+  date; a long caption collapses and expands and a short one has no
+  toggle; an illustration set opens on page 1 and expands, manga shows
+  every page, and page selection expands; selection uses the shared bar
+  and back leaves the mode first; the viewer has one counter, no
+  fullscreen button, a thumbnail jump grid with the current page selected,
+  and a long work's sheet opens on the current page.
+- `priority_surface_semantics_test.dart`: the viewer counter and fit are
+  named buttons.
+- The `content: illust detail` locale matrix covers the info block in four
+  languages at 320dp and 1.3x.
+
+### 6. Wrong vs Correct
+
+#### Wrong
+
+```dart
+onSelected: (page) {
+  Navigator.of(sheetContext).pop();
+  _pageController.jumpToPage(page); // the sheet is still closing
+},
+```
+
+While the modal sheet is on screen it blocks the viewer's semantics. The
+counter's label changing under it trips the semantics flush
+(`'node.built': is not true`).
+
+#### Correct
+
+```dart
+TransitionRoute<int>? sheetRoute;
+final page = await showAppBottomSheet<int>(
+  context: context,
+  builder: (sheetContext) {
+    sheetRoute ??= ModalRoute.of(sheetContext) as TransitionRoute<int>?;
+    return _PageJumpGrid(
+      onSelected: (page) => Navigator.of(sheetContext).pop(page),
+    );
+  },
+);
+if (page == null) return;
+await sheetRoute?.completed;
+if (mounted) _pageController.jumpToPage(page);
 ```
 
 ## Tab Navigation Animation Contract
