@@ -13,7 +13,6 @@ import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/share/share_service.dart';
 import 'package:parfait/core/user/follow_actions.dart';
-import 'package:parfait/core/user/follow_models.dart';
 import 'package:parfait/core/user/follow_store.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/core/user/user_detail_controller.dart';
@@ -2571,10 +2570,9 @@ void main() {
 
       await tester.tap(find.text('私密关注'));
       await tester.pumpAndSettle();
-      expect(find.text('关注用户'), findsOneWidget);
-      expect(find.byType(SegmentedButton<FollowRestrict>), findsOneWidget);
-      await tester.tap(find.text('私密').last);
-      await tester.tap(find.text('确定'));
+      // The shared follow sheet: direct actions, no confirm step.
+      expect(find.widgetWithText(FilledButton, '公开关注'), findsOneWidget);
+      await tester.tap(find.widgetWithText(OutlinedButton, '私密关注'));
       await tester.pumpAndSettle();
       expect(repository.requests, contains('add:42:private'));
 

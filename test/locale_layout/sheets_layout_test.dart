@@ -105,7 +105,7 @@ void main() {
         locale: locale,
         container: container,
         home: _Opener(
-          (context, ref) => showFollowRestrictSheet(
+          (context, ref) => showFollowActionsSheet(
             context,
             ref,
             userId: 42,

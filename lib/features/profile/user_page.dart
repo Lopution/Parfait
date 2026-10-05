@@ -531,7 +531,7 @@ class _UserPageState extends ConsumerState<UserPage>
                   onFollowPrivately: widget.isMe
                       ? null
                       : () => unawaited(
-                          showFollowRestrictSheet(
+                          showFollowActionsSheet(
                             context,
                             ref,
                             userId: user.id,

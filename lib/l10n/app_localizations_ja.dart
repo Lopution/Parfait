@@ -2106,13 +2106,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get followed => 'フォロー中';
 
   @override
-  String get followUser => 'ユーザーをフォロー';
-
-  @override
   String get followPrivately => '非公開でフォロー';
 
   @override
   String get unfollow => 'フォローを解除';
+
+  @override
+  String get followPublicAction => 'フォローする';
+
+  @override
+  String get followSwitchToPrivate => '非公開に切り替え';
+
+  @override
+  String get followSwitchToPublic => '公開に切り替え';
 
   @override
   String get followFailed => 'フォロー操作に失敗しました';

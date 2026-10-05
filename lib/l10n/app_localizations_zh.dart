@@ -2078,13 +2078,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get followed => '已关注';
 
   @override
-  String get followUser => '关注用户';
-
-  @override
   String get followPrivately => '私密关注';
 
   @override
   String get unfollow => '取消关注';
+
+  @override
+  String get followPublicAction => '公开关注';
+
+  @override
+  String get followSwitchToPrivate => '改为私密关注';
+
+  @override
+  String get followSwitchToPublic => '改为公开关注';
 
   @override
   String get followFailed => '关注操作失败';

@@ -2169,13 +2169,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String get followed => 'Вы подписаны';
 
   @override
-  String get followUser => 'Подписаться на пользователя';
-
-  @override
   String get followPrivately => 'Подписаться приватно';
 
   @override
   String get unfollow => 'Отписаться';
+
+  @override
+  String get followPublicAction => 'Подписаться';
+
+  @override
+  String get followSwitchToPrivate => 'Сделать приватной';
+
+  @override
+  String get followSwitchToPublic => 'Сделать публичной';
 
   @override
   String get followFailed => 'Не удалось изменить подписку';

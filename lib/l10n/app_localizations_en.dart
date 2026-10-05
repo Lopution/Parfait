@@ -2164,13 +2164,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get followed => 'Following';
 
   @override
-  String get followUser => 'Follow user';
-
-  @override
   String get followPrivately => 'Follow privately';
 
   @override
   String get unfollow => 'Unfollow';
+
+  @override
+  String get followPublicAction => 'Follow';
+
+  @override
+  String get followSwitchToPrivate => 'Make private';
+
+  @override
+  String get followSwitchToPublic => 'Make public';
 
   @override
   String get followFailed => 'Follow action failed';

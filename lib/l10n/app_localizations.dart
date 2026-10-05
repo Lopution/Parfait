@@ -4055,12 +4055,6 @@ abstract class AppLocalizations {
   /// **'已关注'**
   String get followed;
 
-  /// No description provided for @followUser.
-  ///
-  /// In zh, this message translates to:
-  /// **'关注用户'**
-  String get followUser;
-
   /// No description provided for @followPrivately.
   ///
   /// In zh, this message translates to:
@@ -4072,6 +4066,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'取消关注'**
   String get unfollow;
+
+  /// Follow sheet, not followed yet: follow publicly (primary action, next to followPrivately).
+  ///
+  /// In zh, this message translates to:
+  /// **'公开关注'**
+  String get followPublicAction;
+
+  /// Follow sheet, followed publicly: switch the follow to private.
+  ///
+  /// In zh, this message translates to:
+  /// **'改为私密关注'**
+  String get followSwitchToPrivate;
+
+  /// Follow sheet, followed privately: switch the follow to public.
+  ///
+  /// In zh, this message translates to:
+  /// **'改为公开关注'**
+  String get followSwitchToPublic;
 
   /// No description provided for @followFailed.
   ///

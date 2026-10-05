@@ -58,6 +58,10 @@ Future<(ProviderContainer, RecordingBookmarkRepository)> _pump(
   return (container, repository);
 }
 
+/// The edit sheet's "private" switch row.
+SwitchListTile _privateSwitch(WidgetTester tester) =>
+    tester.widget<SwitchListTile>(find.widgetWithText(SwitchListTile, '私密'));
+
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -249,21 +253,17 @@ void main() {
     // disabled. A mid-load restrict change used to flip the draft dirty,
     // which made the arriving prefill keep the empty tag list.
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    SegmentedButton<BookmarkRestrict> segmented() =>
-        tester.widget<SegmentedButton<BookmarkRestrict>>(
-          find.byType(SegmentedButton<BookmarkRestrict>),
-        );
-    expect(segmented().onSelectionChanged, isNull);
+    expect(_privateSwitch(tester).onChanged, isNull);
     await tester.tap(find.text('私密'));
     await tester.pump();
-    expect(segmented().selected, {BookmarkRestrict.public});
+    expect(_privateSwitch(tester).value, isFalse);
 
     // The arriving detail fully populates the persisted state and editing
     // resumes.
     repository.detailGate!.complete(repository.detail);
     await tester.pumpAndSettle();
-    expect(segmented().onSelectionChanged, isNotNull);
-    expect(segmented().selected, {BookmarkRestrict.private});
+    expect(_privateSwitch(tester).onChanged, isNotNull);
+    expect(_privateSwitch(tester).value, isTrue);
     expect(find.text('procreate'), findsOneWidget);
     expect(find.text('らくがき'), findsOneWidget);
 
@@ -318,17 +318,15 @@ void main() {
     expect(find.text('收藏插画'), findsOneWidget);
     expect(find.text('work 1'), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
-    expect(find.text('公开'), findsOneWidget);
     expect(find.text('取消'), findsOneWidget);
     expect(find.text('确定'), findsOneWidget);
 
-    // Global control set: segmented restrict, outlined cancel, filled
-    // confirm — same as the follow sheet and the bookmark tags page.
-    expect(find.byType(SegmentedButton<BookmarkRestrict>), findsOneWidget);
+    // A "private" switch, outlined cancel, filled confirm.
+    expect(_privateSwitch(tester).value, isFalse);
     expect(find.byType(OutlinedButton), findsOneWidget);
     expect(find.byType(FilledButton), findsOneWidget);
 
-    // Choose 私密 on the segmented control, then confirm.
+    // Switch 私密 on, then confirm.
     await tester.tap(find.text('私密'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('确定'));
@@ -336,10 +334,10 @@ void main() {
 
     expect(repository.adds, hasLength(1));
     expect(repository.adds.single.$2, 'private');
-    // Sheet opened, segment picked, submit landed.
+    // Sheet opened, switch flipped on, submit landed.
     expect(haptics.roles, [
       HapticRole.longPress,
-      HapticRole.select,
+      HapticRole.toggleOn,
       HapticRole.success,
     ]);
   });
@@ -435,14 +433,7 @@ void main() {
     await tester.tap(find.text('取消').last);
     await tester.pumpAndSettle();
     expect(find.text('收藏插画'), findsOneWidget);
-    expect(
-      tester
-          .widget<SegmentedButton<BookmarkRestrict>>(
-            find.byType(SegmentedButton<BookmarkRestrict>),
-          )
-          .selected,
-      {BookmarkRestrict.private},
-    );
+    expect(_privateSwitch(tester).value, isTrue);
 
     // Leave: discard confirms and pops the sheet.
     await tester.tap(find.text('取消'));
@@ -534,14 +525,7 @@ void main() {
     expect(find.text('收藏插画'), findsOneWidget);
     expect(find.textContaining('收藏操作失败'), findsWidgets);
     expect(repository.adds, isEmpty);
-    expect(
-      tester
-          .widget<SegmentedButton<BookmarkRestrict>>(
-            find.byType(SegmentedButton<BookmarkRestrict>),
-          )
-          .selected,
-      {BookmarkRestrict.private},
-    );
+    expect(_privateSwitch(tester).value, isTrue);
     expect(find.text('新タグ'), findsOneWidget);
 
     // Retrying after the repository recovers submits the same draft.

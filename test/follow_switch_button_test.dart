@@ -201,7 +201,7 @@ void main() {
     ]);
   });
 
-  testWidgets('long press opens the private-follow sheet once', (tester) async {
+  testWidgets('long press opens the follow sheet once', (tester) async {
     final haptics = recordHaptics();
     final follows = _FakeFollowRepository();
     final container = await _world(follows: follows);
@@ -224,6 +224,74 @@ void main() {
       ),
     );
     expect(button.style?.enableFeedback, isFalse);
+  });
+
+  testWidgets('the sheet offers direct actions for each follow state', (
+    tester,
+  ) async {
+    final follows = _FakeFollowRepository();
+    final container = await _world(follows: follows);
+    await _pump(
+      tester,
+      container,
+      home: const Scaffold(
+        body: Center(child: FollowSwitchButton(userId: 7, userName: 'u')),
+      ),
+    );
+    Future<void> openSheet() async {
+      await tester.longPress(find.byType(FollowSwitchButton));
+      await tester.pumpAndSettle();
+    }
+
+    Finder action(String label) => find.ancestor(
+      of: find.text(label),
+      matching: find.byWidgetPredicate(
+        (widget) => widget is FilledButton || widget is OutlinedButton,
+      ),
+    );
+    FollowRestrict? restrict() =>
+        container.read(followStoreProvider)[7]?.restrict;
+
+    // Not followed: follow publicly (primary) or privately.
+    await openSheet();
+    expect(find.byType(FilledButton), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(FilledButton),
+        matching: find.text('公开关注'),
+      ),
+      findsOneWidget,
+    );
+    expect(action('私密关注'), findsOneWidget);
+    expect(find.text('取消关注'), findsNothing);
+    for (final button in [action('公开关注'), action('私密关注')]) {
+      expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+    }
+    await tester.tap(action('私密关注'));
+    await tester.pumpAndSettle();
+    expect(follows.calls, ['add 7 private']);
+    expect(restrict(), FollowRestrict.private);
+
+    // Followed privately: make public or unfollow.
+    await openSheet();
+    expect(action('改为私密关注'), findsNothing);
+    expect(action('取消关注'), findsOneWidget);
+    await tester.tap(action('改为公开关注'));
+    await tester.pumpAndSettle();
+    expect(follows.calls.last, 'add 7 public');
+    expect(restrict(), FollowRestrict.public);
+
+    // Followed publicly: make private or unfollow — with Undo.
+    await openSheet();
+    expect(action('改为公开关注'), findsNothing);
+    expect(action('改为私密关注'), findsOneWidget);
+    await tester.tap(action('取消关注'));
+    await tester.pumpAndSettle();
+    expect(follows.calls.last, 'delete 7');
+    await tester.tap(find.widgetWithText(SnackBarAction, '撤销'));
+    await tester.pumpAndSettle();
+    expect(follows.calls.last, 'add 7 public');
+    expect(container.read(followStoreProvider)[7]?.followed, isTrue);
   });
 
   testWidgets('a long label widens the button instead of truncating', (
