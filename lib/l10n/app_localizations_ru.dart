@@ -2449,12 +2449,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get seriesStartReading => 'Начать чтение';
 
   @override
-  String seriesBackToEpisode(int order) {
-    return 'К части $order';
+  String seriesContinueEpisode(int n) {
+    return 'Продолжить: эпизод $n';
   }
 
   @override
-  String get seriesBackToLast => 'К последней открытой';
+  String get seriesContinue => 'Продолжить чтение';
+
+  @override
+  String get seriesStartFromFirst => 'С первого эпизода';
 
   @override
   String get seriesPrevious => 'Предыдущая';

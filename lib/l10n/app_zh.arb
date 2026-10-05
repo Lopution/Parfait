@@ -1184,18 +1184,22 @@
   "@seriesStartReading": {
     "description": "Opens the first work in this series"
   },
-  "seriesBackToEpisode": "返回第 {order} 话",
-  "@seriesBackToEpisode": {
-    "description": "Opens the most recently opened work in this series",
+  "seriesContinueEpisode": "继续第 {n} 话",
+  "@seriesContinueEpisode": {
+    "description": "Opens the series episode the user last opened",
     "placeholders": {
-      "order": {
+      "n": {
         "type": "int"
       }
     }
   },
-  "seriesBackToLast": "返回上次阅读的作品",
-  "@seriesBackToLast": {
-    "description": "Opens the most recently opened work in this series (order unknown)"
+  "seriesContinue": "继续阅读",
+  "@seriesContinue": {
+    "description": "Opens the series work the user last opened when its episode number is unknown"
+  },
+  "seriesStartFromFirst": "从第 1 话开始",
+  "@seriesStartFromFirst": {
+    "description": "Opens the first episode of a series the user has already been reading"
   },
   "seriesPrevious": "上一话",
   "seriesNext": "下一话",

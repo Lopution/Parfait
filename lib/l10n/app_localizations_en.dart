@@ -2451,12 +2451,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get seriesStartReading => 'Start reading';
 
   @override
-  String seriesBackToEpisode(int order) {
-    return 'Back to part $order';
+  String seriesContinueEpisode(int n) {
+    return 'Continue episode $n';
   }
 
   @override
-  String get seriesBackToLast => 'Back to last opened';
+  String get seriesContinue => 'Continue reading';
+
+  @override
+  String get seriesStartFromFirst => 'Start from episode 1';
 
   @override
   String get seriesPrevious => 'Previous';

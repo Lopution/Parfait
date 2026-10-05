@@ -12,6 +12,7 @@ import 'package:parfait/core/reverse_image/reverse_image_provider.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/core/search/search_trending_controller.dart';
+import 'package:parfait/core/series/series_recent_open_store.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_series_section.dart';
@@ -19,6 +20,7 @@ import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/search/reverse_image_search_page.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
+import 'package:parfait/features/series/illust_series_page.dart';
 import 'package:parfait/features/spotlight/spotlight_feed_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -107,6 +109,38 @@ void main() {
         home: const Scaffold(
           body: CustomScrollView(slivers: [IllustSeriesSection(illustId: 910)]),
         ),
+      ),
+    );
+  });
+
+  // A reading record puts both resume buttons on screen; the long caption
+  // folds behind its expand button.
+  localeLayoutMatrix('content: illust series page', (
+    tester,
+    locale,
+    profile,
+  ) async {
+    final (container, _) = await makeSeriesWorld(
+      fixture: SeriesFixture()
+        ..caption = List.filled(30, 'a long series caption').join(' '),
+    );
+    addTearDown(container.dispose);
+    container
+        .read(seriesRecentOpenStoreProvider.notifier)
+        .record(
+          accountId: '100',
+          seriesId: 55,
+          illustId: 911,
+          contentOrder: 12,
+        );
+    await _pumpChecked(
+      tester,
+      locale,
+      profile,
+      localeLayoutApp(
+        locale: locale,
+        container: container,
+        home: const IllustSeriesPage(seriesId: 55),
       ),
     );
   });

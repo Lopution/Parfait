@@ -107,9 +107,9 @@ void main() {
       expect(zh.loginWebView2Missing, contains('重新打开'));
     });
 
-    test('navigation verbs use 返回 only', () {
-      expect(zh.seriesBackToEpisode(3), contains('返回'));
-      expect(zh.seriesBackToLast, contains('返回'));
+    test('resuming a series uses 继续', () {
+      expect(zh.seriesContinueEpisode(3), contains('继续'));
+      expect(zh.seriesContinue, contains('继续'));
     });
   });
 

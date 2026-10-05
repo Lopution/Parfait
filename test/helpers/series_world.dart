@@ -24,10 +24,11 @@ Map<String, dynamic> seriesDetailJson(
   int id, {
   int workCount = 12,
   String title = 'series',
+  String? caption,
 }) => {
   'id': id,
   'title': '$title $id',
-  'caption': 'caption $id',
+  'caption': caption ?? 'caption $id',
   'user': {'id': 7, 'name': 'author', 'account': 'author'},
   'cover_image_urls': {
     'link_360': 'https://i.pximg.net/s$id/360.jpg',
@@ -54,6 +55,9 @@ class SeriesFixture {
   /// load in flight.
   Completer<void>? pendingFetch;
 
+  /// Replaces the series detail's short default caption.
+  String? caption;
+
   http.Client client() => MockClient((request) async {
     requests.add(request.url);
     await pendingFetch?.future;
@@ -65,7 +69,10 @@ class SeriesFixture {
         final lastOrder = request.url.queryParameters['last_order'];
         if (lastOrder == null) {
           return _ok({
-            'illust_series_detail': seriesDetailJson(seriesId),
+            'illust_series_detail': seriesDetailJson(
+              seriesId,
+              caption: caption,
+            ),
             'illust_series_first_illust': illustJson(901),
             'illust_series_latest_illust': illustJson(912),
             'illusts': [illustJson(912), illustJson(911)],
@@ -76,7 +83,7 @@ class SeriesFixture {
           });
         }
         return _ok({
-          'illust_series_detail': seriesDetailJson(seriesId),
+          'illust_series_detail': seriesDetailJson(seriesId, caption: caption),
           'illusts': [illustJson(910)],
           'next_url': null,
         });

@@ -2357,12 +2357,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get seriesStartReading => '开始阅读';
 
   @override
-  String seriesBackToEpisode(int order) {
-    return '返回第 $order 话';
+  String seriesContinueEpisode(int n) {
+    return '继续第 $n 话';
   }
 
   @override
-  String get seriesBackToLast => '返回上次阅读的作品';
+  String get seriesContinue => '继续阅读';
+
+  @override
+  String get seriesStartFromFirst => '从第 1 话开始';
 
   @override
   String get seriesPrevious => '上一话';
