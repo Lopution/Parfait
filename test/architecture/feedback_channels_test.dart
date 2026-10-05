@@ -87,10 +87,13 @@ const _systemUiOwner = 'lib/app/system_ui.dart';
 
 /// Approved `showAppSnackBarOn` callsites: the root-level presentations that
 /// cannot reach a scoped messenger context (root exit hint, app-level update
-/// notice). Everything else must use `showAppSnackBar(context, ...)`.
+/// notice), and a failed Undo, which reports on the messenger captured when
+/// its snackbar showed — the page that offered it may be gone. Everything
+/// else must use `showAppSnackBar(context, ...)`.
 const _snackBarOnCallSites = <String>{
   'lib/app/app.dart',
   'lib/features/home/home_page.dart',
+  'lib/app/widgets/undo_snack_bar.dart',
 };
 
 /// Raw overlay entries that are intentional framework pickers, not app

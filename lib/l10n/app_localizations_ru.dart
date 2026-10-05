@@ -2630,6 +2630,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchLaterRemoved => 'Удалено из «Посмотреть позже»';
 
   @override
+  String get bookmarkRemoved => 'Удалено из закладок';
+
+  @override
+  String get followRemoved => 'Вы отписались';
+
+  @override
+  String get muteRemoved => 'Скрытие снято';
+
+  @override
   String get watchlistOpenContents => 'Открыть содержание';
 
   @override

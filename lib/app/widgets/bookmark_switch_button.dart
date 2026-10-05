@@ -24,6 +24,7 @@ import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import 'app_segmented_button.dart';
 import 'app_choice_chip.dart';
+import 'undo_snack_bar.dart';
 
 String _bookmarkText(BuildContext context, String key) =>
     l10nLookup(context.l10n, key);
@@ -31,13 +32,18 @@ String _bookmarkText(BuildContext context, String key) =>
 /// Toggles the bookmark of [key] and plays the haptic of the settled
 /// outcome: added → success, removed → select, failed → error. A queued
 /// (offline) or cancelled toggle stays silent — when its replay lands later
-/// the user is elsewhere, and a background haptic would mislead. Returns
-/// whether the toggle landed as a new bookmark (the success case).
-Future<bool> toggleBookmark(WidgetRef ref, BookmarkKey key) async {
+/// the user is elsewhere, and a background haptic would mislead. A removal
+/// offers Undo, which restores the old visibility and tags. Returns whether
+/// the toggle landed as a new bookmark (the success case).
+Future<bool> toggleBookmarkWithUndo(
+  BuildContext context,
+  BookmarkKey key,
+) async {
   // Read up front: the toggle may outlive the widget that started it.
-  final store = ref.read(bookmarkStoreProvider.notifier);
+  final container = ProviderScope.containerOf(context, listen: false);
+  final store = container.read(bookmarkStoreProvider.notifier);
   final before = store.entryOf(key)?.bookmarked ?? false;
-  await ref.read(bookmarkActionsProvider).toggle(key);
+  final removed = await container.read(bookmarkActionsProvider).toggle(key);
   final after = store.entryOf(key);
   if (after == null || after.isPending) return false;
   if (after.error != null) {
@@ -46,6 +52,15 @@ Future<bool> toggleBookmark(WidgetRef ref, BookmarkKey key) async {
   }
   if (after.bookmarked == before) return false;
   after.bookmarked ? AppHaptics.success() : AppHaptics.select();
+  if (removed != null && context.mounted) {
+    showUndoSnackBar(
+      context,
+      context.l10n.bookmarkRemoved,
+      onUndo: (container) => container
+          .read(bookmarkActionsProvider)
+          .addWithRestrict(removed.key, removed.restrict, tags: removed.tags),
+    );
+  }
   return after.bookmarked;
 }
 
@@ -141,7 +156,7 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
 
   Future<void> _toggle() async {
     final key = _key;
-    _popIfAdded(await toggleBookmark(ref, key), key);
+    _popIfAdded(await toggleBookmarkWithUndo(context, key), key);
   }
 
   Future<void> _showBookmarkSheet({required bool bookmarked}) async {

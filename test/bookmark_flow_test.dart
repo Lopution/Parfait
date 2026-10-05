@@ -151,8 +151,13 @@ void main() {
 
     await container.read(bookmarkActionsProvider).toggle(key);
 
-    expect(fixture.requests.single.uri.path, '/v1/illust/bookmark/delete');
-    expect(fixture.requests.single.body['illust_id'], '42');
+    // A remote observation carries no tags, so the detail is read first —
+    // Undo needs the visibility and tags the delete removes.
+    expect(fixture.requests.map((r) => r.uri.path), [
+      '/v2/illust/bookmark/detail',
+      '/v1/illust/bookmark/delete',
+    ]);
+    expect(fixture.requests.last.body['illust_id'], '42');
     expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isFalse);
   });
 

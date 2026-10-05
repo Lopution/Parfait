@@ -19,6 +19,8 @@ import '../../navigation/routes.dart';
 import '../app_snack_bar.dart';
 import '../bookmark_switch_button.dart';
 import '../errors/error_details.dart';
+import '../undo_snack_bar.dart';
+import '../unmute_undo.dart';
 import 'card_action.dart';
 
 /// Ordered card long-press actions. Each domain contributes a thin adapter;
@@ -66,7 +68,7 @@ class _BookmarkAction extends CardAction {
 
   @override
   Future<void> run(BuildContext context, WidgetRef ref, IllustEntity entity) {
-    return toggleBookmark(ref, _illustKey(entity));
+    return toggleBookmarkWithUndo(context, _illustKey(entity));
   }
 }
 
@@ -149,21 +151,15 @@ class _WatchLaterAction extends CardAction {
               .firstOrNull;
       await store.remove(entity.id);
       if (context.mounted) {
-        showAppSnackBar(
+        showUndoSnackBar(
           context,
           context.l10n.watchLaterRemoved,
-          action: SnackBarAction(
-            label: context.l10n.undo,
-            // Undo landing is the light-tick role (parent §5.6) — the
-            // snackbar is the visual channel, the tick is redundant
-            // feedback, not the notification itself.
-            onPressed: () {
-              AppHaptics.select();
-              unawaited(
-                removed != null ? store.restore(removed) : store.add(entity),
-              );
-            },
-          ),
+          onUndo: (container) async {
+            final store = container.read(watchLaterStoreProvider.notifier);
+            removed != null
+                ? await store.restore(removed)
+                : await store.add(entity);
+          },
         );
       }
     } else {
@@ -211,6 +207,7 @@ class _MuteWorkAction extends CardAction {
     WidgetRef ref,
     IllustEntity entity,
   ) async {
+    final wasMuted = ref.read(muteStoreProvider).isWorkMuted(entity.id);
     try {
       await ref.read(muteStoreProvider.notifier).toggleWork(entity.id);
     } catch (error) {
@@ -221,6 +218,10 @@ class _MuteWorkAction extends CardAction {
           error: error,
         );
       }
+      return;
+    }
+    if (wasMuted && context.mounted) {
+      showUnmuteUndo(context, MuteKey.work(entity.id));
     }
   }
 }
@@ -248,17 +249,15 @@ class _MuteUserAction extends CardAction {
     WidgetRef ref,
     IllustEntity entity,
   ) async {
+    final user = MutedUser(
+      userId: entity.user.id,
+      name: entity.user.name,
+      account: entity.user.account,
+      profileImageUrl: entity.user.profileImageUrl,
+    );
+    final wasMuted = ref.read(muteStoreProvider).isUserMuted(user.userId);
     try {
-      await ref
-          .read(muteStoreProvider.notifier)
-          .toggleUser(
-            MutedUser(
-              userId: entity.user.id,
-              name: entity.user.name,
-              account: entity.user.account,
-              profileImageUrl: entity.user.profileImageUrl,
-            ),
-          );
+      await ref.read(muteStoreProvider.notifier).toggleUser(user);
     } catch (error) {
       if (context.mounted) {
         showErrorSnackBar(
@@ -267,6 +266,10 @@ class _MuteUserAction extends CardAction {
           error: error,
         );
       }
+      return;
+    }
+    if (wasMuted && context.mounted) {
+      showUnmuteUndo(context, MuteKey.user(user.userId), user: user);
     }
   }
 }

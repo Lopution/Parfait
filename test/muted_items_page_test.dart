@@ -155,4 +155,24 @@ void main() {
     expect(fade.opacity.value, 1);
     expect(find.byType(SnackBar), findsOneWidget);
   });
+
+  testWidgets('a landed unmute offers Undo, which mutes the tag again', (
+    tester,
+  ) async {
+    final (container, api) = await _pump(tester);
+
+    await tester.tap(find.byIcon(Icons.visibility_outlined));
+    await _settle(tester);
+    expect(find.text('已解除屏蔽'), findsOneWidget);
+    // No confirmation step: the unmute already landed (D5).
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(container.read(muteStoreProvider).tags, isEmpty);
+
+    await tester.tap(find.widgetWithText(SnackBarAction, '撤销'));
+    await _settle(tester);
+    expect(api.edits.last['add_tags[]'], 'bad-tag');
+    expect(container.read(muteStoreProvider).tags, {'bad-tag'});
+    await tester.pumpAndSettle();
+    expect(find.text('bad-tag'), findsOneWidget);
+  });
 }

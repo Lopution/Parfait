@@ -1195,6 +1195,9 @@
   "@watchLaterRemoved": {
     "description": "SnackBar shown after removing a watch-later entry; offers undo"
   },
+  "bookmarkRemoved": "Removed from bookmarks",
+  "followRemoved": "Unfollowed",
+  "muteRemoved": "Unmuted",
   "watchlistOpenContents": "Open contents",
   "@watchlistOpenContents": {
     "description": "Watchlist sheet action: open the manga series contents page"

@@ -2626,6 +2626,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchLaterRemoved => 'Removed from Watch later';
 
   @override
+  String get bookmarkRemoved => 'Removed from bookmarks';
+
+  @override
+  String get followRemoved => 'Unfollowed';
+
+  @override
+  String get muteRemoved => 'Unmuted';
+
+  @override
   String get watchlistOpenContents => 'Open contents';
 
   @override

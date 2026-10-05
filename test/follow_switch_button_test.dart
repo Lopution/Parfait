@@ -44,6 +44,15 @@ class _FakeFollowRepository implements FollowRepository {
     if (error case final error?) throw error;
     calls.add('delete $userId');
   }
+
+  @override
+  Future<FollowRestrict?> fetchRestrict(
+    int userId, {
+    CancelToken? cancelToken,
+  }) async {
+    calls.add('restrict $userId');
+    return FollowRestrict.public;
+  }
 }
 
 Future<ProviderContainer> _world({FollowRepository? follows}) async {

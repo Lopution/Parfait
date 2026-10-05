@@ -4889,7 +4889,7 @@ abstract class AppLocalizations {
   /// **'已选 {n} 项'**
   String selectedCount(int n);
 
-  /// SnackBar action that restores a just-removed watch-later entry
+  /// SnackBar action that reverses a just-made removal (watch later, bookmark, follow, mute)
   ///
   /// In zh, this message translates to:
   /// **'撤销'**
@@ -4900,6 +4900,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已从稍后再看移除'**
   String get watchLaterRemoved;
+
+  /// SnackBar after removing a bookmark; offers undo
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消收藏'**
+  String get bookmarkRemoved;
+
+  /// SnackBar after unfollowing a user; offers undo
+  ///
+  /// In zh, this message translates to:
+  /// **'已取消关注'**
+  String get followRemoved;
+
+  /// SnackBar after unmuting a tag, user or work; offers undo
+  ///
+  /// In zh, this message translates to:
+  /// **'已解除屏蔽'**
+  String get muteRemoved;
 
   /// Watchlist sheet action: open the manga series contents page
   ///

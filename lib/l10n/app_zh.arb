@@ -1206,11 +1206,23 @@
   },
   "undo": "撤销",
   "@undo": {
-    "description": "SnackBar action that restores a just-removed watch-later entry"
+    "description": "SnackBar action that reverses a just-made removal (watch later, bookmark, follow, mute)"
   },
   "watchLaterRemoved": "已从稍后再看移除",
   "@watchLaterRemoved": {
     "description": "SnackBar shown after removing a watch-later entry; offers undo"
+  },
+  "bookmarkRemoved": "已取消收藏",
+  "@bookmarkRemoved": {
+    "description": "SnackBar after removing a bookmark; offers undo"
+  },
+  "followRemoved": "已取消关注",
+  "@followRemoved": {
+    "description": "SnackBar after unfollowing a user; offers undo"
+  },
+  "muteRemoved": "已解除屏蔽",
+  "@muteRemoved": {
+    "description": "SnackBar after unmuting a tag, user or work; offers undo"
   },
   "watchlistOpenContents": "打开目录",
   "@watchlistOpenContents": {
