@@ -1809,6 +1809,36 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchHeight => '高';
 
   @override
+  String searchRangeAtLeast(String label, String value) {
+    return '$label $value 以上';
+  }
+
+  @override
+  String searchRangeAtMost(String label, String value) {
+    return '$label $value 以下';
+  }
+
+  @override
+  String searchRangeBetween(String label, String min, String max) {
+    return '$label $min–$max';
+  }
+
+  @override
+  String searchDateFrom(String date) {
+    return '$date 起';
+  }
+
+  @override
+  String searchDateUntil(String date) {
+    return '截至 $date';
+  }
+
+  @override
+  String searchDateBetween(String start, String end) {
+    return '$start – $end';
+  }
+
+  @override
   String get searchDuration => '发布时间';
 
   @override

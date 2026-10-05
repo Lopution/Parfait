@@ -710,18 +710,12 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   }
 
   SearchQuery _query(String keyword) {
-    final filters = ref.read(searchFiltersProvider);
-    return switch (_types[_selectedIndex]) {
-      SearchResultType.illust => IllustSearchQuery(
-        keyword: keyword,
-        filters: filters,
-      ),
-      SearchResultType.novel => NovelSearchQuery(
-        keyword: keyword,
-        filters: filters,
-      ),
-      SearchResultType.user => UserSearchQuery(keyword: keyword),
-    };
+    // A user search keeps the filters too, so the result page's artwork
+    // tabs open with them.
+    return IllustSearchQuery(
+      keyword: keyword,
+      filters: ref.read(searchFiltersProvider),
+    ).withType(_types[_selectedIndex]);
   }
 
   Future<void> _editFilters() async {

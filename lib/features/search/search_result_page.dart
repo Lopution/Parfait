@@ -18,6 +18,9 @@ import '../../core/user/user_store.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../app/widgets/follow_switch_button.dart';
+import '../../app/widgets/app_tab_bar.dart';
+import '../../app/widgets/home_branch_stack.dart';
+import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../app/navigation/routes.dart';
 import 'search_filter_sheet.dart';
@@ -29,62 +32,182 @@ import '../../app/theme/func_semantic_tokens.dart';
 /// Grid padding shared by the result sliver and its first-load skeleton.
 const _illustGridPadding = EdgeInsets.all(FuncSpacing.sm);
 
-class SearchResultPage extends ConsumerWidget {
-  const SearchResultPage({super.key, required this.query});
+/// Height of the filter summary row under the type tabs.
+const _filterBarHeight = 44.0;
+
+/// Search results with the three result types as tabs. Switching a tab
+/// keeps the keyword and filters ([SearchQuery.withType]); the route only
+/// records the switch through [onTypeChanged].
+class SearchResultPage extends StatefulWidget {
+  const SearchResultPage({super.key, required this.query, this.onTypeChanged});
 
   final SearchQuery query;
 
-  SearchFilters? get _filters => switch (query) {
-    IllustSearchQuery(:final filters) => filters,
-    NovelSearchQuery(:final filters) => filters,
-    UserSearchQuery() => null,
-  };
+  /// Replaces the route with the switched query. Null for hosts without a
+  /// result route of their own (the legacy tag page): the switch stays
+  /// local to the page.
+  final ValueChanged<SearchResultType>? onTypeChanged;
 
-  Future<void> _editFilters(BuildContext context) async {
-    final filters = _filters;
-    if (filters == null) return;
+  @override
+  State<SearchResultPage> createState() => _SearchResultPageState();
+}
+
+class _SearchResultPageState extends State<SearchResultPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+  late SearchResultType _selectedType;
+  final _scrollControllers = <SearchResultType, ScrollController>{};
+  final _loadedTypes = <SearchResultType>{};
+
+  /// One body per type, reused across page builds while its query is
+  /// unchanged — same reasoning as the ranking page's body cache.
+  final _bodies = <SearchResultType, _SearchTabBody>{};
+
+  /// A context inside the Scaffold's notification scope (see
+  /// [announceTabScroll]).
+  late BuildContext _notificationContext;
+
+  SearchQuery get _activeQuery => widget.query.withType(_selectedType);
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedType = widget.query.type;
+    _loadedTypes.add(_selectedType);
+    _tabController = TabController(
+      length: SearchResultType.values.length,
+      vsync: this,
+      initialIndex: _selectedType.index,
+    )..addListener(_handleTabChanged);
+  }
+
+  @override
+  void didUpdateWidget(SearchResultPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final type = widget.query.type;
+    if (type == _selectedType) return;
+    // The route changed type from outside a tab tap: follow it without an
+    // animation. The listener sees the type already selected and stays
+    // quiet, so the route is not replaced a second time.
+    _selectedType = type;
+    _loadedTypes.add(type);
+    _tabController.index = type.index;
+    announceTabScroll(_notificationContext, _scrollControllerFor(type));
+  }
+
+  @override
+  void dispose() {
+    _tabController
+      ..removeListener(_handleTabChanged)
+      ..dispose();
+    for (final controller in _scrollControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _handleTabChanged() {
+    final type = SearchResultType.values[_tabController.index];
+    if (type == _selectedType) return;
+    setState(() {
+      _selectedType = type;
+      _loadedTypes.add(type);
+    });
+    announceTabScroll(_notificationContext, _scrollControllerFor(type));
+    widget.onTypeChanged?.call(type);
+  }
+
+  ScrollController _scrollControllerFor(SearchResultType type) {
+    return _scrollControllers.putIfAbsent(
+      type,
+      () => ScrollController(
+        onAttach: (_) {
+          // A first-visited tab's list mounts after the tab-change
+          // announce has already fired.
+          if (type == _selectedType) {
+            announceTabScroll(_notificationContext, _scrollControllers[type]!);
+          }
+        },
+      ),
+    );
+  }
+
+  void _prepareAdjacent(int index) {
+    final types = SearchResultType.values;
+    final last = types.length - 1;
+    final neighbours = {
+      types[(index - 1).clamp(0, last)],
+      types[(index + 1).clamp(0, last)],
+    };
+    if (_loadedTypes.containsAll(neighbours)) return;
+    setState(() => _loadedTypes.addAll(neighbours));
+  }
+
+  _SearchTabBody _bodyFor(SearchResultType type) {
+    final query = widget.query.withType(type);
+    final cached = _bodies[type];
+    if (cached != null && cached.query == query) return cached;
+    return _bodies[type] = _SearchTabBody(
+      key: ValueKey(type),
+      query: query,
+      scrollController: _scrollControllerFor(type),
+    );
+  }
+
+  /// Applies [filters] to the tab on screen and records it in the route.
+  void _replaceFilters(SearchFilters filters) {
+    replaceSearchResults(
+      context,
+      IllustSearchQuery(
+        keyword: widget.query.keyword,
+        filters: filters,
+      ).withType(_selectedType),
+    );
+  }
+
+  Future<void> _editFilters() async {
     final selected = await showSearchFilterSheet(
       context,
-      initial: filters,
-      type: query.type,
+      initial: _activeQuery.carriedFilters,
+      type: _selectedType,
     );
-    if (!context.mounted || selected == null) return;
-    final updated = switch (query) {
-      IllustSearchQuery() => (query as IllustSearchQuery).copyWith(
-        filters: selected,
-      ),
-      NovelSearchQuery() => (query as NovelSearchQuery).copyWith(
-        filters: selected,
-      ),
-      UserSearchQuery() => query,
-    };
-    replaceSearchResults(context, updated);
+    if (!mounted || selected == null) return;
+    _replaceFilters(selected);
   }
 
   /// The result-page header keeps "what am I looking at" live: tapping the
   /// keyword reopens the input page prefilled with this query so editing a
   /// search never means retyping it.
-  void _editQuery(BuildContext context) {
-    openSearchInput(context, initialKeyword: query.keyword, type: query.type);
-  }
-
-  void _clearFilters(BuildContext context) {
-    final updated = switch (query) {
-      IllustSearchQuery() => (query as IllustSearchQuery).copyWith(
-        filters: SearchFilters.defaults,
-      ),
-      NovelSearchQuery() => (query as NovelSearchQuery).copyWith(
-        filters: SearchFilters.defaults,
-      ),
-      UserSearchQuery() => query,
-    };
-    replaceSearchResults(context, updated);
+  void _editQuery() {
+    openSearchInput(
+      context,
+      initialKeyword: widget.query.keyword,
+      type: _selectedType,
+    );
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(searchFeedProvider(query));
-    final filters = _filters;
+  Widget build(BuildContext context) {
+    // The user tab has no filters: the bar goes away and the app bar gets
+    // shorter.
+    final showFilters = _selectedType != SearchResultType.user;
+    final tabBar = AppTabBar(
+      controller: _tabController,
+      onTap: (index) {
+        // A same-index tap leaves indexIsChanging false: scroll the
+        // current tab to top, nothing else.
+        if (!_tabController.indexIsChanging) {
+          reTapScrollToTop(
+            context,
+            _scrollControllerFor(SearchResultType.values[index]),
+          );
+        }
+      },
+      labels: [
+        for (final type in SearchResultType.values)
+          searchText(context, type.labelKey),
+      ],
+    );
     return Scaffold(
       // No inline composer: a `true` here would subscribe this page (and
       // every live branch page) to per-frame viewInsets churn while the
@@ -97,7 +220,7 @@ class SearchResultPage extends ConsumerWidget {
           message: context.l10n.searchModifyQuery,
           child: InkWell(
             borderRadius: FuncShape.control,
-            onTap: () => _editQuery(context),
+            onTap: _editQuery,
             child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: FuncSpacing.xs,
@@ -108,7 +231,7 @@ class SearchResultPage extends ConsumerWidget {
                 children: [
                   Flexible(
                     child: Text(
-                      query.keyword.trim(),
+                      widget.query.keyword.trim(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -128,86 +251,137 @@ class SearchResultPage extends ConsumerWidget {
         // loading/error/empty alike): one chip per active filter, tapping
         // any chip opens the sheet, the clear entry stays on the row even
         // when nothing is active so its affordance never moves.
-        bottom: filters == null
-            ? null
-            : PreferredSize(
-                preferredSize: const Size.fromHeight(44),
-                child: _FilterSummaryBar(
-                  filters: filters,
-                  onEdit: () => _editFilters(context),
-                  onClear: () => _clearFilters(context),
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(
+            tabBar.preferredSize.height + (showFilters ? _filterBarHeight : 0),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              tabBar,
+              if (showFilters)
+                _FilterSummaryBar(
+                  filters: _activeQuery.carriedFilters,
+                  onEdit: _editFilters,
+                  onClear: () => _replaceFilters(SearchFilters.defaults),
                 ),
-              ),
+            ],
+          ),
+        ),
         actions: [
-          if (_filters != null)
+          if (showFilters)
             IconButton(
               tooltip: context.l10n.searchFilters,
-              onPressed: () => _editFilters(context),
+              onPressed: _editFilters,
               icon: const Icon(Icons.tune),
             ),
         ],
       ),
-      body: async.when(
-        loading: () => switch (query) {
-          IllustSearchQuery() => IllustGridSkeleton(
-            label: context.l10n.searchLoading,
-            padding: _illustGridPadding,
-          ),
-          _ => FeedLoading(label: context.l10n.searchLoading),
-        },
-        error: (error, _) => FeedError(
-          title: context.l10n.searchLoadFailed,
-          error: error,
-          retryLabel: context.l10n.searchRetry,
-          onRetry: () => ref.invalidate(searchFeedProvider(query)),
-        ),
-        data: (feed) {
-          if (feed.showInitialError) {
-            return FeedError(
-              title: context.l10n.searchLoadFailed,
-              error: feed.initialError ?? const ApiParseError('unknown error'),
-              retryLabel: context.l10n.searchRetry,
-              onRetry: () =>
-                  ref.read(searchFeedProvider(query).notifier).retryInitial(),
-            );
-          }
-          if (feed.showInitialSpinner) {
-            return switch (query) {
-              IllustSearchQuery() => IllustGridSkeleton(
-                label: context.l10n.searchLoading,
-                padding: _illustGridPadding,
-              ),
-              _ => FeedLoading(label: context.l10n.searchLoading),
-            };
-          }
-          return _SearchFeedContent(query: query, feed: feed);
+      body: Builder(
+        builder: (context) {
+          _notificationContext = context;
+          return TabSwipeSwitcher(
+            tabController: _tabController,
+            onPrepareAdjacent: _prepareAdjacent,
+            child: TabSlideStack(
+              controller: _tabController,
+              children: [
+                for (final type in SearchResultType.values)
+                  if (_loadedTypes.contains(type))
+                    _bodyFor(type)
+                  else
+                    const SizedBox.shrink(),
+              ],
+            ),
+          );
         },
       ),
     );
   }
 }
 
-class _SearchFeedContent extends ConsumerWidget {
-  const _SearchFeedContent({required this.query, required this.feed});
+/// One result tab: loading, error and the feed for [query].
+class _SearchTabBody extends ConsumerWidget {
+  const _SearchTabBody({
+    super.key,
+    required this.query,
+    required this.scrollController,
+  });
 
   final SearchQuery query;
-  final PagedFeedState feed;
+  final ScrollController scrollController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return switch (query) {
-      IllustSearchQuery() => _IllustSearchFeed(query: query, feed: feed),
-      NovelSearchQuery() => _NovelSearchFeed(query: query, feed: feed),
-      UserSearchQuery() => _UserSearchFeed(query: query, feed: feed),
-    };
+    return ref
+        .watch(searchFeedProvider(query))
+        .when(
+          loading: () => _SearchLoading(query: query),
+          error: (error, _) => FeedError(
+            title: context.l10n.searchLoadFailed,
+            error: error,
+            retryLabel: context.l10n.searchRetry,
+            onRetry: () => ref.invalidate(searchFeedProvider(query)),
+          ),
+          data: (feed) {
+            if (feed.showInitialError) {
+              return FeedError(
+                title: context.l10n.searchLoadFailed,
+                error:
+                    feed.initialError ?? const ApiParseError('unknown error'),
+                retryLabel: context.l10n.searchRetry,
+                onRetry: () =>
+                    ref.read(searchFeedProvider(query).notifier).retryInitial(),
+              );
+            }
+            if (feed.showInitialSpinner) return _SearchLoading(query: query);
+            return switch (query) {
+              IllustSearchQuery() => _IllustSearchFeed(
+                query: query,
+                feed: feed,
+                scrollController: scrollController,
+              ),
+              NovelSearchQuery() => _NovelSearchFeed(
+                query: query,
+                feed: feed,
+                scrollController: scrollController,
+              ),
+              UserSearchQuery() => _UserSearchFeed(
+                query: query,
+                feed: feed,
+                scrollController: scrollController,
+              ),
+            };
+          },
+        );
   }
 }
 
+class _SearchLoading extends StatelessWidget {
+  const _SearchLoading({required this.query});
+
+  final SearchQuery query;
+
+  @override
+  Widget build(BuildContext context) => switch (query) {
+    IllustSearchQuery() => IllustGridSkeleton(
+      label: context.l10n.searchLoading,
+      padding: _illustGridPadding,
+    ),
+    _ => FeedLoading(label: context.l10n.searchLoading),
+  };
+}
+
 class _IllustSearchFeed extends ConsumerWidget {
-  const _IllustSearchFeed({required this.query, required this.feed});
+  const _IllustSearchFeed({
+    required this.query,
+    required this.feed,
+    required this.scrollController,
+  });
 
   final SearchQuery query;
   final PagedFeedState feed;
+  final ScrollController scrollController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -238,6 +412,7 @@ class _IllustSearchFeed extends ConsumerWidget {
           return false;
         },
         child: SmoothWheelScroll(
+          controller: scrollController,
           basePhysics: const AlwaysScrollableScrollPhysics(),
           builder: (context, controller, physics) => CustomScrollView(
             key: PageStorageKey(query.cacheKey),
@@ -277,10 +452,15 @@ class _IllustSearchFeed extends ConsumerWidget {
 }
 
 class _NovelSearchFeed extends ConsumerWidget {
-  const _NovelSearchFeed({required this.query, required this.feed});
+  const _NovelSearchFeed({
+    required this.query,
+    required this.feed,
+    required this.scrollController,
+  });
 
   final SearchQuery query;
   final PagedFeedState feed;
+  final ScrollController scrollController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -316,6 +496,7 @@ class _NovelSearchFeed extends ConsumerWidget {
         },
         child: ListView.builder(
           key: PageStorageKey(query.cacheKey),
+          controller: scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           scrollCacheExtent: kFeedCacheExtent,
           restorationId: 'search-${query.cacheKey}',
@@ -340,10 +521,15 @@ class _NovelSearchFeed extends ConsumerWidget {
 }
 
 class _UserSearchFeed extends ConsumerWidget {
-  const _UserSearchFeed({required this.query, required this.feed});
+  const _UserSearchFeed({
+    required this.query,
+    required this.feed,
+    required this.scrollController,
+  });
 
   final SearchQuery query;
   final PagedFeedState feed;
+  final ScrollController scrollController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -379,6 +565,7 @@ class _UserSearchFeed extends ConsumerWidget {
         },
         child: ListView.builder(
           key: PageStorageKey(query.cacheKey),
+          controller: scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           scrollCacheExtent: kFeedCacheExtent,
           restorationId: 'search-${query.cacheKey}',
@@ -456,43 +643,89 @@ class _FilterSummaryBar extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onClear;
 
-  String _dateText(BuildContext context, DateTime value) =>
-      AppFormat.date(context, value);
+  String? _dateLabel(BuildContext context) {
+    final l10n = context.l10n;
+    final start = filters.startDate == null
+        ? null
+        : AppFormat.date(context, filters.startDate!);
+    final end = filters.endDate == null
+        ? null
+        : AppFormat.date(context, filters.endDate!);
+    return switch ((start, end)) {
+      (null, null) => null,
+      (final start?, null) => l10n.searchDateFrom(start),
+      (null, final end?) => l10n.searchDateUntil(end),
+      (final start?, final end?) => l10n.searchDateBetween(start, end),
+    };
+  }
+
+  /// One bounded filter as "label, bound(s)"; null when neither bound is
+  /// set. [format] renders a bound (compact counts or raw pixels).
+  static String? _rangeLabel(
+    BuildContext context,
+    String label,
+    int? min,
+    int? max,
+    String Function(int value) format,
+  ) {
+    final l10n = context.l10n;
+    return switch ((min, max)) {
+      (null, null) => null,
+      (final min?, null) => l10n.searchRangeAtLeast(label, format(min)),
+      (null, final max?) => l10n.searchRangeAtMost(label, format(max)),
+      (final min?, final max?) => l10n.searchRangeBetween(
+        label,
+        format(min),
+        format(max),
+      ),
+    };
+  }
 
   List<String> _activeLabels(BuildContext context) {
     final l10n = context.l10n;
-    final labels = <String>[
+    String pixels(int value) => '$value';
+    return [
       if (filters.target != SearchTarget.partialMatchForTags)
         searchText(context, filters.target.labelKey),
       if (filters.sort != SearchSort.dateDesc)
         searchText(context, filters.sort.labelKey),
       if (filters.duration != null)
         searchText(context, filters.duration!.labelKey),
-      if (filters.startDate != null || filters.endDate != null)
-        '${filters.startDate == null ? '…' : _dateText(context, filters.startDate!)}'
-            ' – ${filters.endDate == null ? '…' : _dateText(context, filters.endDate!)}',
+      ?_dateLabel(context),
       if (filters.aiFilter != SearchAiFilter.all)
         searchText(context, filters.aiFilter.labelKey),
-      if (filters.bookmarkMin != null || filters.bookmarkMax != null)
-        '♥ ${filters.bookmarkMin ?? 0} – ${filters.bookmarkMax ?? '∞'}',
+      ?_rangeLabel(
+        context,
+        l10n.searchBookmarkSection,
+        filters.bookmarkMin,
+        filters.bookmarkMax,
+        (value) => AppFormat.count(context, value),
+      ),
       if (filters.ratio != null) searchText(context, filters.ratio!.labelKey),
       if (filters.contentType != SearchContentType.illustAndMangaAndUgoira)
         searchText(context, filters.contentType.labelKey),
-      if (filters.widthMin != null || filters.widthMax != null)
-        '${l10n.searchWidth} '
-            '${filters.widthMin ?? 0} – ${filters.widthMax ?? '∞'}',
-      if (filters.heightMin != null || filters.heightMax != null)
-        '${l10n.searchHeight} '
-            '${filters.heightMin ?? 0} – ${filters.heightMax ?? '∞'}',
+      ?_rangeLabel(
+        context,
+        l10n.searchWidth,
+        filters.widthMin,
+        filters.widthMax,
+        pixels,
+      ),
+      ?_rangeLabel(
+        context,
+        l10n.searchHeight,
+        filters.heightMin,
+        filters.heightMax,
+        pixels,
+      ),
     ];
-    return labels;
   }
 
   @override
   Widget build(BuildContext context) {
     final labels = _activeLabels(context);
     return SizedBox(
-      height: 44,
+      height: _filterBarHeight,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(

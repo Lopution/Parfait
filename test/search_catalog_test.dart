@@ -1620,7 +1620,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Active fields surface as chips next to the persistent clear entry.
-    expect(find.textContaining('♥'), findsWidgets);
+    expect(find.text('收藏数 100 以上'), findsOneWidget);
     expect(find.text('重置'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(ActionChip, '重置'));

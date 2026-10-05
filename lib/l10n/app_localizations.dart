@@ -3521,6 +3521,42 @@ abstract class AppLocalizations {
   /// **'高'**
   String get searchHeight;
 
+  /// Filter chip: a lower bound only, e.g. bookmarks or width
+  ///
+  /// In zh, this message translates to:
+  /// **'{label} {value} 以上'**
+  String searchRangeAtLeast(String label, String value);
+
+  /// Filter chip: an upper bound only
+  ///
+  /// In zh, this message translates to:
+  /// **'{label} {value} 以下'**
+  String searchRangeAtMost(String label, String value);
+
+  /// Filter chip: both bounds
+  ///
+  /// In zh, this message translates to:
+  /// **'{label} {min}–{max}'**
+  String searchRangeBetween(String label, String min, String max);
+
+  /// Filter chip: start date only
+  ///
+  /// In zh, this message translates to:
+  /// **'{date} 起'**
+  String searchDateFrom(String date);
+
+  /// Filter chip: end date only
+  ///
+  /// In zh, this message translates to:
+  /// **'截至 {date}'**
+  String searchDateUntil(String date);
+
+  /// Filter chip: a date range
+  ///
+  /// In zh, this message translates to:
+  /// **'{start} – {end}'**
+  String searchDateBetween(String start, String end);
+
   /// No description provided for @searchDuration.
   ///
   /// In zh, this message translates to:

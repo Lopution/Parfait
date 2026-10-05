@@ -54,6 +54,12 @@ const _textPlaceholderKeys = <String, String>{
   'profileFollowingCount': 'compact count (AppFormat.count)',
   'profileMyPixivCount': 'compact count (AppFormat.count)',
   'profileTagFilter': 'bookmark tag name',
+  'searchRangeAtLeast': 'filter label and formatted bound',
+  'searchRangeAtMost': 'filter label and formatted bound',
+  'searchRangeBetween': 'filter label and formatted bounds',
+  'searchDateFrom': 'formatted date',
+  'searchDateUntil': 'formatted date',
+  'searchDateBetween': 'formatted dates',
 };
 
 const _textTypes = {'String', 'Object'};

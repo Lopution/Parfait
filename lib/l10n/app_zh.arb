@@ -843,6 +843,75 @@
   "searchResolutionSection": "分辨率",
   "searchWidth": "宽",
   "searchHeight": "高",
+  "searchRangeAtLeast": "{label} {value} 以上",
+  "@searchRangeAtLeast": {
+    "description": "Filter chip: a lower bound only, e.g. bookmarks or width",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "searchRangeAtMost": "{label} {value} 以下",
+  "@searchRangeAtMost": {
+    "description": "Filter chip: an upper bound only",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "searchRangeBetween": "{label} {min}–{max}",
+  "@searchRangeBetween": {
+    "description": "Filter chip: both bounds",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "min": {
+        "type": "String"
+      },
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "searchDateFrom": "{date} 起",
+  "@searchDateFrom": {
+    "description": "Filter chip: start date only",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "searchDateUntil": "截至 {date}",
+  "@searchDateUntil": {
+    "description": "Filter chip: end date only",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "searchDateBetween": "{start} – {end}",
+  "@searchDateBetween": {
+    "description": "Filter chip: a date range",
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
   "searchDuration": "发布时间",
   "searchAllTime": "不限时间",
   "searchWithinDay": "一天内",

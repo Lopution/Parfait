@@ -1836,6 +1836,36 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchHeight => '高さ';
 
   @override
+  String searchRangeAtLeast(String label, String value) {
+    return '$label $value以上';
+  }
+
+  @override
+  String searchRangeAtMost(String label, String value) {
+    return '$label $value以下';
+  }
+
+  @override
+  String searchRangeBetween(String label, String min, String max) {
+    return '$label $min～$max';
+  }
+
+  @override
+  String searchDateFrom(String date) {
+    return '$date以降';
+  }
+
+  @override
+  String searchDateUntil(String date) {
+    return '$dateまで';
+  }
+
+  @override
+  String searchDateBetween(String start, String end) {
+    return '$start～$end';
+  }
+
+  @override
   String get searchDuration => '投稿日';
 
   @override

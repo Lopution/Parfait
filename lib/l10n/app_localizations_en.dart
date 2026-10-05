@@ -1889,6 +1889,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchHeight => 'Height';
 
   @override
+  String searchRangeAtLeast(String label, String value) {
+    return '$label: $value or more';
+  }
+
+  @override
+  String searchRangeAtMost(String label, String value) {
+    return '$label: up to $value';
+  }
+
+  @override
+  String searchRangeBetween(String label, String min, String max) {
+    return '$label: $min–$max';
+  }
+
+  @override
+  String searchDateFrom(String date) {
+    return 'From $date';
+  }
+
+  @override
+  String searchDateUntil(String date) {
+    return 'Until $date';
+  }
+
+  @override
+  String searchDateBetween(String start, String end) {
+    return '$start – $end';
+  }
+
+  @override
   String get searchDuration => 'Published';
 
   @override

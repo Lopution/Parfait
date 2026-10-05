@@ -447,6 +447,26 @@ sealed class SearchQuery {
   String get cacheKey => '$type|${keyword.trim()}';
 
   bool get isEmpty => keyword.trim().isEmpty;
+
+  /// The filters this query carries or, for a user query, holds on to so a
+  /// switch back to an artwork tab restores them.
+  SearchFilters get carriedFilters;
+
+  /// The same keyword and filters as a query for [type].
+  SearchQuery withType(SearchResultType type) => switch (type) {
+    SearchResultType.illust => IllustSearchQuery(
+      keyword: keyword,
+      filters: carriedFilters,
+    ),
+    SearchResultType.novel => NovelSearchQuery(
+      keyword: keyword,
+      filters: carriedFilters,
+    ),
+    SearchResultType.user => UserSearchQuery(
+      keyword: keyword,
+      retainedFilters: carriedFilters,
+    ),
+  };
 }
 
 @immutable
@@ -460,6 +480,9 @@ class IllustSearchQuery extends SearchQuery {
   final SearchResultType type = SearchResultType.illust;
 
   final SearchFilters filters;
+
+  @override
+  SearchFilters get carriedFilters => filters;
 
   @override
   String get cacheKey => '${super.cacheKey}|${filters.cacheKey}';
@@ -500,6 +523,9 @@ class NovelSearchQuery extends SearchQuery {
   final SearchFilters filters;
 
   @override
+  SearchFilters get carriedFilters => filters;
+
+  @override
   String get cacheKey => '${super.cacheKey}|${filters.cacheKey}';
 
   @override
@@ -526,10 +552,20 @@ class NovelSearchQuery extends SearchQuery {
 
 @immutable
 class UserSearchQuery extends SearchQuery {
-  const UserSearchQuery({required String keyword}) : super(keyword);
+  const UserSearchQuery({
+    required String keyword,
+    this.retainedFilters = SearchFilters.defaults,
+  }) : super(keyword);
 
   @override
   final SearchResultType type = SearchResultType.user;
+
+  /// Never sent to the API; only kept in the route so switching back to an
+  /// artwork tab restores the filters.
+  final SearchFilters retainedFilters;
+
+  @override
+  SearchFilters get carriedFilters => retainedFilters;
 
   @override
   Map<String, String> toQuery() {
@@ -540,18 +576,22 @@ class UserSearchQuery extends SearchQuery {
     return {'word': normalized, 'filter': 'for_android'};
   }
 
-  UserSearchQuery copyWith({String? keyword}) =>
-      UserSearchQuery(keyword: keyword ?? this.keyword);
+  UserSearchQuery copyWith({String? keyword}) => UserSearchQuery(
+    keyword: keyword ?? this.keyword,
+    retainedFilters: retainedFilters,
+  );
 
   @override
   bool operator ==(Object other) =>
-      other is UserSearchQuery && other.keyword == keyword;
+      other is UserSearchQuery &&
+      other.keyword == keyword &&
+      other.retainedFilters == retainedFilters;
 
   @override
-  int get hashCode => keyword.hashCode;
+  int get hashCode => Object.hash(keyword, retainedFilters);
 
   @override
-  String toString() => 'UserSearchQuery($keyword)';
+  String toString() => 'UserSearchQuery($keyword, $retainedFilters)';
 }
 
 String _formatDate(DateTime value) {

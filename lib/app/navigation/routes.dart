@@ -363,49 +363,36 @@ SearchFilters _searchFilters(GoRouterState state) => SearchFilters(
 
 SearchQuery _searchQuery(GoRouterState state) {
   final keyword = state.uri.queryParameters['q'] ?? '';
-  final filters = _searchFilters(state);
-  return switch (_searchType(state.uri.queryParameters['type'])) {
-    SearchResultType.illust => IllustSearchQuery(
-      keyword: keyword,
-      filters: filters,
-    ),
-    SearchResultType.novel => NovelSearchQuery(
-      keyword: keyword,
-      filters: filters,
-    ),
-    SearchResultType.user => UserSearchQuery(keyword: keyword),
-  };
+  return IllustSearchQuery(
+    keyword: keyword,
+    filters: _searchFilters(state),
+  ).withType(_searchType(state.uri.queryParameters['type']));
 }
 
 Map<String, String> _searchQueryParameters(SearchQuery query) {
-  final filters = switch (query) {
-    IllustSearchQuery(:final filters) => filters,
-    NovelSearchQuery(:final filters) => filters,
-    UserSearchQuery() => null,
-  };
+  // A user query serializes its retained filters too, so switching back
+  // to an artwork tab restores them.
+  final filters = query.carriedFilters;
   return {
     'q': query.keyword,
     'type': query.type.name,
-    if (filters != null) ...{
-      'target': filters.target.wireValue,
-      'sort': filters.sort.wireValue,
-      if (filters.duration != null) 'duration': filters.duration!.wireValue,
-      if (filters.startDate != null)
-        'start': _searchDateText(filters.startDate!),
-      if (filters.endDate != null) 'end': _searchDateText(filters.endDate!),
-      // Non-nullable selectors always serialize so the URL is
-      // self-describing; `ai` uses the enum name because `all`/`only`
-      // share the null wire value.
-      'ai': filters.aiFilter.name,
-      if (filters.bookmarkMin != null) 'bmin': '${filters.bookmarkMin}',
-      if (filters.bookmarkMax != null) 'bmax': '${filters.bookmarkMax}',
-      if (filters.ratio != null) 'ratio': filters.ratio!.wireValue,
-      'ct': filters.contentType.wireValue,
-      if (filters.widthMin != null) 'wmin': '${filters.widthMin}',
-      if (filters.widthMax != null) 'wmax': '${filters.widthMax}',
-      if (filters.heightMin != null) 'hmin': '${filters.heightMin}',
-      if (filters.heightMax != null) 'hmax': '${filters.heightMax}',
-    },
+    'target': filters.target.wireValue,
+    'sort': filters.sort.wireValue,
+    if (filters.duration != null) 'duration': filters.duration!.wireValue,
+    if (filters.startDate != null) 'start': _searchDateText(filters.startDate!),
+    if (filters.endDate != null) 'end': _searchDateText(filters.endDate!),
+    // Non-nullable selectors always serialize so the URL is
+    // self-describing; `ai` uses the enum name because `all`/`only`
+    // share the null wire value.
+    'ai': filters.aiFilter.name,
+    if (filters.bookmarkMin != null) 'bmin': '${filters.bookmarkMin}',
+    if (filters.bookmarkMax != null) 'bmax': '${filters.bookmarkMax}',
+    if (filters.ratio != null) 'ratio': filters.ratio!.wireValue,
+    'ct': filters.contentType.wireValue,
+    if (filters.widthMin != null) 'wmin': '${filters.widthMin}',
+    if (filters.widthMax != null) 'wmax': '${filters.widthMax}',
+    if (filters.heightMin != null) 'hmin': '${filters.heightMin}',
+    if (filters.heightMax != null) 'hmax': '${filters.heightMax}',
   };
 }
 
@@ -453,7 +440,11 @@ List<RouteBase> _searchRoutes(
         context,
         state,
         observer,
-        SearchResultPage(query: _searchQuery(state)),
+        SearchResultPage(
+          query: _searchQuery(state),
+          onTypeChanged: (type) =>
+              replaceSearchResults(context, _searchQuery(state).withType(type)),
+        ),
       ),
     ),
   ];

@@ -1894,6 +1894,36 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchHeight => 'Высота';
 
   @override
+  String searchRangeAtLeast(String label, String value) {
+    return '$label: от $value';
+  }
+
+  @override
+  String searchRangeAtMost(String label, String value) {
+    return '$label: до $value';
+  }
+
+  @override
+  String searchRangeBetween(String label, String min, String max) {
+    return '$label: $min–$max';
+  }
+
+  @override
+  String searchDateFrom(String date) {
+    return 'С $date';
+  }
+
+  @override
+  String searchDateUntil(String date) {
+    return 'По $date';
+  }
+
+  @override
+  String searchDateBetween(String start, String end) {
+    return '$start – $end';
+  }
+
+  @override
   String get searchDuration => 'Дата публикации';
 
   @override
