@@ -1945,6 +1945,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String detailExpandPages(int count) {
+    return 'Show all $count images';
+  }
+
+  @override
   String get illustDetailOpenLinkFailed => 'Could not open the link';
 
   @override

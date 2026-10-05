@@ -1896,6 +1896,82 @@ void main() {
     });
   });
 
+  group('multi-image pages (R2)', () {
+    Finder page(int index) =>
+        find.byKey(ValueKey<Object?>('illust-page-42-$index'));
+
+    Future<ProviderContainer> pumpWork(
+      WidgetTester tester, {
+      required String type,
+    }) async {
+      tester.view.physicalSize = const Size(800, 4000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final json = illustJson(
+        42,
+        pageCount: 3,
+        type: type,
+        withMetaPages: true,
+      );
+      final (container, _, _) = await makeWorld(detailOverrides: {42: json});
+      container.read(illustStoreProvider).mergeAll([parseIllust(json)]);
+      await pumpDetail(
+        tester,
+        container,
+        seedStore: false,
+        locale: const Locale('en', 'US'),
+      );
+      await tester.pumpAndSettle();
+      return container;
+    }
+
+    testWidgets('an illustration set opens on its first image', (tester) async {
+      await pumpWork(tester, type: 'illust');
+      expect(page(0), findsOneWidget);
+      expect(page(1), findsNothing);
+      final expand = find.byKey(const Key('illust-expand-pages'));
+      expect(find.text('Show all 3 images'), findsOneWidget);
+      expect(
+        tester.getSemantics(expand),
+        matchesSemantics(
+          label: 'Show all 3 images',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          isFocusable: true,
+          hasTapAction: true,
+          hasFocusAction: true,
+          hasExpandedState: true,
+        ),
+      );
+      expect(tester.getSize(expand).height, greaterThanOrEqualTo(48));
+
+      await tester.tap(expand);
+      await tester.pumpAndSettle();
+      expect(page(1), findsOneWidget);
+      expect(page(2), findsOneWidget);
+      // No collapse back: the button is gone.
+      expect(expand, findsNothing);
+    });
+
+    testWidgets('manga shows every page', (tester) async {
+      await pumpWork(tester, type: 'manga');
+      expect(page(2), findsOneWidget);
+      expect(find.byKey(const Key('illust-expand-pages')), findsNothing);
+    });
+
+    testWidgets('selecting pages to download shows every page', (tester) async {
+      await pumpWork(tester, type: 'illust');
+      expect(page(2), findsNothing);
+
+      await openDetailMenu(tester);
+      await tester.tap(find.text('Select pages to download'));
+      await tester.pumpAndSettle();
+      expect(page(2), findsOneWidget);
+      expect(find.byKey(const Key('illust-expand-pages')), findsNothing);
+    });
+  });
+
   group('Related works (official detail-page section)', () {
     testWidgets('renders the section title and related tiles', (tester) async {
       final (container, _, _) = await makeWorld(
@@ -2049,13 +2125,15 @@ void main() {
     testWidgets(
       'the counter follows the scrolled page and leaves with the artwork',
       (tester) async {
-        // Related works make the meta tail taller than the viewport —
+        // Manga shows every page. Related works make the meta tail taller
+        // than the viewport —
         // scrolling to the bottom leaves every page fully off screen.
         final (container, _, _) = await makeWorld(
           detailOverrides: {
             42: illustJson(
               42,
               pageCount: 3,
+              type: 'manga',
               withMetaPages: true,
               caption: '作品说明文字',
             ),
@@ -2074,6 +2152,7 @@ void main() {
             illustJson(
               42,
               pageCount: 3,
+              type: 'manga',
               withMetaPages: true,
               caption: '作品说明文字',
             ),

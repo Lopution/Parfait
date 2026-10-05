@@ -827,6 +827,7 @@
   "illustDetailTitle": "Работа",
   "detailMetaSemantics": "Опубликовано {date}, просмотров: {views}, закладок: {bookmarks}",
   "detailMetaCountsSemantics": "Просмотров: {views}, закладок: {bookmarks}",
+  "detailExpandPages": "Показать все ({count})",
   "illustDetailOpenLinkFailed": "Не удалось открыть ссылку",
   "illustDetailRestricted": "Работа удалена или ограничена (ID: {id})",
   "@illustDetailRestricted": {

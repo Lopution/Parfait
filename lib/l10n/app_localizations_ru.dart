@@ -1951,6 +1951,11 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String detailExpandPages(int count) {
+    return 'Показать все ($count)';
+  }
+
+  @override
   String get illustDetailOpenLinkFailed => 'Не удалось открыть ссылку';
 
   @override

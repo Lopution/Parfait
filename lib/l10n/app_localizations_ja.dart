@@ -1891,6 +1891,11 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String detailExpandPages(int count) {
+    return '全$count枚を表示';
+  }
+
+  @override
   String get illustDetailOpenLinkFailed => 'リンクを開けませんでした';
 
   @override

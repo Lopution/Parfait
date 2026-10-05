@@ -827,6 +827,7 @@
   "illustDetailTitle": "Artwork",
   "detailMetaSemantics": "Posted {date}, {views} views, {bookmarks} bookmarks",
   "detailMetaCountsSemantics": "{views} views, {bookmarks} bookmarks",
+  "detailExpandPages": "Show all {count} images",
   "illustDetailOpenLinkFailed": "Could not open the link",
   "illustDetailRestricted": "This artwork has been deleted or restricted (ID: {id})",
   "@illustDetailRestricted": {

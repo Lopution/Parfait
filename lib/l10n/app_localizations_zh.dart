@@ -1864,6 +1864,11 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String detailExpandPages(int count) {
+    return '展开全部 $count 张';
+  }
+
+  @override
   String get illustDetailOpenLinkFailed => '无法打开链接';
 
   @override

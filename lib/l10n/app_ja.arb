@@ -827,6 +827,7 @@
   "illustDetailTitle": "作品詳細",
   "detailMetaSemantics": "{date}投稿、閲覧 {views}、ブックマーク {bookmarks}",
   "detailMetaCountsSemantics": "閲覧 {views}、ブックマーク {bookmarks}",
+  "detailExpandPages": "全{count}枚を表示",
   "illustDetailOpenLinkFailed": "リンクを開けませんでした",
   "illustDetailRestricted": "この作品は削除または非公開になりました（ID: {id}）",
   "@illustDetailRestricted": {

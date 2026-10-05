@@ -885,6 +885,15 @@
       }
     }
   },
+  "detailExpandPages": "展开全部 {count} 张",
+  "@detailExpandPages": {
+    "description": "Under the first image of a multi-image illustration; shows the rest.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "illustDetailOpenLinkFailed": "无法打开链接",
   "illustDetailRestricted": "该作品已被删除或受限（ID: {id}）",
   "@illustDetailRestricted": {

@@ -3623,6 +3623,12 @@ abstract class AppLocalizations {
   /// **'{views} 次浏览，{bookmarks} 次收藏'**
   String detailMetaCountsSemantics(String views, String bookmarks);
 
+  /// Under the first image of a multi-image illustration; shows the rest.
+  ///
+  /// In zh, this message translates to:
+  /// **'展开全部 {count} 张'**
+  String detailExpandPages(int count);
+
   /// No description provided for @illustDetailOpenLinkFailed.
   ///
   /// In zh, this message translates to:

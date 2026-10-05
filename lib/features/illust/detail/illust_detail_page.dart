@@ -134,6 +134,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   }
 
   bool _blockMode = false;
+
+  /// Whether a multi-image illustration shows every page. Lives with this
+  /// page only: a new visit starts collapsed again.
+  bool _pagesExpanded = false;
   StreamSubscription<DownloadEvent>? _downloadEvents;
 
   @override
@@ -158,7 +162,11 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   void _enterDownloadMode() {
     if (_downloadMode) return;
     AppHaptics.confirm();
-    setState(() => _selectedPages = <int>{});
+    // Every page has to be on screen to be picked.
+    setState(() {
+      _selectedPages = <int>{};
+      _pagesExpanded = true;
+    });
   }
 
   /// Any exit path (cancel button, blank tap, system back) is a light
@@ -457,6 +465,13 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
 
     // The media column and the metadata column are the same slivers in both
     // layouts; only their arrangement differs (single scroll vs two panes).
+    // An illustration set opens on its first image; manga reads in full.
+    final shownPages =
+        entity.type == IllustType.illust &&
+            entity.pageCount > 1 &&
+            !_pagesExpanded
+        ? 1
+        : entity.pageCount;
     final imageSlivers = <Widget>[
       if (entity.isUgoira)
         SliverToBoxAdapter(
@@ -507,7 +522,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
         SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) => Padding(
-              padding: index == entity.pageCount - 1
+              padding: index == shownPages - 1
                   ? EdgeInsets.zero
                   : const EdgeInsets.only(bottom: FuncSpacing.sm),
               child: VisibilityDetector(
@@ -538,7 +553,14 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
             // non-first pages render as neutral placeholders (uniform
             // ratio), and the real images/proportions replace them when
             // the detail API payload is merged.
-            childCount: entity.pageCount,
+            childCount: shownPages,
+          ),
+        ),
+      if (shownPages < entity.pageCount)
+        SliverToBoxAdapter(
+          child: _ExpandPagesButton(
+            count: entity.pageCount,
+            onPressed: () => setState(() => _pagesExpanded = true),
           ),
         ),
     ];
@@ -670,6 +692,36 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
       isAccountCurrent: () =>
           container.read(historyAccountIdProvider) == accountId,
       child: content,
+    );
+  }
+}
+
+/// Under the first image of a collapsed illustration set: shows the rest.
+/// There is no collapse back — that would jump the scroll position, and
+/// the reader can simply scroll past the pages.
+class _ExpandPagesButton extends StatelessWidget {
+  const _ExpandPagesButton({required this.count, required this.onPressed});
+
+  final int count;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    // One node: the button announces that it expands the set.
+    return MergeSemantics(
+      child: Semantics(
+        expanded: false,
+        child: TextButton.icon(
+          key: const Key('illust-expand-pages'),
+          style: TextButton.styleFrom(
+            minimumSize: const Size.fromHeight(kMinInteractiveDimension),
+          ),
+          onPressed: onPressed,
+          icon: const Icon(Icons.expand_more),
+          iconAlignment: IconAlignment.end,
+          label: Text(context.l10n.detailExpandPages(count)),
+        ),
+      ),
     );
   }
 }
