@@ -48,6 +48,12 @@ Future<void> _pumpPager(
 double _page(WidgetTester tester) =>
     tester.widget<PageView>(find.byType(PageView)).controller!.page!;
 
+/// Where a sideways swipe starts: on the first image, not the screen
+/// centre, which can land on the selectable title — that text claims
+/// horizontal drags for selection.
+Offset _swipeOrigin(WidgetTester tester) =>
+    tester.getTopLeft(find.byType(PageView)) + const Offset(195, 200);
+
 /// A mounted detail page, on screen or in the pager's cache extent.
 Finder _detail(int id) => find.byWidgetPredicate(
   (w) => w is IllustDetailPage && w.illustId == id,
@@ -70,7 +76,6 @@ void main() {
     final source = IllustPagerSource()..update(const [42, 43, 44]);
     await _pumpPager(tester, container, source: source, initialId: 42);
 
-    final pager = find.byType(PageView);
     expect(_page(tester), 0);
     expect(
       tester
@@ -79,11 +84,11 @@ void main() {
       42,
     );
 
-    await tester.fling(pager, const Offset(-260, 0), 900);
+    await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
     await tester.pumpAndSettle();
     expect(_page(tester), 1);
 
-    await tester.fling(pager, const Offset(260, 0), 900);
+    await tester.flingFrom(_swipeOrigin(tester), const Offset(260, 0), 900);
     await tester.pumpAndSettle();
     expect(_page(tester), 0);
   });
@@ -97,17 +102,16 @@ void main() {
     ]);
     final source = IllustPagerSource()..update(const [42, 43]);
     await _pumpPager(tester, container, source: source, initialId: 42);
-    final pager = find.byType(PageView);
 
     // First work, swipe right — stays on 0.
-    await tester.fling(pager, const Offset(260, 0), 900);
+    await tester.flingFrom(_swipeOrigin(tester), const Offset(260, 0), 900);
     await tester.pumpAndSettle();
     expect(_page(tester), 0);
 
     // Last work, swipe left — stays on 1.
-    await tester.fling(pager, const Offset(-260, 0), 900);
+    await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
     await tester.pumpAndSettle();
-    await tester.fling(pager, const Offset(-260, 0), 900);
+    await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
     await tester.pumpAndSettle();
     expect(_page(tester), 1);
   });
@@ -125,17 +129,16 @@ void main() {
       ..update(ids)
       ..onNearEnd = () => calls++;
     await _pumpPager(tester, container, source: source, initialId: 100);
-    final pager = find.byType(PageView);
 
     // Below the threshold nothing fires.
-    await tester.fling(pager, const Offset(-260, 0), 900);
+    await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
     await tester.pumpAndSettle();
     expect(_page(tester), 1);
     expect(calls, 0);
 
     // Walk past `loadAhead` from the end — the feed's loadMore hook runs.
     for (var i = 0; i < 6; i++) {
-      await tester.fling(pager, const Offset(-260, 0), 900);
+      await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
       await tester.pumpAndSettle();
     }
     expect(_page(tester), 7);
@@ -151,9 +154,8 @@ void main() {
     ]);
     final source = IllustPagerSource()..update(const [42, 43, 44]);
     await _pumpPager(tester, container, source: source, initialId: 42);
-    final pager = find.byType(PageView);
 
-    await tester.fling(pager, const Offset(-260, 0), 900);
+    await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
     await tester.pumpAndSettle();
     expect(_page(tester), 1); // id 43
 
@@ -225,7 +227,7 @@ void main() {
     );
 
     // After a swipe the live hero follows the committed page.
-    await tester.fling(find.byType(PageView), const Offset(-260, 0), 900);
+    await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
     await tester.pumpAndSettle();
     expect(_page(tester), 1);
     expect(enabled, findsOneWidget);
@@ -260,9 +262,7 @@ void main() {
 
     // Hold the drag mid-swipe: the incoming page has mounted but the
     // commit has not fired yet, so the captured widget predates it.
-    final gesture = await tester.startGesture(
-      tester.getCenter(find.byType(PageView)),
-    );
+    final gesture = await tester.startGesture(_swipeOrigin(tester));
     for (var i = 0; i < 10 && page43.evaluate().isEmpty; i++) {
       await gesture.moveBy(const Offset(-40, 0));
       await tester.pump(const Duration(milliseconds: 16));
@@ -314,9 +314,7 @@ void main() {
     expect(_detail(44), findsNothing);
 
     await mockNetworkImagesFor(() async {
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.byType(PageView)),
-      );
+      final gesture = await tester.startGesture(_swipeOrigin(tester));
       for (var i = 0; i < 3; i++) {
         await gesture.moveBy(const Offset(-40, 0));
         await tester.pump(const Duration(milliseconds: 16));
@@ -512,9 +510,7 @@ void main() {
       await mockNetworkImagesFor(() async {
         // Half a swipe brings the neighbour's section on screen while the
         // page is still not current.
-        final gesture = await tester.startGesture(
-          tester.getCenter(find.byType(PageView)),
-        );
+        final gesture = await tester.startGesture(_swipeOrigin(tester));
         await gesture.moveBy(const Offset(-40, 0));
         await gesture.moveBy(const Offset(-80, 0));
         await tester.pump(const Duration(milliseconds: 100));

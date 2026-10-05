@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../navigation/routes.dart';
 import 'errors/error_details.dart';
+import 'expandable_text.dart';
 import '../../core/entity/illust_caption.dart';
 import '../../core/platform/android_intent_channel.dart';
 import '../../l10n/context.dart';
@@ -16,9 +17,13 @@ import '../../l10n/context.dart';
 /// app with the same right-in rhythm as feed cards; anything else opens via
 /// the outbound Android intent.
 class CaptionRichText extends ConsumerStatefulWidget {
-  const CaptionRichText({super.key, required this.caption});
+  const CaptionRichText({super.key, required this.caption, this.maxLines});
 
   final String caption;
+
+  /// Collapses a longer caption to this many lines behind a Show more
+  /// toggle ([ExpandableText]); null shows it in full.
+  final int? maxLines;
 
   @override
   ConsumerState<CaptionRichText> createState() => _CaptionRichTextState();
@@ -95,7 +100,10 @@ class _CaptionRichTextState extends ConsumerState<CaptionRichText> {
       }
     }
 
-    return Text.rich(TextSpan(children: spans), style: bodyStyle);
+    final text = TextSpan(children: spans);
+    final maxLines = widget.maxLines;
+    if (maxLines == null) return Text.rich(text, style: bodyStyle);
+    return ExpandableText(text, maxLines: maxLines, style: bodyStyle);
   }
 }
 

@@ -1941,16 +1941,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get illustDetailTitle => 'Работа';
 
   @override
-  String get illustDetailCreateDateUnknown => 'Дата публикации неизвестна';
-
-  @override
-  String illustDetailCreateDate(String date) {
-    return 'Опубликовано: $date';
+  String detailMetaSemantics(String date, String views, String bookmarks) {
+    return 'Опубликовано $date, просмотров: $views, закладок: $bookmarks';
   }
 
   @override
-  String illustDetailSize(int width, int height) {
-    return 'Размер: ${width}x$height';
+  String detailMetaCountsSemantics(String views, String bookmarks) {
+    return 'Просмотров: $views, закладок: $bookmarks';
+  }
+
+  @override
+  String detailExpandPages(int count) {
+    return 'Показать все ($count)';
   }
 
   @override
@@ -2563,15 +2565,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadSelectPages => 'Выберите страницы для скачивания';
 
   @override
-  String downloadSelectedCount(int selected, int total) {
-    return 'Выбрано: $selected из $total';
-  }
+  String get downloadSelectedPages => 'Скачать выбранные страницы';
 
   @override
   String get selectAll => 'Выбрать все';
-
-  @override
-  String get done => 'Готово';
 
   @override
   String viewerPageLabel(int page, int total) {
@@ -2600,12 +2597,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String ugoiraExporting(int percent) {
     return 'Экспорт GIF… $percent%';
   }
-
-  @override
-  String get viewerEnterFullscreen => 'Полный экран';
-
-  @override
-  String get viewerExitFullscreen => 'Выйти из полноэкранного';
 
   @override
   String get viewerFitScreen => 'По размеру экрана';

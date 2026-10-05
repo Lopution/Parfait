@@ -1935,16 +1935,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get illustDetailTitle => 'Artwork';
 
   @override
-  String get illustDetailCreateDateUnknown => 'Upload date unknown';
-
-  @override
-  String illustDetailCreateDate(String date) {
-    return 'Uploaded on $date';
+  String detailMetaSemantics(String date, String views, String bookmarks) {
+    return 'Posted $date, $views views, $bookmarks bookmarks';
   }
 
   @override
-  String illustDetailSize(int width, int height) {
-    return 'Size: ${width}x$height';
+  String detailMetaCountsSemantics(String views, String bookmarks) {
+    return '$views views, $bookmarks bookmarks';
+  }
+
+  @override
+  String detailExpandPages(int count) {
+    return 'Show all $count images';
   }
 
   @override
@@ -2560,15 +2562,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadSelectPages => 'Select pages to download';
 
   @override
-  String downloadSelectedCount(int selected, int total) {
-    return '$selected of $total selected';
-  }
+  String get downloadSelectedPages => 'Download selected pages';
 
   @override
   String get selectAll => 'Select all';
-
-  @override
-  String get done => 'Done';
 
   @override
   String viewerPageLabel(int page, int total) {
@@ -2597,12 +2594,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String ugoiraExporting(int percent) {
     return 'Exporting GIF… $percent%';
   }
-
-  @override
-  String get viewerEnterFullscreen => 'Enter fullscreen';
-
-  @override
-  String get viewerExitFullscreen => 'Exit fullscreen';
 
   @override
   String get viewerFitScreen => 'Fit to screen';

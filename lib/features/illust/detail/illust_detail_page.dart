@@ -18,6 +18,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/share/share_service.dart';
 import '../../../app/widgets/app_menu_button.dart';
 import '../../../app/widgets/bookmark_switch_button.dart';
+import '../../../app/widgets/selection_app_bar.dart';
 import '../../../core/illust/illust_detail_controller.dart';
 import '../../../core/illust/illust_download_controller.dart';
 import '../../../app/haptics/app_haptics.dart';
@@ -134,6 +135,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   }
 
   bool _blockMode = false;
+
+  /// Whether a multi-image illustration shows every page. Lives with this
+  /// page only: a new visit starts collapsed again.
+  bool _pagesExpanded = false;
   StreamSubscription<DownloadEvent>? _downloadEvents;
 
   @override
@@ -158,7 +163,11 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   void _enterDownloadMode() {
     if (_downloadMode) return;
     AppHaptics.confirm();
-    setState(() => _selectedPages = <int>{});
+    // Every page has to be on screen to be picked.
+    setState(() {
+      _selectedPages = <int>{};
+      _pagesExpanded = true;
+    });
   }
 
   /// Any exit path (cancel button, blank tap, system back) is a light
@@ -220,29 +229,17 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     final entity = _entityOf(async);
     return PopScope(
       // While the selection mode is on, system back exits the mode instead
-      // of leaving the page (the AppBar back button routes through maybePop
-      // and lands on the same branch). In-flight downloads are untouched —
-      // the mode is only a UI selection layer.
+      // of leaving the page, like the selection bar's close button.
+      // In-flight downloads are untouched — the mode is only a UI
+      // selection layer.
       canPop: !_downloadMode,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _exitDownloadMode();
       },
       child: Scaffold(
-        appBar: _buildAppBar(context, ref, async),
-        bottomNavigationBar: AnimatedSwitcher(
-          duration: MotionTokens.resolve(context, MotionTokens.fast),
-          child: _downloadMode && entity != null && !entity.isUgoira
-              ? _DownloadSelectionBar(
-                  selected: _selectedPages?.length ?? 0,
-                  total: entity.pageCount,
-                  onSelectAll: () => _selectAllPages(entity),
-                  onDone: (_selectedPages?.isEmpty ?? true)
-                      ? null
-                      : () => unawaited(_submitSelection(entity)),
-                  onCancel: _exitDownloadMode,
-                )
-              : const SizedBox.shrink(),
-        ),
+        appBar: _downloadMode && entity != null
+            ? _buildSelectionAppBar(context, entity)
+            : _buildAppBar(context, ref, async),
         body: _fadeStates(
           async.when(
             // U5 (R7): AsyncNotifier.build() returns a Future, so the first
@@ -302,6 +299,35 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   /// shows the skeleton, so the Hero destination is never faded.
   Widget _fadeStates(Widget body) =>
       StateFade(kind: body is IllustDetailSkeleton, child: body);
+
+  /// The page-selection mode's top bar: the count, select all, and
+  /// download; close (or system back) leaves the mode.
+  PreferredSizeWidget _buildSelectionAppBar(
+    BuildContext context,
+    IllustEntity entity,
+  ) {
+    final l10n = context.l10n;
+    final selected = _selectedPages ?? const <int>{};
+    return selectionAppBar(
+      context,
+      count: selected.length,
+      onClose: _exitDownloadMode,
+      actions: [
+        IconButton(
+          tooltip: l10n.selectAll,
+          onPressed: () => _selectAllPages(entity),
+          icon: const Icon(Icons.select_all),
+        ),
+        IconButton(
+          tooltip: l10n.downloadSelectedPages,
+          onPressed: selected.isEmpty
+              ? null
+              : () => unawaited(_submitSelection(entity)),
+          icon: const Icon(Icons.file_download_outlined),
+        ),
+      ],
+    );
+  }
 
   PreferredSizeWidget _buildAppBar(
     BuildContext context,
@@ -372,9 +398,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
           _DetailMoreMenu(
             actions: [
               _DetailMenuAction.share,
-              // Re-entering selection mode from inside the mode is a
-              // no-op, so the entry hides while the mode is on.
-              if (entity.pageCount > 1 && !entity.isUgoira && !_downloadMode)
+              if (entity.pageCount > 1 && !entity.isUgoira)
                 _DetailMenuAction.selectPages,
               if (rendersContent) _DetailMenuAction.info,
             ],
@@ -457,6 +481,13 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
 
     // The media column and the metadata column are the same slivers in both
     // layouts; only their arrangement differs (single scroll vs two panes).
+    // An illustration set opens on its first image; manga reads in full.
+    final shownPages =
+        entity.type == IllustType.illust &&
+            entity.pageCount > 1 &&
+            !_pagesExpanded
+        ? 1
+        : entity.pageCount;
     final imageSlivers = <Widget>[
       if (entity.isUgoira)
         SliverToBoxAdapter(
@@ -507,7 +538,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
         SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) => Padding(
-              padding: index == entity.pageCount - 1
+              padding: index == shownPages - 1
                   ? EdgeInsets.zero
                   : const EdgeInsets.only(bottom: FuncSpacing.sm),
               child: VisibilityDetector(
@@ -538,7 +569,14 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
             // non-first pages render as neutral placeholders (uniform
             // ratio), and the real images/proportions replace them when
             // the detail API payload is merged.
-            childCount: entity.pageCount,
+            childCount: shownPages,
+          ),
+        ),
+      if (shownPages < entity.pageCount)
+        SliverToBoxAdapter(
+          child: _ExpandPagesButton(
+            count: entity.pageCount,
+            onPressed: () => setState(() => _pagesExpanded = true),
           ),
         ),
     ];
@@ -674,6 +712,36 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   }
 }
 
+/// Under the first image of a collapsed illustration set: shows the rest.
+/// There is no collapse back — that would jump the scroll position, and
+/// the reader can simply scroll past the pages.
+class _ExpandPagesButton extends StatelessWidget {
+  const _ExpandPagesButton({required this.count, required this.onPressed});
+
+  final int count;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    // One node: the button announces that it expands the set.
+    return MergeSemantics(
+      child: Semantics(
+        expanded: false,
+        child: TextButton.icon(
+          key: const Key('illust-expand-pages'),
+          style: TextButton.styleFrom(
+            minimumSize: const Size.fromHeight(kMinInteractiveDimension),
+          ),
+          onPressed: onPressed,
+          icon: const Icon(Icons.expand_more),
+          iconAlignment: IconAlignment.end,
+          label: Text(context.l10n.detailExpandPages(count)),
+        ),
+      ),
+    );
+  }
+}
+
 /// Actions carried by the detail AppBar's ⋮ menu: share, the page-
 /// selection entry (multi-page works only) and the artwork-info jump.
 enum _DetailMenuAction { share, selectPages, info }
@@ -712,68 +780,6 @@ class _DetailMoreMenu extends StatelessWidget {
             label: labelOf(action).$2,
           ),
       ],
-    );
-  }
-}
-
-/// Bottom chrome of the explicit download-selection mode (R2): mode
-/// title + selected/total count + select-all + done + cancel. "Done" is
-/// semantically disabled while nothing is selected.
-class _DownloadSelectionBar extends StatelessWidget {
-  const _DownloadSelectionBar({
-    required this.selected,
-    required this.total,
-    required this.onSelectAll,
-    required this.onDone,
-    required this.onCancel,
-  });
-
-  final int selected;
-  final int total;
-  final VoidCallback onSelectAll;
-  final VoidCallback? onDone;
-  final VoidCallback onCancel;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final l10n = context.l10n;
-    return Material(
-      color: theme.colorScheme.surfaceContainer,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: FuncSpacing.lg,
-            vertical: FuncSpacing.xs,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l10n.downloadSelectPages, style: theme.textTheme.labelLarge),
-              const SizedBox(height: FuncSpacing.xs),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      l10n.downloadSelectedCount(selected, total),
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: onSelectAll,
-                    child: Text(l10n.selectAll),
-                  ),
-                  const SizedBox(width: FuncSpacing.xs),
-                  FilledButton(onPressed: onDone, child: Text(l10n.done)),
-                  TextButton(onPressed: onCancel, child: Text(l10n.cancel)),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

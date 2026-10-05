@@ -3611,23 +3611,23 @@ abstract class AppLocalizations {
   /// **'作品详情'**
   String get illustDetailTitle;
 
-  /// No description provided for @illustDetailCreateDateUnknown.
+  /// Screen-reader text for the artwork detail metadata line. views and bookmarks are compact counts.
   ///
   /// In zh, this message translates to:
-  /// **'投稿日期未知'**
-  String get illustDetailCreateDateUnknown;
+  /// **'投稿于 {date}，{views} 次浏览，{bookmarks} 次收藏'**
+  String detailMetaSemantics(String date, String views, String bookmarks);
 
-  /// No description provided for @illustDetailCreateDate.
+  /// The metadata line's screen-reader text when the posting date is unknown.
   ///
   /// In zh, this message translates to:
-  /// **'投稿日期：{date}'**
-  String illustDetailCreateDate(String date);
+  /// **'{views} 次浏览，{bookmarks} 次收藏'**
+  String detailMetaCountsSemantics(String views, String bookmarks);
 
-  /// No description provided for @illustDetailSize.
+  /// Under the first image of a multi-image illustration; shows the rest.
   ///
   /// In zh, this message translates to:
-  /// **'尺寸：{width}x{height}'**
-  String illustDetailSize(int width, int height);
+  /// **'展开全部 {count} 张'**
+  String detailExpandPages(int count);
 
   /// No description provided for @illustDetailOpenLinkFailed.
   ///
@@ -4781,23 +4781,17 @@ abstract class AppLocalizations {
   /// **'选择要下载的页'**
   String get downloadSelectPages;
 
-  /// No description provided for @downloadSelectedCount.
+  /// No description provided for @downloadSelectedPages.
   ///
   /// In zh, this message translates to:
-  /// **'已选 {selected} / 共 {total} 页'**
-  String downloadSelectedCount(int selected, int total);
+  /// **'下载选中的页'**
+  String get downloadSelectedPages;
 
   /// No description provided for @selectAll.
   ///
   /// In zh, this message translates to:
   /// **'全选'**
   String get selectAll;
-
-  /// No description provided for @done.
-  ///
-  /// In zh, this message translates to:
-  /// **'完成'**
-  String get done;
 
   /// No description provided for @viewerPageLabel.
   ///
@@ -4846,18 +4840,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'正在导出 GIF… {percent}%'**
   String ugoiraExporting(int percent);
-
-  /// No description provided for @viewerEnterFullscreen.
-  ///
-  /// In zh, this message translates to:
-  /// **'进入全屏'**
-  String get viewerEnterFullscreen;
-
-  /// No description provided for @viewerExitFullscreen.
-  ///
-  /// In zh, this message translates to:
-  /// **'退出全屏'**
-  String get viewerExitFullscreen;
 
   /// No description provided for @viewerFitScreen.
   ///

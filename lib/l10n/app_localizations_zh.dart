@@ -1854,16 +1854,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get illustDetailTitle => '作品详情';
 
   @override
-  String get illustDetailCreateDateUnknown => '投稿日期未知';
-
-  @override
-  String illustDetailCreateDate(String date) {
-    return '投稿日期：$date';
+  String detailMetaSemantics(String date, String views, String bookmarks) {
+    return '投稿于 $date，$views 次浏览，$bookmarks 次收藏';
   }
 
   @override
-  String illustDetailSize(int width, int height) {
-    return '尺寸：${width}x$height';
+  String detailMetaCountsSemantics(String views, String bookmarks) {
+    return '$views 次浏览，$bookmarks 次收藏';
+  }
+
+  @override
+  String detailExpandPages(int count) {
+    return '展开全部 $count 张';
   }
 
   @override
@@ -2465,15 +2467,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadSelectPages => '选择要下载的页';
 
   @override
-  String downloadSelectedCount(int selected, int total) {
-    return '已选 $selected / 共 $total 页';
-  }
+  String get downloadSelectedPages => '下载选中的页';
 
   @override
   String get selectAll => '全选';
-
-  @override
-  String get done => '完成';
 
   @override
   String viewerPageLabel(int page, int total) {
@@ -2502,12 +2499,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String ugoiraExporting(int percent) {
     return '正在导出 GIF… $percent%';
   }
-
-  @override
-  String get viewerEnterFullscreen => '进入全屏';
-
-  @override
-  String get viewerExitFullscreen => '退出全屏';
 
   @override
   String get viewerFitScreen => '适应屏幕';

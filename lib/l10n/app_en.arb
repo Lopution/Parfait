@@ -825,26 +825,9 @@
   "searchModifyQuery": "Edit search",
   "searchUserAccount": "Account",
   "illustDetailTitle": "Artwork",
-  "illustDetailCreateDateUnknown": "Upload date unknown",
-  "illustDetailCreateDate": "Uploaded on {date}",
-  "@illustDetailCreateDate": {
-    "placeholders": {
-      "date": {
-        "type": "String"
-      }
-    }
-  },
-  "illustDetailSize": "Size: {width}x{height}",
-  "@illustDetailSize": {
-    "placeholders": {
-      "width": {
-        "type": "int"
-      },
-      "height": {
-        "type": "int"
-      }
-    }
-  },
+  "detailMetaSemantics": "Posted {date}, {views} views, {bookmarks} bookmarks",
+  "detailMetaCountsSemantics": "{views} views, {bookmarks} bookmarks",
+  "detailExpandPages": "Show all {count} images",
   "illustDetailOpenLinkFailed": "Could not open the link",
   "illustDetailRestricted": "This artwork has been deleted or restricted (ID: {id})",
   "@illustDetailRestricted": {
@@ -1121,19 +1104,8 @@
   "hapticTierUnknown": "Could not read this device's vibration capability",
   "hapticSystemOff": "Touch vibration is off in system settings, so app haptics will not play",
   "downloadSelectPages": "Select pages to download",
-  "downloadSelectedCount": "{selected} of {total} selected",
-  "@downloadSelectedCount": {
-    "placeholders": {
-      "selected": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
+  "downloadSelectedPages": "Download selected pages",
   "selectAll": "Select all",
-  "done": "Done",
   "viewerPageLabel": "Page {page} of {total}",
   "@viewerPageLabel": {
     "placeholders": {
@@ -1159,8 +1131,6 @@
       }
     }
   },
-  "viewerEnterFullscreen": "Enter fullscreen",
-  "viewerExitFullscreen": "Exit fullscreen",
   "viewerFitScreen": "Fit to screen",
   "viewerSavePage": "Save current page",
   "viewerJumpToPage": "Jump to page",

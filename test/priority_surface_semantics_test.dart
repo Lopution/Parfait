@@ -70,14 +70,14 @@ void main() {
       isSemantics(isImage: true),
     );
 
-    // Chrome controls are named buttons: page sheet, fit, fullscreen.
-    expect(find.byTooltip('跳转到页码'), findsOneWidget);
+    // Chrome controls are named buttons: the page counter (jump sheet)
+    // and fit.
     expect(
-      tester.getSemantics(find.byTooltip('适应屏幕')),
+      tester.getSemantics(find.byTooltip('跳转到页码')),
       isSemantics(isButton: true, hasTapAction: true),
     );
     expect(
-      tester.getSemantics(find.byTooltip('进入全屏')),
+      tester.getSemantics(find.byTooltip('适应屏幕')),
       isSemantics(isButton: true, hasTapAction: true),
     );
   });

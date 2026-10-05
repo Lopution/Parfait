@@ -6,11 +6,13 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/testing.dart';
+import 'package:intl/intl.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:flutter/services.dart';
 
 import 'package:parfait/app/layout/two_pane.dart';
 import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/app/widgets/follow_switch_button.dart';
 import 'package:parfait/app/person_avatar.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/auth/account.dart';
@@ -36,6 +38,7 @@ import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_image_pager.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_detail_skeleton.dart';
+import 'package:parfait/features/illust/detail/widgets/info_block.dart';
 import 'package:parfait/features/illust/detail/ugoira_viewer.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:parfait/features/settings/pages/download_tasks_page.dart';
@@ -44,16 +47,17 @@ import 'package:parfait/features/search/tag_search_page.dart';
 import 'package:parfait/app/widgets/tag_chips.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/share/share_service.dart';
+import 'package:parfait/core/user/follow_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/detail_world.dart';
 import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
+import 'helpers/profile_world.dart' show FakeFollowRepository;
 import 'helpers/test_preferences.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/core/i18n/replica_language.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 /// Records what the detail page hands to the platform share boundary —
@@ -96,6 +100,15 @@ Future<void> openDetailMenu(
   await tester.tap(find.byTooltip(tooltip));
   await tester.pumpAndSettle();
 }
+
+/// The selection bar's count, or null outside the page-selection mode.
+String? selectionCount(WidgetTester tester) {
+  if (downloadSelectedButton.evaluate().isEmpty) return null;
+  return (tester.widget<AppBar>(find.byType(AppBar)).title! as Text).data;
+}
+
+/// The selection bar's download action.
+final downloadSelectedButton = find.byTooltip('Download selected pages');
 
 Future<void> pumpDetail(
   WidgetTester tester,
@@ -172,8 +185,8 @@ Future<void> longPressImage(WidgetTester tester) async {
 
 // Hidden chrome stays mounted (Opacity 0 + ExcludeSemantics — dropping it
 // from the tree races the semantics flush). Visibility assertions check
-// the bars' opacity and the toggle icon rather than whether finders still
-// see the (mounted) counter text.
+// the bars' opacity rather than whether finders still see the (mounted)
+// counter text.
 void expectViewerChrome(WidgetTester tester, {required bool visible}) {
   final bars = tester
       .widgetList<Opacity>(
@@ -184,11 +197,18 @@ void expectViewerChrome(WidgetTester tester, {required bool visible}) {
   for (final bar in bars) {
     expect(bar.opacity, visible ? 1.0 : 0.0);
   }
-  expect(
-    find.byIcon(visible ? Icons.fullscreen : Icons.fullscreen_exit),
-    findsOneWidget,
-  );
 }
+
+/// The fixture's `create_date` as the device shows it.
+final _fixtureCreateDate = DateTime.parse(
+  '2026-08-01T10:00:00+09:00',
+).toLocal();
+
+/// The info block's metadata line without its icons.
+String _metaText(WidgetTester tester) => tester
+    .widget<Text>(find.byKey(const Key('illust-detail-meta')))
+    .textSpan!
+    .toPlainText(includePlaceholders: false);
 
 void main() {
   installMemoryPreferences();
@@ -223,13 +243,12 @@ void main() {
           ),
         );
         await tester.pump();
-        // The counter lives in both chrome bars (top title + bottom
-        // jump-to-page entry).
-        expect(find.text('2 / 2'), findsNWidgets(2));
+        // One page counter, in the top bar.
+        expect(find.text('2 / 2'), findsOneWidget);
 
         await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
         await tester.pumpAndSettle();
-        expect(find.text('1 / 2'), findsNWidgets(2));
+        expect(find.text('1 / 2'), findsOneWidget);
       });
     });
 
@@ -438,7 +457,7 @@ void main() {
             1000,
           );
           await tester.pumpAndSettle();
-          expect(find.text('2 / 2'), findsNWidgets(2));
+          expect(find.text('2 / 2'), findsOneWidget);
           expectViewerChrome(tester, visible: false);
 
           // A route swap (replaceImageViewerPage builds a fresh widget on a
@@ -557,7 +576,7 @@ void main() {
       },
     );
 
-    testWidgets('the page counter opens the jump-to-page sheet', (
+    testWidgets('the page counter opens the thumbnail jump sheet', (
       tester,
     ) async {
       await mockNetworkImagesFor(() async {
@@ -577,13 +596,66 @@ void main() {
           ),
         );
         await tester.pump();
-        expect(find.text('1 / 3'), findsNWidgets(2));
+        expect(find.text('1 / 3'), findsOneWidget);
 
-        await tester.tap(find.text('1 / 3').last);
+        await tester.tap(find.text('1 / 3'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('3'));
+        // A grid of thumbnails, the current page marked selected.
+        for (var page = 0; page < 3; page++) {
+          expect(
+            tester.getSemantics(find.byKey(ValueKey('viewer-jump-page-$page'))),
+            matchesSemantics(
+              label: '第 ${page + 1} 页，共 3 页',
+              isButton: true,
+              hasSelectedState: true,
+              isSelected: page == 0,
+              hasTapAction: true,
+            ),
+          );
+        }
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('viewer-jump-page-2')),
+            matching: find.byType(PixivImage),
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.byKey(const ValueKey('viewer-jump-page-2')));
         await tester.pumpAndSettle();
-        expect(find.text('3 / 3'), findsNWidgets(2));
+        expect(find.text('3 / 3'), findsOneWidget);
+        expect(find.byKey(const ValueKey('viewer-jump-page-2')), findsNothing);
+      });
+    });
+
+    testWidgets('the jump sheet opens on the current page of a long work', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: ImageViewerPage(
+              urls: [
+                for (var i = 0; i < 60; i++) 'https://i.pximg.net/$i/large.jpg',
+              ],
+              initialPage: 50,
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.tap(find.text('51 / 60'));
+        await tester.pumpAndSettle();
+
+        final current = find.byKey(const ValueKey('viewer-jump-page-50'));
+        expect(current, findsOneWidget);
+        final sheet = tester.getRect(find.byType(GridView));
+        final cell = tester.getRect(current);
+        expect(sheet.top, lessThanOrEqualTo(cell.top));
+        expect(sheet.bottom, greaterThanOrEqualTo(cell.bottom));
+        // Cells keep about 96dp and at least three columns.
+        expect(cell.width, inInclusiveRange(72, 120));
       });
     });
 
@@ -606,7 +678,9 @@ void main() {
         expect(find.byIcon(Icons.info_outline), findsNothing);
         // Entity-independent chrome stays available.
         expect(find.byIcon(Icons.fit_screen), findsOneWidget);
-        expect(find.byIcon(Icons.fullscreen), findsOneWidget);
+        // A tap on the artwork hides the chrome: no fullscreen button.
+        expect(find.byIcon(Icons.fullscreen), findsNothing);
+        expect(find.byIcon(Icons.fullscreen_exit), findsNothing);
       });
     });
 
@@ -776,10 +850,10 @@ void main() {
           // Arrows page forward/back.
           await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
           await tester.pumpAndSettle();
-          expect(find.text('2 / 2'), findsNWidgets(2));
+          expect(find.text('2 / 2'), findsOneWidget);
           await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
           await tester.pumpAndSettle();
-          expect(find.text('1 / 2'), findsNWidgets(2));
+          expect(find.text('1 / 2'), findsOneWidget);
 
           // +/- zoom in place, 0 resets.
           await tester.sendKeyEvent(LogicalKeyboardKey.equal);
@@ -837,7 +911,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(scale(), greaterThan(1.0));
           // The pager must not consume the wheel event — still page 1.
-          expect(find.text('1 / 2'), findsNWidgets(2));
+          expect(find.text('1 / 2'), findsOneWidget);
           await tester.sendEventToBinding(
             PointerScrollEvent(
               position: center,
@@ -856,7 +930,7 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          expect(find.text('2 / 2'), findsNWidgets(2));
+          expect(find.text('2 / 2'), findsOneWidget);
           await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
         });
       },
@@ -1053,10 +1127,10 @@ void main() {
       await tester.tap(find.text('Select pages to download'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Select pages to download'), findsOneWidget);
-      expect(find.text('0 of 2 selected'), findsOneWidget);
-      expect(find.text('Select all'), findsOneWidget);
-      expect(find.text('Cancel'), findsOneWidget);
+      expect(selectionCount(tester), isNotNull);
+      expect(selectionCount(tester), '0');
+      expect(find.byTooltip('Select all'), findsOneWidget);
+      expect(find.byTooltip('Cancel'), findsOneWidget);
     });
 
     testWidgets('single-page works keep only the download-all action', (
@@ -1087,20 +1161,25 @@ void main() {
         // The always-visible Download All entry exists; the selection
         // chrome does not.
         expect(find.byTooltip('Download All'), findsOneWidget);
-        expect(find.text('Select pages to download'), findsNothing);
+        expect(selectionCount(tester), isNull);
         expect(find.byIcon(Icons.radio_button_unchecked), findsNothing);
 
         await longPressImage(tester);
 
-        // Mode chrome: title + selected/total count + select-all +
-        // done + cancel. Done is disabled while nothing is selected.
-        expect(find.text('Select pages to download'), findsOneWidget);
-        expect(find.text('0 of 2 selected'), findsOneWidget);
-        expect(find.text('Select all'), findsOneWidget);
-        expect(find.text('Cancel'), findsOneWidget);
+        // The shared selection bar: count, select all, download, close.
+        // Download is disabled while nothing is selected.
+        expect(selectionCount(tester), isNotNull);
+        expect(selectionCount(tester), '0');
+        expect(find.byTooltip('Select all'), findsOneWidget);
+        expect(find.byTooltip('Cancel'), findsOneWidget);
         expect(
           tester
-              .widget<FilledButton>(find.widgetWithText(FilledButton, 'Done'))
+              .widget<IconButton>(
+                find.ancestor(
+                  of: downloadSelectedButton,
+                  matching: find.byType(IconButton),
+                ),
+              )
               .onPressed,
           isNull,
         );
@@ -1117,11 +1196,11 @@ void main() {
         final manager = container.read(downloadManagerProvider);
         expect(manager.tasks, isEmpty);
         expect(find.byIcon(Icons.check_circle), findsOneWidget);
-        expect(find.text('1 of 2 selected'), findsOneWidget);
+        expect(selectionCount(tester), '1');
 
-        // Done submits exactly the selected page and exits the mode.
+        // Download submits exactly the selected page and exits the mode.
         await mockNetworkImagesFor(() async {
-          await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+          await tester.tap(downloadSelectedButton);
           await tester.pump();
         });
         expect(manager.tasks, hasLength(1));
@@ -1139,7 +1218,7 @@ void main() {
         }
         expect(manager.tasks.single.status, DownloadStatus.succeeded);
         await tester.pump();
-        expect(find.text('Select pages to download'), findsNothing);
+        expect(selectionCount(tester), isNull);
         expect(transport.openedUrls, hasLength(1));
       },
     );
@@ -1151,16 +1230,16 @@ void main() {
       await pumpDetail(tester, container);
 
       await longPressImage(tester);
-      expect(find.text('0 of 2 selected'), findsOneWidget);
+      expect(selectionCount(tester), '0');
 
-      await tester.tap(find.text('Select all'));
+      await tester.tap(find.byTooltip('Select all'));
       await tester.pump();
-      expect(find.text('2 of 2 selected'), findsOneWidget);
+      expect(selectionCount(tester), '2');
 
       // Cancel exits the mode without submitting anything.
-      await tester.tap(find.text('Cancel'));
+      await tester.tap(find.byTooltip('Cancel'));
       await tester.pump();
-      expect(find.text('Select pages to download'), findsNothing);
+      expect(selectionCount(tester), isNull);
       expect(
         container.read(downloadManagerProvider).tasks,
         isEmpty,
@@ -1176,13 +1255,13 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
 
       await longPressImage(tester);
-      expect(find.text('Select pages to download'), findsOneWidget);
+      expect(selectionCount(tester), isNotNull);
 
       await tester.binding.handlePopRoute();
       await tester.pump(const Duration(milliseconds: 50));
       // The route stays; the mode is gone.
       expect(find.byType(IllustDetailPage), findsOneWidget);
-      expect(find.text('Select pages to download'), findsNothing);
+      expect(selectionCount(tester), isNull);
       expect(container.read(downloadManagerProvider).tasks, isEmpty);
     });
 
@@ -1230,7 +1309,7 @@ void main() {
         await tester.longPress(find.byType(UgoiraViewer));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
-        expect(find.text('Select pages to download'), findsNothing);
+        expect(selectionCount(tester), isNull);
         expect(find.text('选择要下载的页'), findsNothing);
         expect(container.read(downloadManagerProvider).tasks, isEmpty);
       },
@@ -1329,7 +1408,7 @@ void main() {
       await mockNetworkImagesFor(() async {
         await tester.tap(find.byIcon(Icons.radio_button_unchecked));
         await tester.pump();
-        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+        await tester.tap(downloadSelectedButton);
         await tester.pump(const Duration(milliseconds: 100));
       });
 
@@ -1355,7 +1434,7 @@ void main() {
       );
 
       await mockNetworkImagesFor(() async {
-        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+        await tester.tap(downloadSelectedButton);
         await tester.pump(const Duration(milliseconds: 100));
       });
       expect(manager.tasks.single.status, DownloadStatus.succeeded);
@@ -1373,8 +1452,8 @@ void main() {
       // The two-pane pager forwards the same long-press entry; the
       // selection bar is shared chrome, not a narrow-layout special case.
       await longPressImage(tester);
-      expect(find.text('Select pages to download'), findsOneWidget);
-      expect(find.text('0 of 2 selected'), findsOneWidget);
+      expect(selectionCount(tester), isNotNull);
+      expect(selectionCount(tester), '0');
       expect(find.byIcon(Icons.radio_button_unchecked), findsWidgets);
 
       await mockNetworkImagesFor(() async {
@@ -1382,10 +1461,10 @@ void main() {
         await tester.pump();
       });
       expect(find.byIcon(Icons.check_circle), findsOneWidget);
-      expect(find.text('1 of 2 selected'), findsOneWidget);
+      expect(selectionCount(tester), '1');
 
       await mockNetworkImagesFor(() async {
-        await tester.tap(find.widgetWithText(FilledButton, 'Done'));
+        await tester.tap(downloadSelectedButton);
         await tester.pump();
       });
       final manager = container.read(downloadManagerProvider);
@@ -1396,7 +1475,7 @@ void main() {
         }
       }
       expect(manager.tasks.single.pageIndex, 0);
-      expect(find.text('Select pages to download'), findsNothing);
+      expect(selectionCount(tester), isNull);
     });
 
     testWidgets('landscape narrow layout presents the same selection chrome', (
@@ -1421,7 +1500,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 700));
       await gesture.up();
       await tester.pump();
-      expect(find.text('Select pages to download'), findsOneWidget);
+      expect(selectionCount(tester), isNotNull);
       expect(find.byIcon(Icons.radio_button_unchecked), findsWidgets);
 
       await mockNetworkImagesFor(() async {
@@ -1473,13 +1552,9 @@ void main() {
 
       // beta56 detail shows no R-18/AI/page badges (those live on feed
       // cards); it renders author, meta and tags.
-      expect(
-        find.text('author'),
-        findsNWidgets(2),
-        reason: 'author block name + account',
-      );
-      expect(find.textContaining('800x600'), findsOneWidget);
-      expect(find.textContaining('ID: 42'), findsOneWidget);
+      // The compact author row carries the name only.
+      expect(find.text('author'), findsOneWidget);
+      expect(find.text('800×600 · ID 42'), findsOneWidget);
       expect(find.text('#original'), findsOneWidget);
       expect(find.textContaining('風景'), findsOneWidget);
       expect(find.text('作品说明文字'), findsOneWidget);
@@ -1530,7 +1605,7 @@ void main() {
             'https://i.pximg.net/feed/42/medium.jpg',
             reason: 'the Hero target must reuse the exact feed cache key',
           );
-          expect(find.byKey(const Key('illust-author-avatar')), findsOneWidget);
+          expect(find.byKey(const Key('illust-author-row')), findsOneWidget);
           expect(find.byType(PersonAvatar), findsOneWidget);
           expect(
             tester.widget<PersonAvatar>(find.byType(PersonAvatar)).imageUrl,
@@ -1678,7 +1753,7 @@ void main() {
       await pumpDetail(tester, container, useRouter: true);
       await mockNetworkImagesFor(() async {
         await tester.scrollUntilVisible(
-          find.byKey(const Key('illust-author-avatar')),
+          find.byKey(const Key('illust-author-row')),
           300,
           scrollable: find.byType(Scrollable).first,
         );
@@ -1689,7 +1764,7 @@ void main() {
       await mockNetworkImagesFor(() async {
         // The avatar is the smallest of the three hit areas; the InkWell
         // wraps the whole Row, so a tap on it must reach the same callback.
-        await tester.tap(find.byKey(const Key('illust-author-avatar')));
+        await tester.tap(find.byKey(const Key('illust-author-row')));
         await tester.pumpAndSettle();
       });
       expect(find.byType(UserPage), findsOneWidget);
@@ -1702,7 +1777,7 @@ void main() {
       await pumpDetail(tester, container, useRouter: true);
       await mockNetworkImagesFor(() async {
         await tester.scrollUntilVisible(
-          find.byKey(const Key('illust-author-avatar')),
+          find.byKey(const Key('illust-author-row')),
           300,
           scrollable: find.byType(Scrollable).first,
         );
@@ -1719,23 +1794,12 @@ void main() {
     });
 
     testWidgets('C20: detail copy follows the UI locale', (tester) async {
-      const keys = [
-        'illustDetailCreateDateUnknown',
-        'illustDetailSize',
-        'illustDetailNotFound',
-        'illustDetailLoadFailed',
-      ];
-
-      for (final language in [ReplicaLanguage.jaJP, ReplicaLanguage.enUS]) {
+      for (final (locale, tag) in [
+        (const Locale('ja', 'JP'), 'ja-JP'),
+        (const Locale('en', 'US'), 'en-US'),
+      ]) {
         final (container, _, _) = await makeWorld();
-        await pumpDetail(
-          tester,
-          container,
-          locale: switch (language) {
-            ReplicaLanguage.jaJP => const Locale('ja', 'JP'),
-            _ => const Locale('en', 'US'),
-          },
-        );
+        await pumpDetail(tester, container, locale: locale);
         await mockNetworkImagesFor(() async {
           await tester.scrollUntilVisible(
             find.text('#original'),
@@ -1745,24 +1809,230 @@ void main() {
           await tester.pump();
         });
 
-        // The size row is the one always-present interpolated string.
+        // The metadata line carries the locale's date and its sentence.
+        final date = DateFormat.yMMMd(tag).format(_fixtureCreateDate);
+        expect(_metaText(tester), startsWith('$date · '), reason: tag);
         expect(
-          find.text(switch (language) {
-            ReplicaLanguage.jaJP => 'サイズ：800x600',
-            _ => 'Size: 800x600',
-          }),
+          find.bySemanticsLabel(
+            tag == 'ja-JP'
+                ? '$date投稿、閲覧 10、ブックマーク 5'
+                : 'Posted $date, 10 views, 5 bookmarks',
+          ),
           findsOneWidget,
-          reason: 'size row must render in ${language.tag}',
         );
-        // No zh fallback leaks through for any of the migrated keys.
-        for (final key in keys) {
-          expect(
-            find.textContaining('尺寸：800x600'),
-            findsNothing,
-            reason: '$key must not fall back to zh under ${language.tag}',
-          );
-        }
       }
+    });
+  });
+
+  group('info block layout (R1)', () {
+    /// A tall surface builds the whole info block below the two pages.
+    void useTallSurface(WidgetTester tester) {
+      tester.view.physicalSize = const Size(800, 4000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('title, author, metadata, caption, tags, footer, comments', (
+      tester,
+    ) async {
+      useTallSurface(tester);
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      final tops = [
+        find.text('illust 42'),
+        find.byKey(const Key('illust-author-row')),
+        find.byKey(const Key('illust-detail-meta')),
+        find.text('作品说明文字'),
+        find.text('#original'),
+        find.byKey(const Key('illust-detail-footer')),
+        find.text('评论'),
+      ].map((finder) => tester.getTopLeft(finder).dy).toList();
+      for (var i = 1; i < tops.length; i++) {
+        expect(tops[i], greaterThan(tops[i - 1]), reason: 'item $i');
+      }
+      // One metadata line in the theme's scale: no separate numeric row.
+      expect(find.byIcon(Icons.remove_red_eye_outlined), findsOneWidget);
+      expect(find.text('ID: 42'), findsNothing);
+    });
+
+    testWidgets('the author row follows the author in place', (tester) async {
+      useTallSurface(tester);
+      final follows = FakeFollowRepository();
+      final (container, _, _) = await makeWorld(
+        extraOverrides: [followRepositoryProvider.overrideWithValue(follows)],
+      );
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      final follow = find.descendant(
+        of: find.byKey(const Key('illust-author-row')),
+        matching: find.byType(FollowSwitchButton),
+      );
+      expect(follow, findsOneWidget);
+      await tester.tap(follow);
+      await tester.pumpAndSettle();
+      expect(follows.requests, ['add:99:public']);
+    });
+
+    testWidgets('your own artwork shows no follow button', (tester) async {
+      useTallSurface(tester);
+      // The signed-in account (user 100) is the author.
+      final own = illustJson(42, pageCount: 2, withMetaPages: true);
+      own['user'] = {...own['user'] as Map<String, dynamic>, 'id': 100};
+      final (container, _, _) = await makeWorld(detailOverrides: {42: own});
+      container.read(illustStoreProvider).mergeAll([parseIllust(own)]);
+      await pumpDetail(tester, container, seedStore: false);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('illust-author-row')), findsOneWidget);
+      expect(find.byType(FollowSwitchButton), findsNothing);
+    });
+
+    testWidgets('the metadata line reads the local date and compact counts', (
+      tester,
+    ) async {
+      useTallSurface(tester);
+      final json = illustJson(42, pageCount: 2, withMetaPages: true)
+        ..['total_view'] = 12345
+        ..['total_bookmarks'] = 1200;
+      final (container, _, _) = await makeWorld(detailOverrides: {42: json});
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      final date = DateFormat.yMMMd('zh-CN').format(_fixtureCreateDate);
+      expect(_metaText(tester), '$date ·  1.2万 ·  1200');
+      expect(
+        find.bySemanticsLabel('投稿于 $date，1.2万 次浏览，1200 次收藏'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('an unknown posting date leaves only the counts', (
+      tester,
+    ) async {
+      useTallSurface(tester);
+      final json = illustJson(42, pageCount: 2, withMetaPages: true)
+        ..remove('create_date');
+      final (container, _, _) = await makeWorld(detailOverrides: {42: json});
+      container.read(illustStoreProvider).mergeAll([parseIllust(json)]);
+      await pumpDetail(
+        tester,
+        container,
+        seedStore: false,
+        locale: const Locale('zh', 'CN'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(_metaText(tester), ' 10 ·  5');
+      expect(find.bySemanticsLabel('10 次浏览，5 次收藏'), findsOneWidget);
+    });
+
+    testWidgets('a long caption collapses and expands; a short one does not', (
+      tester,
+    ) async {
+      useTallSurface(tester);
+      final long = [for (var i = 0; i < 12; i++) 'line $i'].join('<br>');
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {
+          42: illustJson(42, pageCount: 2, withMetaPages: true, caption: long),
+        },
+      );
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      Text caption() => tester.widget<Text>(find.textContaining('line 0'));
+      expect(caption().maxLines, InfoBlock.captionLines);
+      await tester.tap(find.text('展开'));
+      await tester.pumpAndSettle();
+      expect(caption().maxLines, isNull);
+      await tester.tap(find.text('收起'));
+      await tester.pumpAndSettle();
+      expect(caption().maxLines, InfoBlock.captionLines);
+
+      // The default world's caption is one short line.
+      final (shortWorld, _, _) = await makeWorld();
+      await pumpDetail(tester, shortWorld, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+      expect(find.text('作品说明文字'), findsOneWidget);
+      expect(find.text('展开'), findsNothing);
+    });
+  });
+
+  group('multi-image pages (R2)', () {
+    Finder page(int index) =>
+        find.byKey(ValueKey<Object?>('illust-page-42-$index'));
+
+    Future<ProviderContainer> pumpWork(
+      WidgetTester tester, {
+      required String type,
+    }) async {
+      tester.view.physicalSize = const Size(800, 4000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final json = illustJson(
+        42,
+        pageCount: 3,
+        type: type,
+        withMetaPages: true,
+      );
+      final (container, _, _) = await makeWorld(detailOverrides: {42: json});
+      container.read(illustStoreProvider).mergeAll([parseIllust(json)]);
+      await pumpDetail(
+        tester,
+        container,
+        seedStore: false,
+        locale: const Locale('en', 'US'),
+      );
+      await tester.pumpAndSettle();
+      return container;
+    }
+
+    testWidgets('an illustration set opens on its first image', (tester) async {
+      await pumpWork(tester, type: 'illust');
+      expect(page(0), findsOneWidget);
+      expect(page(1), findsNothing);
+      final expand = find.byKey(const Key('illust-expand-pages'));
+      expect(find.text('Show all 3 images'), findsOneWidget);
+      expect(
+        tester.getSemantics(expand),
+        matchesSemantics(
+          label: 'Show all 3 images',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          isFocusable: true,
+          hasTapAction: true,
+          hasFocusAction: true,
+          hasExpandedState: true,
+        ),
+      );
+      expect(tester.getSize(expand).height, greaterThanOrEqualTo(48));
+
+      await tester.tap(expand);
+      await tester.pumpAndSettle();
+      expect(page(1), findsOneWidget);
+      expect(page(2), findsOneWidget);
+      // No collapse back: the button is gone.
+      expect(expand, findsNothing);
+    });
+
+    testWidgets('manga shows every page', (tester) async {
+      await pumpWork(tester, type: 'manga');
+      expect(page(2), findsOneWidget);
+      expect(find.byKey(const Key('illust-expand-pages')), findsNothing);
+    });
+
+    testWidgets('selecting pages to download shows every page', (tester) async {
+      await pumpWork(tester, type: 'illust');
+      expect(page(2), findsNothing);
+
+      await openDetailMenu(tester);
+      await tester.tap(find.text('Select pages to download'));
+      await tester.pumpAndSettle();
+      expect(page(2), findsOneWidget);
+      expect(find.byKey(const Key('illust-expand-pages')), findsNothing);
     });
   });
 
@@ -1919,13 +2189,15 @@ void main() {
     testWidgets(
       'the counter follows the scrolled page and leaves with the artwork',
       (tester) async {
-        // Related works make the meta tail taller than the viewport —
+        // Manga shows every page. Related works make the meta tail taller
+        // than the viewport —
         // scrolling to the bottom leaves every page fully off screen.
         final (container, _, _) = await makeWorld(
           detailOverrides: {
             42: illustJson(
               42,
               pageCount: 3,
+              type: 'manga',
               withMetaPages: true,
               caption: '作品说明文字',
             ),
@@ -1944,6 +2216,7 @@ void main() {
             illustJson(
               42,
               pageCount: 3,
+              type: 'manga',
               withMetaPages: true,
               caption: '作品说明文字',
             ),
@@ -2034,13 +2307,13 @@ void main() {
         expect(find.byType(DetailPageCounter), findsOneWidget);
 
         await longPressImage(tester);
-        expect(find.text('0 of 2 selected'), findsOneWidget);
+        expect(selectionCount(tester), '0');
         expect(find.byIcon(Icons.radio_button_unchecked), findsWidgets);
         expect(find.byType(DetailPageCounter), findsNothing);
 
-        await tester.tap(find.text('Cancel'));
+        await tester.tap(find.byTooltip('Cancel'));
         await tester.pumpAndSettle();
-        expect(find.text('0 of 2 selected'), findsNothing);
+        expect(selectionCount(tester), isNull);
         expect(find.text('1 / 2'), findsOneWidget);
       });
     }
@@ -2079,24 +2352,16 @@ void main() {
       expect(find.byTooltip('Select pages to download'), findsNothing);
     });
 
-    testWidgets('the selection entry hides while selection mode is on', (
+    testWidgets('the selection bar replaces the app bar and its menu', (
       tester,
     ) async {
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container);
 
       await longPressImage(tester);
-      expect(find.text('0 of 2 selected'), findsOneWidget);
-
-      await openDetailMenu(tester);
-      expect(find.text('Share'), findsOneWidget);
-      expect(find.text('Jump to artwork info'), findsOneWidget);
-      // The bottom bar keeps its own "Select pages to download" title —
-      // what must be gone is the menu's re-entry item.
-      expect(
-        find.widgetWithText(MenuItemButton, 'Select pages to download'),
-        findsNothing,
-      );
+      expect(selectionCount(tester), '0');
+      expect(find.byTooltip('Show menu'), findsNothing);
+      expect(find.byTooltip('Download All'), findsNothing);
     });
 
     testWidgets('share goes through the ⋮ menu to the share boundary', (
@@ -2136,7 +2401,7 @@ void main() {
       );
     });
 
-    testWidgets('the date/stat meta rows survive 320dp at 1.3x text', (
+    testWidgets('the metadata line and footer survive 320dp at 1.3x text', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(320, 640);
@@ -2155,10 +2420,9 @@ void main() {
       await tester.tap(find.text('跳到作品信息区'));
       await tester.pumpAndSettle();
 
-      // View/bookmark counts and the size+ID row lay out without overflow.
-      expect(find.text('10'), findsOneWidget);
-      expect(find.text('5'), findsOneWidget);
-      expect(find.text('ID: 42'), findsOneWidget);
+      // The metadata line wraps instead of overflowing; the footer fits.
+      expect(_metaText(tester), contains('10 · '));
+      expect(find.text('800×600 · ID 42'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

@@ -825,26 +825,9 @@
   "searchModifyQuery": "検索を編集",
   "searchUserAccount": "アカウント",
   "illustDetailTitle": "作品詳細",
-  "illustDetailCreateDateUnknown": "投稿日不明",
-  "illustDetailCreateDate": "投稿日：{date}",
-  "@illustDetailCreateDate": {
-    "placeholders": {
-      "date": {
-        "type": "String"
-      }
-    }
-  },
-  "illustDetailSize": "サイズ：{width}x{height}",
-  "@illustDetailSize": {
-    "placeholders": {
-      "width": {
-        "type": "int"
-      },
-      "height": {
-        "type": "int"
-      }
-    }
-  },
+  "detailMetaSemantics": "{date}投稿、閲覧 {views}、ブックマーク {bookmarks}",
+  "detailMetaCountsSemantics": "閲覧 {views}、ブックマーク {bookmarks}",
+  "detailExpandPages": "全{count}枚を表示",
   "illustDetailOpenLinkFailed": "リンクを開けませんでした",
   "illustDetailRestricted": "この作品は削除または非公開になりました（ID: {id}）",
   "@illustDetailRestricted": {
@@ -1121,19 +1104,8 @@
   "hapticTierUnknown": "この端末の振動機能を取得できませんでした",
   "hapticSystemOff": "システム設定でタッチ振動がオフのため、アプリの触覚は動作しません",
   "downloadSelectPages": "ダウンロードするページを選択",
-  "downloadSelectedCount": "{total} 件中 {selected} 件を選択",
-  "@downloadSelectedCount": {
-    "placeholders": {
-      "selected": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
+  "downloadSelectedPages": "選択したページをダウンロード",
   "selectAll": "すべて選択",
-  "done": "完了",
   "viewerPageLabel": "{total} ページ中 {page} ページ目",
   "@viewerPageLabel": {
     "placeholders": {
@@ -1159,8 +1131,6 @@
       }
     }
   },
-  "viewerEnterFullscreen": "全画面表示",
-  "viewerExitFullscreen": "全画面を終了",
   "viewerFitScreen": "画面に合わせる",
   "viewerSavePage": "このページを保存",
   "viewerJumpToPage": "ページへ移動",
