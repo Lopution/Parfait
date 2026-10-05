@@ -1020,6 +1020,24 @@ abstract class AppLocalizations {
   /// **'主题'**
   String get themeSettings;
 
+  /// No description provided for @followSystemColors.
+  ///
+  /// In zh, this message translates to:
+  /// **'跟随系统取色'**
+  String get followSystemColors;
+
+  /// No description provided for @followSystemColorsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'用壁纸或系统强调色作为主题色'**
+  String get followSystemColorsHint;
+
+  /// No description provided for @followSystemColorsUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前系统不提供系统取色'**
+  String get followSystemColorsUnavailable;
+
   /// No description provided for @languageSettings.
   ///
   /// In zh, this message translates to:
@@ -4876,6 +4894,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'图片加载中'**
   String get imageLoading;
+
+  /// Relative time: less than a minute ago
+  ///
+  /// In zh, this message translates to:
+  /// **'刚刚'**
+  String get timeJustNow;
+
+  /// Relative time: N minutes ago
+  ///
+  /// In zh, this message translates to:
+  /// **'{count, plural, other{{count} 分钟前}}'**
+  String timeMinutesAgo(int count);
+
+  /// Relative time: N hours ago
+  ///
+  /// In zh, this message translates to:
+  /// **'{count, plural, other{{count} 小时前}}'**
+  String timeHoursAgo(int count);
+
+  /// Relative time: N days ago (up to 7; older uses the absolute date)
+  ///
+  /// In zh, this message translates to:
+  /// **'{count, plural, other{{count} 天前}}'**
+  String timeDaysAgo(int count);
 }
 
 class _AppLocalizationsDelegate

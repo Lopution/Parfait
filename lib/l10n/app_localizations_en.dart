@@ -520,6 +520,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeSettings => 'Theme';
 
   @override
+  String get followSystemColors => 'Use system colors';
+
+  @override
+  String get followSystemColorsHint =>
+      'Take the theme color from your wallpaper or system accent';
+
+  @override
+  String get followSystemColorsUnavailable => 'Not available on this system';
+
+  @override
   String get languageSettings => 'Language';
 
   @override
@@ -2609,4 +2619,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get imageLoading => 'Loading image';
+
+  @override
+  String get timeJustNow => 'Just now';
+
+  @override
+  String timeMinutesAgo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count minutes ago',
+      one: '$count minute ago',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String timeHoursAgo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count hours ago',
+      one: '$count hour ago',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String timeDaysAgo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days ago',
+      one: '$count day ago',
+    );
+    return '$_temp0';
+  }
 }

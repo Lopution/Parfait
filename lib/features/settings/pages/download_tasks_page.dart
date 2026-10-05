@@ -684,9 +684,9 @@ class _DownloadStatusLine extends StatelessWidget {
         Flexible(
           child: Text(
             text,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)
+                .tabular,
           ),
         ),
       ],

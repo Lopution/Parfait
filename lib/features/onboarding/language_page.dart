@@ -82,7 +82,7 @@ class LanguagePage extends ConsumerWidget {
       ),
       primaryAction: ReplicaButton(
         label: l10nLookupFor(language.locale, 'next'),
-        backgroundColor: FuncTokens.primary,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: FuncTokens.lightBackground,
         onPressed: next,
       ),

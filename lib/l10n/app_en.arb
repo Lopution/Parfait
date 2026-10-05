@@ -167,6 +167,9 @@
   "networkProbeAdviceInconclusive": "Inconclusive — try another network or retry later.",
   "copy": "Copy",
   "themeSettings": "Theme",
+  "followSystemColors": "Use system colors",
+  "followSystemColorsHint": "Take the theme color from your wallpaper or system accent",
+  "followSystemColorsUnavailable": "Not available on this system",
   "languageSettings": "Language",
   "translateSettings": "Translate",
   "browseSettings": "Browse settings",
@@ -1199,5 +1202,36 @@
   "imageLoading": "Loading image",
   "@imageLoading": {
     "description": "Screen-reader label of the progress ring over a loading detail or viewer image"
+  },
+  "timeJustNow": "Just now",
+  "@timeJustNow": {
+    "description": "Relative time: less than a minute ago"
+  },
+  "timeMinutesAgo": "{count, plural, one{{count} minute ago} other{{count} minutes ago}}",
+  "@timeMinutesAgo": {
+    "description": "Relative time: N minutes ago",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeHoursAgo": "{count, plural, one{{count} hour ago} other{{count} hours ago}}",
+  "@timeHoursAgo": {
+    "description": "Relative time: N hours ago",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeDaysAgo": "{count, plural, one{{count} day ago} other{{count} days ago}}",
+  "@timeDaysAgo": {
+    "description": "Relative time: N days ago (up to 7; older uses the absolute date)",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

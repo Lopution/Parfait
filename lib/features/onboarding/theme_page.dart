@@ -81,7 +81,7 @@ class ThemePage extends ConsumerWidget {
       ),
       primaryAction: ReplicaButton(
         label: text('next'),
-        backgroundColor: FuncTokens.primary,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: FuncTokens.lightBackground,
         onPressed: () => next(),
       ),

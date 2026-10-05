@@ -54,6 +54,9 @@ class SettingsController extends AsyncNotifier<AppSettings> {
     return _update((settings) => settings.copyWith(themeCode: themeCode));
   }
 
+  Future<void> setFollowSystemColors(bool enabled) =>
+      _update((settings) => settings.copyWith(followSystemColors: enabled));
+
   Future<void> completeGuide() =>
       _update((settings) => settings.copyWith(guideCompleted: true));
 

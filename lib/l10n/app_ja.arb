@@ -167,6 +167,9 @@
   "networkProbeAdviceInconclusive": "結論が出ません——別のネットワークか、後で再試行してください。",
   "copy": "コピー",
   "themeSettings": "テーマ",
+  "followSystemColors": "システムの色を使用",
+  "followSystemColorsHint": "壁紙やシステムのアクセントカラーをテーマ色にします",
+  "followSystemColorsUnavailable": "このシステムでは利用できません",
   "languageSettings": "言語",
   "translateSettings": "翻訳",
   "browseSettings": "ブラウズ設定",
@@ -1199,5 +1202,36 @@
   "imageLoading": "画像を読み込み中",
   "@imageLoading": {
     "description": "Screen-reader label of the progress ring over a loading detail or viewer image"
+  },
+  "timeJustNow": "たった今",
+  "@timeJustNow": {
+    "description": "Relative time: less than a minute ago"
+  },
+  "timeMinutesAgo": "{count, plural, other{{count}分前}}",
+  "@timeMinutesAgo": {
+    "description": "Relative time: N minutes ago",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeHoursAgo": "{count, plural, other{{count}時間前}}",
+  "@timeHoursAgo": {
+    "description": "Relative time: N hours ago",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeDaysAgo": "{count, plural, other{{count}日前}}",
+  "@timeDaysAgo": {
+    "description": "Relative time: N days ago (up to 7; older uses the absolute date)",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

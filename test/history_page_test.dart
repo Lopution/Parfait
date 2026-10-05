@@ -270,7 +270,7 @@ void main() {
                   .first,
             )
             .text,
-        contains('2026-09-20'),
+        contains('2026年9月20日'),
       );
 
       // The novel cell carries the type badge so it stays distinguishable

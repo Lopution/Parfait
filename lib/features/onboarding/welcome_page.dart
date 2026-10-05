@@ -35,7 +35,7 @@ class WelcomePage extends StatelessWidget {
       content: const SizedBox.shrink(),
       primaryAction: ReplicaButton(
         label: l10nLookupFor(parseAppLocale(languageTag), 'start'),
-        backgroundColor: FuncTokens.primary,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: FuncTokens.lightBackground,
         onPressed: () => context.push<void>('/welcome/language'),
       ),

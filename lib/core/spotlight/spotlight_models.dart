@@ -3,6 +3,7 @@
 library;
 
 import '../entity/json_read.dart';
+import '../log.dart';
 
 /// `/v1/spotlight/articles?category=` selector. The wire value is the enum
 /// name; `all` is Pixiv's mixed feed, not a client-side union.
@@ -26,7 +27,7 @@ class SpotlightArticle {
     required this.articleUrl,
     this.pureTitle = '',
     this.thumbnailUrl,
-    this.publishDate = '',
+    this.publishDate,
     this.category = '',
     this.subcategoryLabel = '',
   });
@@ -41,8 +42,9 @@ class SpotlightArticle {
   /// `thumbnail` — CDN image for list rows (not a pximg host).
   final String? thumbnailUrl;
 
-  /// `publish_date` — already display-formatted on the wire.
-  final String publishDate;
+  /// `publish_date`, parsed at the boundary. Null when the wire string is
+  /// missing or does not parse.
+  final DateTime? publishDate;
   final String category;
   final String subcategoryLabel;
 
@@ -55,13 +57,20 @@ class SpotlightArticle {
         'spotlight article is missing required fields',
       );
     }
+    final rawPublishDate = readOptionalString(json['publish_date']);
+    final publishDate = rawPublishDate == null
+        ? null
+        : DateTime.tryParse(rawPublishDate);
+    if (rawPublishDate != null && publishDate == null) {
+      log('spotlight article $id: unparseable publish_date "$rawPublishDate"');
+    }
     return SpotlightArticle(
       id: id,
       title: title,
       pureTitle: readOptionalString(json['pure_title']) ?? '',
       articleUrl: articleUrl,
       thumbnailUrl: readOptionalString(json['thumbnail']),
-      publishDate: readOptionalString(json['publish_date']) ?? '',
+      publishDate: publishDate,
       category: readOptionalString(json['category']) ?? '',
       subcategoryLabel: readOptionalString(json['subcategory_label']) ?? '',
     );

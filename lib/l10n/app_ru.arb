@@ -167,6 +167,9 @@
   "networkProbeAdviceInconclusive": "Не удалось определить — попробуйте другую сеть или повторите позже.",
   "copy": "Копировать",
   "themeSettings": "Тема",
+  "followSystemColors": "Системные цвета",
+  "followSystemColorsHint": "Цвет темы берётся из обоев или системного акцента",
+  "followSystemColorsUnavailable": "Недоступно в этой системе",
   "languageSettings": "Язык",
   "translateSettings": "Перевод",
   "browseSettings": "Настройки просмотра",
@@ -1199,5 +1202,36 @@
   "imageLoading": "Загрузка изображения",
   "@imageLoading": {
     "description": "Screen-reader label of the progress ring over a loading detail or viewer image"
+  },
+  "timeJustNow": "Только что",
+  "@timeJustNow": {
+    "description": "Relative time: less than a minute ago"
+  },
+  "timeMinutesAgo": "{count, plural, one{{count} минуту назад} few{{count} минуты назад} many{{count} минут назад} other{{count} минуты назад}}",
+  "@timeMinutesAgo": {
+    "description": "Relative time: N minutes ago",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeHoursAgo": "{count, plural, one{{count} час назад} few{{count} часа назад} many{{count} часов назад} other{{count} часа назад}}",
+  "@timeHoursAgo": {
+    "description": "Relative time: N hours ago",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeDaysAgo": "{count, plural, one{{count} день назад} few{{count} дня назад} many{{count} дней назад} other{{count} дня назад}}",
+  "@timeDaysAgo": {
+    "description": "Relative time: N days ago (up to 7; older uses the absolute date)",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

@@ -1,3 +1,4 @@
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'package:parfait/app/app.dart';
 import 'package:parfait/app/system_ui.dart';
+import 'package:parfait/app/theme/func_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -273,60 +275,10 @@ void main() {
     addTearDown(
       () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
     );
-    // Widget coordinator gate — keeps startup quiet without a native side.
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('parfait/widget'),
-      (call) async => false,
+    await _pumpApp(
+      tester,
+      AppSettings.defaults().copyWith(guideCompleted: true),
     );
-
-    final container = ProviderContainer(
-      overrides: [
-        ...accountProviderOverrides(
-          credentialStore: FakeCredentialStore(
-            values: const {
-              '100': Credential(accessToken: 'a', refreshToken: 'r'),
-            },
-          ),
-          metadataRepository: FakeAccountMetadataRepository(
-            accounts: const [Account(id: '100', userId: 100, name: 't')],
-            currentId: '100',
-          ),
-        ),
-        settingsRepositoryProvider.overrideWithValue(
-          _MemorySettingsRepository(
-            AppSettings.defaults().copyWith(guideCompleted: true),
-          ),
-        ),
-        pixivNetworkFactoryProvider.overrideWithValue(
-          PixivNetworkFactory(
-            NetworkAccessPolicy(
-              clientFactory: (route, host, purpose) =>
-                  MockClient((_) async => http.Response('{}', 200)),
-            ),
-          ),
-        ),
-        downloadManagerProvider.overrideWithValue(
-          DownloadManager(
-            transport: FakeTransport(),
-            sinkFactory: MemorySinkFactory(),
-          ),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const ParfaitApp(),
-      ),
-    );
-    // The delayed auto-update check (3s) must fire before the test ends —
-    // pump past it like the other app-level tests do.
-    for (var i = 0; i < 12; i++) {
-      await tester.pump(const Duration(milliseconds: 300));
-    }
-    await tester.pumpAndSettle();
 
     expect(
       modes.where((mode) => mode == 'SystemUiMode.edgeToEdge'),
@@ -334,6 +286,119 @@ void main() {
       reason: 'edge-to-edge is an app-start contract, not a per-page side',
     );
   });
+
+  group('system colors reach the app themes', () {
+    const accent = Color(0xFF3366CC);
+
+    setUp(() {
+      // dynamic_color's channel is the platform boundary: a desktop accent.
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(
+        DynamicColorPlugin.channel,
+        (call) async => call.method == DynamicColorPlugin.accentColorMethodName
+            ? accent.toARGB32()
+            : null,
+      );
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(
+          DynamicColorPlugin.channel,
+          null,
+        ),
+      );
+    });
+
+    MaterialApp app(WidgetTester tester) =>
+        tester.widget<MaterialApp>(find.byType(MaterialApp));
+
+    testWidgets('when the setting is on', (tester) async {
+      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+      await _pumpApp(
+        tester,
+        AppSettings.defaults().copyWith(
+          guideCompleted: true,
+          followSystemColors: true,
+        ),
+      );
+
+      expect(
+        app(tester).theme!.colorScheme.primary,
+        ColorScheme.fromSeed(seedColor: accent).primary,
+      );
+      expect(
+        app(tester).darkTheme!.colorScheme.primary,
+        ColorScheme.fromSeed(
+          seedColor: accent,
+          brightness: Brightness.dark,
+        ).primary,
+      );
+    });
+
+    testWidgets('and stay pink when it is off', (tester) async {
+      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+      await _pumpApp(
+        tester,
+        AppSettings.defaults().copyWith(guideCompleted: true),
+      );
+
+      expect(app(tester).theme!.colorScheme.primary, FuncTokens.primary);
+      expect(app(tester).darkTheme!.colorScheme.primary, FuncTokens.primary);
+    });
+  });
+}
+
+/// Pumps the whole app signed in with [settings] and lets startup settle,
+/// including the delayed auto-update check.
+Future<void> _pumpApp(WidgetTester tester, AppSettings settings) async {
+  // Widget coordinator gate — keeps startup quiet without a native side.
+  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+    const MethodChannel('parfait/widget'),
+    (call) async => false,
+  );
+
+  final container = ProviderContainer(
+    overrides: [
+      ...accountProviderOverrides(
+        credentialStore: FakeCredentialStore(
+          values: const {
+            '100': Credential(accessToken: 'a', refreshToken: 'r'),
+          },
+        ),
+        metadataRepository: FakeAccountMetadataRepository(
+          accounts: const [Account(id: '100', userId: 100, name: 't')],
+          currentId: '100',
+        ),
+      ),
+      settingsRepositoryProvider.overrideWithValue(
+        _MemorySettingsRepository(settings),
+      ),
+      pixivNetworkFactoryProvider.overrideWithValue(
+        PixivNetworkFactory(
+          NetworkAccessPolicy(
+            clientFactory: (route, host, purpose) =>
+                MockClient((_) async => http.Response('{}', 200)),
+          ),
+        ),
+      ),
+      downloadManagerProvider.overrideWithValue(
+        DownloadManager(
+          transport: FakeTransport(),
+          sinkFactory: MemorySinkFactory(),
+        ),
+      ),
+    ],
+  );
+  addTearDown(container.dispose);
+
+  await tester.pumpWidget(
+    UncontrolledProviderScope(container: container, child: const ParfaitApp()),
+  );
+  // The delayed auto-update check (3s) must fire before the test ends —
+  // pump past it like the other app-level tests do.
+  for (var i = 0; i < 12; i++) {
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+  await tester.pumpAndSettle();
 }
 
 class _MemorySettingsRepository implements SettingsRepository {

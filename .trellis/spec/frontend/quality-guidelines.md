@@ -303,6 +303,10 @@ import trips `depend_on_referenced_packages`.
 - Are new payload fields parsed by the repository/model owner and represented
   by typed state rather than repeated local casts?
 - Does a changed setting have a real consumer outside the settings page?
+- Do user-facing counts and dates go through `AppFormat`
+  (`count`/`date`/`relative`), and do numbers that change in place use
+  `.tabular`? The architecture test catches `DateFormat`/`NumberFormat`,
+  not a raw `'$n'` interpolated into a label.
 - Do tests assert the observable terminal state and preserve existing account,
   cancellation, cursor, Hero, tab, and refresh contracts?
 - Were generated files, lockfiles, and native/plugin boundaries changed only

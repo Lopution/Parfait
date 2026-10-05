@@ -25,6 +25,7 @@ import 'system_ui.dart';
 import 'navigation/routes.dart';
 import 'startup_gate.dart';
 import 'theme/replica_theme.dart';
+import 'theme/system_colors.dart';
 import 'widgets/app_snack_bar.dart';
 import 'widgets/func_bottom_nav.dart';
 import 'widgets/settings_load_error.dart';
@@ -233,6 +234,11 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     AppSettings? startupSettings,
     bool settingsPending = false,
   }) {
+    // Loading keeps the last resolved scheme too (`value` is retained
+    // across refreshes); the setting alone gates whether it applies.
+    final systemColors = settings.followSystemColors
+        ? ref.watch(systemColorSchemesProvider).value
+        : null;
     return MaterialApp.router(
       title: 'Parfait',
       debugShowCheckedModeBanner: false,
@@ -245,8 +251,11 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
         Locale('ru', 'RU'),
       ],
       localizationsDelegates: appLocalizationsDelegates,
-      theme: replicaTheme(Brightness.light),
-      darkTheme: replicaTheme(Brightness.dark),
+      theme: replicaTheme(Brightness.light, systemColors: systemColors?.light),
+      darkTheme: replicaTheme(
+        Brightness.dark,
+        systemColors: systemColors?.dark,
+      ),
       themeMode: themeMode,
       restorationScopeId: 'parfait',
       routerConfig: _router,

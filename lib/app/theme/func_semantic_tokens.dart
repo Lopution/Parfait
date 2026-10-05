@@ -18,6 +18,10 @@ abstract final class FuncSpacing {
 /// Named corner radii so cards and controls do not share one radius.
 abstract final class FuncShape {
   static const BorderRadius card = BorderRadius.all(Radius.circular(12));
+
+  /// Inner corners of a segmented list: the edges where two segments of one
+  /// group face each other (the group's outer edge stays [card]).
+  static const BorderRadius segment = BorderRadius.all(Radius.circular(4));
   static const BorderRadius control = BorderRadius.all(Radius.circular(8));
   static const BorderRadius pill = BorderRadius.all(Radius.circular(999));
   static const BorderRadius dialog = BorderRadius.all(Radius.circular(28));
@@ -55,8 +59,9 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
 
   factory FuncSemanticTokens.fromBrightness(
     Brightness brightness,
-    TextTheme textTheme,
-  ) {
+    TextTheme textTheme, {
+    required Color primary,
+  }) {
     final dark = brightness == Brightness.dark;
     final text = dark ? FuncTokens.darkText : FuncTokens.lightText;
     final textSecondary = dark
@@ -75,7 +80,7 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       contentTertiary: dark
           ? FuncTokens.darkText.withValues(alpha: 0.35)
           : FuncTokens.lightText.withValues(alpha: 0.35),
-      brand: FuncTokens.primary,
+      brand: primary,
       onBrand: FuncTokens.lightBackground,
       danger: FuncTokens.danger,
       success: FuncTokens.success,
@@ -128,7 +133,11 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
   static FuncSemanticTokens of(BuildContext context) {
     final theme = Theme.of(context);
     return theme.extension<FuncSemanticTokens>() ??
-        FuncSemanticTokens.fromBrightness(theme.brightness, theme.textTheme);
+        FuncSemanticTokens.fromBrightness(
+          theme.brightness,
+          theme.textTheme,
+          primary: theme.colorScheme.primary,
+        );
   }
 
   @override
@@ -205,4 +214,11 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       numeric: TextStyle.lerp(numeric, other.numeric, t)!,
     );
   }
+}
+
+/// Digits of equal width, so a changing number does not shift its
+/// neighbours (counts, page numbers, progress).
+extension TabularFigures on TextStyle {
+  TextStyle get tabular =>
+      copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
 }

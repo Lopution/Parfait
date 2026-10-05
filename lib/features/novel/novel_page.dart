@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/format/app_format.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/author_summary.dart';
@@ -196,7 +197,7 @@ class NovelPage extends ConsumerWidget {
               icon: const Icon(Icons.comment_outlined),
               label: Text(
                 novel.totalComments > 0
-                    ? '${context.l10n.commentTitle} (${novel.totalComments})'
+                    ? '${context.l10n.commentTitle} (${AppFormat.count(context, novel.totalComments)})'
                     : context.l10n.commentTitle,
               ),
             ),

@@ -157,6 +157,56 @@ void main() {
     );
   });
 
+  testWidgets('every row is its own segment, 2dp apart', (tester) async {
+    const outer = Radius.circular(12);
+    const inner = Radius.circular(4);
+    final expected = {
+      1: [FuncShape.card],
+      2: [
+        const BorderRadius.vertical(top: outer, bottom: inner),
+        const BorderRadius.vertical(top: inner, bottom: outer),
+      ],
+      3: [
+        const BorderRadius.vertical(top: outer, bottom: inner),
+        const BorderRadius.all(inner),
+        const BorderRadius.vertical(top: inner, bottom: outer),
+      ],
+    };
+    for (final MapEntry(key: count, value: radii) in expected.entries) {
+      await tester.pumpWidget(
+        _wrap(
+          SettingsGroup(
+            children: [
+              for (var i = 0; i < count; i++)
+                SizedBox(key: ValueKey('row-$i'), height: 40),
+            ],
+          ),
+        ),
+      );
+
+      final segments = find.descendant(
+        of: find.byType(SettingsGroup),
+        matching: find.byType(Material),
+      );
+      expect(segments, findsNWidgets(count));
+      for (var i = 0; i < count; i++) {
+        final material = tester.widget<Material>(segments.at(i));
+        expect(
+          (material.shape! as RoundedRectangleBorder).borderRadius,
+          radii[i],
+          reason: 'segment $i of $count',
+        );
+        expect(material.clipBehavior, Clip.antiAlias);
+        if (i > 0) {
+          final gap =
+              tester.getTopLeft(segments.at(i)).dy -
+              tester.getBottomLeft(segments.at(i - 1)).dy;
+          expect(gap, SettingsGroup.segmentGap);
+        }
+      }
+    }
+  });
+
   testWidgets('empty group renders no container', (tester) async {
     await tester.pumpWidget(
       _wrap(const SettingsGroup(title: Text('Muted'), children: [])),

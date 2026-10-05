@@ -4,12 +4,17 @@ import '../system_ui.dart';
 import 'func_semantic_tokens.dart';
 import 'func_tokens.dart';
 
-/// [fontFamilyFallback] is for layout tests only: the test engine draws a
-/// glyph Montserrat lacks as its own missing-glyph box instead of falling
-/// back, so the locale layout harness names its fallback fonts here. The
-/// app leaves it null and keeps the engine's system fallback chain.
+/// [fontFamilyFallback] is for layout tests only: the locale layout
+/// harness loads its own Latin and CJK stand-ins and names them here.
+/// The app leaves it null and keeps the engine's system fallback chain
+/// behind the platform font.
+///
+/// [systemColors] is the platform accent palette (dynamic color); only the
+/// accent roles are taken from it — neutrals stay on FuncTokens so every
+/// surface tier keeps the app's ladder.
 ThemeData replicaTheme(
   Brightness brightness, {
+  ColorScheme? systemColors,
   List<String>? fontFamilyFallback,
 }) {
   final dark = brightness == Brightness.dark;
@@ -38,44 +43,43 @@ ThemeData replicaTheme(
       ? FuncTokens.darkTextSecondary
       : FuncTokens.lightTextSecondary;
 
-  // fontFamily goes through apply() as well: ThemeData(fontFamily:) only
-  // lands on the *default* textTheme before merge(), so base styles that
-  // carry an explicit platform family (Roboto on the untouched slots like
-  // labelMedium/titleLarge) would otherwise win the merge and leak through.
-  final baseTextTheme = ThemeData(brightness: brightness).textTheme.apply(
-    bodyColor: text,
-    displayColor: text,
-    fontFamily: 'Montserrat',
-  );
+  final baseTextTheme = ThemeData(
+    brightness: brightness,
+  ).textTheme.apply(bodyColor: text, displayColor: text);
 
-  final colorScheme =
-      ColorScheme.fromSeed(
-        seedColor: FuncTokens.primary,
-        brightness: brightness,
-      ).copyWith(
-        primary: FuncTokens.primary,
-        secondary: textSecondary,
-        surface: background,
-        surfaceContainerLowest: background,
-        surfaceContainerLow: containerLow,
-        surfaceContainer: container,
-        surfaceContainerHigh: containerHigh,
-        surfaceContainerHighest: containerHighest,
-        onPrimary: FuncTokens.lightBackground,
-        secondaryContainer: containerHighest,
-        onSecondary: background,
-        onSecondaryContainer: text,
-        onSurface: text,
-        onSurfaceVariant: textSecondary,
-        inverseSurface: inverseSurface,
-        onInverseSurface: onInverseSurface,
-        // Borders/dividers keep the faint subdued alpha; only text uses the
-        // readable secondary color.
-        outline: subdued,
-        outlineVariant: subdued,
-        error: FuncTokens.error,
-        onError: FuncTokens.lightBackground,
-      );
+  final seeded = ColorScheme.fromSeed(
+    seedColor: systemColors?.primary ?? FuncTokens.primary,
+    brightness: brightness,
+  );
+  final colorScheme = seeded.copyWith(
+    primary: systemColors?.primary ?? FuncTokens.primary,
+    primaryContainer: systemColors?.primaryContainer ?? seeded.primaryContainer,
+    onPrimaryContainer:
+        systemColors?.onPrimaryContainer ?? seeded.onPrimaryContainer,
+    inversePrimary: systemColors?.inversePrimary ?? seeded.inversePrimary,
+    surfaceTint: systemColors?.surfaceTint ?? seeded.surfaceTint,
+    secondary: textSecondary,
+    surface: background,
+    surfaceContainerLowest: background,
+    surfaceContainerLow: containerLow,
+    surfaceContainer: container,
+    surfaceContainerHigh: containerHigh,
+    surfaceContainerHighest: containerHighest,
+    onPrimary: systemColors?.onPrimary ?? FuncTokens.lightBackground,
+    secondaryContainer: containerHighest,
+    onSecondary: background,
+    onSecondaryContainer: text,
+    onSurface: text,
+    onSurfaceVariant: textSecondary,
+    inverseSurface: inverseSurface,
+    onInverseSurface: onInverseSurface,
+    // Borders/dividers keep the faint subdued alpha; only text uses the
+    // readable secondary color.
+    outline: subdued,
+    outlineVariant: subdued,
+    error: FuncTokens.error,
+    onError: FuncTokens.lightBackground,
+  );
 
   // One type scale feeds both TextTheme roles and the semantic token ramp
   // (FuncSemanticTokens derives its type slots from these roles).
@@ -132,12 +136,17 @@ ThemeData replicaTheme(
 
   final theme = ThemeData(
     brightness: brightness,
-    // Latin/digits render in Montserrat; missing glyphs (CJK, emoji) resolve
-    // through the engine's system fallback chain.
-    fontFamily: 'Montserrat',
+    // No bundled font: the platform family renders everything, with the
+    // engine's system fallback chain covering scripts it lacks.
     fontFamilyFallback: fontFamilyFallback,
-    primaryColor: FuncTokens.primary,
-    extensions: [FuncSemanticTokens.fromBrightness(brightness, textTheme)],
+    primaryColor: colorScheme.primary,
+    extensions: [
+      FuncSemanticTokens.fromBrightness(
+        brightness,
+        textTheme,
+        primary: colorScheme.primary,
+      ),
+    ],
     // Keep app hints floating so their entrance and exit use the same
     // readable fade behavior across copy, saved, and exit messages.
     snackBarTheme:
@@ -179,7 +188,7 @@ ThemeData replicaTheme(
     iconTheme: IconThemeData(color: text),
     bottomNavigationBarTheme: BottomNavigationBarThemeData(
       backgroundColor: background,
-      selectedItemColor: FuncTokens.primary,
+      selectedItemColor: colorScheme.primary,
       unselectedItemColor: textSecondary,
     ),
     bottomAppBarTheme: BottomAppBarThemeData(
@@ -188,9 +197,9 @@ ThemeData replicaTheme(
       elevation: 0,
     ),
     tabBarTheme: TabBarThemeData(
-      labelColor: FuncTokens.primary,
+      labelColor: colorScheme.primary,
       unselectedLabelColor: textSecondary,
-      indicatorColor: FuncTokens.primary,
+      indicatorColor: colorScheme.primary,
       dividerColor: FuncTokens.transparent,
     ),
     navigationBarTheme: NavigationBarThemeData(

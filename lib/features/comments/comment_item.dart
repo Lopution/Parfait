@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/format/app_format.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_semantic_tokens.dart';
@@ -74,7 +75,7 @@ class _CommentItemState extends ConsumerState<CommentItem> {
                         ),
                         const SizedBox(width: FuncSpacing.sm),
                         Text(
-                          _formatDate(widget.comment.createdAt),
+                          AppFormat.relative(context, widget.comment.createdAt),
                           style: theme.textTheme.bodySmall,
                         ),
                       ],
@@ -260,7 +261,8 @@ class _Actions extends StatelessWidget {
     final repliesPill = comment.hasReplies && onOpenReplies != null
         ? _ActionPill(
             icon: Icons.forum_outlined,
-            label: '${context.l10n.commentReplies} ${comment.replyCount}',
+            label:
+                '${context.l10n.commentReplies} ${AppFormat.count(context, comment.replyCount)}',
             onTap: onOpenReplies,
           )
         : null;
@@ -391,5 +393,3 @@ class _TranslationOverlay extends StatelessWidget {
     );
   }
 }
-
-String _formatDate(DateTime date) => '${date.year}/${date.month}/${date.day}';

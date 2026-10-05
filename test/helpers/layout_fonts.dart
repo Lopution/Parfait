@@ -13,22 +13,18 @@ const layoutFontFallback = ['Roboto', cjkBoxFamily];
 /// 0.5em, with Noto Sans CJK's line metrics.
 const cjkBoxFamily = 'ParfaitTestCjk';
 
-/// Registers Montserrat (the app font), Roboto and the CJK box font so text
+/// Registers Roboto (the platform Latin font) and the CJK box font so text
 /// measures with real glyph widths instead of FlutterTest's 1em squares.
 /// Fails loudly when a font is missing: a silent fallback to the test font
 /// would let every width check pass.
 Future<void> loadLayoutFonts() async {
-  final montserrat = FontLoader('Montserrat');
-  for (final weight in const ['regular', 'medium', 'semi_bold', 'bold']) {
-    montserrat.addFont(rootBundle.load('assets/fonts/montserrat_$weight.ttf'));
-  }
   final roboto = FontLoader('Roboto');
   for (final weight in const ['Regular', 'Medium', 'Bold']) {
     roboto.addFont(Future.value(_sdkFont('Roboto-$weight.ttf')));
   }
   final cjk = FontLoader(cjkBoxFamily)
     ..addFont(Future.value(ByteData.sublistView(buildCjkBoxFont())));
-  await Future.wait([montserrat.load(), roboto.load(), cjk.load()]);
+  await Future.wait([roboto.load(), cjk.load()]);
 }
 
 /// Roboto ships with the Flutter SDK's material fonts.

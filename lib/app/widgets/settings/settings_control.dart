@@ -15,19 +15,24 @@ class SettingsControl extends StatelessWidget {
 
   final Widget title;
   final bool value;
-  final ValueChanged<bool> onChanged;
+
+  /// Null disables the row (the switch greys out and ignores taps).
+  final ValueChanged<bool>? onChanged;
   final Widget? subtitle;
 
   @override
   Widget build(BuildContext context) {
+    final onChanged = this.onChanged;
     return SwitchListTile(
       title: title,
       subtitle: subtitle,
       value: value,
-      onChanged: (value) {
-        value ? AppHaptics.toggleOn() : AppHaptics.toggleOff();
-        onChanged(value);
-      },
+      onChanged: onChanged == null
+          ? null
+          : (value) {
+              value ? AppHaptics.toggleOn() : AppHaptics.toggleOff();
+              onChanged(value);
+            },
     );
   }
 }

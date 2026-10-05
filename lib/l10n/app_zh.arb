@@ -167,6 +167,9 @@
   "networkProbeAdviceInconclusive": "无法得出结论——换个网络或稍后重试。",
   "copy": "复制",
   "themeSettings": "主题",
+  "followSystemColors": "跟随系统取色",
+  "followSystemColorsHint": "用壁纸或系统强调色作为主题色",
+  "followSystemColorsUnavailable": "当前系统不提供系统取色",
   "languageSettings": "语言",
   "translateSettings": "翻译",
   "browseSettings": "浏览设置",
@@ -1199,5 +1202,36 @@
   "imageLoading": "图片加载中",
   "@imageLoading": {
     "description": "Screen-reader label of the progress ring over a loading detail or viewer image"
+  },
+  "timeJustNow": "刚刚",
+  "@timeJustNow": {
+    "description": "Relative time: less than a minute ago"
+  },
+  "timeMinutesAgo": "{count, plural, other{{count} 分钟前}}",
+  "@timeMinutesAgo": {
+    "description": "Relative time: N minutes ago",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeHoursAgo": "{count, plural, other{{count} 小时前}}",
+  "@timeHoursAgo": {
+    "description": "Relative time: N hours ago",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeDaysAgo": "{count, plural, other{{count} 天前}}",
+  "@timeDaysAgo": {
+    "description": "Relative time: N days ago (up to 7; older uses the absolute date)",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

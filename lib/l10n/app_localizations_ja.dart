@@ -505,6 +505,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get themeSettings => 'テーマ';
 
   @override
+  String get followSystemColors => 'システムの色を使用';
+
+  @override
+  String get followSystemColorsHint => '壁紙やシステムのアクセントカラーをテーマ色にします';
+
+  @override
+  String get followSystemColorsUnavailable => 'このシステムでは利用できません';
+
+  @override
   String get languageSettings => '言語';
 
   @override
@@ -2544,4 +2553,37 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get imageLoading => '画像を読み込み中';
+
+  @override
+  String get timeJustNow => 'たった今';
+
+  @override
+  String timeMinutesAgo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count分前',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String timeHoursAgo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count時間前',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String timeDaysAgo(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count日前',
+    );
+    return '$_temp0';
+  }
 }

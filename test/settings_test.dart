@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -942,6 +943,87 @@ void main() {
 
     expect(find.byKey(const Key('settings-load-error')), findsOneWidget);
     expect(find.byKey(const Key('settings-load-retry')), findsOneWidget);
+  });
+
+  group('follow system colors', () {
+    /// The platform answers through the dynamic_color channel (external
+    /// boundary): no Android palette, and [accent] for the accent query.
+    void mockAccent(Future<int?> Function() accent) {
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(
+        DynamicColorPlugin.channel,
+        (call) => call.method == DynamicColorPlugin.accentColorMethodName
+            ? accent()
+            : Future.value(),
+      );
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(
+          DynamicColorPlugin.channel,
+          null,
+        ),
+      );
+    }
+
+    Future<FakeSettingsRepository> pumpThemePage(WidgetTester tester) async {
+      final repository = FakeSettingsRepository(baseTestSettings());
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: ThemeSettingsPage(),
+          ),
+        ),
+      );
+      return repository;
+    }
+
+    SwitchListTile followSwitch(WidgetTester tester) => tester
+        .widget<SwitchListTile>(find.widgetWithText(SwitchListTile, '跟随系统取色'));
+
+    testWidgets('a system palette enables the switch and it persists', (
+      tester,
+    ) async {
+      mockAccent(() async => 0xFF3366CC);
+      final repository = await pumpThemePage(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('用壁纸或系统强调色作为主题色'), findsOneWidget);
+      expect(followSwitch(tester).value, isFalse);
+      await tester.tap(find.text('跟随系统取色'));
+      await tester.pumpAndSettle();
+
+      expect(repository.value.followSystemColors, isTrue);
+      expect(followSwitch(tester).value, isTrue);
+    });
+
+    testWidgets('without a system palette the switch is disabled with why', (
+      tester,
+    ) async {
+      mockAccent(() async => null);
+      await pumpThemePage(tester);
+      await tester.pumpAndSettle();
+
+      expect(followSwitch(tester).onChanged, isNull);
+      expect(find.text('当前系统不提供系统取色'), findsOneWidget);
+    });
+
+    testWidgets('while the palette is read the switch waits without a reason', (
+      tester,
+    ) async {
+      final pending = Completer<int?>();
+      addTearDown(() => pending.complete());
+      mockAccent(() => pending.future);
+      await pumpThemePage(tester);
+      await tester.pump();
+
+      expect(followSwitch(tester).onChanged, isNull);
+      expect(find.text('用壁纸或系统强调色作为主题色'), findsNothing);
+      expect(find.text('当前系统不提供系统取色'), findsNothing);
+    });
   });
 
   testWidgets('account read failures expose a retryable UI', (tester) async {

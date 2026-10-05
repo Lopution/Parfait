@@ -295,8 +295,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           child: ReplicaButton(
             label: text('register'),
             backgroundColor: FuncTokens.lightBackground,
-            foregroundColor: FuncTokens.primary,
-            borderColor: FuncTokens.primary,
+            foregroundColor: Theme.of(context).colorScheme.primary,
+            borderColor: Theme.of(context).colorScheme.primary,
             onPressed:
                 widget.onRegister ?? () => _openLoginWebview(create: true),
           ),
@@ -305,7 +305,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         Expanded(
           child: ReplicaButton(
             label: text('login'),
-            backgroundColor: FuncTokens.primary,
+            backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: FuncTokens.lightBackground,
             onPressed: widget.onLogin ?? () => _openLoginWebview(),
           ),
@@ -374,7 +374,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         TextButton(
           onPressed: () => context.push<void>('/user-agreement'),
           style: TextButton.styleFrom(
-            foregroundColor: FuncTokens.primary,
+            foregroundColor: Theme.of(context).colorScheme.primary,
             padding: EdgeInsets.zero,
             minimumSize: const Size(0, 32),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,

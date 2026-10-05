@@ -132,18 +132,18 @@ void main() {
     );
   });
 
-  testWidgets('label style is the resolved 14sp w500 Montserrat style', (
+  testWidgets('label style is the resolved 14sp w500 platform style', (
     tester,
   ) async {
     await _pumpBar(tester, const ['推荐', '排行']);
 
     final context = tester.element(find.byType(AppTabBar));
     // The provenance matters: the style must come from the resolved
-    // textTheme so Latin labels keep the Montserrat family (D3).
+    // textTheme so labels keep the platform family (D3).
     final style = TabBarTheme.of(context).labelStyle!;
     expect(style.fontSize, 14);
     expect(style.fontWeight, FontWeight.w500);
-    expect(style.fontFamily, 'Montserrat');
+    expect(style.fontFamily, 'Roboto');
     expect((_labelRichText(tester, '推荐').text as TextSpan).style!.fontSize, 14);
   });
 

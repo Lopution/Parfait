@@ -221,6 +221,7 @@ class AppSettings {
     required this.guideCompleted,
     required this.languageTag,
     required this.themeCode,
+    this.followSystemColors = false,
     this.imageSource = defaultImageSource,
     this.customImageSource,
     this.enableDoh = true,
@@ -286,6 +287,10 @@ class AppSettings {
   final bool guideCompleted;
   final String languageTag;
   final int themeCode;
+
+  /// Android 12+/desktop system accent as the theme seed; false keeps the
+  /// app pink (R4).
+  final bool followSystemColors;
   final String imageSource;
 
   /// Last used custom mirror prefix (`https://host[/path]`), remembered so
@@ -396,6 +401,10 @@ class AppSettings {
         base.languageTag,
       ),
       themeCode: _theme(json['themeCode'] ?? json['theme'], base.themeCode),
+      followSystemColors: _bool(
+        json['followSystemColors'],
+        base.followSystemColors,
+      ),
       imageSource: source is String && ImageMirror.isValidSource(source)
           ? (ImageSourceMode.fromHost(source) != null
                 ? source
@@ -477,6 +486,7 @@ class AppSettings {
       'guideCompleted': guideCompleted,
       'languageTag': languageTag,
       'themeCode': themeCode,
+      'followSystemColors': followSystemColors,
       'imageSource': imageSource,
       'customImageSource': customImageSource,
       'enableDoh': enableDoh,
@@ -613,6 +623,7 @@ class AppSettings {
     bool? guideCompleted,
     String? languageTag,
     int? themeCode,
+    bool? followSystemColors,
     String? imageSource,
     Object? customImageSource = _unset,
     bool? enableDoh,
@@ -647,6 +658,7 @@ class AppSettings {
           ? this.languageTag
           : canonicalLanguageTag(languageTag),
       themeCode: _theme(themeCode, this.themeCode),
+      followSystemColors: followSystemColors ?? this.followSystemColors,
       imageSource: imageSource != null && ImageMirror.isValidSource(imageSource)
           ? (ImageSourceMode.fromHost(imageSource) != null
                 ? imageSource
