@@ -825,26 +825,8 @@
   "searchModifyQuery": "Edit search",
   "searchUserAccount": "Account",
   "illustDetailTitle": "Artwork",
-  "illustDetailCreateDateUnknown": "Upload date unknown",
-  "illustDetailCreateDate": "Uploaded on {date}",
-  "@illustDetailCreateDate": {
-    "placeholders": {
-      "date": {
-        "type": "String"
-      }
-    }
-  },
-  "illustDetailSize": "Size: {width}x{height}",
-  "@illustDetailSize": {
-    "placeholders": {
-      "width": {
-        "type": "int"
-      },
-      "height": {
-        "type": "int"
-      }
-    }
-  },
+  "detailMetaSemantics": "Posted {date}, {views} views, {bookmarks} bookmarks",
+  "detailMetaCountsSemantics": "{views} views, {bookmarks} bookmarks",
   "illustDetailOpenLinkFailed": "Could not open the link",
   "illustDetailRestricted": "This artwork has been deleted or restricted (ID: {id})",
   "@illustDetailRestricted": {

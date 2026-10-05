@@ -825,26 +825,8 @@
   "searchModifyQuery": "検索を編集",
   "searchUserAccount": "アカウント",
   "illustDetailTitle": "作品詳細",
-  "illustDetailCreateDateUnknown": "投稿日不明",
-  "illustDetailCreateDate": "投稿日：{date}",
-  "@illustDetailCreateDate": {
-    "placeholders": {
-      "date": {
-        "type": "String"
-      }
-    }
-  },
-  "illustDetailSize": "サイズ：{width}x{height}",
-  "@illustDetailSize": {
-    "placeholders": {
-      "width": {
-        "type": "int"
-      },
-      "height": {
-        "type": "int"
-      }
-    }
-  },
+  "detailMetaSemantics": "{date}投稿、閲覧 {views}、ブックマーク {bookmarks}",
+  "detailMetaCountsSemantics": "閲覧 {views}、ブックマーク {bookmarks}",
   "illustDetailOpenLinkFailed": "リンクを開けませんでした",
   "illustDetailRestricted": "この作品は削除または非公開になりました（ID: {id}）",
   "@illustDetailRestricted": {

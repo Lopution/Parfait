@@ -9,9 +9,11 @@ import '../../../../app/motion/app_overlays.dart';
 import '../../../../app/navigation/routes.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
 import '../../../../app/widgets/errors/error_details.dart';
-import '../../../../app/widgets/author_summary.dart';
+import '../../../../app/widgets/author_row.dart';
+import '../../../../app/widgets/follow_switch_button.dart';
 import '../../../../app/widgets/tag_chips.dart';
 import '../../../../app/widgets/unmute_undo.dart';
+import '../../../../core/auth/account_store.dart';
 import '../../../../core/entity/illust_entity.dart';
 import '../../../../core/mute/mute_models.dart';
 import '../../../../core/mute/mute_store.dart';
@@ -31,16 +33,23 @@ class InfoBlock extends ConsumerWidget {
   final bool blockMode;
   final VoidCallback onToggleBlockMode;
 
+  /// Collapsed caption height; longer captions get a Show more toggle.
+  static const captionLines = 4;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tokens = FuncSemanticTokens.of(context);
     final textTheme = Theme.of(context).textTheme;
 
     // Tag chips now block through the MuteStore: tag mutes sync with the
     // official /v1/mute list instead of the legacy local-only pref.
     final mutedTags = ref.watch(muteStoreProvider.select((s) => s.tags));
     final muteStore = ref.read(muteStoreProvider.notifier);
-    final createDate = DateTime.tryParse(entity.createDate ?? '');
+    final ownUserId = ref.watch(
+      accountStoreProvider.select(
+        (async) => async.value?.usableCurrent?.userId,
+      ),
+    );
+    final author = entity.user;
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: FuncSpacing.xl,
@@ -56,71 +65,28 @@ class InfoBlock extends ConsumerWidget {
             entity.title,
             style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: FuncSpacing.md),
-          // The whole author block opens the user page; AuthorSummary owns
-          // the row so the 48px avatar slot and key stay stable.
-          AuthorSummary(
-            name: entity.user.name,
-            account: entity.user.account,
-            imageUrl: entity.user.profileImageUrl,
-            avatarKey: const Key('illust-author-avatar'),
-            onTap: () => openUser(context, entity.user.id),
+          const SizedBox(height: FuncSpacing.sm),
+          AuthorRow(
+            key: const Key('illust-author-row'),
+            userId: author.id,
+            name: author.name,
+            avatarUrl: author.profileImageUrl,
+            trailing: author.id == ownUserId
+                ? null
+                : FollowSwitchButton(
+                    userId: author.id,
+                    userName: author.name,
+                    userAccount: author.account,
+                    compact: true,
+                  ),
           ),
-          const SizedBox(height: FuncSpacing.lg),
-          // 日期行与统计行的排版（U2 一并整理）：日期占左侧，视线/收藏
-          // 统计右侧成组，避免数字被日期挤压后换行错位。Meta 信息统一走
-          // caption 级（12sp 次色），日期/统计/ID 收敛到同一小字层级；
-          // 此前 bodyMedium/numeric 混排造成三档字号割裂。
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  createDate == null
-                      ? context.l10n.illustDetailCreateDateUnknown
-                      : context.l10n.illustDetailCreateDate(
-                          AppFormat.date(context, createDate),
-                        ),
-                  // Wraps rather than ellipsizes: the stats keep their
-                  // width and a long label never loses the date.
-                  style: tokens.caption,
-                ),
-              ),
-              const SizedBox(width: FuncSpacing.md),
-              _StatItem(
-                icon: Icons.remove_red_eye_outlined,
-                label: AppFormat.count(context, entity.totalView),
-              ),
-              const SizedBox(width: FuncSpacing.sm),
-              _StatItem(
-                icon: Icons.favorite_border,
-                label: AppFormat.count(context, entity.totalBookmarks),
-              ),
-            ],
-          ),
-          const SizedBox(height: FuncSpacing.xs),
-          Row(
-            children: [
-              Text(
-                context.l10n.illustDetailSize(entity.width, entity.height),
-                style: tokens.caption,
-              ),
-              const SizedBox(width: FuncSpacing.xs),
-              // ID stays selectable: users quote artwork IDs.
-              // SelectableText, not SelectionArea — SelectionArea pulls in
-              // the whole SelectableRegion/context-menu machinery (~180KB
-              // AOT) that nothing else in the app uses, while SelectableText
-              // is already compiled in for the title.
-              SelectableText('ID: ${entity.id}', style: _metaNumeric(tokens)),
-            ],
-          ),
+          const SizedBox(height: FuncSpacing.sm),
+          _MetaLine(entity: entity),
           if (entity.caption.isNotEmpty) ...[
-            const SizedBox(height: FuncSpacing.md),
+            const SizedBox(height: FuncSpacing.lg),
             // Pixiv captions are HTML; render them immediately so the detail
             // content is complete on the same frame as the artwork.
-            Padding(
-              padding: const EdgeInsets.only(bottom: FuncSpacing.lg),
-              child: CaptionRichText(caption: entity.caption),
-            ),
+            CaptionRichText(caption: entity.caption, maxLines: captionLines),
           ],
           const SizedBox(height: FuncSpacing.lg),
           TagChips(
@@ -156,6 +122,17 @@ class InfoBlock extends ConsumerWidget {
                   ),
                 ),
             ],
+          ),
+          const SizedBox(height: FuncSpacing.lg),
+          // ID stays selectable: users quote artwork IDs. SelectableText,
+          // not SelectionArea — SelectionArea pulls in the whole
+          // SelectableRegion/context-menu machinery (~180KB AOT) that
+          // nothing else in the app uses, while SelectableText is already
+          // compiled in for the title.
+          SelectableText(
+            '${entity.width}×${entity.height} · ID ${entity.id}',
+            key: const Key('illust-detail-footer'),
+            style: _metaStyle(context),
           ),
           const SizedBox(height: FuncSpacing.lg),
           OutlinedButton.icon(
@@ -248,32 +225,56 @@ class InfoBlock extends ConsumerWidget {
   }
 }
 
-/// Meta-row numeric style: tabular figures at caption size and secondary
-/// color so numbers share the meta tier instead of reading as body text.
-TextStyle _metaNumeric(FuncSemanticTokens tokens) {
-  return tokens.numeric.copyWith(
-    fontSize: tokens.caption.fontSize,
-    color: tokens.contentSecondary,
-  );
+/// The secondary metadata tier: the theme's small body text, tabular.
+TextStyle _metaStyle(BuildContext context) {
+  final theme = Theme.of(context);
+  return theme.textTheme.bodySmall!
+      .copyWith(color: theme.colorScheme.onSurfaceVariant)
+      .tabular;
 }
 
-/// One icon + numeric-stat pair in the detail meta row (U2 排版整理).
-class _StatItem extends StatelessWidget {
-  const _StatItem({required this.icon, required this.label});
+/// Date · views · bookmarks on one line in the theme's own scale. A narrow
+/// screen or a long translation wraps it rather than dropping the date.
+/// Screen readers hear one sentence; the icons are not read.
+class _MetaLine extends StatelessWidget {
+  const _MetaLine({required this.entity});
 
-  final IconData icon;
-  final String label;
+  final IllustEntity entity;
 
   @override
   Widget build(BuildContext context) {
-    final tokens = FuncSemanticTokens.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12, color: tokens.contentSecondary),
-        const SizedBox(width: FuncSpacing.xs),
-        Text(label, style: _metaNumeric(tokens)),
-      ],
+    final l10n = context.l10n;
+    final style = _metaStyle(context);
+    final createDate = DateTime.tryParse(entity.createDate ?? '');
+    final date = createDate == null
+        ? null
+        : AppFormat.date(context, createDate);
+    final views = AppFormat.count(context, entity.totalView);
+    final bookmarks = AppFormat.count(context, entity.totalBookmarks);
+    InlineSpan icon(IconData data) => WidgetSpan(
+      alignment: PlaceholderAlignment.middle,
+      child: Icon(data, size: style.fontSize, color: style.color),
+    );
+    return Semantics(
+      container: true,
+      label: date == null
+          ? l10n.detailMetaCountsSemantics(views, bookmarks)
+          : l10n.detailMetaSemantics(date, views, bookmarks),
+      child: ExcludeSemantics(
+        child: Text.rich(
+          key: const Key('illust-detail-meta'),
+          TextSpan(
+            children: [
+              if (date != null) TextSpan(text: '$date · '),
+              icon(Icons.remove_red_eye_outlined),
+              TextSpan(text: ' $views · '),
+              icon(Icons.favorite_border),
+              TextSpan(text: ' $bookmarks'),
+            ],
+          ),
+          style: style,
+        ),
+      ),
     );
   }
 }

@@ -1881,16 +1881,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get illustDetailTitle => '作品詳細';
 
   @override
-  String get illustDetailCreateDateUnknown => '投稿日不明';
-
-  @override
-  String illustDetailCreateDate(String date) {
-    return '投稿日：$date';
+  String detailMetaSemantics(String date, String views, String bookmarks) {
+    return '$date投稿、閲覧 $views、ブックマーク $bookmarks';
   }
 
   @override
-  String illustDetailSize(int width, int height) {
-    return 'サイズ：${width}x$height';
+  String detailMetaCountsSemantics(String views, String bookmarks) {
+    return '閲覧 $views、ブックマーク $bookmarks';
   }
 
   @override

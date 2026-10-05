@@ -6,11 +6,13 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/testing.dart';
+import 'package:intl/intl.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:flutter/services.dart';
 
 import 'package:parfait/app/layout/two_pane.dart';
 import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/app/widgets/follow_switch_button.dart';
 import 'package:parfait/app/person_avatar.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/auth/account.dart';
@@ -36,6 +38,7 @@ import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_image_pager.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_detail_skeleton.dart';
+import 'package:parfait/features/illust/detail/widgets/info_block.dart';
 import 'package:parfait/features/illust/detail/ugoira_viewer.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:parfait/features/settings/pages/download_tasks_page.dart';
@@ -44,16 +47,17 @@ import 'package:parfait/features/search/tag_search_page.dart';
 import 'package:parfait/app/widgets/tag_chips.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/share/share_service.dart';
+import 'package:parfait/core/user/follow_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/detail_world.dart';
 import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
+import 'helpers/profile_world.dart' show FakeFollowRepository;
 import 'helpers/test_preferences.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/core/i18n/replica_language.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 /// Records what the detail page hands to the platform share boundary —
@@ -189,6 +193,17 @@ void expectViewerChrome(WidgetTester tester, {required bool visible}) {
     findsOneWidget,
   );
 }
+
+/// The fixture's `create_date` as the device shows it.
+final _fixtureCreateDate = DateTime.parse(
+  '2026-08-01T10:00:00+09:00',
+).toLocal();
+
+/// The info block's metadata line without its icons.
+String _metaText(WidgetTester tester) => tester
+    .widget<Text>(find.byKey(const Key('illust-detail-meta')))
+    .textSpan!
+    .toPlainText(includePlaceholders: false);
 
 void main() {
   installMemoryPreferences();
@@ -1473,13 +1488,9 @@ void main() {
 
       // beta56 detail shows no R-18/AI/page badges (those live on feed
       // cards); it renders author, meta and tags.
-      expect(
-        find.text('author'),
-        findsNWidgets(2),
-        reason: 'author block name + account',
-      );
-      expect(find.textContaining('800x600'), findsOneWidget);
-      expect(find.textContaining('ID: 42'), findsOneWidget);
+      // The compact author row carries the name only.
+      expect(find.text('author'), findsOneWidget);
+      expect(find.text('800×600 · ID 42'), findsOneWidget);
       expect(find.text('#original'), findsOneWidget);
       expect(find.textContaining('風景'), findsOneWidget);
       expect(find.text('作品说明文字'), findsOneWidget);
@@ -1530,7 +1541,7 @@ void main() {
             'https://i.pximg.net/feed/42/medium.jpg',
             reason: 'the Hero target must reuse the exact feed cache key',
           );
-          expect(find.byKey(const Key('illust-author-avatar')), findsOneWidget);
+          expect(find.byKey(const Key('illust-author-row')), findsOneWidget);
           expect(find.byType(PersonAvatar), findsOneWidget);
           expect(
             tester.widget<PersonAvatar>(find.byType(PersonAvatar)).imageUrl,
@@ -1678,7 +1689,7 @@ void main() {
       await pumpDetail(tester, container, useRouter: true);
       await mockNetworkImagesFor(() async {
         await tester.scrollUntilVisible(
-          find.byKey(const Key('illust-author-avatar')),
+          find.byKey(const Key('illust-author-row')),
           300,
           scrollable: find.byType(Scrollable).first,
         );
@@ -1689,7 +1700,7 @@ void main() {
       await mockNetworkImagesFor(() async {
         // The avatar is the smallest of the three hit areas; the InkWell
         // wraps the whole Row, so a tap on it must reach the same callback.
-        await tester.tap(find.byKey(const Key('illust-author-avatar')));
+        await tester.tap(find.byKey(const Key('illust-author-row')));
         await tester.pumpAndSettle();
       });
       expect(find.byType(UserPage), findsOneWidget);
@@ -1702,7 +1713,7 @@ void main() {
       await pumpDetail(tester, container, useRouter: true);
       await mockNetworkImagesFor(() async {
         await tester.scrollUntilVisible(
-          find.byKey(const Key('illust-author-avatar')),
+          find.byKey(const Key('illust-author-row')),
           300,
           scrollable: find.byType(Scrollable).first,
         );
@@ -1719,23 +1730,12 @@ void main() {
     });
 
     testWidgets('C20: detail copy follows the UI locale', (tester) async {
-      const keys = [
-        'illustDetailCreateDateUnknown',
-        'illustDetailSize',
-        'illustDetailNotFound',
-        'illustDetailLoadFailed',
-      ];
-
-      for (final language in [ReplicaLanguage.jaJP, ReplicaLanguage.enUS]) {
+      for (final (locale, tag) in [
+        (const Locale('ja', 'JP'), 'ja-JP'),
+        (const Locale('en', 'US'), 'en-US'),
+      ]) {
         final (container, _, _) = await makeWorld();
-        await pumpDetail(
-          tester,
-          container,
-          locale: switch (language) {
-            ReplicaLanguage.jaJP => const Locale('ja', 'JP'),
-            _ => const Locale('en', 'US'),
-          },
-        );
+        await pumpDetail(tester, container, locale: locale);
         await mockNetworkImagesFor(() async {
           await tester.scrollUntilVisible(
             find.text('#original'),
@@ -1745,24 +1745,154 @@ void main() {
           await tester.pump();
         });
 
-        // The size row is the one always-present interpolated string.
+        // The metadata line carries the locale's date and its sentence.
+        final date = DateFormat.yMMMd(tag).format(_fixtureCreateDate);
+        expect(_metaText(tester), startsWith('$date · '), reason: tag);
         expect(
-          find.text(switch (language) {
-            ReplicaLanguage.jaJP => 'サイズ：800x600',
-            _ => 'Size: 800x600',
-          }),
+          find.bySemanticsLabel(
+            tag == 'ja-JP'
+                ? '$date投稿、閲覧 10、ブックマーク 5'
+                : 'Posted $date, 10 views, 5 bookmarks',
+          ),
           findsOneWidget,
-          reason: 'size row must render in ${language.tag}',
         );
-        // No zh fallback leaks through for any of the migrated keys.
-        for (final key in keys) {
-          expect(
-            find.textContaining('尺寸：800x600'),
-            findsNothing,
-            reason: '$key must not fall back to zh under ${language.tag}',
-          );
-        }
       }
+    });
+  });
+
+  group('info block layout (R1)', () {
+    /// A tall surface builds the whole info block below the two pages.
+    void useTallSurface(WidgetTester tester) {
+      tester.view.physicalSize = const Size(800, 4000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('title, author, metadata, caption, tags, footer, comments', (
+      tester,
+    ) async {
+      useTallSurface(tester);
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      final tops = [
+        find.text('illust 42'),
+        find.byKey(const Key('illust-author-row')),
+        find.byKey(const Key('illust-detail-meta')),
+        find.text('作品说明文字'),
+        find.text('#original'),
+        find.byKey(const Key('illust-detail-footer')),
+        find.text('评论'),
+      ].map((finder) => tester.getTopLeft(finder).dy).toList();
+      for (var i = 1; i < tops.length; i++) {
+        expect(tops[i], greaterThan(tops[i - 1]), reason: 'item $i');
+      }
+      // One metadata line in the theme's scale: no separate numeric row.
+      expect(find.byIcon(Icons.remove_red_eye_outlined), findsOneWidget);
+      expect(find.text('ID: 42'), findsNothing);
+    });
+
+    testWidgets('the author row follows the author in place', (tester) async {
+      useTallSurface(tester);
+      final follows = FakeFollowRepository();
+      final (container, _, _) = await makeWorld(
+        extraOverrides: [followRepositoryProvider.overrideWithValue(follows)],
+      );
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      final follow = find.descendant(
+        of: find.byKey(const Key('illust-author-row')),
+        matching: find.byType(FollowSwitchButton),
+      );
+      expect(follow, findsOneWidget);
+      await tester.tap(follow);
+      await tester.pumpAndSettle();
+      expect(follows.requests, ['add:99:public']);
+    });
+
+    testWidgets('your own artwork shows no follow button', (tester) async {
+      useTallSurface(tester);
+      // The signed-in account (user 100) is the author.
+      final own = illustJson(42, pageCount: 2, withMetaPages: true);
+      own['user'] = {...own['user'] as Map<String, dynamic>, 'id': 100};
+      final (container, _, _) = await makeWorld(detailOverrides: {42: own});
+      container.read(illustStoreProvider).mergeAll([parseIllust(own)]);
+      await pumpDetail(tester, container, seedStore: false);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('illust-author-row')), findsOneWidget);
+      expect(find.byType(FollowSwitchButton), findsNothing);
+    });
+
+    testWidgets('the metadata line reads the local date and compact counts', (
+      tester,
+    ) async {
+      useTallSurface(tester);
+      final json = illustJson(42, pageCount: 2, withMetaPages: true)
+        ..['total_view'] = 12345
+        ..['total_bookmarks'] = 1200;
+      final (container, _, _) = await makeWorld(detailOverrides: {42: json});
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      final date = DateFormat.yMMMd('zh-CN').format(_fixtureCreateDate);
+      expect(_metaText(tester), '$date ·  1.2万 ·  1200');
+      expect(
+        find.bySemanticsLabel('投稿于 $date，1.2万 次浏览，1200 次收藏'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('an unknown posting date leaves only the counts', (
+      tester,
+    ) async {
+      useTallSurface(tester);
+      final json = illustJson(42, pageCount: 2, withMetaPages: true)
+        ..remove('create_date');
+      final (container, _, _) = await makeWorld(detailOverrides: {42: json});
+      container.read(illustStoreProvider).mergeAll([parseIllust(json)]);
+      await pumpDetail(
+        tester,
+        container,
+        seedStore: false,
+        locale: const Locale('zh', 'CN'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(_metaText(tester), ' 10 ·  5');
+      expect(find.bySemanticsLabel('10 次浏览，5 次收藏'), findsOneWidget);
+    });
+
+    testWidgets('a long caption collapses and expands; a short one does not', (
+      tester,
+    ) async {
+      useTallSurface(tester);
+      final long = [for (var i = 0; i < 12; i++) 'line $i'].join('<br>');
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {
+          42: illustJson(42, pageCount: 2, withMetaPages: true, caption: long),
+        },
+      );
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      Text caption() => tester.widget<Text>(find.textContaining('line 0'));
+      expect(caption().maxLines, InfoBlock.captionLines);
+      await tester.tap(find.text('展开'));
+      await tester.pumpAndSettle();
+      expect(caption().maxLines, isNull);
+      await tester.tap(find.text('收起'));
+      await tester.pumpAndSettle();
+      expect(caption().maxLines, InfoBlock.captionLines);
+
+      // The default world's caption is one short line.
+      final (shortWorld, _, _) = await makeWorld();
+      await pumpDetail(tester, shortWorld, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+      expect(find.text('作品说明文字'), findsOneWidget);
+      expect(find.text('展开'), findsNothing);
     });
   });
 
@@ -2136,7 +2266,7 @@ void main() {
       );
     });
 
-    testWidgets('the date/stat meta rows survive 320dp at 1.3x text', (
+    testWidgets('the metadata line and footer survive 320dp at 1.3x text', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(320, 640);
@@ -2155,10 +2285,9 @@ void main() {
       await tester.tap(find.text('跳到作品信息区'));
       await tester.pumpAndSettle();
 
-      // View/bookmark counts and the size+ID row lay out without overflow.
-      expect(find.text('10'), findsOneWidget);
-      expect(find.text('5'), findsOneWidget);
-      expect(find.text('ID: 42'), findsOneWidget);
+      // The metadata line wraps instead of overflowing; the footer fits.
+      expect(_metaText(tester), contains('10 · '));
+      expect(find.text('800×600 · ID 42'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

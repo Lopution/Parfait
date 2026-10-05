@@ -3611,23 +3611,17 @@ abstract class AppLocalizations {
   /// **'作品详情'**
   String get illustDetailTitle;
 
-  /// No description provided for @illustDetailCreateDateUnknown.
+  /// Screen-reader text for the artwork detail metadata line. views and bookmarks are compact counts.
   ///
   /// In zh, this message translates to:
-  /// **'投稿日期未知'**
-  String get illustDetailCreateDateUnknown;
+  /// **'投稿于 {date}，{views} 次浏览，{bookmarks} 次收藏'**
+  String detailMetaSemantics(String date, String views, String bookmarks);
 
-  /// No description provided for @illustDetailCreateDate.
+  /// The metadata line's screen-reader text when the posting date is unknown.
   ///
   /// In zh, this message translates to:
-  /// **'投稿日期：{date}'**
-  String illustDetailCreateDate(String date);
-
-  /// No description provided for @illustDetailSize.
-  ///
-  /// In zh, this message translates to:
-  /// **'尺寸：{width}x{height}'**
-  String illustDetailSize(int width, int height);
+  /// **'{views} 次浏览，{bookmarks} 次收藏'**
+  String detailMetaCountsSemantics(String views, String bookmarks);
 
   /// No description provided for @illustDetailOpenLinkFailed.
   ///

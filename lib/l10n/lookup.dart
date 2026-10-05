@@ -258,7 +258,6 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'homeMe' => l10n.homeMe,
   'homeRanking' => l10n.homeRanking,
   'homeRecommended' => l10n.homeRecommended,
-  'illustDetailCreateDateUnknown' => l10n.illustDetailCreateDateUnknown,
   'illustDetailLoadFailed' => l10n.illustDetailLoadFailed,
   'illustDetailNotFound' => l10n.illustDetailNotFound,
   'illustDetailOpenLinkFailed' => l10n.illustDetailOpenLinkFailed,

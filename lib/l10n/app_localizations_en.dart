@@ -1935,16 +1935,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get illustDetailTitle => 'Artwork';
 
   @override
-  String get illustDetailCreateDateUnknown => 'Upload date unknown';
-
-  @override
-  String illustDetailCreateDate(String date) {
-    return 'Uploaded on $date';
+  String detailMetaSemantics(String date, String views, String bookmarks) {
+    return 'Posted $date, $views views, $bookmarks bookmarks';
   }
 
   @override
-  String illustDetailSize(int width, int height) {
-    return 'Size: ${width}x$height';
+  String detailMetaCountsSemantics(String views, String bookmarks) {
+    return '$views views, $bookmarks bookmarks';
   }
 
   @override

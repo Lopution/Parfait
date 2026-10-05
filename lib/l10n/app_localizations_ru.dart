@@ -1941,16 +1941,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get illustDetailTitle => 'Работа';
 
   @override
-  String get illustDetailCreateDateUnknown => 'Дата публикации неизвестна';
-
-  @override
-  String illustDetailCreateDate(String date) {
-    return 'Опубликовано: $date';
+  String detailMetaSemantics(String date, String views, String bookmarks) {
+    return 'Опубликовано $date, просмотров: $views, закладок: $bookmarks';
   }
 
   @override
-  String illustDetailSize(int width, int height) {
-    return 'Размер: ${width}x$height';
+  String detailMetaCountsSemantics(String views, String bookmarks) {
+    return 'Просмотров: $views, закладок: $bookmarks';
   }
 
   @override

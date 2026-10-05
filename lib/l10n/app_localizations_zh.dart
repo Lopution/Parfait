@@ -1854,16 +1854,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get illustDetailTitle => '作品详情';
 
   @override
-  String get illustDetailCreateDateUnknown => '投稿日期未知';
-
-  @override
-  String illustDetailCreateDate(String date) {
-    return '投稿日期：$date';
+  String detailMetaSemantics(String date, String views, String bookmarks) {
+    return '投稿于 $date，$views 次浏览，$bookmarks 次收藏';
   }
 
   @override
-  String illustDetailSize(int width, int height) {
-    return '尺寸：${width}x$height';
+  String detailMetaCountsSemantics(String views, String bookmarks) {
+    return '$views 次浏览，$bookmarks 次收藏';
   }
 
   @override

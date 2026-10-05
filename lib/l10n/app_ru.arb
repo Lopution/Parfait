@@ -825,26 +825,8 @@
   "searchModifyQuery": "Изменить запрос",
   "searchUserAccount": "Аккаунт",
   "illustDetailTitle": "Работа",
-  "illustDetailCreateDateUnknown": "Дата публикации неизвестна",
-  "illustDetailCreateDate": "Опубликовано: {date}",
-  "@illustDetailCreateDate": {
-    "placeholders": {
-      "date": {
-        "type": "String"
-      }
-    }
-  },
-  "illustDetailSize": "Размер: {width}x{height}",
-  "@illustDetailSize": {
-    "placeholders": {
-      "width": {
-        "type": "int"
-      },
-      "height": {
-        "type": "int"
-      }
-    }
-  },
+  "detailMetaSemantics": "Опубликовано {date}, просмотров: {views}, закладок: {bookmarks}",
+  "detailMetaCountsSemantics": "Просмотров: {views}, закладок: {bookmarks}",
   "illustDetailOpenLinkFailed": "Не удалось открыть ссылку",
   "illustDetailRestricted": "Работа удалена или ограничена (ID: {id})",
   "@illustDetailRestricted": {

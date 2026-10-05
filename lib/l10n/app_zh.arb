@@ -858,23 +858,30 @@
   "searchModifyQuery": "修改搜索",
   "searchUserAccount": "账号",
   "illustDetailTitle": "作品详情",
-  "illustDetailCreateDateUnknown": "投稿日期未知",
-  "illustDetailCreateDate": "投稿日期：{date}",
-  "@illustDetailCreateDate": {
+  "detailMetaSemantics": "投稿于 {date}，{views} 次浏览，{bookmarks} 次收藏",
+  "@detailMetaSemantics": {
+    "description": "Screen-reader text for the artwork detail metadata line. views and bookmarks are compact counts.",
     "placeholders": {
       "date": {
+        "type": "String"
+      },
+      "views": {
+        "type": "String"
+      },
+      "bookmarks": {
         "type": "String"
       }
     }
   },
-  "illustDetailSize": "尺寸：{width}x{height}",
-  "@illustDetailSize": {
+  "detailMetaCountsSemantics": "{views} 次浏览，{bookmarks} 次收藏",
+  "@detailMetaCountsSemantics": {
+    "description": "The metadata line's screen-reader text when the posting date is unknown.",
     "placeholders": {
-      "width": {
-        "type": "int"
+      "views": {
+        "type": "String"
       },
-      "height": {
-        "type": "int"
+      "bookmarks": {
+        "type": "String"
       }
     }
   },
