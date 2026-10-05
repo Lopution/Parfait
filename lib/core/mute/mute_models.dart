@@ -48,13 +48,54 @@ class MutedUser {
   );
 }
 
+/// A locally muted work with what the management list shows for it:
+/// title and square thumbnail, captured when it was muted. Entries muted
+/// before these were stored carry only the id.
+class MutedWork {
+  const MutedWork({required this.illustId, this.title, this.thumbnailUrl});
+
+  final int illustId;
+  final String? title;
+  final String? thumbnailUrl;
+
+  /// Reads one stored entry: the current `{id, title, thumbnailUrl}`
+  /// object or a bare id from the old format. Throws [FormatException] on
+  /// anything else.
+  factory MutedWork.fromJson(Object? raw) {
+    final id = switch (raw) {
+      num() => raw,
+      {'id': final num id} => id,
+      _ => throw const FormatException('a muted work is an id or an object'),
+    };
+    if (id <= 0) throw const FormatException('a muted work id is positive');
+    if (raw is! Map) return MutedWork(illustId: id.toInt());
+    return MutedWork(
+      illustId: id.toInt(),
+      title: _optionalString(raw['title']),
+      thumbnailUrl: _optionalString(raw['thumbnailUrl']),
+    );
+  }
+
+  Map<String, Object> toJson() => {
+    'id': illustId,
+    'title': ?title,
+    'thumbnailUrl': ?thumbnailUrl,
+  };
+
+  static String? _optionalString(Object? raw) => switch (raw) {
+    null => null,
+    String() => raw,
+    _ => throw const FormatException('muted work fields are strings'),
+  };
+}
+
 /// Effective mute snapshot for one account. `pending` tracks keys with an
 /// in-flight edit so the UI can dim them and re-entry is suppressed.
 class MuteState {
   const MuteState({
     this.tags = const {},
     this.users = const {},
-    this.workIds = const {},
+    this.works = const {},
     this.pending = const {},
     this.legacyTagsPending = const {},
     this.serverSynced = false,
@@ -62,7 +103,7 @@ class MuteState {
 
   final Set<String> tags;
   final Map<int, MutedUser> users;
-  final Set<int> workIds;
+  final Map<int, MutedWork> works;
   final Set<MuteKey> pending;
 
   /// Legacy `blocked_tags` entries not yet confirmed pushed to the server.
@@ -74,12 +115,12 @@ class MuteState {
 
   bool isTagMuted(String tag) => tags.contains(tag);
   bool isUserMuted(int userId) => users.containsKey(userId);
-  bool isWorkMuted(int illustId) => workIds.contains(illustId);
+  bool isWorkMuted(int illustId) => works.containsKey(illustId);
 
   MuteState copyWith({
     Set<String>? tags,
     Map<int, MutedUser>? users,
-    Set<int>? workIds,
+    Map<int, MutedWork>? works,
     Set<MuteKey>? pending,
     Set<String>? legacyTagsPending,
     bool? serverSynced,
@@ -87,7 +128,7 @@ class MuteState {
     return MuteState(
       tags: tags ?? this.tags,
       users: users ?? this.users,
-      workIds: workIds ?? this.workIds,
+      works: works ?? this.works,
       pending: pending ?? this.pending,
       legacyTagsPending: legacyTagsPending ?? this.legacyTagsPending,
       serverSynced: serverSynced ?? this.serverSynced,

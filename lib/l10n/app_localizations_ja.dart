@@ -865,6 +865,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mutedEmpty => 'ミュート項目はありません';
 
   @override
+  String muteEmptyHint(String action) {
+    return '作品カードを長押しして「$action」を選択';
+  }
+
+  @override
   String get muteTagInputHint => 'ミュートするタグ';
 
   @override

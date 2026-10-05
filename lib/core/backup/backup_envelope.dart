@@ -54,7 +54,7 @@ class BackupEnvelope {
     required this.settings,
     this.muteTags = const {},
     this.muteUsers = const [],
-    this.muteWorkIds = const {},
+    this.muteWorks = const {},
     this.history = const [],
   });
 
@@ -74,7 +74,9 @@ class BackupEnvelope {
   final Map<String, dynamic> settings;
   final Set<String> muteTags;
   final List<MutedUser> muteUsers;
-  final Set<int> muteWorkIds;
+
+  /// Keyed by illust id.
+  final Map<int, MutedWork> muteWorks;
   final List<HistoryRecord> history;
 
   static String fileName(DateTime now) {
@@ -99,7 +101,10 @@ class BackupEnvelope {
             if (user.account != null) 'account': user.account,
           },
       ]..sort((a, b) => (a['userId'] as int).compareTo(b['userId'] as int)),
-      'workIds': muteWorkIds.toList()..sort(),
+      'works': [
+        for (final id in muteWorks.keys.toList()..sort())
+          muteWorks[id]!.toJson(),
+      ],
     },
     'history': [for (final record in history) record.toColumns()],
   };
@@ -187,7 +192,9 @@ class BackupEnvelope {
       settings: settings as Map<String, dynamic>? ?? const {},
       muteTags: _readTags(mutesMap['tags']),
       muteUsers: _readUsers(mutesMap['users']),
-      muteWorkIds: _readWorkIds(mutesMap['workIds']),
+      muteWorks: mutesMap.containsKey('works')
+          ? _readWorks(mutesMap['works'], 'works')
+          : _readWorks(mutesMap['workIds'], 'workIds'),
       history: _readHistory(historyRaw as List? ?? const []),
     );
   }
@@ -224,15 +231,22 @@ class BackupEnvelope {
     ];
   }
 
-  static Set<int> _readWorkIds(Object? raw) {
+  /// `works` holds `{id, title, thumbnailUrl}` objects; files from before
+  /// titles were kept have bare ids under `workIds`. Either entry shape is
+  /// accepted under either name.
+  static Map<int, MutedWork> _readWorks(Object? raw, String name) {
     if (raw == null) return const {};
-    if (raw is! List) throw _field('mutes.workIds must be a list');
-    return {
-      for (final id in raw)
-        id is num && id > 0
-            ? id.toInt()
-            : throw _field('mutes.workIds entries must be positive numbers'),
-    };
+    if (raw is! List) throw _field('mutes.$name must be a list');
+    final works = <int, MutedWork>{};
+    for (final entry in raw) {
+      try {
+        final work = MutedWork.fromJson(entry);
+        works[work.illustId] = work;
+      } on FormatException catch (error) {
+        throw _field('mutes.$name: ${error.message}');
+      }
+    }
+    return works;
   }
 
   static List<HistoryRecord> _readHistory(List<Object?> raw) {

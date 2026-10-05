@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/motion/removal.dart';
 import '../../../app/navigation/routes.dart';
+import '../../../app/person_avatar.dart';
+import '../../../app/pixiv_image.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/settings/settings_group.dart';
@@ -19,7 +22,8 @@ import '../settings_helpers.dart';
 /// Muted items management: tags and users mirror the official client's
 /// `/v1/mute` list; works are local-only (no official endpoint). Removing
 /// an entry sends the matching `mute/edit` delete and rolls back on
-/// failure — the row reappears and the error is surfaced.
+/// failure — the row reappears and the error is surfaced. An empty author
+/// or work group says where those mutes are made.
 class MutedItemsPage extends ConsumerStatefulWidget {
   const MutedItemsPage({super.key});
 
@@ -44,17 +48,18 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
   }
 
   /// The row leaves first, then the unmute is sent; a failed write brings
-  /// the row back with the error, a landed one offers Undo. A user unmute
-  /// passes [user] so Undo can mute it again.
+  /// the row back with the error, a landed one offers Undo. User and work
+  /// unmutes pass the removed [user] or [work] so Undo can mute it again.
   Future<void> _unmute(
     MuteKey key,
     Future<void> Function() action, {
     MutedUser? user,
+    MutedWork? work,
   }) async {
     await _removals.playExit([key]);
     try {
       await action();
-      if (mounted) showUnmuteUndo(context, key, user: user);
+      if (mounted) showUnmuteUndo(context, key, user: user, work: work);
     } on Object catch (error) {
       _removals.restore([key]);
       if (mounted) {
@@ -122,7 +127,10 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
     final tags = state.tags.toList()..sort();
     final users = state.users.values.toList()
       ..sort((a, b) => a.name.compareTo(b.name));
-    final works = state.workIds.toList()..sort();
+    final works = state.works.values.toList()
+      ..sort((a, b) => a.illustId.compareTo(b.illustId));
+    // Works muted before titles were kept fall back to a loaded copy.
+    final illusts = ref.watch(illustStoreProvider);
     return Scaffold(
       appBar: AppBar(title: Text(l10n.mutedItemsSettings)),
       body: RemovalScope(
@@ -175,11 +183,16 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
               SettingsGroup(
                 title: Text(l10n.mutedUsersSection),
                 children: [
+                  if (users.isEmpty)
+                    _EmptyHint(l10n.muteEmptyHint(l10n.muteAuthor)),
                   for (final user in users)
                     Removable(
                       id: MuteKey.user(user.userId),
                       child: ListTile(
-                        dense: true,
+                        leading: PersonAvatar(
+                          imageUrl: user.profileImageUrl,
+                          radius: 20,
+                        ),
                         title: Text(user.name),
                         subtitle: user.account == null
                             ? null
@@ -205,23 +218,38 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
               SettingsGroup(
                 title: Text(l10n.mutedWorksSection),
                 children: [
-                  for (final id in works)
+                  if (works.isEmpty)
+                    _EmptyHint(l10n.muteEmptyHint(l10n.muteWork)),
+                  for (final work in works)
                     Removable(
-                      id: MuteKey.work(id),
+                      id: MuteKey.work(work.illustId),
                       child: ListTile(
-                        dense: true,
-                        title: Text(
-                          ref.watch(illustStoreProvider).get(id)?.title ??
-                              '#$id',
+                        leading: _MutedThumbnail(
+                          url:
+                              work.thumbnailUrl ??
+                              illusts
+                                  .get(work.illustId)
+                                  ?.imageUrls
+                                  .squareMedium,
                         ),
-                        onTap: () => openIllust(context, id),
+                        title: Text(
+                          work.title ??
+                              illusts.get(work.illustId)?.title ??
+                              '#${work.illustId}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () => openIllust(context, work.illustId),
                         trailing: _unmuteTrailing(
-                          pending: state.pending.contains(MuteKey.work(id)),
+                          pending: state.pending.contains(
+                            MuteKey.work(work.illustId),
+                          ),
                           tooltip: l10n.unmuteWork,
                           onPressed: () => unawaited(
                             _unmute(
-                              MuteKey.work(id),
-                              () => store.toggleWork(id),
+                              MuteKey.work(work.illustId),
+                              () => store.unmuteWork(work.illustId),
+                              work: work,
                             ),
                           ),
                         ),
@@ -229,16 +257,70 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
                     ),
                 ],
               ),
-              if (tags.isEmpty && users.isEmpty && works.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: FuncSpacing.xxl,
-                  ),
-                  child: Center(child: Text(l10n.mutedEmpty)),
-                ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The one row of an empty group: where its mutes come from. Not a
+/// button — the action lives on the cards.
+class _EmptyHint extends StatelessWidget {
+  const _EmptyHint(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SettingsGroupContent(
+      child: Text(
+        text,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
+/// A muted work's square thumbnail, blurred like its card ([MutedCover]):
+/// the user muted it, so the list does not show it plainly either. Works
+/// muted before thumbnails were kept get a placeholder.
+class _MutedThumbnail extends StatelessWidget {
+  const _MutedThumbnail({required this.url});
+
+  final String? url;
+
+  static const double _size = 48;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final url = this.url;
+    return ClipRRect(
+      borderRadius: FuncShape.control,
+      child: SizedBox.square(
+        dimension: _size,
+        child: url == null
+            ? ColoredBox(
+                color: scheme.surfaceContainerHighest,
+                child: Icon(
+                  Icons.image_outlined,
+                  color: scheme.onSurfaceVariant,
+                ),
+              )
+            : ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: PixivImage(
+                  url: url,
+                  width: _size,
+                  height: _size,
+                  memCacheWidth: PixivImage.decodeWidthFor(_size),
+                ),
+              ),
       ),
     );
   }

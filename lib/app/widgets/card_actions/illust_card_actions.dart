@@ -198,9 +198,21 @@ class _MuteWorkAction extends CardAction {
     WidgetRef ref,
     IllustEntity entity,
   ) async {
-    final wasMuted = ref.read(muteStoreProvider).isWorkMuted(entity.id);
+    final store = ref.read(muteStoreProvider.notifier);
+    // What the list kept for it, so Undo brings that entry back as it was.
+    final removed = ref.read(muteStoreProvider).works[entity.id];
     try {
-      await ref.read(muteStoreProvider.notifier).toggleWork(entity.id);
+      if (removed != null) {
+        await store.unmuteWork(entity.id);
+      } else {
+        await store.muteWork(
+          MutedWork(
+            illustId: entity.id,
+            title: entity.title,
+            thumbnailUrl: entity.imageUrls.squareMedium,
+          ),
+        );
+      }
     } catch (error) {
       if (context.mounted) {
         showErrorSnackBar(
@@ -211,8 +223,8 @@ class _MuteWorkAction extends CardAction {
       }
       return;
     }
-    if (wasMuted && context.mounted) {
-      showUnmuteUndo(context, MuteKey.work(entity.id));
+    if (removed != null && context.mounted) {
+      showUnmuteUndo(context, MuteKey.work(entity.id), work: removed);
     }
   }
 }

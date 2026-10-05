@@ -10,7 +10,10 @@ import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
+import 'package:parfait/app/person_avatar.dart';
+import 'package:parfait/core/mute/mute_models.dart';
 import 'package:parfait/core/mute/mute_store.dart';
+import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/features/settings/pages/muted_items_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
@@ -22,6 +25,10 @@ import 'helpers/test_preferences.dart';
 /// Mute API transport: one muted tag on the server; every `/v1/mute/edit`
 /// is recorded and answered with [editStatus].
 class _MuteApi {
+  _MuteApi({this.users = const []});
+
+  /// `muted_users` of the list response.
+  final List<Object> users;
   final List<Map<String, String>> edits = [];
   int editStatus = 200;
 
@@ -32,7 +39,7 @@ class _MuteApi {
           'muted_tags': [
             {'tag': 'bad-tag', 'tag_translation': ''},
           ],
-          'muted_users': <Object>[],
+          'muted_users': users,
           'mute_limit_count': 500,
         }),
         200,
@@ -51,9 +58,12 @@ class _MuteApi {
   });
 }
 
-Future<(ProviderContainer, _MuteApi)> _pump(WidgetTester tester) async {
+Future<(ProviderContainer, _MuteApi)> _pump(
+  WidgetTester tester, {
+  List<Object> users = const [],
+}) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  final api = _MuteApi();
+  final api = _MuteApi(users: users);
   final credentials = FakeCredentialStore()
     ..seed(
       '100',
@@ -85,14 +95,16 @@ Future<(ProviderContainer, _MuteApi)> _pump(WidgetTester tester) async {
     oauthService: container.read(oauthServiceProvider),
   );
   await container.read(accountStoreProvider.future);
-  await tester.pumpWidget(
-    UncontrolledProviderScope(
-      container: container,
-      child: const MaterialApp(
-        locale: Locale('zh', 'CN'),
-        supportedLocales: [Locale('zh', 'CN')],
-        localizationsDelegates: appLocalizationsDelegates,
-        home: MutedItemsPage(),
+  await mockNetworkImagesFor(
+    () => tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          locale: Locale('zh', 'CN'),
+          supportedLocales: [Locale('zh', 'CN')],
+          localizationsDelegates: appLocalizationsDelegates,
+          home: MutedItemsPage(),
+        ),
       ),
     ),
   );
@@ -174,5 +186,103 @@ void main() {
     expect(container.read(muteStoreProvider).tags, {'bad-tag'});
     await tester.pumpAndSettle();
     expect(find.text('bad-tag'), findsOneWidget);
+  });
+
+  const authorHint = '长按作品卡片，选择「屏蔽作者」';
+  const workHint = '长按作品卡片，选择「屏蔽此作品」';
+
+  testWidgets('an empty group says where its mutes are made', (tester) async {
+    await _pump(tester);
+
+    expect(find.text(authorHint), findsOneWidget);
+    expect(find.text(workHint), findsOneWidget);
+    // The hints are not actions.
+    expect(
+      find.ancestor(of: find.text(workHint), matching: find.byType(InkWell)),
+      findsNothing,
+    );
+    expect(find.text('暂无屏蔽条目'), findsNothing);
+  });
+
+  testWidgets('muted authors show their avatar', (tester) async {
+    await _pump(
+      tester,
+      users: [
+        {
+          'user_id': 42,
+          'user_name': 'author',
+          'user_account': 'a',
+          'user_profile_image_urls': {'medium': 'https://i.pximg.net/p.jpg'},
+        },
+      ],
+    );
+
+    final avatar = tester.widget<PersonAvatar>(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'author'),
+        matching: find.byType(PersonAvatar),
+      ),
+    );
+    expect(avatar.imageUrl, 'https://i.pximg.net/p.jpg');
+    expect(avatar.radius, 20);
+    expect(find.text(authorHint), findsNothing);
+  });
+
+  testWidgets('muted works show a blurred thumbnail and their title', (
+    tester,
+  ) async {
+    final (container, _) = await _pump(tester);
+    final store = container.read(muteStoreProvider.notifier);
+    await store.muteWork(
+      const MutedWork(
+        illustId: 7,
+        title: 'seven',
+        thumbnailUrl: 'https://i.pximg.net/s7.jpg',
+      ),
+    );
+    // Muted before titles were kept: id and placeholder only.
+    await store.muteWork(const MutedWork(illustId: 9));
+    await mockNetworkImagesFor(() => tester.pumpAndSettle());
+
+    final titled = find.widgetWithText(ListTile, 'seven');
+    expect(
+      find.descendant(of: titled, matching: find.byType(ImageFiltered)),
+      findsOneWidget,
+    );
+    final legacy = find.widgetWithText(ListTile, '#9');
+    expect(
+      find.descendant(of: legacy, matching: find.byIcon(Icons.image_outlined)),
+      findsOneWidget,
+    );
+    expect(find.text(workHint), findsNothing);
+  });
+
+  testWidgets('undoing a work unmute brings back its title and thumbnail', (
+    tester,
+  ) async {
+    final (container, _) = await _pump(tester);
+    const work = MutedWork(
+      illustId: 7,
+      title: 'seven',
+      thumbnailUrl: 'https://i.pximg.net/s7.jpg',
+    );
+    await container.read(muteStoreProvider.notifier).muteWork(work);
+    await mockNetworkImagesFor(() => tester.pumpAndSettle());
+
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(ListTile, 'seven'),
+        matching: find.byTooltip('解除屏蔽此作品'),
+      ),
+    );
+    await _settle(tester);
+    expect(container.read(muteStoreProvider).isWorkMuted(7), isFalse);
+    expect(find.text(workHint), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(SnackBarAction, '撤销'));
+    await _settle(tester);
+    final restored = container.read(muteStoreProvider).works[7]!;
+    expect(restored.title, 'seven');
+    expect(restored.thumbnailUrl, 'https://i.pximg.net/s7.jpg');
   });
 }

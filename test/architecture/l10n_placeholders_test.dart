@@ -34,6 +34,7 @@ const _textPlaceholderKeys = <String, String>{
   // status, not an exception (design §2.4 class 5 precedent).
   'loginNetworkError': 'HTTP status and host',
   'backupExported': 'exported file name',
+  'muteEmptyHint': 'card menu label of the mute action',
   'backupImportPrompt': 'account name stored in the backup',
   'imageSourceTestOk': 'HTTP status of a successful probe',
   'imageSourceAutoWinner': 'selected mirror host',

@@ -350,6 +350,7 @@
   "mutedUsersSection": "ミュートユーザー",
   "mutedWorksSection": "ミュート作品",
   "mutedEmpty": "ミュート項目はありません",
+  "muteEmptyHint": "作品カードを長押しして「{action}」を選択",
   "muteTagInputHint": "ミュートするタグ",
   "muteWork": "この作品をミュート",
   "unmuteWork": "この作品のミュートを解除",

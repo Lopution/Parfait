@@ -350,6 +350,7 @@
   "mutedUsersSection": "Пользователи",
   "mutedWorksSection": "Работы",
   "mutedEmpty": "Ничего не заглушено",
+  "muteEmptyHint": "Нажмите и удерживайте карточку работы и выберите «{action}»",
   "muteTagInputHint": "Тег для заглушения",
   "muteWork": "Заглушить работу",
   "unmuteWork": "Снять заглушение работы",

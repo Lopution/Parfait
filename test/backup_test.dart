@@ -245,6 +245,10 @@ HistoryRecord _record(
   );
 }
 
+Map<int, MutedWork> _works(Iterable<int> ids) => {
+  for (final id in ids) id: MutedWork(illustId: id),
+};
+
 void main() {
   setUpAll(sqfliteFfiInit);
 
@@ -256,7 +260,10 @@ void main() {
         settings: const {'languageTag': 'en-US', 'themeCode': 0},
         muteTags: {'nsfw', 'spoiler'},
         muteUsers: const [MutedUser(userId: 42, name: 'author', account: 'a')],
-        muteWorkIds: {7, 9},
+        muteWorks: {
+          7: const MutedWork(illustId: 7, title: 'seven', thumbnailUrl: 's7'),
+          ..._works([9]),
+        },
         history: [_record(5)],
       );
 
@@ -268,12 +275,36 @@ void main() {
       expect(parsed.muteTags, {'nsfw', 'spoiler'});
       expect(parsed.muteUsers.single.userId, 42);
       expect(parsed.muteUsers.single.account, 'a');
-      expect(parsed.muteWorkIds, {7, 9});
+      expect(parsed.muteWorks.keys, unorderedEquals([7, 9]));
+      expect(parsed.muteWorks[7]!.title, 'seven');
+      expect(parsed.muteWorks[7]!.thumbnailUrl, 's7');
+      expect(parsed.muteWorks[9]!.title, isNull);
       final row = parsed.history.single;
       expect(row.accountId, '100');
       expect(row.contentType, HistoryContentType.illust);
       expect(row.contentId, 5);
       expect(row.snapshot.title, 'work 5');
+    });
+
+    test('reads work mutes from files made before titles were kept', () {
+      final json =
+          jsonDecode(
+                utf8.decode(
+                  BackupEnvelope(
+                    exportedAt: DateTime.utc(2026, 9, 20),
+                    settings: const {},
+                  ).encode(),
+                ),
+              )
+              as Map<String, dynamic>;
+      (json['mutes'] as Map<String, dynamic>)
+        ..remove('works')
+        ..['workIds'] = [7, 9];
+
+      final parsed = BackupEnvelope.parse(utf8.encode(jsonEncode(json)));
+
+      expect(parsed.muteWorks.keys, unorderedEquals([7, 9]));
+      expect(parsed.muteWorks[7]!.title, isNull);
     });
 
     test('rejects garbage bytes', () {
@@ -330,6 +361,20 @@ void main() {
             'workIds': [-1],
           },
         },
+        {
+          'mutes': {
+            'works': [
+              {'title': 'no id'},
+            ],
+          },
+        },
+        {
+          'mutes': {
+            'works': [
+              {'id': 3, 'title': 4},
+            ],
+          },
+        },
         {'history': 'oops'},
         {
           'history': [
@@ -368,7 +413,9 @@ void main() {
       container.read(muteStoreProvider);
       final store = container.read(muteStoreProvider.notifier);
       await store.ensureHydrated();
-      await store.toggleWork(7);
+      await store.muteWork(
+        const MutedWork(illustId: 7, title: 'seven', thumbnailUrl: 's7'),
+      );
       await store.toggleTag('local-tag');
 
       final result = await world.service.export();
@@ -385,7 +432,8 @@ void main() {
       expect(parsed.settings['languageTag'], 'ja-JP');
       expect(parsed.muteTags, containsAll(['server-tag', 'local-tag']));
       expect(parsed.muteUsers.single.userId, 42);
-      expect(parsed.muteWorkIds, {7});
+      expect(parsed.muteWorks.keys, [7]);
+      expect(parsed.muteWorks[7]!.title, 'seven');
       expect(parsed.history.map((r) => r.contentId), containsAll([1, 2, 3]));
     });
 
@@ -422,7 +470,9 @@ void main() {
         container.read(muteStoreProvider);
         final store = container.read(muteStoreProvider.notifier);
         await store.ensureHydrated();
-        await store.toggleWork(7); // pre-existing local work mute
+        await store.muteWork(
+          const MutedWork(illustId: 7),
+        ); // pre-existing local work mute
 
         final envelope = BackupEnvelope(
           exportedAt: DateTime.utc(2026, 9, 20),
@@ -430,7 +480,7 @@ void main() {
           settings: const {'languageTag': 'ja', 'enableLocalBlockR18': true},
           muteTags: {'existing-tag', 'imported-tag'},
           muteUsers: const [MutedUser(userId: 42, name: 'a')],
-          muteWorkIds: {7, 9},
+          muteWorks: _works([7, 9]),
           history: [
             _record(1, accountId: 'other-account', lastViewedAt: older),
             _record(2, accountId: 'other-account', lastViewedAt: newer),
@@ -451,7 +501,7 @@ void main() {
         final mute = container.read(muteStoreProvider);
         expect(mute.tags, containsAll(['existing-tag', 'imported-tag']));
         expect(mute.users.keys, {42});
-        expect(mute.workIds, {7, 9});
+        expect(mute.works.keys, unorderedEquals([7, 9]));
         expect(
           world.api.edits.where((e) => e.containsKey('add_tags[]')),
           hasLength(1),
@@ -480,13 +530,17 @@ void main() {
         container.read(muteStoreProvider);
         final store = container.read(muteStoreProvider.notifier);
         await store.ensureHydrated();
-        await store.toggleWork(7); // not in the import → removed
-        await store.toggleWork(8); // in the import → kept
+        await store.muteWork(
+          const MutedWork(illustId: 7),
+        ); // not in the import → removed
+        await store.muteWork(
+          const MutedWork(illustId: 8),
+        ); // in the import → kept
 
         final envelope = BackupEnvelope(
           exportedAt: DateTime.utc(2026, 9, 20),
           settings: const {'languageTag': 'ru'},
-          muteWorkIds: {8, 9},
+          muteWorks: _works([8, 9]),
           history: [_record(9, accountId: 'other', title: 'imported')],
         );
 
@@ -497,7 +551,10 @@ void main() {
 
         expect(result.workMutesChanged, 2); // +9, -7
         expect(result.historyRows, 1);
-        expect(container.read(muteStoreProvider).workIds, {8, 9});
+        expect(
+          container.read(muteStoreProvider).works.keys,
+          unorderedEquals([8, 9]),
+        );
 
         final rows = await world.history.page(accountId: '100', limit: 100);
         expect(rows.total, 1);
@@ -611,7 +668,7 @@ void main() {
         accountId: 'other',
         settings: const {},
         muteTags: {'t1', 't2'},
-        muteWorkIds: {1},
+        muteWorks: _works([1]),
         history: [_record(3)],
       ).encode();
       final service = await pumpPage(tester, fileBytes: bytes);
@@ -789,7 +846,7 @@ void main() {
           accountId: 'other',
           settings: const {},
           muteTags: {'t1'},
-          muteWorkIds: {1},
+          muteWorks: _works([1]),
           history: [_record(3)],
         ).encode();
         await pumpPage(tester, fileBytes: bytes);

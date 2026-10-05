@@ -1697,6 +1697,12 @@ abstract class AppLocalizations {
   /// **'暂无屏蔽条目'**
   String get mutedEmpty;
 
+  /// Hint in an empty group of the muted items page: where this kind of mute is made. action is the card menu label (muteAuthor or muteWork).
+  ///
+  /// In zh, this message translates to:
+  /// **'长按作品卡片，选择「{action}」'**
+  String muteEmptyHint(String action);
+
   /// No description provided for @muteTagInputHint.
   ///
   /// In zh, this message translates to:

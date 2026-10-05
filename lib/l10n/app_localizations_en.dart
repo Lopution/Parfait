@@ -894,6 +894,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mutedEmpty => 'Nothing muted yet';
 
   @override
+  String muteEmptyHint(String action) {
+    return 'Long-press a work\'s card and choose \"$action\"';
+  }
+
+  @override
   String get muteTagInputHint => 'Tag to mute';
 
   @override

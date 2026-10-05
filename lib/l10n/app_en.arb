@@ -350,6 +350,7 @@
   "mutedUsersSection": "Muted users",
   "mutedWorksSection": "Muted works",
   "mutedEmpty": "Nothing muted yet",
+  "muteEmptyHint": "Long-press a work's card and choose \"{action}\"",
   "muteTagInputHint": "Tag to mute",
   "muteWork": "Mute this work",
   "unmuteWork": "Unmute this work",

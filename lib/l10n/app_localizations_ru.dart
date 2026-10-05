@@ -896,6 +896,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get mutedEmpty => 'Ничего не заглушено';
 
   @override
+  String muteEmptyHint(String action) {
+    return 'Нажмите и удерживайте карточку работы и выберите «$action»';
+  }
+
+  @override
   String get muteTagInputHint => 'Тег для заглушения';
 
   @override

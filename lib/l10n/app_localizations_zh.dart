@@ -846,6 +846,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mutedEmpty => '暂无屏蔽条目';
 
   @override
+  String muteEmptyHint(String action) {
+    return '长按作品卡片，选择「$action」';
+  }
+
+  @override
   String get muteTagInputHint => '输入要屏蔽的标签';
 
   @override

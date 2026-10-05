@@ -117,7 +117,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
         summary: l10n.backupImportPrompt(
           envelope.muteTags.length,
           envelope.muteUsers.length,
-          envelope.muteWorkIds.length,
+          envelope.muteWorks.length,
           envelope.history.length,
           envelope.accountId ?? '—',
         ),
@@ -144,7 +144,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
           BackupImportStrategy.merge => l10n.backupImportMergeConfirmTitle(
             envelope.muteTags.length,
             envelope.muteUsers.length,
-            envelope.muteWorkIds.length,
+            envelope.muteWorks.length,
             envelope.history.length,
           ),
           BackupImportStrategy.overwrite =>

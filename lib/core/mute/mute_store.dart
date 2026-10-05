@@ -65,16 +65,20 @@ class MuteStore extends Notifier<MuteState> {
 
   Future<void> _hydrate(String accountId) async {
     final prefs = ref.read(sharedPreferencesProvider);
-    final worksRaw = await prefs.getString('muted_works_$accountId');
-    final works = worksRaw == null
-        ? <int>{}
-        : {for (final id in jsonDecode(worksRaw) as List) (id as num).toInt()};
+    final worksRaw = await prefs.getString(_worksKey(accountId));
+    final works = <int, MutedWork>{
+      if (worksRaw != null)
+        for (final work in (jsonDecode(worksRaw) as List).map(
+          MutedWork.fromJson,
+        ))
+          work.illustId: work,
+    };
     final legacyTags = {
       ...?await prefs.getStringList(PreferenceKeys.blockedTags),
     };
     if (!_stillCurrent(accountId)) return;
     state = state.copyWith(
-      workIds: works,
+      works: works,
       tags: {...state.tags, ...legacyTags},
       legacyTagsPending: legacyTags,
     );
@@ -120,19 +124,29 @@ class MuteStore extends Notifier<MuteState> {
     }
   }
 
-  /// Local-only work mute. Optimistic; persisted per account. The account
-  /// id is captured up front so an account switch mid-write cannot persist
-  /// the old account's list under the new account's key.
-  Future<void> toggleWork(int illustId) async {
+  /// Local-only work mute, keeping [work]'s title and thumbnail for the
+  /// management list. Muting a muted work refreshes what is kept.
+  Future<void> muteWork(MutedWork work) =>
+      _writeWork(work.illustId, (works) => {...works, work.illustId: work});
+
+  Future<void> unmuteWork(int illustId) =>
+      _writeWork(illustId, (works) => {...works}..remove(illustId));
+
+  /// Optimistic; persisted per account. The account id is captured up front
+  /// so an account switch mid-write cannot persist the old account's list
+  /// under the new account's key.
+  Future<void> _writeWork(
+    int illustId,
+    Map<int, MutedWork> Function(Map<int, MutedWork> works) change,
+  ) async {
     await _hydrated;
     final accountId = _requireAccountId();
     final key = MuteKey.work(illustId);
     if (state.pending.contains(key)) return;
     state = state.copyWith(pending: {...state.pending, key});
     try {
-      final next = {...state.workIds};
-      if (!next.remove(illustId)) next.add(illustId);
-      state = state.copyWith(workIds: next);
+      final next = change(state.works);
+      state = state.copyWith(works: next);
       await _persistWorks(accountId, next);
     } finally {
       if (_stillCurrent(accountId)) {
@@ -195,10 +209,18 @@ class MuteStore extends Notifier<MuteState> {
     }
   }
 
-  Future<void> _persistWorks(String accountId, Set<int> workIds) async {
+  /// Always written in the object format; [MutedWork.fromJson] still reads
+  /// the old bare ids.
+  Future<void> _persistWorks(
+    String accountId,
+    Map<int, MutedWork> works,
+  ) async {
     await ref
         .read(sharedPreferencesProvider)
-        .setString(_worksKey(accountId), jsonEncode(workIds.toList()));
+        .setString(
+          _worksKey(accountId),
+          jsonEncode([for (final work in works.values) work.toJson()]),
+        );
   }
 }
 

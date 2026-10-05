@@ -108,7 +108,7 @@ class BackupService {
       settings: (await _readSettings()).toJson(),
       muteTags: mute.tags,
       muteUsers: mute.users.values.toList(),
-      muteWorkIds: mute.workIds,
+      muteWorks: mute.works,
       history: accountId == null ? const [] : await _readAllHistory(accountId),
     );
   }
@@ -163,19 +163,18 @@ class BackupService {
       usersAdded++;
     }
 
-    final currentWorks = _readMuteState().workIds;
-    final wantedWorks = switch (strategy) {
-      BackupImportStrategy.merge => envelope.muteWorkIds.difference(
-        currentWorks,
-      ),
-      BackupImportStrategy.overwrite =>
-        envelope.muteWorkIds
-            .difference(currentWorks)
-            .union(currentWorks.difference(envelope.muteWorkIds)),
-    };
-    for (final workId in wantedWorks) {
-      await _muteStore.toggleWork(workId);
+    final currentWorks = _readMuteState().works;
+    for (final work in envelope.muteWorks.values) {
+      if (currentWorks.containsKey(work.illustId)) continue;
+      await _muteStore.muteWork(work);
       workMutesChanged++;
+    }
+    if (strategy == BackupImportStrategy.overwrite) {
+      for (final workId in currentWorks.keys) {
+        if (envelope.muteWorks.containsKey(workId)) continue;
+        await _muteStore.unmuteWork(workId);
+        workMutesChanged++;
+      }
     }
 
     await _writeSettings(

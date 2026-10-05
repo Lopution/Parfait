@@ -350,6 +350,15 @@
   "mutedUsersSection": "屏蔽用户",
   "mutedWorksSection": "屏蔽作品",
   "mutedEmpty": "暂无屏蔽条目",
+  "muteEmptyHint": "长按作品卡片，选择「{action}」",
+  "@muteEmptyHint": {
+    "description": "Hint in an empty group of the muted items page: where this kind of mute is made. action is the card menu label (muteAuthor or muteWork).",
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
   "muteTagInputHint": "输入要屏蔽的标签",
   "muteWork": "屏蔽此作品",
   "unmuteWork": "解除屏蔽此作品",

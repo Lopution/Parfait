@@ -203,24 +203,48 @@ void main() {
     final (container, _, _) = await _makeWorld(listStatus: 500);
     final store = container.read(muteStoreProvider.notifier);
     container.read(muteStoreProvider);
-    await store.toggleWork(7);
+    await store.muteWork(const MutedWork(illustId: 7));
     await _until(() => container.read(muteStoreProvider).pending.isEmpty);
 
     final state = container.read(muteStoreProvider);
     expect(state.serverSynced, isFalse);
-    expect(state.workIds, {7});
+    expect(state.works.keys, [7]);
   });
 
   test('work mute persists per account and toggles off', () async {
     final (container, _, prefs) = await _makeWorld();
     final store = container.read(muteStoreProvider.notifier);
-    await store.toggleWork(7);
-    await store.toggleWork(9);
-    await store.toggleWork(7);
+    await store.muteWork(const MutedWork(illustId: 7));
+    await store.muteWork(
+      const MutedWork(illustId: 9, title: 'nine', thumbnailUrl: 's9'),
+    );
+    await store.unmuteWork(7);
 
-    expect(container.read(muteStoreProvider).workIds, {9});
+    expect(container.read(muteStoreProvider).works.keys, [9]);
     final raw = await prefs.getString('muted_works_100');
-    expect(jsonDecode(raw!), [9]);
+    expect(jsonDecode(raw!), [
+      {'id': 9, 'title': 'nine', 'thumbnailUrl': 's9'},
+    ]);
+  });
+
+  test('work mutes stored as bare ids still load', () async {
+    final (container, _, prefs) = await _makeWorld();
+    await prefs.setString(
+      'muted_works_100',
+      jsonEncode([
+        7,
+        {'id': 9, 'title': 'nine'},
+      ]),
+    );
+    container.invalidate(muteStoreProvider);
+    container.read(muteStoreProvider);
+    await container.read(muteStoreProvider.notifier).ensureHydrated();
+
+    final works = container.read(muteStoreProvider).works;
+    expect(works.keys, unorderedEquals([7, 9]));
+    expect(works[7]!.title, isNull);
+    expect(works[9]!.title, 'nine');
+    expect(works[9]!.thumbnailUrl, isNull);
   });
 
   test('tag toggle is optimistic and issues the wire edit', () async {
@@ -284,7 +308,7 @@ void main() {
       const state = MuteState(
         tags: {'nsfw'},
         users: {42: MutedUser(userId: 42, name: 'author')},
-        workIds: {1},
+        works: {1: MutedWork(illustId: 1)},
       );
       expect(muteHitFor(entity(), state)?.kind, MuteKind.work);
       expect(muteHitFor(entity(id: 2), state)?.kind, MuteKind.user);
