@@ -1867,7 +1867,10 @@ and restores nothing once another account is current. Owning tests:
 thumbnailUrl}` captured from the card when muted; the stored list
 (`muted_works_<account>`) and the backup (`mutes.works`) are written as
 objects, and `MutedWork.fromJson` also reads the earlier bare ids
-(backups: `mutes.workIds`). The store has `muteWork` / `unmuteWork`, no
+(backups: `mutes.workIds`). Importing a backup, under merge or
+overwrite, fills a muted work's missing title or thumbnail from the file
+and keeps what it already has; that is not counted as a mute change
+(`workMutesChanged`). The store has `muteWork` / `unmuteWork`, no
 toggle; unmute undo passes the removed `MutedWork` (or `MutedUser`) so
 the entry comes back whole. The management page shows a muted author
 with `PersonAvatar(radius: 20)` and a muted work with a 48dp

@@ -82,6 +82,24 @@ class MutedWork {
     'thumbnailUrl': ?thumbnailUrl,
   };
 
+  /// This entry with a missing title or thumbnail taken from [other]; what
+  /// it already has is kept.
+  MutedWork filledFrom(MutedWork other) => MutedWork(
+    illustId: illustId,
+    title: title ?? other.title,
+    thumbnailUrl: thumbnailUrl ?? other.thumbnailUrl,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is MutedWork &&
+      other.illustId == illustId &&
+      other.title == title &&
+      other.thumbnailUrl == thumbnailUrl;
+
+  @override
+  int get hashCode => Object.hash(illustId, title, thumbnailUrl);
+
   static String? _optionalString(Object? raw) => switch (raw) {
     null => null,
     String() => raw,

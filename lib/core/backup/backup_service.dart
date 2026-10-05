@@ -165,9 +165,17 @@ class BackupService {
 
     final currentWorks = _readMuteState().works;
     for (final work in envelope.muteWorks.values) {
-      if (currentWorks.containsKey(work.illustId)) continue;
-      await _muteStore.muteWork(work);
-      workMutesChanged++;
+      final current = currentWorks[work.illustId];
+      if (current == null) {
+        await _muteStore.muteWork(work);
+        workMutesChanged++;
+        continue;
+      }
+      // Under either strategy an entry kept from before titles were stored
+      // takes them from the file; one that has them keeps its own. Not a
+      // mute change, so not counted.
+      final filled = current.filledFrom(work);
+      if (filled != current) await _muteStore.muteWork(filled);
     }
     if (strategy == BackupImportStrategy.overwrite) {
       for (final workId in currentWorks.keys) {
