@@ -408,7 +408,76 @@ text. `onTap` is passed through to `TabBar.onTap` unchanged; per the Tab
 Navigation Animation Contract a re-tap handler must not `animateTo` the
 already-selected index.
 
+## Choice Controls Contract (D3)
+
+The app has no pill-shaped segmented buttons. A choice takes the control
+its use case calls for:
+
+| Use case | Control | Examples |
+|---|---|---|
+| Peer views | Top tabs (`AppTabBar`, Tab Navigation Animation Contract) | search guide types, Spotlight categories, bookmark tags public/private |
+| A setting with one value from a short list | `SettingsMenuTile` (current value + menu) | image qualities, animation speed, haptic strength |
+| A two-way property | A switch (`SettingsControl`) | the bookmark sheet's "private" |
+| A choice of action | Buttons, one per action | the follow sheet |
+| A list filter | A "current value ▾" button opening an `AppMenuButton` | — |
+
+`test/architecture/no_segmented_test.dart` scans `lib/` for the segmented
+family (`SegmentedButton`, `AppSegmentedButton`, `AppSegment`,
+`AppTypeSwitch`, `SliverAppTypeSwitch`, `segmentedButtonTheme`). Its
+allow-list holds only the profile work-type row and the files behind it
+(see the Compact Type Switch Contract) and may only shrink.
+
+**Follow sheet.** `showFollowActionsSheet` (long press on
+`FollowSwitchButton`, the profile header's follow-privately entry) shows
+the user and one full-width button per action, at least 48dp tall: not
+followed — "follow publicly" (filled) and "follow privately"; followed —
+switch the visibility (both switches when the visibility is unknown) and
+unfollow, which goes through `toggleFollowWithUndo`. There is no confirm
+step. Owning test: `follow_switch_button_test.dart`.
+
+**Bookmark sheet.** Visibility is one `SettingsControl` row,
+`restrictPrivate`, with `contentPadding: EdgeInsets.zero` and its own
+transparent `Material` (the sheet colour sits on a `DecoratedBox`). It
+locks with the rest of the form while an existing bookmark's detail loads.
+
+## Search Guide Contract
+
+`SearchHomePage` (`lib/features/search/search_page.dart`):
+
+- App bar: the title is a search-field-shaped button (stadium,
+  `surfaceContainerHigh`, at least 48dp, `searchBarHint`) that opens the
+  input page on the visible tab's type; the action is a camera
+  `IconButton` (tooltip `searchReverseImage`) for reverse image search;
+  `bottom` is an `AppTabBar` with illust & manga and novel.
+- Tabs are a `TabSlideStack` in a `TabSwipeSwitcher`, built on first
+  visit, each with its own scroll controller, `PageStorageKey`
+  (`search-home-<type>`) and `announceTabScroll` after a switch. Tab and
+  branch re-taps scroll the visible tab to the top.
+  `trendingKindProvider` remembers the tab for the session;
+  `trendingTagsProvider` is a family per type, kept alive.
+- The illust tab starts with the Spotlight section: a header row (title,
+  `spotlightSeeAll`, chevron; one 48dp target, header + button semantics)
+  opening the full list, then the first five articles of the list's "all"
+  feed as 200dp `SpotlightArticleCard`s in a horizontal strip
+  (`IntrinsicHeight`, equal heights).
+- Trending tags: `labelMedium` w600 single-line labels; a 0–60% black
+  gradient over the bottom 40% of the image only; the count is cut to
+  whole rows (`n >= columns ? n - n % columns : n`, columns as before).
+  A tap searches the tag; there is no long-press gesture.
+
+`SpotlightArticleCard` (`lib/app/widgets/feed/`) is the one article card:
+16:9 image (placeholder icon without a thumbnail), title in two lines at
+most, `AppFormat.date` in `bodySmall`/`onSurfaceVariant`, no chevron, the
+whole card one target. The Spotlight list (`SpotlightFeedPage`) has
+category tabs over independent feeds and full-width cards capped at 640dp.
+Owning tests: `search_catalog_test.dart`, `spotlight_feed_test.dart`, the
+`content: search home with Spotlight` and `content: Spotlight list`
+matrices.
+
 ## Compact Type Switch Contract
+
+Only the profile work-type row still uses this control; nothing else may
+(Choice Controls Contract).
 
 `AppTypeSwitch` is the shared compact segmented selector for a feed's
 content type. The box form is a left-aligned row at least the minimum
@@ -557,7 +626,8 @@ AppBar selectionAppBar(BuildContext context, {required int count,
   intrinsic-size queries); the host computes the fit from the slot it lays
   out.
 - `AppSegmentedButton` is the only place that builds a `SegmentedButton`
-  (`test/architecture` enforces it). Single choice, equal-width segments,
+  (`test/architecture` enforces it), and only the profile work-type row
+  uses it (Choice Controls Contract). Single choice, equal-width segments,
   no check icon — the selected fill marks the choice, so labels never shift
   when the selection moves. Padding is explicit (`FuncSpacing.md` per side)
   and the label style is `labelLarge`, so the slot it measures against,
@@ -617,7 +687,7 @@ AppBar selectionAppBar(BuildContext context, {required int count,
 ```dart
 Row(children: [
   Expanded(child: Text(l10n.searchTrending)),
-  AppSegmentedButton(...),            // unbounded in a Row: overflows in ru
+  OutlinedButton(...),                // unbounded in a Row: overflows in ru
 ]);
 FittedBox(child: Text(l10n.follow));  // shrinks to 0.5 in long locales
 Text(l10n.illustDetailCreateDate(date), overflow: TextOverflow.ellipsis);
@@ -626,10 +696,10 @@ Text(l10n.illustDetailCreateDate(date), overflow: TextOverflow.ellipsis);
 #### Correct
 
 ```dart
-Wrap(                                 // the switch drops under the title
+Wrap(                                 // the button drops under the title
   alignment: WrapAlignment.spaceBetween,
   crossAxisAlignment: WrapCrossAlignment.center,
-  children: [Text(l10n.searchTrending), AppSegmentedButton(...)],
+  children: [Text(l10n.searchTrending), OutlinedButton(...)],
 );
 FitLabel(l10n.follow, fit: fit);      // one shared scale, floor 0.8
 Text(l10n.illustDetailCreateDate(date)); // wraps
@@ -1392,7 +1462,7 @@ consumer and a planner row.
   error) 120 ms. A long-press that enters selection mode vibrates once.
 - `AppHaptics.preview(strength)` plays `confirm` at the given strength
   unthrottled — only the strength picker uses it, and that picker turns
-  off its own segment haptic (`AppSegmentedButton(haptics: false)`).
+  off its own select haptic (`SettingsMenuTile(haptics: false)`).
 - The settings footer shows the device tier from `capabilities`; the
   vibrator tiers degrade to `View` haptics on ROMs that refuse them.
 - Haptics are redundant: with strength `off` or no vibrator, every visual
@@ -1402,8 +1472,8 @@ consumer and a planner row.
 
 - **Components own their haptic.** `SettingsControl` and
   `ReplicaSwitchTile` (toggleOn/Off), `SettingsChoiceTile` (select on a
-  different entry), `AppSegmentedButton` (select on a different non-empty
-  selection), `AppChoiceChip` (single: select, and `onSelected` runs only
+  different entry), `SettingsMenuTile` (select on a different option),
+  `AppSegmentedButton` (select on a different non-empty selection), `AppChoiceChip` (single: select, and `onSelected` runs only
   for an unselected chip; `.toggle`: toggleOn/Off), `AppSlider` (tick per
   division; continuous sliders are silent). External value changes never
   vibrate. The architecture test confines raw `SegmentedButton`,
@@ -1638,7 +1708,7 @@ reintroduce it or hand-build group containers.
   segment), `SettingsGroup.segmentGap` (2dp) apart; `segmentRadius(index,
   count)` gives the group's outer edge `FuncShape.card` corners and every
   edge facing another segment `FuncShape.segment`. A single-row group is
-  one card. A composite control (a `SegmentedButton` in
+  one card. A composite control (a text field in
   `SettingsGroupContent`) is one child and therefore one segment — the
   group never splits a child. Explanatory copy that used to sit above the
   rows belongs in `footer` so the rows come first. Empty `children` render
@@ -1653,7 +1723,20 @@ reintroduce it or hand-build group containers.
   - `SettingsControl` is the `SwitchListTile` toggle; it plays the
     toggle haptic (see Haptics Contract). `onChanged: null` disables the
     row (a setting the platform cannot honour yet, e.g. system colors
-    while the palette loads).
+    while the palette loads). `contentPadding` lines the row up inside an
+    already padded form (the bookmark sheet).
+  - `SettingsMenuTile<T>(title:, value:, options:, onChanged:, icon:,
+    haptics:)` is a setting with one value from a short list: title,
+    the current option's label as subtitle, `Icons.arrow_drop_down`
+    trailing. A tap opens an `AppMenuButton` menu anchored to the row
+    (outside press and back close it); every option is checkable and the
+    one matching `value` is checked — `options` are `AppMenuEntry`s whose
+    own `checked` is ignored. A different pick plays `select` (unless
+    `haptics: false`) and calls `onChanged`; the current one changes
+    nothing; `onChanged: null` disables the row. Explanations go in the
+    group `footer`. Owning tests: `settings_test.dart` (current value,
+    checked semantics, back closes, write and update),
+    `selection_controls_haptics_test.dart`.
   - `SettingsChoiceTile` is one option in a single-choice list. It always
     sets `ListTile.selected` and, when selected, shows a `primary`
     `Icons.check` trailing. `RadioListTile` is deprecated in this Flutter
@@ -1665,7 +1748,7 @@ reintroduce it or hand-build group containers.
     presents read-only info; `onTap: null`/`enabled: false` disables the
     row and its ink.
   - `SettingsGroupContent` holds non-row controls (text fields,
-    `SegmentedButton`, sliders, buttons) inside the group with
+    sliders, buttons) inside the group with
     `horizontal: lg, vertical: sm` padding.
 - Hand-written `ListTile`s are allowed only for content rows — entries
   that are data rather than settings (muted items, the account list,
