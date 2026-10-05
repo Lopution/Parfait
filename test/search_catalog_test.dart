@@ -32,7 +32,6 @@ import 'package:parfait/features/search/search_filter_sheet.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:visibility_detector/visibility_detector.dart';
 
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -852,8 +851,15 @@ void main() {
     expect(find.text('#风景'), findsOneWidget);
     expect(find.text('#猫'), findsOneWidget);
 
-    expect(find.byType(SearchBar), findsOneWidget);
-    await tester.tap(find.byType(SearchBar));
+    // The guide's field only opens the input page; it is not a text field.
+    expect(find.byType(SearchBar), findsNothing);
+    expect(find.byType(TextField), findsNothing);
+    final field = find.ancestor(
+      of: find.descendant(of: find.byType(AppBar), matching: find.text('搜索')),
+      matching: find.byType(InkWell),
+    );
+    expect(tester.getSize(field).height, greaterThanOrEqualTo(48));
+    await tester.tap(field);
     await tester.pumpAndSettle();
     expect(find.byType(SearchInputPage), findsOneWidget);
     expect(find.byType(SearchAnchor), findsNothing);
@@ -861,6 +867,42 @@ void main() {
     expect(find.text('插画 & 漫画'), findsOneWidget);
     expect(find.text('小说'), findsOneWidget);
     expect(find.text('用户'), findsOneWidget);
+  });
+
+  testWidgets('the guide camera opens reverse image search; the novel tab '
+      'searches novels', (tester) async {
+    final repository = FakeSearchRepository();
+    final router = createPixivRouter(initialLocation: '/search');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    // The full-width reverse-image button is gone; the camera replaces it.
+    expect(find.byType(FilledButton), findsNothing);
+
+    await tester.tap(find.byTooltip('反向搜图'));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/reverse-image');
+    router.pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(Tab, '小说'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(of: find.byType(AppBar), matching: find.text('搜索')),
+    );
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/search/input');
+    expect(router.state.uri.queryParameters['type'], 'novel');
   });
 
   testWidgets('search input keeps its geometry when the IME opens', (
@@ -979,34 +1021,16 @@ void main() {
     expect(find.byIcon(Icons.open_in_new), findsNothing);
   });
 
-  testWidgets('long-pressing a trending tag opens the representative work', (
+  testWidgets('long-pressing a trending tag no longer opens a work', (
     tester,
   ) async {
-    // The detail page polls its compact-header counter through
-    // VisibilityDetector; a zero interval defers updates to post-frame
-    // callbacks so no Timer outlives the test.
-    VisibilityDetectorController.instance.updateInterval = Duration.zero;
-    addTearDown(
-      () => VisibilityDetectorController.instance.updateInterval =
-          const Duration(milliseconds: 500),
-    );
     final repository = FakeSearchRepository();
-    final container = await _apiContainer(
-      (request) async {
-        if (request.url.path == '/v1/illust/detail') {
-          return _json({'illust': illustJson(901)});
-        }
-        fail('unexpected request: ${request.url}');
-      },
-      extraOverrides: [searchRepositoryProvider.overrideWithValue(repository)],
-    );
-    addTearDown(container.dispose);
     final router = createPixivRouter(initialLocation: '/search');
     addTearDown(router.dispose);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
+        ProviderScope(
+          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
           child: MaterialApp.router(
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
@@ -1018,16 +1042,12 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      // The tile's only secondary action is the long-press; the corner
-      // button was removed.
-      expect(find.byTooltip('打开详情页'), findsNothing);
+      // The hidden gesture is gone: a long press reads as the tap, which
+      // searches the tag — the representative work leads those results.
       await tester.longPress(find.text('#风景'));
-      await tester.pump();
-
-      expect(router.state.uri.path, '/search/illust/901');
-      router.pop();
       await tester.pumpAndSettle();
-      expect(router.state.uri.path, '/search');
+      expect(router.state.uri.path, '/search/results');
+      expect(find.byType(IllustDetailPage), findsNothing);
     });
   });
 
@@ -1094,29 +1114,36 @@ void main() {
     expect(delegate.crossAxisCount, greaterThanOrEqualTo(3));
   });
 
-  testWidgets('trending grid renders every tag including a partial row', (
-    tester,
-  ) async {
-    final repository = FakeSearchRepository(trendingTagCount: 4);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-
-          home: SearchHomePage(),
+  for (final (count, shown) in const [(2, 2), (3, 3), (4, 3), (5, 3), (7, 6)]) {
+    testWidgets('$count trending tags show $shown: whole rows only', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(360, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final repository = FakeSearchRepository(trendingTagCount: count);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: SearchHomePage(),
+          ),
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+      );
+      await tester.pump();
+      await tester.pump();
 
-    expect(find.text('#标签3'), findsOneWidget);
-    // The partial final row stays visible instead of being trimmed away.
-    expect(find.text('#标签4'), findsOneWidget);
-  });
+      // Three columns at this width; fewer tags than a row still show.
+      final grid = tester.widget<SliverGrid>(find.byType(SliverGrid));
+      final delegate =
+          grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+      expect(delegate.crossAxisCount, 3);
+      expect(find.textContaining('#'), findsNWidgets(shown));
+    });
+  }
 
   testWidgets('switching the trending kind re-requests the novel endpoint', (
     tester,
@@ -1138,10 +1165,13 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(repository.trendingTagsLastType, SearchResultType.illust);
+      expect(repository.trendingTagsCallCount, 1);
 
-      await tester.tap(find.text('小说'));
-      await tester.pump();
-      await tester.pump();
+      await tester.tap(find.widgetWithText(Tab, '小说'));
+      await tester.pumpAndSettle();
+      // Each tab keeps its own list; switching back does not re-request.
+      await tester.tap(find.widgetWithText(Tab, '插画 & 漫画'));
+      await tester.pumpAndSettle();
     });
     expect(repository.trendingTagsLastType, SearchResultType.novel);
     expect(repository.trendingTagsCallCount, 2);
@@ -1463,10 +1493,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      final feedView = find.descendant(
-        of: find.byType(SearchHomePage),
-        matching: find.byType(CustomScrollView),
-      );
+      final feedView = find.byKey(const PageStorageKey('search-home-illust'));
       expect(feedView, findsOneWidget);
       final controller = tester.widget<CustomScrollView>(feedView).controller!;
       controller.jumpTo(500);

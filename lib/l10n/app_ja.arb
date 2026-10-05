@@ -770,7 +770,6 @@
     }
   },
   "searchReverseEngineSwitch": "エンジンを切り替え",
-  "searchNoRepresentative": "このタグには代表作品がありません",
   "searchFilters": "フィルター",
   "searchReset": "リセット",
   "searchApply": "適用",
@@ -1094,6 +1093,7 @@
   },
   "profileSeries": "シリーズ",
   "spotlightTitle": "スポットライト",
+  "spotlightSeeAll": "すべて",
   "spotlightArticleLoadFailed": "記事の読み込みに失敗しました",
   "spotlightCategoryAll": "すべて",
   "spotlightCategoryIllust": "イラスト",

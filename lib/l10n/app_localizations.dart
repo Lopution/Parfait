@@ -3281,12 +3281,6 @@ abstract class AppLocalizations {
   /// **'切换引擎'**
   String get searchReverseEngineSwitch;
 
-  /// No description provided for @searchNoRepresentative.
-  ///
-  /// In zh, this message translates to:
-  /// **'该标签暂无代表作品'**
-  String get searchNoRepresentative;
-
   /// No description provided for @searchFilters.
   ///
   /// In zh, this message translates to:
@@ -4618,6 +4612,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'特辑'**
   String get spotlightTitle;
+
+  /// Search guide: trailing link of the Spotlight section header; opens the full Spotlight list.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部'**
+  String get spotlightSeeAll;
 
   /// No description provided for @spotlightArticleLoadFailed.
   ///

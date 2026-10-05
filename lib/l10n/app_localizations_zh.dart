@@ -1683,9 +1683,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchReverseEngineSwitch => '切换引擎';
 
   @override
-  String get searchNoRepresentative => '该标签暂无代表作品';
-
-  @override
   String get searchFilters => '筛选';
 
   @override
@@ -2376,6 +2373,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get spotlightTitle => '特辑';
+
+  @override
+  String get spotlightSeeAll => '全部';
 
   @override
   String get spotlightArticleLoadFailed => '文章加载失败';

@@ -6,6 +6,7 @@ import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/app/widgets/feed/spotlight_article_card.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
 import 'package:parfait/core/search/search_repository.dart' show TrendingTag;
 import 'package:parfait/core/search/search_trending_controller.dart';
@@ -175,9 +176,13 @@ void main() {
     },
   );
 
-  testWidgets('search guide offers a spotlight entry that opens the feed', (
+  testWidgets('the search guide shows the newest five articles', (
     tester,
   ) async {
+    final (container, fixture) = await makeSpotlightWorld(
+      fixture: SpotlightFixture()..firstPageSize = 7,
+    );
+    addTearDown(container.dispose);
     final router = GoRouter(
       initialLocation: '/search',
       routes: [
@@ -186,29 +191,67 @@ void main() {
           path: '/search/spotlight',
           builder: (_, _) => const Scaffold(body: Text('spotlight feed')),
         ),
+        GoRoute(
+          path: '/search/spotlight/article/:articleId',
+          builder: (_, state) => Scaffold(
+            body: Text('article ${state.pathParameters['articleId']}'),
+          ),
+        ),
       ],
     );
     addTearDown(router.dispose);
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          trendingTagsProvider.overrideWith((ref) async => <TrendingTag>[]),
-        ],
-        child: MaterialApp.router(
-          routerConfig: router,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: ProviderScope(
+            overrides: [
+              trendingTagsProvider.overrideWith((ref, _) => <TrendingTag>[]),
+            ],
+            child: MaterialApp.router(
+              routerConfig: router,
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+            ),
+          ),
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('特辑'), findsOneWidget);
-    await tester.tap(find.text('特辑'));
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/search/spotlight');
+      // The list's first page ("all") feeds the strip: five cards, each
+      // with its image, title and date.
+      expect(fixture.requests.single.queryParameters['category'], 'all');
+      expect(find.byType(SpotlightArticleCard), findsNWidgets(5));
+      expect(find.text('spotlight 105', skipOffstage: false), findsOneWidget);
+      expect(find.text('spotlight 106', skipOffstage: false), findsNothing);
+      final first = find.widgetWithText(SpotlightArticleCard, 'spotlight 101');
+      expect(
+        find.descendant(of: first, matching: find.text('2026年9月1日')),
+        findsOneWidget,
+      );
+
+      // A card opens its article.
+      await tester.tap(find.text('spotlight 101'));
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/search/spotlight/article/101');
+      router.pop();
+      await tester.pumpAndSettle();
+
+      // The header row, "See all" included, opens the full list.
+      final header = find.ancestor(
+        of: find.text('全部'),
+        matching: find.byType(InkWell),
+      );
+      expect(
+        tester.getSemantics(header),
+        isSemantics(isButton: true, isHeader: true, label: '特辑\n全部'),
+      );
+      expect(tester.getSize(header).height, greaterThanOrEqualTo(48));
+      await tester.tap(find.text('特辑'));
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/search/spotlight');
+    });
   });
 }

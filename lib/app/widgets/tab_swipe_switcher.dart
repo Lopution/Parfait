@@ -201,10 +201,15 @@ class TabSlideStack extends StatelessWidget {
 /// reaches the ScrollNotificationObserver without passing the feeds' own
 /// NotificationListeners — a synthetic zero-delta update must not trip
 /// load-more or pull-to-refresh handlers. Runs after the frame: a tab
-/// built by the switch has no position until then.
+/// built by the switch has no position until then. A list that has not
+/// been laid out yet (its route still covered) has nothing to report.
 void announceTabScroll(BuildContext context, ScrollController controller) {
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!context.mounted || !controller.hasClients) return;
+    if (!context.mounted ||
+        !controller.hasClients ||
+        !controller.position.hasContentDimensions) {
+      return;
+    }
     ScrollUpdateNotification(
       metrics: controller.position,
       context: context,

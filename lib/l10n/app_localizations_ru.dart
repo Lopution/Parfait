@@ -1768,10 +1768,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchReverseEngineSwitch => 'Сменить сервис';
 
   @override
-  String get searchNoRepresentative =>
-      'У этого тега нет представительной работы';
-
-  @override
   String get searchFilters => 'Фильтры';
 
   @override
@@ -2470,6 +2466,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get spotlightTitle => 'Спотлайт';
+
+  @override
+  String get spotlightSeeAll => 'Все';
 
   @override
   String get spotlightArticleLoadFailed => 'Не удалось загрузить статью';

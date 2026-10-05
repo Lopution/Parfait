@@ -770,7 +770,6 @@
     }
   },
   "searchReverseEngineSwitch": "Сменить сервис",
-  "searchNoRepresentative": "У этого тега нет представительной работы",
   "searchFilters": "Фильтры",
   "searchReset": "Сбросить",
   "searchApply": "Применить",
@@ -1094,6 +1093,7 @@
   },
   "profileSeries": "Серии",
   "spotlightTitle": "Спотлайт",
+  "spotlightSeeAll": "Все",
   "spotlightArticleLoadFailed": "Не удалось загрузить статью",
   "spotlightCategoryAll": "Все",
   "spotlightCategoryIllust": "Иллюстрации",

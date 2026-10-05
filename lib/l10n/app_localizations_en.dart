@@ -1763,9 +1763,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchReverseEngineSwitch => 'Switch engine';
 
   @override
-  String get searchNoRepresentative => 'This tag has no representative work';
-
-  @override
   String get searchFilters => 'Filters';
 
   @override
@@ -2465,6 +2462,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get spotlightTitle => 'Spotlight';
+
+  @override
+  String get spotlightSeeAll => 'See all';
 
   @override
   String get spotlightArticleLoadFailed => 'Failed to load article';

@@ -1710,9 +1710,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchReverseEngineSwitch => 'エンジンを切り替え';
 
   @override
-  String get searchNoRepresentative => 'このタグには代表作品がありません';
-
-  @override
   String get searchFilters => 'フィルター';
 
   @override
@@ -2405,6 +2402,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get spotlightTitle => 'スポットライト';
+
+  @override
+  String get spotlightSeeAll => 'すべて';
 
   @override
   String get spotlightArticleLoadFailed => '記事の読み込みに失敗しました';
