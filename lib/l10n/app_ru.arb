@@ -1170,6 +1170,8 @@
   "badgeAi": "Создано ИИ",
   "rankLabel": "{rank}-е место",
   "openAuthorProfile": "Открыть профиль автора",
+  "expandText": "Развернуть",
+  "collapseText": "Свернуть",
   "illustInfoJump": "К информации о работе",
   "@illustInfoJump": {
     "description": "Scrolls to the artwork info section"

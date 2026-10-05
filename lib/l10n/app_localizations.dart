@@ -4871,6 +4871,18 @@ abstract class AppLocalizations {
   /// **'打开作者主页'**
   String get openAuthorProfile;
 
+  /// Button under collapsed long text (captions, descriptions) that shows all of it
+  ///
+  /// In zh, this message translates to:
+  /// **'展开'**
+  String get expandText;
+
+  /// Button under expanded long text that collapses it again
+  ///
+  /// In zh, this message translates to:
+  /// **'收起'**
+  String get collapseText;
+
   /// Jump to the artwork info section
   ///
   /// In zh, this message translates to:

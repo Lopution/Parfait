@@ -2609,6 +2609,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get openAuthorProfile => 'Open the author\'s profile';
 
   @override
+  String get expandText => 'Show more';
+
+  @override
+  String get collapseText => 'Show less';
+
+  @override
   String get illustInfoJump => 'Jump to artwork info';
 
   @override

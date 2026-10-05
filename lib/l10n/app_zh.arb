@@ -1187,6 +1187,14 @@
   "@openAuthorProfile": {
     "description": "Screen-reader hint on an author row: tapping opens the author's profile"
   },
+  "expandText": "展开",
+  "@expandText": {
+    "description": "Button under collapsed long text (captions, descriptions) that shows all of it"
+  },
+  "collapseText": "收起",
+  "@collapseText": {
+    "description": "Button under expanded long text that collapses it again"
+  },
   "illustInfoJump": "跳到作品信息区",
   "@illustInfoJump": {
     "description": "Jump to the artwork info section"

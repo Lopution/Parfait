@@ -2543,6 +2543,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get openAuthorProfile => '作者のページを開く';
 
   @override
+  String get expandText => 'もっと見る';
+
+  @override
+  String get collapseText => '閉じる';
+
+  @override
   String get illustInfoJump => '作品情報へ移動';
 
   @override

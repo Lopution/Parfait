@@ -2613,6 +2613,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get openAuthorProfile => 'Открыть профиль автора';
 
   @override
+  String get expandText => 'Развернуть';
+
+  @override
+  String get collapseText => 'Свернуть';
+
+  @override
   String get illustInfoJump => 'К информации о работе';
 
   @override

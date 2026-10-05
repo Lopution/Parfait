@@ -1170,6 +1170,8 @@
   "badgeAi": "AI生成",
   "rankLabel": "{rank}位",
   "openAuthorProfile": "作者のページを開く",
+  "expandText": "もっと見る",
+  "collapseText": "閉じる",
   "illustInfoJump": "作品情報へ移動",
   "@illustInfoJump": {
     "description": "Scrolls to the artwork info section"
