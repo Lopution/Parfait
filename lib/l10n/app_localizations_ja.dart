@@ -1516,6 +1516,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get rankingEmpty => 'ランキングの内容はありません';
 
   @override
+  String get rankingPickDate => '日付を選択';
+
+  @override
+  String rankingDateLabel(String date) {
+    return '$dateのランキング';
+  }
+
+  @override
+  String get rankingBackToLatest => '最新に戻る';
+
+  @override
   String rankingLoadFailed(String mode) {
     return '$modeの読み込みに失敗しました';
   }

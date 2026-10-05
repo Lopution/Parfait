@@ -1490,6 +1490,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get rankingEmpty => '暂无榜单内容';
 
   @override
+  String get rankingPickDate => '选择日期';
+
+  @override
+  String rankingDateLabel(String date) {
+    return '$date 的排行';
+  }
+
+  @override
+  String get rankingBackToLatest => '回到最新';
+
+  @override
   String rankingLoadFailed(String mode) {
     return '$mode加载失败';
   }

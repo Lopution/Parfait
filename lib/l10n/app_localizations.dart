@@ -2915,6 +2915,24 @@ abstract class AppLocalizations {
   /// **'暂无榜单内容'**
   String get rankingEmpty;
 
+  /// Tooltip of the ranking date button
+  ///
+  /// In zh, this message translates to:
+  /// **'选择日期'**
+  String get rankingPickDate;
+
+  /// Bar under the ranking tabs while a past date is shown
+  ///
+  /// In zh, this message translates to:
+  /// **'{date} 的排行'**
+  String rankingDateLabel(String date);
+
+  /// Leaves a past ranking date
+  ///
+  /// In zh, this message translates to:
+  /// **'回到最新'**
+  String get rankingBackToLatest;
+
   /// No description provided for @rankingLoadFailed.
   ///
   /// In zh, this message translates to:

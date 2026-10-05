@@ -681,6 +681,23 @@
   "rankingWeekR18G": "每周(R-18G)",
   "rankingMonth": "每月",
   "rankingEmpty": "暂无榜单内容",
+  "rankingPickDate": "选择日期",
+  "@rankingPickDate": {
+    "description": "Tooltip of the ranking date button"
+  },
+  "rankingDateLabel": "{date} 的排行",
+  "@rankingDateLabel": {
+    "description": "Bar under the ranking tabs while a past date is shown",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "rankingBackToLatest": "回到最新",
+  "@rankingBackToLatest": {
+    "description": "Leaves a past ranking date"
+  },
   "rankingLoadFailed": "{mode}加载失败",
   "@rankingLoadFailed": {
     "placeholders": {

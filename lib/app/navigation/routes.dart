@@ -9,6 +9,7 @@ import '../haptics/app_haptics.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/entity/comment_entity.dart';
+import '../../core/network/api_date.dart';
 import '../../core/entity/illust_entity.dart';
 import '../image_tier_cache.dart';
 import '../../core/entity/illust_store.dart';
@@ -286,6 +287,16 @@ RankingMode _rankingMode(String? raw) => RankingMode.values.firstWhere(
 NovelRankingMode _novelRankingMode(String? raw) => NovelRankingMode.values
     .firstWhere((mode) => mode.name == raw, orElse: () => NovelRankingMode.day);
 
+/// `?date=` of the ranking routes: anything but a pickable past day is the
+/// latest ranking.
+DateTime? _rankingDate(GoRouterState state) =>
+    rankingDateOrLatest(parseApiDate(state.uri.queryParameters['date']));
+
+Map<String, String> _rankingQueryParameters(String mode, DateTime? date) => {
+  'mode': mode,
+  if (date != null) 'date': formatApiDate(date),
+};
+
 RecommendedContentType _recommendedType(String? raw) =>
     RecommendedContentType.values.firstWhere(
       (type) => type.name == raw,
@@ -312,9 +323,6 @@ T _searchEnum<T>(
   orElse: () => fallback,
 );
 
-DateTime? _searchDate(String? raw) =>
-    raw == null ? null : DateTime.tryParse(raw);
-
 int? _searchInt(String? raw) => raw == null ? null : int.tryParse(raw);
 
 /// Every `SearchFilters` field is a route parameter so a result URL fully
@@ -336,8 +344,8 @@ SearchFilters _searchFilters(GoRouterState state) => SearchFilters(
     SearchSort.dateDesc,
   ),
   duration: _searchDuration(state.uri.queryParameters['duration']),
-  startDate: _searchDate(state.uri.queryParameters['start']),
-  endDate: _searchDate(state.uri.queryParameters['end']),
+  startDate: parseApiDate(state.uri.queryParameters['start']),
+  endDate: parseApiDate(state.uri.queryParameters['end']),
   // `ai` serializes by enum name: `all`/`only` share the same (null) wire
   // value because `only` is enforced client-side.
   aiFilter: _searchEnum(
@@ -379,8 +387,8 @@ Map<String, String> _searchQueryParameters(SearchQuery query) {
     'target': filters.target.wireValue,
     'sort': filters.sort.wireValue,
     if (filters.duration != null) 'duration': filters.duration!.wireValue,
-    if (filters.startDate != null) 'start': _searchDateText(filters.startDate!),
-    if (filters.endDate != null) 'end': _searchDateText(filters.endDate!),
+    if (filters.startDate != null) 'start': formatApiDate(filters.startDate!),
+    if (filters.endDate != null) 'end': formatApiDate(filters.endDate!),
     // Non-nullable selectors always serialize so the URL is
     // self-describing; `ai` uses the enum name because `all`/`only`
     // share the null wire value.
@@ -395,11 +403,6 @@ Map<String, String> _searchQueryParameters(SearchQuery query) {
     if (filters.heightMax != null) 'hmax': '${filters.heightMax}',
   };
 }
-
-String _searchDateText(DateTime value) =>
-    '${value.year.toString().padLeft(4, '0')}-'
-    '${value.month.toString().padLeft(2, '0')}-'
-    '${value.day.toString().padLeft(2, '0')}';
 
 SearchDuration? _searchDuration(String? raw) {
   for (final value in SearchDuration.values) {
@@ -645,7 +648,9 @@ List<RouteBase> _commonBranchRoutes(
         branchObserver,
         NovelRankingPage(
           initialMode: _novelRankingMode(state.uri.queryParameters['mode']),
-          onModeChanged: (mode) => replaceNovelRankingMode(context, mode),
+          date: _rankingDate(state),
+          onRouteChanged: (mode, date) =>
+              replaceNovelRankingMode(context, mode, date),
         ),
       ),
     ),
@@ -1110,7 +1115,9 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
             home: const RankingPage(),
             homeBuilder: (context, state) => RankingPage(
               initialMode: _rankingMode(state.uri.queryParameters['mode']),
-              onModeChanged: (mode) => replaceRankingMode(context, mode),
+              date: _rankingDate(state),
+              onRouteChanged: (mode, date) =>
+                  replaceRankingMode(context, mode, date),
             ),
             navigatorKey: rankingNavigatorKey,
             observer: rankingRouteObserver,
@@ -1444,10 +1451,14 @@ void replaceSearchInput(
   context.replace(location);
 }
 
-void replaceRankingMode(BuildContext context, RankingMode mode) {
+void replaceRankingMode(
+  BuildContext context,
+  RankingMode mode,
+  DateTime? date,
+) {
   final location = Uri(
     path: '/ranking',
-    queryParameters: {'mode': mode.name},
+    queryParameters: _rankingQueryParameters(mode.name, date),
   ).toString();
   context.replace(location);
 }
@@ -1455,10 +1466,14 @@ void replaceRankingMode(BuildContext context, RankingMode mode) {
 /// Novel ranking lives on a pushed common route (`<branch>/novel-ranking`),
 /// so the replaced location keeps the branch prefix of the stack it was
 /// opened from — same rule [openNovelRanking] uses.
-void replaceNovelRankingMode(BuildContext context, NovelRankingMode mode) {
+void replaceNovelRankingMode(
+  BuildContext context,
+  NovelRankingMode mode,
+  DateTime? date,
+) {
   final location = Uri(
     path: '${_currentStackRoot(context)}/novel-ranking',
-    queryParameters: {'mode': mode.name},
+    queryParameters: _rankingQueryParameters(mode.name, date),
   ).toString();
   context.replace(location);
 }

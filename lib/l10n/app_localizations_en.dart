@@ -1565,6 +1565,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rankingEmpty => 'No ranking content';
 
   @override
+  String get rankingPickDate => 'Pick a date';
+
+  @override
+  String rankingDateLabel(String date) {
+    return 'Ranking for $date';
+  }
+
+  @override
+  String get rankingBackToLatest => 'Back to latest';
+
+  @override
   String rankingLoadFailed(String mode) {
     return '$mode failed to load';
   }

@@ -681,6 +681,9 @@
   "rankingWeekR18G": "Weekly (R-18G)",
   "rankingMonth": "Monthly",
   "rankingEmpty": "No ranking content",
+  "rankingPickDate": "Pick a date",
+  "rankingDateLabel": "Ranking for {date}",
+  "rankingBackToLatest": "Back to latest",
   "rankingLoadFailed": "{mode} failed to load",
   "@rankingLoadFailed": {
     "placeholders": {

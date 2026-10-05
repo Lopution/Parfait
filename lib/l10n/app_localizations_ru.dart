@@ -1567,6 +1567,17 @@ class AppLocalizationsRu extends AppLocalizations {
   String get rankingEmpty => 'Нет содержимого рейтинга';
 
   @override
+  String get rankingPickDate => 'Выбрать дату';
+
+  @override
+  String rankingDateLabel(String date) {
+    return 'Рейтинг за $date';
+  }
+
+  @override
+  String get rankingBackToLatest => 'К последнему';
+
+  @override
   String rankingLoadFailed(String mode) {
     return 'Не удалось загрузить: $mode';
   }

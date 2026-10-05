@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../entity/json_read.dart';
 
+import '../network/api_date.dart';
 import '../network/api_error.dart';
 import '../network/next_page_parser.dart';
 import '../network/pixiv_client_identity.dart';
@@ -78,13 +79,19 @@ enum NovelRankingMode {
 abstract interface class _NovelRepository {
   Future<NovelEntity> fetchDetail(int novelId, {CancelToken? cancelToken});
 
+  /// [date] picks a past ranking; null is the latest.
   Future<NovelPage> fetchRanking(
     NovelRankingMode mode, {
     String? cursor,
+    DateTime? date,
     CancelToken? cancelToken,
   });
 
-  bool validateRankingCursor(NovelRankingMode mode, {required String cursor});
+  bool validateRankingCursor(
+    NovelRankingMode mode, {
+    required String cursor,
+    DateTime? date,
+  });
 
   Future<NovelPage> fetchUserNovels(
     int userId, {
@@ -239,12 +246,17 @@ class _PixivNovelRepository implements _NovelRepository {
   Future<NovelPage> fetchRanking(
     NovelRankingMode mode, {
     String? cursor,
+    DateTime? date,
     CancelToken? cancelToken,
   }) async {
+    final identity = _rankingIdentity(mode, date);
     final request = _pageRequest(
       path: _rankingPath,
-      query: {'filter': 'for_android', 'mode': mode.apiValue},
-      identity: {'mode': mode.apiValue},
+      query: {
+        'filter': 'for_android',
+        for (final MapEntry(:key, :value) in identity.entries) key: ?value,
+      },
+      identity: identity,
       cursor: cursor,
     );
     final json = await _client.getJson(
@@ -255,13 +267,27 @@ class _PixivNovelRepository implements _NovelRepository {
   }
 
   @override
-  bool validateRankingCursor(NovelRankingMode mode, {required String cursor}) {
+  bool validateRankingCursor(
+    NovelRankingMode mode, {
+    required String cursor,
+    DateTime? date,
+  }) {
     return _isValidCursor(
       path: _rankingPath,
-      identity: {'mode': mode.apiValue},
+      identity: _rankingIdentity(mode, date),
       cursor: cursor,
     );
   }
+
+  /// A null `date` pins the latest ranking: a cursor carrying a date is
+  /// another list.
+  static Map<String, String?> _rankingIdentity(
+    NovelRankingMode mode,
+    DateTime? date,
+  ) => {
+    'mode': mode.apiValue,
+    'date': date == null ? null : formatApiDate(date),
+  };
 
   @override
   Future<NovelSeriesPage> fetchSeries(
@@ -296,7 +322,7 @@ class _PixivNovelRepository implements _NovelRepository {
   NextPageRequest _pageRequest({
     required String path,
     required Map<String, String> query,
-    required Map<String, String> identity,
+    required Map<String, String?> identity,
     required String? cursor,
   }) {
     try {
@@ -315,7 +341,7 @@ class _PixivNovelRepository implements _NovelRepository {
 
   bool _isValidCursor({
     required String path,
-    required Map<String, String> identity,
+    required Map<String, String?> identity,
     required String cursor,
   }) {
     try {
@@ -336,11 +362,12 @@ class _PixivNovelRepository implements _NovelRepository {
   /// response-shaping parameters (`filter`, `include_*`) are deliberately
   /// not compared: Pixiv rewrites them in `next_url` (observed live:
   /// `/v1/novel/recommended` cursors flip `filter` to `for_ios`), and every
-  /// working client follows `next_url` verbatim.
+  /// working client follows `next_url` verbatim. A null identity value
+  /// means the parameter must be absent.
   void _validateCursor(
     NextPageRequest request,
     String path,
-    Map<String, String> identity,
+    Map<String, String?> identity,
   ) {
     if (request.uri.path != path) {
       throw NextPageParseError(

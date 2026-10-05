@@ -8,6 +8,7 @@ import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/replica_empty_state.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/i18n/replica_language.dart';
+import '../../core/network/api_date.dart';
 import '../../core/network/api_error.dart';
 
 import '../../app/widgets/app_tab_bar.dart';
@@ -22,19 +23,29 @@ import '../../core/illust/ranking_feed_controller.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
+import 'ranking_date.dart';
+
+/// Records the page's mode and ranking day (null is the latest) in the
+/// route.
+typedef RankingRouteChanged<M> = void Function(M mode, DateTime? date);
 
 /// Ranking page with beta56's horizontally scrollable 11-mode tab bar.
 /// Only the selected mode is built, while controllers and scroll positions
-/// remain cached by the page for tab switching.
+/// remain cached by the page for tab switching. A past day ([date]) applies
+/// to every mode.
 class RankingPage extends StatefulWidget {
   const RankingPage({
     super.key,
     this.initialMode = RankingMode.day,
-    this.onModeChanged,
+    this.date,
+    this.onRouteChanged,
   });
 
   final RankingMode initialMode;
-  final ValueChanged<RankingMode>? onModeChanged;
+
+  /// The ranking day from the route; null is the latest.
+  final DateTime? date;
+  final RankingRouteChanged<RankingMode>? onRouteChanged;
 
   @override
   State<RankingPage> createState() => _RankingPageState();
@@ -52,6 +63,7 @@ class _RankingPageState extends State<RankingPage>
   /// every loaded feed (and its visible cards) inside the swipe frame.
   final _bodies = <RankingMode, Widget>{};
   int _selectedIndex = 0;
+  DateTime? _date;
 
   /// A context inside the Scaffold's notification scope, captured from the
   /// body's Builder: scroll announcements dispatched from here reach the
@@ -70,6 +82,40 @@ class _RankingPageState extends State<RankingPage>
     )..addListener(_handleTabChanged);
     _selectedIndex = _tabController.index;
     _loadedModes.add(_selectedIndex);
+    _date = widget.date;
+  }
+
+  @override
+  void didUpdateWidget(RankingPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A route write lands here as a widget update; the echo of our own
+    // write carries the day already shown and changes nothing.
+    if (widget.date != _date) _resetForDate(widget.date);
+  }
+
+  /// A different day is a different list in every mode: drop the cached
+  /// bodies and scroll positions, keep only the tab on screen loaded.
+  void _resetForDate(DateTime? date) {
+    final stale = _scrollControllers.values.toList();
+    _scrollControllers.clear();
+    _bodies.clear();
+    _loadedModes
+      ..clear()
+      ..add(_selectedIndex);
+    _date = date;
+    // The outgoing lists still hold these until the next frame unmounts
+    // them.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final controller in stale) {
+        controller.dispose();
+      }
+    });
+  }
+
+  void _changeDate(DateTime? date) {
+    if (date == _date) return;
+    setState(() => _resetForDate(date));
+    widget.onRouteChanged?.call(RankingMode.values[_selectedIndex], date);
   }
 
   @override
@@ -104,7 +150,7 @@ class _RankingPageState extends State<RankingPage>
     // The app bar's scrolled-under state must follow the tab now on
     // screen, not the last list that scrolled.
     announceTabScroll(_notificationContext, _scrollControllerFor(mode));
-    widget.onModeChanged?.call(mode);
+    widget.onRouteChanged?.call(mode, _date);
   }
 
   ScrollController _scrollControllerFor(RankingMode mode) {
@@ -164,6 +210,7 @@ class _RankingPageState extends State<RankingPage>
       appBar: AppBar(
         titleSpacing: 0,
         actions: [
+          RankingDateButton(date: _date, onChanged: _changeDate),
           IconButton(
             tooltip: context.l10n.novelRanking,
             onPressed: () => openNovelRanking(context),
@@ -194,7 +241,7 @@ class _RankingPageState extends State<RankingPage>
       body: Builder(
         builder: (context) {
           _notificationContext = context;
-          return TabSwipeSwitcher(
+          final tabs = TabSwipeSwitcher(
             tabController: _tabController,
             // Warm the neighbor slots before a drag uncovers them — the
             // strip slide shows real feeds instead of blank placeholders.
@@ -207,8 +254,8 @@ class _RankingPageState extends State<RankingPage>
                     _bodies.putIfAbsent(
                       mode,
                       () => _RankingModeBody(
-                        key: ValueKey(mode),
-                        mode: mode,
+                        key: ValueKey((mode, _date)),
+                        feedKey: (mode: mode, date: _date),
                         scrollController: _scrollControllerFor(mode),
                       ),
                     )
@@ -216,6 +263,18 @@ class _RankingPageState extends State<RankingPage>
                     const SizedBox.shrink(),
               ],
             ),
+          );
+          // Always a Column, so the bar coming and going keeps the tab
+          // strip's element.
+          return Column(
+            children: [
+              if (_date case final date?)
+                RankingDateBar(
+                  date: date,
+                  onBackToLatest: () => _changeDate(null),
+                ),
+              Expanded(child: tabs),
+            ],
           );
         },
       ),
@@ -226,16 +285,25 @@ class _RankingPageState extends State<RankingPage>
 class _RankingModeBody extends ConsumerWidget {
   const _RankingModeBody({
     super.key,
-    required this.mode,
+    required this.feedKey,
     required this.scrollController,
   });
 
-  final RankingMode mode;
+  final RankingFeedKey feedKey;
   final ScrollController scrollController;
+
+  RankingMode get mode => feedKey.mode;
+
+  /// Scroll restoration and hero tags per list: a past day is a different
+  /// list from the latest one.
+  String get _listId => switch (feedKey.date) {
+    null => mode.name,
+    final date => '${mode.name}-${formatApiDate(date)}',
+  };
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(rankingFeedControllerProvider(mode));
+    final state = ref.watch(rankingFeedControllerProvider(feedKey));
     final store = ref.watch(illustStoreProvider);
     return state.when(
       loading: () => IllustGridSkeleton(label: context.l10n.contentLoading),
@@ -244,7 +312,7 @@ class _RankingModeBody extends ConsumerWidget {
         error: error,
         retryLabel: context.l10n.retry,
         onRetry: () => ref
-            .read(rankingFeedControllerProvider(mode).notifier)
+            .read(rankingFeedControllerProvider(feedKey).notifier)
             .retryInitial(),
       ),
       data: (feed) {
@@ -254,7 +322,7 @@ class _RankingModeBody extends ConsumerWidget {
             error: feed.initialError ?? const ApiParseError('unknown error'),
             retryLabel: context.l10n.retry,
             onRetry: () => ref
-                .read(rankingFeedControllerProvider(mode).notifier)
+                .read(rankingFeedControllerProvider(feedKey).notifier)
                 .retryInitial(),
           );
         }
@@ -266,22 +334,23 @@ class _RankingModeBody extends ConsumerWidget {
             message: context.l10n.rankingEmpty,
             retryLabel: context.l10n.retry,
             onRetry: () => ref
-                .read(rankingFeedControllerProvider(mode).notifier)
+                .read(rankingFeedControllerProvider(feedKey).notifier)
                 .refresh(),
           );
         }
 
         final entities = store.getAll(feed.ids);
         return PullToRefresh(
-          onRefresh: () =>
-              ref.read(rankingFeedControllerProvider(mode).notifier).refresh(),
+          onRefresh: () => ref
+              .read(rankingFeedControllerProvider(feedKey).notifier)
+              .refresh(),
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification is ScrollUpdateNotification &&
                   notification.metrics.extentAfter <
                       notification.metrics.viewportDimension * 1.2) {
                 ref
-                    .read(rankingFeedControllerProvider(mode).notifier)
+                    .read(rankingFeedControllerProvider(feedKey).notifier)
                     .loadMore();
               }
               return false;
@@ -290,22 +359,22 @@ class _RankingModeBody extends ConsumerWidget {
               controller: scrollController,
               basePhysics: const AlwaysScrollableScrollPhysics(),
               builder: (context, controller, physics) => CustomScrollView(
-                key: PageStorageKey('ranking-${mode.name}'),
+                key: PageStorageKey('ranking-$_listId'),
                 controller: controller,
                 physics: physics,
                 scrollCacheExtent: kFeedCacheExtent,
-                restorationId: 'ranking-${mode.name}',
+                restorationId: 'ranking-$_listId',
                 slivers: [
                   IllustFeedGrid(
                     prefetchEntities: entities,
                     itemIds: [for (final e in entities) e.id],
                     itemCount: entities.length,
                     pagerLoadMore: () => ref
-                        .read(rankingFeedControllerProvider(mode).notifier)
+                        .read(rankingFeedControllerProvider(feedKey).notifier)
                         .loadMore(),
                     itemBuilder: (context, index) => IllustCard(
                       entity: entities[index],
-                      heroScope: 'ranking:${mode.name}',
+                      heroScope: 'ranking:$_listId',
                       rank: index + 1,
                     ),
                   ),
@@ -313,7 +382,7 @@ class _RankingModeBody extends ConsumerWidget {
                     child: FeedTail(
                       feed: feed,
                       onRetry: () => ref
-                          .read(rankingFeedControllerProvider(mode).notifier)
+                          .read(rankingFeedControllerProvider(feedKey).notifier)
                           .retryLoadMore(),
                       errorTitle: context.l10n.rankingLoadMoreFailed,
                       retryLabel: context.l10n.retry,

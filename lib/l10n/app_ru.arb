@@ -681,6 +681,9 @@
   "rankingWeekR18G": "Еженедельно (R-18G)",
   "rankingMonth": "Ежемесячно",
   "rankingEmpty": "Нет содержимого рейтинга",
+  "rankingPickDate": "Выбрать дату",
+  "rankingDateLabel": "Рейтинг за {date}",
+  "rankingBackToLatest": "К последнему",
   "rankingLoadFailed": "Не удалось загрузить: {mode}",
   "@rankingLoadFailed": {
     "placeholders": {

@@ -173,7 +173,10 @@ Future<_World> _makeWorld() async {
 void main() {
   setUpAll(sqfliteFfiInit);
 
-  final provider = novelRankingFeedProvider(NovelRankingMode.day);
+  final provider = novelRankingFeedProvider((
+    mode: NovelRankingMode.day,
+    date: null,
+  ));
   const feedKey = 'novel-ranking:day';
 
   test('successful first load persists a snapshot row', () async {

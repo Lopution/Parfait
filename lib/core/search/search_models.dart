@@ -5,6 +5,8 @@ library;
 
 import 'package:flutter/foundation.dart';
 
+import '../network/api_date.dart';
+
 /// The result tabs exposed by the beta56 search input page.
 enum SearchResultType { illust, novel, user }
 
@@ -169,8 +171,8 @@ class SearchFilters {
     target.wireValue,
     sort.wireValue,
     duration?.wireValue ?? '',
-    startDate == null ? '' : _formatDate(startDate!),
-    endDate == null ? '' : _formatDate(endDate!),
+    startDate == null ? '' : formatApiDate(startDate!),
+    endDate == null ? '' : formatApiDate(endDate!),
     aiFilter.name,
     bookmarkMin?.toString() ?? '',
     bookmarkMax?.toString() ?? '',
@@ -191,8 +193,8 @@ class SearchFilters {
     'target': target.wireValue,
     'sort': sort.wireValue,
     if (duration != null) 'duration': duration!.wireValue,
-    if (startDate != null) 'startDate': _formatDate(startDate!),
-    if (endDate != null) 'endDate': _formatDate(endDate!),
+    if (startDate != null) 'startDate': formatApiDate(startDate!),
+    if (endDate != null) 'endDate': formatApiDate(endDate!),
     'aiFilter': aiFilter.name,
     if (bookmarkMin != null) 'bookmarkMin': bookmarkMin,
     if (bookmarkMax != null) 'bookmarkMax': bookmarkMax,
@@ -299,8 +301,8 @@ class SearchFilters {
       // false.
       'sort': includeIllustParams ? sort.wireValue : sort.novelSafe.wireValue,
       'filter': 'for_android',
-      if (range.$1 != null) 'start_date': _formatDate(range.$1!),
-      if (range.$2 != null) 'end_date': _formatDate(range.$2!),
+      if (range.$1 != null) 'start_date': formatApiDate(range.$1!),
+      if (range.$2 != null) 'end_date': formatApiDate(range.$2!),
       if (aiFilter.wireValue != null) 'search_ai_type': aiFilter.wireValue!,
       if (bookmarkMin != null) 'bookmark_num_min': '$bookmarkMin',
       if (bookmarkMax != null) 'bookmark_num_max': '$bookmarkMax',
@@ -592,13 +594,6 @@ class UserSearchQuery extends SearchQuery {
 
   @override
   String toString() => 'UserSearchQuery($keyword, $retainedFilters)';
-}
-
-String _formatDate(DateTime value) {
-  final year = value.year.toString().padLeft(4, '0');
-  final month = value.month.toString().padLeft(2, '0');
-  final day = value.day.toString().padLeft(2, '0');
-  return '$year-$month-$day';
 }
 
 bool _sameDay(DateTime? left, DateTime? right) =>

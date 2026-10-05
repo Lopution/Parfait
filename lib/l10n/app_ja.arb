@@ -681,6 +681,9 @@
   "rankingWeekR18G": "ウィークリー (R-18G)",
   "rankingMonth": "マンスリー",
   "rankingEmpty": "ランキングの内容はありません",
+  "rankingPickDate": "日付を選択",
+  "rankingDateLabel": "{date}のランキング",
+  "rankingBackToLatest": "最新に戻る",
   "rankingLoadFailed": "{mode}の読み込みに失敗しました",
   "@rankingLoadFailed": {
     "placeholders": {
