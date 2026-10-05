@@ -1667,6 +1667,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchReverseOpenExternal => '打开来源';
 
   @override
+  String searchReverseSimilarity(int percent) {
+    return '相似度 $percent%';
+  }
+
+  @override
   String get searchReverseOpenFailed => '无法打开来源链接';
 
   @override

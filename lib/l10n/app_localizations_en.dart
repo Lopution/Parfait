@@ -1742,6 +1742,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchReverseOpenExternal => 'Open source';
 
   @override
+  String searchReverseSimilarity(int percent) {
+    return '$percent% similar';
+  }
+
+  @override
   String get searchReverseOpenFailed => 'Could not open the source link';
 
   @override

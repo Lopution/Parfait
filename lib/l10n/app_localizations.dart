@@ -3245,6 +3245,12 @@ abstract class AppLocalizations {
   /// **'打开来源'**
   String get searchReverseOpenExternal;
 
+  /// Similarity of a reverse image search match
+  ///
+  /// In zh, this message translates to:
+  /// **'相似度 {percent}%'**
+  String searchReverseSimilarity(int percent);
+
   /// No description provided for @searchReverseOpenFailed.
   ///
   /// In zh, this message translates to:

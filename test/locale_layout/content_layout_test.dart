@@ -267,4 +267,45 @@ void main() {
     await settleLayout(tester);
     await expectPageLayoutIntact(tester, locale: locale, profile: profile);
   });
+
+  localeLayoutMatrix('content: reverse image results', (
+    tester,
+    locale,
+    profile,
+  ) async {
+    final directory = Directory.systemTemp.createTempSync('reverse-layout-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    InAppWebViewPlatform.instance = FakeInAppWebViewPlatform();
+    final l10n = lookupAppLocalizations(locale);
+    await _pumpChecked(
+      tester,
+      locale,
+      profile,
+      localeLayoutApp(
+        locale: locale,
+        home: ReverseImageSearchPage(
+          platform: FakeReverseImagePlatform(writeTinyPng(directory)),
+          providers: {
+            ReverseImageEngine.sauceNao: OutcomeReverseImageProvider(
+              ReverseImageSearchSuccess([
+                const ReverseImageHit(similarity: 91.4, pixivId: 5),
+                ReverseImageHit(
+                  similarity: 70.6,
+                  externalUrl: Uri.parse('https://danbooru.donmai.us/posts/1'),
+                ),
+              ]),
+            ),
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text(l10n.searchReversePick));
+    await pumpUntilVisible(tester, find.text(l10n.searchReverseUse));
+    await tester.ensureVisible(find.text(l10n.searchReverseUse));
+    await tester.tap(find.text(l10n.searchReverseUse));
+    await pumpUntilVisible(tester, find.text('Pixiv #5'));
+    await settleLayout(tester);
+    await expectPageLayoutIntact(tester, locale: locale, profile: profile);
+  });
 }

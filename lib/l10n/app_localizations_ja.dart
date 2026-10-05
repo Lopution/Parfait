@@ -1693,6 +1693,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchReverseOpenExternal => 'ソースを開く';
 
   @override
+  String searchReverseSimilarity(int percent) {
+    return '類似度 $percent%';
+  }
+
+  @override
   String get searchReverseOpenFailed => 'ソースリンクを開けません';
 
   @override

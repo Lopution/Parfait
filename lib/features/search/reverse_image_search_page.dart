@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
@@ -499,28 +500,12 @@ class _ReverseImageSearchPageState
       separatorBuilder: (_, _) => const SizedBox(height: FuncSpacing.sm),
       itemBuilder: (context, index) {
         final hit = state.results[index];
-        final title =
-            hit.title ??
-            (hit.pixivId == null
-                ? hit.externalUrl!.host
-                : 'Pixiv #${hit.pixivId}');
-        return Card(
-          child: ListTile(
-            leading: CircleAvatar(
-              child: Text(hit.similarity.toStringAsFixed(0)),
-            ),
-            title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
-            subtitle: Text('${hit.similarity.toStringAsFixed(1)}%'),
-            trailing: hit.pixivId != null
-                ? const Icon(Icons.chevron_right)
-                : OutlinedButton(
-                    onPressed: () => _openExternal(hit.externalUrl!),
-                    child: Text(context.l10n.searchReverseOpenExternal),
-                  ),
-            onTap: hit.pixivId == null
-                ? () => _openExternal(hit.externalUrl!)
-                : () => openIllust(context, hit.pixivId!),
-          ),
+        final externalUrl = hit.pixivId == null ? hit.externalUrl : null;
+        return _ReverseImageHitTile(
+          hit: hit,
+          onTap: externalUrl == null
+              ? () => openIllust(context, hit.pixivId!)
+              : () => _openExternal(externalUrl),
         );
       },
     );
@@ -533,6 +518,113 @@ class _ReverseImageSearchPageState
       if (!mounted) return;
       showAppSnackBar(context, context.l10n.searchReverseOpenFailed);
     }
+  }
+}
+
+/// One match: a thumbnail, the title, and "source · similarity". The whole
+/// row is the target — pixiv matches open the work, others leave the app,
+/// which the trailing icon announces.
+class _ReverseImageHitTile extends StatelessWidget {
+  const _ReverseImageHitTile({required this.hit, required this.onTap});
+
+  final ReverseImageHit hit;
+  final VoidCallback onTap;
+
+  static const _thumbnailSize = 72.0;
+
+  bool get _isExternal => hit.pixivId == null;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final source = _isExternal ? hit.externalUrl!.host : 'pixiv';
+    final title =
+        hit.title ??
+        (_isExternal ? hit.externalUrl!.host : 'Pixiv #${hit.pixivId}');
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Semantics(
+        container: true,
+        button: true,
+        onTapHint: _isExternal ? context.l10n.searchReverseOpenExternal : null,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(FuncSpacing.md),
+            child: Row(
+              children: [
+                _HitThumbnail(url: hit.thumbnailUrl, size: _thumbnailSize),
+                const SizedBox(width: FuncSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleSmall,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: FuncSpacing.xxs),
+                      Text(
+                        '$source · ${context.l10n.searchReverseSimilarity(hit.similarity.round())}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_isExternal) ...[
+                  const SizedBox(width: FuncSpacing.sm),
+                  Icon(
+                    Icons.open_in_new,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HitThumbnail extends StatelessWidget {
+  const _HitThumbnail({required this.url, required this.size});
+
+  final Uri? url;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final fallback = ColoredBox(
+      color: colors.surfaceContainerHighest,
+      child: Icon(
+        Icons.image_not_supported_outlined,
+        color: colors.onSurfaceVariant,
+      ),
+    );
+    final url = this.url;
+    return ClipRRect(
+      borderRadius: FuncShape.control,
+      child: SizedBox.square(
+        dimension: size,
+        child: url == null
+            ? fallback
+            : CachedNetworkImage(
+                imageUrl: url.toString(),
+                fit: BoxFit.cover,
+                memCacheWidth: (size * MediaQuery.devicePixelRatioOf(context))
+                    .round(),
+                placeholder: (_, _) =>
+                    ColoredBox(color: colors.surfaceContainerHighest),
+                errorWidget: (_, _, _) => fallback,
+              ),
+      ),
+    );
   }
 }
 

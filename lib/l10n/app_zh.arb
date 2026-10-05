@@ -790,6 +790,15 @@
   "searchReverseNoResults": "没有找到匹配结果",
   "searchReverseIntentFailed": "分享的图片无法使用",
   "searchReverseOpenExternal": "打开来源",
+  "searchReverseSimilarity": "相似度 {percent}%",
+  "@searchReverseSimilarity": {
+    "description": "Similarity of a reverse image search match",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "searchReverseOpenFailed": "无法打开来源链接",
   "searchReverseRateLimited": "搜索过于频繁，请稍后再试",
   "searchReverseRateLimitedWait": "约 {seconds} 秒后可重试",

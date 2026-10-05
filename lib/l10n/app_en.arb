@@ -743,6 +743,7 @@
   "searchReverseNoResults": "No matching results",
   "searchReverseIntentFailed": "The shared image cannot be used",
   "searchReverseOpenExternal": "Open source",
+  "searchReverseSimilarity": "{percent}% similar",
   "searchReverseOpenFailed": "Could not open the source link",
   "searchReverseRateLimited": "Too many searches, try again later",
   "searchReverseRateLimitedWait": "Try again in about {seconds} seconds",

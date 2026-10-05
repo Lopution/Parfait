@@ -1745,6 +1745,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchReverseOpenExternal => 'Открыть источник';
 
   @override
+  String searchReverseSimilarity(int percent) {
+    return 'Сходство: $percent %';
+  }
+
+  @override
   String get searchReverseOpenFailed => 'Не удалось открыть ссылку источника';
 
   @override
