@@ -162,21 +162,34 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     await _removeTasks(targets);
   }
 
-  /// Plays the exit of the rows of [taskIds] — plus [groupId]'s header when
-  /// the whole group goes — then drops the records and offers Undo (D5:
-  /// a record is not the file, so removal is reversible). A task that left
-  /// the terminal state meanwhile (a retry landed) is kept, and its rows
-  /// return.
-  Future<void> _removeTasks(List<String> taskIds, {String? groupId}) async {
-    final header = [?(groupId == null ? null : _groupRowKey(groupId))];
-    await _removals.playExit([...taskIds.map(_taskRowKey), ...header]);
+  /// Plays the exit of the rows of [taskIds] — plus the header of every
+  /// group they empty, however they were picked — then drops the records
+  /// and offers Undo (D5: a record is not the file, so removal is
+  /// reversible). A task that left the terminal state meanwhile (a retry
+  /// landed) is kept, and its rows and its group's header return.
+  Future<void> _removeTasks(List<String> taskIds) async {
+    final ids = taskIds.toSet();
+    final emptied = [
+      for (final group in _manager.groups)
+        if (group.jobIds.isNotEmpty && group.jobIds.every(ids.contains)) group,
+    ];
+    await _removals.playExit([
+      ...taskIds.map(_taskRowKey),
+      for (final group in emptied) _groupRowKey(group.id),
+    ]);
     final removal = _manager.dismissAll(taskIds);
     final gone = removal.taskIds.toSet();
     final kept = [
       for (final id in taskIds)
         if (!gone.contains(id)) _taskRowKey(id),
     ];
-    if (kept.isNotEmpty) _removals.restore([...kept, ...header]);
+    if (kept.isNotEmpty) {
+      _removals.restore([
+        ...kept,
+        for (final group in emptied)
+          if (!group.jobIds.every(gone.contains)) _groupRowKey(group.id),
+      ]);
+    }
     if (removal.isEmpty || !mounted) return;
     final manager = _manager;
     showUndoSnackBar(
@@ -434,10 +447,9 @@ String _taskRowKey(String taskId) => 'download-task-$taskId';
 const _maxGrowingRows = 16;
 String _groupRowKey(String groupId) => 'download-group-$groupId';
 
-/// Removes task rows (and a whole group's header) with Undo; owned by the
-/// page so the Undo prompt outlives the removed rows.
-typedef _RemoveTasks =
-    Future<void> Function(List<String> taskIds, {String? groupId});
+/// Removes task rows (and the headers of groups they empty) with Undo;
+/// owned by the page so the Undo prompt outlives the removed rows.
+typedef _RemoveTasks = Future<void> Function(List<String> taskIds);
 
 /// The lazy list's flat entries (§3.1): a group header, one child of an
 /// expanded group, or an ungrouped task.
@@ -1015,9 +1027,8 @@ class _DownloadGroupHeader extends StatelessWidget {
     List<DownloadTaskSnapshot> children,
   ) {
     final l10n = context.l10n;
-    void dismissChildren() => unawaited(
-      onRemove([for (final child in children) child.id], groupId: group.id),
-    );
+    void dismissChildren() =>
+        unawaited(onRemove([for (final child in children) child.id]));
 
     return switch (group.status) {
       DownloadGroupStatus.queued || DownloadGroupStatus.running => [
