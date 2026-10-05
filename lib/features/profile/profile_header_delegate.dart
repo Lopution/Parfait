@@ -85,7 +85,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     required this.restrict,
     required this.onRestrictChanged,
     required this.onShare,
-    this.statistics = const [],
+    this.stats = const [],
     this.isFollowed = false,
     this.onEditProfile,
     this.onToggleFollow,
@@ -105,7 +105,9 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   final UserRestrict restrict;
   final ValueChanged<UserRestrict> onRestrictChanged;
   final ValueChanged<BuildContext> onShare;
-  final List<ProfileStatisticData> statistics;
+
+  /// The statistics line under the name: following and My Pixiv.
+  final List<ProfileHeaderStat> stats;
   final bool isFollowed;
   final VoidCallback? onEditProfile;
   final VoidCallback? onToggleFollow;
@@ -301,7 +303,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                                 user: user,
                                 bannerHeight: bannerHeight,
                                 actions: actions,
-                                statistics: statistics,
+                                stats: stats,
                               ),
                             ),
                           ),
@@ -386,7 +388,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.onOpenBookmarkTags != onOpenBookmarkTags ||
         oldDelegate.onDownloadAll != onDownloadAll ||
         oldDelegate.onShare != onShare ||
-        oldDelegate.statistics != statistics ||
+        !listEquals(oldDelegate.stats, stats) ||
         oldDelegate.onRestrictChanged != onRestrictChanged ||
         oldDelegate.expandedExtent != expandedExtent ||
         oldDelegate.onExpandedExtentMeasured != onExpandedExtentMeasured ||
@@ -427,25 +429,31 @@ class _ProfileBackground extends StatelessWidget {
 
 /// Everything below the toolbar while expanded, laid out at natural
 /// height: a banner spacer (the banner itself is painted by the layered
-/// header), the overlapping 80dp avatar, the share/main action row, the
-/// name/account lines and the statistics grid. The measured height of this
-/// widget drives [ReplicaProfileHeaderDelegate.expandedExtent].
+/// header), the overlapping 80dp avatar, the name row — name and @account
+/// on the left, share and the main action on the right — and the
+/// statistics line. The measured height of this widget drives
+/// [ReplicaProfileHeaderDelegate.expandedExtent].
 class _ExpandedIdentity extends StatelessWidget {
   const _ExpandedIdentity({
     required this.user,
     required this.bannerHeight,
     required this.actions,
-    required this.statistics,
+    required this.stats,
   });
+
+  /// The main action never takes more than this share of the name row; a
+  /// long name ellipsizes first, and the button's own label fitting
+  /// handles anything wider.
+  static const mainActionMaxShare = 0.45;
 
   final UserEntity user;
   final double bannerHeight;
   final List<_ProfileHeaderAction> actions;
-  final List<ProfileStatisticData> statistics;
+  final List<ProfileHeaderStat> stats;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     _ProfileHeaderAction? share;
     _ProfileHeaderAction? main;
     for (final action in actions) {
@@ -464,28 +472,49 @@ class _ExpandedIdentity extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(height: bannerHeight),
-            // The action row sits in the avatar's lower half, right of it.
-            // The avatar's top half overlaps the banner.
+            // The avatar's lower half.
+            const SizedBox(height: avatarRadius + FuncSpacing.sm),
             Padding(
-              padding: const EdgeInsetsDirectional.only(
-                start: FuncSpacing.lg + avatarRadius * 2 + FuncSpacing.md,
-                end: FuncSpacing.lg,
-              ),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  minHeight: avatarRadius + FuncSpacing.sm,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  crossAxisAlignment: CrossAxisAlignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+              child: LayoutBuilder(
+                builder: (context, constraints) => Row(
                   children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            key: const ValueKey('profile-expanded-name'),
+                            user.name,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (user.account.isNotEmpty)
+                            Text(
+                              '@${user.account}',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
                     if (share?.buildInline != null)
                       share!.buildInline!(context),
                     if (main?.buildInline != null)
-                      Flexible(
-                        child: Padding(
-                          padding: const EdgeInsetsDirectional.only(
-                            start: FuncSpacing.sm,
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(
+                          start: FuncSpacing.xs,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: constraints.maxWidth * mainActionMaxShare,
                           ),
                           child: main!.buildInline!(context),
                         ),
@@ -494,44 +523,16 @@ class _ExpandedIdentity extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: FuncSpacing.sm),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    key: const ValueKey('profile-expanded-name'),
-                    user.name,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (user.account.isNotEmpty) ...[
-                    const SizedBox(height: FuncSpacing.xxs),
-                    Text(
-                      user.account,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: FuncSpacing.md),
-                  // Equal-width grid instead of a horizontal scroll strip:
-                  // the stats must all stay visible without scrolling (R3).
-                  ProfileStatisticsGrid(
-                    statistics: [
-                      for (final statistic in statistics)
-                        ProfileStatistic(statistic: statistic, compact: true),
-                    ],
-                  ),
-                  const SizedBox(height: FuncSpacing.md),
-                ],
+            if (stats.isNotEmpty)
+              Padding(
+                // The links carry their own xs inset; line their text up
+                // with the name.
+                padding: const EdgeInsets.symmetric(
+                  horizontal: FuncSpacing.lg - FuncSpacing.xs,
+                ),
+                child: ProfileStatLine(stats: stats),
               ),
-            ),
+            const SizedBox(height: FuncSpacing.sm),
           ],
         ),
         // 80dp avatar centred on the banner's bottom edge, left-aligned.

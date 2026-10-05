@@ -1513,6 +1513,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileMyPixiv => '好P友';
 
   @override
+  String profileFollowingCount(String count) {
+    return '$count 关注';
+  }
+
+  @override
+  String profileMyPixivCount(String count) {
+    return '$count 好P友';
+  }
+
+  @override
   String get profileAbout => '关于';
 
   @override

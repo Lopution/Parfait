@@ -1590,6 +1590,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get profileMyPixiv => 'Мои Pixiv';
 
   @override
+  String profileFollowingCount(String count) {
+    return 'Подписки: $count';
+  }
+
+  @override
+  String profileMyPixivCount(String count) {
+    return 'Мои Pixiv: $count';
+  }
+
+  @override
   String get profileAbout => 'О пользователе';
 
   @override

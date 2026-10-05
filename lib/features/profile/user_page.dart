@@ -351,6 +351,29 @@ class _UserPageState extends ConsumerState<UserPage>
     };
   }
 
+  /// The header's statistics line. A preview snapshot has no counters, so
+  /// it shows none rather than zeros.
+  List<ProfileHeaderStat> _headerStats(UserEntity user) {
+    if (!user.hasDetail) return const [];
+    final l10n = context.l10n;
+    return [
+      ProfileHeaderStat(
+        id: 'following',
+        text: l10n.profileFollowingCount(
+          AppFormat.count(context, user.totalFollowUsers),
+        ),
+        onTap: _openTab(_ProfileTab.following),
+      ),
+      ProfileHeaderStat(
+        id: 'myPixiv',
+        text: l10n.profileMyPixivCount(
+          AppFormat.count(context, user.totalMyPixivUsers),
+        ),
+        onTap: _openTab(_ProfileTab.myPixiv),
+      ),
+    ];
+  }
+
   List<ProfileStatisticData> _profileStatistics(UserEntity user) => [
     ProfileStatisticData(
       id: 'following',
@@ -556,7 +579,7 @@ class _UserPageState extends ConsumerState<UserPage>
                           ),
                         ),
                   onCopyLink: () => unawaited(_copyProfileLink(context, user)),
-                  statistics: statistics,
+                  stats: _headerStats(user),
                   onEditProfile: widget.isMe ? widget.onEditProfile : null,
                   // Bookmarks tab only: the tag collection entry sits in the
                   // collapsed toolbar next to the restrict selector.

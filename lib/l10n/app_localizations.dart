@@ -2957,6 +2957,18 @@ abstract class AppLocalizations {
   /// **'好P友'**
   String get profileMyPixiv;
 
+  /// Profile header: following count, a link to the following list. count is already formatted.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 关注'**
+  String profileFollowingCount(String count);
+
+  /// Profile header: My Pixiv count. count is already formatted.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 好P友'**
+  String profileMyPixivCount(String count);
+
   /// No description provided for @profileAbout.
   ///
   /// In zh, this message translates to:

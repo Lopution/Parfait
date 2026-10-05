@@ -695,6 +695,24 @@
   "profileFollowing": "关注",
   "profileFans": "粉丝",
   "profileMyPixiv": "好P友",
+  "profileFollowingCount": "{count} 关注",
+  "@profileFollowingCount": {
+    "description": "Profile header: following count, a link to the following list. count is already formatted.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "profileMyPixivCount": "{count} 好P友",
+  "@profileMyPixivCount": {
+    "description": "Profile header: My Pixiv count. count is already formatted.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
   "profileAbout": "关于",
   "profileIllust": "插画",
   "profileManga": "漫画",

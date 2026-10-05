@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -1223,39 +1224,59 @@ void main() {
       '关于',
     ]);
 
-    final seriesStat = find.byKey(const ValueKey('profile-stat-series-header'));
-    // The series stat counts illust series only: that is what the series
-    // tab can display (novel series has no list).
+    // The header line: following opens its tab; another user's My Pixiv
+    // list has no tab, so that count is plain text.
+    final followingStat = find.byKey(
+      const ValueKey('profile-stat-following-header'),
+    );
     expect(
-      tester.getSemantics(seriesStat),
-      isSemantics(label: '系列, 3', isButton: true, hasTapAction: true),
+      tester.getSemantics(followingStat),
+      isSemantics(label: '11 关注', isButton: true, hasTapAction: true),
     );
     final myPixivStat = find.byKey(
       const ValueKey('profile-stat-myPixiv-header'),
     );
     expect(
       tester.getSemantics(myPixivStat),
-      isSemantics(isButton: false, hasTapAction: false),
+      isSemantics(label: '12 好P友', isButton: false, hasTapAction: false),
     );
-
-    final mangaStat = find.byKey(const ValueKey('profile-stat-manga-header'));
-    await tester.ensureVisible(mangaStat);
-    await tester.tap(mangaStat);
+    expect(tester.getSize(followingStat).height, greaterThanOrEqualTo(48));
+    await tester.tap(followingStat);
     await tester.pumpAndSettle();
-    expect(_selectedTabIndex(tester), 1);
-    expect(repository.requests, contains('works:42:manga:first'));
+    expect(_selectedTabIndex(tester), 5);
 
+    // The about page lists every count; works open their tabs. The series
+    // stat counts illust series only: that is what the series tab lists.
     Future<void> tapAboutStat(String id) async {
       await tester.tap(
         find.descendant(of: find.byType(TabBar), matching: find.text('关于')),
       );
       await tester.pumpAndSettle();
-      final stat = find.byKey(ValueKey('profile-stat-$id-about'));
+      // The stats close the about list, below the fold.
+      final stat = find.byKey(
+        ValueKey('profile-stat-$id-about'),
+        skipOffstage: false,
+      );
       await tester.ensureVisible(stat);
+      await tester.pumpAndSettle();
       await tester.tap(stat);
       await tester.pumpAndSettle();
     }
 
+    final aboutSeries = find.byKey(
+      const ValueKey('profile-stat-series-about'),
+      skipOffstage: false,
+    );
+    await tester.tap(
+      find.descendant(of: find.byType(TabBar), matching: find.text('关于')),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(aboutSeries);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSemantics(aboutSeries),
+      isSemantics(label: '系列, 3', isButton: true, hasTapAction: true),
+    );
     await tapAboutStat('series');
     expect(_selectedTabIndex(tester), 3);
     expect(find.byType(UserSeriesFeed), findsOneWidget);
@@ -1268,150 +1289,74 @@ void main() {
     expect(_selectedTabIndex(tester), 1);
   });
 
-  testWidgets(
-    'profile statistics lay out in an equal-width grid without horizontal '
-    'scrolling',
-    (tester) async {
-      const statIds = [
-        'following',
-        'myPixiv',
-        'illust',
-        'manga',
-        'novel',
-        'series',
-      ];
-      Finder stat(String id) => find.byKey(ValueKey('profile-stat-$id-header'));
-
-      Future<void> pumpPage({
-        required Size size,
-        required double textScale,
-        required Locale locale,
-      }) async {
-        tester.view.physicalSize = size;
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        final container = await makeProfileWorld(users: FakeUserRepository());
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: MaterialApp(
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: locale,
-              home: MediaQuery(
-                data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
-                child: const UserPage(userId: 42),
-              ),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-      }
-
-      void expectNoHorizontalScrollable(Finder statFinder) {
-        var found = false;
-        tester.element(statFinder).visitAncestorElements((ancestor) {
-          final widget = ancestor.widget;
-          if (widget is Scrollable && widget.axis == Axis.horizontal) {
-            found = true;
-          }
-          return true;
-        });
-        expect(found, isFalse, reason: 'stat cell must not scroll sideways');
-      }
-
-      void expectEqualRowWidths() {
-        final rects = [for (final id in statIds) tester.getRect(stat(id))];
-        final rows = <double, List<Rect>>{};
-        for (final rect in rects) {
-          rows.putIfAbsent(rect.top, () => []).add(rect);
-        }
-        for (final row in rows.values) {
-          for (final cell in row) {
-            expect(
-              cell.width,
-              moreOrLessEquals(row.first.width, epsilon: 0.01),
-              reason: 'cells in one grid row share the same width',
-            );
-          }
-        }
-      }
-
-      // 411×891, 1.0, zh: all six stats fit one row, all on screen.
-      await pumpPage(
-        size: const Size(411, 891),
-        textScale: 1,
-        locale: const Locale('zh', 'CN'),
-      );
-      for (final id in statIds) {
-        final rect = tester.getRect(stat(id));
-        expect(rect.top, greaterThanOrEqualTo(0));
-        expect(rect.bottom, lessThanOrEqualTo(891));
-        expect(rect.left, greaterThanOrEqualTo(0));
-        expect(rect.right, lessThanOrEqualTo(411));
-        expectNoHorizontalScrollable(stat(id));
-      }
-      final tops = {for (final id in statIds) tester.getRect(stat(id)).top};
-      expect(
-        tops,
-        hasLength(1),
-        reason: '411/1.0/zh fits six cells in one row',
-      );
-      expectEqualRowWidths();
-
-      // Narrow/large-text conditions that wrap onto multiple rows live in
-      // test/profile_statistics_test.dart — the legacy fixed-height header
-      // cannot host a taller grid at all, so T3's R1 tests own the
-      // 360×640 × ru combinations on the real page.
-    },
-  );
-
-  // R8 wide-screen: the measured header lays out cleanly and all six
-  // statistics share one row when there is room for them.
-  testWidgets('wide screens keep the statistics on one row', (tester) async {
-    tester.view.physicalSize = const Size(1200, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final container = await makeProfileWorld(users: FakeUserRepository());
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: const UserPage(userId: 42),
+  for (final isMe in [false, true]) {
+    testWidgets('name, share and the main action share one row '
+        '(320dp @ 1.3x, isMe=$isMe)', (tester) async {
+      tester.view.physicalSize = const Size(320, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final repository = FakeUserRepository(
+        detail: sampleUser(42).copyWith(
+          name: 'an extremely long display name that keeps going',
+          totalFollowUsers: 1234,
+          totalMyPixivUsers: 56,
+          hasDetail: true,
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
+      );
+      final container = await makeProfileWorld(users: repository);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(1.3)),
+              child: child!,
+            ),
+            home: isMe
+                ? MePage(onEditProfile: () {})
+                : const UserPage(userId: 42),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
 
-    final tops = <double>{
-      for (final id in [
-        'following',
-        'myPixiv',
-        'illust',
-        'manga',
-        'novel',
-        'series',
-      ])
-        tester.getRect(find.byKey(ValueKey('profile-stat-$id-header'))).top,
-    };
-    expect(tops, hasLength(1), reason: '1200dp fits six cells in one row');
-  });
+      final nameFinder = find.byKey(const ValueKey('profile-expanded-name'));
+      final name = tester.getRect(nameFinder);
+      final share = tester.getRect(find.byIcon(Icons.share_outlined));
+      final main = tester.getRect(
+        isMe ? find.byType(FilledButton) : find.byType(FollowSwitchButton),
+      );
+      // The long name gives way: it ellipsizes before the buttons wrap.
+      expect(
+        tester.renderObject<RenderParagraph>(nameFinder).didExceedMaxLines,
+        isTrue,
+      );
+      expect(name.right, lessThanOrEqualTo(share.left));
+      expect(share.right, lessThanOrEqualTo(main.left));
+      expect(main.right, lessThanOrEqualTo(320));
+      // One row: the buttons sit level with the name block.
+      expect(share.top, lessThan(name.bottom));
+      expect(main.top, lessThan(name.bottom));
+      expect(find.text('@sample'), findsOneWidget);
+      // The statistics line sits under the row.
+      final following = tester.getRect(
+        find.byKey(const ValueKey('profile-stat-following-header')),
+      );
+      expect(following.top, greaterThanOrEqualTo(share.bottom - 0.5));
+      expect(find.text('1234 关注'), findsOneWidget);
+    });
+  }
 
   testWidgets('the expanded header is measured from its content', (
     tester,
   ) async {
-    const statIds = [
-      'following',
-      'myPixiv',
-      'illust',
-      'manga',
-      'novel',
-      'series',
-    ];
+    const statIds = ['following', 'myPixiv'];
     Finder stat(String id) => find.byKey(ValueKey('profile-stat-$id-header'));
 
     Future<void> pumpPage({
@@ -1426,6 +1371,9 @@ void main() {
       final repository = FakeUserRepository(
         detail: sampleUser(42).copyWith(
           backgroundImageUrl: cover ? 'https://i.pximg.net/bg.png' : null,
+          totalFollowUsers: 1234567,
+          totalMyPixivUsers: 1234,
+          hasDetail: true,
         ),
       );
       final container = await makeProfileWorld(users: repository);
@@ -1557,14 +1505,16 @@ void main() {
         .getRect(find.byType(TabBar, skipOffstage: false))
         .top;
 
-    // A refreshed user with a much longer account line wraps to more rows,
-    // which must grow the measured extent instead of overflowing. The page
-    // reads the entity captured by userDetailControllerProvider, so the
-    // refresh has to go through reload() — a bare UserStore.mergeAll never
-    // reaches it.
+    // The refreshed user brings its counters: the statistics line appears
+    // (and wraps at 2x), which must grow the measured extent instead of
+    // overflowing. The page reads the entity captured by
+    // userDetailControllerProvider, so the refresh has to go through
+    // reload() — a bare UserStore.mergeAll never reaches it.
     repository.detail = sampleUser(42).copyWith(
       name: 'an extremely long display name that keeps going',
-      account: 'a_very_long_account_handle_that_wraps_to_more_lines',
+      totalFollowUsers: 1234567,
+      totalMyPixivUsers: 1234,
+      hasDetail: true,
     );
     await container.read(userDetailControllerProvider(42).notifier).reload();
     await tester.pumpAndSettle();
@@ -1577,7 +1527,7 @@ void main() {
       greaterThan(tabTopBefore),
       reason: 'the measured extent follows wrapped identity content',
     );
-    for (final id in ['following', 'illust', 'series']) {
+    for (final id in ['following', 'myPixiv']) {
       expect(
         tester.getRect(find.byKey(ValueKey('profile-stat-$id-header'))).bottom,
         lessThanOrEqualTo(tabTopAfter),
@@ -1636,7 +1586,9 @@ void main() {
         tops.add(top);
         previous = top;
       }
-      for (var step = 0; step < 14; step++) {
+      // More steps back than forward: what the collapsed header did not
+      // take went to the feed, which unwinds first.
+      for (var step = 0; step < 20; step++) {
         await tester.drag(scrollable, const Offset(0, 30));
         await tester.pump();
         final top = tabTop();
@@ -2169,7 +2121,13 @@ void main() {
         addTearDown(() {
           if (!gate.isCompleted) gate.complete();
         });
-        final repository = FakeUserRepository()..detailGate = gate;
+        // A loaded profile has its counters, so the statistics line is
+        // there for the skeleton's line to stand in for.
+        final repository = FakeUserRepository(
+          detail: sampleUser(
+            42,
+          ).copyWith(totalIllusts: 3, totalFollowUsers: 12, hasDetail: true),
+        )..detailGate = gate;
         final container = await makeProfileWorld(users: repository);
         await tester.pumpWidget(
           UncontrolledProviderScope(
@@ -2562,7 +2520,7 @@ void main() {
       expect(_tabLabels(tester).take(4), ['插画', '漫画', '小说', '系列']);
       expect(find.byIcon(Icons.share_outlined), findsOneWidget);
       expect(
-        find.byKey(const ValueKey('profile-stat-following-header')),
+        find.byKey(const ValueKey('profile-expanded-name')),
         findsOneWidget,
       );
     },

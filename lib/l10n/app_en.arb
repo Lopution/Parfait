@@ -695,6 +695,8 @@
   "profileFollowing": "Following",
   "profileFans": "Fans",
   "profileMyPixiv": "My Pixiv",
+  "profileFollowingCount": "{count} following",
+  "profileMyPixivCount": "{count} My Pixiv",
   "profileAbout": "About",
   "profileIllust": "Illustration",
   "profileManga": "Manga",

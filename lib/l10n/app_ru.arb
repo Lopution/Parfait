@@ -695,6 +695,8 @@
   "profileFollowing": "Подписки",
   "profileFans": "Подписчики",
   "profileMyPixiv": "Мои Pixiv",
+  "profileFollowingCount": "Подписки: {count}",
+  "profileMyPixivCount": "Мои Pixiv: {count}",
   "profileAbout": "О пользователе",
   "profileIllust": "Иллюстрации",
   "profileManga": "Манга",

@@ -695,6 +695,8 @@
   "profileFollowing": "フォロー",
   "profileFans": "フォロワー",
   "profileMyPixiv": "マイピク",
+  "profileFollowingCount": "フォロー {count}",
+  "profileMyPixivCount": "マイピク {count}",
   "profileAbout": "概要",
   "profileIllust": "イラスト",
   "profileManga": "マンガ",

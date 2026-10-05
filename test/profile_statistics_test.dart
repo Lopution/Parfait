@@ -4,21 +4,12 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/features/profile/profile_statistics.dart';
 
-ProfileStatisticData _stat(String id, String label, {VoidCallback? onTap}) =>
-    ProfileStatisticData(
-      id: id,
-      icon: Icons.tag,
-      label: label,
-      value: 12,
-      onTap: onTap,
-    );
+Finder _link(String id) => find.byKey(ValueKey('profile-stat-$id-header'));
 
-Finder _cell(String id) => find.byKey(ValueKey('profile-stat-$id-header'));
-
-Future<void> _pumpGrid(
+Future<void> _pumpLine(
   WidgetTester tester, {
   required double width,
-  required List<ProfileStatisticData> stats,
+  required List<ProfileHeaderStat> stats,
   double textScale = 1,
 }) async {
   tester.view.physicalSize = Size(width, 800);
@@ -31,13 +22,8 @@ Future<void> _pumpGrid(
         data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
         child: Scaffold(
           body: Align(
-            alignment: Alignment.topCenter,
-            child: ProfileStatisticsGrid(
-              statistics: [
-                for (final stat in stats)
-                  ProfileStatistic(statistic: stat, compact: true),
-              ],
-            ),
+            alignment: Alignment.topLeft,
+            child: ProfileStatLine(stats: stats),
           ),
         ),
       ),
@@ -46,88 +32,80 @@ Future<void> _pumpGrid(
   await tester.pump();
 }
 
-/// Rows = distinct top offsets, in order of appearance.
-List<double> _rowTops(WidgetTester tester, List<String> ids) {
-  final tops = <double>{
-    for (final id in ids) tester.getRect(_cell(id)).top,
-  }.toList()..sort();
-  return tops;
-}
-
 void main() {
-  testWidgets('short labels fit six columns and share one row', (tester) async {
-    final stats = [for (var i = 0; i < 6; i++) _stat('s$i', '关注')];
-    await _pumpGrid(tester, width: 411, stats: stats);
+  testWidgets('the links share one line, each a 48dp target', (tester) async {
+    var tapped = <String>[];
+    await _pumpLine(
+      tester,
+      width: 411,
+      stats: [
+        ProfileHeaderStat(
+          id: 'following',
+          text: '12 关注',
+          onTap: () => tapped.add('following'),
+        ),
+        ProfileHeaderStat(
+          id: 'myPixiv',
+          text: '3 好P友',
+          onTap: () => tapped.add('myPixiv'),
+        ),
+      ],
+    );
 
-    final tops = _rowTops(tester, [for (var i = 0; i < 6; i++) 's$i']);
-    expect(tops, hasLength(1), reason: 'six short cells fit one row');
+    final following = tester.getRect(_link('following'));
+    final myPixiv = tester.getRect(_link('myPixiv'));
+    expect(following.top, myPixiv.top);
+    expect(following.right, lessThan(myPixiv.left));
+    expect(following.height, greaterThanOrEqualTo(48));
+    expect(find.text('·'), findsOneWidget);
 
-    final widths = [
-      for (var i = 0; i < 6; i++) tester.getRect(_cell('s$i')).width,
-    ];
-    for (final width in widths) {
-      expect(width, moreOrLessEquals(widths.first, epsilon: 0.01));
-    }
+    await tester.tap(_link('myPixiv'));
+    await tester.tap(_link('following'));
+    expect(tapped, ['myPixiv', 'following']);
+    tapped = [];
   });
 
-  testWidgets('a too-wide label drops the grid to three columns', (
+  testWidgets('a link announces its text; a read-only one is no button', (
     tester,
   ) async {
-    // ~104dp intrinsic: fits a 3-column slot (~131dp) but not 6 (~61dp),
-    // so the whole grid falls back to two rows of three.
-    final stats = [
-      _stat('wide', '比较长的统计标签'),
-      for (var i = 0; i < 5; i++) _stat('s$i', '关注'),
-    ];
-    await _pumpGrid(tester, width: 411, stats: stats);
-
-    final ids = ['wide', 's0', 's1', 's2', 's3', 's4'];
-    final rects = [for (final id in ids) tester.getRect(_cell(id))];
-    final topSet = rects.map((rect) => rect.top).toSet();
-    expect(topSet, hasLength(2));
-    for (final rect in rects) {
-      expect(rect.width, moreOrLessEquals(rects.first.width, epsilon: 0.01));
-    }
+    await _pumpLine(
+      tester,
+      width: 411,
+      stats: [
+        ProfileHeaderStat(id: 'following', text: '12 关注', onTap: () {}),
+        const ProfileHeaderStat(id: 'myPixiv', text: '3 好P友'),
+      ],
+    );
+    expect(
+      tester.getSemantics(_link('following')),
+      isSemantics(label: '12 关注', isButton: true, hasTapAction: true),
+    );
+    expect(
+      tester.getSemantics(_link('myPixiv')),
+      isSemantics(label: '3 好P友', isButton: false, hasTapAction: false),
+    );
   });
 
-  testWidgets('single column lets every cell take the full width', (
+  testWidgets('a narrow screen wraps the line instead of overflowing', (
     tester,
   ) async {
-    final stats = [
-      _stat('wide', '非常非常长的标签标签标签标签标签标签标签标签标签'),
-      _stat('s0', '关注'),
-    ];
-    await _pumpGrid(tester, width: 120, stats: stats);
-
-    final wideRect = tester.getRect(_cell('wide'));
-    final s0Rect = tester.getRect(_cell('s0'));
-    expect(wideRect.top, isNot(s0Rect.top));
-    expect(wideRect.width, moreOrLessEquals(120, epsilon: 0.01));
-    expect(s0Rect.width, moreOrLessEquals(120, epsilon: 0.01));
-  });
-
-  testWidgets('cells stay tappable and no horizontal scroll is introduced', (
-    tester,
-  ) async {
-    var tapped = 0;
-    final stats = [
-      for (var i = 0; i < 6; i++) _stat('s$i', '关注', onTap: () => tapped++),
-    ];
-    await _pumpGrid(tester, width: 411, stats: stats);
-
-    await tester.tap(_cell('s2'));
-    expect(tapped, 1);
-
-    // R3: no horizontal Scrollable may appear above a stat cell.
-    final element = tester.element(_cell('s0'));
-    var hasHorizontalScrollable = false;
-    element.visitAncestorElements((ancestor) {
-      final widget = ancestor.widget;
-      if (widget is Scrollable && widget.axis == Axis.horizontal) {
-        hasHorizontalScrollable = true;
-      }
-      return true;
-    });
-    expect(hasHorizontalScrollable, isFalse);
+    await _pumpLine(
+      tester,
+      width: 200,
+      textScale: 1.3,
+      stats: [
+        ProfileHeaderStat(
+          id: 'following',
+          text: 'Подписки: 1,2 тыс.',
+          onTap: () {},
+        ),
+        ProfileHeaderStat(id: 'myPixiv', text: 'Мои Pixiv: 567', onTap: () {}),
+      ],
+    );
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getRect(_link('myPixiv')).top,
+      greaterThan(tester.getRect(_link('following')).top),
+    );
   });
 }

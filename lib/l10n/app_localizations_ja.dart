@@ -1539,6 +1539,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get profileMyPixiv => 'マイピク';
 
   @override
+  String profileFollowingCount(String count) {
+    return 'フォロー $count';
+  }
+
+  @override
+  String profileMyPixivCount(String count) {
+    return 'マイピク $count';
+  }
+
+  @override
   String get profileAbout => '概要';
 
   @override
