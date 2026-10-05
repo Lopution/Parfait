@@ -2001,6 +2001,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commentReplies => '返信';
 
   @override
+  String commentViewReplies(int count) {
+    return '返信$count件を表示';
+  }
+
+  @override
+  String get commentMoreActions => 'その他の操作';
+
+  @override
   String get commentTranslate => '翻訳';
 
   @override

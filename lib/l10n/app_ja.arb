@@ -864,6 +864,8 @@
   "commentLoadMoreFailed": "コメントをさらに読み込めませんでした",
   "commentNoResults": "コメントはありません",
   "commentReplies": "返信",
+  "commentViewReplies": "返信{count}件を表示",
+  "commentMoreActions": "その他の操作",
   "commentTranslate": "翻訳",
   "commentTranslation": "翻訳結果",
   "commentTranslationUnavailable": "翻訳は利用できません。設定で有効にしてください。",

@@ -864,6 +864,8 @@
   "commentLoadMoreFailed": "Не удалось загрузить ещё комментарии",
   "commentNoResults": "Комментариев нет",
   "commentReplies": "Ответы",
+  "commentViewReplies": "Ответы: {count}",
+  "commentMoreActions": "Другие действия",
   "commentTranslate": "Перевести",
   "commentTranslation": "Перевод",
   "commentTranslationUnavailable": "Перевод недоступен. Включите его в настройках.",

@@ -1974,6 +1974,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commentReplies => '回复';
 
   @override
+  String commentViewReplies(int count) {
+    return '查看 $count 条回复';
+  }
+
+  @override
+  String get commentMoreActions => '更多操作';
+
+  @override
   String get commentTranslate => '翻译';
 
   @override

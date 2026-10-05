@@ -148,6 +148,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'commentInput' => l10n.commentInput,
   'commentLoadFailed' => l10n.commentLoadFailed,
   'commentLoadMoreFailed' => l10n.commentLoadMoreFailed,
+  'commentMoreActions' => l10n.commentMoreActions,
   'commentNoResults' => l10n.commentNoResults,
   'commentPermissionDenied' => l10n.commentPermissionDenied,
   'commentReplies' => l10n.commentReplies,

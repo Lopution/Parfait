@@ -2056,6 +2056,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commentReplies => 'Replies';
 
   @override
+  String commentViewReplies(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'View $count replies',
+      one: 'View $count reply',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get commentMoreActions => 'More actions';
+
+  @override
   String get commentTranslate => 'Translate';
 
   @override

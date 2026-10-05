@@ -2061,6 +2061,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String get commentReplies => 'Ответы';
 
   @override
+  String commentViewReplies(int count) {
+    return 'Ответы: $count';
+  }
+
+  @override
+  String get commentMoreActions => 'Другие действия';
+
+  @override
   String get commentTranslate => 'Перевести';
 
   @override

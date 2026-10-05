@@ -1015,6 +1015,19 @@
   "commentLoadMoreFailed": "加载更多评论失败",
   "commentNoResults": "暂无评论",
   "commentReplies": "回复",
+  "commentViewReplies": "查看 {count} 条回复",
+  "@commentViewReplies": {
+    "description": "Comment action that opens the replies to a comment",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "commentMoreActions": "更多操作",
+  "@commentMoreActions": {
+    "description": "Tooltip of a comment's overflow menu (translate, delete)"
+  },
   "commentTranslate": "翻译",
   "commentTranslation": "翻译结果",
   "commentTranslationUnavailable": "翻译服务不可用，请在设置中开启。",

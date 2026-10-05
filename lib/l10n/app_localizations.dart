@@ -3803,6 +3803,18 @@ abstract class AppLocalizations {
   /// **'回复'**
   String get commentReplies;
 
+  /// Comment action that opens the replies to a comment
+  ///
+  /// In zh, this message translates to:
+  /// **'查看 {count} 条回复'**
+  String commentViewReplies(int count);
+
+  /// Tooltip of a comment's overflow menu (translate, delete)
+  ///
+  /// In zh, this message translates to:
+  /// **'更多操作'**
+  String get commentMoreActions;
+
   /// No description provided for @commentTranslate.
   ///
   /// In zh, this message translates to:

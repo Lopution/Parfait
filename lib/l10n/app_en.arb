@@ -864,6 +864,8 @@
   "commentLoadMoreFailed": "Failed to load more comments",
   "commentNoResults": "No comments",
   "commentReplies": "Replies",
+  "commentViewReplies": "{count, plural, one{View {count} reply} other{View {count} replies}}",
+  "commentMoreActions": "More actions",
   "commentTranslate": "Translate",
   "commentTranslation": "Translation",
   "commentTranslationUnavailable": "Translation is unavailable. Enable it in Settings.",

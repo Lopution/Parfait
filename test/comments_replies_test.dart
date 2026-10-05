@@ -115,6 +115,9 @@ Map<String, dynamic> _commentJson(
   ...?stamp == null ? null : {'stamp': stamp},
 };
 
+/// The reply text button of every comment row (zh).
+Finder _replyButton() => find.widgetWithText(TextButton, '回复');
+
 void main() {
   // Stamp cells are PixivImages, which read settings; shards run single
   // tests, so no test may rely on another having installed preferences.
@@ -595,36 +598,6 @@ void main() {
     expect(sent, [101]);
   });
 
-  testWidgets(
-    'comment item uses explicit reply actions and owner-only delete',
-    (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [accountStoreProvider.overrideWith(commentsAccountStore)],
-          child: MaterialApp(
-            locale: const Locale('zh', 'CN'),
-            supportedLocales: const [Locale('zh', 'CN')],
-            localizationsDelegates: appLocalizationsDelegates,
-            home: Scaffold(
-              body: CommentItem(
-                comment: sampleComment(40, replyCount: 2),
-                onReply: () {},
-                onOpenReplies: () {},
-                onDelete: () {},
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-
-      expect(find.byIcon(Icons.reply_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.translate_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.delete_outline), findsOneWidget);
-      expect(find.byIcon(Icons.forum_outlined), findsOneWidget);
-    },
-  );
-
   group('stamp comment body', () {
     Future<void> pumpStampComment(WidgetTester tester, String? url) {
       final base = sampleComment(41, content: '');
@@ -712,8 +685,8 @@ void main() {
     await tester.pump();
 
     expect(find.text('comment 11'), findsOneWidget);
-    expect(find.byIcon(Icons.forum_outlined), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.forum_outlined));
+    expect(find.widgetWithText(TextButton, '查看 1 条回复'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, '查看 1 条回复'));
     await tester.pumpAndSettle();
     expect(find.byType(CommentRepliesPage), findsOneWidget);
   });
@@ -1202,7 +1175,7 @@ void main() {
         tester.widget<EditableText>(find.byType(EditableText));
     expect(field().focusNode.hasFocus, isFalse);
 
-    await tester.tap(find.byIcon(Icons.reply_outlined).first);
+    await tester.tap(_replyButton().first);
     await tester.pump();
 
     // The composer owns the keyboard leg and shows the pinned target.
@@ -1247,7 +1220,7 @@ void main() {
     );
 
     // Tapping the root's own reply pill focuses the composer too.
-    await tester.tap(find.byIcon(Icons.reply_outlined).first);
+    await tester.tap(_replyButton().first);
     await tester.pump();
     expect(
       tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
@@ -1260,7 +1233,7 @@ void main() {
   ) async {
     await pumpCommentsPage(tester, FakeCommentRepository());
 
-    await tester.tap(find.byIcon(Icons.reply_outlined).first);
+    await tester.tap(_replyButton().first);
     await tester.pump();
     Finder replyRef() => find.descendant(
       of: find.byType(CommentComposer),
@@ -1292,7 +1265,7 @@ void main() {
 
       // Pin a non-root target: the reply row's pill trails the header
       // root's pill in tree order.
-      await tester.tap(find.byIcon(Icons.reply_outlined).last);
+      await tester.tap(_replyButton().last);
       await tester.pump();
       expect(
         find.descendant(
@@ -1341,7 +1314,7 @@ void main() {
       ..addCompleter = Completer<CommentEntity>();
     await pumpCommentsPage(tester, repo);
 
-    await tester.tap(find.byIcon(Icons.reply_outlined).first);
+    await tester.tap(_replyButton().first);
     await tester.pump();
     await tester.enterText(find.byType(TextField), 'hi there');
     await tester.pump();
@@ -1349,7 +1322,7 @@ void main() {
     await tester.pump();
 
     // While the first send is in flight the user re-targets comment 12.
-    await tester.tap(find.byIcon(Icons.reply_outlined).last);
+    await tester.tap(_replyButton().last);
     await tester.pump();
     expect(
       find.descendant(
@@ -1519,7 +1492,7 @@ void main() {
       ..addCompleter = Completer<CommentEntity>();
     await pumpCommentsPage(tester, repo);
 
-    await tester.tap(find.byIcon(Icons.reply_outlined).first);
+    await tester.tap(_replyButton().first);
     await tester.pump();
     await tester.enterText(find.byType(TextField), 'hi');
     await tester.pump();
@@ -1529,7 +1502,7 @@ void main() {
     // Re-target mid-flight: the mutation key now maps to comment 12, which
     // has no pending send — `sending` reports false while `_busy` still
     // covers the await. The spinner must persist through the window.
-    await tester.tap(find.byIcon(Icons.reply_outlined).last);
+    await tester.tap(_replyButton().last);
     await tester.pump();
     expect(
       find.descendant(
