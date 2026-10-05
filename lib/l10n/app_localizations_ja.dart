@@ -619,6 +619,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get profileEditChooseImage => '画像を選択';
 
   @override
+  String get profileChangeAvatar => 'アイコンを変更';
+
+  @override
+  String get profileChangeBackground => '背景画像を変更';
+
+  @override
   String get profileEditSave => 'プロフィールを保存';
 
   @override

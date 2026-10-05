@@ -638,6 +638,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileEditChooseImage => 'Choose image';
 
   @override
+  String get profileChangeAvatar => 'Change avatar';
+
+  @override
+  String get profileChangeBackground => 'Change background';
+
+  @override
   String get profileEditSave => 'Save profile';
 
   @override

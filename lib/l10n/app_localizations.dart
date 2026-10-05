@@ -1248,6 +1248,18 @@ abstract class AppLocalizations {
   /// **'选择图片'**
   String get profileEditChooseImage;
 
+  /// Screen-reader label of the tappable avatar on the profile edit page.
+  ///
+  /// In zh, this message translates to:
+  /// **'更换头像'**
+  String get profileChangeAvatar;
+
+  /// Screen-reader label of the tappable background image on the profile edit page.
+  ///
+  /// In zh, this message translates to:
+  /// **'更换背景图'**
+  String get profileChangeBackground;
+
   /// No description provided for @profileEditSave.
   ///
   /// In zh, this message translates to:

@@ -205,6 +205,8 @@
   "profileEditImageChoose": "Выберите поддерживаемое изображение",
   "profileEditImageFailed": "Не удалось обработать изображение",
   "profileEditChooseImage": "Выбрать изображение",
+  "profileChangeAvatar": "Сменить аватар",
+  "profileChangeBackground": "Сменить фон",
   "profileEditSave": "Сохранить профиль",
   "profileEditLeaveTitle": "Отменить несохранённые изменения?",
   "profileEditLeaveDetail": "Изменения ещё не отправлены и будут потеряны.",

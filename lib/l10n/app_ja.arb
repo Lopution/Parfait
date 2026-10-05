@@ -205,6 +205,8 @@
   "profileEditImageChoose": "対応する画像を選択してください",
   "profileEditImageFailed": "画像の処理に失敗しました",
   "profileEditChooseImage": "画像を選択",
+  "profileChangeAvatar": "アイコンを変更",
+  "profileChangeBackground": "背景画像を変更",
   "profileEditSave": "プロフィールを保存",
   "profileEditLeaveTitle": "未保存の変更を破棄しますか？",
   "profileEditLeaveDetail": "変更はまだ送信されていないため、離れると失われます。",

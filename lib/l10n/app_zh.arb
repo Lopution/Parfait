@@ -205,6 +205,14 @@
   "profileEditImageChoose": "选择一张受支持的图片",
   "profileEditImageFailed": "图片处理失败",
   "profileEditChooseImage": "选择图片",
+  "profileChangeAvatar": "更换头像",
+  "@profileChangeAvatar": {
+    "description": "Screen-reader label of the tappable avatar on the profile edit page."
+  },
+  "profileChangeBackground": "更换背景图",
+  "@profileChangeBackground": {
+    "description": "Screen-reader label of the tappable background image on the profile edit page."
+  },
   "profileEditSave": "保存资料",
   "profileEditLeaveTitle": "放弃未保存的修改？",
   "profileEditLeaveDetail": "当前修改尚未提交，离开后会丢失。",

@@ -602,6 +602,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileEditChooseImage => '选择图片';
 
   @override
+  String get profileChangeAvatar => '更换头像';
+
+  @override
+  String get profileChangeBackground => '更换背景图';
+
+  @override
   String get profileEditSave => '保存资料';
 
   @override

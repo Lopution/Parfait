@@ -205,6 +205,8 @@
   "profileEditImageChoose": "Choose a supported image",
   "profileEditImageFailed": "Image processing failed",
   "profileEditChooseImage": "Choose image",
+  "profileChangeAvatar": "Change avatar",
+  "profileChangeBackground": "Change background",
   "profileEditSave": "Save profile",
   "profileEditLeaveTitle": "Discard unsaved changes?",
   "profileEditLeaveDetail": "Your changes have not been submitted and will be lost.",

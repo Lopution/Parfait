@@ -629,6 +629,143 @@ void main() {
     expect(saveButtonRect.bottom, lessThanOrEqualTo(700));
   });
 
+  group('images are tapped to change them', () {
+    late _CountingImagePlatform platform;
+
+    Future<void> pumpEditor(
+      WidgetTester tester,
+      ProfileCapabilities capabilities,
+    ) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      platform = _CountingImagePlatform();
+      final session = ProfileEditSession(
+        repository: _FakeRepository(
+          capabilities: capabilities,
+          outcome: ProfileEditConfirmed(_user()),
+        ),
+        owner: _owner(),
+        readOwner: () => _owner(),
+        initialUser: _user(),
+        onConfirmed: (_) async {},
+      );
+      final container = ProviderContainer(
+        overrides: [
+          profileEditControllerProvider.overrideWith2(
+            (arguments) => ProfileEditController(arguments),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container
+          .read(profileEditControllerProvider(session).notifier)
+          .load();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('en', 'US'),
+            home: ProfileEditPage(
+              userId: 42,
+              session: session,
+              imagePlatform: platform,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    final avatar = find.byKey(const ValueKey('profile-edit-avatar-preview'));
+    final background = find.byKey(
+      const ValueKey('profile-edit-background-preview'),
+    );
+
+    testWidgets('tapping the avatar or the background picks an image', (
+      tester,
+    ) async {
+      await pumpEditor(
+        tester,
+        ProfileCapabilities(
+          editableFields: ProfileField.values,
+          channel: ProfileEditChannel.appApi,
+        ),
+      );
+      // No separate button any more; each image wears an edit badge.
+      expect(find.text('Choose image'), findsNothing);
+      expect(find.byType(OutlinedButton), findsNothing);
+      expect(find.byIcon(Icons.edit), findsNWidgets(2));
+
+      await tester.tap(avatar);
+      await tester.pumpAndSettle();
+      expect(platform.picks, 1);
+      await tester.tap(background);
+      await tester.pumpAndSettle();
+      expect(platform.picks, 2);
+
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('Change avatar')),
+        isSemantics(label: 'Change avatar', isButton: true, hasTapAction: true),
+      );
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('Change background')),
+        isSemantics(
+          label: 'Change background',
+          isButton: true,
+          hasTapAction: true,
+        ),
+      );
+      // Both targets are well past 48dp.
+      final avatarSize = tester.getSize(avatar);
+      expect(avatarSize.shortestSide, greaterThanOrEqualTo(48));
+      expect(tester.getSize(background).height, greaterThanOrEqualTo(48));
+    });
+
+    testWidgets('an unsupported image is plain and says why', (tester) async {
+      await pumpEditor(
+        tester,
+        ProfileCapabilities(
+          editableFields: ProfileField.values.where(
+            (field) => field != ProfileField.avatar,
+          ),
+          channel: ProfileEditChannel.appApi,
+        ),
+      );
+
+      expect(find.bySemanticsLabel('Change avatar'), findsNothing);
+      expect(find.bySemanticsLabel('Change background'), findsOneWidget);
+      expect(find.byIcon(Icons.edit), findsOneWidget);
+      expect(
+        find.text('This field is not supported by the current route'),
+        findsOneWidget,
+      );
+      await tester.tap(avatar, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(platform.picks, 0);
+    });
+
+    testWidgets('while editing is unavailable no image is a control', (
+      tester,
+    ) async {
+      await pumpEditor(
+        tester,
+        ProfileCapabilities.unavailable('Editing is down for now'),
+      );
+
+      // The page notice explains; the images carry no badge or ink.
+      expect(find.text('Editing is down for now'), findsOneWidget);
+      expect(find.byIcon(Icons.edit), findsNothing);
+      expect(find.bySemanticsLabel('Change avatar'), findsNothing);
+      expect(find.bySemanticsLabel('Change background'), findsNothing);
+      await tester.tap(background, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(platform.picks, 0);
+    });
+  });
+
   testWidgets('a dirty form confirms, discards, then pops', (tester) async {
     final session = ProfileEditSession(
       repository: _FakeRepository(
@@ -811,6 +948,24 @@ class _FakeRepository implements ProfileEditRepository {
     if (deferred != null) return deferred.future;
     return Future.value(outcome!);
   }
+}
+
+/// Picker boundary that counts requests and returns nothing.
+class _CountingImagePlatform implements ReverseImageInputPlatform {
+  int picks = 0;
+
+  @override
+  Future<ReverseImageInputReference?> pickImage() async {
+    picks++;
+    return null;
+  }
+
+  @override
+  Future<String> copyToOwnedFile(ReverseImageInputReference reference) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> deleteOwnedFile(String path) => throw UnimplementedError();
 }
 
 class _ImagePlatform implements ReverseImageInputPlatform {

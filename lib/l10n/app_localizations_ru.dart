@@ -639,6 +639,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get profileEditChooseImage => 'Выбрать изображение';
 
   @override
+  String get profileChangeAvatar => 'Сменить аватар';
+
+  @override
+  String get profileChangeBackground => 'Сменить фон';
+
+  @override
   String get profileEditSave => 'Сохранить профиль';
 
   @override

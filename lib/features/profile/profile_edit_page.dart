@@ -568,31 +568,26 @@ class _ImageField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final subtitle = unsupported
-        ? context.l10n.profileEditFieldUnsupported
+        ? l10n.profileEditFieldUnsupported
         : selection == null
-        ? context.l10n.profileEditImageChoose
+        ? l10n.profileEditImageChoose
         : '${selection!.width} × ${selection!.height}';
-    final chooseButton = OutlinedButton(
-      onPressed: enabled ? onPick : null,
-      child: Text(context.l10n.profileEditChooseImage),
-    );
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(FuncSpacing.md),
         child: avatar
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            ? Row(
                 children: [
-                  Row(
-                    children: [
-                      _avatarPreview(context),
-                      const Spacer(),
-                      chooseButton,
-                    ],
+                  _tappable(
+                    label: l10n.profileChangeAvatar,
+                    shape: const CircleBorder(),
+                    badgeInset: 0,
+                    child: _avatarPreview(context),
                   ),
-                  const SizedBox(height: FuncSpacing.md),
-                  _details(context, subtitle),
+                  const SizedBox(width: FuncSpacing.lg),
+                  Expanded(child: _details(context, subtitle)),
                 ],
               )
             : Column(
@@ -600,22 +595,59 @@ class _ImageField extends StatelessWidget {
                 children: [
                   AspectRatio(
                     aspectRatio: 3.2,
-                    child: ClipRRect(
-                      key: const ValueKey('profile-edit-background-preview'),
-                      borderRadius: FuncShape.control,
-                      child: _backgroundPreview(context),
+                    child: _tappable(
+                      label: l10n.profileChangeBackground,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: FuncShape.control,
+                      ),
+                      badgeInset: FuncSpacing.sm,
+                      child: ClipRRect(
+                        key: const ValueKey('profile-edit-background-preview'),
+                        borderRadius: FuncShape.control,
+                        child: _backgroundPreview(context),
+                      ),
                     ),
                   ),
                   const SizedBox(height: FuncSpacing.md),
-                  Row(
-                    children: [
-                      Expanded(child: _details(context, subtitle)),
-                      const SizedBox(width: FuncSpacing.sm),
-                      chooseButton,
-                    ],
-                  ),
+                  _details(context, subtitle),
                 ],
               ),
+      ),
+    );
+  }
+
+  /// The image itself is the control: ink over it, an edit badge in the
+  /// corner, announced as a button. When the field can't be changed it is
+  /// a plain image — why is said under it (unsupported) or by the page
+  /// notice (editing unavailable for now).
+  Widget _tappable({
+    required String label,
+    required ShapeBorder shape,
+    required double badgeInset,
+    required Widget child,
+  }) {
+    if (!enabled) return child;
+    return Semantics(
+      container: true,
+      button: true,
+      label: label,
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          child,
+          // Above the image, or the image would hide the ink.
+          Positioned.fill(
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(customBorder: shape, onTap: onPick),
+            ),
+          ),
+          Positioned(
+            right: badgeInset,
+            bottom: badgeInset,
+            child: const IgnorePointer(child: _EditBadge()),
+          ),
+        ],
       ),
     );
   }
@@ -685,6 +717,27 @@ class _ImageField extends StatelessWidget {
       Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
     ],
   );
+}
+
+/// The corner mark of a tappable image: this one can be changed.
+class _EditBadge extends StatelessWidget {
+  const _EditBadge();
+
+  static const double _size = 24;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: _size,
+      height: _size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: scheme.primaryContainer,
+      ),
+      child: Icon(Icons.edit, size: 14, color: scheme.onPrimaryContainer),
+    );
+  }
 }
 
 double _profileEditContentMaxWidth(double availableWidth) =>
