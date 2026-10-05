@@ -436,14 +436,79 @@
   },
   "namingTemplateInvalid": "模板包含不支持的变量或非法字符",
   "namingPreview": "预览",
-  "namingTemplateVariables": "变量：{variables}；非法字符自动替换为 _，超长自动裁剪。",
-  "@namingTemplateVariables": {
-    "placeholders": {
-      "variables": {
-        "type": "String"
-      }
-    }
+  "namingVarArtist": "作者名",
+  "@namingVarArtist": {
+    "description": "Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable."
   },
+  "namingVarTitle": "标题",
+  "@namingVarTitle": {
+    "description": "Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable."
+  },
+  "namingVarId": "作品 ID",
+  "@namingVarId": {
+    "description": "Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable."
+  },
+  "namingVarAuthorId": "作者 ID",
+  "@namingVarAuthorId": {
+    "description": "Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable."
+  },
+  "namingVarPage": "页码（从 0 开始）",
+  "@namingVarPage": {
+    "description": "Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable."
+  },
+  "namingVarPage1": "页码（从 1 开始）",
+  "@namingVarPage1": {
+    "description": "Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable."
+  },
+  "namingVarPages": "总页数",
+  "@namingVarPages": {
+    "description": "Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable."
+  },
+  "namingVarExt": "扩展名",
+  "@namingVarExt": {
+    "description": "Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable."
+  },
+  "namingVarW": "宽度",
+  "@namingVarW": {
+    "description": "Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable."
+  },
+  "namingVarH": "高度",
+  "@namingVarH": {
+    "description": "Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable."
+  },
+  "namingVarDate": "日期",
+  "@namingVarDate": {
+    "description": "Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable."
+  },
+  "namingVarCreated": "日期和时间",
+  "@namingVarCreated": {
+    "description": "Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable."
+  },
+  "namingVarSeries": "系列名",
+  "@namingVarSeries": {
+    "description": "Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable."
+  },
+  "namingVarSeriesOrder": "系列内序号",
+  "@namingVarSeriesOrder": {
+    "description": "Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable."
+  },
+  "namingVarChapters": "系列总话数",
+  "@namingVarChapters": {
+    "description": "Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable."
+  },
+  "namingSampleArtist": "作者名",
+  "@namingSampleArtist": {
+    "description": "Sample value in the naming template preview."
+  },
+  "namingSampleTitle": "作品标题",
+  "@namingSampleTitle": {
+    "description": "Sample value in the naming template preview."
+  },
+  "namingSampleSeries": "系列名",
+  "@namingSampleSeries": {
+    "description": "Sample value in the naming template preview."
+  },
+  "namingTemplateSanitizeNote": "非法字符自动替换为 _，超长自动裁剪。",
   "notConfigured": "未配置",
   "translateProvider": "翻译服务",
   "translateGoogle": "Google Translate",

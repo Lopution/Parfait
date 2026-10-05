@@ -1014,9 +1014,61 @@ class AppLocalizationsZh extends AppLocalizations {
   String get namingPreview => '预览';
 
   @override
-  String namingTemplateVariables(String variables) {
-    return '变量：$variables；非法字符自动替换为 _，超长自动裁剪。';
-  }
+  String get namingVarArtist => '作者名';
+
+  @override
+  String get namingVarTitle => '标题';
+
+  @override
+  String get namingVarId => '作品 ID';
+
+  @override
+  String get namingVarAuthorId => '作者 ID';
+
+  @override
+  String get namingVarPage => '页码（从 0 开始）';
+
+  @override
+  String get namingVarPage1 => '页码（从 1 开始）';
+
+  @override
+  String get namingVarPages => '总页数';
+
+  @override
+  String get namingVarExt => '扩展名';
+
+  @override
+  String get namingVarW => '宽度';
+
+  @override
+  String get namingVarH => '高度';
+
+  @override
+  String get namingVarDate => '日期';
+
+  @override
+  String get namingVarCreated => '日期和时间';
+
+  @override
+  String get namingVarSeries => '系列名';
+
+  @override
+  String get namingVarSeriesOrder => '系列内序号';
+
+  @override
+  String get namingVarChapters => '系列总话数';
+
+  @override
+  String get namingSampleArtist => '作者名';
+
+  @override
+  String get namingSampleTitle => '作品标题';
+
+  @override
+  String get namingSampleSeries => '系列名';
+
+  @override
+  String get namingTemplateSanitizeNote => '非法字符自动替换为 _，超长自动裁剪。';
 
   @override
   String get notConfigured => '未配置';

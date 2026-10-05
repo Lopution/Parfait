@@ -662,7 +662,7 @@ void main() {
       'namingTemplateHint',
       'namingTemplateInvalid',
       'namingPreview',
-      'namingTemplateVariables',
+      'namingTemplateSanitizeNote',
       'save',
       'translateCredentialHint',
       'aboutLicenseText',

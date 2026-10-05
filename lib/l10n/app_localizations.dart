@@ -2015,11 +2015,119 @@ abstract class AppLocalizations {
   /// **'预览'**
   String get namingPreview;
 
-  /// No description provided for @namingTemplateVariables.
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
   ///
   /// In zh, this message translates to:
-  /// **'变量：{variables}；非法字符自动替换为 _，超长自动裁剪。'**
-  String namingTemplateVariables(String variables);
+  /// **'作者名'**
+  String get namingVarArtist;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'标题'**
+  String get namingVarTitle;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品 ID'**
+  String get namingVarId;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'作者 ID'**
+  String get namingVarAuthorId;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'页码（从 0 开始）'**
+  String get namingVarPage;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'页码（从 1 开始）'**
+  String get namingVarPage1;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'总页数'**
+  String get namingVarPages;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'扩展名'**
+  String get namingVarExt;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'宽度'**
+  String get namingVarW;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'高度'**
+  String get namingVarH;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'日期'**
+  String get namingVarDate;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'日期和时间'**
+  String get namingVarCreated;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列名'**
+  String get namingVarSeries;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列内序号'**
+  String get namingVarSeriesOrder;
+
+  /// Chip under the custom naming template: what the variable inserts. Tapping it inserts the variable.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列总话数'**
+  String get namingVarChapters;
+
+  /// Sample value in the naming template preview.
+  ///
+  /// In zh, this message translates to:
+  /// **'作者名'**
+  String get namingSampleArtist;
+
+  /// Sample value in the naming template preview.
+  ///
+  /// In zh, this message translates to:
+  /// **'作品标题'**
+  String get namingSampleTitle;
+
+  /// Sample value in the naming template preview.
+  ///
+  /// In zh, this message translates to:
+  /// **'系列名'**
+  String get namingSampleSeries;
+
+  /// No description provided for @namingTemplateSanitizeNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'非法字符自动替换为 _，超长自动裁剪。'**
+  String get namingTemplateSanitizeNote;
 
   /// No description provided for @notConfigured.
   ///

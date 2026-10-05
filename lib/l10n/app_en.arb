@@ -428,14 +428,25 @@
   },
   "namingTemplateInvalid": "Template has unsupported variables or illegal characters",
   "namingPreview": "Preview",
-  "namingTemplateVariables": "Variables: {variables}; illegal characters become _, and long names are trimmed.",
-  "@namingTemplateVariables": {
-    "placeholders": {
-      "variables": {
-        "type": "String"
-      }
-    }
-  },
+  "namingVarArtist": "Artist name",
+  "namingVarTitle": "Title",
+  "namingVarId": "Work ID",
+  "namingVarAuthorId": "Artist ID",
+  "namingVarPage": "Page (from 0)",
+  "namingVarPage1": "Page (from 1)",
+  "namingVarPages": "Page count",
+  "namingVarExt": "Extension",
+  "namingVarW": "Width",
+  "namingVarH": "Height",
+  "namingVarDate": "Date",
+  "namingVarCreated": "Date and time",
+  "namingVarSeries": "Series name",
+  "namingVarSeriesOrder": "Number in series",
+  "namingVarChapters": "Episodes in series",
+  "namingSampleArtist": "Artist",
+  "namingSampleTitle": "Title",
+  "namingSampleSeries": "Series",
+  "namingTemplateSanitizeNote": "Illegal characters become _, and long names are trimmed.",
   "notConfigured": "Not configured",
   "translateProvider": "Translation service",
   "translateGoogle": "Google Translate",

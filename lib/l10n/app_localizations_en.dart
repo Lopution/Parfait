@@ -1071,9 +1071,62 @@ class AppLocalizationsEn extends AppLocalizations {
   String get namingPreview => 'Preview';
 
   @override
-  String namingTemplateVariables(String variables) {
-    return 'Variables: $variables; illegal characters become _, and long names are trimmed.';
-  }
+  String get namingVarArtist => 'Artist name';
+
+  @override
+  String get namingVarTitle => 'Title';
+
+  @override
+  String get namingVarId => 'Work ID';
+
+  @override
+  String get namingVarAuthorId => 'Artist ID';
+
+  @override
+  String get namingVarPage => 'Page (from 0)';
+
+  @override
+  String get namingVarPage1 => 'Page (from 1)';
+
+  @override
+  String get namingVarPages => 'Page count';
+
+  @override
+  String get namingVarExt => 'Extension';
+
+  @override
+  String get namingVarW => 'Width';
+
+  @override
+  String get namingVarH => 'Height';
+
+  @override
+  String get namingVarDate => 'Date';
+
+  @override
+  String get namingVarCreated => 'Date and time';
+
+  @override
+  String get namingVarSeries => 'Series name';
+
+  @override
+  String get namingVarSeriesOrder => 'Number in series';
+
+  @override
+  String get namingVarChapters => 'Episodes in series';
+
+  @override
+  String get namingSampleArtist => 'Artist';
+
+  @override
+  String get namingSampleTitle => 'Title';
+
+  @override
+  String get namingSampleSeries => 'Series';
+
+  @override
+  String get namingTemplateSanitizeNote =>
+      'Illegal characters become _, and long names are trimmed.';
 
   @override
   String get notConfigured => 'Not configured';

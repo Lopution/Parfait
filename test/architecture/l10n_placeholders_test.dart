@@ -40,7 +40,6 @@ const _textPlaceholderKeys = <String, String>{
   'imageSourceAutoWinner': 'selected mirror host',
   'safStorageSdCard': 'storage volume label',
   'namingTemplateHint': 'naming-template variable tokens',
-  'namingTemplateVariables': 'naming-template variable list',
   'downloadGroupAuthorTitle': 'author name',
   // `reason` is always errorCategoryText output (showErrorSnackBar).
   'errorWithReason': 'localized action and category',

@@ -1075,9 +1075,62 @@ class AppLocalizationsRu extends AppLocalizations {
   String get namingPreview => 'Предпросмотр';
 
   @override
-  String namingTemplateVariables(String variables) {
-    return 'Переменные: $variables; недопустимые символы заменяются на _, длинные имена обрезаются.';
-  }
+  String get namingVarArtist => 'Имя автора';
+
+  @override
+  String get namingVarTitle => 'Название';
+
+  @override
+  String get namingVarId => 'ID работы';
+
+  @override
+  String get namingVarAuthorId => 'ID автора';
+
+  @override
+  String get namingVarPage => 'Страница (с 0)';
+
+  @override
+  String get namingVarPage1 => 'Страница (с 1)';
+
+  @override
+  String get namingVarPages => 'Всего страниц';
+
+  @override
+  String get namingVarExt => 'Расширение';
+
+  @override
+  String get namingVarW => 'Ширина';
+
+  @override
+  String get namingVarH => 'Высота';
+
+  @override
+  String get namingVarDate => 'Дата';
+
+  @override
+  String get namingVarCreated => 'Дата и время';
+
+  @override
+  String get namingVarSeries => 'Название серии';
+
+  @override
+  String get namingVarSeriesOrder => 'Номер в серии';
+
+  @override
+  String get namingVarChapters => 'Всего эпизодов в серии';
+
+  @override
+  String get namingSampleArtist => 'Автор';
+
+  @override
+  String get namingSampleTitle => 'Название';
+
+  @override
+  String get namingSampleSeries => 'Серия';
+
+  @override
+  String get namingTemplateSanitizeNote =>
+      'Недопустимые символы заменяются на _, длинные имена обрезаются.';
 
   @override
   String get notConfigured => 'Не настроено';

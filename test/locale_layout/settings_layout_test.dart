@@ -4,8 +4,10 @@ import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/comments/comment_translation.dart'
     show translationCredentialStoreProvider;
+import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/i18n/replica_language.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
+import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/settings/network_probe_page.dart';
 import 'package:parfait/features/settings/network_settings_page.dart';
@@ -43,11 +45,16 @@ final _pages = <String, Widget>{
   'network probe': const NetworkProbePage(),
 };
 
-List<Override> _overrides(Locale locale) => [
+List<Override> _overrides(
+  Locale locale, {
+  AppSettings Function(AppSettings settings)? adjust,
+}) => [
   settingsRepositoryProvider.overrideWithValue(
     FakeSettingsRepository(
-      baseTestSettings(
-        languageTag: ReplicaLanguage.fromTag(locale.languageCode).tag,
+      (adjust ?? (settings) => settings)(
+        baseTestSettings(
+          languageTag: ReplicaLanguage.fromTag(locale.languageCode).tag,
+        ),
       ),
     ),
   ),
@@ -79,4 +86,30 @@ void main() {
       await expectPageLayoutIntact(tester, locale: locale, profile: profile);
     });
   }
+
+  // The custom template section with its variable chips.
+  localeLayoutMatrix('settings: download (custom template)', (
+    tester,
+    locale,
+    profile,
+  ) async {
+    installMemoryPreferences();
+    await tester.pumpWidget(
+      localeLayoutApp(
+        locale: locale,
+        overrides: _overrides(
+          locale,
+          adjust: (settings) => settings.copyWith(
+            namingRule: const NamingRule(
+              preset: NamingPreset.custom,
+              template: '{id}_p{page}.{ext}',
+            ),
+          ),
+        ),
+        home: const DownloadSettingsPage(),
+      ),
+    );
+    await settleLayout(tester);
+    await expectPageLayoutIntact(tester, locale: locale, profile: profile);
+  });
 }

@@ -428,14 +428,25 @@
   },
   "namingTemplateInvalid": "未対応の変数または不正な文字を含みます",
   "namingPreview": "プレビュー",
-  "namingTemplateVariables": "変数：{variables}。不正な文字は _ に置換され、長い名前は切り詰められます。",
-  "@namingTemplateVariables": {
-    "placeholders": {
-      "variables": {
-        "type": "String"
-      }
-    }
-  },
+  "namingVarArtist": "作者名",
+  "namingVarTitle": "タイトル",
+  "namingVarId": "作品 ID",
+  "namingVarAuthorId": "作者 ID",
+  "namingVarPage": "ページ番号（0 から）",
+  "namingVarPage1": "ページ番号（1 から）",
+  "namingVarPages": "総ページ数",
+  "namingVarExt": "拡張子",
+  "namingVarW": "幅",
+  "namingVarH": "高さ",
+  "namingVarDate": "日付",
+  "namingVarCreated": "日時",
+  "namingVarSeries": "シリーズ名",
+  "namingVarSeriesOrder": "シリーズ内の番号",
+  "namingVarChapters": "シリーズの総話数",
+  "namingSampleArtist": "作者名",
+  "namingSampleTitle": "作品タイトル",
+  "namingSampleSeries": "シリーズ名",
+  "namingTemplateSanitizeNote": "不正な文字は _ に置換され、長い名前は切り詰められます。",
   "notConfigured": "未設定",
   "translateProvider": "翻訳サービス",
   "translateGoogle": "Google Translate",

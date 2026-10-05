@@ -428,14 +428,25 @@
   },
   "namingTemplateInvalid": "Шаблон содержит недопустимые переменные или символы",
   "namingPreview": "Предпросмотр",
-  "namingTemplateVariables": "Переменные: {variables}; недопустимые символы заменяются на _, длинные имена обрезаются.",
-  "@namingTemplateVariables": {
-    "placeholders": {
-      "variables": {
-        "type": "String"
-      }
-    }
-  },
+  "namingVarArtist": "Имя автора",
+  "namingVarTitle": "Название",
+  "namingVarId": "ID работы",
+  "namingVarAuthorId": "ID автора",
+  "namingVarPage": "Страница (с 0)",
+  "namingVarPage1": "Страница (с 1)",
+  "namingVarPages": "Всего страниц",
+  "namingVarExt": "Расширение",
+  "namingVarW": "Ширина",
+  "namingVarH": "Высота",
+  "namingVarDate": "Дата",
+  "namingVarCreated": "Дата и время",
+  "namingVarSeries": "Название серии",
+  "namingVarSeriesOrder": "Номер в серии",
+  "namingVarChapters": "Всего эпизодов в серии",
+  "namingSampleArtist": "Автор",
+  "namingSampleTitle": "Название",
+  "namingSampleSeries": "Серия",
+  "namingTemplateSanitizeNote": "Недопустимые символы заменяются на _, длинные имена обрезаются.",
   "notConfigured": "Не настроено",
   "translateProvider": "Сервис перевода",
   "translateGoogle": "Google Translate",

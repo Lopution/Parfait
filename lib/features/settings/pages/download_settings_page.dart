@@ -11,9 +11,50 @@ import '../../../app/widgets/settings/settings_group_content.dart';
 import '../../../app/widgets/settings/settings_tile.dart';
 import '../../../core/download/naming_rule.dart';
 import '../../../core/settings/settings_controller.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../../../app/widgets/app_slider.dart';
+
+/// Template variables in the order the chips list them: the work, its
+/// pages, the file, dates, then the series. Covers
+/// [NamingRule.supportedVariables].
+const List<String> _variableOrder = [
+  'artist',
+  'title',
+  'id',
+  'author_id',
+  'page',
+  'page1',
+  'pages',
+  'ext',
+  'w',
+  'h',
+  'date',
+  'created',
+  'series',
+  'series_order',
+  'chapters',
+];
+
+String _variableLabel(AppLocalizations l10n, String name) => switch (name) {
+  'artist' => l10n.namingVarArtist,
+  'title' => l10n.namingVarTitle,
+  'id' => l10n.namingVarId,
+  'author_id' => l10n.namingVarAuthorId,
+  'page' => l10n.namingVarPage,
+  'page1' => l10n.namingVarPage1,
+  'pages' => l10n.namingVarPages,
+  'ext' => l10n.namingVarExt,
+  'w' => l10n.namingVarW,
+  'h' => l10n.namingVarH,
+  'date' => l10n.namingVarDate,
+  'created' => l10n.namingVarCreated,
+  'series' => l10n.namingVarSeries,
+  'series_order' => l10n.namingVarSeriesOrder,
+  'chapters' => l10n.namingVarChapters,
+  _ => throw ArgumentError.value(name, 'name', 'not a template variable'),
+};
 
 class DownloadSettingsPage extends ConsumerStatefulWidget {
   const DownloadSettingsPage({super.key});
@@ -24,6 +65,8 @@ class DownloadSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
+  static const int _templateMaxLength = 128;
+
   late final TextEditingController _templateController;
   late final FocusNode _templateFocusNode;
   int? _draftMaxDownloads;
@@ -161,6 +204,9 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                             '{page}',
                             '{ext}',
                           ),
+                          // One unbroken token: on narrow screens with
+                          // large text it needs a second line.
+                          hintMaxLines: 2,
                           errorText:
                               !NamingRule.isValidTemplate(
                                 _templateController.text,
@@ -168,10 +214,11 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                               ? context.l10n.namingTemplateInvalid
                               : null,
                         ),
-                        maxLength: 128,
+                        maxLength: _templateMaxLength,
                         onChanged: (_) => setState(() => _templateDirty = true),
                       ),
                     ),
+                    SettingsGroupContent(child: _variableChips(context)),
                     SettingsGroupContent(
                       child: Align(
                         alignment: Alignment.centerLeft,
@@ -186,11 +233,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          context.l10n.namingTemplateVariables(
-                            NamingRule.supportedVariables
-                                .map((name) => '{$name}')
-                                .join(' '),
-                          ),
+                          context.l10n.namingTemplateSanitizeNote,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
@@ -217,16 +260,68 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     );
   }
 
+  /// One chip per variable, labelled with what it inserts. The region
+  /// counts as part of the field, so a tap keeps the cursor where it was.
+  Widget _variableChips(BuildContext context) {
+    final l10n = context.l10n;
+    return TextFieldTapRegion(
+      child: Wrap(
+        spacing: FuncSpacing.sm,
+        runSpacing: FuncSpacing.sm,
+        children: [
+          for (final name in _variableOrder)
+            ActionChip(
+              label: Text(
+                _variableLabel(l10n, name),
+                semanticsLabel: '${_variableLabel(l10n, name)}, {$name}',
+              ),
+              onPressed: () => _insertVariable(name),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Puts `{name}` at the cursor, replacing a selection; with no cursor
+  /// yet it goes at the end. A variable that would push the template past
+  /// the field's limit is not inserted. Code edits don't fire `onChanged`,
+  /// so the draft flag and the preview are refreshed here.
+  void _insertVariable(String name) {
+    final token = '{$name}';
+    final value = _templateController.value;
+    final selection = value.selection.isValid
+        ? value.selection
+        : TextSelection.collapsed(offset: value.text.length);
+    final text = value.text.replaceRange(selection.start, selection.end, token);
+    if (text.length > _templateMaxLength) return;
+    _templateController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(
+        offset: selection.start + token.length,
+      ),
+    );
+    _templateFocusNode.requestFocus();
+    setState(() => _templateDirty = true);
+  }
+
+  /// Every variable has a sample, so any chip visibly changes the preview.
   String _previewName(BuildContext context, NamingRule rule) {
-    final preview = rule.preview(
+    final l10n = context.l10n;
+    return rule.preview(
       illustId: 123456,
       pageIndex: 0,
       extension: 'jpg',
-      artist: '作者名',
-      title: '作品标题',
-      date: DateTime(2026, 9, 1),
+      artist: l10n.namingSampleArtist,
+      title: l10n.namingSampleTitle,
+      date: DateTime(2026, 9, 1, 12, 30),
+      authorId: 7890,
+      totalPages: 3,
+      width: 1200,
+      height: 1600,
+      seriesTitle: l10n.namingSampleSeries,
+      seriesOrder: 2,
+      seriesTotal: 10,
     );
-    return preview;
   }
 
   Future<void> _saveTemplate() async {
