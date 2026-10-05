@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'helpers/test_preferences.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/navigation/routes.dart';
-import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/features/bookmark/bookmark_tags_page.dart';
@@ -460,14 +459,17 @@ void main() {
     );
     expect(router.state.uri.queryParameters['restrict'], 'private');
     expect(find.byType(BookmarkTagsPage), findsOneWidget);
-    expect(
-      tester
-          .widget<SegmentedButton<BookmarkRestrict>>(
-            find.byType(SegmentedButton<BookmarkRestrict>),
-          )
-          .selected,
-      {BookmarkRestrict.private},
-    );
+    int selectedTab() => tester
+        .widget<TabBar>(
+          find.descendant(
+            of: find.byType(BookmarkTagsPage),
+            matching: find.byType(TabBar),
+          ),
+        )
+        .controller!
+        .index;
+    // Tab 0 is public, 1 private.
+    expect(selectedTab(), 1);
 
     unawaited(
       openBookmarkTags(
@@ -477,14 +479,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(router.state.uri.queryParameters['restrict'], 'public');
-    expect(
-      tester
-          .widget<SegmentedButton<BookmarkRestrict>>(
-            find.byType(SegmentedButton<BookmarkRestrict>),
-          )
-          .selected,
-      {BookmarkRestrict.public},
-    );
+    expect(selectedTab(), 0);
   });
 
   testWidgets('wide layout uses a rail with settings as a peer entry', (
