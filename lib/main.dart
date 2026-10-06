@@ -15,9 +15,9 @@ import 'core/widget/widget_background.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Entrypoint: initializes the Rust transport (rhttp) before the first
-/// widget builds, since every native Pixiv API, image, download and diagnostic
-/// request funnels through the shared policy client. The ordinary login
-/// WebView keeps its platform-owned browser transport.
+/// widget builds, since every native Pixiv API, image, download and
+/// diagnostic request funnels through the shared policy client. The
+/// ordinary login WebView keeps its platform-owned browser transport.
 ///
 /// `Rhttp.init` is idempotent. A failure here means the native librhttp.so
 /// could not be loaded for this ABI — the app must not silently pretend
