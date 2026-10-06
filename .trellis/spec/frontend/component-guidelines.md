@@ -378,11 +378,19 @@ Scroll auto-hide yields to touch exploration: while
 `MediaQuery.accessibleNavigationOf(context)` is true,
 `HomeBranchStack._onScrollNotification` returns early — a TalkBack user
 cannot find a bar that scrolled away. If the flag flips while the bar is
-hidden, `_navVisibility` is driven back to 1. `accessibleNavigation` tracks
-only TalkBack-style touch exploration; services that merely open the
-semantics tree (for example `tester.ensureSemantics()`) do not set it, and
-the bar keeps hiding on scroll for them. A pushed route covering the shell
-still slides the bar away — that is not auto-hide.
+hidden, `_navVisibility` is driven back to 1. The engine sets
+`accessibleNavigation` whenever any assistive service queries a node (GKD
+pins it true for the session), so `TouchExplorationScope`
+(`lib/app/touch_exploration_scope.dart`, at the app root) rewrites it to
+the native touch-exploration flag from `touchExplorationProvider`; the
+engine value passes through until Android reports. Below the scope the
+flag means TalkBack-style exploration only: services that merely open the
+semantics tree or read nodes do not set it, and the bar keeps hiding on
+scroll for them. Widgets read the MediaQuery flag, never the provider. A
+pushed route covering the shell still slides the bar away — that is not
+auto-hide. The slide uses the M3 `HideViewOnScrollBehavior` values in
+`MotionTokens.navBarShow`/`navBarHide` (500ms emphasized-decelerate in,
+400ms emphasized-accelerate out).
 
 The five labels share one `LabelFit` (see the Multi-Locale Layout
 Contract): the widest translation sets one scale for all of them against

@@ -53,14 +53,15 @@ abstract final class MotionTokens {
   /// In-page tab switch, matching the app bar's kTabScrollDuration.
   static const tabSwitch = Duration(milliseconds: 300);
 
-  /// Bottom-nav scroll hide/show — Material `HideViewOnScrollBehavior`
-  /// timings and interpolators: slide-in (show) decelerates over 225ms
-  /// (linear-out-slow-in = cubic-bezier(0, 0, 0.2, 1)), slide-out (hide)
-  /// accelerates away over 175ms (fast-out-linear-in = (0.4, 0, 1, 1)).
-  static const navBarShow = Duration(milliseconds: 225);
-  static const navBarShowCurve = Cubic(0, 0, 0.2, 1);
-  static const navBarHide = Duration(milliseconds: 175);
-  static const navBarHideCurve = Cubic(0.4, 0, 1, 1);
+  /// Bottom-nav scroll hide/show — M3 `HideViewOnScrollBehavior` values:
+  /// the bar is an entering element when it slides back (long2 500ms,
+  /// emphasizedDecelerate) and an exiting one when it slides away
+  /// (medium4 400ms, emphasizedAccelerate). The M2 fallback pair
+  /// (225/175) made the hide read as a jump on device.
+  static const navBarShow = Duration(milliseconds: 500);
+  static const navBarShowCurve = Cubic(0.05, 0.7, 0.1, 1);
+  static const navBarHide = Duration(milliseconds: 400);
+  static const navBarHideCurve = Cubic(0.3, 0, 0.8, 0.15);
 
   /// SmoothWheelScroll's per-wheel animated scroll duration.
   static const wheelScroll = Duration(milliseconds: 240);

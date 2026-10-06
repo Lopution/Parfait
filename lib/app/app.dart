@@ -24,6 +24,7 @@ import 'scroll_behavior.dart';
 import 'system_ui.dart';
 import 'navigation/routes.dart';
 import 'startup_gate.dart';
+import 'touch_exploration_scope.dart';
 import 'theme/replica_theme.dart';
 import 'theme/system_colors.dart';
 import 'widgets/app_snack_bar.dart';
@@ -295,7 +296,9 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
               child: ExternalIntentBridge(
                 router: _router,
                 intentSource: widget.intentSource,
-                child: PipelineWarmup(child: content),
+                child: PipelineWarmup(
+                  child: TouchExplorationScope(child: content),
+                ),
               ),
             ),
           ),

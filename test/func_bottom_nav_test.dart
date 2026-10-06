@@ -381,10 +381,11 @@ void main() {
     final nav = find.byType(FuncBottomNav);
 
     // Every frame's move crosses the slop and asks for the hide again; the
-    // slide must keep its own clock instead of restarting on each ask.
+    // slide must keep its own clock instead of restarting on each ask, so
+    // it finishes within a drag that outlasts MotionTokens.navBarHide.
     final gesture = await tester.startGesture(tester.getCenter(_settingsList));
     await gesture.moveBy(const Offset(0, -20));
-    for (var i = 0; i < 15; i++) {
+    for (var i = 0; i < 30; i++) {
       await gesture.moveBy(const Offset(0, -12));
       await tester.pump(const Duration(milliseconds: 16));
     }

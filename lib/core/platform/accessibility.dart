@@ -88,8 +88,8 @@ final appAccessibilityProvider = Provider<AppAccessibility>(
 );
 
 /// Live touch-exploration state. Emits nothing until Android reports the
-/// current flag, so readers fall back to the engine value for the first
-/// frames — see the root MediaQuery override.
+/// current flag. Widgets do not read it directly: TouchExplorationScope
+/// folds it into `MediaQuery.accessibleNavigation` at the app root.
 final touchExplorationProvider = StreamProvider<bool>(
   (ref) => ref.watch(appAccessibilityProvider).touchExplorationChanges(),
 );
