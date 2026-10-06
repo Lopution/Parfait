@@ -464,7 +464,8 @@ Map<String, String> _searchQueryParameters(SearchQuery query) => {
       if (filters.textLengthMax != null) 'tmax': '${filters.textLengthMax}',
       if (filters.originalOnly) 'original': '1',
     },
-    _ => const <String, String>{},
+    // A user search has no filters to carry.
+    UserSearchQuery() => const <String, String>{},
   },
 };
 
