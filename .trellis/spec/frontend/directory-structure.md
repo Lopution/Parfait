@@ -163,5 +163,5 @@ import '../../app/widgets/follow_switch_button.dart';
 
 - `test/architecture/layering_test.dart`：import 图断言 + 数据层文件检查 + 组件命名检查，
   白名单随收敛逐项删除，白名单为空是本重构（child C）的完成条件之一。
-- CI 的必需检查 `analyze-and-test` 汇总 `analyze` job（`dart format`、`flutter analyze`）与四个 `test` 分片
-  （`flutter test --total-shards 4`，含 layering_test）；任何一项不是 `success` 都算失败。
+- CI 的必需检查 `analyze-and-test` 汇总 `analyze` job（`dart format`、`flutter analyze`）与六个 `test` 分片
+  （`flutter test --total-shards 6`，含 layering_test）；任何一项不是 `success` 都算失败。
