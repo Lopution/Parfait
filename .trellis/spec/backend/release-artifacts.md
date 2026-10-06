@@ -28,6 +28,14 @@
   before/after pair, build the "before" side from a **detached** worktree
   (`git worktree add --detach <dir> main`) — a plain `main` checkout makes
   the cherry-pick land on the local `main` branch.
+  - A measurement build starts recording at launch: a cold start is over
+    before the probe page can be opened. Stopping happens on the probe
+    page.
+  - The report lists the slowest frames in time order. Each frame carries
+    its offset from the first recorded frame, the scenes in progress and
+    a layer census (offscreen layer kinds).
+  - An attribution table follows: for each tag, over-budget frames against
+    all frames that carried it.
 
 ## Signing
 
