@@ -1098,6 +1098,51 @@ void main() {
       expect(opacity(tester, 'b'), 1);
     });
 
+    testWidgets('a collapsing row stays pinned to its top edge', (
+      tester,
+    ) async {
+      final controller = RemovalController();
+      await tester.pumpWidget(list(controller, ['a', 'b']));
+      final aTop = tester.getTopLeft(find.text('a')).dy;
+      unawaited(controller.playExit(['a']));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      // The bottom edge moves; the content does not slide up out of view.
+      expect(tester.getTopLeft(find.text('a')).dy, aTop);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('leaving lists rows from exit start until restore or '
+        'disposal', (tester) async {
+      final controller = RemovalController();
+      var notified = 0;
+      controller.leaving.addListener(() => notified++);
+      await tester.pumpWidget(list(controller, ['a', 'b']));
+      expect(controller.leaving.value, isEmpty);
+
+      // Only rows on screen: an off-screen id has nothing to reshape and
+      // would never be unregistered.
+      unawaited(controller.playExit(['a', 'gone']));
+      expect(controller.leaving.value, {'a'});
+      expect(notified, 1);
+      await tester.pumpAndSettle();
+
+      controller.restore(['a']);
+      expect(controller.leaving.value, isEmpty);
+      expect(notified, 2);
+      await tester.pumpAndSettle();
+
+      // The commit drops 'b': it is forgotten as it unregisters, without a
+      // notification in the middle of finalizing the tree.
+      unawaited(controller.playExit(['b']));
+      await tester.pumpAndSettle();
+      expect(controller.leaving.value, {'b'});
+      await tester.pumpWidget(list(controller, ['a']));
+      expect(tester.takeException(), isNull);
+      expect(controller.leaving.value, isEmpty);
+      expect(notified, 3);
+    });
+
     testWidgets('restore brings a row back after a failed commit', (
       tester,
     ) async {

@@ -1773,9 +1773,15 @@ Lists stay driven by their provider. The page state owns a
 `Removable(id:, style: row | tile)`. To delete: `await
 controller.playExit(ids)`, then commit the change, and call
 `controller.restore(ids)` when the commit fails. A row collapses and
-fades; a tile shrinks to 0.9 and fades and the grid reflows on the
+fades, pinned to its top edge (the bottom edge moves, the rows below
+follow, and a container that draws the row's corners keeps them in
+view); a tile shrinks to 0.9 and fades and the grid reflows on the
 commit. Ids not on screen are skipped and reduced motion completes at
-once. Row callbacks read the controller with `RemovalScope.of` (no
+once. `controller.leaving` lists the built ids whose exit started, from
+`playExit` until `restore` or until the row unregisters (its list rebuilt
+without it — dropped silently, since the tree is being finalized then).
+A container that shapes rows by position (`SettingsGroup`) lays out
+without them from the exit's first frame. Row callbacks read the controller with `RemovalScope.of` (no
 dependency). Read stores and actions before awaiting the exit: the
 widget may be gone afterwards.
 
@@ -2091,7 +2097,13 @@ reintroduce it or hand-build group containers.
   `SettingsGroupContent`) is one child and therefore one segment — the
   group never splits a child. Explanatory copy that used to sit above the
   rows belongs in `footer` so the rows come first. Empty `children` render
-  no segment. The gap is the only separator — never `Divider`.
+  no segment. The gap is the only separator — never `Divider`. Under a
+  `RemovalScope`, a `Removable` child in `leaving` no longer counts: the
+  other segments take their final corners and the gap above the leaving
+  row (or above the new first row) closes as the exit starts, both on the
+  `spatialFast` spring the row collapses on, so the commit moves nothing.
+  Removable segments are keyed by id, so gap and corner state follow
+  their row across the commit.
   Spacing between groups is `FuncSpacing.xl`; the page `ListView` keeps
   only `top: sm, bottom: xl` padding because the group supplies the
   horizontal margins.
