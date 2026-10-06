@@ -3365,18 +3365,6 @@ abstract class AppLocalizations {
   /// **'分享的图片无法使用'**
   String get searchReverseIntentFailed;
 
-  /// No description provided for @searchReverseOpenExternal.
-  ///
-  /// In zh, this message translates to:
-  /// **'打开来源'**
-  String get searchReverseOpenExternal;
-
-  /// Similarity of a reverse image search match
-  ///
-  /// In zh, this message translates to:
-  /// **'相似度 {percent}%'**
-  String searchReverseSimilarity(int percent);
-
   /// No description provided for @searchReverseOpenFailed.
   ///
   /// In zh, this message translates to:
@@ -3454,12 +3442,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已完成'**
   String get searchReverseDone;
-
-  /// No description provided for @searchReverseResultCount.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count} 个结果'**
-  String searchReverseResultCount(int count);
 
   /// No description provided for @searchReverseEngineSwitch.
   ///

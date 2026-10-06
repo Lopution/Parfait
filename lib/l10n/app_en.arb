@@ -749,8 +749,6 @@
   "searchReverseReady": "Image is ready",
   "searchReverseNoResults": "No matching results",
   "searchReverseIntentFailed": "The shared image cannot be used",
-  "searchReverseOpenExternal": "Open source",
-  "searchReverseSimilarity": "{percent}% similar",
   "searchReverseOpenFailed": "Could not open the source link",
   "searchReverseRateLimited": "Too many searches, try again later",
   "searchReverseRateLimitedWait": "Try again in about {seconds} seconds",
@@ -778,14 +776,6 @@
   "searchReverseIntro": "The selected image is uploaded to the chosen engine; the result page opens inside the app.",
   "searchReverseFailed": "Search failed",
   "searchReverseDone": "Done",
-  "searchReverseResultCount": "{count} results",
-  "@searchReverseResultCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "searchReverseEngineSwitch": "Switch engine",
   "searchFilters": "Filters",
   "searchReset": "Reset",

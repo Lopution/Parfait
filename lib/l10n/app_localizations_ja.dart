@@ -1753,14 +1753,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchReverseIntentFailed => '共有された画像を使用できません';
 
   @override
-  String get searchReverseOpenExternal => 'ソースを開く';
-
-  @override
-  String searchReverseSimilarity(int percent) {
-    return '類似度 $percent%';
-  }
-
-  @override
   String get searchReverseOpenFailed => 'ソースリンクを開けません';
 
   @override
@@ -1803,11 +1795,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get searchReverseDone => '完了';
-
-  @override
-  String searchReverseResultCount(int count) {
-    return '$count 件の結果';
-  }
 
   @override
   String get searchReverseEngineSwitch => 'エンジンを切り替え';

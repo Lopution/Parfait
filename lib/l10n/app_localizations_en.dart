@@ -1809,14 +1809,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchReverseIntentFailed => 'The shared image cannot be used';
 
   @override
-  String get searchReverseOpenExternal => 'Open source';
-
-  @override
-  String searchReverseSimilarity(int percent) {
-    return '$percent% similar';
-  }
-
-  @override
   String get searchReverseOpenFailed => 'Could not open the source link';
 
   @override
@@ -1863,11 +1855,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchReverseDone => 'Done';
-
-  @override
-  String searchReverseResultCount(int count) {
-    return '$count results';
-  }
 
   @override
   String get searchReverseEngineSwitch => 'Switch engine';

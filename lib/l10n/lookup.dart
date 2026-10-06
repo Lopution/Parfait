@@ -667,7 +667,6 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'searchReverseIntentFailed' => l10n.searchReverseIntentFailed,
   'searchReverseIntro' => l10n.searchReverseIntro,
   'searchReverseNoResults' => l10n.searchReverseNoResults,
-  'searchReverseOpenExternal' => l10n.searchReverseOpenExternal,
   'searchReverseOpenFailed' => l10n.searchReverseOpenFailed,
   'searchReversePageLoadFailed' => l10n.searchReversePageLoadFailed,
   'searchReversePick' => l10n.searchReversePick,

@@ -878,16 +878,6 @@
   "searchReverseReady": "图片已准备好",
   "searchReverseNoResults": "没有找到匹配结果",
   "searchReverseIntentFailed": "分享的图片无法使用",
-  "searchReverseOpenExternal": "打开来源",
-  "searchReverseSimilarity": "相似度 {percent}%",
-  "@searchReverseSimilarity": {
-    "description": "Similarity of a reverse image search match",
-    "placeholders": {
-      "percent": {
-        "type": "int"
-      }
-    }
-  },
   "searchReverseOpenFailed": "无法打开来源链接",
   "searchReverseRateLimited": "搜索过于频繁，请稍后再试",
   "searchReverseRateLimitedWait": "约 {seconds} 秒后可重试",
@@ -915,14 +905,6 @@
   "searchReverseIntro": "选择图片后将上传到所选引擎进行反向检索；结果页在应用内打开。",
   "searchReverseFailed": "搜索失败",
   "searchReverseDone": "已完成",
-  "searchReverseResultCount": "{count} 个结果",
-  "@searchReverseResultCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "searchReverseEngineSwitch": "切换引擎",
   "searchFilters": "筛选",
   "searchReset": "重置",

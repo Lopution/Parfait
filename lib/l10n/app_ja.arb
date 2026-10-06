@@ -749,8 +749,6 @@
   "searchReverseReady": "画像の準備が完了しました",
   "searchReverseNoResults": "一致する結果はありません",
   "searchReverseIntentFailed": "共有された画像を使用できません",
-  "searchReverseOpenExternal": "ソースを開く",
-  "searchReverseSimilarity": "類似度 {percent}%",
   "searchReverseOpenFailed": "ソースリンクを開けません",
   "searchReverseRateLimited": "検索が混み合っています。しばらくしてからお試しください",
   "searchReverseRateLimitedWait": "約 {seconds} 秒後に再試行できます",
@@ -778,14 +776,6 @@
   "searchReverseIntro": "選択した画像は選択中のエンジンにアップロードされ、結果ページがアプリ内で開きます。",
   "searchReverseFailed": "検索に失敗しました",
   "searchReverseDone": "完了",
-  "searchReverseResultCount": "{count} 件の結果",
-  "@searchReverseResultCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "searchReverseEngineSwitch": "エンジンを切り替え",
   "searchFilters": "フィルター",
   "searchReset": "リセット",

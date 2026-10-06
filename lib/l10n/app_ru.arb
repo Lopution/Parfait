@@ -749,8 +749,6 @@
   "searchReverseReady": "Изображение готово",
   "searchReverseNoResults": "Совпадений не найдено",
   "searchReverseIntentFailed": "Общее изображение нельзя использовать",
-  "searchReverseOpenExternal": "Открыть источник",
-  "searchReverseSimilarity": "Сходство: {percent} %",
   "searchReverseOpenFailed": "Не удалось открыть ссылку источника",
   "searchReverseRateLimited": "Слишком много запросов, попробуйте позже",
   "searchReverseRateLimitedWait": "Повторите попытку примерно через {seconds} с",
@@ -778,14 +776,6 @@
   "searchReverseIntro": "Выбранное изображение отправляется в выбранный движок; страница результатов открывается в приложении.",
   "searchReverseFailed": "Ошибка поиска",
   "searchReverseDone": "Готово",
-  "searchReverseResultCount": "Результатов: {count}",
-  "@searchReverseResultCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "searchReverseEngineSwitch": "Сменить сервис",
   "searchFilters": "Фильтры",
   "searchReset": "Сбросить",

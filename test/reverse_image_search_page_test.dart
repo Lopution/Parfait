@@ -3,10 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:network_image_mock/network_image_mock.dart';
-import 'package:parfait/core/reverse_image/reverse_image_external.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/reverse_image/image_input.dart';
@@ -154,85 +151,13 @@ void main() {
     expect(find.byIcon(Icons.error_outline), findsWidgets);
   });
 
-  testWidgets('matches show a thumbnail, source and similarity once', (
-    tester,
-  ) async {
-    final launcher = _RecordingLauncher();
-    await mockNetworkImagesFor(() async {
-      await _pumpPage(
-        tester,
-        platform: platform,
-        externalLauncher: launcher,
-        providers: {
-          ReverseImageEngine.sauceNao: OutcomeReverseImageProvider(
-            ReverseImageSearchSuccess([
-              ReverseImageHit(
-                similarity: 91.4,
-                pixivId: 5,
-                title: 'pixiv hit',
-                thumbnailUrl: Uri.parse('https://img.saucenao.com/t/5.jpg'),
-              ),
-              ReverseImageHit(
-                similarity: 70.6,
-                title: 'external hit',
-                externalUrl: Uri.parse('https://danbooru.donmai.us/posts/1'),
-              ),
-            ]),
-          ),
-        },
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('选择图片'));
-      await pumpUntilVisible(tester, find.text('开始反向搜图'));
-      await tester.ensureVisible(find.text('开始反向搜图'));
-      await tester.tap(find.text('开始反向搜图'));
-      await pumpUntilVisible(tester, find.text('pixiv hit'));
-    });
-
-    // One similarity per match, inside the source line.
-    expect(find.text('pixiv · 相似度 91%'), findsOneWidget);
-    expect(find.text('danbooru.donmai.us · 相似度 71%'), findsOneWidget);
-    expect(find.textContaining('91.4'), findsNothing);
-    expect(find.byType(CircleAvatar), findsNothing);
-
-    // A thumbnail where there is one, a placeholder icon where not.
-    expect(find.byType(CachedNetworkImage), findsOneWidget);
-    expect(find.byIcon(Icons.image_not_supported_outlined), findsOneWidget);
-
-    // Only the external match says it leaves the app; the whole row is the
-    // target.
-    final externalCard = find.ancestor(
-      of: find.text('external hit'),
-      matching: find.byType(Card),
-    );
-    final pixivCard = find.ancestor(
-      of: find.text('pixiv hit'),
-      matching: find.byType(Card),
-    );
-    expect(
-      find.descendant(
-        of: externalCard,
-        matching: find.byIcon(Icons.open_in_new),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: pixivCard, matching: find.byIcon(Icons.open_in_new)),
-      findsNothing,
-    );
-    expect(find.byType(OutlinedButton), findsNothing);
-    await tester.tap(find.text('external hit'));
-    await tester.pumpAndSettle();
-    expect(launcher.opened, [Uri.parse('https://danbooru.donmai.us/posts/1')]);
-  });
-
   testWidgets('no-match success shows the empty-results copy', (tester) async {
     await _pumpPage(
       tester,
       platform: platform,
       providers: {
         ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
-          ReverseImageSearchSuccess([]),
+          ReverseImageSearchSuccess(),
         ),
       },
     );
@@ -308,10 +233,10 @@ void main() {
       platform: platform,
       providers: {
         ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
-          ReverseImageSearchSuccess([]),
+          ReverseImageSearchSuccess(),
         ),
         ReverseImageEngine.iqdb: const OutcomeReverseImageProvider(
-          ReverseImageSearchSuccess([]),
+          ReverseImageSearchSuccess(),
         ),
       },
     );
@@ -357,7 +282,7 @@ void main() {
       platform: webpPlatform,
       providers: {
         ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
-          ReverseImageSearchSuccess([]),
+          ReverseImageSearchSuccess(),
         ),
       },
       initialEngine: ReverseImageEngine.iqdb,
@@ -595,10 +520,10 @@ void main() {
         platform: platform,
         providers: {
           ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
-            ReverseImageSearchSuccess([]),
+            ReverseImageSearchSuccess(),
           ),
           ReverseImageEngine.iqdb: const OutcomeReverseImageProvider(
-            ReverseImageSearchSuccess([]),
+            ReverseImageSearchSuccess(),
           ),
         },
       );
@@ -617,17 +542,17 @@ void main() {
       expect(platform.deletedPaths, isEmpty);
     });
 
-    testWidgets('empty/native/webview/upload successes keep the strip', (
+    testWidgets('empty/webview/upload successes keep the strip', (
       tester,
     ) async {
-      // Empty result list.
+      // Provider-detected no-match page.
       await _pumpPage(
         tester,
         platform: platform,
         pageKey: const ValueKey('phase-empty'),
         providers: {
           ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
-            ReverseImageSearchSuccess([]),
+            ReverseImageSearchSuccess(),
           ),
         },
       );
@@ -642,30 +567,6 @@ void main() {
       expect(thumb(), findsOneWidget);
       expect(headerText('SauceNAO'), findsOneWidget);
       expect(headerText('没有找到匹配结果'), findsOneWidget);
-
-      // Native result list.
-      await _pumpPage(
-        tester,
-        platform: platform,
-        pageKey: const ValueKey('phase-native'),
-        providers: {
-          ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
-            ReverseImageSearchSuccess([
-              ReverseImageHit(similarity: 91.4, pixivId: 5, title: 'hit'),
-            ]),
-          ),
-        },
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('选择图片'));
-      await pumpUntilVisible(tester, find.text('开始反向搜图'));
-      await tester.ensureVisible(find.text('开始反向搜图'));
-      await tester.tap(find.text('开始反向搜图'));
-      await pumpUntilVisible(tester, find.text('hit'));
-      expect(header, findsOneWidget);
-      expect(thumb(), findsOneWidget);
-      expect(headerText('1 个结果'), findsOneWidget);
-      expect(headerText('SauceNAO'), findsOneWidget);
 
       // WebView success (IQDB) — the InAppWebView fake renders nothing,
       // but the strip still describes the task above it.
@@ -790,7 +691,6 @@ Future<void> _pumpPage(
   ReverseImageInputReference? initialReference,
   ReverseImageEngine? initialEngine,
   ReverseImageUploadArmer? uploadArmer,
-  ReverseImageExternalLauncher? externalLauncher,
   Key? pageKey,
 }) {
   return tester.pumpWidget(
@@ -810,18 +710,10 @@ Future<void> _pumpPage(
           providers: providers,
           initialEngine: initialEngine,
           uploadArmer: uploadArmer,
-          externalLauncher: externalLauncher,
         ),
       ),
     ),
   );
-}
-
-class _RecordingLauncher implements ReverseImageExternalLauncher {
-  final opened = <Uri>[];
-
-  @override
-  Future<void> open(Uri uri) async => opened.add(uri);
 }
 
 class _FakeArmer implements ReverseImageUploadArmer {

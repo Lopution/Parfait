@@ -1806,14 +1806,6 @@ class AppLocalizationsRu extends AppLocalizations {
       'Общее изображение нельзя использовать';
 
   @override
-  String get searchReverseOpenExternal => 'Открыть источник';
-
-  @override
-  String searchReverseSimilarity(int percent) {
-    return 'Сходство: $percent %';
-  }
-
-  @override
   String get searchReverseOpenFailed => 'Не удалось открыть ссылку источника';
 
   @override
@@ -1862,11 +1854,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get searchReverseDone => 'Готово';
-
-  @override
-  String searchReverseResultCount(int count) {
-    return 'Результатов: $count';
-  }
 
   @override
   String get searchReverseEngineSwitch => 'Сменить сервис';

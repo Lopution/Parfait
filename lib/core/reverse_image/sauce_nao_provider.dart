@@ -280,7 +280,7 @@ class SauceNaoWebViewProvider implements ReverseImageProvider {
         normalized.contains('no image match') ||
         normalized.contains('没有匹配') ||
         normalized.contains('没有结果')) {
-      return const ReverseImageSearchSuccess([]);
+      return const ReverseImageSearchSuccess();
     }
     return null;
   }

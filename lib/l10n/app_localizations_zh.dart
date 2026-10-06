@@ -1727,14 +1727,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchReverseIntentFailed => '分享的图片无法使用';
 
   @override
-  String get searchReverseOpenExternal => '打开来源';
-
-  @override
-  String searchReverseSimilarity(int percent) {
-    return '相似度 $percent%';
-  }
-
-  @override
   String get searchReverseOpenFailed => '无法打开来源链接';
 
   @override
@@ -1776,11 +1768,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get searchReverseDone => '已完成';
-
-  @override
-  String searchReverseResultCount(int count) {
-    return '$count 个结果';
-  }
 
   @override
   String get searchReverseEngineSwitch => '切换引擎';

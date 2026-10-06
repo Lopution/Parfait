@@ -133,7 +133,6 @@ void main() {
     final outcome = await provider.search(input);
 
     expect(outcome, isA<ReverseImageSearchSuccess>());
-    expect((outcome as ReverseImageSearchSuccess).hits, isEmpty);
   });
 
   test('follows a redirect inside iqdb.org only', () async {
