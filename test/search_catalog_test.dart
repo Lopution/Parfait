@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:http/http.dart' as http;
@@ -41,6 +42,7 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
+import 'helpers/recording_haptics.dart';
 import 'helpers/search_world.dart';
 import 'helpers/test_preferences.dart';
 
@@ -1002,16 +1004,49 @@ void main() {
     // The tagless card keeps the plain text form, no broken-image slot.
     expect(find.text('#猫'), findsOneWidget);
     expect(find.text('#风景'), findsOneWidget);
-    // No corner button overlays the artwork anymore — the representative
-    // work is reached by long-press only.
+    // No corner button overlays the artwork — the representative work is
+    // reached by long press.
     expect(find.byTooltip('打开详情页'), findsNothing);
     expect(find.byType(ImageOverlayButton), findsNothing);
     expect(find.byIcon(Icons.open_in_new), findsNothing);
   });
 
-  testWidgets('long-pressing a trending tag no longer opens a work', (
+  for (final tab in ['插画 & 漫画', '小说']) {
+    testWidgets('long-pressing a $tab trending tag opens its representative '
+        'work', (tester) async {
+      final haptics = recordHaptics();
+      final repository = FakeSearchRepository();
+      final router = createPixivRouter(initialLocation: '/search');
+      addTearDown(router.dispose);
+      await mockNetworkImagesFor(() async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+            child: MaterialApp.router(
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+        await tester.tap(find.widgetWithText(Tab, tab));
+        await tester.pumpAndSettle();
+
+        await tester.longPress(find.text('#风景').hitTestable());
+        await tester.pump();
+      });
+      expect(haptics.roles, [HapticRole.longPress]);
+      expect(router.state.uri.path, '/search/illust/901');
+    });
+  }
+
+  testWidgets('a trending tag without a work has no long press', (
     tester,
   ) async {
+    final haptics = recordHaptics();
     final repository = FakeSearchRepository();
     final router = createPixivRouter(initialLocation: '/search');
     addTearDown(router.dispose);
@@ -1030,13 +1065,13 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      // The hidden gesture is gone: a long press reads as the tap, which
-      // searches the tag — the representative work leads those results.
-      await tester.longPress(find.text('#风景'));
+      // 猫 has no representative: the press reads as the tap and searches.
+      await tester.longPress(find.text('#猫'));
       await tester.pumpAndSettle();
-      expect(router.state.uri.path, '/search/results');
-      expect(find.byType(IllustDetailPage), findsNothing);
     });
+    expect(haptics.roles, isEmpty);
+    expect(router.state.uri.path, '/search/results');
+    expect(find.byType(IllustDetailPage), findsNothing);
   });
 
   testWidgets('trending grid keeps three columns on narrow screens', (
