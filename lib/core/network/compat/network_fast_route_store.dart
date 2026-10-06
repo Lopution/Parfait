@@ -101,6 +101,10 @@ class PixivFastRouteStore implements FastRouteMemory {
     }
   }
 
+  /// The persisted addresses, without the bootstrap fallback — the seed of
+  /// the image worker's in-memory copy.
+  Future<Map<String, InternetAddress>> learned() async => Map.of(await _load());
+
   Future<Map<String, InternetAddress>> _load() {
     return _loadFuture ??= _read();
   }

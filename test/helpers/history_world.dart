@@ -13,10 +13,12 @@ import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_database.dart';
 import 'package:parfait/core/history/history_models.dart';
 import 'package:parfait/core/history/history_repository.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'fake_account.dart';
+import 'image_network.dart';
 
 /// A real history repository on a fresh ffi database holding [records],
 /// closed and deleted at teardown. Real I/O: call inside
@@ -70,6 +72,8 @@ Future<ProviderContainer> makeHistoryWorld(
               ),
       ),
       historyRepositoryProvider.overrideWithValue(repository),
+      // The cards' images would otherwise spawn a real worker isolate.
+      imageWorkerProvider.overrideWithValue(stalledImageWorker()),
       if (illustStore != null)
         illustStoreProvider.overrideWithValue(illustStore),
       oauthServiceProvider.overrideWithValue(

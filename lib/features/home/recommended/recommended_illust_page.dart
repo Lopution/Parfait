@@ -118,7 +118,6 @@ class RecommendedIllustPage extends ConsumerWidget {
                   slivers: [
                     IllustFeedGrid(
                       padding: _feedPadding(context),
-                      prefetchEntities: entities,
                       itemIds: [for (final e in entities) e.id],
                       itemCount: entities.length,
                       pagerLoadMore: () => ref

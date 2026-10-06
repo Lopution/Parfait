@@ -38,12 +38,8 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
     dohEndpoints: dohEnabled ? endpoints : const [],
     echFrontHost: echFrontHost,
     insecureNoSniEnabled: true,
-    fastRouteStore: PixivFastRouteStore(
-      preferences: ref.watch(sharedPreferencesProvider),
-    ),
-    routeKindStore: RouteKindStore(
-      preferences: ref.watch(sharedPreferencesProvider),
-    ),
+    fastRouteStore: ref.watch(fastRouteStoreProvider),
+    routeKindStore: ref.watch(routeKindStoreProvider),
     mode: switch (mode) {
       NetworkMode.automatic => contracts.NetworkMode.automatic,
       NetworkMode.directOnly => contracts.NetworkMode.directOnly,
@@ -176,6 +172,17 @@ String _connectivityIdentity(List<ConnectivityResult> results) {
   final names = results.map((r) => r.name).toList()..sort();
   return names.join('+');
 }
+
+/// Persisted route memories. They outlive policy rebuilds so each
+/// preference key has one writer — the policy and the image worker's
+/// forwarded learning share these instances.
+final fastRouteStoreProvider = Provider<PixivFastRouteStore>(
+  (ref) =>
+      PixivFastRouteStore(preferences: ref.watch(sharedPreferencesProvider)),
+);
+final routeKindStoreProvider = Provider<RouteKindStore>(
+  (ref) => RouteKindStore(preferences: ref.watch(sharedPreferencesProvider)),
+);
 
 /// Extra connections for segmented transfers, shared by the image cache and
 /// downloads. Outlives factory rebuilds so the cap stays app-wide.

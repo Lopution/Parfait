@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/features/illust/detail/widgets/page_image.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
@@ -129,6 +130,7 @@ void main() {
           pixivNetworkFactoryProvider.overrideWithValue(
             ScriptedImageNetwork(download.manager),
           ),
+          imageWorkerProvider.overrideWithValue(legacyOnlyImageWorker()),
         ],
         child: _app(PixivImage(url: _url, progress: progress)),
       ),
@@ -162,8 +164,12 @@ void main() {
     );
     final progress = ValueNotifier(const ImageLoadProgress.idle());
     addTearDown(progress.dispose);
+    final worker = legacyOnlyImageWorker();
     Widget image(String url) => ProviderScope(
-      overrides: [pixivNetworkFactoryProvider.overrideWithValue(network)],
+      overrides: [
+        pixivNetworkFactoryProvider.overrideWithValue(network),
+        imageWorkerProvider.overrideWithValue(worker),
+      ],
       child: _app(PixivImage(url: url, progress: progress)),
     );
     await tester.pumpWidget(image(_url));

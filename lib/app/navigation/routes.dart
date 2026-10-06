@@ -1619,6 +1619,8 @@ Future<void> openImageViewer(
       tierKey: entity.imageTierKeyAt(page),
       tier: quality.tier,
       priority: ImageFetchPriority.foreground,
+      // The viewer shows it with a progress ring.
+      useWorker: false,
       // A context that unmounts mid-push (branch switch racing the tap)
       // makes the deferred precache throw — best-effort, so swallow.
     ).then((_) {}, onError: (_, _) {}),

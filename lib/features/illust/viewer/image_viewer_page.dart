@@ -229,6 +229,8 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
           demand: demand,
           tierKey: widget.tierKeyForPage?.call(neighbour),
           tier: IllustImageTier.medium,
+          // Viewer pages show a progress ring.
+          useWorker: false,
         ).catchError((_) => ImagePreloadResult.failed),
       );
     }

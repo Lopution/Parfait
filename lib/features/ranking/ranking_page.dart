@@ -366,7 +366,6 @@ class _RankingModeBody extends ConsumerWidget {
                 restorationId: 'ranking-$_listId',
                 slivers: [
                   IllustFeedGrid(
-                    prefetchEntities: entities,
                     itemIds: [for (final e in entities) e.id],
                     itemCount: entities.length,
                     pagerLoadMore: () => ref

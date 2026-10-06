@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
@@ -8,6 +9,9 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:parfait/core/image/image_worker.dart';
+import 'package:parfait/core/image/image_worker_client.dart';
+import 'package:parfait/core/image/image_worker_host.dart';
 import 'package:parfait/core/image/image_worker_protocol.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
@@ -246,4 +250,52 @@ const testImageWorkerConfig = ImageWorkerConfig(
   echFrontHost: 'cloudflare-ech.com',
   dohEndpoints: [],
   insecureNoSniEnabled: true,
+);
+
+/// A real [ImageWorker] whose isolates are in-process [ImageWorkerHost]s
+/// behind the real protocol, disk cache and scheduler; [fetchClient] is the
+/// network. Its IO is real, so a widget test drives it with `runAsync`
+/// turns between pumps.
+ImageWorker inProcessImageWorker(http.Client Function() fetchClient) {
+  final dir = Directory.systemTemp.createTempSync('parfait-worker-');
+  final hosts = <ImageWorkerHost>[];
+  final worker = ImageWorker(
+    config: () async => testImageWorkerConfig,
+    start: (config, demand) {
+      final inbox = ReceivePort();
+      final host = ImageWorkerHost(
+        mainSendPort: inbox.sendPort,
+        config: config,
+        cacheDir: dir.path,
+        transportInit: () async {},
+        fetchClient: fetchClient,
+      );
+      hosts.add(host);
+      unawaited(host.run());
+      return ImageWorkerClient.attach(inbox, demand: demand);
+    },
+  );
+  // Only the synchronous half of each shutdown: the futures were made in
+  // the test's fake zone, which nobody pumps once the body has returned.
+  addTearDown(() {
+    unawaited(worker.dispose());
+    for (final host in hosts) {
+      unawaited(host.close());
+    }
+    dir.deleteSync(recursive: true);
+  });
+  return worker;
+}
+
+/// A worker for tests whose images all load on the legacy pipeline; a
+/// request that reaches it fails the test.
+ImageWorker legacyOnlyImageWorker() => inProcessImageWorker(
+  () => MockClient((request) => fail('${request.url} reached the worker')),
+);
+
+/// A worker whose isolate never comes up: every image on it stays a
+/// placeholder. For tests about how an image is set up, not loaded.
+ImageWorker stalledImageWorker() => ImageWorker(
+  start: (_, _) => Completer<ImageWorkerClient>().future,
+  config: () async => testImageWorkerConfig,
 );
