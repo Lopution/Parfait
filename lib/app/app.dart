@@ -207,7 +207,6 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     final systemColors = settings.followSystemColors
         ? ref.watch(systemColorSchemesProvider).value
         : null;
-    final accessibility = ref.watch(appAccessibilityProvider);
     return MaterialApp.router(
       title: 'Parfait',
       debugShowCheckedModeBanner: false,
@@ -251,33 +250,65 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
                     settingsPending: settingsPending,
                     child: routeChild,
                   ));
-        return FuncSystemBars(
-          background: Theme.of(context).brightness,
-          child: MotionScope(
-            reduce: settings.reduceMotion,
-            speed: settings.animationSpeed,
-            pressFeedback: settings.pressFeedback,
-            transitionStyle: settings.pageTransitionStyle,
-            // ignore: deprecated_member_use
-            child: MaterialUiCompatibilityBridge(
-              child: TouchExplorationScope(
-                // Above the bridge so intent failures can prompt from its
-                // own context; below the motion and touch-exploration
-                // scopes it reads.
-                child: PromptHost(
-                  key: _promptHostKey,
-                  accessibility: accessibility,
-                  child: ExternalIntentBridge(
-                    router: _router,
-                    intentSource: widget.intentSource,
-                    child: PipelineWarmup(child: content),
-                  ),
-                ),
+        return AppChrome(
+          settings: settings,
+          router: _router,
+          intentSource: widget.intentSource,
+          promptHostKey: _promptHostKey,
+          child: PipelineWarmup(child: content),
+        );
+      },
+    );
+  }
+}
+
+/// Everything between MaterialApp and the route content: system bars,
+/// motion settings, the material_ui bridge, touch exploration, prompts and
+/// external intents. The UX review harness renders its routes inside the
+/// same chrome, so its shots show what the app shows.
+class AppChrome extends ConsumerWidget {
+  const AppChrome({
+    super.key,
+    required this.settings,
+    required this.router,
+    required this.child,
+    this.intentSource,
+    this.promptHostKey,
+  });
+
+  final AppSettings settings;
+  final GoRouter router;
+  final AndroidIntentSource? intentSource;
+  final GlobalKey<PromptHostState>? promptHostKey;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return FuncSystemBars(
+      background: Theme.of(context).brightness,
+      child: MotionScope(
+        reduce: settings.reduceMotion,
+        speed: settings.animationSpeed,
+        pressFeedback: settings.pressFeedback,
+        transitionStyle: settings.pageTransitionStyle,
+        // ignore: deprecated_member_use
+        child: MaterialUiCompatibilityBridge(
+          child: TouchExplorationScope(
+            // Above the bridge so intent failures can prompt from its own
+            // context; below the motion and touch-exploration scopes it
+            // reads.
+            child: PromptHost(
+              key: promptHostKey,
+              accessibility: ref.watch(appAccessibilityProvider),
+              child: ExternalIntentBridge(
+                router: router,
+                intentSource: intentSource,
+                child: child,
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

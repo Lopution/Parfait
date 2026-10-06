@@ -6,3 +6,11 @@
 # degraded) into a fast, clearly labelled failure instead of a silent
 # multi-minute hang.
 timeout: 60s
+
+tags:
+  # UX review harness (test/review): scenes render the real app at device
+  # size and films capture it frame by frame. The files do not end in
+  # _test.dart, so a bare `flutter test` never runs them; tool/review.sh
+  # does.
+  review:
+    timeout: 10x
