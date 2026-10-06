@@ -8,6 +8,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:parfait/core/image/image_worker_protocol.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
 
@@ -175,7 +176,7 @@ Future<void> pollUntil(
 }
 
 /// A 1×1 PNG.
-final _onePixelPng = base64Decode(
+final onePixelPng = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
 );
 
@@ -185,7 +186,7 @@ Future<FileInfo> onePixelPngDownload(WidgetTester tester, String url) async {
   mockPathProvider();
   final file = (await tester.runAsync(() async {
     final file = await IOFileSystem('parfait_png').createFile('a.png');
-    await file.writeAsBytes(_onePixelPng);
+    await file.writeAsBytes(onePixelPng);
     return file;
   }))!;
   return FileInfo(file, FileSource.Online, DateTime(2100), url);
@@ -235,3 +236,14 @@ class ScriptedImageNetwork extends PixivNetworkFactory {
   @override
   CacheManager get imageCacheManager => manager;
 }
+
+/// The config in-process test workers run with: direct `i.pximg.net`, no
+/// DoH.
+const testImageWorkerConfig = ImageWorkerConfig(
+  imageSource: 'i.pximg.net',
+  mode: 'directOnly',
+  networkIdentity: 'test-net',
+  echFrontHost: 'cloudflare-ech.com',
+  dohEndpoints: [],
+  insecureNoSniEnabled: true,
+);

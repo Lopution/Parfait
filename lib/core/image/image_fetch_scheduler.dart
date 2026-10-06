@@ -97,6 +97,15 @@ class ImageFetchScheduler<T> {
     }
   }
 
+  /// Moves the queued background fetch for [url] onto the foreground lane.
+  /// A no-op when no such fetch exists (streaming or absent) — the caller
+  /// sends this when a widget starts waiting on a URL it may share with a
+  /// warm-up flight.
+  void promoteUrl(String url) {
+    final fetch = _fetches[url];
+    if (fetch != null) _promote(fetch);
+  }
+
   /// Whether the queued fetch for [url] still has someone to serve — asked
   /// by the lane gates when a slot frees. A cancelled fetch inside its
   /// grace window is *not* wanted: the grace only protects its queue
