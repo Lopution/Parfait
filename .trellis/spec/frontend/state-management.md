@@ -1434,8 +1434,10 @@ Provider implementations expose a typed capability (`structuredApi`,
 `interactiveWebView` or `unavailable`) and typed outcomes. A provider cannot
 turn an HTML/challenge response into result cards, silently scrape a web page,
 or return an empty success when credentials, ToS/privacy review or capability
-evidence is missing. Result mapping sorts by similarity, deduplicates Pixiv
-IDs, and permits only strict HTTPS external destinations. An unavailable
+evidence is missing. There is no native result list: a definitive no-match
+page is a bare `ReverseImageSearchSuccess`, and every other result shows in
+the engine's own page. The controlled WebView and external opens accept only
+strict HTTPS destinations. An unavailable
 provider is rendered as a visible terminal failure with retry/cancel behavior;
 it is not a hidden mock.
 

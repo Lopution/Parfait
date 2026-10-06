@@ -1974,6 +1974,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchInvalidDateRange => '開始日は終了日より後にできません';
 
   @override
+  String get searchInvalidBoundRange => '最小値は最大値より大きくできません';
+
+  @override
   String get searchPopularPreviewHint => 'プレミアム未加入のため、人気順はプレビュー結果を使用します';
 
   @override

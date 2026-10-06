@@ -83,7 +83,7 @@ class NovelPage extends ConsumerWidget {
               ),
             );
           }
-          return NovelReaderStage(spec: _onlineSpec(context, novel));
+          return NovelReaderStage(spec: _onlineSpec(context, ref, novel));
         },
       ),
     );
@@ -91,13 +91,17 @@ class NovelPage extends ConsumerWidget {
 
   /// Online spec: share/bookmark actions, the work-info sheet, history
   /// tracking around the body and the account-scoped progress store.
-  NovelReaderStageSpec _onlineSpec(BuildContext context, NovelEntity novel) {
+  NovelReaderStageSpec _onlineSpec(
+    BuildContext context,
+    WidgetRef ref,
+    NovelEntity novel,
+  ) {
     return NovelReaderStageSpec(
       novel: novel,
       topActions: [
         IconButton(
           tooltip: context.l10n.cardActionShare,
-          onPressed: () => _shareNovel(context, novel),
+          onPressed: () => _shareNovel(context, ref, novel),
           icon: const Icon(Icons.share_outlined),
         ),
         BookmarkSwitchButton(
@@ -107,7 +111,7 @@ class NovelPage extends ConsumerWidget {
         ),
       ],
       infoTooltip: context.l10n.novelInfoTitle,
-      infoSheet: (sheetContext) => _novelInfoSheet(sheetContext, novel),
+      infoSheet: (sheetContext) => _novelInfoSheet(sheetContext, ref, novel),
       progress: _NovelProgressBinding(
         ProviderScope.containerOf(context, listen: false),
         novel.id,
@@ -117,8 +121,12 @@ class NovelPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _shareNovel(BuildContext context, NovelEntity novel) async {
-    final outcome = await ProviderScope.containerOf(context, listen: false)
+  Future<void> _shareNovel(
+    BuildContext context,
+    WidgetRef ref,
+    NovelEntity novel,
+  ) async {
+    final outcome = await ref
         .read(shareServiceProvider)
         .share(
           SharePayload.novel(
@@ -133,7 +141,11 @@ class NovelPage extends ConsumerWidget {
     }
   }
 
-  Widget _novelInfoSheet(BuildContext sheetContext, NovelEntity novel) {
+  Widget _novelInfoSheet(
+    BuildContext sheetContext,
+    WidgetRef ref,
+    NovelEntity novel,
+  ) {
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.5,
@@ -186,10 +198,7 @@ class NovelPage extends ConsumerWidget {
                         context,
                         NovelSearchQuery(
                           keyword: tag.name,
-                          filters: ProviderScope.containerOf(
-                            context,
-                            listen: false,
-                          ).read(searchNovelFiltersProvider),
+                          filters: ref.read(searchNovelFiltersProvider),
                         ),
                       );
                     },

@@ -831,6 +831,7 @@
   "searchStartDate": "Дата начала",
   "searchEndDate": "Дата окончания",
   "searchInvalidDateRange": "Дата начала не может быть позже даты окончания",
+  "searchInvalidBoundRange": "Минимум не может быть больше максимума",
   "searchPopularPreviewHint": "Без Premium сортировка по популярности использует предпросмотр",
   "searchNoSuggestions": "Нет подходящих вариантов",
   "searchSuggestionFill": "Подставить в строку поиска",

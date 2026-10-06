@@ -292,7 +292,20 @@ T _searchEnum<T>(
   orElse: () => fallback,
 );
 
-int? _searchInt(String? raw) => raw == null ? null : int.tryParse(raw);
+/// The bound pair under [minKey]/[maxKey], through
+/// `SearchFilters.decodeBounds`; a value that is not an integer counts as
+/// unset.
+(int?, int?) _searchBounds(
+  Map<String, String> params,
+  String minKey,
+  String maxKey,
+) {
+  int? intOf(String key) => switch (params[key]) {
+    final raw? => int.tryParse(raw),
+    null => null,
+  };
+  return SearchFilters.decodeBounds(intOf(minKey), intOf(maxKey));
+}
 
 typedef _SharedSearchParams = ({
   SearchTarget target,
@@ -310,37 +323,46 @@ typedef _SharedSearchParams = ({
 /// Decoding is permissive per field — one damaged value falls back to its
 /// default without discarding the rest, same rule as
 /// `SearchFilters.fromJson`.
-_SharedSearchParams _sharedSearchParams(GoRouterState state) => (
-  target: _searchEnum(
-    SearchTarget.values,
-    state.uri.queryParameters['target'],
-    (value) => value.wireValue,
-    SearchTarget.partialMatchForTags,
-  ),
-  sort: _searchEnum(
-    SearchSort.values,
-    state.uri.queryParameters['sort'],
-    (value) => value.wireValue,
-    SearchSort.dateDesc,
-  ),
-  duration: _searchDuration(state.uri.queryParameters['duration']),
-  startDate: parseApiDate(state.uri.queryParameters['start']),
-  endDate: parseApiDate(state.uri.queryParameters['end']),
-  // `ai` serializes by enum name: `all`/`only` share the same (null) wire
-  // value because `only` is enforced client-side.
-  aiFilter: _searchEnum(
-    SearchAiFilter.values,
-    state.uri.queryParameters['ai'],
-    (value) => value.name,
-    SearchAiFilter.all,
-  ),
-  bookmarkMin: _searchInt(state.uri.queryParameters['bmin']),
-  bookmarkMax: _searchInt(state.uri.queryParameters['bmax']),
-);
+_SharedSearchParams _sharedSearchParams(GoRouterState state) {
+  final (bookmarkMin, bookmarkMax) = _searchBounds(
+    state.uri.queryParameters,
+    'bmin',
+    'bmax',
+  );
+  return (
+    target: _searchEnum(
+      SearchTarget.values,
+      state.uri.queryParameters['target'],
+      (value) => value.wireValue,
+      SearchTarget.partialMatchForTags,
+    ),
+    sort: _searchEnum(
+      SearchSort.values,
+      state.uri.queryParameters['sort'],
+      (value) => value.wireValue,
+      SearchSort.dateDesc,
+    ),
+    duration: _searchDuration(state.uri.queryParameters['duration']),
+    startDate: parseApiDate(state.uri.queryParameters['start']),
+    endDate: parseApiDate(state.uri.queryParameters['end']),
+    // `ai` serializes by enum name: `all`/`only` share the same (null) wire
+    // value because `only` is enforced client-side.
+    aiFilter: _searchEnum(
+      SearchAiFilter.values,
+      state.uri.queryParameters['ai'],
+      (value) => value.name,
+      SearchAiFilter.all,
+    ),
+    bookmarkMin: bookmarkMin,
+    bookmarkMax: bookmarkMax,
+  );
+}
 
 IllustSearchFilters _illustSearchFilters(GoRouterState state) {
   final params = state.uri.queryParameters;
   final shared = _sharedSearchParams(state);
+  final (widthMin, widthMax) = _searchBounds(params, 'wmin', 'wmax');
+  final (heightMin, heightMax) = _searchBounds(params, 'hmin', 'hmax');
   return IllustSearchFilters(
     // A foreign target in a shared URL clamps to the type's own set — the
     // novel-only `text`/`keyword` values can never reach an illust query.
@@ -362,16 +384,17 @@ IllustSearchFilters _illustSearchFilters(GoRouterState state) {
       (value) => value.wireValue,
       SearchContentType.illustAndMangaAndUgoira,
     ),
-    widthMin: _searchInt(params['wmin']),
-    widthMax: _searchInt(params['wmax']),
-    heightMin: _searchInt(params['hmin']),
-    heightMax: _searchInt(params['hmax']),
+    widthMin: widthMin,
+    widthMax: widthMax,
+    heightMin: heightMin,
+    heightMax: heightMax,
   );
 }
 
 NovelSearchFilters _novelSearchFilters(GoRouterState state) {
   final params = state.uri.queryParameters;
   final shared = _sharedSearchParams(state);
+  final (textLengthMin, textLengthMax) = _searchBounds(params, 'tmin', 'tmax');
   return NovelSearchFilters(
     target: SearchFilters.clampTarget(
       shared.target,
@@ -385,8 +408,8 @@ NovelSearchFilters _novelSearchFilters(GoRouterState state) {
     aiFilter: shared.aiFilter,
     bookmarkMin: shared.bookmarkMin,
     bookmarkMax: shared.bookmarkMax,
-    textLengthMin: _searchInt(params['tmin']),
-    textLengthMax: _searchInt(params['tmax']),
+    textLengthMin: textLengthMin,
+    textLengthMax: textLengthMax,
     originalOnly: params['original'] == '1' || params['original'] == 'true',
   );
 }
@@ -441,7 +464,8 @@ Map<String, String> _searchQueryParameters(SearchQuery query) => {
       if (filters.textLengthMax != null) 'tmax': '${filters.textLengthMax}',
       if (filters.originalOnly) 'original': '1',
     },
-    _ => const <String, String>{},
+    // A user search has no filters to carry.
+    UserSearchQuery() => const <String, String>{},
   },
 };
 
