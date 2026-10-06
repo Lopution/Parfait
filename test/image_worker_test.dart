@@ -180,6 +180,33 @@ void main() {
     expect(host.config.imageSource, 'i.pixiv.cat');
   });
 
+  test('a snapshot never starts a worker', () async {
+    final worker = _worker((_, _) => fail('the probe started a worker'));
+    final snapshot = await worker.snapshot();
+    expect(snapshot.state, ImageWorkerState.idle);
+    expect(snapshot.describe(), 'image worker: idle, starts 0/3\n');
+  });
+
+  test('a snapshot reports the running worker\'s queue and disk', () async {
+    final starts = _Starts([null]);
+    addTearDown(starts.close);
+    final worker = _worker(starts.call);
+    await _fetch(worker);
+
+    final snapshot = await worker.snapshot();
+    expect(snapshot.state, ImageWorkerState.running);
+    final status = snapshot.status!;
+    expect((status.inFlight, status.queued), (0, 0));
+    expect(status.diskEntries, 1);
+    expect(status.diskBytes, onePixelPng.length);
+    expect(
+      snapshot.describe(),
+      'image worker: running, starts 1/3\n'
+      '  in flight 0, queued 0\n'
+      '  disk 1 files, 0.0 / 256.0 MB\n',
+    );
+  });
+
   test('a start that lands after dispose is torn down', () async {
     final started = Completer<ImageWorkerClient>();
     final starts = _Starts([null]);

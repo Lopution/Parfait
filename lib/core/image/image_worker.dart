@@ -58,9 +58,40 @@ class ImageWorker implements ImageFetcher {
   /// Isolates started this session, the first one included.
   int get starts => _starts;
 
-  /// The running worker, for status probes; null while starting or after
-  /// it died.
+  /// The running worker; null while starting or after it died.
   ImageWorkerClient? get live => _live;
+
+  ImageWorkerState get state {
+    if (_disposed) return ImageWorkerState.disposed;
+    if (_live != null) return ImageWorkerState.running;
+    if (_client != null) return ImageWorkerState.starting;
+    if (_starts >= maxStarts) return ImageWorkerState.gaveUp;
+    return _starts == 0 ? ImageWorkerState.idle : ImageWorkerState.stopped;
+  }
+
+  /// What the probe page shows. Never starts a worker; a running one that
+  /// does not answer within [statusTimeout] reports that as its failure.
+  Future<ImageWorkerSnapshot> snapshot() async {
+    final client = _live;
+    ImageWorkerStatus? status;
+    Object? statusFailure;
+    if (client != null) {
+      try {
+        status = await client.status().timeout(statusTimeout);
+      } on Object catch (error) {
+        statusFailure = error;
+      }
+    }
+    return ImageWorkerSnapshot(
+      state: state,
+      starts: _starts,
+      maxStarts: maxStarts,
+      lastFailure: statusFailure ?? _lastFailure,
+      status: status,
+    );
+  }
+
+  static const statusTimeout = Duration(seconds: 2);
 
   @override
   Future<FetchResult> fetch(
@@ -133,4 +164,54 @@ class ImageWorker implements ImageFetcher {
     // A start still in flight disposes its own client when it lands.
     await live?.dispose();
   }
+}
+
+enum ImageWorkerState {
+  /// No request has needed it yet.
+  idle,
+  starting,
+  running,
+
+  /// It died; the next request starts a replacement.
+  stopped,
+
+  /// Every start this session is spent; requests fail.
+  gaveUp,
+  disposed,
+}
+
+/// The worker's state with its queue and disk usage when running.
+class ImageWorkerSnapshot {
+  const ImageWorkerSnapshot({
+    required this.state,
+    required this.starts,
+    required this.maxStarts,
+    this.lastFailure,
+    this.status,
+  });
+
+  final ImageWorkerState state;
+  final int starts;
+  final int maxStarts;
+  final Object? lastFailure;
+  final ImageWorkerStatus? status;
+
+  /// Plain-text lines for the probe page and its copied report.
+  String describe() {
+    final lines = ['image worker: ${state.name}, starts $starts/$maxStarts'];
+    if (status case final status?) {
+      lines
+        ..add('  in flight ${status.inFlight}, queued ${status.queued}')
+        ..add(
+          '  disk ${status.diskEntries} files, '
+          '${_megabytes(status.diskBytes)} / '
+          '${_megabytes(status.diskMaxBytes)} MB',
+        );
+    }
+    if (lastFailure case final failure?) lines.add('  last failure: $failure');
+    return '${lines.join('\n')}\n';
+  }
+
+  static String _megabytes(int bytes) =>
+      (bytes / (1024 * 1024)).toStringAsFixed(1);
 }

@@ -132,6 +132,28 @@ abstract interface class ImageFetcher {
   Future<FetchResult> fetch(String url, {required ImageFetchPriority priority});
 }
 
+/// A point-in-time view of the worker's queue and disk cache, for the
+/// probe page.
+class ImageWorkerStatus {
+  const ImageWorkerStatus({
+    required this.inFlight,
+    required this.queued,
+    required this.diskEntries,
+    required this.diskBytes,
+    required this.diskMaxBytes,
+  });
+
+  /// Fetches holding a lane permit.
+  final int inFlight;
+
+  /// Fetches waiting for one.
+  final int queued;
+
+  final int diskEntries;
+  final int diskBytes;
+  final int diskMaxBytes;
+}
+
 /// Worker→main failure. [statusCode] is set for plain HTTP failures so
 /// the UI can keep 403/404-no-retry and error-widget behavior identical
 /// to the legacy path.
@@ -181,6 +203,12 @@ class PromoteMessage extends WorkerMessage {
   final String url;
 }
 
+/// Asks for an [ImageWorkerStatus]; [id] matches the reply.
+class StatusMessage extends WorkerMessage {
+  const StatusMessage(this.id);
+  final int id;
+}
+
 /// Parses a raw wire map; unknown shapes throw so a protocol drift is loud.
 WorkerMessage decodeWorkerMessage(Object? raw) {
   if (raw is! Map) throw StateError('worker message is not a map: $raw');
@@ -201,6 +229,8 @@ WorkerMessage decodeWorkerMessage(Object? raw) {
       );
     case 'promote':
       return PromoteMessage(raw['url'] as String);
+    case 'status':
+      return StatusMessage(raw['id'] as int);
   }
   throw StateError('unknown worker message type: ${raw['type']}');
 }
@@ -217,6 +247,11 @@ Map<String, Object?> encodeCancel(int id) => {'type': 'cancel', 'id': id};
 Map<String, Object?> encodePromote(String url) => {
   'type': 'promote',
   'url': url,
+};
+
+Map<String, Object?> encodeStatusRequest(int id) => {
+  'type': 'status',
+  'id': id,
 };
 
 Map<String, Object?> encodeConfig(ImageWorkerConfig config) => {
@@ -316,6 +351,15 @@ Map<String, Object?> encodeWorkerEvent(WorkerEvent event) => switch (event) {
     'message': message,
     'stack': stack,
   },
+  StatusEvent(:final id, :final status) => {
+    'type': 'status',
+    'id': id,
+    'inFlight': status.inFlight,
+    'queued': status.queued,
+    'diskEntries': status.diskEntries,
+    'diskBytes': status.diskBytes,
+    'diskMaxBytes': status.diskMaxBytes,
+  },
 };
 
 /// An error the worker caught at its message boundary instead of dying of
@@ -324,6 +368,13 @@ class WorkerErrorEvent extends WorkerEvent {
   const WorkerErrorEvent(this.message, this.stack);
   final String message;
   final String stack;
+}
+
+/// The answer to a [StatusMessage].
+class StatusEvent extends WorkerEvent {
+  const StatusEvent(this.id, this.status);
+  final int id;
+  final ImageWorkerStatus status;
 }
 
 /// Main-side decode of upstream messages.
@@ -355,6 +406,16 @@ WorkerEvent decodeWorkerEvent(Object? raw) {
     'workerError' => WorkerErrorEvent(
       raw['message'] as String,
       raw['stack'] as String,
+    ),
+    'status' => StatusEvent(
+      raw['id'] as int,
+      ImageWorkerStatus(
+        inFlight: raw['inFlight'] as int,
+        queued: raw['queued'] as int,
+        diskEntries: raw['diskEntries'] as int,
+        diskBytes: raw['diskBytes'] as int,
+        diskMaxBytes: raw['diskMaxBytes'] as int,
+      ),
     ),
     _ => throw StateError('unknown worker event type: ${raw['type']}'),
   };

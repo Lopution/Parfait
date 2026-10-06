@@ -48,6 +48,7 @@ class ImageWorkerClient implements ImageFetcher {
   final _pending = <int, (String url, Completer<FetchResult>)>{};
   final _idsByUrl = <String, Set<int>>{};
   final _rechecks = <String, Timer>{};
+  final _statusRequests = <int, Completer<ImageWorkerStatus>>{};
   var _nextId = 1;
   Object? _dead;
 
@@ -220,6 +221,17 @@ class ImageWorkerClient implements ImageFetcher {
     if (_idsByUrl.containsKey(url)) _worker.send(encodePromote(url));
   }
 
+  /// The worker's queue and disk usage right now.
+  Future<ImageWorkerStatus> status() {
+    final dead = _dead;
+    if (dead != null) return Future.error(dead);
+    final id = _nextId++;
+    final completer = Completer<ImageWorkerStatus>();
+    _statusRequests[id] = completer;
+    _worker.send(encodeStatusRequest(id));
+    return completer.future;
+  }
+
   /// Pushes a new config snapshot (mirror, DoH, ECH, mode, identity) into
   /// the worker — the same rebuild the provider layer performs on the
   /// main-side policy.
@@ -269,6 +281,8 @@ class ImageWorkerClient implements ImageFetcher {
         onRouteExhausted?.call(host);
       case WorkerErrorEvent(:final message, :final stack):
         CrashLog.record(RemoteError(message, stack));
+      case StatusEvent(:final id, :final status):
+        _statusRequests.remove(id)?.complete(status);
       case ReadyEvent():
         break; // consumed during connect
       case InitErrorEvent():
@@ -297,12 +311,20 @@ class ImageWorkerClient implements ImageFetcher {
     _dead = error;
     CrashLog.record(error);
     _cancelRechecks();
+    _failPending(error);
+    onDied?.call(error);
+  }
+
+  void _failPending(Object error) {
     for (final entry in _pending.values) {
       entry.$2.completeError(error);
     }
     _pending.clear();
     _idsByUrl.clear();
-    onDied?.call(error);
+    for (final completer in _statusRequests.values) {
+      completer.completeError(error);
+    }
+    _statusRequests.clear();
   }
 
   /// Whether the worker died or this client was disposed; [fetch] then
@@ -320,11 +342,14 @@ class ImageWorkerClient implements ImageFetcher {
     _rechecks.clear();
   }
 
-  /// Stops the worker at once: the isolate and its ports are gone before
-  /// the returned future, which only waits for the listeners to detach.
+  /// Stops the worker at once: pending requests fail with
+  /// [ImageWorkerUnavailable], and the isolate and its ports are gone
+  /// before the returned future, which only waits for the listeners to
+  /// detach.
   Future<void> dispose() async {
     _dead ??= const ImageWorkerUnavailable('disposed');
     _cancelRechecks();
+    _failPending(_dead!);
     if (identical(demand.onMaybeUnwanted, _onMaybeUnwanted)) {
       demand.onMaybeUnwanted = null;
     }

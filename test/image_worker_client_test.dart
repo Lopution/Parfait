@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
+import 'package:http/testing.dart';
 import 'package:parfait/core/image/image_worker_client.dart';
 import 'package:parfait/core/image/image_worker_host.dart';
 import 'package:parfait/core/image/image_worker_protocol.dart';
@@ -326,6 +327,26 @@ void main() {
     );
     // Well inside the 15 s ready timeout: the exit itself failed it.
     expect(DateTime.now().difference(started), lessThan(_exitBound));
+  });
+
+  test('dispose fails the requests still pending', () async {
+    final harness = _Harness();
+    // The network never answers.
+    await harness.start(
+      fetchClient: () => MockClient((_) => Completer<http.Response>().future),
+    );
+    addTearDown(harness.host.close);
+    final pending = harness.client.fetch(
+      'https://i.pximg.net/a.jpg',
+      priority: ImageFetchPriority.foreground,
+    );
+    final status = harness.client.status();
+    final failures = [
+      expectLater(pending, throwsA(isA<ImageWorkerUnavailable>())),
+      expectLater(status, throwsA(isA<ImageWorkerUnavailable>())),
+    ];
+    await harness.client.dispose();
+    await Future.wait(failures);
   });
 
   test('a worker that dies fails pending and later requests loudly', () async {

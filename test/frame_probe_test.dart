@@ -3,12 +3,16 @@ import 'dart:ui' show FramePhase;
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart' show FrameTiming;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/core/debug/frame_probe.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/features/settings/pages/frame_probe_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
+
+import 'helpers/image_network.dart';
 
 FrameTiming _frame(int spanMicros) => FrameTiming(
   vsyncStart: 0,
@@ -297,20 +301,25 @@ void main() {
   ) async {
     FrameProbe.instance.stop();
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-        home: Builder(
-          builder: (context) => Scaffold(
-            body: Center(
-              child: FilledButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const FrameProbePage(),
+      ProviderScope(
+        overrides: [
+          imageWorkerProvider.overrideWithValue(stalledImageWorker()),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const FrameProbePage(),
+                    ),
                   ),
+                  child: const Text('open'),
                 ),
-                child: const Text('open'),
               ),
             ),
           ),
@@ -322,6 +331,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(FrameProbe.instance.recording, isFalse);
+    // No image has needed the worker yet.
+    expect(find.text('image worker: idle, starts 0/3'), findsOneWidget);
     await tester.tap(find.text('开始记录'));
     await tester.pump();
     expect(FrameProbe.instance.recording, isTrue);
@@ -341,5 +352,10 @@ void main() {
     await tester.pump();
     expect(FrameProbe.instance.recording, isFalse);
     expect(find.textContaining('frames:'), findsOneWidget);
+    // The copied report carries the worker's state too.
+    expect(
+      find.textContaining(RegExp(r'frames:[\s\S]*image worker: idle')),
+      findsOneWidget,
+    );
   });
 }

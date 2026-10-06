@@ -125,6 +125,19 @@ class ImageWorkerHost {
           _scheduler.promoteUrl(url);
         case ConfigMessage(:final config):
           _applyConfig(config);
+        case StatusMessage(:final id):
+          _send(
+            StatusEvent(
+              id,
+              ImageWorkerStatus(
+                inFlight: _scheduler.inFlight,
+                queued: _scheduler.queued,
+                diskEntries: _cache.entryCount,
+                diskBytes: _cache.totalBytes,
+                diskMaxBytes: _cache.maxBytes,
+              ),
+            ),
+          );
       }
     } on Object catch (error, stack) {
       _send(WorkerErrorEvent('$error', '$stack'));
