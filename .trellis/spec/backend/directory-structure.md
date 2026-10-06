@@ -45,6 +45,7 @@ The direct `core` domains and their primary owner are:
 | `history` | `HistoryRepository` | local history database and Pixiv outbox |
 | `i18n` | `ReplicaLanguage` | persisted language selection and lookup support |
 | `illust` | feed/detail controllers and repositories | illustration API state |
+| `image` | `ImageWorker` (`imageWorkerProvider`) | background-isolate image fetching, disk cache, file-backed image provider |
 | `mutation` | `MutationBoundary` | account-owned mutation identity and lifecycle |
 | `navigation` | `RouteObserver` | route visibility observation |
 | `network` | `PixivHttpClient`, policy providers | Pixiv transport, errors, and route policy |
@@ -83,17 +84,27 @@ The direct `core` domains and their primary owner are:
 
 Production code obtains clients from providers in
 `lib/core/network/http_client_providers.dart` or from the Pixiv policy stack.
-There are three distinct ownership paths:
+There are four distinct ownership paths:
 
 | Stack | Provider/owner | Consumers |
 |---|---|---|
 | Pixiv API and OAuth | `pixivHttpClientProvider` and `PixivNetworkFactory` | Pixiv API repositories, account/auth flows |
+| Pixiv images, worker | `ImageWorkerHost` inside the image worker isolate | `PixivImage` and `PixivImage.preload` on the worker pipeline |
 | ordinary third-party `package:http` | `thirdPartyHttpClientProvider` | translation, SauceNAO, updater APK download |
 | resolver/probe `dart:io` | `resolverHttpClientProvider` | DoH, resolver, and probe-grade traffic |
 
 Do not construct a production `http.Client` or `HttpClient` inline. The
 resolver client is used where `connectionFactory` steering is part of the
 contract; ordinary third-party traffic uses the shared package client.
+
+The image worker owns a second, image-purpose `NetworkAccessPolicy` and its
+`PixivPolicyHttpClient`, rebuilt inside the isolate from the
+`ImageWorkerConfig` the main isolate pushes. It learns routes on its own
+but never persists them: learned fast routes and route kinds go back to the
+main isolate's `fastRouteStoreProvider`/`routeKindStoreProvider`, the only
+writers of those preferences. Images the worker does not load (progress,
+originals, uncapped decodes) still use `PixivNetworkFactory.imageCacheManager`
+— see the Image Worker Contract in `frontend/state-management.md`.
 
 ## Naming and Upgrade Rules
 
