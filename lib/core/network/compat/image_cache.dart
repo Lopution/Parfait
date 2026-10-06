@@ -8,6 +8,8 @@ import 'image_demand.dart';
 import 'network_contracts.dart';
 import 'segmented_fetch.dart';
 
+export '../../image/lane_permit_gate.dart' show ImageFetchPriority;
+
 class PixivImageCache {
   PixivImageCache({required this.httpClient, this.segmentBudget});
 
@@ -56,15 +58,6 @@ class PixivImageCache {
       await cache.dispose();
     }
   }
-}
-
-/// Lane an image fetch is admitted on; see [PriorityFileService].
-enum ImageFetchPriority {
-  /// Something on screen, or about to be because the user just asked for it.
-  foreground,
-
-  /// Warm-up work nobody is looking at yet.
-  background,
 }
 
 /// [FileService.concurrentFetches] value that keeps `WebHelper` from

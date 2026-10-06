@@ -12,6 +12,15 @@ class ImageFetchDropped implements Exception {
   String toString() => 'ImageFetchDropped: $url';
 }
 
+/// Lane an image fetch is admitted on.
+enum ImageFetchPriority {
+  /// Something on screen, or about to be because the user just asked for it.
+  foreground,
+
+  /// Warm-up work nobody is looking at yet.
+  background,
+}
+
 /// One pending admission on a [LanePermitGate]. The completer resolves with
 /// the owning gate once a slot is granted; the gate is carried so the holder
 /// knows which lane to release — a promoted waiter's slot returns to the
