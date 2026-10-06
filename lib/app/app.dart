@@ -14,20 +14,20 @@ import '../core/updater/update_service.dart';
 import '../core/widget/widget_coordinator.dart';
 import '../core/download/download_providers.dart';
 import '../core/network/compat/network_providers.dart';
+import '../core/platform/accessibility.dart';
 import '../core/platform/android_intent_channel.dart';
 import 'external_intent_bridge.dart';
 import 'haptics/app_haptics.dart';
 import 'haptics/haptics_driver.dart';
 import 'motion/motion_tokens.dart';
-import 'navigation/home_shell_metrics.dart';
 import 'scroll_behavior.dart';
 import 'system_ui.dart';
 import 'navigation/routes.dart';
 import 'startup_gate.dart';
+import 'touch_exploration_scope.dart';
 import 'theme/replica_theme.dart';
 import 'theme/system_colors.dart';
-import 'widgets/app_snack_bar.dart';
-import 'widgets/func_bottom_nav.dart';
+import 'widgets/prompt_host.dart';
 import 'widgets/settings_load_error.dart';
 import '../l10n/context.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
@@ -46,43 +46,21 @@ class ParfaitApp extends ConsumerStatefulWidget {
 /// after the user has already seen it.
 const updatePromptDuration = Duration(seconds: 8);
 
-/// Shows the "update available" prompt on the given messenger — the app
-/// level caller holds the root `_messengerKey`, so this is split out for
-/// testability and to keep the l10n lookup on the messenger's own context
+/// Shows the "update available" prompt on the app's prompt host — the
+/// app-level caller holds the root `_promptHostKey`, so this is split out
+/// for testability and to keep the l10n lookup on the host's own context
 /// (the caller's context sits above MaterialApp and has no Localizations).
 @visibleForTesting
 void showUpdatePrompt(
-  ScaffoldMessengerState messenger, {
+  PromptHostState host, {
   required String version,
-  required bool shellBarVisible,
-  required bool reduceMotion,
-  required AnimationSpeed animationSpeed,
   required VoidCallback onOpen,
 }) {
-  final l10n = messenger.context.l10n;
-  // The prompt is presented by the root messenger above the shell, so it
-  // cannot read HomeShellChrome — the visible flag says whether a bar
-  // exists and the extent is recomputed from this context's padding with
-  // the same formula the shell uses.
-  final bottomBarExtent = shellBarVisible
-      ? FuncBottomNav.restingExtent(
-          MediaQuery.paddingOf(messenger.context).bottom,
-        )
-      : 0.0;
-  showAppSnackBarOn(
-    messenger,
+  final l10n = host.context.l10n;
+  host.show(
     '${l10n.aboutUpdateAvailable}: $version',
     duration: updatePromptDuration,
-    action: SnackBarAction(label: l10n.aboutUpdateOpen, onPressed: onOpen),
-    margin: appSnackBarShellMargin(bottomBarExtent),
-    animationStyle: appSnackBarAnimationStyle(
-      (base) => MotionTokens.resolveWith(
-        messenger.context,
-        base,
-        reduce: reduceMotion,
-        speed: animationSpeed,
-      ),
-    ),
+    action: PromptAction(label: l10n.aboutUpdateOpen, onPressed: onOpen),
   );
 }
 
@@ -90,7 +68,7 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     with WidgetsBindingObserver {
   late final GoRouter _router = createPixivRouter();
 
-  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
+  final _promptHostKey = GlobalKey<PromptHostState>();
 
   @override
   void initState() {
@@ -127,30 +105,20 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     if (!mounted) return;
     final result = await ref.read(updateAutoCheckProvider).checkOnce();
     // This State's own context sits above MaterialApp — no Localizations —
-    // so `context.l10n` throws here. The messenger's context lives inside
-    // MaterialApp and resolves l10n correctly.
-    final messenger = _messengerKey.currentState;
-    final messengerContext = _messengerKey.currentContext;
+    // so `context.l10n` throws here. The host lives inside MaterialApp and
+    // resolves l10n correctly.
+    final host = _promptHostKey.currentState;
     if (!mounted ||
         result == null ||
         result.status != UpdateCheckStatus.available ||
-        messenger == null ||
-        messengerContext == null ||
-        !messengerContext.mounted) {
+        host == null ||
+        !host.mounted) {
       return;
     }
     final version = result.release?.manifest.version ?? '';
-    // The root ScaffoldMessenger sits above MotionScope, so the in-app
-    // motion settings are read from the provider directly (the same source
-    // the scope publishes); the platform half of the gate is still
-    // reachable through the messenger's context.
-    final settings = ref.read(settingsProvider).value;
     showUpdatePrompt(
-      messenger,
+      host,
       version: '$version',
-      shellBarVisible: ref.read(homeShellBarVisibleProvider),
-      reduceMotion: settings?.reduceMotion ?? false,
-      animationSpeed: settings?.animationSpeed ?? AnimationSpeed.normal,
       onOpen: () => goToAbout(_router),
     );
   }
@@ -239,10 +207,10 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     final systemColors = settings.followSystemColors
         ? ref.watch(systemColorSchemesProvider).value
         : null;
+    final accessibility = ref.watch(appAccessibilityProvider);
     return MaterialApp.router(
       title: 'Parfait',
       debugShowCheckedModeBanner: false,
-      scaffoldMessengerKey: _messengerKey,
       locale: settings.locale,
       supportedLocales: const [
         Locale('zh', 'CN'),
@@ -292,10 +260,19 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
             transitionStyle: settings.pageTransitionStyle,
             // ignore: deprecated_member_use
             child: MaterialUiCompatibilityBridge(
-              child: ExternalIntentBridge(
-                router: _router,
-                intentSource: widget.intentSource,
-                child: PipelineWarmup(child: content),
+              child: TouchExplorationScope(
+                // Above the bridge so intent failures can prompt from its
+                // own context; below the motion and touch-exploration
+                // scopes it reads.
+                child: PromptHost(
+                  key: _promptHostKey,
+                  accessibility: accessibility,
+                  child: ExternalIntentBridge(
+                    router: _router,
+                    intentSource: widget.intentSource,
+                    child: PipelineWarmup(child: content),
+                  ),
+                ),
               ),
             ),
           ),

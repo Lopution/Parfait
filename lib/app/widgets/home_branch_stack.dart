@@ -88,7 +88,10 @@ class _HomeBranchStackState extends State<HomeBranchStack>
   double _scrollAccum = 0;
   double? _lastPixels;
   BuildContext? _lastScrollable;
-  bool _accessibleNavigation = false;
+
+  /// `accessibleNavigation` below TouchExplorationScope: TalkBack is
+  /// exploring, not merely some assistive service reading nodes.
+  bool _touchExploration = false;
 
   @override
   void initState() {
@@ -107,10 +110,10 @@ class _HomeBranchStackState extends State<HomeBranchStack>
         context,
         MotionTokens.navBarHide,
       );
-    _accessibleNavigation = MediaQuery.accessibleNavigationOf(context);
+    _touchExploration = MediaQuery.accessibleNavigationOf(context);
     // Touch exploration started while the bar was scrolled away: bring it
     // back, a TalkBack user cannot find a bar that is off screen.
-    if (_accessibleNavigation) _navVisibility.value = 1;
+    if (_touchExploration) _navVisibility.value = 1;
   }
 
   @override
@@ -170,7 +173,7 @@ class _HomeBranchStackState extends State<HomeBranchStack>
   }
 
   bool _onScrollNotification(ScrollNotification notification) {
-    if (_accessibleNavigation) return false;
+    if (_touchExploration) return false;
     if (notification.depth != 0) return false;
     if (notification.metrics.axis != Axis.vertical) return false;
     final metrics = notification.metrics;

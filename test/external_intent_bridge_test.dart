@@ -20,6 +20,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 class _ScriptedIntentSource implements AndroidIntentSource {
   _ScriptedIntentSource(this.initial);
@@ -64,10 +65,13 @@ Widget _app(GoRouter router, _ScriptedIntentSource source) {
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('zh', 'CN'),
       routerConfig: router,
-      builder: (context, child) => ExternalIntentBridge(
-        router: router,
-        intentSource: source,
-        child: child!,
+      builder: (context, child) => promptHostBuilder(
+        context,
+        ExternalIntentBridge(
+          router: router,
+          intentSource: source,
+          child: child!,
+        ),
       ),
     ),
   );

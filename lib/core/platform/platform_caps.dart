@@ -43,10 +43,6 @@ class PlatformCaps {
 
   /// ACTION_* inbound intents (deep-link share/receive).
   bool get supportsInboundIntents => isAndroid;
-
-  /// The double-back-to-exit prompt only exists where a system back gesture
-  /// can reach the root route.
-  bool get supportsBackToExit => isAndroid;
 }
 
 final platformCapsProvider = Provider<PlatformCaps>(

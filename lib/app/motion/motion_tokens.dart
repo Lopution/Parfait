@@ -30,6 +30,13 @@ abstract final class MotionTokens {
   /// Medium UI transitions.
   static const medium = Duration(milliseconds: 200);
 
+  /// Prompt entrance — Compose M3 `SnackbarHost`: a 150ms linear fade with
+  /// a 0.8→1 fast-out-slow-in scale. The exit reverses both over [fast]
+  /// rather than Compose's 75ms fade, which read as no animation on device.
+  static const promptEnter = Duration(milliseconds: 150);
+  static const promptEnterScale = 0.8;
+  static const promptScaleCurve = Curves.fastOutSlowIn;
+
   /// Card press feedback: rest scale while pressed (the motion is the
   /// [MotionSpring.spatialFast] spring).
   static const pressScale = 0.97;
@@ -53,14 +60,15 @@ abstract final class MotionTokens {
   /// In-page tab switch, matching the app bar's kTabScrollDuration.
   static const tabSwitch = Duration(milliseconds: 300);
 
-  /// Bottom-nav scroll hide/show — Material `HideViewOnScrollBehavior`
-  /// timings and interpolators: slide-in (show) decelerates over 225ms
-  /// (linear-out-slow-in = cubic-bezier(0, 0, 0.2, 1)), slide-out (hide)
-  /// accelerates away over 175ms (fast-out-linear-in = (0.4, 0, 1, 1)).
-  static const navBarShow = Duration(milliseconds: 225);
-  static const navBarShowCurve = Cubic(0, 0, 0.2, 1);
-  static const navBarHide = Duration(milliseconds: 175);
-  static const navBarHideCurve = Cubic(0.4, 0, 1, 1);
+  /// Bottom-nav scroll hide/show — M3 `HideViewOnScrollBehavior` values:
+  /// the bar is an entering element when it slides back (long2 500ms,
+  /// emphasizedDecelerate) and an exiting one when it slides away
+  /// (medium4 400ms, emphasizedAccelerate). The M2 fallback pair
+  /// (225/175) made the hide read as a jump on device.
+  static const navBarShow = Duration(milliseconds: 500);
+  static const navBarShowCurve = Cubic(0.05, 0.7, 0.1, 1);
+  static const navBarHide = Duration(milliseconds: 400);
+  static const navBarHideCurve = Cubic(0.3, 0, 0.8, 0.15);
 
   /// SmoothWheelScroll's per-wheel animated scroll duration.
   static const wheelScroll = Duration(milliseconds: 240);
@@ -115,7 +123,7 @@ abstract final class MotionTokens {
   );
 
   /// [resolve] for the few callers above [MotionScope] (the MaterialApp
-  /// theme animation, the root messenger), which pass the settings in.
+  /// theme animation), which pass the settings in.
   static Duration resolveWith(
     BuildContext context,
     Duration base, {

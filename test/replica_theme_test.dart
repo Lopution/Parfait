@@ -10,8 +10,11 @@ import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/theme/func_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/theme/system_colors.dart';
+import 'package:parfait/app/widgets/app_snack_bar.dart';
+import 'package:parfait/app/widgets/prompt_host.dart';
 import 'package:parfait/app/widgets/replica_switch_tile.dart';
 import 'support/contrast.dart';
+import 'helpers/prompt_host.dart';
 
 List<Color> _surfaces(ColorScheme scheme) => [
   scheme.surface,
@@ -180,7 +183,7 @@ void main() {
     }
   });
 
-  testWidgets('a mounted SnackBar paints with the inverted surface', (
+  testWidgets('a mounted prompt paints with the inverted surface', (
     tester,
   ) async {
     for (final brightness in Brightness.values) {
@@ -188,12 +191,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: theme,
+          builder: promptHostBuilder,
           home: Scaffold(
             body: Builder(
               builder: (context) => TextButton(
-                onPressed: () => ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('saved'))),
+                onPressed: () => showAppSnackBar(context, 'saved'),
                 child: const Text('show'),
               ),
             ),
@@ -207,12 +209,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final material = tester.widget<Material>(
-        find
-            .descendant(
-              of: find.byType(SnackBar),
-              matching: find.byType(Material),
-            )
-            .first,
+        find.descendant(of: shownPrompt, matching: find.byType(Material)).first,
       );
       expect(material.color, theme.colorScheme.inverseSurface);
     }
@@ -285,6 +282,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: replicaTheme(brightness),
+          builder: promptHostBuilder,
           home: Scaffold(
             appBar: AppBar(title: const Text('App bar')),
             body: Column(
@@ -311,9 +309,7 @@ void main() {
                 ),
                 Builder(
                   builder: (context) => TextButton(
-                    onPressed: () => ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(const SnackBar(content: Text('snack'))),
+                    onPressed: () => showAppSnackBar(context, 'snack'),
                     child: const Text('toast'),
                   ),
                 ),
@@ -363,9 +359,7 @@ void main() {
         fontSize: 14,
         weight: FontWeight.w400,
       );
-      ScaffoldMessenger.of(
-        tester.element(find.byType(Scaffold)),
-      ).hideCurrentSnackBar();
+      PromptHost.of(tester.element(find.byType(Scaffold))).hideCurrent();
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('dialog'));

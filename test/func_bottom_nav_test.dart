@@ -18,6 +18,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 const _account = Account(id: '100', userId: 100, name: 'tester');
 
@@ -50,6 +51,7 @@ Future<GoRouter> _pumpHome(
         ),
       ],
       child: MaterialApp.router(
+        builder: promptHostBuilder,
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
@@ -85,6 +87,7 @@ void main() {
 
   Widget host({int selected = 0, ValueChanged<int>? onSelected}) {
     return MaterialApp(
+      builder: promptHostBuilder,
       home: Scaffold(
         bottomNavigationBar: FuncBottomNav(
           destinations: destinations,
@@ -148,6 +151,7 @@ void main() {
     await tester.pumpWidget(
       StatefulBuilder(
         builder: (context, setState) => MaterialApp(
+          builder: promptHostBuilder,
           home: Scaffold(
             bottomNavigationBar: FuncBottomNav(
               destinations: destinations,
@@ -213,6 +217,7 @@ void main() {
     Future<double> paintedScale(double platformScale) async {
       await tester.pumpWidget(
         MaterialApp(
+          builder: promptHostBuilder,
           home: Builder(
             builder: (context) => MediaQuery(
               data: MediaQuery.of(
@@ -277,6 +282,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        builder: promptHostBuilder,
         home: Scaffold(
           bottomNavigationBar: FuncBottomNav(
             destinations: bar,
@@ -381,10 +387,11 @@ void main() {
     final nav = find.byType(FuncBottomNav);
 
     // Every frame's move crosses the slop and asks for the hide again; the
-    // slide must keep its own clock instead of restarting on each ask.
+    // slide must keep its own clock instead of restarting on each ask, so
+    // it finishes within a drag that outlasts MotionTokens.navBarHide.
     final gesture = await tester.startGesture(tester.getCenter(_settingsList));
     await gesture.moveBy(const Offset(0, -20));
-    for (var i = 0; i < 15; i++) {
+    for (var i = 0; i < 30; i++) {
       await gesture.moveBy(const Offset(0, -12));
       await tester.pump(const Duration(milliseconds: 16));
     }

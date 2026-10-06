@@ -19,16 +19,19 @@ import 'package:parfait/core/download/pixiv_download_transport.dart';
 import 'package:parfait/features/settings/pages/download_task_presentation.dart';
 import 'package:parfait/features/settings/pages/download_tasks_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/app/widgets/prompt_host.dart';
 
 import 'helpers/download_world.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 Future<void> _pumpPage(WidgetTester tester, ProviderContainer container) async {
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
       child: const MaterialApp(
+        builder: promptHostBuilder,
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: [
           Locale('zh'),
@@ -66,7 +69,7 @@ Finder _selectionTitle(String label) => find.byWidgetPredicate(
 /// Lets the Undo prompt finish sliding in, then taps Undo.
 Future<void> _tapUndo(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 500));
-  await tester.tap(find.widgetWithText(SnackBarAction, '撤销'));
+  await tester.tap(promptAction('撤销'));
 }
 
 void main() {
@@ -1062,9 +1065,9 @@ void main() {
       expect(manager.tasks.first.id, finished.id);
       await tester.pump();
       expect(_taskRow(finished.id), findsOneWidget);
-      ScaffoldMessenger.of(
+      PromptHost.of(
         tester.element(find.byType(DownloadTasksPage)),
-      ).removeCurrentSnackBar();
+      ).hideCurrent();
       await tester.pump(const Duration(milliseconds: 300));
 
       // Batch cancel on the running task still goes through the confirm
@@ -1233,6 +1236,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp.router(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: const [Locale('zh')],
             locale: const Locale('zh'),

@@ -25,6 +25,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 class _StubResolver implements SecureResolver {
   @override
@@ -331,6 +332,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: const MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
@@ -373,7 +375,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.widgetWithText(SettingsControl, '显示 AI 生成作品'));
       await tester.pumpAndSettle();
-      expect(find.byType(SnackBar), findsOneWidget);
+      expect(shownPrompt, findsOneWidget);
       expect(
         tester
             .widget<SettingsControl>(

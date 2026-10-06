@@ -6,8 +6,8 @@ import 'package:parfait/app/app.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/external_intent_bridge.dart';
 import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/app/widgets/prompt_host.dart';
 import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/auth/account_repository.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
@@ -24,6 +24,7 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/prompt_host.dart';
 import 'helpers/test_preferences.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 
@@ -72,10 +73,13 @@ Widget _homeApp({AndroidIntentSource? intentSource, Locale? locale}) {
       supportedLocales: AppLocalizations.supportedLocales,
       locale: locale ?? const Locale('zh', 'CN'),
       routerConfig: router,
-      builder: (context, child) => ExternalIntentBridge(
-        router: router,
-        intentSource: source,
-        child: child!,
+      builder: (context, child) => promptHostBuilder(
+        context,
+        ExternalIntentBridge(
+          router: router,
+          intentSource: source,
+          child: child!,
+        ),
       ),
     ),
   );
@@ -107,41 +111,27 @@ void main() {
       await _pumpHome(tester);
       await tester.pumpAndSettle();
 
-      final host = tester.element(find.byType(FuncShellBottomNav));
-      showUpdatePrompt(
-        ScaffoldMessenger.of(host),
-        version: '9.9.9',
-        shellBarVisible: true,
-        reduceMotion: false,
-        animationSpeed: AnimationSpeed.normal,
-        onOpen: () {},
-      );
+      final shell = tester.element(find.byType(FuncShellBottomNav));
+      showUpdatePrompt(PromptHost.of(shell), version: '9.9.9', onOpen: () {});
       await tester.pump();
       await tester.pumpAndSettle();
 
-      final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
-      expect(snackBar.duration, updatePromptDuration);
-      expect(find.text('发现新版本: 9.9.9'), findsOneWidget);
-      // The shared shell margin lifts the card fully above the bar.
-      final card = tester.getRect(
-        find.descendant(
-          of: find.byType(SnackBar),
-          matching: find.byWidgetPredicate(
-            (w) => w is Material && w.type == MaterialType.canvas,
-          ),
-        ),
-      );
+      const message = '发现新版本: 9.9.9';
+      expect(find.text(message), findsOneWidget);
+      // The bar anchors the prompt: the card rests fully above it.
+      final card = tester.getRect(promptCard(message));
       final bar = tester.getRect(find.byType(FuncBottomNav));
       expect(card.overlaps(bar), isFalse);
+      expect(card.bottom, closeTo(bar.top - 16, 0.5));
 
       // D2: the prompt is still shown mid-dwell; once the 8-second dwell
       // plus its exit flight have passed it is gone — the action never
       // pins it.
       await tester.pump(const Duration(seconds: 7));
-      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text(message), findsOneWidget);
       await tester.pump(const Duration(seconds: 2));
       await tester.pumpAndSettle();
-      expect(find.byType(SnackBar), findsNothing);
+      expect(find.text(message), findsNothing);
     },
   );
 
@@ -274,7 +264,7 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.byType(SnackBar), findsOneWidget);
+      expect(shownPrompt, findsOneWidget);
       expect(find.text('分享的图片无法使用'), findsOneWidget);
       expect(find.byType(UserPage), findsNothing);
       expect(find.byType(IllustDetailPage), findsNothing);

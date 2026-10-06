@@ -11,6 +11,7 @@ import '../icons/app_icons.dart';
 import '../navigation/home_shell_metrics.dart';
 import '../theme/func_semantic_tokens.dart';
 import 'fit_label.dart';
+import 'prompt_anchor.dart';
 
 /// The five home destinations in branch order, shared by the bottom bar
 /// and the wide-layout navigation rail.
@@ -56,9 +57,9 @@ class FuncBottomNav extends StatelessWidget {
 
   /// Rendered height the bar occupies at rest: the fixed row plus the
   /// bottom safe-area inset [SafeArea] adds underneath it. The shell's
-  /// chrome slot, branch-page spacers, SnackBar margins and the Hero
-  /// landing clip all derive from this one formula, so they agree on the
-  /// first frame without measuring the laid-out bar.
+  /// chrome slot, branch-page spacers and the Hero landing clip all derive
+  /// from this one formula, so they agree on the first frame without
+  /// measuring the laid-out bar.
   static double restingExtent(double bottomSafeInset) =>
       _height + bottomSafeInset;
 
@@ -360,9 +361,8 @@ class _PillInkWell extends InkResponse {
 /// [BranchRootScaffold] into [branchStackCoveredProvider]) it slides away,
 /// as if a whole new screen had been pushed over the home pages.
 ///
-/// It also publishes its presence to [homeShellBarVisibleProvider] so the
-/// app-level update prompt — presented by a messenger above the shell —
-/// knows whether a bar needs clearing.
+/// It is also the shell's [PromptAnchor]: prompts rest above the height it
+/// covers right now, so they ride along as it slides.
 class FuncShellBottomNav extends ConsumerStatefulWidget {
   const FuncShellBottomNav({
     super.key,
@@ -388,7 +388,8 @@ class FuncShellBottomNav extends ConsumerStatefulWidget {
   /// Sink for the bar's live covered height at the screen bottom, updated
   /// from the same curved animations that drive the two [SlideTransition]s
   /// below — the Hero landing clip reads it through
-  /// [HomeShellChrome.bottomBarVisibleExtent].
+  /// [HomeShellChrome.bottomBarVisibleExtent], and it is the bar's prompt
+  /// anchor extent.
   final ValueNotifier<double> visibleExtent;
 
   @override
@@ -421,12 +422,6 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
       reverseCurve: MotionTokens.navBarHideCurve,
     )..addListener(_publishVisibleExtent);
     _attachScrollCurve(widget.scrollVisibility);
-    // Publish after the first frame: provider writes are illegal inside
-    // the build this initState runs under, and the only consumer (the
-    // app-level update prompt) appears long after mount anyway.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _setBarVisible(true);
-    });
   }
 
   @override
@@ -503,31 +498,6 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
     }
   }
 
-  void _setBarVisible(bool visible) {
-    try {
-      ref.read(homeShellBarVisibleProvider.notifier).setVisible(visible);
-    } on Object {
-      // The provider container can already be gone (test teardown).
-    }
-  }
-
-  @override
-  void deactivate() {
-    // The branch stack keeps this widget mounted while a pushed route
-    // covers it — only report gone when this bar is actually leaving.
-    // The write is deferred: provider writes are illegal inside the
-    // deactivate lifecycle.
-    final notifier = ref.read(homeShellBarVisibleProvider.notifier);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      try {
-        notifier.setVisible(false);
-      } on Object {
-        // The provider container can already be gone (test teardown).
-      }
-    });
-    super.deactivate();
-  }
-
   @override
   Widget build(BuildContext context) {
     // Covered state is a provider — watch the slice this bar cares about
@@ -549,20 +519,24 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
       MediaQuery.paddingOf(context).bottom,
     );
     // Written during build: safe only because consumers read `.value` per
-    // frame and never listen (see HomeShellChrome.bottomBarVisibleExtent).
+    // frame or only relayout on it (see HomeShellChrome.bottomBarVisibleExtent
+    // and PromptAnchors).
     _publishVisibleExtent();
-    return SlideTransition(
-      position: _coveredCurve.drive(
-        Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero),
-      ),
+    return PromptAnchor(
+      extent: widget.visibleExtent,
       child: SlideTransition(
-        position: _scrollCurve.drive(
+        position: _coveredCurve.drive(
           Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero),
         ),
-        child: FuncBottomNav(
-          destinations: homeDestinations(context),
-          selectedIndex: widget.selectedIndex,
-          onSelected: widget.onSelected,
+        child: SlideTransition(
+          position: _scrollCurve.drive(
+            Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero),
+          ),
+          child: FuncBottomNav(
+            destinations: homeDestinations(context),
+            selectedIndex: widget.selectedIndex,
+            onSelected: widget.onSelected,
+          ),
         ),
       ),
     );
@@ -585,12 +559,9 @@ class FuncNavBarSpacer extends StatelessWidget {
 }
 
 /// Marks a context as living on a branch-root page — i.e. underneath the
-/// floating shell bottom bar. `showAppSnackBar` reads this to lift its
-/// floating margin by the measured bar height, because the overlay bar is
-/// not a real `bottomNavigationBar` slot Scaffold geometry can anchor to.
-/// Routes pushed over the branch root are siblings of [BranchRootScaffold],
-/// not descendants, so they resolve the root messenger with the plain
-/// margin — matching the bar having slid away while they cover.
+/// floating shell bottom bar; branch roots read it to handle a re-tap of
+/// their own destination. Routes pushed over the branch root are siblings
+/// of [BranchRootScaffold], not descendants, so they do not see it.
 class BranchRootScope extends InheritedWidget {
   const BranchRootScope({
     super.key,
@@ -617,11 +588,6 @@ class BranchRootScope extends InheritedWidget {
 /// `didPushNext`/`didPopNext` fire at push/pop start (RouteObserver
 /// notifies synchronously), so the bar animates in step with the route
 /// transition rather than after it.
-///
-/// The ScaffoldMessenger scopes SnackBars to this branch: the page's own
-/// Scaffold registers here instead of the root messenger, so the SnackBar
-/// hides while a pushed route covers the branch (`route.isCurrent` fails
-/// inside the messenger) and never paints into sibling branches.
 class BranchRootScaffold extends ConsumerStatefulWidget {
   const BranchRootScaffold({
     super.key,
@@ -700,7 +666,7 @@ class _BranchRootScaffoldState extends ConsumerState<BranchRootScaffold>
   Widget build(BuildContext context) {
     return BranchRootScope(
       branchIndex: widget.branchIndex,
-      child: ScaffoldMessenger(child: widget.child),
+      child: widget.child,
     );
   }
 }

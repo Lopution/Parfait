@@ -9,9 +9,11 @@ import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'helpers/prompt_host.dart';
 
 Widget _host(Widget child) {
   return MaterialApp(
+    builder: promptHostBuilder,
     localizationsDelegates: appLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: Scaffold(body: child),

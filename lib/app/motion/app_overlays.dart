@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/gestures.dart' show HitTestResult, PointerUpEvent;
 import 'package:material_ui/material_ui.dart';
 
+import '../widgets/prompt_host.dart';
 import 'motion_tokens.dart';
 
 /// App-wide modal bottom sheet entry: one presentation spring and one
@@ -106,7 +107,10 @@ class _AppDialogRoute<T> extends DialogRoute<T> {
   });
 
   @override
-  Widget buildModalBarrier() => _ReleaseDismissBarrier(route: this);
+  Widget buildModalBarrier() => PromptCover(
+    animation: animation!,
+    child: _ReleaseDismissBarrier(route: this),
+  );
 }
 
 class _AppBottomSheetRoute<T> extends ModalBottomSheetRoute<T> {
@@ -124,8 +128,10 @@ class _AppBottomSheetRoute<T> extends ModalBottomSheetRoute<T> {
   });
 
   @override
-  Widget buildModalBarrier() =>
-      _ReleaseDismissBarrier(route: this, onTapHint: barrierOnTapHint);
+  Widget buildModalBarrier() => PromptCover(
+    animation: animation!,
+    child: _ReleaseDismissBarrier(route: this, onTapHint: barrierOnTapHint),
+  );
 }
 
 /// Modal scrim that closes its route the way a native Android dialog does:

@@ -19,6 +19,7 @@ import 'package:parfait/core/bookmark/bookmark_store.dart';
 import 'package:parfait/app/widgets/bookmark_switch_button.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'helpers/prompt_host.dart';
 
 Future<(ProviderContainer, RecordingBookmarkRepository)> _pump(
   WidgetTester tester, {
@@ -37,6 +38,7 @@ Future<(ProviderContainer, RecordingBookmarkRepository)> _pump(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
+        builder: promptHostBuilder,
         locale: const Locale('zh', 'CN'),
         supportedLocales: const [Locale('zh', 'CN')],
         localizationsDelegates: appLocalizationsDelegates,

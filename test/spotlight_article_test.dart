@@ -26,6 +26,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'helpers/spotlight_world.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 const _articleHtml = '''
 <!DOCTYPE html>
@@ -179,6 +180,7 @@ Future<GoRouter> pumpArticle(
         child: ProviderScope(
           overrides: extraOverrides,
           child: MaterialApp.router(
+            builder: promptHostBuilder,
             routerConfig: router,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
@@ -398,6 +400,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp.router(
+            builder: promptHostBuilder,
             routerConfig: router,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,

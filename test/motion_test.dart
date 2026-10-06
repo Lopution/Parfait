@@ -16,7 +16,6 @@ import 'package:parfait/app/motion/spring_size.dart';
 import 'package:parfait/app/motion/state_fade.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
-import 'package:parfait/app/widgets/app_snack_bar.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 
 import 'helpers/recording_haptics.dart';
@@ -131,9 +130,7 @@ void main() {
       );
     });
 
-    testWidgets('sheets, dialogs and snackbars follow the speed', (
-      tester,
-    ) async {
+    testWidgets('sheets and dialogs follow the speed', (tester) async {
       late BuildContext host;
       await tester.pumpWidget(
         _wrap(
@@ -202,10 +199,6 @@ void main() {
       );
       Navigator.of(dialog).pop();
       await tester.pumpAndSettle();
-
-      final style = snackBarAnimationStyleFor(host);
-      expect(style.duration, MotionTokens.medium * factor);
-      expect(style.reverseDuration, MotionTokens.fast * factor);
     });
 
     testWidgets('plays when neither source asks for reduction', (tester) async {

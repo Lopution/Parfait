@@ -357,32 +357,38 @@ computed synchronously, not measured post-layout:
 `restingExtent` is the fixed `_height` row plus the bottom safe-area inset
 the bar's own `SafeArea` adds, and nothing between the stack and that
 `SafeArea` strips the inset, so the computed value equals the rendered bar
-height on the very first frame. `FuncNavBarSpacer`, `showAppSnackBar`'s
-branch margin and the Hero landing clip all read the same extent — no
-consumer measures or copies the bar geometry.
+height on the very first frame. `FuncNavBarSpacer` and the Hero landing
+clip read the same extent — no consumer measures or copies the bar
+geometry.
 
 The bar also slides out (covered by a pushed route, or scroll auto-hide), so
 `HomeShellChrome.bottomBarVisibleExtent` publishes the height it covers *right
 now*: `FuncShellBottomNav` computes it from the same two `CurvedAnimation`s
 that drive its `SlideTransition`s. The Hero landing clip caps the home-side
 edge with it per frame, so a returning image is not cut at a bar that is not
-there yet. Consumers read `.value` and never listen — the bar writes it from
-its own `build`. Everything else keeps the resting extent. On NavigationRail layouts the
-extent is 0 and no `FuncShellBottomNav` exists. The only consumer that
-cannot reach the scope is the root-messenger update prompt; it reads the
-`homeShellBarVisibleProvider` presence flag (`FuncShellBottomNav` publishes
-it on mount/deactivate) and recomputes the same formula from its own
-context's padding.
+there yet. The bar writes it from its own `build`, so consumers read
+`.value` and never rebuild on it; the only listener is the prompt layout,
+which relayouts — the bar registers it as its `PromptAnchor` (see the
+Prompt Feedback Contract). Everything else keeps the resting extent. On
+NavigationRail layouts the extent is 0 and no `FuncShellBottomNav` exists.
 
 Scroll auto-hide yields to touch exploration: while
 `MediaQuery.accessibleNavigationOf(context)` is true,
 `HomeBranchStack._onScrollNotification` returns early — a TalkBack user
 cannot find a bar that scrolled away. If the flag flips while the bar is
-hidden, `_navVisibility` is driven back to 1. `accessibleNavigation` tracks
-only TalkBack-style touch exploration; services that merely open the
-semantics tree (for example `tester.ensureSemantics()`) do not set it, and
-the bar keeps hiding on scroll for them. A pushed route covering the shell
-still slides the bar away — that is not auto-hide.
+hidden, `_navVisibility` is driven back to 1. The engine sets
+`accessibleNavigation` whenever any assistive service queries a node (GKD
+pins it true for the session), so `TouchExplorationScope`
+(`lib/app/touch_exploration_scope.dart`, at the app root) rewrites it to
+the native touch-exploration flag from `touchExplorationProvider`; the
+engine value passes through until Android reports. Below the scope the
+flag means TalkBack-style exploration only: services that merely open the
+semantics tree or read nodes do not set it, and the bar keeps hiding on
+scroll for them. Widgets read the MediaQuery flag, never the provider. A
+pushed route covering the shell still slides the bar away — that is not
+auto-hide. The slide uses the M3 `HideViewOnScrollBehavior` values in
+`MotionTokens.navBarShow`/`navBarHide` (500ms emphasized-decelerate in,
+400ms emphasized-accelerate out).
 
 The five labels share one `LabelFit` (see the Multi-Locale Layout
 Contract): the widest translation sets one scale for all of them against
@@ -789,30 +795,59 @@ disabled rows, reduced motion, 320-wide ru truncation) and
 `app_overlays_test.dart` (drag-release closes one layer, release over the
 content keeps it open, non-dismissible stays, scrim dismiss action).
 
-## SnackBar Feedback Contract
+## Prompt Feedback Contract
 
-`showAppSnackBar` and `showAppSnackBarOn` are the only app SnackBar
-presentation helpers. An ordinary new message clears stale queued messages,
-lets the current message use its standard exit animation, then presents the
-new message. Callers that communicate ordered steps must pass
-`replaceCurrent: false`; for example, the account-transfer clipboard warning
-follows its copy confirmation. Keep duration, action, shell-bar margin, and
-reduced-motion behavior within the shared helpers.
+Transient messages have one surface: `PromptHost`
+(`lib/app/widgets/prompt_host.dart`), installed once in `MaterialApp.builder`
+above every navigator, below `MotionScope` and `TouchExplorationScope`.
+Callers use `showAppSnackBar(context, message, {duration, action,
+replaceCurrent})` with an optional `PromptAction(label:, onPressed:)`.
+material_ui's `SnackBar`, `SnackBarAction`, `showSnackBar` and
+`ScaffoldMessenger` do not appear in `lib/` — that path reads the polluted
+engine flag and anchors to Scaffold geometry the floating shell bar does
+not have. Direct host access (`PromptHost.of`, `PromptHostState`) is pinned
+to `app_snack_bar.dart`, `undo_snack_bar.dart` and `app.dart` (the update
+prompt, through `_promptHostKey`); `feedback_channels_test.dart` enforces
+both.
 
-An action button no longer implies a persistent snackbar — `material_ui`
-defaults `SnackBar.persist` to `action != null`, so the helpers pass an
-explicit `persist` that is true only when
-`MediaQuery.accessibleNavigationOf` reports assistive navigation. Every
-other message, action or not, times out on its `duration`. Bottom-bar
-clearance is computed once by `appSnackBarShellMargin` from the shell's
-computed bar extent (`HomeShellChrome.bottomBarExtent`, or the same
-`restingExtent` formula above the shell); branch snackbars and app-level
-snackbars on the root messenger share the same margin so both rest above
-the bar.
+- **Queue.** An ordinary new message drops queued ones, lets the current
+  one play its exit, then shows. Ordered steps pass `replaceCurrent:
+  false`; for example, the account-transfer clipboard warning follows its
+  copy confirmation.
+- **Lifetime.** A prompt belongs to the host, not the page: it survives
+  push, pop and branch switches, like a Snackbar belongs to the Activity.
+- **Dwell.** The timer starts when the entrance completes. The base
+  duration (4s, the update prompt 8s) goes through
+  `AppAccessibility.recommendedTimeoutMillis` (`getRecommendedTimeoutMillis`
+  with TEXT, plus CONTROLS for an action); a longer answer extends the
+  dwell. An action pins the prompt only under touch exploration (the
+  rewritten `accessibleNavigation`) — the MDC rule. Every other prompt,
+  action or not, times out.
+- **Placement.** Centered, at most 600 wide, 16 from the sides, resting 16
+  above the tallest of: the anchored chrome, the bottom safe area, the
+  keyboard. Chrome registers itself with `PromptAnchor(extent:)`; the
+  extent is read live, and its contribution follows the enclosing route —
+  it rises with the route's entrance and sinks while a page route covers
+  it (sheets and dialogs do not drive `secondaryAnimation`). The shell bar
+  anchors with its live visible extent, so prompts ride along as it
+  slides.
+- **Motion.** Compose M3 entrance: 150ms linear fade plus 0.8→1
+  fast-out-slow-in scale (`MotionTokens.promptEnter`); the exit reverses
+  both over `MotionTokens.fast`. Instant under touch exploration or a
+  closed motion gate.
+- **Modals.** The host paints above the navigators, so the app's sheet and
+  dialog routes wrap their barrier in `PromptCover`: the prompt fades out
+  with the modal's entrance, takes no pointer while covered, and returns as
+  the modal leaves.
+- **Dismissal.** Swipe down, the semantics dismiss action, the action
+  button (fires once), timeout, or replacement. The card is a live region.
 
-Widget tests for this contract pump `material_ui`'s `MaterialApp` and query
-`material_ui`'s `SnackBar` and `ScaffoldMessenger` types. Cover both stale
-queue replacement and an explicit ordered sequence.
+Widget tests install the host with `promptHostBuilder`
+(`test/helpers/prompt_host.dart`); `PromptHost.of` throws without one, so a
+missing host fails the test instead of dropping the prompt. Find the card
+with `shownPrompt` / `promptCard(message)` and the button with
+`promptAction(label)`. The platform timeout channel is the external
+boundary to fake (`prompt_host_test.dart`).
 
 A reversible action reports through `showUndoSnackBar` (see the Undo
 Contract), never through a plain message plus a hand-built
@@ -827,11 +862,10 @@ dialog.
 
 - `showUndoSnackBar(context, message, onUndo:)`
   (`lib/app/widgets/undo_snack_bar.dart`) captures the
-  `ProviderContainer`, the messenger and the localizations when it shows.
-  Undo plays `AppHaptics.select()` and runs `onUndo(container)`, so it
-  still works after the page that offered it is gone. A failed undo is
-  recorded in `CrashLog` and reported on the captured messenger (one of
-  the approved `showAppSnackBarOn` call sites).
+  `ProviderContainer`, the prompt host and the localizations when it
+  shows. Undo plays `AppHaptics.select()` and runs `onUndo(container)`, so
+  it still works after the page that offered it is gone. A failed undo is
+  recorded in `CrashLog` and reported on the captured host.
 - Bookmarks and follows go through `toggleBookmarkWithUndo(context, key)`
   and `toggleFollowWithUndo(context, userId)` — the only UI entry points
   to `bookmarkActionsProvider.toggle` / `followActionsProvider.toggle`.
@@ -1660,8 +1694,8 @@ durations (debounce, throttles, frame scheduling) do not belong there.
 - Read every duration through `MotionTokens.resolve(context, token)`: the
   token times the speed factor, or zero when the gate is closed (platform
   `disableAnimations`, platform `reduceMotion`, or the in-app setting).
-  Callers above `MotionScope` (the `MaterialApp` theme animation, the root
-  messenger) use `resolveWith(..., reduce:, speed:)`.
+  Callers above `MotionScope` (the `MaterialApp` theme animation) use
+  `resolveWith(..., reduce:, speed:)`.
 - Reduced motion removes the flight, never the state it communicates.
   A scroll animation asserts a non-zero duration, so programmatic page
   turns go through `turnPage(context, controller, page)`, which jumps

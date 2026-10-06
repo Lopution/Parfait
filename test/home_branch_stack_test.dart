@@ -9,10 +9,12 @@ import 'package:go_router/go_router.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/app/touch_exploration_scope.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/app/widgets/home_branch_stack.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/core/platform/accessibility.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/new/new_page.dart';
@@ -33,6 +35,7 @@ Future<GoRouter> _pumpHome(
   String location = '/recommended',
   double width = 390,
   bool reduceMotion = false,
+  Stream<bool> touchExploration = const Stream.empty(),
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   tester.view.physicalSize = Size(width, 844);
@@ -45,6 +48,7 @@ Future<GoRouter> _pumpHome(
     supportedLocales: AppLocalizations.supportedLocales,
     locale: const Locale('zh', 'CN'),
     routerConfig: router,
+    builder: (context, child) => TouchExplorationScope(child: child!),
   );
   if (reduceMotion) {
     app = MotionScope(reduce: true, child: app);
@@ -63,6 +67,7 @@ Future<GoRouter> _pumpHome(
             currentId: '100',
           ),
         ),
+        touchExplorationProvider.overrideWith((ref) => touchExploration),
       ],
       child: app,
     ),
@@ -429,12 +434,11 @@ void main() {
     testWidgets('the bottom bar stays on screen while scrolling', (
       tester,
     ) async {
-      tester.platformDispatcher.accessibilityFeaturesTestValue =
-          const FakeAccessibilityFeatures(accessibleNavigation: true);
-      addTearDown(
-        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      await _pumpHome(
+        tester,
+        location: '/settings',
+        touchExploration: Stream.value(true),
       );
-      await _pumpHome(tester, location: '/settings');
       final nav = find.byType(FuncBottomNav);
       final shownTop = tester.getTopLeft(nav).dy;
 
@@ -448,7 +452,13 @@ void main() {
     testWidgets('starting touch exploration brings a hidden bar back', (
       tester,
     ) async {
-      await _pumpHome(tester, location: '/settings');
+      final exploration = StreamController<bool>();
+      addTearDown(exploration.close);
+      await _pumpHome(
+        tester,
+        location: '/settings',
+        touchExploration: exploration.stream,
+      );
       final nav = find.byType(FuncBottomNav);
       final shownTop = tester.getTopLeft(nav).dy;
 
@@ -457,11 +467,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
 
-      tester.platformDispatcher.accessibilityFeaturesTestValue =
-          const FakeAccessibilityFeatures(accessibleNavigation: true);
-      addTearDown(
-        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
-      );
+      exploration.add(true);
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(nav).dy, closeTo(shownTop, 0.5));
     });
@@ -477,6 +483,46 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
       handle.dispose();
+    });
+
+    testWidgets('a polluted engine flag does not pin the bar', (tester) async {
+      // GKD reads nodes constantly, which sets the engine's
+      // accessibleNavigation bit — but it is not touch exploration, so the
+      // bar still hides on scroll.
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(accessibleNavigation: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await _pumpHome(
+        tester,
+        location: '/settings',
+        touchExploration: Stream.value(false),
+      );
+      final nav = find.byType(FuncBottomNav);
+
+      await tester.drag(settingsList, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
+    });
+
+    testWidgets('the engine flag applies until Android reports', (
+      tester,
+    ) async {
+      // A TalkBack user must not lose the bar in the frames before the
+      // channel's first event, so the engine value is the fallback.
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(accessibleNavigation: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await _pumpHome(tester, location: '/settings');
+      final nav = find.byType(FuncBottomNav);
+      final shownTop = tester.getTopLeft(nav).dy;
+
+      await tester.drag(settingsList, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(nav).dy, closeTo(shownTop, 0.5));
     });
   });
 }

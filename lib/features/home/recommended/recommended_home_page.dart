@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../app/motion/press_scale.dart';
 import '../../../app/motion/feed_entrance.dart';
 import '../../../app/widgets/errors/error_details.dart';
+import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -313,7 +314,7 @@ class _RecommendedFeedView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final key = (type: type);
     // Refresh failure keeps the loaded feed and surfaces as a transient
-    // banner anchored to this page's ScaffoldMessenger — the inline tail
+    // prompt with a retry action — the inline tail
     // row it replaced rendered "${feed.loadMoreError}", which the phase
     // copy never populated ("null").
     ref.listen(recommendedFeedProvider(key), (previous, next) {
@@ -330,7 +331,7 @@ class _RecommendedFeedView extends ConsumerWidget {
         context,
         action: context.l10n.recommendedRefreshFailed,
         error: error,
-        snackBarAction: SnackBarAction(
+        snackBarAction: PromptAction(
           label: context.l10n.retry,
           onPressed: () =>
               ref.read(recommendedFeedProvider(key).notifier).refresh(),
