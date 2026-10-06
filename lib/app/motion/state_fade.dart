@@ -62,7 +62,10 @@ class _StateFadeState extends State<StateFade>
       context,
       MotionSpring.effectsFast,
     );
-    if (duration == Duration.zero || !TickerMode.valuesOf(context).enabled) {
+    // Read once, at the fade's start: a dependency would rebuild this on
+    // every transition's ticker flip for nothing.
+    final tickersEnabled = TickerMode.getValuesNotifier(context).value.enabled;
+    if (duration == Duration.zero || !tickersEnabled) {
       _opacity.value = 1;
       return;
     }

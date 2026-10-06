@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/debug/frame_probe.dart';
 import 'motion_tokens.dart';
 
 /// Feed entrance: item fades in over [MotionTokens.listEntrance], delayed
@@ -56,7 +57,7 @@ class StaggeredEntrance extends StatefulWidget {
 }
 
 class _StaggeredEntranceState extends State<StaggeredEntrance>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, TickerModeWatch {
   /// Scroll velocity above which a newly-exposed card does not animate —
   /// mid-fling pop-ins read as bugs. Fling velocities run in the thousands;
   /// a deliberate slow drag stays far below this.
@@ -112,6 +113,13 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
     _evaluate();
   }
 
+  /// Frozen mid-entrance or before exposure: land on the end state. A
+  /// played card has nothing to react to, so the flip rebuilds no card.
+  @override
+  void didChangeTickerMode(bool enabled) {
+    if (!enabled) _evaluate();
+  }
+
   @override
   void didUpdateWidget(StaggeredEntrance oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -121,6 +129,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
     if (oldWidget.id == widget.id) return;
     _detachScrollable();
     _controller.stop();
+    _probePlaying(false);
     _staggered = true;
     _syncDuration();
     _done = false;
@@ -130,8 +139,22 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
   @override
   void dispose() {
     _detachScrollable();
+    _probePlaying(false);
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Whether this entrance is counted as a live frame-probe scene.
+  var _probed = false;
+
+  void _probePlaying(bool playing) {
+    if (playing == _probed) return;
+    _probed = playing;
+    if (playing) {
+      FrameProbe.instance.enter('entrance');
+    } else {
+      FrameProbe.instance.exit('entrance');
+    }
   }
 
   /// The per-index wait before the fade; part of the controller's span.
@@ -165,7 +188,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
     if (_done) return;
     final skip =
         !MotionTokens.enabled(context) ||
-        !TickerMode.valuesOf(context).enabled ||
+        !tickersEnabled ||
         widget.index < 0 ||
         (widget.played?.contains(widget.id) ?? false);
     if (skip) {
@@ -253,6 +276,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
     _staggered = _firstScreenBatch;
     _syncDuration();
     _detachScrollable();
+    _probePlaying(true);
     _controller.forward();
   }
 
@@ -266,6 +290,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
 
   void _markDone() {
     _detachScrollable();
+    _probePlaying(false);
     _done = true;
     widget.played?.add(widget.id);
     if (_controller.value != 1) _controller.value = 1;
@@ -292,6 +317,12 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
             : ((_controller.value * total - delayUs) / span).clamp(0.0, 1.0);
         return Opacity(
           opacity: MotionTokens.listEntranceCurve.transform(window),
+          // The card joins the semantics tree when it mounts, with its
+          // batch. Leaving the 0→visible flip to drop it in would send one
+          // tree update per stagger step, and on Android every update makes
+          // an accessibility service re-read the whole tree on the UI
+          // thread.
+          alwaysIncludeSemantics: true,
           child: child,
         );
       },

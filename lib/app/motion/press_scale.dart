@@ -48,7 +48,7 @@ class PressScale extends StatefulWidget {
 }
 
 class _PressScaleState extends State<PressScale>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, TickerModeWatch {
   /// The rendered scale; unbounded so the spring may pass its target.
   late final AnimationController _scale = AnimationController.unbounded(
     vsync: this,
@@ -56,7 +56,6 @@ class _PressScaleState extends State<PressScale>
   );
   var _pressed = false;
   var _active = false;
-  var _tickersEnabled = true;
   Offset? _downPosition;
   Timer? _pressDelay;
   bool _insideVerticalScrollable = false;
@@ -69,9 +68,14 @@ class _PressScaleState extends State<PressScale>
         Scrollable.maybeOf(context, axis: Axis.vertical) != null;
     _insideHorizontalScrollable =
         Scrollable.maybeOf(context, axis: Axis.horizontal) != null;
-    _tickersEnabled = TickerMode.valuesOf(context).enabled;
     _syncActive();
     _drive();
+  }
+
+  /// Only a card off its rest scale has anything to drive.
+  @override
+  void didChangeTickerMode(bool enabled) {
+    if (_pressed || _scale.value != 1) _drive();
   }
 
   @override
@@ -112,8 +116,8 @@ class _PressScaleState extends State<PressScale>
   /// suddenly grows" pop.
   void _drive() {
     if (!_active) return;
-    final target = _pressed && _tickersEnabled ? widget.scale : 1.0;
-    final spring = _tickersEnabled
+    final target = _pressed && tickersEnabled ? widget.scale : 1.0;
+    final spring = tickersEnabled
         ? MotionTokens.spring(context, MotionSpring.spatialFast)
         : null;
     if (spring == null) {

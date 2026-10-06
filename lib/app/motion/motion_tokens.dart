@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/physics.dart';
 import 'package:flutter/widgets.dart';
 
@@ -90,7 +91,10 @@ abstract final class MotionTokens {
       _enabled(context, reduce: MotionScope.maybeOf(context) ?? false);
 
   static bool _enabled(BuildContext context, {required bool reduce}) {
-    final disabled = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    // The aspect getter: depending on the whole MediaQuery rebuilt every
+    // card and image whenever any field changed (insets, the platform's
+    // accessibleNavigation flag).
+    final disabled = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final platformReduce =
         View.maybeOf(
           context,
@@ -215,6 +219,64 @@ class SpringCurve extends Curve {
 
   @override
   double transformInternal(double t) => _simulation.x(t * _settleSeconds);
+}
+
+/// Follows the ambient [TickerMode] without depending on it.
+///
+/// Route transitions and branch switches flip [TickerMode] for a whole
+/// page. Each `TickerMode.valuesOf` dependent then rebuilds in that frame,
+/// and on a feed that means every card and image at once: the layout
+/// spikes at transition start and end. A state that only needs to react to
+/// the flip mixes this in, reads [tickersEnabled] and overrides
+/// [didChangeTickerMode], rebuilding only if its output actually changes.
+mixin TickerModeWatch<T extends StatefulWidget> on State<T> {
+  ValueListenable<TickerModeData>? _tickerMode;
+
+  bool get tickersEnabled =>
+      (_tickerMode ?? TickerMode.getValuesNotifier(context)).value.enabled;
+
+  /// Called when the ambient mode flips, possibly mid-build of an
+  /// ancestor; a `setState` here is allowed.
+  @protected
+  void didChangeTickerMode(bool enabled) {}
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _watchTickerMode();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    // Reparented under a different TickerMode.
+    _watchTickerMode();
+  }
+
+  @override
+  void dispose() {
+    _tickerMode?.removeListener(_onTickerMode);
+    _tickerMode = null;
+    super.dispose();
+  }
+
+  void _watchTickerMode() {
+    final notifier = TickerMode.getValuesNotifier(context);
+    if (identical(notifier, _tickerMode)) return;
+    _tickerMode?.removeListener(_onTickerMode);
+    _tickerMode = notifier..addListener(_onTickerMode);
+    _onTickerMode();
+  }
+
+  /// The mode last reported; forceFrames changes are not reported.
+  bool? _reportedEnabled;
+
+  void _onTickerMode() {
+    final enabled = _tickerMode!.value.enabled;
+    final previous = _reportedEnabled;
+    _reportedEnabled = enabled;
+    if (previous != null && previous != enabled) didChangeTickerMode(enabled);
+  }
 }
 
 /// Programmatic page turn (keyboard, tap zones): slides over the resolved

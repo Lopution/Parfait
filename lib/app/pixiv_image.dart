@@ -567,7 +567,23 @@ class PixivImage extends ConsumerStatefulWidget {
   static const _userPreloadHold = Duration(seconds: 10);
 }
 
-class _PixivImageState extends ConsumerState<PixivImage> {
+class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
+  /// The decode (URL, width) the last build would fade in as a cold load;
+  /// null when that build ruled the fade out for another reason.
+  _HistoryEntry? _coldLoad;
+
+  /// A ticker-mode flip only changes the output of a cold load still in
+  /// flight: a decoded image paints synchronously and never fades.
+  @override
+  void didChangeTickerMode(bool enabled) {
+    final coldLoad = _coldLoad;
+    if (coldLoad == null ||
+        PixivImage._imageCompleted(coldLoad.$1, coldLoad.$2)) {
+      return;
+    }
+    setState(() {});
+  }
+
   /// The URL this element was asked to paint last build. Feed lists
   /// recycle card elements by index, so a pull-to-refresh can land a
   /// *different work* on the same element: `url` changes while the element
@@ -898,13 +914,17 @@ class _PixivImageState extends ConsumerState<PixivImage> {
     final slotHandoff = _lastShownUrl != null && _lastShownUrl != imageUrl;
     // Frozen tickers (a route transition owns the budget) must not arm a
     // fade: the outgoing snapshot would bake a half-transparent frame and
-    // the fade resuming after landing reads as the image reloading.
-    final crossfade =
+    // the fade resuming after landing reads as the image reloading. Read
+    // without a dependency; [didChangeTickerMode] rebuilds the cold loads
+    // the flip affects.
+    _coldLoad =
         widget.fade &&
-        previousTransition == null &&
-        underlayEntry == null &&
-        !slotHandoff &&
-        TickerMode.valuesOf(context).enabled;
+            previousTransition == null &&
+            underlayEntry == null &&
+            !slotHandoff
+        ? (imageUrl, effectiveWidth)
+        : null;
+    final crossfade = _coldLoad != null && tickersEnabled;
     _lastShownUrl = imageUrl;
     final placeholderColor =
         widget.placeholderColor ??
