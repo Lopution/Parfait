@@ -114,6 +114,9 @@ Future<void> _run() async {
   // original behaviour propagated init failure by throwing here; the gate
   // now surfaces it as a network error on the first request instead.
   RhttpGate.ready = rhttp.Rhttp.init();
+  // A measurement package records from launch: cold start is a scenario
+  // the probe page cannot be opened in time for. Stop it there.
+  if (kPixivFrameProbe) FrameProbe.instance.start();
   runApp(const ProviderScope(child: ParfaitApp()));
 }
 

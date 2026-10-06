@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../core/debug/frame_probe.dart';
 import '../navigation/home_shell_metrics.dart';
 import '../theme/func_semantic_tokens.dart';
 import 'hero_rect_clip.dart';
@@ -164,7 +165,7 @@ Widget illustHeroFlightShuttleBuilder(
       : _fallbackHeroEndpoint(flightContext, toHeroContext, size);
   final from = measuredFrom ?? fallbackFrom;
   final to = measuredTo ?? fallbackTo;
-  return AnimatedBuilder(
+  final shuttle = AnimatedBuilder(
     animation: animation,
     child: child,
     builder: (context, child) {
@@ -215,6 +216,11 @@ Widget illustHeroFlightShuttleBuilder(
       );
     },
   );
+  // The shuttle is mounted for exactly the flight: the frame probe counts
+  // it as a live scene.
+  return FrameProbe.available
+      ? ProbeScene(scene: 'hero', child: shuttle)
+      : shuttle;
 }
 
 /// The measured viewport clip for one flight endpoint, or null when the

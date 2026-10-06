@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart';
 
 /// `--dart-define=PIXIV_FRAME_PROBE=true` exposes the probe's settings
 /// entry in release builds — the only way to attach it to a signed
@@ -28,7 +29,35 @@ class FrameProbe {
 
   static final FrameProbe instance = FrameProbe._();
 
+  /// Builds that can record. Elsewhere the scene hooks ([enter], [exit])
+  /// are no-ops.
+  static const bool available = kPixivFrameProbe || !kReleaseMode;
+
   final List<FrameTiming> _frames = [];
+
+  /// Scenes in progress (a route transition, a Hero flight, an entrance),
+  /// counted whether or not the probe records so a recording started
+  /// mid-scene still sees it. Each recorded frame keeps a copy: raster cost
+  /// lands on the frames a scene spans, not on the frame it started in.
+  final Map<String, int> _live = {};
+
+  /// Scene hook: one [key] scene started. Pair with [exit].
+  void enter(String key) {
+    if (!available) return;
+    _live[key] = (_live[key] ?? 0) + 1;
+  }
+
+  /// Scene hook: one [key] scene ended.
+  void exit(String key) {
+    if (!available) return;
+    final count = (_live[key] ?? 0) - 1;
+    if (count > 0) {
+      _live[key] = count;
+    } else {
+      _live.remove(key);
+    }
+  }
+
   bool _attached = false;
 
   /// UI-thread phase breakdown per engine frame number, filled by the app
@@ -114,6 +143,9 @@ class FrameProbe {
     final frame = _open;
     _open = null;
     if (!_attached || frame == null) return;
+    frame
+      ..live = Map.of(_live)
+      ..layers = LayerCensus.ofViews(RendererBinding.instance.renderViews);
     _uiFrames[frameNumber] = frame;
     if (_uiFrames.length > maxFrames) _uiFrames.remove(_uiFrames.keys.first);
   }
@@ -178,7 +210,7 @@ class FrameProbe {
   static const _idleGap = Duration(milliseconds: 250);
 
   /// How many of the slowest frames the report breaks down.
-  static const int _slowestListed = 8;
+  static const int _slowestListed = 16;
 
   String report() {
     final buffer = StringBuffer()
@@ -264,12 +296,27 @@ class FrameProbe {
         'semantics: '
         '${SemanticsBinding.instance.semanticsEnabled ? 'on' : 'off'}',
       )
-      ..writeln('slowest frames (ms):');
-    final ranked = [..._frames]
-      ..sort((a, b) => b.totalSpan.compareTo(a.totalSpan));
-    for (final frame in ranked.take(_slowestListed)) {
-      buffer.writeln('  ${_breakdown(frame)}');
+      ..writeln('slowest frames (ms), in time order:');
+    // The slowest few, listed in the order they happened, each with its
+    // time since the first recorded frame so it lines up with what was
+    // being done then.
+    final origin = _frames.first.timestampInMicroseconds(FramePhase.vsyncStart);
+    final ranked =
+        ([..._frames]..sort((a, b) => b.totalSpan.compareTo(a.totalSpan)))
+            .take(_slowestListed)
+            .toList()
+          ..sort(
+            (a, b) => a
+                .timestampInMicroseconds(FramePhase.vsyncStart)
+                .compareTo(b.timestampInMicroseconds(FramePhase.vsyncStart)),
+          );
+    for (final frame in ranked) {
+      final at = frame.timestampInMicroseconds(FramePhase.vsyncStart) - origin;
+      buffer.writeln(
+        '  +${(at / 1e6).toStringAsFixed(2)}s ${_breakdown(frame)}',
+      );
     }
+    _writeAttribution(buffer, budget);
 
     final cache = PaintingBinding.instance.imageCache;
     buffer.writeln(
@@ -304,7 +351,56 @@ class FrameProbe {
       line.write(' | during: ${ui.during.join(', ')}');
     }
     if (ui != null && ui.touching) line.write(' | touch');
+    if (ui != null && ui.live.isNotEmpty) {
+      line.write(
+        ' | live: ${[for (final MapEntry(:key, :value) in ui.live.entries) '$key $value'].join(', ')}',
+      );
+    }
+    final layers = ui?.layers;
+    if (layers != null) line.write(' | layers: $layers');
     return line.toString();
+  }
+
+  /// Which scenes, offscreen layer kinds and events the over-budget frames
+  /// carried, against how many recorded frames carried them at all. A tag
+  /// whose slow share stands far above the rest is the suspect.
+  void _writeAttribution(StringBuffer buffer, Duration budget) {
+    var raster = 0;
+    var ui = 0;
+    final slowTagged = <String, int>{};
+    final allTagged = <String, int>{};
+    for (final timing in _frames) {
+      final slow =
+          timing.buildDuration > budget || timing.rasterDuration > budget;
+      if (slow) {
+        if (timing.rasterDuration >= timing.buildDuration) {
+          raster++;
+        } else {
+          ui++;
+        }
+      }
+      final frame = _uiFrames[timing.frameNumber];
+      if (frame == null) continue;
+      for (final tag in frame.tags()) {
+        allTagged[tag] = (allTagged[tag] ?? 0) + 1;
+        if (slow) slowTagged[tag] = (slowTagged[tag] ?? 0) + 1;
+      }
+    }
+    buffer.writeln('over budget by thread: raster $raster, ui $ui');
+    if (allTagged.isEmpty) return;
+    final tags = allTagged.keys.toList()
+      ..sort((a, b) {
+        final bySlow = (slowTagged[b] ?? 0).compareTo(slowTagged[a] ?? 0);
+        return bySlow != 0 ? bySlow : allTagged[b]!.compareTo(allTagged[a]!);
+      });
+    buffer.writeln('tags (over-budget / frames with the tag):');
+    for (final tag in tags) {
+      final slow = slowTagged[tag] ?? 0;
+      final all = allTagged[tag]!;
+      buffer.writeln(
+        '  $tag: $slow/$all (${(slow * 100 / all).toStringAsFixed(1)}%)',
+      );
+    }
   }
 
   /// Vsync gaps while animating, in frame order, each with whether a finger
@@ -394,6 +490,26 @@ class UiFrame {
   /// A finger was down when the frame began.
   bool touching = false;
 
+  /// Scenes in progress when the frame ended ([FrameProbe.enter]).
+  Map<String, int> live = const {};
+
+  /// The composited layer tree the frame handed to the raster thread.
+  LayerCensus? layers;
+
+  /// What the attribution table files this frame under: its scenes, its
+  /// offscreen layer kinds, decoded images and JSON decodes, the finger.
+  Set<String> tags() => {
+    ...live.keys,
+    for (final kind in layers?.offscreen.keys ?? const <String>[])
+      'layer $kind',
+    for (final event in [...before, ...during])
+      if (event.startsWith('img'))
+        'img'
+      else if (event.startsWith('json'))
+        'json',
+    if (touching) 'touch',
+  };
+
   void add(UiPhase phase, int micros) =>
       _micros[phase] = (_micros[phase] ?? 0) + micros;
 
@@ -444,4 +560,106 @@ final class ProbedRootPipelineOwner extends PipelineOwner {
     UiPhase.semantics,
     () => super.flushSemantics(),
   );
+}
+
+/// Layer-tree counts for one frame: the kinds that make the raster thread
+/// draw offscreen and composite back (partial opacity, filters, masks,
+/// save-layer clips, external textures), plus the total and the pictures.
+class LayerCensus {
+  LayerCensus._();
+
+  int total = 0;
+  int pictures = 0;
+  final Map<String, int> offscreen = {};
+
+  /// Counts the trees [views] last composited.
+  static LayerCensus ofViews(Iterable<RenderView> views) {
+    final census = LayerCensus._();
+    for (final view in views) {
+      // A diagnostic read of the tree just composited; RenderView offers
+      // no public accessor for its root layer.
+      // ignore: invalid_use_of_protected_member
+      final root = view.layer;
+      if (root != null) census._visit(root);
+    }
+    return census;
+  }
+
+  /// Counts a bare tree, for tests.
+  @visibleForTesting
+  static LayerCensus ofLayer(Layer root) => LayerCensus._().._visit(root);
+
+  void _visit(Layer layer) {
+    total++;
+    if (layer is PictureLayer) pictures++;
+    final kind = _offscreenKind(layer);
+    if (kind != null) offscreen[kind] = (offscreen[kind] ?? 0) + 1;
+    if (layer is ContainerLayer) {
+      for (
+        var child = layer.firstChild;
+        child != null;
+        child = child.nextSibling
+      ) {
+        _visit(child);
+      }
+    }
+  }
+
+  static String? _offscreenKind(Layer layer) => switch (layer) {
+    OpacityLayer(:final alpha?) when alpha > 0 && alpha < 255 => 'opacity',
+    ImageFilterLayer() => 'imageFilter',
+    BackdropFilterLayer() => 'backdrop',
+    ShaderMaskLayer() => 'shaderMask',
+    ColorFilterLayer() => 'colorFilter',
+    ClipRectLayer(clipBehavior: Clip.antiAliasWithSaveLayer) ||
+    ClipRRectLayer(clipBehavior: Clip.antiAliasWithSaveLayer) ||
+    ClipRSuperellipseLayer(clipBehavior: Clip.antiAliasWithSaveLayer) ||
+    ClipPathLayer(clipBehavior: Clip.antiAliasWithSaveLayer) => 'saveLayerClip',
+    TextureLayer() || PlatformViewLayer() => 'texture',
+    _ => null,
+  };
+
+  @override
+  String toString() => [
+    '$total total, $pictures pictures',
+    for (final MapEntry(:key, :value) in offscreen.entries) '$key $value',
+  ].join(', ');
+}
+
+/// Counts [scene] as in progress while mounted, for subtrees whose
+/// lifetime is the scene (a Hero shuttle exists only during its flight).
+class ProbeScene extends StatefulWidget {
+  const ProbeScene({super.key, required this.scene, required this.child});
+
+  final String scene;
+  final Widget child;
+
+  @override
+  State<ProbeScene> createState() => _ProbeSceneState();
+}
+
+class _ProbeSceneState extends State<ProbeScene> {
+  @override
+  void initState() {
+    super.initState();
+    FrameProbe.instance.enter(widget.scene);
+  }
+
+  @override
+  void didUpdateWidget(ProbeScene oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scene == widget.scene) return;
+    FrameProbe.instance
+      ..exit(oldWidget.scene)
+      ..enter(widget.scene);
+  }
+
+  @override
+  void dispose() {
+    FrameProbe.instance.exit(widget.scene);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

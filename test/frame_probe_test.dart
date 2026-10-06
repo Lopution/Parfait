@@ -1,3 +1,6 @@
+import 'dart:ui' show FramePhase;
+
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart' show FrameTiming;
 import 'package:flutter_test/flutter_test.dart';
@@ -29,6 +32,20 @@ FrameTiming _timed({
   rasterFinishWallTime: vsync + build + raster,
 );
 
+extension on FrameTiming {
+  FrameTiming copyWithNumber(int number) => FrameTiming(
+    vsyncStart: timestampInMicroseconds(FramePhase.vsyncStart),
+    buildStart: timestampInMicroseconds(FramePhase.buildStart),
+    buildFinish: timestampInMicroseconds(FramePhase.buildFinish),
+    rasterStart: timestampInMicroseconds(FramePhase.rasterStart),
+    rasterFinish: timestampInMicroseconds(FramePhase.rasterFinish),
+    rasterFinishWallTime: timestampInMicroseconds(
+      FramePhase.rasterFinishWallTime,
+    ),
+    frameNumber: number,
+  );
+}
+
 void main() {
   test('PIXIV_FRAME_PROBE stays unset in a default build', () {
     // The release exception is opt-in: a build without the dart-define —
@@ -58,7 +75,7 @@ void main() {
     expect(probe.isFull, isTrue);
     final report = probe.report();
     expect(report, contains('frames: ${FrameProbe.maxFrames}'));
-    expect(report, contains('\n  8.0 = wait 0.0 + ui 4.0'));
+    expect(report, contains('s 8.0 = wait 0.0 + ui 4.0'));
     expect(report, isNot(contains('500.0')));
   });
 
@@ -119,7 +136,7 @@ void main() {
         '13.3-20.8: 1  >20.8: 0',
       ),
     );
-    expect(report, contains('| touch\n'));
+    expect(report, contains('| touch | layers: '));
   }, semanticsEnabled: false);
 
   testWidgets('slowest frames split by phase and name the work before them', (
@@ -170,19 +187,79 @@ void main() {
       report,
       matches(
         RegExp(
-          r'  33\.0 = wait 30\.0 \+ ui 1\.0 '
+          r'  \+0\.00s 33\.0 = wait 30\.0 \+ ui 1\.0 '
           r'\[anim [\d.]+ build [\d.]+ layout [\d.]+ paint 0\.0 sem 0\.0 '
           r'post [\d.]+\] \+ queue 1\.0 \+ raster 1\.0 '
           r'\| before: json 180KB [\d.]+ '
-          r'\| during: feed commit 30 [\d.]+, img 540x810\n',
+          r'\| during: feed commit 30 [\d.]+, img 540x810 '
+          r'\| layers: \d+ total, \d+ pictures',
         ),
       ),
     );
     expect(
       report,
-      contains('  2.0 = wait 0.0 + ui 1.0 + queue 0.0 + raster 1.0\n'),
+      contains('  +0.04s 2.0 = wait 0.0 + ui 1.0 + queue 0.0 + raster 1.0\n'),
     );
   }, semanticsEnabled: false);
+
+  testWidgets('slow frames name their live scenes and the tags rank them', (
+    tester,
+  ) async {
+    final probe = FrameProbe.instance..start();
+    probe
+      ..enter('snapshot')
+      ..beginUiFrame()
+      ..endUiFrame(1)
+      ..exit('snapshot')
+      ..beginUiFrame()
+      ..endUiFrame(2)
+      ..beginUiFrame()
+      ..endUiFrame(3)
+      ..stop();
+    probe.debugRecordTimings([
+      _timed(vsync: 0, build: 1000, raster: 20000).copyWithNumber(1),
+      _timed(vsync: 16667, build: 1000, raster: 1000).copyWithNumber(2),
+      _timed(vsync: 33333, build: 1000, raster: 1000).copyWithNumber(3),
+    ]);
+
+    final report = probe.report();
+    expect(report, contains('raster 20.0 | live: snapshot 1 | layers: '));
+    expect(report, contains('over budget by thread: raster 1, ui 0'));
+    expect(report, contains('  snapshot: 1/1 (100.0%)\n'));
+  }, semanticsEnabled: false);
+
+  test('scene counts pair enter with exit and never go negative', () {
+    final probe = FrameProbe.instance
+      ..exit('hero')
+      ..enter('hero')
+      ..enter('hero')
+      ..exit('hero');
+    probe
+      ..start()
+      ..beginUiFrame()
+      ..endUiFrame(1)
+      ..stop()
+      ..exit('hero');
+    probe.debugRecordTimings([_frame(40000).copyWithNumber(1)]);
+    expect(probe.report(), contains('| live: hero 1 |'));
+  });
+
+  test('layer census counts only the offscreen kinds', () {
+    final root = OffsetLayer()
+      ..append(OpacityLayer(alpha: 128)..append(PictureLayer(Rect.zero)))
+      ..append(OpacityLayer(alpha: 255))
+      ..append(ImageFilterLayer())
+      ..append(ClipRRectLayer(clipBehavior: Clip.antiAliasWithSaveLayer))
+      ..append(ClipRRectLayer());
+    final census = LayerCensus.ofLayer(root);
+    expect(census.total, 7);
+    expect(census.pictures, 1);
+    expect(census.offscreen, {
+      'opacity': 1,
+      'imageFilter': 1,
+      'saveLayerClip': 1,
+    });
+  });
 
   testWidgets('frame budget and intervals follow the panel refresh rate', (
     tester,
