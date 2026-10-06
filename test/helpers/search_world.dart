@@ -25,6 +25,8 @@ class FakeSearchRepository implements SearchRepository {
     nextUrl: null,
   );
 
+  SearchNovelPage novelPage = const SearchNovelPage(novels: [], nextUrl: null);
+
   @override
   Future<SearchIllustPage> searchIllust(
     IllustSearchQuery query, {
@@ -44,7 +46,7 @@ class FakeSearchRepository implements SearchRepository {
   }) async {
     requests.add(query);
     await pendingFetch?.future;
-    return const SearchNovelPage(novels: [], nextUrl: null);
+    return novelPage;
   }
 
   @override

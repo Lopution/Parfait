@@ -317,7 +317,6 @@ void main() {
     final outcome = await provider.search(input);
 
     expect(outcome, isA<ReverseImageSearchSuccess>());
-    expect((outcome as ReverseImageSearchSuccess).hits, isEmpty);
   });
 
   test('provider belongs to interactiveWebView and is enabled', () {

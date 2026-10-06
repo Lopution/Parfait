@@ -3365,18 +3365,6 @@ abstract class AppLocalizations {
   /// **'分享的图片无法使用'**
   String get searchReverseIntentFailed;
 
-  /// No description provided for @searchReverseOpenExternal.
-  ///
-  /// In zh, this message translates to:
-  /// **'打开来源'**
-  String get searchReverseOpenExternal;
-
-  /// Similarity of a reverse image search match
-  ///
-  /// In zh, this message translates to:
-  /// **'相似度 {percent}%'**
-  String searchReverseSimilarity(int percent);
-
   /// No description provided for @searchReverseOpenFailed.
   ///
   /// In zh, this message translates to:
@@ -3455,12 +3443,6 @@ abstract class AppLocalizations {
   /// **'已完成'**
   String get searchReverseDone;
 
-  /// No description provided for @searchReverseResultCount.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count} 个结果'**
-  String searchReverseResultCount(int count);
-
   /// No description provided for @searchReverseEngineSwitch.
   ///
   /// In zh, this message translates to:
@@ -3508,6 +3490,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'标题和简介'**
   String get searchTitleCaption;
+
+  /// No description provided for @searchTargetText.
+  ///
+  /// In zh, this message translates to:
+  /// **'正文'**
+  String get searchTargetText;
+
+  /// No description provided for @searchTargetKeyword.
+  ///
+  /// In zh, this message translates to:
+  /// **'关键词'**
+  String get searchTargetKeyword;
 
   /// No description provided for @searchSort.
   ///
@@ -3670,6 +3664,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'高'**
   String get searchHeight;
+
+  /// No description provided for @searchTextLength.
+  ///
+  /// In zh, this message translates to:
+  /// **'正文长度'**
+  String get searchTextLength;
+
+  /// No description provided for @searchChars.
+  ///
+  /// In zh, this message translates to:
+  /// **'字数'**
+  String get searchChars;
+
+  /// No description provided for @searchOriginalOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅原创'**
+  String get searchOriginalOnly;
+
+  /// No description provided for @searchSetDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'设为默认'**
+  String get searchSetDefault;
 
   /// Filter chip: a lower bound only, e.g. bookmarks or width
   ///

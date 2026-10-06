@@ -231,7 +231,7 @@ class IqdbWebViewProvider implements ReverseImageProvider {
     final normalized = html.toLowerCase();
     if (normalized.contains('no relevant matches') ||
         normalized.contains('no matches')) {
-      return const ReverseImageSearchSuccess([]);
+      return const ReverseImageSearchSuccess();
     }
     return null;
   }

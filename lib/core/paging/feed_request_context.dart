@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../entity/illust_entity.dart';
 import '../network/pixiv_http_client.dart';
+import '../novel/novel_entity.dart';
 
 /// A request identity that must travel with every page response.
 ///
@@ -43,10 +44,14 @@ class FeedPage {
     required this.nextCursor,
     this.commit,
     Map<int, IllustEntity>? incomingIllusts,
+    Map<int, NovelEntity>? incomingNovels,
   }) : ids = List.unmodifiable(ids),
        incomingIllusts = incomingIllusts == null
            ? null
-           : Map.unmodifiable(incomingIllusts);
+           : Map.unmodifiable(incomingIllusts),
+       incomingNovels = incomingNovels == null
+           ? null
+           : Map.unmodifiable(incomingNovels);
 
   final List<int> ids;
   final String? nextCursor;
@@ -57,6 +62,11 @@ class FeedPage {
   /// leak into the visible ID list simply because the shared store is still
   /// awaiting the commit gate.
   final Map<int, IllustEntity>? incomingIllusts;
+
+  /// Novel payloads parsed from this response — same contract as
+  /// [incomingIllusts] for novel feeds (the search feed's novel bookmark/AI
+  /// predicates read it before the commit lands in the store).
+  final Map<int, NovelEntity>? incomingNovels;
 }
 
 enum FeedDiscardReason { cancelled, stale, accountChanged, disposed }

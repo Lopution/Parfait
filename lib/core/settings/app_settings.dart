@@ -247,7 +247,8 @@ class AppSettings {
     this.downloadCaption = false,
     this.namingRule = NamingRule.defaultRule,
     this.reverseImageEngine = ReverseImageEngine.sauceNao,
-    this.searchFilters = const SearchFilters(),
+    this.searchIllustFilters = IllustSearchFilters.defaults,
+    this.searchNovelFilters = NovelSearchFilters.defaults,
     this.schemaVersion = currentSchemaVersion,
   });
 
@@ -364,7 +365,13 @@ class AppSettings {
   /// Last confirmed search filter set; persisted so the sheet reopens on
   /// the user's previous choices (same remember-last-selection contract
   /// as [reverseImageEngine]). Damaged fields fall back independently.
-  final SearchFilters searchFilters;
+  /// Persisted per-type search filter defaults. Each result type reads its
+  /// own set — an illust blob carries ratio/contentType/pixel bounds, a
+  /// novel blob carries textLength/originalOnly, and a blob written by an
+  /// older version decodes into the novel set's shared fields so the user's
+  /// previous defaults are not lost.
+  final IllustSearchFilters searchIllustFilters;
+  final NovelSearchFilters searchNovelFilters;
 
   factory AppSettings.defaults() {
     return AppSettings(
@@ -473,9 +480,20 @@ class AppSettings {
       reverseImageEngine:
           ReverseImageEngine.tryFromName(json['reverseImageEngine']) ??
           base.reverseImageEngine,
-      searchFilters: json.containsKey('searchFilters')
-          ? SearchFilters.fromJson(json['searchFilters'])
-          : base.searchFilters,
+      // Both type sets decode their own key; a pre-split single blob
+      // (`searchFilters`) seeds them once, so an upgraded user's shared
+      // defaults (sort/dates/AI/bookmarks) carry over to the novel set,
+      // clamped into novel-legal values.
+      searchIllustFilters: json.containsKey('searchIllustFilters')
+          ? IllustSearchFilters.fromJson(json['searchIllustFilters'])
+          : json.containsKey('searchFilters')
+          ? IllustSearchFilters.fromJson(json['searchFilters'])
+          : base.searchIllustFilters,
+      searchNovelFilters: json.containsKey('searchNovelFilters')
+          ? NovelSearchFilters.fromJson(json['searchNovelFilters'])
+          : json.containsKey('searchFilters')
+          ? NovelSearchFilters.fromJson(json['searchFilters'])
+          : base.searchNovelFilters,
     );
   }
 
@@ -514,7 +532,8 @@ class AppSettings {
       if (namingRule.preset == NamingPreset.custom)
         'namingTemplate': namingRule.template,
       'reverseImageEngine': reverseImageEngine.name,
-      'searchFilters': searchFilters.toJson(),
+      'searchIllustFilters': searchIllustFilters.toJson(),
+      'searchNovelFilters': searchNovelFilters.toJson(),
     };
   }
 
@@ -649,7 +668,8 @@ class AppSettings {
     bool? downloadCaption,
     Object? namingRule = _unset,
     ReverseImageEngine? reverseImageEngine,
-    SearchFilters? searchFilters,
+    IllustSearchFilters? searchIllustFilters,
+    NovelSearchFilters? searchNovelFilters,
   }) {
     return AppSettings(
       schemaVersion: currentSchemaVersion,
@@ -702,7 +722,8 @@ class AppSettings {
           ? this.namingRule
           : namingRule as NamingRule,
       reverseImageEngine: reverseImageEngine ?? this.reverseImageEngine,
-      searchFilters: searchFilters ?? this.searchFilters,
+      searchIllustFilters: searchIllustFilters ?? this.searchIllustFilters,
+      searchNovelFilters: searchNovelFilters ?? this.searchNovelFilters,
     );
   }
 

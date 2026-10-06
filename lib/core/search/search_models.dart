@@ -19,11 +19,15 @@ extension SearchResultTypeWire on SearchResultType {
 }
 
 /// Pixiv's typed `search_target` values. Unknown values never enter a
-/// request because callers can only construct this enum.
+/// request because callers can only construct this enum. `text` and
+/// `keyword` are novel-search targets only — illust filters normalize them
+/// to [partialMatchForTags] at decode and never offer them.
 enum SearchTarget {
   partialMatchForTags('partial_match_for_tags', 'searchPartialTags'),
   exactMatchForTags('exact_match_for_tags', 'searchExactTags'),
-  titleAndCaption('title_and_caption', 'searchTitleCaption');
+  titleAndCaption('title_and_caption', 'searchTitleCaption'),
+  text('text', 'searchTargetText'),
+  keyword('keyword', 'searchTargetKeyword');
 
   const SearchTarget(this.wireValue, this.labelKey);
 
@@ -53,12 +57,14 @@ enum SearchSort {
   /// The novel endpoint does not recognize the gendered popularity sorts
   /// (400 Invalid value) — normalize to the closest semantic value before
   /// serializing.
-  SearchSort get novelSafe => isPopular ? popularDesc : this;
+  SearchSort get novelSafe =>
+      isPopular && this != popularDesc ? popularDesc : this;
 }
 
 /// AI-work selector. Pixiv's `search_ai_type` is binary (0=all, 1=exclude);
 /// "only AI" has no wire value and is applied client-side on
-/// `illust_ai_type == 2` in the search feed's page filter.
+/// `illust_ai_type == 2` / `novel_ai_type == 2` in the search feed's page
+/// filter.
 enum SearchAiFilter {
   all('searchAiAll'),
   exclude('searchAiExclude'),
@@ -116,10 +122,13 @@ enum SearchDuration {
   final String labelKey;
 }
 
-/// Filters shared by Illust/Manga and Novel search. Dates are date-only so
-/// timezone conversion cannot move a user's selected day across a boundary.
+/// Filters for one artwork search type. Illustration and novel searches own
+/// one set each — shared dims live on this base, type-specific dims on the
+/// subclasses, so a type only ever displays and sends its own dimensions.
+/// Dates are date-only so timezone conversion cannot move a user's selected
+/// day across a boundary.
 @immutable
-class SearchFilters {
+sealed class SearchFilters {
   const SearchFilters({
     this.target = SearchTarget.partialMatchForTags,
     this.sort = SearchSort.dateDesc,
@@ -129,14 +138,10 @@ class SearchFilters {
     this.aiFilter = SearchAiFilter.all,
     this.bookmarkMin,
     this.bookmarkMax,
-    this.ratio,
-    this.contentType = SearchContentType.illustAndMangaAndUgoira,
-    this.widthMin,
-    this.widthMax,
-    this.heightMin,
-    this.heightMax,
   });
 
+  /// Search-range selector. The valid set depends on the type — see
+  /// [targetOptions]; foreign values are clamped at decode/serialize.
   final SearchTarget target;
   final SearchSort sort;
   final SearchDuration? duration;
@@ -153,13 +158,25 @@ class SearchFilters {
   final int? bookmarkMin;
   final int? bookmarkMax;
 
-  /// Illust-only selectors — never serialized on novel queries.
-  final SearchRatioPattern? ratio;
-  final SearchContentType contentType;
-  final int? widthMin;
-  final int? widthMax;
-  final int? heightMin;
-  final int? heightMax;
+  /// The result type this filter set belongs to.
+  SearchResultType get type;
+
+  /// The search targets this type accepts — the sheet offers exactly these.
+  List<SearchTarget> get targetOptions;
+
+  /// The sort orders this type's endpoint accepts.
+  List<SearchSort> get sortOptions;
+
+  /// [target] clamped into [targetOptions] for serialization.
+  SearchTarget get normalizedTarget => clampTarget(target, targetOptions);
+
+  /// Clamps [value] into [options], falling back to the first option —
+  /// every type-specific decode (settings JSON, route params) runs the raw
+  /// value through this so a foreign target can never reach display code.
+  static SearchTarget clampTarget(
+    SearchTarget value,
+    List<SearchTarget> options,
+  ) => options.contains(value) ? value : options.first;
 
   /// Stable identity for feed/page-storage scopes.
   ///
@@ -168,36 +185,252 @@ class SearchFilters {
   /// based on the same normalized wire values sent to Pixiv rather than on
   /// [Object.toString], which is not a semantic representation of filters.
   String get cacheKey => [
-    target.wireValue,
-    sort.wireValue,
+    normalizedTarget.wireValue,
+    normalizedSort.wireValue,
     duration?.wireValue ?? '',
     startDate == null ? '' : formatApiDate(startDate!),
     endDate == null ? '' : formatApiDate(endDate!),
     aiFilter.name,
     bookmarkMin?.toString() ?? '',
     bookmarkMax?.toString() ?? '',
-    ratio?.wireValue ?? '',
-    contentType.wireValue,
-    widthMin?.toString() ?? '',
-    widthMax?.toString() ?? '',
-    heightMin?.toString() ?? '',
-    heightMax?.toString() ?? '',
+    ...ownCacheKeyParts,
   ].join('|');
 
-  static const defaults = SearchFilters();
+  /// The sort after the type's normalization (novel drops gendered sorts).
+  SearchSort get normalizedSort => sort;
 
-  /// Persisted form stored inside AppSettings. Enums serialize by their
-  /// stable wire values so an enum reorder or rename cannot silently
+  /// Type-specific cache key tail.
+  List<String> get ownCacheKeyParts;
+
+  /// Persisted shared fields stored inside AppSettings. Enums serialize by
+  /// their stable wire values so an enum reorder or rename cannot silently
   /// change a user's persisted selection; dates stay date-only local.
-  Map<String, Object?> toJson() => {
-    'target': target.wireValue,
-    'sort': sort.wireValue,
+  Map<String, Object?> sharedJson() => {
+    'target': normalizedTarget.wireValue,
+    'sort': normalizedSort.wireValue,
     if (duration != null) 'duration': duration!.wireValue,
     if (startDate != null) 'startDate': formatApiDate(startDate!),
     if (endDate != null) 'endDate': formatApiDate(endDate!),
     'aiFilter': aiFilter.name,
     if (bookmarkMin != null) 'bookmarkMin': bookmarkMin,
     if (bookmarkMax != null) 'bookmarkMax': bookmarkMax,
+  };
+
+  Map<String, Object?> toJson();
+
+  /// Serializes the filter set into app-API query parameters.
+  ///
+  /// `duration` is never sent: Pixiv's honoring of `within_last_*` on the
+  /// app API is unreliable, so a preset is resolved client-side into
+  /// `start_date`/`end_date` (today−N .. today, local time). A duration
+  /// also overrides any
+  /// custom date bounds: the two are mutually exclusive in the sheet UI,
+  /// and this keeps the wire shape sane for stale states.
+  Map<String, String> toQuery({required String word}) {
+    final normalized = word.trim();
+    if (normalized.isEmpty) {
+      throw const FormatException('search word must not be empty');
+    }
+    final range = effectiveDateRange();
+    final query = <String, String>{
+      'word': normalized,
+      'search_target': normalizedTarget.wireValue,
+      'sort': normalizedSort.wireValue,
+      'filter': 'for_android',
+      if (range.$1 != null) 'start_date': formatApiDate(range.$1!),
+      if (range.$2 != null) 'end_date': formatApiDate(range.$2!),
+      if (aiFilter.wireValue != null) 'search_ai_type': aiFilter.wireValue!,
+      ..._boundQuery('bookmark_num', bookmarkMin, bookmarkMax),
+    };
+    if (range.$1 != null && range.$2 != null && range.$1!.isAfter(range.$2!)) {
+      throw const FormatException('search start date is after end date');
+    }
+    return query;
+  }
+
+  /// Same request shape minus `sort`: the `popular-preview` endpoints carry
+  /// the popularity ordering implicitly and reject a sort parameter.
+  Map<String, String> toPreviewQuery({required String word}) {
+    final query = toQuery(word: word)..remove('sort');
+    return query;
+  }
+
+  /// Resolves [duration] into an absolute range; a set duration wins over
+  /// any custom bounds. Both endpoints are date-only, local time.
+  (DateTime?, DateTime?) effectiveDateRange() {
+    final days = switch (duration) {
+      SearchDuration.day => 1,
+      SearchDuration.week => 7,
+      SearchDuration.month => 30,
+      null => 0,
+    };
+    if (days > 0) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      return (today.subtract(Duration(days: days)), today);
+    }
+    return (startDate, endDate);
+  }
+
+  /// A lower bound above the upper bound is a typo the user should not have
+  /// to fix — swap the pair on the wire (Shaft's `isValid` does the same).
+  static Map<String, String> _boundQuery(String name, int? min, int? max) {
+    if (min != null && max != null && min > max) {
+      return {'${name}_min': '$max', '${name}_max': '$min'};
+    }
+    return {
+      if (min != null) '${name}_min': '$min',
+      if (max != null) '${name}_max': '$max',
+    };
+  }
+
+  /// copyWith over the shared dims — the filter sheet edits them without
+  /// knowing the concrete subclass.
+  SearchFilters copyShared({
+    SearchTarget? target,
+    SearchSort? sort,
+    Object? duration = _unset,
+    Object? startDate = _unset,
+    Object? endDate = _unset,
+    SearchAiFilter? aiFilter,
+    Object? bookmarkMin = _unset,
+    Object? bookmarkMax = _unset,
+  });
+
+  bool _sharedEquals(SearchFilters other) =>
+      other.target == target &&
+      other.sort == sort &&
+      _sameDay(other.startDate, startDate) &&
+      _sameDay(other.endDate, endDate) &&
+      other.duration == duration &&
+      other.aiFilter == aiFilter &&
+      other.bookmarkMin == bookmarkMin &&
+      other.bookmarkMax == bookmarkMax;
+
+  int get _sharedHash => Object.hash(
+    target,
+    sort,
+    duration,
+    _dateHash(startDate),
+    _dateHash(endDate),
+    aiFilter,
+    bookmarkMin,
+    bookmarkMax,
+  );
+}
+
+/// Sentinel for "argument not passed" in filter copy methods — `null` is a
+/// meaningful value (clear the bound), so a plain nullable parameter cannot
+/// express "leave unchanged".
+const Object _unset = Object();
+
+typedef _SharedFieldValues = ({
+  SearchTarget target,
+  SearchSort sort,
+  SearchDuration? duration,
+  DateTime? startDate,
+  DateTime? endDate,
+  SearchAiFilter aiFilter,
+  int? bookmarkMin,
+  int? bookmarkMax,
+});
+
+/// Per-field validation shared by both subclasses: one damaged field falls
+/// back to its default without discarding the other selections. [defaults]
+/// provides the per-type fallbacks for non-nullable selectors.
+_SharedFieldValues _sharedFieldsFromJson(Map<dynamic, dynamic> json) {
+  DateTime? dateOf(String key) {
+    final raw = json[key];
+    return raw is String ? DateTime.tryParse(raw) : null;
+  }
+
+  int? intOf(String key) {
+    final raw = json[key];
+    return raw is int ? raw : null;
+  }
+
+  T? wireOf<T>(String key, Iterable<T> values, String Function(T) wire) {
+    final raw = json[key];
+    if (raw is! String) return null;
+    return values.where((value) => wire(value) == raw).firstOrNull;
+  }
+
+  return (
+    target:
+        wireOf('target', SearchTarget.values, (v) => v.wireValue) ??
+        SearchTarget.partialMatchForTags,
+    sort:
+        wireOf('sort', SearchSort.values, (v) => v.wireValue) ??
+        SearchSort.dateDesc,
+    duration: wireOf('duration', SearchDuration.values, (v) => v.wireValue),
+    startDate: dateOf('startDate'),
+    endDate: dateOf('endDate'),
+    aiFilter:
+        SearchAiFilter.values
+            .where((value) => value.name == json['aiFilter'])
+            .firstOrNull ??
+        SearchAiFilter.all,
+    bookmarkMin: intOf('bookmarkMin'),
+    bookmarkMax: intOf('bookmarkMax'),
+  );
+}
+
+/// Illustration/manga search filters — the full shared set plus ratio,
+/// content type and pixel bounds, which the novel endpoint does not have.
+final class IllustSearchFilters extends SearchFilters {
+  const IllustSearchFilters({
+    super.target,
+    super.sort,
+    super.duration,
+    super.startDate,
+    super.endDate,
+    super.aiFilter,
+    super.bookmarkMin,
+    super.bookmarkMax,
+    this.ratio,
+    this.contentType = SearchContentType.illustAndMangaAndUgoira,
+    this.widthMin,
+    this.widthMax,
+    this.heightMin,
+    this.heightMax,
+  });
+
+  static const defaults = IllustSearchFilters();
+
+  /// Illust-only selectors — never serialized on novel queries.
+  final SearchRatioPattern? ratio;
+  final SearchContentType contentType;
+  final int? widthMin;
+  final int? widthMax;
+  final int? heightMin;
+  final int? heightMax;
+
+  @override
+  SearchResultType get type => SearchResultType.illust;
+
+  @override
+  List<SearchTarget> get targetOptions => const [
+    SearchTarget.partialMatchForTags,
+    SearchTarget.exactMatchForTags,
+    SearchTarget.titleAndCaption,
+  ];
+
+  @override
+  List<SearchSort> get sortOptions => SearchSort.values;
+
+  @override
+  List<String> get ownCacheKeyParts => [
+    ratio?.wireValue ?? '',
+    contentType.wireValue,
+    widthMin?.toString() ?? '',
+    widthMax?.toString() ?? '',
+    heightMin?.toString() ?? '',
+    heightMax?.toString() ?? '',
+  ];
+
+  @override
+  Map<String, Object?> toJson() => {
+    ...sharedJson(),
     if (ratio != null) 'ratio': ratio!.wireValue,
     'contentType': contentType.wireValue,
     if (widthMin != null) 'widthMin': widthMin,
@@ -208,52 +441,25 @@ class SearchFilters {
 
   /// Per-field validation: one damaged field falls back to its default
   /// without discarding the other selections. A non-map value yields the
-  /// full default set.
-  factory SearchFilters.fromJson(Object? json) {
+  /// full default set. Novel-only targets (`text`/`keyword`) never appear
+  /// here — the shared decode feeds into [targetOptions] clamping.
+  factory IllustSearchFilters.fromJson(Object? json) {
     if (json is! Map) return defaults;
-    DateTime? dateOf(String key) {
-      final raw = json[key];
-      return raw is String ? DateTime.tryParse(raw) : null;
-    }
-
+    final shared = _sharedFieldsFromJson(json);
     int? intOf(String key) {
       final raw = json[key];
       return raw is int ? raw : null;
     }
 
-    return SearchFilters(
-      target: switch (json['target']) {
-        final String wire =>
-          SearchTarget.values
-                  .where((value) => value.wireValue == wire)
-                  .firstOrNull ??
-              defaults.target,
-        _ => defaults.target,
-      },
-      sort: switch (json['sort']) {
-        final String wire =>
-          SearchSort.values
-                  .where((value) => value.wireValue == wire)
-                  .firstOrNull ??
-              defaults.sort,
-        _ => defaults.sort,
-      },
-      duration: switch (json['duration']) {
-        final String wire =>
-          SearchDuration.values
-              .where((value) => value.wireValue == wire)
-              .firstOrNull,
-        _ => null,
-      },
-      startDate: dateOf('startDate'),
-      endDate: dateOf('endDate'),
-      aiFilter:
-          SearchAiFilter.values
-              .where((value) => value.name == json['aiFilter'])
-              .firstOrNull ??
-          defaults.aiFilter,
-      bookmarkMin: intOf('bookmarkMin'),
-      bookmarkMax: intOf('bookmarkMax'),
+    return IllustSearchFilters(
+      target: SearchFilters.clampTarget(shared.target, defaults.targetOptions),
+      sort: shared.sort,
+      duration: shared.duration,
+      startDate: shared.startDate,
+      endDate: shared.endDate,
+      aiFilter: shared.aiFilter,
+      bookmarkMin: shared.bookmarkMin,
+      bookmarkMax: shared.bookmarkMax,
       ratio: switch (json['ratio']) {
         final String wire =>
           SearchRatioPattern.values
@@ -276,81 +482,41 @@ class SearchFilters {
     );
   }
 
-  /// Serializes the filter set into app-API query parameters.
-  ///
-  /// `duration` is never sent: Pixiv's honoring of `within_last_*` on the
-  /// app API is unreliable, so a preset is resolved client-side into
-  /// `start_date`/`end_date` (today−N .. today, local time). A duration
-  /// also overrides any
-  /// custom date bounds: the two are mutually exclusive in the sheet UI,
-  /// and this keeps the wire shape sane for stale states.
-  Map<String, String> toQuery({
-    required String word,
-    bool includeIllustParams = false,
-  }) {
-    final normalized = word.trim();
-    if (normalized.isEmpty) {
-      throw const FormatException('search word must not be empty');
-    }
-    final range = _effectiveDateRange();
-    final query = <String, String>{
-      'word': normalized,
-      'search_target': target.wireValue,
-      // The novel endpoint 400s on the gendered popularity sorts — callers
-      // pass a normalized sort via [novelSafe] when includeIllustParams is
-      // false.
-      'sort': includeIllustParams ? sort.wireValue : sort.novelSafe.wireValue,
-      'filter': 'for_android',
-      if (range.$1 != null) 'start_date': formatApiDate(range.$1!),
-      if (range.$2 != null) 'end_date': formatApiDate(range.$2!),
-      if (aiFilter.wireValue != null) 'search_ai_type': aiFilter.wireValue!,
-      if (bookmarkMin != null) 'bookmark_num_min': '$bookmarkMin',
-      if (bookmarkMax != null) 'bookmark_num_max': '$bookmarkMax',
-      if (includeIllustParams) ...{
-        if (ratio != null) 'ratio_pattern': ratio!.wireValue,
-        if (contentType != SearchContentType.illustAndMangaAndUgoira)
-          'content_type': contentType.wireValue,
-        if (widthMin != null) 'width_min': '$widthMin',
-        if (widthMax != null) 'width_max': '$widthMax',
-        if (heightMin != null) 'height_min': '$heightMin',
-        if (heightMax != null) 'height_max': '$heightMax',
-      },
+  @override
+  Map<String, String> toQuery({required String word}) {
+    final query = super.toQuery(word: word);
+    return {
+      ...query,
+      if (ratio != null) 'ratio_pattern': ratio!.wireValue,
+      if (contentType != SearchContentType.illustAndMangaAndUgoira)
+        'content_type': contentType.wireValue,
+      ...SearchFilters._boundQuery('width', widthMin, widthMax),
+      ...SearchFilters._boundQuery('height', heightMin, heightMax),
     };
-    if (range.$1 != null && range.$2 != null && range.$1!.isAfter(range.$2!)) {
-      throw const FormatException('search start date is after end date');
-    }
-    return query;
   }
 
-  /// Same request shape minus `sort`: the `popular-preview` endpoints carry
-  /// the popularity ordering implicitly and reject a sort parameter.
-  Map<String, String> toPreviewQuery({
-    required String word,
-    bool includeIllustParams = false,
-  }) {
-    final query = toQuery(word: word, includeIllustParams: includeIllustParams)
-      ..remove('sort');
-    return query;
-  }
+  @override
+  SearchFilters copyShared({
+    SearchTarget? target,
+    SearchSort? sort,
+    Object? duration = _unset,
+    Object? startDate = _unset,
+    Object? endDate = _unset,
+    SearchAiFilter? aiFilter,
+    Object? bookmarkMin = _unset,
+    Object? bookmarkMax = _unset,
+  }) => copyWith(
+    target: target,
+    sort: sort,
+    duration: duration,
+    startDate: startDate,
+    endDate: endDate,
+    aiFilter: aiFilter,
+    bookmarkMin: bookmarkMin,
+    bookmarkMax: bookmarkMax,
+  );
 
-  /// Resolves [duration] into an absolute range; a set duration wins over
-  /// any custom bounds. Both endpoints are date-only, local time.
-  (DateTime?, DateTime?) _effectiveDateRange() {
-    final days = switch (duration) {
-      SearchDuration.day => 1,
-      SearchDuration.week => 7,
-      SearchDuration.month => 30,
-      null => 0,
-    };
-    if (days > 0) {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      return (today.subtract(Duration(days: days)), today);
-    }
-    return (startDate, endDate);
-  }
-
-  SearchFilters copyWith({
+  IllustSearchFilters copyWith({
     SearchTarget? target,
     SearchSort? sort,
     Object? duration = _unset,
@@ -366,7 +532,7 @@ class SearchFilters {
     Object? heightMin = _unset,
     Object? heightMax = _unset,
   }) {
-    return SearchFilters(
+    return IllustSearchFilters(
       target: target ?? this.target,
       sort: sort ?? this.sort,
       duration: identical(duration, _unset)
@@ -398,19 +564,10 @@ class SearchFilters {
     );
   }
 
-  static const _unset = Object();
-
   @override
   bool operator ==(Object other) =>
-      other is SearchFilters &&
-      other.target == target &&
-      other.sort == sort &&
-      _sameDay(other.startDate, startDate) &&
-      _sameDay(other.endDate, endDate) &&
-      other.duration == duration &&
-      other.aiFilter == aiFilter &&
-      other.bookmarkMin == bookmarkMin &&
-      other.bookmarkMax == bookmarkMax &&
+      other is IllustSearchFilters &&
+      other._sharedEquals(this) &&
       other.ratio == ratio &&
       other.contentType == contentType &&
       other.widthMin == widthMin &&
@@ -420,14 +577,7 @@ class SearchFilters {
 
   @override
   int get hashCode => Object.hash(
-    target,
-    sort,
-    duration,
-    _dateHash(startDate),
-    _dateHash(endDate),
-    aiFilter,
-    bookmarkMin,
-    bookmarkMax,
+    _sharedHash,
     ratio,
     contentType,
     widthMin,
@@ -435,6 +585,180 @@ class SearchFilters {
     heightMin,
     heightMax,
   );
+}
+
+/// Novel search filters — the shared set plus `text_length_*` and
+/// `is_original_only` (illust dims are absent by construction).
+final class NovelSearchFilters extends SearchFilters {
+  const NovelSearchFilters({
+    super.target,
+    super.sort,
+    super.duration,
+    super.startDate,
+    super.endDate,
+    super.aiFilter,
+    super.bookmarkMin,
+    super.bookmarkMax,
+    this.textLengthMin,
+    this.textLengthMax,
+    this.originalOnly = false,
+  });
+
+  static const defaults = NovelSearchFilters();
+
+  /// Text-length bounds map to `text_length_min`/`text_length_max`
+  /// (novel-only; verified on the iOS app API in Shaft's SearchConfig).
+  final int? textLengthMin;
+  final int? textLengthMax;
+
+  /// `is_original_only` (novel-only). False omits the parameter.
+  final bool originalOnly;
+
+  @override
+  SearchResultType get type => SearchResultType.novel;
+
+  @override
+  List<SearchTarget> get targetOptions => const [
+    SearchTarget.partialMatchForTags,
+    SearchTarget.exactMatchForTags,
+    SearchTarget.text,
+    SearchTarget.keyword,
+  ];
+
+  @override
+  List<SearchSort> get sortOptions => const [
+    SearchSort.dateDesc,
+    SearchSort.dateAsc,
+    SearchSort.popularDesc,
+  ];
+
+  @override
+  SearchSort get normalizedSort => sort.novelSafe;
+
+  @override
+  List<String> get ownCacheKeyParts => [
+    textLengthMin?.toString() ?? '',
+    textLengthMax?.toString() ?? '',
+    originalOnly ? '1' : '',
+  ];
+
+  @override
+  Map<String, Object?> toJson() => {
+    ...sharedJson(),
+    if (textLengthMin != null) 'textLengthMin': textLengthMin,
+    if (textLengthMax != null) 'textLengthMax': textLengthMax,
+    if (originalOnly) 'originalOnly': true,
+  };
+
+  /// Per-field validation matching [IllustSearchFilters.fromJson]. The
+  /// shared dims decode identically — an illust filter blob read through
+  /// this factory keeps the shared fields and drops illust-only ones, which
+  /// is exactly the upgrade path for a missing `novelSearchFilters` key.
+  factory NovelSearchFilters.fromJson(Object? json) {
+    if (json is! Map) return defaults;
+    final shared = _sharedFieldsFromJson(json);
+    int? intOf(String key) {
+      final raw = json[key];
+      return raw is int ? raw : null;
+    }
+
+    return NovelSearchFilters(
+      target: SearchFilters.clampTarget(shared.target, defaults.targetOptions),
+      sort: shared.sort.novelSafe,
+      duration: shared.duration,
+      startDate: shared.startDate,
+      endDate: shared.endDate,
+      aiFilter: shared.aiFilter,
+      bookmarkMin: shared.bookmarkMin,
+      bookmarkMax: shared.bookmarkMax,
+      textLengthMin: intOf('textLengthMin'),
+      textLengthMax: intOf('textLengthMax'),
+      originalOnly: json['originalOnly'] == true,
+    );
+  }
+
+  @override
+  Map<String, String> toQuery({required String word}) {
+    final query = super.toQuery(word: word);
+    return {
+      ...query,
+      ...SearchFilters._boundQuery('text_length', textLengthMin, textLengthMax),
+      if (originalOnly) 'is_original_only': 'true',
+    };
+  }
+
+  @override
+  SearchFilters copyShared({
+    SearchTarget? target,
+    SearchSort? sort,
+    Object? duration = _unset,
+    Object? startDate = _unset,
+    Object? endDate = _unset,
+    SearchAiFilter? aiFilter,
+    Object? bookmarkMin = _unset,
+    Object? bookmarkMax = _unset,
+  }) => copyWith(
+    target: target,
+    sort: sort,
+    duration: duration,
+    startDate: startDate,
+    endDate: endDate,
+    aiFilter: aiFilter,
+    bookmarkMin: bookmarkMin,
+    bookmarkMax: bookmarkMax,
+  );
+
+  NovelSearchFilters copyWith({
+    SearchTarget? target,
+    SearchSort? sort,
+    Object? duration = _unset,
+    Object? startDate = _unset,
+    Object? endDate = _unset,
+    SearchAiFilter? aiFilter,
+    Object? bookmarkMin = _unset,
+    Object? bookmarkMax = _unset,
+    Object? textLengthMin = _unset,
+    Object? textLengthMax = _unset,
+    bool? originalOnly,
+  }) {
+    return NovelSearchFilters(
+      target: target ?? this.target,
+      sort: sort ?? this.sort,
+      duration: identical(duration, _unset)
+          ? this.duration
+          : duration as SearchDuration?,
+      startDate: identical(startDate, _unset)
+          ? this.startDate
+          : startDate as DateTime?,
+      endDate: identical(endDate, _unset) ? this.endDate : endDate as DateTime?,
+      aiFilter: aiFilter ?? this.aiFilter,
+      bookmarkMin: identical(bookmarkMin, _unset)
+          ? this.bookmarkMin
+          : bookmarkMin as int?,
+      bookmarkMax: identical(bookmarkMax, _unset)
+          ? this.bookmarkMax
+          : bookmarkMax as int?,
+      textLengthMin: identical(textLengthMin, _unset)
+          ? this.textLengthMin
+          : textLengthMin as int?,
+      textLengthMax: identical(textLengthMax, _unset)
+          ? this.textLengthMax
+          : textLengthMax as int?,
+      originalOnly: originalOnly ?? this.originalOnly,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is NovelSearchFilters &&
+      other._sharedEquals(this) &&
+      other.textLengthMin == textLengthMin &&
+      other.textLengthMax == textLengthMax &&
+      other.originalOnly == originalOnly;
+
+  @override
+  int get hashCode =>
+      Object.hash(_sharedHash, textLengthMin, textLengthMax, originalOnly);
 }
 
 sealed class SearchQuery {
@@ -450,50 +774,53 @@ sealed class SearchQuery {
 
   bool get isEmpty => keyword.trim().isEmpty;
 
-  /// The filters this query carries or, for a user query, holds on to so a
-  /// switch back to an artwork tab restores them.
-  SearchFilters get carriedFilters;
-
-  /// The same keyword and filters as a query for [type].
-  SearchQuery withType(SearchResultType type) => switch (type) {
-    SearchResultType.illust => IllustSearchQuery(
-      keyword: keyword,
-      filters: carriedFilters,
-    ),
-    SearchResultType.novel => NovelSearchQuery(
-      keyword: keyword,
-      filters: carriedFilters,
-    ),
-    SearchResultType.user => UserSearchQuery(
-      keyword: keyword,
-      retainedFilters: carriedFilters,
-    ),
-  };
+  /// The filter set this query searches with — `null` for user queries,
+  /// which have no filters.
+  SearchFilters? get filtersOrNull;
 }
+
+/// Builds the typed query for [type]. Artwork types get that type's own
+/// filter set (its defaults when the matching argument is null) — a query
+/// never carries another type's dimensions.
+SearchQuery searchQueryForType(
+  SearchResultType type, {
+  required String keyword,
+  IllustSearchFilters? illustFilters,
+  NovelSearchFilters? novelFilters,
+}) => switch (type) {
+  SearchResultType.illust => IllustSearchQuery(
+    keyword: keyword,
+    filters: illustFilters ?? IllustSearchFilters.defaults,
+  ),
+  SearchResultType.novel => NovelSearchQuery(
+    keyword: keyword,
+    filters: novelFilters ?? NovelSearchFilters.defaults,
+  ),
+  SearchResultType.user => UserSearchQuery(keyword: keyword),
+};
 
 @immutable
 class IllustSearchQuery extends SearchQuery {
   const IllustSearchQuery({
     required String keyword,
-    this.filters = const SearchFilters(),
+    this.filters = IllustSearchFilters.defaults,
   }) : super(keyword);
 
   @override
   final SearchResultType type = SearchResultType.illust;
 
-  final SearchFilters filters;
+  final IllustSearchFilters filters;
 
   @override
-  SearchFilters get carriedFilters => filters;
+  SearchFilters get filtersOrNull => filters;
 
   @override
   String get cacheKey => '${super.cacheKey}|${filters.cacheKey}';
 
   @override
-  Map<String, String> toQuery() =>
-      filters.toQuery(word: keyword, includeIllustParams: true);
+  Map<String, String> toQuery() => filters.toQuery(word: keyword);
 
-  IllustSearchQuery copyWith({String? keyword, SearchFilters? filters}) =>
+  IllustSearchQuery copyWith({String? keyword, IllustSearchFilters? filters}) =>
       IllustSearchQuery(
         keyword: keyword ?? this.keyword,
         filters: filters ?? this.filters,
@@ -516,16 +843,16 @@ class IllustSearchQuery extends SearchQuery {
 class NovelSearchQuery extends SearchQuery {
   const NovelSearchQuery({
     required String keyword,
-    this.filters = const SearchFilters(),
+    this.filters = NovelSearchFilters.defaults,
   }) : super(keyword);
 
   @override
   final SearchResultType type = SearchResultType.novel;
 
-  final SearchFilters filters;
+  final NovelSearchFilters filters;
 
   @override
-  SearchFilters get carriedFilters => filters;
+  SearchFilters get filtersOrNull => filters;
 
   @override
   String get cacheKey => '${super.cacheKey}|${filters.cacheKey}';
@@ -533,7 +860,7 @@ class NovelSearchQuery extends SearchQuery {
   @override
   Map<String, String> toQuery() => filters.toQuery(word: keyword);
 
-  NovelSearchQuery copyWith({String? keyword, SearchFilters? filters}) =>
+  NovelSearchQuery copyWith({String? keyword, NovelSearchFilters? filters}) =>
       NovelSearchQuery(
         keyword: keyword ?? this.keyword,
         filters: filters ?? this.filters,
@@ -554,20 +881,13 @@ class NovelSearchQuery extends SearchQuery {
 
 @immutable
 class UserSearchQuery extends SearchQuery {
-  const UserSearchQuery({
-    required String keyword,
-    this.retainedFilters = SearchFilters.defaults,
-  }) : super(keyword);
+  const UserSearchQuery({required String keyword}) : super(keyword);
 
   @override
   final SearchResultType type = SearchResultType.user;
 
-  /// Never sent to the API; only kept in the route so switching back to an
-  /// artwork tab restores the filters.
-  final SearchFilters retainedFilters;
-
   @override
-  SearchFilters get carriedFilters => retainedFilters;
+  SearchFilters? get filtersOrNull => null;
 
   @override
   Map<String, String> toQuery() {
@@ -578,22 +898,18 @@ class UserSearchQuery extends SearchQuery {
     return {'word': normalized, 'filter': 'for_android'};
   }
 
-  UserSearchQuery copyWith({String? keyword}) => UserSearchQuery(
-    keyword: keyword ?? this.keyword,
-    retainedFilters: retainedFilters,
-  );
+  UserSearchQuery copyWith({String? keyword}) =>
+      UserSearchQuery(keyword: keyword ?? this.keyword);
 
   @override
   bool operator ==(Object other) =>
-      other is UserSearchQuery &&
-      other.keyword == keyword &&
-      other.retainedFilters == retainedFilters;
+      other is UserSearchQuery && other.keyword == keyword;
 
   @override
-  int get hashCode => Object.hash(keyword, retainedFilters);
+  int get hashCode => keyword.hashCode;
 
   @override
-  String toString() => 'UserSearchQuery($keyword, $retainedFilters)';
+  String toString() => 'UserSearchQuery($keyword)';
 }
 
 bool _sameDay(DateTime? left, DateTime? right) =>

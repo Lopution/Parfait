@@ -1753,14 +1753,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchReverseIntentFailed => '共有された画像を使用できません';
 
   @override
-  String get searchReverseOpenExternal => 'ソースを開く';
-
-  @override
-  String searchReverseSimilarity(int percent) {
-    return '類似度 $percent%';
-  }
-
-  @override
   String get searchReverseOpenFailed => 'ソースリンクを開けません';
 
   @override
@@ -1805,11 +1797,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchReverseDone => '完了';
 
   @override
-  String searchReverseResultCount(int count) {
-    return '$count 件の結果';
-  }
-
-  @override
   String get searchReverseEngineSwitch => 'エンジンを切り替え';
 
   @override
@@ -1832,6 +1819,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get searchTitleCaption => 'タイトルとキャプション';
+
+  @override
+  String get searchTargetText => '本文';
+
+  @override
+  String get searchTargetKeyword => 'キーワード';
 
   @override
   String get searchSort => '並び順';
@@ -1913,6 +1906,18 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get searchHeight => '高さ';
+
+  @override
+  String get searchTextLength => '本文の長さ';
+
+  @override
+  String get searchChars => '文字数';
+
+  @override
+  String get searchOriginalOnly => 'オリジナルのみ';
+
+  @override
+  String get searchSetDefault => 'デフォルトにする';
 
   @override
   String searchRangeAtLeast(String label, String value) {

@@ -47,7 +47,6 @@ class ReverseImageFlowState {
     required this.status,
     required this.engine,
     this.input,
-    this.results = const [],
     this.webView,
     this.webUpload,
     this.failure,
@@ -57,7 +56,6 @@ class ReverseImageFlowState {
   const ReverseImageFlowState.idle([this.engine = ReverseImageEngine.sauceNao])
     : status = ReverseImageFlowStatus.idle,
       input = null,
-      results = const [],
       webView = null,
       webUpload = null,
       failure = null,
@@ -69,7 +67,6 @@ class ReverseImageFlowState {
   /// to this engine.
   final ReverseImageEngine engine;
   final ReverseImageInputInfo? input;
-  final List<ReverseImageHit> results;
 
   /// SauceNAO-style service-rendered result page (D1). Only set on success.
   final ReverseImageSearchWebView? webView;
@@ -367,12 +364,13 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
       return;
     }
     switch (outcome) {
-      case ReverseImageSearchSuccess(:final hits):
+      case ReverseImageSearchSuccess():
+        // A provider-detected "no match" page: terminal success with no
+        // payload — the page shows the empty state.
         _setState(
           ReverseImageFlowState(
             status: ReverseImageFlowStatus.success,
             engine: engine,
-            results: hits,
             engineFailures: engineFailures,
           ),
         );

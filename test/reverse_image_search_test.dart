@@ -133,72 +133,6 @@ void main() {
     );
   });
 
-  test('maps, sorts and deduplicates SauceNAO-shaped Pixiv results', () {
-    final result = ReverseImageResultMapper.fromSauceNaoJson({
-      'results': [
-        {
-          'header': {'similarity': '78.2'},
-          'data': {
-            'pixiv_id': '42',
-            'title': 'lower duplicate',
-            'ext_urls': ['https://www.pixiv.net/artworks/42'],
-          },
-        },
-        {
-          'header': {'similarity': '96.4'},
-          'data': {
-            'pixiv_id': 42,
-            'title': 'higher duplicate',
-            'ext_urls': ['https://www.pixiv.net/artworks/42'],
-          },
-        },
-        {
-          'header': {'similarity': 90},
-          'data': {
-            'title': 'external result',
-            'ext_urls': ['https://example.com/result/1'],
-          },
-        },
-      ],
-    });
-
-    expect(result.hits, hasLength(2));
-    expect(result.hits.first.pixivId, 42);
-    expect(result.hits.first.similarity, 96.4);
-    expect(
-      result.hits.last.externalUrl.toString(),
-      'https://example.com/result/1',
-    );
-  });
-
-  test('rejects unsafe or malformed provider results', () {
-    expect(
-      () => ReverseImageResultMapper.fromSauceNaoJson({
-        'results': [
-          {
-            'header': {'similarity': '99'},
-            'data': {
-              'ext_urls': ['javascript:alert(1)'],
-            },
-          },
-        ],
-      }),
-      throwsA(
-        isA<ReverseImageProviderException>().having(
-          (error) => error.code,
-          'code',
-          ReverseImageProviderFailureCode.unsafeResultUrl,
-        ),
-      ),
-    );
-    expect(
-      () => ReverseImageResultMapper.fromSauceNaoJson({
-        'results': <String, Object?>{},
-      }),
-      throwsA(isA<ReverseImageProviderException>()),
-    );
-  });
-
   test('unavailable provider is an explicit terminal failure', () async {
     final provider = UnavailableReverseImageProvider(
       reason: 'structured provider credentials and terms are not approved',
@@ -464,11 +398,7 @@ void main() {
         message: 'challenged',
       ),
     );
-    final succeeding = _OutcomeProvider(
-      const ReverseImageSearchSuccess([
-        ReverseImageHit(similarity: 90, pixivId: 42),
-      ]),
-    );
+    final succeeding = _OutcomeProvider(const ReverseImageSearchSuccess());
     final session = ReverseImageSearchSession(
       platform: platform,
       providers: {
@@ -508,7 +438,10 @@ void main() {
     await controller.search();
     state = _stateOf(container, session);
     expect(state.status, ReverseImageFlowStatus.success);
-    expect(state.results.single.pixivId, 42);
+    // A provider-detected no-match releases the owned input — it is a
+    // terminal state with nothing to retry inside the engine's own page.
+    expect(state.input, isNull);
+    expect(platform.deletedPaths, [file.path]);
     expect(state.engineFailures, contains(ReverseImageEngine.sauceNao));
   });
 
@@ -541,7 +474,7 @@ void main() {
         platform: platform,
         providers: {
           ReverseImageEngine.sauceNao: _OutcomeProvider(
-            const ReverseImageSearchSuccess([]),
+            const ReverseImageSearchSuccess(),
           ),
         },
       );
@@ -677,11 +610,8 @@ void main() {
         final file = File('${tempDirectory.path}/image.png')
           ..writeAsBytesSync(_pngHeader(12, 8));
         final platform = _FakeReverseImageInputPlatform(file);
-        final provider = _OutcomeProvider(
-          const ReverseImageSearchSuccess([
-            ReverseImageHit(similarity: 92.5, pixivId: 42),
-          ]),
-        )..blocker = Completer<ReverseImageSearchOutcome>();
+        final provider = _OutcomeProvider(const ReverseImageSearchSuccess())
+          ..blocker = Completer<ReverseImageSearchOutcome>();
         final session = ReverseImageSearchSession.single(
           platform: platform,
           provider: provider,
@@ -707,16 +637,11 @@ void main() {
         expect(platform.deletedPaths, isEmpty);
 
         // A late provider result belongs to a dead generation and is dropped.
-        provider.blocker!.complete(
-          const ReverseImageSearchSuccess([
-            ReverseImageHit(similarity: 92.5, pixivId: 42),
-          ]),
-        );
+        provider.blocker!.complete(const ReverseImageSearchSuccess());
         await Future<void>.delayed(Duration.zero);
         await Future<void>.delayed(Duration.zero);
         state = _stateOf(container, session);
         expect(state.status, ReverseImageFlowStatus.ready);
-        expect(state.results, isEmpty);
         expect(state.input, isNotNull);
         expect(platform.deletedPaths, isEmpty);
       },
@@ -731,9 +656,7 @@ void main() {
           ..copyBlocker = Completer<String>();
         final session = ReverseImageSearchSession.single(
           platform: platform,
-          provider: _OutcomeProvider(
-            const ReverseImageSearchSuccess(<ReverseImageHit>[]),
-          ),
+          provider: _OutcomeProvider(const ReverseImageSearchSuccess()),
         );
         final container = _flowContainer(session);
         final controller = container.read(
@@ -773,9 +696,7 @@ void main() {
         ..pickBlocker = Completer<ReverseImageInputReference?>();
       final session = ReverseImageSearchSession.single(
         platform: platform,
-        provider: _OutcomeProvider(
-          const ReverseImageSearchSuccess(<ReverseImageHit>[]),
-        ),
+        provider: _OutcomeProvider(const ReverseImageSearchSuccess()),
       );
       final container = _flowContainer(session);
       final controller = container.read(

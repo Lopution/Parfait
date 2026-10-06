@@ -302,7 +302,7 @@ void main() {
     await expectPageLayoutIntact(tester, locale: locale, profile: profile);
   });
 
-  localeLayoutMatrix('content: reverse image results', (
+  localeLayoutMatrix('content: reverse image no match', (
     tester,
     locale,
     profile,
@@ -320,14 +320,8 @@ void main() {
         home: ReverseImageSearchPage(
           platform: FakeReverseImagePlatform(writeTinyPng(directory)),
           providers: {
-            ReverseImageEngine.sauceNao: OutcomeReverseImageProvider(
-              ReverseImageSearchSuccess([
-                const ReverseImageHit(similarity: 91.4, pixivId: 5),
-                ReverseImageHit(
-                  similarity: 70.6,
-                  externalUrl: Uri.parse('https://danbooru.donmai.us/posts/1'),
-                ),
-              ]),
+            ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
+              ReverseImageSearchSuccess(),
             ),
           },
         ),
@@ -338,7 +332,7 @@ void main() {
     await pumpUntilVisible(tester, find.text(l10n.searchReverseUse));
     await tester.ensureVisible(find.text(l10n.searchReverseUse));
     await tester.tap(find.text(l10n.searchReverseUse));
-    await pumpUntilVisible(tester, find.text('Pixiv #5'));
+    await pumpUntilVisible(tester, find.text(l10n.searchReverseNoResults));
     await settleLayout(tester);
     await expectPageLayoutIntact(tester, locale: locale, profile: profile);
   });

@@ -749,8 +749,6 @@
   "searchReverseReady": "画像の準備が完了しました",
   "searchReverseNoResults": "一致する結果はありません",
   "searchReverseIntentFailed": "共有された画像を使用できません",
-  "searchReverseOpenExternal": "ソースを開く",
-  "searchReverseSimilarity": "類似度 {percent}%",
   "searchReverseOpenFailed": "ソースリンクを開けません",
   "searchReverseRateLimited": "検索が混み合っています。しばらくしてからお試しください",
   "searchReverseRateLimitedWait": "約 {seconds} 秒後に再試行できます",
@@ -778,14 +776,6 @@
   "searchReverseIntro": "選択した画像は選択中のエンジンにアップロードされ、結果ページがアプリ内で開きます。",
   "searchReverseFailed": "検索に失敗しました",
   "searchReverseDone": "完了",
-  "searchReverseResultCount": "{count} 件の結果",
-  "@searchReverseResultCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "searchReverseEngineSwitch": "エンジンを切り替え",
   "searchFilters": "フィルター",
   "searchReset": "リセット",
@@ -794,6 +784,8 @@
   "searchPartialTags": "タグ部分一致",
   "searchExactTags": "タグ完全一致",
   "searchTitleCaption": "タイトルとキャプション",
+  "searchTargetText": "本文",
+  "searchTargetKeyword": "キーワード",
   "searchSort": "並び順",
   "searchDateDesc": "新着順",
   "searchDateAsc": "古い順",
@@ -821,6 +813,10 @@
   "searchResolutionSection": "解像度",
   "searchWidth": "幅",
   "searchHeight": "高さ",
+  "searchTextLength": "本文の長さ",
+  "searchChars": "文字数",
+  "searchOriginalOnly": "オリジナルのみ",
+  "searchSetDefault": "デフォルトにする",
   "searchRangeAtLeast": "{label} {value}以上",
   "searchRangeAtMost": "{label} {value}以下",
   "searchRangeBetween": "{label} {min}～{max}",

@@ -179,11 +179,18 @@ class NovelPage extends ConsumerWidget {
                     translated: tag.translatedName,
                     onTap: () {
                       // Same close-then-navigate sequence as the author
-                      // chip above.
+                      // chip above. Tag searches start from the persisted
+                      // novel defaults like every other entry.
                       Navigator.of(sheetContext).pop();
                       openSearchResults(
                         context,
-                        NovelSearchQuery(keyword: tag.name),
+                        NovelSearchQuery(
+                          keyword: tag.name,
+                          filters: ProviderScope.containerOf(
+                            context,
+                            listen: false,
+                          ).read(searchNovelFiltersProvider),
+                        ),
                       );
                     },
                   ),

@@ -1809,14 +1809,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchReverseIntentFailed => 'The shared image cannot be used';
 
   @override
-  String get searchReverseOpenExternal => 'Open source';
-
-  @override
-  String searchReverseSimilarity(int percent) {
-    return '$percent% similar';
-  }
-
-  @override
   String get searchReverseOpenFailed => 'Could not open the source link';
 
   @override
@@ -1865,11 +1857,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchReverseDone => 'Done';
 
   @override
-  String searchReverseResultCount(int count) {
-    return '$count results';
-  }
-
-  @override
   String get searchReverseEngineSwitch => 'Switch engine';
 
   @override
@@ -1892,6 +1879,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchTitleCaption => 'Title and caption';
+
+  @override
+  String get searchTargetText => 'Text';
+
+  @override
+  String get searchTargetKeyword => 'Keyword';
 
   @override
   String get searchSort => 'Sort';
@@ -1973,6 +1966,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchHeight => 'Height';
+
+  @override
+  String get searchTextLength => 'Text length';
+
+  @override
+  String get searchChars => 'Chars';
+
+  @override
+  String get searchOriginalOnly => 'Original only';
+
+  @override
+  String get searchSetDefault => 'Set as default';
 
   @override
   String searchRangeAtLeast(String label, String value) {

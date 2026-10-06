@@ -31,7 +31,6 @@ enum ReverseImageProviderFailureCode {
   dailyLimit,
   challenge,
   malformedResponse,
-  unsafeResultUrl,
 
   /// The prepared input violates the selected engine's own constraints
   /// (format, size or dimensions). Fail fast — no request is sent.
@@ -52,10 +51,13 @@ sealed class ReverseImageSearchOutcome {
   const ReverseImageSearchOutcome();
 }
 
+/// The provider detected a definitive no-match page (SauceNAO "no results",
+/// IQDB "No relevant matches"): a terminal success with nothing to show. The
+/// app no longer renders a native hit list — every engine's results surface
+/// inside the engine's own page ([ReverseImageSearchWebView]) or upload
+/// flow ([ReverseImageSearchWebUpload]).
 class ReverseImageSearchSuccess extends ReverseImageSearchOutcome {
-  const ReverseImageSearchSuccess(this.hits);
-
-  final List<ReverseImageHit> hits;
+  const ReverseImageSearchSuccess();
 }
 
 /// SauceNAO-style interactive result: the service-rendered page is shown in
@@ -115,23 +117,6 @@ class ReverseImageSearchFailure extends ReverseImageSearchOutcome {
   final Duration? retryAfter;
 }
 
-@immutable
-class ReverseImageHit {
-  const ReverseImageHit({
-    required this.similarity,
-    this.pixivId,
-    this.title,
-    this.thumbnailUrl,
-    this.externalUrl,
-  });
-
-  final double similarity;
-  final int? pixivId;
-  final String? title;
-  final Uri? thumbnailUrl;
-  final Uri? externalUrl;
-}
-
 abstract interface class ReverseImageProvider {
   ReverseImageProviderCapability get capability;
 
@@ -180,177 +165,6 @@ class UnavailableReverseImageProvider implements ReverseImageProvider {
       code: ReverseImageProviderFailureCode.providerUnavailable,
       message: reason,
     );
-  }
-}
-
-/// Maps the documented SauceNAO-shaped JSON contract for future approved
-/// structured providers. The mapper is kept separate from transport, so no
-/// HTML or challenge page can be mistaken for a successful response.
-abstract final class ReverseImageResultMapper {
-  static ReverseImageSearchSuccess fromSauceNaoJson(Map<String, dynamic> json) {
-    final rawResults = json['results'];
-    if (rawResults is! List) {
-      throw const ReverseImageProviderException(
-        ReverseImageProviderFailureCode.malformedResponse,
-        'reverse image results are malformed',
-      );
-    }
-
-    final indexed = <({int index, ReverseImageHit hit})>[];
-    for (var index = 0; index < rawResults.length; index++) {
-      final result = _map(rawResults[index]);
-      final header = _map(result['header']);
-      final data = _map(result['data']);
-      final similarity = _similarity(header['similarity']);
-      final pixivId = _positiveId(data['pixiv_id']);
-      final externalUrls = _urls(data['ext_urls'], field: 'result URL');
-      final externalUrl = externalUrls.isEmpty ? null : externalUrls.first;
-      final thumbnailUrl = _optionalUrl(
-        data['thumbnail'],
-        field: 'thumbnail URL',
-      );
-      if (pixivId == null && externalUrl == null) {
-        throw const ReverseImageProviderException(
-          ReverseImageProviderFailureCode.malformedResponse,
-          'reverse image result has no usable destination',
-        );
-      }
-      indexed.add((
-        index: index,
-        hit: ReverseImageHit(
-          similarity: similarity,
-          pixivId: pixivId,
-          title: _optionalText(data['title']),
-          thumbnailUrl: thumbnailUrl,
-          externalUrl: externalUrl,
-        ),
-      ));
-    }
-
-    final deduplicated = <String, ({int index, ReverseImageHit hit})>{};
-    for (final entry in indexed) {
-      final key = entry.hit.pixivId == null
-          ? 'url:${entry.hit.externalUrl}'
-          : 'pixiv:${entry.hit.pixivId}';
-      final previous = deduplicated[key];
-      if (previous == null || entry.hit.similarity > previous.hit.similarity) {
-        deduplicated[key] = entry;
-      }
-    }
-    final sorted = deduplicated.values.toList()
-      ..sort((left, right) {
-        final bySimilarity = right.hit.similarity.compareTo(
-          left.hit.similarity,
-        );
-        return bySimilarity == 0
-            ? left.index.compareTo(right.index)
-            : bySimilarity;
-      });
-    return ReverseImageSearchSuccess([for (final entry in sorted) entry.hit]);
-  }
-
-  static Map<String, Object?> _map(Object? value) {
-    if (value is! Map) {
-      throw const ReverseImageProviderException(
-        ReverseImageProviderFailureCode.malformedResponse,
-        'reverse image result object is malformed',
-      );
-    }
-    final result = <String, Object?>{};
-    for (final entry in value.entries) {
-      if (entry.key is! String) {
-        throw const ReverseImageProviderException(
-          ReverseImageProviderFailureCode.malformedResponse,
-          'reverse image result keys are malformed',
-        );
-      }
-      result[entry.key as String] = entry.value;
-    }
-    return result;
-  }
-
-  static double _similarity(Object? value) {
-    final parsed = value is num
-        ? value.toDouble()
-        : value is String
-        ? double.tryParse(value.trim())
-        : null;
-    if (parsed == null || !parsed.isFinite || parsed < 0 || parsed > 100) {
-      throw const ReverseImageProviderException(
-        ReverseImageProviderFailureCode.malformedResponse,
-        'reverse image similarity is invalid',
-      );
-    }
-    return parsed;
-  }
-
-  static int? _positiveId(Object? value) {
-    final parsed = value is int
-        ? value
-        : value is String
-        ? int.tryParse(value.trim())
-        : null;
-    if (parsed == null) return null;
-    if (parsed <= 0) {
-      throw const ReverseImageProviderException(
-        ReverseImageProviderFailureCode.malformedResponse,
-        'reverse image identifier is invalid',
-      );
-    }
-    return parsed;
-  }
-
-  static List<Uri> _urls(Object? value, {required String field}) {
-    if (value == null) return const [];
-    if (value is! List || value.any((item) => item is! String)) {
-      throw ReverseImageProviderException(
-        ReverseImageProviderFailureCode.malformedResponse,
-        '$field list is malformed',
-      );
-    }
-    return [
-      for (final item in value.cast<String>())
-        parseSafeExternalUrl(item, field: field),
-    ];
-  }
-
-  static Uri? _optionalUrl(Object? value, {required String field}) {
-    if (value == null) return null;
-    if (value is! String) {
-      throw ReverseImageProviderException(
-        ReverseImageProviderFailureCode.malformedResponse,
-        '$field is malformed',
-      );
-    }
-    return parseSafeExternalUrl(value, field: field);
-  }
-
-  static Uri parseSafeExternalUrl(String value, {required String field}) {
-    final uri = Uri.tryParse(value.trim());
-    if (uri == null ||
-        uri.scheme != 'https' ||
-        uri.host.isEmpty ||
-        uri.userInfo.isNotEmpty ||
-        uri.hasPort ||
-        uri.fragment.isNotEmpty) {
-      throw ReverseImageProviderException(
-        ReverseImageProviderFailureCode.unsafeResultUrl,
-        '$field is not an allowed HTTPS URL',
-      );
-    }
-    return uri;
-  }
-
-  static String? _optionalText(Object? value) {
-    if (value == null) return null;
-    if (value is! String) {
-      throw const ReverseImageProviderException(
-        ReverseImageProviderFailureCode.malformedResponse,
-        'reverse image title is malformed',
-      );
-    }
-    final normalized = value.trim();
-    return normalized.isEmpty ? null : normalized;
   }
 }
 
