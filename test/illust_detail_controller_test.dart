@@ -319,7 +319,7 @@ void main() {
         searchFeedProvider(
           IllustSearchQuery(
             keyword: '風景',
-            filters: const SearchFilters(
+            filters: const IllustSearchFilters(
               target: SearchTarget.partialMatchForTags,
               sort: SearchSort.dateDesc,
             ),

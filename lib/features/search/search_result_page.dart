@@ -13,11 +13,13 @@ import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
 import '../../core/search/search_feed_controller.dart';
 import '../../core/search/search_models.dart';
+import '../../core/settings/settings_controller.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_store.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../app/widgets/follow_switch_button.dart';
+import '../../app/widgets/settings/persist_settings.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/tab_swipe_switcher.dart';
@@ -35,29 +37,37 @@ const _illustGridPadding = EdgeInsets.all(FuncSpacing.sm);
 /// Height of the filter summary row under the type tabs.
 const _filterBarHeight = 44.0;
 
-/// Search results with the three result types as tabs. Switching a tab
-/// keeps the keyword and filters ([SearchQuery.withType]); the route only
-/// records the switch through [onTypeChanged].
-class SearchResultPage extends StatefulWidget {
+/// Search results with the three result types as tabs. Each artwork type
+/// owns its filter set for this search session — the page drafts are
+/// seeded from the persisted defaults and the incoming URL (which always
+/// describes the current type), so switching a tab picks up that type's
+/// own set instead of carrying the previous tab's dimensions over.
+class SearchResultPage extends ConsumerStatefulWidget {
   const SearchResultPage({super.key, required this.query, this.onTypeChanged});
 
   final SearchQuery query;
 
-  /// Replaces the route with the switched query. Null for hosts without a
-  /// result route of their own (the legacy tag page): the switch stays
-  /// local to the page.
-  final ValueChanged<SearchResultType>? onTypeChanged;
+  /// Replaces the route with the query the page built for the selected
+  /// type. Null for hosts without a result route of their own (the legacy
+  /// tag page): the switch stays local to the page.
+  final ValueChanged<SearchQuery>? onTypeChanged;
 
   @override
-  State<SearchResultPage> createState() => _SearchResultPageState();
+  ConsumerState<SearchResultPage> createState() => _SearchResultPageState();
 }
 
-class _SearchResultPageState extends State<SearchResultPage>
+class _SearchResultPageState extends ConsumerState<SearchResultPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late SearchResultType _selectedType;
   final _scrollControllers = <SearchResultType, ScrollController>{};
   final _loadedTypes = <SearchResultType>{};
+
+  /// Per-type filter drafts for this search session. Seeded from the
+  /// persisted defaults, then the URL's own type overlays it — so a deep
+  /// link's filter set wins and the other type falls back to the default.
+  late IllustSearchFilters _illustFilters;
+  late NovelSearchFilters _novelFilters;
 
   /// One body per type, reused across page builds while its query is
   /// unchanged — same reasoning as the ranking page's body cache.
@@ -67,11 +77,39 @@ class _SearchResultPageState extends State<SearchResultPage>
   /// [announceTabScroll]).
   late BuildContext _notificationContext;
 
-  SearchQuery get _activeQuery => widget.query.withType(_selectedType);
+  SearchQuery _queryFor(SearchResultType type) => searchQueryForType(
+    type,
+    keyword: widget.query.keyword,
+    illustFilters: _illustFilters,
+    novelFilters: _novelFilters,
+  );
+
+  SearchFilters _filtersFor(SearchResultType type) => switch (type) {
+    SearchResultType.illust => _illustFilters,
+    SearchResultType.novel => _novelFilters,
+    // User results have no filters — the sheet and summary bar are never
+    // shown for it (showFilters guards both entry points).
+    SearchResultType.user => _illustFilters,
+  };
+
+  /// The URL is the source of truth for its own type — deep links,
+  /// restored sessions and external replaces overwrite that type's draft.
+  void _acceptQueryFilters(SearchQuery query) {
+    switch (query) {
+      case IllustSearchQuery(:final filters):
+        _illustFilters = filters;
+      case NovelSearchQuery(:final filters):
+        _novelFilters = filters;
+      case UserSearchQuery():
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    _illustFilters = ref.read(searchIllustFiltersProvider);
+    _novelFilters = ref.read(searchNovelFiltersProvider);
+    _acceptQueryFilters(widget.query);
     _selectedType = widget.query.type;
     _loadedTypes.add(_selectedType);
     _tabController = TabController(
@@ -84,6 +122,7 @@ class _SearchResultPageState extends State<SearchResultPage>
   @override
   void didUpdateWidget(SearchResultPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _acceptQueryFilters(widget.query);
     final type = widget.query.type;
     if (type == _selectedType) return;
     // The route changed type from outside a tab tap: follow it without an
@@ -114,7 +153,7 @@ class _SearchResultPageState extends State<SearchResultPage>
       _loadedTypes.add(type);
     });
     announceTabScroll(_notificationContext, _scrollControllerFor(type));
-    widget.onTypeChanged?.call(type);
+    widget.onTypeChanged?.call(_queryFor(type));
   }
 
   ScrollController _scrollControllerFor(SearchResultType type) {
@@ -144,7 +183,7 @@ class _SearchResultPageState extends State<SearchResultPage>
   }
 
   _SearchTabBody _bodyFor(SearchResultType type) {
-    final query = widget.query.withType(type);
+    final query = _queryFor(type);
     final cached = _bodies[type];
     if (cached != null && cached.query == query) return cached;
     return _bodies[type] = _SearchTabBody(
@@ -154,25 +193,39 @@ class _SearchResultPageState extends State<SearchResultPage>
     );
   }
 
-  /// Applies [filters] to the tab on screen and records it in the route.
+  /// Applies [filters] to the tab on screen and records it in the route —
+  /// the URL always describes the current type's set.
   void _replaceFilters(SearchFilters filters) {
-    replaceSearchResults(
-      context,
-      IllustSearchQuery(
-        keyword: widget.query.keyword,
-        filters: filters,
-      ).withType(_selectedType),
-    );
+    setState(() {
+      switch (filters) {
+        case final IllustSearchFilters f:
+          _illustFilters = f;
+        case final NovelSearchFilters f:
+          _novelFilters = f;
+      }
+    });
+    replaceSearchResults(context, _queryFor(_selectedType));
   }
 
   Future<void> _editFilters() async {
-    final selected = await showSearchFilterSheet(
+    final result = await showSearchFilterSheet(
       context,
-      initial: _activeQuery.carriedFilters,
-      type: _selectedType,
+      initial: _filtersFor(_selectedType),
+      offerSetDefault: true,
     );
-    if (!mounted || selected == null) return;
-    _replaceFilters(selected);
+    if (!mounted || result == null) return;
+    if (result.makeDefault) {
+      // persistSettings surfaces a write failure as a snackbar; the
+      // session apply below still runs — it is the button's primary job.
+      await persistSettings(
+        context,
+        () => ref
+            .read(settingsProvider.notifier)
+            .setSearchFilters(result.filters),
+      );
+      if (!mounted) return;
+    }
+    _replaceFilters(result.filters);
   }
 
   /// The result-page header keeps "what am I looking at" live: tapping the
@@ -261,9 +314,15 @@ class _SearchResultPageState extends State<SearchResultPage>
               tabBar,
               if (showFilters)
                 _FilterSummaryBar(
-                  filters: _activeQuery.carriedFilters,
+                  filters: _filtersFor(_selectedType),
                   onEdit: _editFilters,
-                  onClear: () => _replaceFilters(SearchFilters.defaults),
+                  // Clearing resets this tab to its type's empty set —
+                  // the persisted defaults stay untouched.
+                  onClear: () => _replaceFilters(
+                    _selectedType == SearchResultType.novel
+                        ? NovelSearchFilters.defaults
+                        : IllustSearchFilters.defaults,
+                  ),
                 ),
             ],
           ),
@@ -685,10 +744,10 @@ class _FilterSummaryBar extends StatelessWidget {
     final l10n = context.l10n;
     String pixels(int value) => '$value';
     return [
-      if (filters.target != SearchTarget.partialMatchForTags)
-        searchText(context, filters.target.labelKey),
-      if (filters.sort != SearchSort.dateDesc)
-        searchText(context, filters.sort.labelKey),
+      if (filters.normalizedTarget != SearchTarget.partialMatchForTags)
+        searchText(context, filters.normalizedTarget.labelKey),
+      if (filters.normalizedSort != SearchSort.dateDesc)
+        searchText(context, filters.normalizedSort.labelKey),
       if (filters.duration != null)
         searchText(context, filters.duration!.labelKey),
       ?_dateLabel(context),
@@ -701,23 +760,38 @@ class _FilterSummaryBar extends StatelessWidget {
         filters.bookmarkMax,
         (value) => AppFormat.count(context, value),
       ),
-      if (filters.ratio != null) searchText(context, filters.ratio!.labelKey),
-      if (filters.contentType != SearchContentType.illustAndMangaAndUgoira)
-        searchText(context, filters.contentType.labelKey),
-      ?_rangeLabel(
-        context,
-        l10n.searchWidth,
-        filters.widthMin,
-        filters.widthMax,
-        pixels,
-      ),
-      ?_rangeLabel(
-        context,
-        l10n.searchHeight,
-        filters.heightMin,
-        filters.heightMax,
-        pixels,
-      ),
+      // Each type only displays its own dimensions.
+      ...switch (filters) {
+        final IllustSearchFilters f => [
+          if (f.ratio != null) searchText(context, f.ratio!.labelKey),
+          if (f.contentType != SearchContentType.illustAndMangaAndUgoira)
+            searchText(context, f.contentType.labelKey),
+          ?_rangeLabel(
+            context,
+            l10n.searchWidth,
+            f.widthMin,
+            f.widthMax,
+            pixels,
+          ),
+          ?_rangeLabel(
+            context,
+            l10n.searchHeight,
+            f.heightMin,
+            f.heightMax,
+            pixels,
+          ),
+        ],
+        final NovelSearchFilters f => [
+          ?_rangeLabel(
+            context,
+            l10n.searchTextLength,
+            f.textLengthMin,
+            f.textLengthMax,
+            pixels,
+          ),
+          if (f.originalOnly) l10n.searchOriginalOnly,
+        ],
+      },
     ];
   }
 

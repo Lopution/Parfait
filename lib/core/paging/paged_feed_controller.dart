@@ -16,6 +16,7 @@ import '../network/pixiv_http_client.dart';
 import '../mute/mute_models.dart';
 import '../mute/mute_predicate.dart';
 import '../mute/mute_store.dart';
+import '../novel/novel_entity.dart';
 import '../settings/app_settings.dart';
 import '../settings/local_block_filter.dart';
 import '../settings/settings_controller.dart';
@@ -135,6 +136,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   List<int> filterPageIds(
     List<int> ids, {
     Map<int, IllustEntity>? incomingIllusts,
+    Map<int, NovelEntity>? incomingNovels,
   }) {
     final store = ref.read(illustStoreProvider);
     final settings = ref.read(settingsProvider).value;
@@ -203,6 +205,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     var visible = filterPageIds(
       page.ids,
       incomingIllusts: page.incomingIllusts,
+      incomingNovels: page.incomingNovels,
     );
     // Nothing was filtered out: a short server page is the server's own
     // shape and must not trigger refill (which would change pagination for
@@ -242,6 +245,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
           filterPageIds(
             nextPage.ids,
             incomingIllusts: nextPage.incomingIllusts,
+            incomingNovels: nextPage.incomingNovels,
           ),
           visible,
         );

@@ -47,7 +47,7 @@ Finder _tab(String label) =>
     find.descendant(of: find.byType(TabBar), matching: find.text(label));
 
 void main() {
-  testWidgets('switching the result type keeps keyword and filters', (
+  testWidgets('each type switches to its own session filter set', (
     tester,
   ) async {
     final router = await _pumpRouter(
@@ -67,24 +67,36 @@ void main() {
     final params = router.state.uri.queryParameters;
     expect(params['type'], 'user');
     expect(params['q'], 'cat');
-    // The user tab sends no filters but keeps them in the route.
-    expect(params['sort'], 'date_asc');
-    expect(params['bmin'], '100');
+    // A user search has no filters — the URL carries none.
+    expect(params.containsKey('sort'), isFalse);
+    expect(params.containsKey('bmin'), isFalse);
     expect(find.text('收藏数 100 以上'), findsNothing);
     expect(find.byTooltip('筛选'), findsNothing);
     // The route was replaced in place: same page state, no new page.
     expect(tester.state(find.byType(SearchResultPage)), same(state));
 
+    // Back on the artwork tab the session's illust set is still there.
     await tester.tap(_tab('插画 & 漫画'));
     await tester.pumpAndSettle();
     expect(router.state.uri.queryParameters['type'], 'illust');
     expect(router.state.uri.queryParameters['bmin'], '100');
     expect(find.text('收藏数 100 以上'), findsOneWidget);
 
+    // The novel tab gets its own set — the persisted novel defaults, not
+    // the illust session edits.
     await tester.tap(_tab('小说'));
     await tester.pumpAndSettle();
-    expect(router.state.uri.queryParameters['type'], 'novel');
-    expect(router.state.uri.queryParameters['sort'], 'date_asc');
+    final novelParams = router.state.uri.queryParameters;
+    expect(novelParams['type'], 'novel');
+    expect(novelParams['sort'], 'date_desc');
+    expect(novelParams.containsKey('bmin'), isFalse);
+    expect(find.text('收藏数 100 以上'), findsNothing);
+
+    // ...and the illust set survives the round trip either way.
+    await tester.tap(_tab('插画 & 漫画'));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.queryParameters['bmin'], '100');
+    expect(find.text('收藏数 100 以上'), findsOneWidget);
 
     // Back skips the switched tabs and returns to the page before the
     // results.
@@ -94,7 +106,7 @@ void main() {
     expect(find.byType(SearchInputPage), findsOneWidget);
   });
 
-  testWidgets('a user result route restores filters on an artwork tab', (
+  testWidgets('a user result route ignores stray filter params', (
     tester,
   ) async {
     final router = await _pumpRouter(
@@ -102,13 +114,16 @@ void main() {
       initialLocation: '/search/results?q=cat&type=user&wmin=800',
     );
     final page = tester.widget<SearchResultPage>(find.byType(SearchResultPage));
-    expect(page.query.carriedFilters.widthMin, 800);
+    // User searches are filter-free: a shared URL's leftover params never
+    // reach the query or the artwork tabs.
+    expect(page.query.filtersOrNull, isNull);
+    expect(find.byTooltip('筛选'), findsNothing);
 
     await tester.tap(_tab('小说'));
     await tester.pumpAndSettle();
     expect(router.state.uri.queryParameters['type'], 'novel');
-    expect(router.state.uri.queryParameters['wmin'], '800');
-    expect(find.text('宽 800 以上'), findsOneWidget);
+    expect(router.state.uri.queryParameters.containsKey('wmin'), isFalse);
+    expect(find.text('宽 800 以上'), findsNothing);
   });
 
   const filtered =

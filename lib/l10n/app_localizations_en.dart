@@ -1881,6 +1881,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchTitleCaption => 'Title and caption';
 
   @override
+  String get searchTargetText => 'Text';
+
+  @override
+  String get searchTargetKeyword => 'Keyword';
+
+  @override
   String get searchSort => 'Sort';
 
   @override
@@ -1960,6 +1966,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchHeight => 'Height';
+
+  @override
+  String get searchTextLength => 'Text length';
+
+  @override
+  String get searchChars => 'Chars';
+
+  @override
+  String get searchOriginalOnly => 'Original only';
+
+  @override
+  String get searchSetDefault => 'Set as default';
 
   @override
   String searchRangeAtLeast(String label, String value) {

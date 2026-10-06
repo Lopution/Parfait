@@ -324,12 +324,23 @@ T _searchEnum<T>(
 
 int? _searchInt(String? raw) => raw == null ? null : int.tryParse(raw);
 
+typedef _SharedSearchParams = ({
+  SearchTarget target,
+  SearchSort sort,
+  SearchDuration? duration,
+  DateTime? startDate,
+  DateTime? endDate,
+  SearchAiFilter aiFilter,
+  int? bookmarkMin,
+  int? bookmarkMax,
+});
+
 /// Every `SearchFilters` field is a route parameter so a result URL fully
 /// describes the query (refresh/share/process-death all restore it).
 /// Decoding is permissive per field — one damaged value falls back to its
 /// default without discarding the rest, same rule as
 /// `SearchFilters.fromJson`.
-SearchFilters _searchFilters(GoRouterState state) => SearchFilters(
+_SharedSearchParams _sharedSearchParams(GoRouterState state) => (
   target: _searchEnum(
     SearchTarget.values,
     state.uri.queryParameters['target'],
@@ -355,53 +366,114 @@ SearchFilters _searchFilters(GoRouterState state) => SearchFilters(
   ),
   bookmarkMin: _searchInt(state.uri.queryParameters['bmin']),
   bookmarkMax: _searchInt(state.uri.queryParameters['bmax']),
-  ratio: _searchRatio(state.uri.queryParameters['ratio']),
-  contentType: _searchEnum(
-    SearchContentType.values,
-    state.uri.queryParameters['ct'],
-    (value) => value.wireValue,
-    SearchContentType.illustAndMangaAndUgoira,
-  ),
-  widthMin: _searchInt(state.uri.queryParameters['wmin']),
-  widthMax: _searchInt(state.uri.queryParameters['wmax']),
-  heightMin: _searchInt(state.uri.queryParameters['hmin']),
-  heightMax: _searchInt(state.uri.queryParameters['hmax']),
 );
+
+IllustSearchFilters _illustSearchFilters(GoRouterState state) {
+  final params = state.uri.queryParameters;
+  final shared = _sharedSearchParams(state);
+  return IllustSearchFilters(
+    // A foreign target in a shared URL clamps to the type's own set — the
+    // novel-only `text`/`keyword` values can never reach an illust query.
+    target: SearchFilters.clampTarget(
+      shared.target,
+      IllustSearchFilters.defaults.targetOptions,
+    ),
+    sort: shared.sort,
+    duration: shared.duration,
+    startDate: shared.startDate,
+    endDate: shared.endDate,
+    aiFilter: shared.aiFilter,
+    bookmarkMin: shared.bookmarkMin,
+    bookmarkMax: shared.bookmarkMax,
+    ratio: _searchRatio(params['ratio']),
+    contentType: _searchEnum(
+      SearchContentType.values,
+      params['ct'],
+      (value) => value.wireValue,
+      SearchContentType.illustAndMangaAndUgoira,
+    ),
+    widthMin: _searchInt(params['wmin']),
+    widthMax: _searchInt(params['wmax']),
+    heightMin: _searchInt(params['hmin']),
+    heightMax: _searchInt(params['hmax']),
+  );
+}
+
+NovelSearchFilters _novelSearchFilters(GoRouterState state) {
+  final params = state.uri.queryParameters;
+  final shared = _sharedSearchParams(state);
+  return NovelSearchFilters(
+    target: SearchFilters.clampTarget(
+      shared.target,
+      NovelSearchFilters.defaults.targetOptions,
+    ),
+    // The novel endpoint does not recognize the gendered popularity sorts.
+    sort: shared.sort.novelSafe,
+    duration: shared.duration,
+    startDate: shared.startDate,
+    endDate: shared.endDate,
+    aiFilter: shared.aiFilter,
+    bookmarkMin: shared.bookmarkMin,
+    bookmarkMax: shared.bookmarkMax,
+    textLengthMin: _searchInt(params['tmin']),
+    textLengthMax: _searchInt(params['tmax']),
+    originalOnly: params['original'] == '1' || params['original'] == 'true',
+  );
+}
 
 SearchQuery _searchQuery(GoRouterState state) {
   final keyword = state.uri.queryParameters['q'] ?? '';
-  return IllustSearchQuery(
-    keyword: keyword,
-    filters: _searchFilters(state),
-  ).withType(_searchType(state.uri.queryParameters['type']));
-}
-
-Map<String, String> _searchQueryParameters(SearchQuery query) {
-  // A user query serializes its retained filters too, so switching back
-  // to an artwork tab restores them.
-  final filters = query.carriedFilters;
-  return {
-    'q': query.keyword,
-    'type': query.type.name,
-    'target': filters.target.wireValue,
-    'sort': filters.sort.wireValue,
-    if (filters.duration != null) 'duration': filters.duration!.wireValue,
-    if (filters.startDate != null) 'start': formatApiDate(filters.startDate!),
-    if (filters.endDate != null) 'end': formatApiDate(filters.endDate!),
-    // Non-nullable selectors always serialize so the URL is
-    // self-describing; `ai` uses the enum name because `all`/`only`
-    // share the null wire value.
-    'ai': filters.aiFilter.name,
-    if (filters.bookmarkMin != null) 'bmin': '${filters.bookmarkMin}',
-    if (filters.bookmarkMax != null) 'bmax': '${filters.bookmarkMax}',
-    if (filters.ratio != null) 'ratio': filters.ratio!.wireValue,
-    'ct': filters.contentType.wireValue,
-    if (filters.widthMin != null) 'wmin': '${filters.widthMin}',
-    if (filters.widthMax != null) 'wmax': '${filters.widthMax}',
-    if (filters.heightMin != null) 'hmin': '${filters.heightMin}',
-    if (filters.heightMax != null) 'hmax': '${filters.heightMax}',
+  return switch (_searchType(state.uri.queryParameters['type'])) {
+    SearchResultType.illust => IllustSearchQuery(
+      keyword: keyword,
+      filters: _illustSearchFilters(state),
+    ),
+    SearchResultType.novel => NovelSearchQuery(
+      keyword: keyword,
+      filters: _novelSearchFilters(state),
+    ),
+    // A user search has no filters: the route carries none, and any stray
+    // filter params on a shared URL are ignored rather than stored.
+    SearchResultType.user => UserSearchQuery(keyword: keyword),
   };
 }
+
+Map<String, String> _sharedFilterQueryParams(SearchFilters filters) => {
+  'target': filters.normalizedTarget.wireValue,
+  'sort': filters.normalizedSort.wireValue,
+  if (filters.duration != null) 'duration': filters.duration!.wireValue,
+  if (filters.startDate != null) 'start': formatApiDate(filters.startDate!),
+  if (filters.endDate != null) 'end': formatApiDate(filters.endDate!),
+  // Non-nullable selectors always serialize so the URL is
+  // self-describing; `ai` uses the enum name because `all`/`only`
+  // share the null wire value.
+  'ai': filters.aiFilter.name,
+  if (filters.bookmarkMin != null) 'bmin': '${filters.bookmarkMin}',
+  if (filters.bookmarkMax != null) 'bmax': '${filters.bookmarkMax}',
+};
+
+Map<String, String> _searchQueryParameters(SearchQuery query) => {
+  'q': query.keyword,
+  'type': query.type.name,
+  ...switch (query) {
+    IllustSearchQuery(:final filters) => {
+      ..._sharedFilterQueryParams(filters),
+      if (filters.ratio != null) 'ratio': filters.ratio!.wireValue,
+      'ct': filters.contentType.wireValue,
+      if (filters.widthMin != null) 'wmin': '${filters.widthMin}',
+      if (filters.widthMax != null) 'wmax': '${filters.widthMax}',
+      if (filters.heightMin != null) 'hmin': '${filters.heightMin}',
+      if (filters.heightMax != null) 'hmax': '${filters.heightMax}',
+    },
+    NovelSearchQuery(:final filters) => {
+      ..._sharedFilterQueryParams(filters),
+      if (filters.textLengthMin != null) 'tmin': '${filters.textLengthMin}',
+      if (filters.textLengthMax != null) 'tmax': '${filters.textLengthMax}',
+      if (filters.originalOnly) 'original': '1',
+    },
+    _ => const <String, String>{},
+  },
+};
 
 SearchDuration? _searchDuration(String? raw) {
   for (final value in SearchDuration.values) {
@@ -444,8 +516,7 @@ List<RouteBase> _searchRoutes(
         observer,
         SearchResultPage(
           query: _searchQuery(state),
-          onTypeChanged: (type) =>
-              replaceSearchResults(context, _searchQuery(state).withType(type)),
+          onTypeChanged: (query) => replaceSearchResults(context, query),
         ),
       ),
     ),

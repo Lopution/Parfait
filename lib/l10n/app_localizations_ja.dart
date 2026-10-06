@@ -1821,6 +1821,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchTitleCaption => 'タイトルとキャプション';
 
   @override
+  String get searchTargetText => '本文';
+
+  @override
+  String get searchTargetKeyword => 'キーワード';
+
+  @override
   String get searchSort => '並び順';
 
   @override
@@ -1900,6 +1906,18 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get searchHeight => '高さ';
+
+  @override
+  String get searchTextLength => '本文の長さ';
+
+  @override
+  String get searchChars => '文字数';
+
+  @override
+  String get searchOriginalOnly => 'オリジナルのみ';
+
+  @override
+  String get searchSetDefault => 'デフォルトにする';
 
   @override
   String searchRangeAtLeast(String label, String value) {

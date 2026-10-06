@@ -158,8 +158,9 @@ void main() {
           home: _Opener(
             (context, ref) => showSearchFilterSheet(
               context,
-              initial: SearchFilters.defaults,
-              type: type,
+              initial: type == SearchResultType.novel
+                  ? NovelSearchFilters.defaults
+                  : IllustSearchFilters.defaults,
             ),
           ),
         ),

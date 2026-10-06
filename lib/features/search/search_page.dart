@@ -514,7 +514,7 @@ class _TrendingGrid extends StatelessWidget {
   }
 }
 
-class _TrendingTagTile extends StatelessWidget {
+class _TrendingTagTile extends ConsumerWidget {
   const _TrendingTagTile({
     required this.tag,
     required this.type,
@@ -533,7 +533,7 @@ class _TrendingTagTile extends StatelessWidget {
   final double tileWidth;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final representative = tag.representative;
@@ -552,12 +552,16 @@ class _TrendingTagTile extends StatelessWidget {
     return Semantics(
       button: true,
       child: GestureDetector(
-        // Tapping searches the tag; the image is context.
+        // Tapping searches the tag; the image is context. Every entry
+        // starts from the type's persisted default filter set.
         onTap: () => openSearchResults(
           context,
-          type == SearchResultType.novel
-              ? NovelSearchQuery(keyword: tag.name)
-              : IllustSearchQuery(keyword: tag.name),
+          searchQueryForType(
+            type,
+            keyword: tag.name,
+            illustFilters: ref.read(searchIllustFiltersProvider),
+            novelFilters: ref.read(searchNovelFiltersProvider),
+          ),
         ),
         child: ClipRRect(
           borderRadius: FuncShape.card,
@@ -710,22 +714,40 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   }
 
   SearchQuery _query(String keyword) {
-    // A user search keeps the filters too, so the result page's artwork
-    // tabs open with them.
-    return IllustSearchQuery(
+    return searchQueryForType(
+      _types[_selectedIndex],
       keyword: keyword,
-      filters: ref.read(searchFiltersProvider),
-    ).withType(_types[_selectedIndex]);
+      illustFilters: _illustFilters,
+      novelFilters: _novelFilters,
+    );
   }
 
+  /// Per-type filter drafts for this input session. Seeded from the
+  /// persisted defaults on first access; edits stay on the page (this
+  /// draft is what the submitted query carries — nothing else writes it).
+  late IllustSearchFilters _illustFilters = ref.read(
+    searchIllustFiltersProvider,
+  );
+  late NovelSearchFilters _novelFilters = ref.read(searchNovelFiltersProvider);
+
   Future<void> _editFilters() async {
-    final selected = await showSearchFilterSheet(
+    final result = await showSearchFilterSheet(
       context,
-      initial: ref.read(searchFiltersProvider),
-      type: _types[_selectedIndex],
+      initial: _types[_selectedIndex] == SearchResultType.novel
+          ? _novelFilters
+          : _illustFilters,
     );
-    if (!mounted || selected == null) return;
-    await ref.read(settingsProvider.notifier).setSearchFilters(selected);
+    if (!mounted || result == null) return;
+    // The draft belongs to this input session only — persisting it is the
+    // result page's "设为默认" job, not the apply button's.
+    setState(() {
+      switch (result.filters) {
+        case final IllustSearchFilters f:
+          _illustFilters = f;
+        case final NovelSearchFilters f:
+          _novelFilters = f;
+      }
+    });
   }
 
   void _onSearchChanged(String value) {

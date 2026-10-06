@@ -328,7 +328,7 @@ void main() {
     },
   );
 
-  test('setSearchFilters persists and the provider re-exposes it', () async {
+  test('setSearchFilters persists each type set independently', () async {
     final repository = FakeSettingsRepository(baseTestSettings());
     final container = ProviderContainer(
       overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
@@ -336,14 +336,19 @@ void main() {
     addTearDown(container.dispose);
     await container.read(settingsProvider.future);
 
-    const filters = SearchFilters(
+    const illust = IllustSearchFilters(
       sort: SearchSort.popularDesc,
       bookmarkMin: 500,
     );
-    await container.read(settingsProvider.notifier).setSearchFilters(filters);
+    const novel = NovelSearchFilters(originalOnly: true);
+    await container.read(settingsProvider.notifier).setSearchFilters(illust);
+    await container.read(settingsProvider.notifier).setSearchFilters(novel);
 
-    expect(container.read(searchFiltersProvider), filters);
-    expect(repository.saved.single.searchFilters, filters);
+    expect(container.read(searchIllustFiltersProvider), illust);
+    expect(container.read(searchNovelFiltersProvider), novel);
+    // Each write leaves the other type untouched.
+    expect(repository.saved.last.searchIllustFilters, illust);
+    expect(repository.saved.last.searchNovelFilters, novel);
   });
 
   test('networkModeCode round-trips and missing key defaults to automatic', () {
@@ -466,8 +471,8 @@ void main() {
     expect(AnimationSpeed.slow.factor, closeTo(450 / 350, 1e-9));
   });
 
-  test('searchFilters round-trips and damaged fields fall back', () {
-    const filters = SearchFilters(
+  test('typed search filters round-trip and damaged fields fall back', () {
+    const filters = IllustSearchFilters(
       target: SearchTarget.exactMatchForTags,
       sort: SearchSort.popularDesc,
       duration: SearchDuration.week,
@@ -479,16 +484,26 @@ void main() {
       widthMin: 800,
       heightMin: 600,
     );
-    final stored = baseTestSettings().copyWith(searchFilters: filters);
+    final stored = baseTestSettings().copyWith(
+      searchIllustFilters: filters,
+      searchNovelFilters: const NovelSearchFilters(
+        target: SearchTarget.text,
+        textLengthMin: 1000,
+        originalOnly: true,
+      ),
+    );
     final restored = AppSettings.fromJson(
       stored.toJson(),
       fallback: baseTestSettings(),
     );
-    expect(restored.searchFilters, filters);
+    expect(restored.searchIllustFilters, filters);
+    expect(restored.searchNovelFilters.target, SearchTarget.text);
+    expect(restored.searchNovelFilters.textLengthMin, 1000);
+    expect(restored.searchNovelFilters.originalOnly, isTrue);
 
     // Custom date bounds also survive.
     final dated = baseTestSettings().copyWith(
-      searchFilters: SearchFilters(
+      searchIllustFilters: IllustSearchFilters(
         startDate: DateTime(2024, 1, 10),
         endDate: DateTime(2024, 2, 10),
       ),
@@ -497,37 +512,73 @@ void main() {
       dated.toJson(),
       fallback: baseTestSettings(),
     );
-    expect(datedRestored.searchFilters.startDate, DateTime(2024, 1, 10));
-    expect(datedRestored.searchFilters.endDate, DateTime(2024, 2, 10));
+    expect(datedRestored.searchIllustFilters.startDate, DateTime(2024, 1, 10));
+    expect(datedRestored.searchIllustFilters.endDate, DateTime(2024, 2, 10));
 
     // One damaged field falls back without discarding valid siblings.
     final damaged = AppSettings.fromJson({
-      'searchFilters': {
+      'searchIllustFilters': {
         'target': 'bogus_target',
         'sort': 'date_asc',
         'bookmarkMin': 'not-a-number',
         'aiFilter': 'exclude',
       },
     }, fallback: baseTestSettings());
-    expect(damaged.searchFilters.target, SearchTarget.partialMatchForTags);
-    expect(damaged.searchFilters.sort, SearchSort.dateAsc);
-    expect(damaged.searchFilters.bookmarkMin, isNull);
-    expect(damaged.searchFilters.aiFilter, SearchAiFilter.exclude);
+    expect(
+      damaged.searchIllustFilters.target,
+      SearchTarget.partialMatchForTags,
+    );
+    expect(damaged.searchIllustFilters.sort, SearchSort.dateAsc);
+    expect(damaged.searchIllustFilters.bookmarkMin, isNull);
+    expect(damaged.searchIllustFilters.aiFilter, SearchAiFilter.exclude);
+
+    // A foreign target clamps into the type's own options.
+    final foreign = AppSettings.fromJson({
+      'searchNovelFilters': {'target': 'title_and_caption'},
+      'searchIllustFilters': {'target': 'text'},
+    }, fallback: baseTestSettings());
+    expect(foreign.searchNovelFilters.target, SearchTarget.partialMatchForTags);
+    expect(
+      foreign.searchIllustFilters.target,
+      SearchTarget.partialMatchForTags,
+    );
 
     // A missing/non-map value keeps the defaults.
     expect(
       AppSettings.fromJson(
         const {},
         fallback: baseTestSettings(),
-      ).searchFilters,
-      SearchFilters.defaults,
+      ).searchIllustFilters,
+      IllustSearchFilters.defaults,
     );
     expect(
       AppSettings.fromJson(const {
-        'searchFilters': 42,
-      }, fallback: baseTestSettings()).searchFilters,
-      SearchFilters.defaults,
+        'searchNovelFilters': 42,
+      }, fallback: baseTestSettings()).searchNovelFilters,
+      NovelSearchFilters.defaults,
     );
+  });
+
+  test('legacy single searchFilters blob migrates into both type sets', () {
+    final restored = AppSettings.fromJson({
+      'searchFilters': {
+        'target': 'title_and_caption',
+        'sort': 'popular_female_desc',
+        'bookmarkMin': 50,
+        'ratio': 'square',
+      },
+    }, fallback: baseTestSettings());
+    // The pre-typed default seeds the illust set as-is...
+    expect(restored.searchIllustFilters.target, SearchTarget.titleAndCaption);
+    expect(restored.searchIllustFilters.bookmarkMin, 50);
+    expect(restored.searchIllustFilters.ratio, SearchRatioPattern.square);
+    // ...and the novel set too, clamped into the novel-legal values.
+    expect(
+      restored.searchNovelFilters.target,
+      SearchTarget.partialMatchForTags,
+    );
+    expect(restored.searchNovelFilters.sort, SearchSort.popularDesc);
+    expect(restored.searchNovelFilters.bookmarkMin, 50);
   });
 
   test('legacy previewQuality true migrates to PreviewQuality.large', () {

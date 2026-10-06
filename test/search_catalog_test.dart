@@ -22,11 +22,13 @@ import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/core/search/search_autocomplete_controller.dart';
 import 'package:parfait/core/search/search_feed_controller.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/search/search_repository.dart';
+import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/search/search_filter_sheet.dart';
 import 'package:parfait/features/search/search_page.dart';
@@ -114,7 +116,7 @@ void main() {
   });
 
   test('typed search filters serialize only allowlisted values', () {
-    final filters = SearchFilters(
+    final filters = IllustSearchFilters(
       target: SearchTarget.titleAndCaption,
       sort: SearchSort.popularDesc,
       startDate: DateTime(2026, 8, 1),
@@ -162,7 +164,9 @@ void main() {
       (SearchDuration.week, 7),
       (SearchDuration.month, 30),
     ]) {
-      final query = SearchFilters(duration: duration).toQuery(word: 'cat');
+      final query = IllustSearchFilters(
+        duration: duration,
+      ).toQuery(word: 'cat');
       // `within_last_*` is never sent — Pixiv's honoring of it on the app
       // API is unreliable, so every comparable client resolves presets
       // client-side.
@@ -173,7 +177,7 @@ void main() {
   });
 
   test('a duration preset wins over stale custom dates', () {
-    final query = SearchFilters(
+    final query = IllustSearchFilters(
       duration: SearchDuration.day,
       startDate: DateTime(2020, 1, 1),
       endDate: DateTime(2020, 1, 2),
@@ -186,7 +190,7 @@ void main() {
   });
 
   test('preview query drops the sort the preview endpoint rejects', () {
-    final query = const SearchFilters(
+    final query = const IllustSearchFilters(
       sort: SearchSort.popularDesc,
     ).toPreviewQuery(word: 'cat');
     expect(query.containsKey('sort'), isFalse);
@@ -195,7 +199,7 @@ void main() {
   });
 
   test('illust-only filters serialize on illust, never on novel', () {
-    const filters = SearchFilters(
+    const illustFilters = IllustSearchFilters(
       aiFilter: SearchAiFilter.exclude,
       bookmarkMin: 100,
       bookmarkMax: 5000,
@@ -209,7 +213,7 @@ void main() {
 
     final illust = const IllustSearchQuery(
       keyword: 'cat',
-      filters: filters,
+      filters: illustFilters,
     ).toQuery();
     expect(illust, {
       'word': 'cat',
@@ -229,7 +233,11 @@ void main() {
 
     final novel = const NovelSearchQuery(
       keyword: 'cat',
-      filters: filters,
+      filters: NovelSearchFilters(
+        aiFilter: SearchAiFilter.exclude,
+        bookmarkMin: 100,
+        bookmarkMax: 5000,
+      ),
     ).toQuery();
     for (final key in [
       'ratio_pattern',
@@ -246,6 +254,39 @@ void main() {
     expect(novel['bookmark_num_min'], '100');
   });
 
+  test('novel-only filters serialize on novel, never on illust', () {
+    final novel = const NovelSearchQuery(
+      keyword: 'cat',
+      filters: NovelSearchFilters(
+        target: SearchTarget.text,
+        textLengthMin: 1000,
+        textLengthMax: 30000,
+        originalOnly: true,
+      ),
+    ).toQuery();
+    expect(novel['search_target'], 'text');
+    expect(novel['text_length_min'], '1000');
+    expect(novel['text_length_max'], '30000');
+    expect(novel['is_original_only'], 'true');
+
+    // `keyword` is the other novel-only target.
+    final byKeyword = const NovelSearchQuery(
+      keyword: 'cat',
+      filters: NovelSearchFilters(target: SearchTarget.keyword),
+    ).toQuery();
+    expect(byKeyword['search_target'], 'keyword');
+
+    // The illust query has no novel dims by construction — clamped decode
+    // keeps `text`/`keyword` from ever reaching the illust wire.
+    final clamped = IllustSearchFilters.fromJson({'target': 'text'});
+    expect(clamped.target, SearchTarget.partialMatchForTags);
+    final illust = IllustSearchQuery(
+      keyword: 'cat',
+      filters: clamped,
+    ).toQuery();
+    expect(illust['search_target'], 'partial_match_for_tags');
+  });
+
   test('gendered sorts normalize to popular_desc on the novel wire', () {
     for (final sort in [
       SearchSort.popularMaleDesc,
@@ -253,14 +294,14 @@ void main() {
     ]) {
       final query = NovelSearchQuery(
         keyword: 'cat',
-        filters: SearchFilters(sort: sort),
+        filters: NovelSearchFilters(sort: sort),
       ).toQuery();
       // The novel endpoint 400s on male/female sorts — never emit them.
       expect(query['sort'], 'popular_desc');
     }
     final illust = const IllustSearchQuery(
       keyword: 'cat',
-      filters: SearchFilters(sort: SearchSort.popularMaleDesc),
+      filters: IllustSearchFilters(sort: SearchSort.popularMaleDesc),
     ).toQuery();
     expect(illust['sort'], 'popular_male_desc');
   });
@@ -268,13 +309,13 @@ void main() {
   test('ai-only has no wire value; exclude serializes search_ai_type=1', () {
     final only = const IllustSearchQuery(
       keyword: 'cat',
-      filters: SearchFilters(aiFilter: SearchAiFilter.only),
+      filters: IllustSearchFilters(aiFilter: SearchAiFilter.only),
     ).toQuery();
     expect(only.containsKey('search_ai_type'), isFalse);
 
     final all = const IllustSearchQuery(
       keyword: 'cat',
-      filters: SearchFilters(aiFilter: SearchAiFilter.all),
+      filters: IllustSearchFilters(aiFilter: SearchAiFilter.all),
     ).toQuery();
     expect(all.containsKey('search_ai_type'), isFalse);
   });
@@ -295,7 +336,7 @@ void main() {
         .searchIllust(
           const IllustSearchQuery(
             keyword: 'cat',
-            filters: SearchFilters(sort: SearchSort.popularMaleDesc),
+            filters: IllustSearchFilters(sort: SearchSort.popularMaleDesc),
           ),
         );
     expect(page.illusts.single.id, 63);
@@ -314,7 +355,7 @@ void main() {
         .searchIllust(
           const IllustSearchQuery(
             keyword: 'cat',
-            filters: SearchFilters(sort: SearchSort.popularFemaleDesc),
+            filters: IllustSearchFilters(sort: SearchSort.popularFemaleDesc),
           ),
         );
   });
@@ -335,7 +376,7 @@ void main() {
       repository.validateCursor(
         const IllustSearchQuery(
           keyword: 'cat',
-          filters: SearchFilters(
+          filters: IllustSearchFilters(
             aiFilter: SearchAiFilter.exclude,
             bookmarkMin: 100,
             ratio: SearchRatioPattern.portrait,
@@ -352,7 +393,7 @@ void main() {
       repository.validateCursor(
         const IllustSearchQuery(
           keyword: 'cat',
-          filters: SearchFilters(
+          filters: IllustSearchFilters(
             aiFilter: SearchAiFilter.exclude,
             bookmarkMin: 200,
             ratio: SearchRatioPattern.portrait,
@@ -370,7 +411,7 @@ void main() {
     const base = IllustSearchQuery(keyword: 'cat');
     final dated = IllustSearchQuery(
       keyword: 'cat',
-      filters: SearchFilters(
+      filters: IllustSearchFilters(
         sort: SearchSort.dateAsc,
         startDate: DateTime(2026, 8, 1),
         endDate: DateTime(2026, 8, 27),
@@ -378,7 +419,7 @@ void main() {
     );
     final duration = IllustSearchQuery(
       keyword: 'cat',
-      filters: SearchFilters(duration: SearchDuration.week),
+      filters: IllustSearchFilters(duration: SearchDuration.week),
     );
 
     expect(dated.cacheKey, isNot(base.cacheKey));
@@ -511,7 +552,7 @@ void main() {
           .searchIllust(
             const IllustSearchQuery(
               keyword: 'cat',
-              filters: SearchFilters(sort: SearchSort.popularDesc),
+              filters: IllustSearchFilters(sort: SearchSort.popularDesc),
             ),
           );
       expect(page.illusts.single.id, 61);
@@ -534,7 +575,7 @@ void main() {
         .searchIllust(
           const IllustSearchQuery(
             keyword: 'cat',
-            filters: SearchFilters(sort: SearchSort.popularDesc),
+            filters: IllustSearchFilters(sort: SearchSort.popularDesc),
           ),
         );
     expect(page.illusts.single.id, 62);
@@ -555,7 +596,7 @@ void main() {
           .searchNovel(
             const NovelSearchQuery(
               keyword: 'cat',
-              filters: SearchFilters(sort: SearchSort.popularDesc),
+              filters: NovelSearchFilters(sort: SearchSort.popularDesc),
             ),
           );
     },
@@ -629,7 +670,7 @@ void main() {
         searchFeedProvider(
           const IllustSearchQuery(
             keyword: 'cat',
-            filters: SearchFilters(bookmarkMin: 100),
+            filters: IllustSearchFilters(bookmarkMin: 100),
           ),
         ).future,
       );
@@ -640,7 +681,7 @@ void main() {
         searchFeedProvider(
           const IllustSearchQuery(
             keyword: 'cat',
-            filters: SearchFilters(aiFilter: SearchAiFilter.only),
+            filters: IllustSearchFilters(aiFilter: SearchAiFilter.only),
           ),
         ).future,
       );
@@ -650,7 +691,7 @@ void main() {
         searchFeedProvider(
           const IllustSearchQuery(
             keyword: 'cat',
-            filters: SearchFilters(
+            filters: IllustSearchFilters(
               aiFilter: SearchAiFilter.only,
               bookmarkMin: 1000,
             ),
@@ -660,6 +701,58 @@ void main() {
       expect(combined.ids, [3]);
     },
   );
+
+  test('search feed applies the same predicates to novel results', () async {
+    NovelEntity novel(int id, {int totalBookmarks = 0, int novelAiType = 0}) =>
+        NovelEntity(
+          id: id,
+          title: 'novel $id',
+          caption: '',
+          user: const UserEntity(id: 8, name: 'author', account: 'author'),
+          tags: const [],
+          textLength: 1200,
+          contentVersion: 'v$id',
+          paragraphs: const [],
+          totalBookmarks: totalBookmarks,
+          novelAiType: novelAiType,
+        );
+
+    final repository = FakeSearchRepository()
+      ..novelPage = SearchNovelPage(
+        novels: [
+          novel(1, totalBookmarks: 50),
+          novel(2, totalBookmarks: 500, novelAiType: 2),
+          novel(3, totalBookmarks: 5000, novelAiType: 2),
+        ],
+        nextUrl: null,
+      );
+    final container = ProviderContainer(
+      overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+
+    // The client-side predicates run against the incoming page entities —
+    // the same bookmark/AI rule as the illust feed, via novel_ai_type.
+    final ranged = await container.read(
+      searchFeedProvider(
+        const NovelSearchQuery(
+          keyword: 'cat',
+          filters: NovelSearchFilters(bookmarkMin: 100),
+        ),
+      ).future,
+    );
+    expect(ranged.ids, [2, 3]);
+
+    final aiOnly = await container.read(
+      searchFeedProvider(
+        const NovelSearchQuery(
+          keyword: 'cat',
+          filters: NovelSearchFilters(aiFilter: SearchAiFilter.only),
+        ),
+      ).future,
+    );
+    expect(aiOnly.ids, [2, 3]);
+  });
 
   test(
     'autocomplete debounce suppresses a late response from an old query',
@@ -733,7 +826,7 @@ void main() {
   testWidgets('filter sheet renders illust groups and returns selections', (
     tester,
   ) async {
-    SearchFilters? result;
+    SearchFilterSheetResult? result;
     await tester.pumpWidget(
       MaterialApp(
         localizationsDelegates: appLocalizationsDelegates,
@@ -746,8 +839,7 @@ void main() {
                 onPressed: () async {
                   result = await showSearchFilterSheet(
                     context,
-                    initial: SearchFilters.defaults,
-                    type: SearchResultType.illust,
+                    initial: IllustSearchFilters.defaults,
                   );
                 },
                 child: const Text('open'),
@@ -784,14 +876,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(result, isNotNull);
-    expect(result!.aiFilter, SearchAiFilter.exclude);
-    expect(result!.ratio, SearchRatioPattern.portrait);
-    expect(result!.contentType, SearchContentType.manga);
-    expect(result!.bookmarkMin, 100);
-    expect(result!.bookmarkMax, isNull);
+    expect(result!.makeDefault, isFalse);
+    final filters = result!.filters as IllustSearchFilters;
+    expect(filters.aiFilter, SearchAiFilter.exclude);
+    expect(filters.ratio, SearchRatioPattern.portrait);
+    expect(filters.contentType, SearchContentType.manga);
+    expect(filters.bookmarkMin, 100);
+    expect(filters.bookmarkMax, isNull);
   });
 
-  testWidgets('filter sheet hides illust groups for novel search', (
+  testWidgets('filter sheet shows only novel dims for novel search', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -806,8 +900,7 @@ void main() {
                 onPressed: () async {
                   await showSearchFilterSheet(
                     context,
-                    initial: SearchFilters.defaults,
-                    type: SearchResultType.novel,
+                    initial: NovelSearchFilters.defaults,
                   );
                 },
                 child: const Text('open'),
@@ -820,11 +913,18 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    for (final section in ['AI 作品', '收藏数', '纵横比', '作品类别', '分辨率']) {
+    // Illust-only dims never render on the novel sheet.
+    for (final section in ['纵横比', '作品类别', '分辨率']) {
       expect(find.text(section), findsNothing, reason: section);
     }
-    // Shared groups still render.
-    expect(find.text('排序'), findsOneWidget);
+    // Shared and novel-only dims do.
+    for (final section in ['排序', 'AI 作品', '收藏数', '正文长度', '仅原创']) {
+      expect(find.text(section), findsOneWidget, reason: section);
+    }
+    // The novel target set offers 正文/关键词, not 标题和简介.
+    expect(find.text('正文'), findsOneWidget);
+    expect(find.text('关键词'), findsOneWidget);
+    expect(find.text('标题和简介'), findsNothing);
   });
 
   testWidgets('search guide renders trending tags and the three input tabs', (
@@ -1355,7 +1455,7 @@ void main() {
 
     final page = tester.widget<SearchResultPage>(find.byType(SearchResultPage));
     final query = page.query as IllustSearchQuery;
-    const expected = SearchFilters(
+    const expected = IllustSearchFilters(
       target: SearchTarget.exactMatchForTags,
       sort: SearchSort.dateAsc,
       duration: SearchDuration.week,
@@ -1389,7 +1489,7 @@ void main() {
     // in code — cache keys must agree or restoration would fork the feed.
     final built = IllustSearchQuery(
       keyword: 'cat',
-      filters: SearchFilters(
+      filters: IllustSearchFilters(
         target: SearchTarget.exactMatchForTags,
         sort: SearchSort.dateAsc,
         duration: SearchDuration.week,
@@ -1437,7 +1537,7 @@ void main() {
     final page = tester.widget<SearchResultPage>(find.byType(SearchResultPage));
     final filters = (page.query as IllustSearchQuery).filters;
     // One damaged field falls back to its default without discarding the
-    // rest — same permissive rule as SearchFilters.fromJson.
+    // rest — same permissive rule as IllustSearchFilters.fromJson.
     expect(filters.sort, SearchSort.dateDesc);
     expect(filters.aiFilter, SearchAiFilter.all);
     expect(filters.bookmarkMin, isNull);

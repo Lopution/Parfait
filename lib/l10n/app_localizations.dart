@@ -3491,6 +3491,18 @@ abstract class AppLocalizations {
   /// **'标题和简介'**
   String get searchTitleCaption;
 
+  /// No description provided for @searchTargetText.
+  ///
+  /// In zh, this message translates to:
+  /// **'正文'**
+  String get searchTargetText;
+
+  /// No description provided for @searchTargetKeyword.
+  ///
+  /// In zh, this message translates to:
+  /// **'关键词'**
+  String get searchTargetKeyword;
+
   /// No description provided for @searchSort.
   ///
   /// In zh, this message translates to:
@@ -3652,6 +3664,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'高'**
   String get searchHeight;
+
+  /// No description provided for @searchTextLength.
+  ///
+  /// In zh, this message translates to:
+  /// **'正文长度'**
+  String get searchTextLength;
+
+  /// No description provided for @searchChars.
+  ///
+  /// In zh, this message translates to:
+  /// **'字数'**
+  String get searchChars;
+
+  /// No description provided for @searchOriginalOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅原创'**
+  String get searchOriginalOnly;
+
+  /// No description provided for @searchSetDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'设为默认'**
+  String get searchSetDefault;
 
   /// Filter chip: a lower bound only, e.g. bookmarks or width
   ///

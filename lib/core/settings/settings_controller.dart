@@ -113,8 +113,14 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> selectReverseImageEngine(ReverseImageEngine engine) =>
       _update((settings) => settings.copyWith(reverseImageEngine: engine));
 
-  Future<void> setSearchFilters(SearchFilters filters) =>
-      _update((settings) => settings.copyWith(searchFilters: filters));
+  /// Persists [filters] as the default for its own type — each artwork
+  /// type owns one set, so only the matching field is overwritten.
+  Future<void> setSearchFilters(SearchFilters filters) => _update(
+    (settings) => switch (filters) {
+      final IllustSearchFilters f => settings.copyWith(searchIllustFilters: f),
+      final NovelSearchFilters f => settings.copyWith(searchNovelFilters: f),
+    },
+  );
 
   Future<void> setHideMuted(bool enabled) =>
       _update((settings) => settings.copyWith(hideMuted: enabled));
@@ -318,13 +324,24 @@ final reverseImageEngineProvider = Provider<ReverseImageEngine>((ref) {
   );
 });
 
-/// Persisted search filter set — the search page's working copy is this
-/// provider, so a confirmed selection survives page recreation and
-/// restarts without extra plumbing.
-final searchFiltersProvider = Provider<SearchFilters>((ref) {
+/// Persisted illustration-search filter defaults — every artwork search
+/// entry point (input page, tag taps, trend chips) starts a search session
+/// from these.
+final searchIllustFiltersProvider = Provider<IllustSearchFilters>((ref) {
   return ref.watch(
     settingsProvider.select(
-      (async) => async.value?.searchFilters ?? SearchFilters.defaults,
+      (async) =>
+          async.value?.searchIllustFilters ?? IllustSearchFilters.defaults,
+    ),
+  );
+});
+
+/// Persisted novel-search filter defaults — same contract as
+/// [searchIllustFiltersProvider] for the novel type's own dimensions.
+final searchNovelFiltersProvider = Provider<NovelSearchFilters>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.searchNovelFilters ?? NovelSearchFilters.defaults,
     ),
   );
 });

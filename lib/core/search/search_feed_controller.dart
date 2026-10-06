@@ -4,6 +4,7 @@ import '../auth/account_store.dart';
 import '../entity/illust_entity.dart';
 import '../entity/illust_store.dart';
 import '../illust/illust_snapshot_codec.dart';
+import '../novel/novel_entity.dart';
 import '../novel/novel_store.dart';
 import '../novel/novel_snapshot_codec.dart';
 import '../paging/paged_feed_controller.dart';
@@ -27,34 +28,54 @@ class _SearchFeedController extends PagedFeedController {
     _ => null,
   };
 
-  /// C9: search results are discovery content. Only illust/manga queries
-  /// have local-block semantics; novel/user searches stay unfiltered.
+  /// C9: search results are discovery content. The local-block predicate is
+  /// illust-entity based, but novel queries still need the refill loop for
+  /// their own client-side predicates — user queries stay unfiltered.
   @override
-  bool get localFilterEnabled => query is IllustSearchQuery;
+  bool get localFilterEnabled => query is! UserSearchQuery;
 
   /// Client-side enforcement for filters the server does not honor:
   /// `bookmark_num_min/max` are Premium-only (free accounts are silently
   /// ignored) and "only AI" has no wire value at
   /// all. Both predicates re-run against the returned entities so the
   /// filter holds on every account tier — idempotent when the server did
-  /// apply them.
+  /// apply them. Novel queries apply the same rule against `novel_ai_type`/
+  /// `total_bookmarks` and skip the illust-only C9 layer.
   @override
   List<int> filterPageIds(
     List<int> ids, {
     Map<int, IllustEntity>? incomingIllusts,
+    Map<int, NovelEntity>? incomingNovels,
   }) {
-    final visible = super.filterPageIds(ids, incomingIllusts: incomingIllusts);
     final query = this.query;
-    if (query is! IllustSearchQuery) return visible;
-    final filters = query.filters;
+    return switch (query) {
+      IllustSearchQuery(:final filters) => _filterIllustIds(
+        super.filterPageIds(ids, incomingIllusts: incomingIllusts),
+        filters,
+        incomingIllusts: incomingIllusts,
+      ),
+      NovelSearchQuery(:final filters) => _filterNovelIds(
+        ids,
+        filters,
+        incomingNovels: incomingNovels,
+      ),
+      _ => ids,
+    };
+  }
+
+  List<int> _filterIllustIds(
+    List<int> ids,
+    IllustSearchFilters filters, {
+    Map<int, IllustEntity>? incomingIllusts,
+  }) {
     final aiOnly = filters.aiFilter == SearchAiFilter.only;
     final min = filters.bookmarkMin;
     final max = filters.bookmarkMax;
-    if (!aiOnly && min == null && max == null) return visible;
+    if (!aiOnly && min == null && max == null) return ids;
     final store = ref.read(illustStoreProvider);
     return [
-      for (final id in visible)
-        if (_passesSearchPredicates(
+      for (final id in ids)
+        if (_passesIllustPredicates(
           incomingIllusts?[id] ?? store.get(id),
           aiOnly: aiOnly,
           min: min,
@@ -64,7 +85,7 @@ class _SearchFeedController extends PagedFeedController {
     ];
   }
 
-  bool _passesSearchPredicates(
+  bool _passesIllustPredicates(
     IllustEntity? entity, {
     required bool aiOnly,
     required int? min,
@@ -74,6 +95,42 @@ class _SearchFeedController extends PagedFeedController {
     // the shared predicate.
     if (entity == null) return true;
     if (aiOnly && !entity.isAi) return false;
+    if (min != null && entity.totalBookmarks < min) return false;
+    if (max != null && entity.totalBookmarks > max) return false;
+    return true;
+  }
+
+  List<int> _filterNovelIds(
+    List<int> ids,
+    NovelSearchFilters filters, {
+    Map<int, NovelEntity>? incomingNovels,
+  }) {
+    final aiOnly = filters.aiFilter == SearchAiFilter.only;
+    final min = filters.bookmarkMin;
+    final max = filters.bookmarkMax;
+    if (!aiOnly && min == null && max == null) return ids;
+    final store = ref.read(novelStoreProvider.notifier);
+    return [
+      for (final id in ids)
+        if (_passesNovelPredicates(
+          incomingNovels?[id] ?? store.get(id),
+          aiOnly: aiOnly,
+          min: min,
+          max: max,
+        ))
+          id,
+    ];
+  }
+
+  bool _passesNovelPredicates(
+    NovelEntity? entity, {
+    required bool aiOnly,
+    required int? min,
+    required int? max,
+  }) {
+    if (entity == null) return true;
+    // Pixiv's novel_ai_type shares the illust_ai_type contract: 2 = AI work.
+    if (aiOnly && entity.novelAiType != 2) return false;
     if (min != null && entity.totalBookmarks < min) return false;
     if (max != null && entity.totalBookmarks > max) return false;
     return true;
@@ -156,6 +213,7 @@ class _SearchFeedController extends PagedFeedController {
     return FeedPage(
       ids: [for (final item in page.novels) item.id],
       nextCursor: page.nextUrl,
+      incomingNovels: {for (final item in page.novels) item.id: item},
       commit: (_) => store.mergeAll(page.novels),
     );
   }

@@ -256,10 +256,7 @@ class _PixivSearchRepository implements SearchRepository {
           when filters.sort.isPopular && !isPremium =>
         (
           path: '/v1/search/popular-preview/illust',
-          requestQuery: filters.toPreviewQuery(
-            word: query.keyword,
-            includeIllustParams: true,
-          ),
+          requestQuery: filters.toPreviewQuery(word: query.keyword),
           // The preview endpoint's next_url is not guaranteed to echo our
           // filter params, so only the keyword is pinned — the cursor itself
           // carries the rest of the paging state.

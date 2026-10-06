@@ -1880,6 +1880,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchTitleCaption => 'Название и описание';
 
   @override
+  String get searchTargetText => 'Текст';
+
+  @override
+  String get searchTargetKeyword => 'Ключевое слово';
+
+  @override
   String get searchSort => 'Сортировка';
 
   @override
@@ -1959,6 +1965,18 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get searchHeight => 'Высота';
+
+  @override
+  String get searchTextLength => 'Длина текста';
+
+  @override
+  String get searchChars => 'Симв.';
+
+  @override
+  String get searchOriginalOnly => 'Только оригинал';
+
+  @override
+  String get searchSetDefault => 'Сделать значением по умолчанию';
 
   @override
   String searchRangeAtLeast(String label, String value) {

@@ -10,27 +10,34 @@ import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_choice_chip.dart';
 
-Future<SearchFilters?> showSearchFilterSheet(
+/// What the filter sheet applies: the edited set plus whether the user also
+/// asked to persist it as that type's default ("设为默认").
+typedef SearchFilterSheetResult = ({SearchFilters filters, bool makeDefault});
+
+Future<SearchFilterSheetResult?> showSearchFilterSheet(
   BuildContext context, {
   required SearchFilters initial,
-  required SearchResultType type,
+  bool offerSetDefault = false,
 }) {
-  return showAppBottomSheet<SearchFilters>(
+  return showAppBottomSheet<SearchFilterSheetResult>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => _SearchFilterSheet(initial: initial, type: type),
+    builder: (_) =>
+        _SearchFilterSheet(initial: initial, offerSetDefault: offerSetDefault),
   );
 }
 
 class _SearchFilterSheet extends ConsumerStatefulWidget {
-  const _SearchFilterSheet({required this.initial, required this.type});
+  const _SearchFilterSheet({
+    required this.initial,
+    required this.offerSetDefault,
+  });
 
   final SearchFilters initial;
 
-  /// Illust-only groups (AI-only, ratio, content type, resolution) are
-  /// hidden for novel/user searches — the novel endpoint does not accept
-  /// those parameters.
-  final SearchResultType type;
+  /// The result page offers "设为默认" so a session edit can be promoted to
+  /// the persisted default explicitly — the input page's draft never does.
+  final bool offerSetDefault;
 
   @override
   ConsumerState<_SearchFilterSheet> createState() => _SearchFilterSheetState();
@@ -45,6 +52,25 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
   late final TextEditingController _widthMax;
   late final TextEditingController _heightMin;
   late final TextEditingController _heightMax;
+  late final TextEditingController _textLengthMin;
+  late final TextEditingController _textLengthMax;
+
+  IllustSearchFilters? get _illust => switch (_filters) {
+    final IllustSearchFilters f => f,
+    _ => null,
+  };
+
+  NovelSearchFilters? get _novel => switch (_filters) {
+    final NovelSearchFilters f => f,
+    _ => null,
+  };
+
+  SearchFilters get _defaults => switch (widget.initial.type) {
+    SearchResultType.illust => IllustSearchFilters.defaults,
+    SearchResultType.novel => NovelSearchFilters.defaults,
+    // The sheet is never opened for user results.
+    SearchResultType.user => IllustSearchFilters.defaults,
+  };
 
   @override
   void initState() {
@@ -52,10 +78,12 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
     String text(int? value) => value?.toString() ?? '';
     _bookmarkMin = TextEditingController(text: text(_filters.bookmarkMin));
     _bookmarkMax = TextEditingController(text: text(_filters.bookmarkMax));
-    _widthMin = TextEditingController(text: text(_filters.widthMin));
-    _widthMax = TextEditingController(text: text(_filters.widthMax));
-    _heightMin = TextEditingController(text: text(_filters.heightMin));
-    _heightMax = TextEditingController(text: text(_filters.heightMax));
+    _widthMin = TextEditingController(text: text(_illust?.widthMin));
+    _widthMax = TextEditingController(text: text(_illust?.widthMax));
+    _heightMin = TextEditingController(text: text(_illust?.heightMin));
+    _heightMax = TextEditingController(text: text(_illust?.heightMax));
+    _textLengthMin = TextEditingController(text: text(_novel?.textLengthMin));
+    _textLengthMax = TextEditingController(text: text(_novel?.textLengthMax));
   }
 
   @override
@@ -66,6 +94,8 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
     _widthMax.dispose();
     _heightMin.dispose();
     _heightMax.dispose();
+    _textLengthMin.dispose();
+    _textLengthMax.dispose();
     super.dispose();
   }
 
@@ -100,8 +130,8 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
       // A custom date bound is mutually exclusive with a duration preset —
       // the wire request only ever carries one of them.
       _filters = start
-          ? _filters.copyWith(startDate: selected, duration: null)
-          : _filters.copyWith(endDate: selected, duration: null);
+          ? _filters.copyShared(startDate: selected, duration: null)
+          : _filters.copyShared(endDate: selected, duration: null);
     });
   }
 
@@ -109,6 +139,9 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
     if (value == null) return '—';
     return AppFormat.date(context, value);
   }
+
+  void _pop({required bool makeDefault}) =>
+      Navigator.of(context).pop((filters: _filters, makeDefault: makeDefault));
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +166,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                 ),
                 TextButton(
                   onPressed: () => setState(() {
-                    _filters = SearchFilters.defaults;
+                    _filters = _defaults;
                     for (final controller in [
                       _bookmarkMin,
                       _bookmarkMax,
@@ -141,6 +174,8 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                       _widthMax,
                       _heightMin,
                       _heightMax,
+                      _textLengthMin,
+                      _textLengthMax,
                     ]) {
                       controller.clear();
                     }
@@ -151,24 +186,30 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
             ),
             _FilterGroup<SearchTarget>(
               title: context.l10n.searchTarget,
-              values: SearchTarget.values,
-              selected: _filters.target,
+              // Each type only offers — and only ever sends — its own
+              // search-range values.
+              values: _filters.targetOptions,
+              selected: _filters.normalizedTarget,
               label: (value) => searchText(context, value.labelKey),
               onSelected: (value) =>
-                  setState(() => _filters = _filters.copyWith(target: value)),
+                  setState(() => _filters = _filters.copyShared(target: value)),
             ),
             const SizedBox(height: FuncSpacing.md),
             _FilterGroup<SearchSort>(
               title: context.l10n.searchSort,
-              values: SearchSort.values,
-              selected: _filters.sort,
+              // Gendered popularity sorts are illust-only — the novel sheet
+              // does not show them, so the selected and the requested value
+              // can no longer disagree.
+              values: _filters.sortOptions,
+              selected: _filters.normalizedSort,
               label: (value) => searchText(context, value.labelKey),
               onSelected: (value) =>
-                  setState(() => _filters = _filters.copyWith(sort: value)),
+                  setState(() => _filters = _filters.copyShared(sort: value)),
             ),
-            // popular_desc is Premium-only server-side; free accounts are
-            // silently rerouted to the popular-preview endpoint. Say so.
-            if (_filters.sort == SearchSort.popularDesc && !_isPremium)
+            // Popularity sorts are Premium-only server-side; free accounts
+            // are silently rerouted to the popular-preview endpoint for any
+            // of them — the hint covers the gendered sorts too.
+            if (_filters.normalizedSort.isPopular && !_isPremium)
               Padding(
                 padding: const EdgeInsets.only(top: FuncSpacing.xs),
                 child: Text(
@@ -199,7 +240,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                       _filters.startDate == null &&
                       _filters.endDate == null,
                   onSelected: () => setState(
-                    () => _filters = _filters.copyWith(
+                    () => _filters = _filters.copyShared(
                       duration: null,
                       startDate: null,
                       endDate: null,
@@ -213,7 +254,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                     onSelected: () => setState(
                       // A duration preset resolves to a concrete date range
                       // on the wire, so it replaces any custom bounds.
-                      () => _filters = _filters.copyWith(
+                      () => _filters = _filters.copyShared(
                         duration: value,
                         startDate: null,
                         endDate: null,
@@ -230,7 +271,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
               onClear: _filters.startDate == null
                   ? null
                   : () => setState(
-                      () => _filters = _filters.copyWith(startDate: null),
+                      () => _filters = _filters.copyShared(startDate: null),
                     ),
             ),
             _DateFilterTile(
@@ -243,63 +284,63 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
               onClear: _filters.endDate == null
                   ? null
                   : () => setState(
-                      () => _filters = _filters.copyWith(endDate: null),
+                      () => _filters = _filters.copyShared(endDate: null),
                     ),
             ),
-            if (widget.type == SearchResultType.illust) ...[
-              const SizedBox(height: FuncSpacing.md),
-              Text(
-                context.l10n.searchAiSection,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: FuncSpacing.sm),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  for (final value in SearchAiFilter.values)
-                    AppChoiceChip(
-                      label: Text(searchText(context, value.labelKey)),
-                      selected: _filters.aiFilter == value,
-                      onSelected: () => setState(
-                        () => _filters = _filters.copyWith(aiFilter: value),
-                      ),
+            const SizedBox(height: FuncSpacing.md),
+            Text(
+              context.l10n.searchAiSection,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: FuncSpacing.sm),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final value in SearchAiFilter.values)
+                  AppChoiceChip(
+                    label: Text(searchText(context, value.labelKey)),
+                    selected: _filters.aiFilter == value,
+                    onSelected: () => setState(
+                      () => _filters = _filters.copyShared(aiFilter: value),
                     ),
-                ],
-              ),
-              const SizedBox(height: FuncSpacing.md),
-              Text(
-                context.l10n.searchBookmarkSection,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: FuncSpacing.sm),
-              Row(
-                children: [
-                  Expanded(
-                    child: _NumberField(
-                      controller: _bookmarkMin,
-                      hint: context.l10n.searchMin,
-                      onChanged: (value) => setState(
-                        () => _filters = _filters.copyWith(
-                          bookmarkMin: _parseBound(value),
-                        ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: FuncSpacing.md),
+            Text(
+              context.l10n.searchBookmarkSection,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: FuncSpacing.sm),
+            Row(
+              children: [
+                Expanded(
+                  child: _NumberField(
+                    controller: _bookmarkMin,
+                    hint: context.l10n.searchMin,
+                    onChanged: (value) => setState(
+                      () => _filters = _filters.copyShared(
+                        bookmarkMin: _parseBound(value),
                       ),
                     ),
                   ),
-                  const SizedBox(width: FuncSpacing.md),
-                  Expanded(
-                    child: _NumberField(
-                      controller: _bookmarkMax,
-                      hint: context.l10n.searchMax,
-                      onChanged: (value) => setState(
-                        () => _filters = _filters.copyWith(
-                          bookmarkMax: _parseBound(value),
-                        ),
+                ),
+                const SizedBox(width: FuncSpacing.md),
+                Expanded(
+                  child: _NumberField(
+                    controller: _bookmarkMax,
+                    hint: context.l10n.searchMax,
+                    onChanged: (value) => setState(
+                      () => _filters = _filters.copyShared(
+                        bookmarkMax: _parseBound(value),
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
+            if (_illust case final illust?) ...[
               const SizedBox(height: FuncSpacing.md),
               Text(
                 context.l10n.searchRatioSection,
@@ -312,17 +353,16 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                 children: [
                   AppChoiceChip(
                     label: Text(context.l10n.searchRatioAny),
-                    selected: _filters.ratio == null,
-                    onSelected: () => setState(
-                      () => _filters = _filters.copyWith(ratio: null),
-                    ),
+                    selected: illust.ratio == null,
+                    onSelected: () =>
+                        setState(() => _filters = illust.copyWith(ratio: null)),
                   ),
                   for (final value in SearchRatioPattern.values)
                     AppChoiceChip(
                       label: Text(searchText(context, value.labelKey)),
-                      selected: _filters.ratio == value,
+                      selected: illust.ratio == value,
                       onSelected: () => setState(
-                        () => _filters = _filters.copyWith(ratio: value),
+                        () => _filters = illust.copyWith(ratio: value),
                       ),
                     ),
                 ],
@@ -340,9 +380,9 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                   for (final value in SearchContentType.values)
                     AppChoiceChip(
                       label: Text(searchText(context, value.labelKey)),
-                      selected: _filters.contentType == value,
+                      selected: illust.contentType == value,
                       onSelected: () => setState(
-                        () => _filters = _filters.copyWith(contentType: value),
+                        () => _filters = illust.copyWith(contentType: value),
                       ),
                     ),
                 ],
@@ -360,14 +400,12 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                 minHint: context.l10n.searchMin,
                 maxHint: context.l10n.searchMax,
                 onMinChanged: (value) => setState(
-                  () => _filters = _filters.copyWith(
-                    widthMin: _parseBound(value),
-                  ),
+                  () =>
+                      _filters = illust.copyWith(widthMin: _parseBound(value)),
                 ),
                 onMaxChanged: (value) => setState(
-                  () => _filters = _filters.copyWith(
-                    widthMax: _parseBound(value),
-                  ),
+                  () =>
+                      _filters = illust.copyWith(widthMax: _parseBound(value)),
                 ),
               ),
               const SizedBox(height: FuncSpacing.sm),
@@ -378,15 +416,54 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                 minHint: context.l10n.searchMin,
                 maxHint: context.l10n.searchMax,
                 onMinChanged: (value) => setState(
-                  () => _filters = _filters.copyWith(
-                    heightMin: _parseBound(value),
+                  () =>
+                      _filters = illust.copyWith(heightMin: _parseBound(value)),
+                ),
+                onMaxChanged: (value) => setState(
+                  () =>
+                      _filters = illust.copyWith(heightMax: _parseBound(value)),
+                ),
+              ),
+            ],
+            if (_novel case final novel?) ...[
+              const SizedBox(height: FuncSpacing.md),
+              Text(
+                context.l10n.searchTextLength,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: FuncSpacing.sm),
+              _BoundRow(
+                label: context.l10n.searchChars,
+                minController: _textLengthMin,
+                maxController: _textLengthMax,
+                minHint: context.l10n.searchMin,
+                maxHint: context.l10n.searchMax,
+                onMinChanged: (value) => setState(
+                  () => _filters = novel.copyWith(
+                    textLengthMin: _parseBound(value),
                   ),
                 ),
                 onMaxChanged: (value) => setState(
-                  () => _filters = _filters.copyWith(
-                    heightMax: _parseBound(value),
+                  () => _filters = novel.copyWith(
+                    textLengthMax: _parseBound(value),
                   ),
                 ),
+              ),
+              const SizedBox(height: FuncSpacing.sm),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  AppChoiceChip(
+                    label: Text(context.l10n.searchOriginalOnly),
+                    selected: novel.originalOnly,
+                    onSelected: () => setState(
+                      () => _filters = novel.copyWith(
+                        originalOnly: !novel.originalOnly,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
             const SizedBox(height: FuncSpacing.md),
@@ -395,10 +472,22 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
               child: FilledButton(
                 onPressed: _invalidRange
                     ? null
-                    : () => Navigator.of(context).pop(_filters),
+                    : () => _pop(makeDefault: false),
                 child: Text(context.l10n.searchApply),
               ),
             ),
+            if (widget.offerSetDefault) ...[
+              const SizedBox(height: FuncSpacing.sm),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: _invalidRange
+                      ? null
+                      : () => _pop(makeDefault: true),
+                  child: Text(context.l10n.searchSetDefault),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -494,7 +583,7 @@ class _BoundRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        SizedBox(width: 32, child: Text(label)),
+        SizedBox(width: 48, child: Text(label)),
         Expanded(
           child: _NumberField(
             controller: minController,

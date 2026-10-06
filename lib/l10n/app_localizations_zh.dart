@@ -1794,6 +1794,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchTitleCaption => '标题和简介';
 
   @override
+  String get searchTargetText => '正文';
+
+  @override
+  String get searchTargetKeyword => '关键词';
+
+  @override
   String get searchSort => '排序';
 
   @override
@@ -1873,6 +1879,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get searchHeight => '高';
+
+  @override
+  String get searchTextLength => '正文长度';
+
+  @override
+  String get searchChars => '字数';
+
+  @override
+  String get searchOriginalOnly => '仅原创';
+
+  @override
+  String get searchSetDefault => '设为默认';
 
   @override
   String searchRangeAtLeast(String label, String value) {
