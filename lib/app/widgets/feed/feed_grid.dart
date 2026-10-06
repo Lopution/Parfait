@@ -1,23 +1,12 @@
-import 'dart:async';
-import 'dart:collection';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
-import '../../../core/entity/illust_entity.dart';
-import '../../../core/network/compat/image_cache.dart' show PriorityFileService;
-import '../../../core/network/compat/image_demand.dart';
-import '../../../core/network/compat/network_contracts.dart';
-import '../../../core/network/compat/network_providers.dart';
-import '../../../core/settings/settings_controller.dart';
 import '../../motion/feed_entrance.dart';
-import '../../pixiv_image.dart';
 import '../../theme/func_semantic_tokens.dart';
-import 'illust_card_layout.dart';
 
 /// Minimum card width used to derive the masonry column count.
 const _kMinCardExtent = 180.0;
@@ -28,9 +17,7 @@ const _kMinCardExtent = 180.0;
 /// A viewport multiplier keeps the look-ahead proportional to the device:
 /// half a screen ahead is roughly two masonry rows, enough for a card's
 /// request+decode to start before it is exposed without keeping a full
-/// extra screen of image work alive during a fling. The rows beyond it are
-/// covered by [scheduleFeedPreviewPrefetch], which runs at data arrival
-/// instead of layout time.
+/// extra screen of image work alive during a fling.
 const ScrollCacheExtent kFeedCacheExtent = ScrollCacheExtent.viewport(0.5);
 
 /// Ordered work ids a pushed detail route can page through — the same
@@ -86,203 +73,6 @@ class IllustPagerScope extends InheritedWidget {
       source != oldWidget.source;
 }
 
-/// Rows past the built edge each prefetch step warms. Three phone rows are
-/// about one screen; with the half screen `kFeedCacheExtent` already
-/// builds, loading runs roughly 1.5 screens ahead of what is visible.
-const int _kFeedPrefetchRows = 3;
-
-/// Preview resolves admitted per prefetch batch — the background lane's
-/// slot count, so a batch never queues behind itself.
-const int _kFeedPrefetchConcurrent = PriorityFileService.backgroundSlots;
-
-/// (url, decodeWidth) pairs already issued. Bounded LRU so a long session
-/// does not grow the set without limit.
-final LinkedHashSet<String> _feedPrefetched = LinkedHashSet<String>();
-
-/// The `url|decodeWidth` keys issued so far, oldest first.
-@visibleForTesting
-Iterable<String> get debugFeedPrefetchedKeys => _feedPrefetched;
-
-/// Warms the decode+HTTP cache for feed items just past the built edge.
-///
-/// `cacheExtent` only ever builds a fraction of a viewport ahead, so a
-/// card's image request still starts when the card is nearly exposed. The
-/// entities are already known once a feed page lands — resolving their
-/// preview URLs here moves network+decode off the scroll path entirely.
-/// The entry is the exact key the card resolves (preview tier, card-width
-/// decode), so an already-painted card is a no-op and a prefetched card
-/// appears instantly.
-///
-/// The same rule `ScrollAwareImageProvider` applies to the cards is kept
-/// here: a fling admits no new image work. Instead of timers the loop
-/// awaits the scroll position's isScrolling notifier, then gives up to the
-/// next watermark advance if the user is still flinging.
-///
-/// The window is the [length] items from [fromIndex]. It is registered
-/// through [cursor] as the grid's image demand; when a newer window replaces
-/// it, this run stops issuing and its queued warm-ups are dropped.
-void scheduleFeedPreviewPrefetch(
-  BuildContext context,
-  List<IllustEntity> entities,
-  int fromIndex,
-  int decodeWidth, {
-  required int length,
-  required FeedPrefetchCursor cursor,
-}) {
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!context.mounted) return;
-    unawaited(
-      _prefetchFeedWindow(
-        context,
-        entities,
-        fromIndex,
-        math.min(entities.length, fromIndex + length),
-        decodeWidth,
-        cursor,
-      ),
-    );
-  });
-}
-
-Future<void> _prefetchFeedWindow(
-  BuildContext context,
-  List<IllustEntity> entities,
-  int fromIndex,
-  int end,
-  int decodeWidth,
-  FeedPrefetchCursor cursor,
-) async {
-  final ProviderContainer container;
-  try {
-    container = ProviderScope.containerOf(context, listen: false);
-  } on StateError {
-    // Tests and embedders without the app scope have no network factory —
-    // prefetch is best-effort, so skip rather than fail an unawaited path.
-    return;
-  }
-  final network = container.read(pixivNetworkFactoryProvider);
-  final previewQuality = container.read(previewQualityProvider);
-  // Feed data just landed: warm the remembered winning route's connection
-  // so the first visible image GET skips the TLS handshake. The
-  // effective host is the *rewritten* one — the mirror is what the sockets
-  // actually connect to. Throttled inside the policy to once per revision.
-  final warmEntity = entities.cast<IllustEntity?>().firstWhere(
-    (e) => e != null && e.visible,
-    orElse: () => null,
-  );
-  if (warmEntity != null) {
-    final warmHost = container
-        .read(imageMirrorProvider)
-        .rewrite(Uri.parse(warmEntity.previewUrl(previewQuality)))
-        .host;
-    container
-        .read(networkAccessPolicyProvider)
-        .warmConnection(PixivDestinationPurpose.image, warmHost);
-  }
-  // The card's own layout rule: tall works prefetch the cropped large or
-  // square thumbnail the card will paint, not the tier preview.
-  final window = [
-    for (final entity in entities.sublist(fromIndex, end))
-      if (entity.visible)
-        (
-          entity,
-          illustCardPreview(
-            entity,
-            quality: previewQuality,
-            cardPhysicalWidth: decodeWidth,
-          ),
-        ),
-  ];
-  final claim = cursor.claimWindow(network.imageDemand, {
-    for (final (_, preview) in window) preview.url,
-  });
-  for (var i = 0; i < window.length; i += _kFeedPrefetchConcurrent) {
-    if (!context.mounted || !cursor.holdsWindow(claim)) return;
-    if (_isDeferred(context)) {
-      await _waitForScrollIdle(context);
-      if (!context.mounted ||
-          !cursor.holdsWindow(claim) ||
-          _isDeferred(context)) {
-        // Still moving fast — the next built-edge advance reschedules.
-        return;
-      }
-    }
-    final batch = <Future<void>>[];
-    for (final (entity, preview)
-        in window.skip(i).take(_kFeedPrefetchConcurrent)) {
-      final url = preview.url;
-      final key = '$url|$decodeWidth';
-      if (!_feedPrefetched.add(key)) continue;
-      while (_feedPrefetched.length > 512) {
-        _feedPrefetched.remove(_feedPrefetched.first);
-      }
-      final tier = preview.tier;
-      batch.add(
-        PixivImage.preload(
-          context,
-          url,
-          cacheManager: network.imageCacheManager,
-          demand: network.imageDemand,
-          tierKey: tier == null ? null : entity.imageTierKeyAt(0),
-          tier: tier,
-          memCacheWidth: decodeWidth,
-        ).then((result) {
-          // Never fetched, so a later window may ask again. A failure stays
-          // recorded: retrying is the visible card's job.
-          if (result == ImagePreloadResult.dropped) {
-            _feedPrefetched.remove(key);
-          }
-        }),
-      );
-    }
-    if (batch.isNotEmpty) {
-      // A context that unmounted mid-push makes precacheImage throw —
-      // prefetch is best-effort, so a failed batch never propagates.
-      try {
-        await Future.wait(batch);
-      } on Object {
-        return;
-      }
-    }
-  }
-}
-
-/// [Scrollable.recommendDeferredLoadingForContext] throws on an element
-/// that unmounted mid-await — treat that as "no longer scrolling".
-bool _isDeferred(BuildContext context) {
-  try {
-    return Scrollable.recommendDeferredLoadingForContext(context);
-  } on Object {
-    return false;
-  }
-}
-
-/// Resolves when the enclosing [Scrollable] reports it is no longer
-/// scrolling. If the scrollable is already idle (or gone) this completes
-/// immediately; an unmounted scrollable never completes, which is fine —
-/// the suspended future is collected with the caller's frame.
-Future<void> _waitForScrollIdle(BuildContext context) {
-  final ScrollableState? scrollable;
-  try {
-    scrollable = Scrollable.maybeOf(context);
-  } on Object {
-    return Future<void>.value();
-  }
-  final notifier = scrollable?.position.isScrollingNotifier;
-  if (notifier == null || !notifier.value) {
-    return Future<void>.value();
-  }
-  final completer = Completer<void>();
-  void listener() {
-    if (notifier.value) return;
-    notifier.removeListener(listener);
-    completer.complete();
-  }
-
-  notifier.addListener(listener);
-  return completer.future;
-}
-
 /// The resolved column width for feed children, published by
 /// [IllustFeedGrid] so cards can size their preview + decode width without
 /// a per-card [LayoutBuilder] (one less element and layout callback per
@@ -298,49 +88,6 @@ class FeedItemExtent extends InheritedWidget {
 
   @override
   bool updateShouldNotify(FeedItemExtent oldWidget) => width != oldWidget.width;
-}
-
-/// Tracks the most recently built feed index and turns each new build
-/// into the window start a prefetch should warm.
-///
-/// An advancing build warms the window right after the built edge (the
-/// original watermark behaviour). A lower build is a scroll-back or a
-/// re-advance below the old mark: decoded entries for the rows above the
-/// revealed card were likely evicted during the fling, so the window
-/// *above* it is warmed instead — the re-decode then happens off the
-/// scroll path rather than flashing placeholders when the scroll settles.
-/// Repeating the same index schedules nothing.
-///
-/// The cursor also owns the grid's prefetch window in [ImageDemand].
-class FeedPrefetchCursor {
-  int _last = -1;
-  ImageDemand? _demand;
-  var _claims = 0;
-
-  /// The window start for [index], or null when nothing should be warmed.
-  int? advance(int index, {required int ahead}) {
-    if (index == _last) return null;
-    final from = index > _last ? index + 1 : math.max(0, index - ahead);
-    _last = index;
-    return from;
-  }
-
-  /// Makes [urls] this grid's prefetch window, replacing the previous one.
-  /// Returns a claim for [holdsWindow].
-  int claimWindow(ImageDemand demand, Set<String> urls) {
-    if (!identical(demand, _demand)) _demand?.clearPrefetchWindow(this);
-    _demand = demand..setPrefetchWindow(this, urls);
-    return ++_claims;
-  }
-
-  /// Whether [claim] is still the latest window.
-  bool holdsWindow(int claim) => claim == _claims && _demand != null;
-
-  /// Gives the window up when the grid goes away.
-  void dispose() {
-    _demand?.clearPrefetchWindow(this);
-    _demand = null;
-  }
 }
 
 /// Column count for a masonry grid with the given cross-axis extent.
@@ -373,7 +120,6 @@ class IllustFeedGrid extends StatefulWidget {
     this.mainAxisSpacing = defaultMainAxisSpacing,
     this.crossAxisSpacing = defaultCrossAxisSpacing,
     this.itemIds,
-    this.prefetchEntities,
     this.pagerLoadMore,
   });
 
@@ -399,11 +145,6 @@ class IllustFeedGrid extends StatefulWidget {
   /// leave it null.
   final VoidCallback? pagerLoadMore;
 
-  /// When set, the grid warms preview images for entities just past the
-  /// built edge as it advances — the bounded off-screen preload that a bare
-  /// cacheExtent cannot express. Leave unset for non-feed grids.
-  final List<IllustEntity>? prefetchEntities;
-
   @override
   State<IllustFeedGrid> createState() => _IllustFeedGridState();
 }
@@ -418,39 +159,6 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
   /// grid: a pushed detail route still holds it — its lifetime is the
   /// route's, not the widget's.
   final _pagerSource = IllustPagerSource();
-
-  /// Advanced only when a card mounts. Every feed state change rebuilds
-  /// the grid and re-runs the builder over all built cards; a cursor fed
-  /// by those walks queued a prefetch window per built card each time.
-  final _prefetchCursor = FeedPrefetchCursor();
-
-  void _prefetchPast(
-    BuildContext context,
-    int index,
-    int decodeWidth,
-    int columns,
-  ) {
-    final entities = widget.prefetchEntities;
-    if (entities == null) return;
-    final ahead = columns * _kFeedPrefetchRows;
-    final from = _prefetchCursor.advance(index, ahead: ahead);
-    if (from != null) {
-      scheduleFeedPreviewPrefetch(
-        context,
-        entities,
-        from,
-        decodeWidth,
-        length: ahead,
-        cursor: _prefetchCursor,
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _prefetchCursor.dispose();
-    super.dispose();
-  }
 
   @override
   void initState() {
@@ -491,7 +199,6 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
                 horizontal -
                 (columns - 1) * widget.crossAxisSpacing) /
             columns;
-        final decodeWidth = PixivImage.decodeWidthFor(columnWidth);
         Widget grid = SliverPadding(
           padding: widget.padding,
           sliver: SliverMasonryGrid(
@@ -512,17 +219,13 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
                 return FeedItemExtent(
                   width: columnWidth,
                   // Keyed by work: a slot taking a different work mounts
-                  // afresh, which is what advances the prefetch.
-                  child: _OnMount(
+                  // afresh.
+                  child: StaggeredEntrance(
                     key: ValueKey(id),
-                    onMount: () =>
-                        _prefetchPast(context, index, decodeWidth, columns),
-                    child: StaggeredEntrance(
-                      index: index,
-                      id: id,
-                      played: _entrancePlayed,
-                      child: widget.itemBuilder(context, index),
-                    ),
+                    index: index,
+                    id: id,
+                    played: _entrancePlayed,
+                    child: widget.itemBuilder(context, index),
                   ),
                 );
               },
@@ -551,27 +254,4 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
       },
     );
   }
-}
-
-/// Calls [onMount] once, when its element is created — never on the
-/// rebuilds that follow.
-class _OnMount extends StatefulWidget {
-  const _OnMount({super.key, required this.onMount, required this.child});
-
-  final VoidCallback onMount;
-  final Widget child;
-
-  @override
-  State<_OnMount> createState() => _OnMountState();
-}
-
-class _OnMountState extends State<_OnMount> {
-  @override
-  void initState() {
-    super.initState();
-    widget.onMount();
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.child;
 }

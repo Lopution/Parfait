@@ -6,17 +6,16 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:octo_image/octo_image.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
-import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
-import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -239,13 +238,12 @@ void main() {
         theme: theme,
       );
       await tester.pumpAndSettle();
-      final image = tester.widget<CachedNetworkImage>(
-        find.byType(CachedNetworkImage).first,
-      );
+      // Card previews load through the image worker.
+      expect(find.byType(CachedNetworkImage), findsNothing);
+      final image = find.byType(OctoImage).first;
       final placeholder =
-          image.placeholder!(
-                tester.element(find.byType(CachedNetworkImage).first),
-                'unused',
+          tester.widget<OctoImage>(image).placeholderBuilder!(
+                tester.element(image),
               )
               as ColoredBox;
       expect(placeholder.color, theme.colorScheme.surfaceContainer);
@@ -352,127 +350,6 @@ void main() {
       );
       expect(heroFor(6), findsNothing);
     });
-
-    testWidgets('the feed prefetch fetches what the card will paint', (
-      tester,
-    ) async {
-      final container = await _makeWorld();
-      addTearDown(container.dispose);
-      // Odd ids are ordinary works on the user's tier; even ids are too
-      // tall and narrow and switch to the square thumbnail. The prefetch
-      // used to warm the tier preview for both.
-      final entities = [
-        for (var id = 7101; id <= 7124; id++)
-          parseIllust(
-            id.isOdd
-                ? illustJson(id, width: 800, height: 600)
-                : illustJson(id, width: 100, height: 600),
-          ),
-      ];
-      await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: MaterialApp(
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: const [Locale('zh')],
-              locale: const Locale('zh'),
-              home: Scaffold(
-                body: CustomScrollView(
-                  slivers: [
-                    IllustFeedGrid(
-                      itemCount: entities.length,
-                      itemIds: [for (final e in entities) e.id],
-                      prefetchEntities: entities,
-                      itemBuilder: (context, index) =>
-                          IllustCard(entity: entities[index]),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-      });
-
-      final decodeWidth = PixivImage.decodeWidthFor(
-        tester.getSize(find.byType(PixivImage).first).width,
-      );
-      // Prefetch batches land asynchronously; every key issued so far must
-      // be the exact (url, decode width) the card paints.
-      var squares = 0;
-      for (final e in entities) {
-        final issued = debugFeedPrefetchedKeys.where(
-          (k) => k.startsWith('https://i.pximg.net/${e.id}/'),
-        );
-        final painted = e.id.isOdd
-            ? e.imageUrls.medium
-            : e.imageUrls.squareMedium;
-        for (final key in issued) {
-          expect(key, '$painted|$decodeWidth', reason: '${e.id}');
-          if (e.id.isEven) squares++;
-        }
-      }
-      expect(squares, greaterThanOrEqualTo(4));
-    });
-  });
-
-  testWidgets('the feed registers its prefetch window as image demand and '
-      'gives it up when the grid goes away', (tester) async {
-    final container = await _makeWorld();
-    addTearDown(container.dispose);
-    final entities = [
-      for (var id = 7201; id <= 7260; id++)
-        parseIllust(illustJson(id, width: 800, height: 600)),
-    ];
-    Widget host({required bool grid}) => UncontrolledProviderScope(
-      container: container,
-      child: MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: const [Locale('zh')],
-        locale: const Locale('zh'),
-        home: Scaffold(
-          body: grid
-              ? CustomScrollView(
-                  slivers: [
-                    IllustFeedGrid(
-                      itemCount: entities.length,
-                      itemIds: [for (final e in entities) e.id],
-                      prefetchEntities: entities,
-                      itemBuilder: (context, index) =>
-                          IllustCard(entity: entities[index]),
-                    ),
-                  ],
-                )
-              : const SizedBox(),
-        ),
-      ),
-    );
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(host(grid: true));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-    });
-
-    final demand = container.read(pixivNetworkFactoryProvider).imageDemand;
-    // Works past the built edge: wanted although no card shows them.
-    final windowed = [
-      for (final e in entities)
-        if (demand.wants(e.imageUrls.medium) &&
-            demand.debugHolds(e.imageUrls.medium) == 0)
-          e.imageUrls.medium,
-    ];
-    // Three rows of the grid's four columns past the built edge.
-    expect(illustColumnsFor(800 - 16), 4);
-    expect(windowed, hasLength(4 * 3));
-
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(host(grid: false));
-      await tester.pump();
-    });
-    expect(windowed.where(demand.wants), isEmpty);
   });
 
   testWidgets('title and author rows fit the column at 1.3x text', (

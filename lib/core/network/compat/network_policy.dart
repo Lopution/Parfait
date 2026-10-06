@@ -3,15 +3,13 @@ import 'dart:collection';
 import 'dart:io';
 
 import '../pixiv_client_identity.dart';
-import '../pixiv_headers.dart';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 
 import 'secure_resolver.dart';
 import 'network_contracts.dart';
-import 'network_fast_route_store.dart';
-import 'route_kind_store.dart';
+import 'route_memory.dart';
 import 'rhttp_client_factory.dart';
 import '../rhttp_gate.dart';
 
@@ -103,12 +101,12 @@ class NetworkAccessPolicy {
   /// Persisted compatibility-tier host addresses. When present, the
   /// compatibility tier is attempted before the cold direct probe and does
   /// not need a DNS lookup or a HEAD request.
-  final PixivFastRouteStore? fastRouteStore;
+  final FastRouteMemory? fastRouteStore;
 
   /// Persists the winning route *kind* per network identity so the next
   /// cold start on the same network seeds the group preference instead of
   /// paying the discovery walk again.
-  final RouteKindStore? routeKindStore;
+  final RouteKindMemory? routeKindStore;
 
   /// Cloudflare DoH endpoints' anycast IPs (the
   /// DNS names themselves are only used for SNI/Host — the TCP peer is
@@ -145,6 +143,10 @@ class NetworkAccessPolicy {
   /// uses it to drop a dead winner and re-race. The original error still
   /// propagates to the request caller.
   void Function(String host)? onImageHostExhausted;
+
+  /// Invoked after [advanceNetworkRevision] — the image worker isolate
+  /// follows the main isolate's network identity through it.
+  void Function(NetworkRevision revision)? onRevisionAdvanced;
 
   /// The strict-tier resolver (DoH by default, system when DoH is off).
   /// Exposed for the probe page; production requests use [runLadder].
@@ -415,74 +417,8 @@ class NetworkAccessPolicy {
     // Re-seed group preferences for the *new* identity — the same store
     // that accelerates a cold restart accelerates a Wi-Fi↔cellular flip.
     unawaited(_seedPersistedGroupKinds());
+    onRevisionAdvanced?.call(_revision);
     return _revision;
-  }
-
-  /// (host, revision) pairs whose winning route has already been warmed —
-  /// one HEAD per network identity per route-memory lifetime.
-  final LinkedHashSet<String> _warmConnectionSent = LinkedHashSet<String>();
-
-  /// Sends one cheap HEAD on the remembered winning route for [host] so the
-  /// first real image GET after feed data lands reuses an established
-  /// connection instead of paying a TLS handshake. Image exits run over
-  /// HTTP/1.1, so this warms one pooled connection, not the whole feed's
-  /// concurrency — the rest still connect on demand. Throttled to once
-  /// per (host, revision); a no-op while no winner is known — the cold-start
-  /// race owns discovery, and warming a guessed route would just burn a
-  /// socket on the tier that is about to lose anyway.
-  void warmConnection(PixivDestinationPurpose purpose, String host) {
-    if (_disposed || _mode == NetworkMode.directOnly) return;
-    final key =
-        '${purpose.name}|$host|${_revision.value}|${_revision.networkIdentity}';
-    if (!_warmConnectionSent.add(key)) return;
-    while (_warmConnectionSent.length > 64) {
-      _warmConnectionSent.remove(_warmConnectionSent.first);
-    }
-    unawaited(_warmConnection(purpose, host));
-  }
-
-  Future<void> _warmConnection(
-    PixivDestinationPurpose purpose,
-    String host,
-  ) async {
-    try {
-      final now = clock();
-      final memory = _routeMemory[host];
-      NetworkRoute? route;
-      PixivDestination? destination;
-      if (memory != null &&
-          memory.isUsable(now, _revision.networkIdentity) &&
-          !_isSupersededByEch(purpose, host, memory.kind, now)) {
-        route = memory.routeFor(_revision);
-      } else {
-        final group = _routeGroupFor(purpose, host);
-        final groupMemory = _groupMemory[group];
-        if (groupMemory == null ||
-            !groupMemory.isUsable(now, _revision.networkIdentity)) {
-          return;
-        }
-        destination = registry.require(Uri.https(host, '/'), purpose);
-        route = await _routeForTier(
-          groupMemory.kind,
-          destination,
-          resolveHost: () => resolve(destination!, cancelSignal: null),
-          cancelSignal: null,
-        );
-      }
-      if (route == null || _disposed) return;
-      destination ??= registry.require(Uri.https(host, '/'), purpose);
-      final client = clientFor(purpose, route, destination.canonicalHost);
-      // Status is irrelevant — a 403 still established the connection,
-      // which is the entire point of the warm-up.
-      final request = http.Request('HEAD', Uri.https(host, '/'))
-        ..headers.addAll(PixivHeaders.image());
-      final response = await client
-          .send(request)
-          .timeout(const Duration(seconds: 8));
-      await response.stream.drain<void>();
-    } on Object {
-      // Warm-up is opportunistic; the request path owns real failures.
-    }
   }
 
   /// Seeds group route-kind preferences persisted for the current network

@@ -472,7 +472,6 @@ class _RecommendedFeedBody extends ConsumerWidget {
     return [
       IllustFeedGrid(
         padding: _gridPadding,
-        prefetchEntities: entities,
         itemIds: [for (final e in entities) e.id],
         itemCount: entities.length,
         pagerLoadMore: onLoadMore,

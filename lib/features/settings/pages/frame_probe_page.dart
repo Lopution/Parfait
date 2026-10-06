@@ -4,8 +4,10 @@ import 'dart:io';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/debug/frame_probe.dart';
+import '../../../core/image/image_worker_providers.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
@@ -14,16 +16,19 @@ import '../../../app/clipboard.dart';
 /// Dev-only frame probe page: record timings while scrolling a feed, then
 /// copy the build/raster percentile report for offline analysis. Only
 /// reachable in debug/profile builds — the settings tile is release-gated.
-class FrameProbePage extends StatefulWidget {
+/// The image worker's state rides along: queue depth and disk usage explain
+/// what the frames were waiting on.
+class FrameProbePage extends ConsumerStatefulWidget {
   const FrameProbePage({super.key});
 
   @override
-  State<FrameProbePage> createState() => _FrameProbePageState();
+  ConsumerState<FrameProbePage> createState() => _FrameProbePageState();
 }
 
-class _FrameProbePageState extends State<FrameProbePage> {
+class _FrameProbePageState extends ConsumerState<FrameProbePage> {
   Timer? _ticker;
   String? _report;
+  String? _worker;
 
   bool get _recording => FrameProbe.instance.recording;
 
@@ -33,6 +38,15 @@ class _FrameProbePageState extends State<FrameProbePage> {
     // Re-entering while a recording is still live: resume the ticker so the
     // status bar keeps refreshing — the probe itself never stopped.
     if (_recording) _startTicker();
+    unawaited(_refreshWorker());
+  }
+
+  Future<String> _describeWorker() async =>
+      (await ref.read(imageWorkerProvider).snapshot()).describe();
+
+  Future<void> _refreshWorker() async {
+    final worker = await _describeWorker();
+    if (mounted) setState(() => _worker = worker);
   }
 
   @override
@@ -44,10 +58,10 @@ class _FrameProbePageState extends State<FrameProbePage> {
   }
 
   void _startTicker() {
-    _ticker ??= Timer.periodic(
-      const Duration(milliseconds: 500),
-      (_) => setState(() {}),
-    );
+    _ticker ??= Timer.periodic(const Duration(milliseconds: 500), (_) {
+      setState(() {});
+      unawaited(_refreshWorker());
+    });
   }
 
   void _start() {
@@ -64,8 +78,12 @@ class _FrameProbePageState extends State<FrameProbePage> {
     FrameProbe.instance.stop();
     final report = FrameProbe.instance.report();
     final display = await _describeDisplay();
+    final worker = await _describeWorker();
     if (!mounted) return;
-    setState(() => _report = '$report$display');
+    setState(() {
+      _worker = worker;
+      _report = '$report$display$worker';
+    });
   }
 
   /// The panel modes Android lists: MainActivity's surface vote asks for
@@ -149,6 +167,27 @@ class _FrameProbePageState extends State<FrameProbePage> {
                 icon: const Icon(Icons.fiber_manual_record),
                 label: Text(context.l10n.frameProbeStart),
               ),
+            if (_worker case final worker?) ...[
+              const SizedBox(height: FuncSpacing.md),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      worker.trimRight(),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _refreshWorker,
+                    tooltip: context.l10n.refresh,
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: FuncSpacing.lg),
             if (_report != null) ...[
               SelectableText(

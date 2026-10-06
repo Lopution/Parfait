@@ -482,7 +482,6 @@ class _IllustSearchFeed extends ConsumerWidget {
             slivers: [
               IllustFeedGrid(
                 padding: _illustGridPadding,
-                prefetchEntities: entities,
                 itemIds: [for (final e in entities) e.id],
                 itemCount: entities.length,
                 pagerLoadMore: () =>

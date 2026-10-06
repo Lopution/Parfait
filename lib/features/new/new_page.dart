@@ -388,7 +388,6 @@ class _NewFeedBody extends ConsumerWidget {
       final entities = store.getAll(feed.ids);
       return [
         IllustFeedGrid(
-          prefetchEntities: entities,
           itemIds: [for (final e in entities) e.id],
           itemCount: entities.length,
           pagerLoadMore: () =>

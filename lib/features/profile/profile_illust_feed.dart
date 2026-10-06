@@ -109,7 +109,6 @@ class ProfileIllustFeed extends ConsumerWidget {
                 else
                   IllustFeedGrid(
                     padding: gridPadding,
-                    prefetchEntities: visibleEntities,
                     itemIds: [for (final e in visibleEntities) e.id],
                     itemCount: visibleEntities.length,
                     pagerLoadMore: () => ref

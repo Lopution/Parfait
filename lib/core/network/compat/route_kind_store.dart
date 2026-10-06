@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../settings/preference_keys.dart';
 import 'network_contracts.dart';
+import 'route_memory.dart';
 
 /// Persists which route *kind* last worked per network identity — never
 /// addresses (those live in [PixivFastRouteStore]) and never per-host.
@@ -14,7 +15,7 @@ import 'network_contracts.dart';
 /// A stale kind costs one failed tier attempt — the ladder invalidates a
 /// seeded preference on failure exactly like a learned one, so a wrong hint
 /// is self-correcting rather than sticky.
-class RouteKindStore {
+class RouteKindStore implements RouteKindMemory {
   RouteKindStore({required SharedPreferencesAsync preferences})
     : _preferences = preferences;
 
@@ -30,12 +31,14 @@ class RouteKindStore {
 
   /// Group→kind map for [networkIdentity], or null when nothing was
   /// persisted for it.
+  @override
   Future<Map<String, String>?> kindsFor(String networkIdentity) async {
     return (await _load())[networkIdentity];
   }
 
   /// Serialized writes — several tiers can succeed concurrently during
   /// startup, and each success may flip a different group's preference.
+  @override
   Future<void> remember(String networkIdentity, String group, String kind) {
     final operation = _writeTail.then<void>((_) async {
       final all = await _load();

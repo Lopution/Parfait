@@ -1163,10 +1163,10 @@ Future<void> PixivImage.preload(
   for wider cards) and opens without a Hero, since that image is not the
   detail page's. A top-cropped card hands `cropAspect` (the work's
   width/height) to its frame, and the shuttle lerps the child from the
-  card's cover-top rect to the whole contained image, both directions. The
-  feed prefetch resolves the same `illustCardPreview` so it warms exactly
-  what the card will paint. The feed entrance is a staggered fade only —
-  cards never move.
+  card's cover-top rect to the whole contained image, both directions.
+  There is no feed prefetch: the grid's cache extent builds cards ahead and
+  each card's image loads as it mounts. The feed entrance is a staggered
+  fade only — cards never move.
 - Detail page page numbers use only `DetailPageCounter`. Narrow and wide
   layouts both place it at the top-right of the artwork region; single-page
   and ugoira works never show it; selection mode hides it because each

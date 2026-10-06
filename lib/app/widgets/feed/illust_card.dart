@@ -403,6 +403,8 @@ class _IllustCardBody extends ConsumerWidget {
             tier: detailQuality.tier,
             demand: network.imageDemand,
             priority: ImageFetchPriority.foreground,
+            // The detail page shows it with a progress ring.
+            useWorker: false,
           ),
         );
       }

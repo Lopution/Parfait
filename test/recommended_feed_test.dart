@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:octo_image/octo_image.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
@@ -416,9 +417,7 @@ void main() {
       expect(image.width, 300);
       expect(image.height, greaterThan(600));
       expect(
-        tester
-            .widget<CachedNetworkImage>(find.byType(CachedNetworkImage).first)
-            .imageUrl,
+        tester.widget<PixivImage>(find.byType(PixivImage).first).url,
         'https://i.pximg.net/7/medium.jpg',
         reason: 'a 1:2 card keeps the user preview tier',
       );
@@ -503,11 +502,11 @@ void main() {
       await tester.pump();
     });
 
-    final cached = tester.widget<CachedNetworkImage>(
-      find.byType(CachedNetworkImage).first,
-    );
+    // Card previews load through the image worker.
+    expect(find.byType(CachedNetworkImage), findsNothing);
+    final image = tester.widget<OctoImage>(find.byType(OctoImage).first);
     expect(
-      cached.useOldImageOnUrlChange,
+      image.gaplessPlayback,
       isTrue,
       reason: 'every quality URL change must retain the previous decoded frame',
     );

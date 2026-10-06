@@ -1,19 +1,10 @@
 import 'package:meta/meta.dart';
 
-/// Completes a queued image fetch whose turn came after everyone waiting
-/// for it went away. The fetch never reached the network.
-class ImageFetchDropped implements Exception {
-  const ImageFetchDropped(this.url);
-
-  final String url;
-
-  @override
-  String toString() => 'ImageFetchDropped: $url';
-}
+export '../../image/lane_permit_gate.dart' show ImageFetchDropped;
 
 /// How long a released URL still counts as wanted. Absorbs the brief
 /// unmount/remount of a Hero flight or a list re-layout.
-const _kReleaseGrace = Duration(milliseconds: 500);
+const releaseGrace = Duration(milliseconds: 500);
 
 /// Bookkeeping entries kept before expired ones are pruned.
 const _kPruneThreshold = 256;
@@ -32,6 +23,13 @@ class ImageDemand {
   /// Called when [url] gains an on-screen holder: its first [hold], or any
   /// [holdFor]. Wired to the file service's promotion.
   void Function(String url)? onHeld;
+
+  /// Fired when a mutation may have left [url] unwanted — after a [release]
+  /// whose last holder left, or when a prefetch window swap drops it. The
+  /// listener re-evaluates [wants] under its own timing (the release path
+  /// still counts as wanted during [releaseGrace]); the image worker's
+  /// client uses it to decide when a worker request may be cancelled.
+  void Function(String url)? onMaybeUnwanted;
 
   final _counts = <String, int>{};
   final _heldUntil = <String, DateTime>{};
@@ -57,6 +55,7 @@ class ImageDemand {
     _counts.remove(url);
     _releasedAt[url] = _clock();
     _pruneIfLarge();
+    onMaybeUnwanted?.call(url);
   }
 
   /// Wants [url] for [ttl] without a widget, e.g. a preload the user just
@@ -72,11 +71,22 @@ class ImageDemand {
   /// Replaces the URLs [owner] is prefetching. URLs that fall out of the
   /// window stop being wanted unless something else holds them.
   void setPrefetchWindow(Object owner, Set<String> urls) {
+    final removed = _windows[owner]?.difference(urls);
     _windows[owner] = Set.unmodifiable(urls);
+    if (removed != null) {
+      for (final url in removed) {
+        onMaybeUnwanted?.call(url);
+      }
+    }
   }
 
   void clearPrefetchWindow(Object owner) {
-    _windows.remove(owner);
+    final removed = _windows.remove(owner);
+    if (removed != null) {
+      for (final url in removed) {
+        onMaybeUnwanted?.call(url);
+      }
+    }
   }
 
   bool wants(String url) {
@@ -88,7 +98,7 @@ class ImageDemand {
       if (window.contains(url)) return true;
     }
     final releasedAt = _releasedAt[url];
-    return releasedAt != null && now.difference(releasedAt) < _kReleaseGrace;
+    return releasedAt != null && now.difference(releasedAt) < releaseGrace;
   }
 
   /// Widgets currently holding [url].
@@ -104,7 +114,7 @@ class ImageDemand {
     final now = _clock();
     _heldUntil.removeWhere((_, until) => !now.isBefore(until));
     _releasedAt.removeWhere(
-      (_, releasedAt) => now.difference(releasedAt) >= _kReleaseGrace,
+      (_, releasedAt) => now.difference(releasedAt) >= releaseGrace,
     );
   }
 }

@@ -8,6 +8,7 @@ import '../../settings/preference_keys.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'network_contracts.dart';
+import 'route_memory.dart';
 import 'secure_resolver.dart';
 
 /// Persists the last known public address for the Pixiv hosts used by the
@@ -18,12 +19,13 @@ import 'secure_resolver.dart';
 /// the map from DoH in the background. Keeping this tiny cache outside the
 /// route-memory TTL means the first request after an app restart does not pay
 /// for polluted system DNS or a route probe.
-class PixivFastRouteStore {
+class PixivFastRouteStore implements FastRouteMemory {
   static const storageKey = PreferenceKeys.fastRoutes;
 
-  /// Compatibility bootstrap addresses. They are fallback values only
-  /// and are replaced by a successful DoH refresh when the network permits it.
-  static final Map<String, InternetAddress> _bootstrap = {
+  /// Compatibility bootstrap addresses, exposed read-only so a second
+  /// [FastRouteMemory] (the image worker's in-memory store) can seed the
+  /// same fallback values without touching SharedPreferences.
+  static final Map<String, InternetAddress> bootstrap = Map.unmodifiable({
     PixivClientIdentity.appApiBase.host: InternetAddress('210.140.139.155'),
     PixivClientIdentity.oauthHost: InternetAddress('210.140.139.155'),
     // The web profile editor uses the same Pixiv/Cloudflare compatibility
@@ -32,7 +34,11 @@ class PixivFastRouteStore {
     PixivClientIdentity.webHost: InternetAddress('104.18.42.239'),
     for (final imageHost in PixivClientIdentity.downloadHosts)
       imageHost: InternetAddress('210.140.139.133'),
-  };
+  });
+
+  /// Compatibility bootstrap addresses. They are fallback values only
+  /// and are replaced by a successful DoH refresh when the network permits it.
+  static final Map<String, InternetAddress> _bootstrap = bootstrap;
 
   final SharedPreferencesAsync _preferences;
 
@@ -42,6 +48,7 @@ class PixivFastRouteStore {
   Future<void> _writeTail = Future<void>.value();
   final Set<String> _refreshing = <String>{};
 
+  @override
   Future<InternetAddress?> addressFor(String host) async {
     final persisted = (await _load())[host];
     return persisted ?? _bootstrap[host];
@@ -50,6 +57,7 @@ class PixivFastRouteStore {
   /// Records a public address after a route has actually served a request.
   /// Writes are serialized because API, OAuth, and image requests can finish
   /// concurrently during startup.
+  @override
   Future<void> remember(String host, InternetAddress address) {
     if (!isPublicNetworkAddress(address) || !_bootstrap.containsKey(host)) {
       return Future<void>.value();
@@ -72,6 +80,7 @@ class PixivFastRouteStore {
   /// Refreshes one host at most once concurrently. This is intentionally
   /// best-effort: an unavailable DoH endpoint must not delay or fail the
   /// already successful business request.
+  @override
   Future<void> refresh(
     String host, {
     required SecureResolver resolver,
@@ -91,6 +100,10 @@ class PixivFastRouteStore {
       _refreshing.remove(host);
     }
   }
+
+  /// The persisted addresses, without the bootstrap fallback — the seed of
+  /// the image worker's in-memory copy.
+  Future<Map<String, InternetAddress>> learned() async => Map.of(await _load());
 
   Future<Map<String, InternetAddress>> _load() {
     return _loadFuture ??= _read();

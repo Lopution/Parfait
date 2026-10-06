@@ -120,7 +120,6 @@ class IllustSeriesPage extends ConsumerWidget {
                     else
                       IllustFeedGrid(
                         padding: _gridPadding,
-                        prefetchEntities: entities,
                         itemIds: [for (final e in entities) e.id],
                         itemCount: entities.length,
                         itemBuilder: (context, index) => IllustCard(
