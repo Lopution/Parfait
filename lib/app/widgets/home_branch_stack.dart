@@ -66,10 +66,17 @@ class _HomeBranchStackState extends State<HomeBranchStack>
   );
   late final AnimationController _navVisibility;
 
-  /// Freezes both branches into one texture each while they fade through.
+  /// Freezes the outgoing branch into one texture while it fades through.
   /// Fading a live page re-renders it into a full-screen offscreen layer
-  /// on every frame; a texture takes the opacity in a single draw.
+  /// on every frame; a texture takes the opacity in a single draw. The
+  /// incoming branch stays live — its ticker, entrances and image fades
+  /// keep running so the switch never lands on a frozen page.
   final SnapshotController _switchSnapshot = SnapshotController();
+
+  /// Never armed: assigned to every branch that is not fading out, so the
+  /// `SnapshotWidget` stays in the tree without remounting branches and
+  /// only the outgoing one becomes a texture.
+  final SnapshotController _idleSnapshot = SnapshotController();
 
   /// Bumped per switch, so an interrupted switch's completion leaves the
   /// newer one alone.
@@ -140,6 +147,7 @@ class _HomeBranchStackState extends State<HomeBranchStack>
     _reTap.dispose();
     _switch.dispose();
     _switchSnapshot.dispose();
+    _idleSnapshot.dispose();
     _navVisibility.dispose();
     _navBarVisibleExtent.dispose();
     super.dispose();
@@ -246,11 +254,12 @@ class _HomeBranchStackState extends State<HomeBranchStack>
           for (var i = 0; i < widget.children.length; i++)
             Offstage(
               offstage: i != _current && i != _outgoing,
-              // Both sides stay frozen until the switch lands: an entrance
-              // or image fade inside a fading branch nests one offscreen
-              // layer in another, and the snapshot would bake it half done.
+              // Only the leaving branch freezes: its texture takes the
+              // fade in a single draw while the incoming branch runs live —
+              // entrances, image fades and press feedback keep animating
+              // through the switch instead of jumping at the end.
               child: TickerMode(
-                enabled: i == _current && _outgoing == null,
+                enabled: i == _current,
                 child: IgnorePointer(
                   ignoring: i != _current,
                   child: ExcludeSemantics(
@@ -266,11 +275,14 @@ class _HomeBranchStackState extends State<HomeBranchStack>
                             : kAlwaysDismissedAnimation,
                         fillColor: Colors.transparent,
                         // Always in the tree, so starting a switch never
-                        // remounts a branch; idle, it paints live.
+                        // remounts a branch; only the outgoing branch paints
+                        // from a texture.
                         child: SnapshotWidget(
                           // A branch showing a platform view paints live.
                           mode: SnapshotMode.permissive,
-                          controller: _switchSnapshot,
+                          controller: i == _outgoing
+                              ? _switchSnapshot
+                              : _idleSnapshot,
                           child: widget.children[i],
                         ),
                       ),

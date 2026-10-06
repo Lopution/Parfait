@@ -942,8 +942,11 @@ setting scales them and reduced motion collapses them to zero (see the
 Motion Contract). FadeForwards scales its phases to whatever duration the
 route carries; every style shares the route duration and brings its own
 curve, and Hero flights follow the route duration. Every path is wrapped by
-`FuncTransitionGuard` — the shared `TickerMode` + `RoutePopSnapshot` pair that
-freezes an outgoing page's tickers and snapshots it for the reverse flight;
+`FuncTransitionGuard` — the shared `RoutePopSnapshot` mount that snapshots
+by transition role: entering and covered pages paint live (their tickers
+are never paused by the transition; a fully covered route is offstaged by
+the Overlay instead), while a popping page and a settled reveal blit one
+texture each;
 `FuncRouteTransition` already carries the guard internally, so the other
 paths add it around the official transition. `_modalPage` stays on
 `CustomTransitionPage`; `maintainState`/`opaque`/`barrierColor` keep
@@ -1365,15 +1368,20 @@ motion). Only the current branch is hit-testable, semantic, and
 `BranchActivityScope.active` during the flight; `Offstage` keeps unvisited
 branches unbuilt.
 
-During the flight both branches are frozen: `TickerMode` is off for each
-of them, and every branch sits in a `SnapshotWidget` that shares one
-`SnapshotController` (`SnapshotMode.permissive`, so a branch showing a
-platform view paints live). The fade then composites two textures instead
-of re-rendering two live pages into offscreen layers each frame. The
+During the flight the two sides play different roles. The incoming branch
+stays live: `TickerMode` keeps its tickers running so entrances, image
+fades and press feedback animate through the switch instead of jumping at
+the end. The outgoing branch's `TickerMode` is off and it alone hands its
+subtree to an armed `SnapshotController` (`SnapshotMode.permissive`, so a
+branch showing a platform view paints live): the fade composites one
+texture instead of re-rendering that page into an offscreen layer each
+frame. Every branch sits in a `SnapshotWidget`; branches that are not
+fading out share a second controller that is never armed, so the widget
+stays in the tree and starting a switch never remounts a branch. The
 snapshot is released when the switch lands; a per-switch generation number
-keeps an interrupted switch's completion from releasing the newer one. The
-`SnapshotWidget` stays in the tree when idle, so starting a switch never
-remounts a branch.
+keeps an interrupted switch's completion from releasing the newer one, and
+an interruption promotes the previously incoming branch to outgoing — its
+first armed paint captures its live state.
 
 In-page tab strips keep the gesture. `TabSwipeSwitcher` requires a
 `tabController`, follows a horizontal drag, and commits or cancels at the
@@ -1744,8 +1752,9 @@ card or per image keep their dependencies narrow:
   `MediaQuery.of` / `maybeOf` dependency rebuilds every card whenever any
   field changes, such as insets or `accessibleNavigation`.
 - Do not depend on `TickerMode.valuesOf` in per-card or per-image state.
-  Route transitions and branch switches flip `TickerMode` for a whole
-  page, and every dependent rebuilds in that frame.
+  A route covered by an opaque route and a branch fading out both have
+  `TickerMode` flipped for the whole page, and every dependent rebuilds
+  in that frame.
   - Mix in `TickerModeWatch` (`motion_tokens.dart`): read `tickersEnabled`
     and override `didChangeTickerMode`. Rebuild there only when the output
     actually changes. Examples:

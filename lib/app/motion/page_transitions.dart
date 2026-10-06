@@ -1,14 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../../core/debug/frame_probe.dart';
 import 'motion_tokens.dart';
 
-/// Transition-window guard shared by every route transition: [TickerMode]
-/// freezes tickers while either animation runs (see [FuncRouteTransition])
-/// and [RoutePopSnapshot] keeps the page one blitted texture. The
+/// Transition-window guard shared by every route transition: wraps the route
+/// content in a [RoutePopSnapshot] through [transition], so the
 /// platform-specific transform — slide, predictive-back shared element —
-/// wraps the snapshot through [transition], so the captured texture is what
-/// moves.
+/// moves the captured texture when the route leaves the stage. Pages stay
+/// live while they animate: tickers are never paused by the transition
+/// itself (the Overlay still stops a fully covered route's tickers).
 class FuncTransitionGuard extends StatelessWidget {
   const FuncTransitionGuard({
     super.key,
@@ -28,30 +30,17 @@ class FuncTransitionGuard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final inTransition =
-        animation.isAnimating || secondaryAnimation.isAnimating;
-    return TickerMode(
-      enabled: !inTransition,
-      child: transition(
-        RoutePopSnapshot(
-          animation: animation,
-          secondaryAnimation: secondaryAnimation,
-          child: child,
-        ),
+    return transition(
+      RoutePopSnapshot(
+        animation: animation,
+        secondaryAnimation: secondaryAnimation,
+        child: child,
       ),
     );
   }
 }
 
 /// Pushed-route transition: slide in from the trailing edge.
-///
-/// A live in-page animation (loaders, image fades, scroll ballistic,
-/// playing GIFs) marks its enclosing repaint boundary dirty every frame, so
-/// a route transition turns into a repaint storm instead of pure layer
-/// compositing. [TickerMode] freezes tickers on both sides for the
-/// transition window — the outgoing route animates, the incoming one drives
-/// secondaryAnimation — and lets them resume afterwards. The pop snapshot
-/// keeps the outgoing page a single blitted texture while it slides away.
 class FuncRouteTransition extends StatelessWidget {
   const FuncRouteTransition({
     super.key,
@@ -102,42 +91,50 @@ class FuncModalTransition extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final curved = animation.drive(CurveTween(curve: MotionTokens.modalCurve));
-    final inTransition =
-        animation.isAnimating || secondaryAnimation.isAnimating;
-    return TickerMode(
-      enabled: !inTransition,
-      child: FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: curved.drive(
-            Tween<Offset>(
-              begin: MotionTokens.modalSlideBegin,
-              end: Offset.zero,
-            ),
-          ),
-          child: RoutePopSnapshot(
-            animation: animation,
-            secondaryAnimation: secondaryAnimation,
-            child: child,
-          ),
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: curved.drive(
+          Tween<Offset>(begin: MotionTokens.modalSlideBegin, end: Offset.zero),
+        ),
+        child: RoutePopSnapshot(
+          animation: animation,
+          secondaryAnimation: secondaryAnimation,
+          child: child,
         ),
       ),
     );
   }
 }
 
-/// Freezes a page into a single texture while a route transition slides.
+/// Keeps a page real-time through a route transition and freezes into a
+/// single texture only while it leaves the stage.
 ///
-/// Impeller re-executes a route's whole display list on every frame of the
-/// slide — both the outgoing page AND the one being revealed underneath.
-/// On a device whose GPU/display pipeline has idled down after a few still
-/// seconds (the "leave the page 2-3s then return" repro), that per-frame
-/// re-raster blows the budget uniformly — a constant low-FPS animation
-/// rather than dropped frames. [SnapshotWidget] is the same mechanism the
-/// Material zoom/fade-forwards transitions use: while either animation is
-/// running, the page is captured once at paint time and the remaining
-/// frames blit one texture. The live subtree stays mounted, so cancelled
-/// pops (predictive-back back-outs) restore instantly.
+/// The official zoom transition also snapshots by role: with
+/// `allowEnterRouteSnapshotting: false` its entering roles (the pushed and
+/// the revealed page) stay live and its exiting roles (the popped and the
+/// covered page) become textures. This widget keeps the pushed page live
+/// the same way but swaps the two secondary roles — the press that opened
+/// the route is still fading on the covered page, and a texture captured
+/// at reveal time shows the page as it is now:
+///
+/// - entering (own [animation] forward): always live — icons, bookmark
+///   state and image fades keep updating during the push;
+/// - exiting (own [animation] reverse): one texture — the raster-heavy
+///   direction, kept snapshotted like the official transitions;
+/// - covered ([secondaryAnimation] forward): live, so press feedback
+///   finishes visibly instead of baking into a texture; once the covering
+///   opaque route completes, the Overlay stops its tickers anyway;
+/// - revealed ([secondaryAnimation] reverse): a freshly captured texture —
+///   `clear()` + re-capture at reveal start, so the replayed frame shows
+///   the current state after the press highlight has faded.
+///
+/// A reveal that starts while the press feedback that opened the route
+/// could still be fading (a back gesture interrupting the push, inside
+/// [_pressSettleDuration] of the cover start) keeps the page live for that
+/// whole reveal rather than freezing a half-faded highlight into the
+/// texture. The live subtree stays mounted throughout, so cancelled pops
+/// (predictive-back back-outs) restore instantly.
 class RoutePopSnapshot extends StatefulWidget {
   const RoutePopSnapshot({
     super.key,
@@ -161,20 +158,67 @@ class RoutePopSnapshot extends StatefulWidget {
 class _RoutePopSnapshotState extends State<RoutePopSnapshot> {
   final _controller = SnapshotController();
 
+  /// How long after a cover starts a press highlight on this page could
+  /// still be fading. Covers the PressScale spring-back (~225ms), the
+  /// ink-highlight fade (200ms) and the ink-ripple fade-out (375ms) with
+  /// headroom.
+  static const _pressSettleDuration = Duration(milliseconds: 400);
+
   /// Frame-probe bookkeeping: whether this page's transition and capture
   /// are counted as live scenes.
   bool _probedTransition = false;
   bool _probedSnapshot = false;
   String _routeLabel = '';
 
+  /// Whether this page is being covered by a route pushing on top of it.
+  /// Starting a cover re-opens the press window: the pointer-up that
+  /// triggered the push happened at most a frame before it.
+  bool _covering = false;
+
+  /// Whether the press feedback around the last cover start has had
+  /// [_pressSettleDuration] to finish. True until the first cover begins;
+  /// the wall-clock timer keeps running while the covered page's own
+  /// tickers are frozen by the Overlay, so a later reveal always sees it
+  /// settled.
+  bool _pressSettled = true;
+  Timer? _pressSettleTimer;
+  bool _captureScheduled = false;
+
   bool get _animating =>
       widget.animation.isAnimating || widget.secondaryAnimation.isAnimating;
+
+  /// Whether this page should be a texture right now. Only pages leaving
+  /// the stage are ever frozen: the route popping out, and a covered route
+  /// coming back into view once its press feedback has settled.
+  bool get _wantsSnapshot {
+    if (widget.animation.isAnimating &&
+        widget.animation.status == AnimationStatus.reverse) {
+      return true;
+    }
+    return widget.secondaryAnimation.isAnimating &&
+        widget.secondaryAnimation.status == AnimationStatus.reverse &&
+        _pressSettled;
+  }
 
   @override
   void initState() {
     super.initState();
     widget.animation.addStatusListener(_sync);
     widget.secondaryAnimation.addStatusListener(_sync);
+  }
+
+  @override
+  void didUpdateWidget(RoutePopSnapshot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.animation, widget.animation)) {
+      oldWidget.animation.removeStatusListener(_sync);
+      widget.animation.addStatusListener(_sync);
+    }
+    if (!identical(oldWidget.secondaryAnimation, widget.secondaryAnimation)) {
+      oldWidget.secondaryAnimation.removeStatusListener(_sync);
+      widget.secondaryAnimation.addStatusListener(_sync);
+    }
+    _sync();
   }
 
   @override
@@ -191,29 +235,54 @@ class _RoutePopSnapshotState extends State<RoutePopSnapshot> {
   void dispose() {
     widget.animation.removeStatusListener(_sync);
     widget.secondaryAnimation.removeStatusListener(_sync);
+    _pressSettleTimer?.cancel();
     _probeTransition(false);
     _probeSnapshot(false);
     _controller.dispose();
     super.dispose();
   }
 
+  void _updatePressWindow() {
+    final covering =
+        widget.secondaryAnimation.isAnimating &&
+        widget.secondaryAnimation.status == AnimationStatus.forward;
+    if (covering == _covering) return;
+    _covering = covering;
+    if (!covering) return;
+    _pressSettled = false;
+    _pressSettleTimer?.cancel();
+    _pressSettleTimer = Timer(_pressSettleDuration, () {
+      _pressSettleTimer = null;
+      _pressSettled = true;
+    });
+  }
+
   void _sync([AnimationStatus? _]) {
     _probeTransition(_animating);
-    if (!_animating) {
+    _updatePressWindow();
+    if (!_wantsSnapshot) {
+      _captureScheduled = false;
       _controller.allowSnapshotting = false;
       _probeSnapshot(false);
       return;
     }
-    if (_controller.allowSnapshotting) return;
+    if (_controller.allowSnapshotting || _captureScheduled) return;
     // Defer snapshotting by one frame: HeroController also starts flights
     // from a post-frame callback, so the source Hero still paints its child
     // on the very first transition frame. Capturing then would bake the
     // image into this page's frozen texture — the pop would show it sliding
     // with the page AND flying as the shuttle (double image). One live
     // frame lets the placeholder swap land first.
+    _captureScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _animating) {
-        _controller.allowSnapshotting = true;
+      _captureScheduled = false;
+      if (mounted && _wantsSnapshot) {
+        // Re-capture rather than replay: the texture a reveal shows is the
+        // page's current state, including changes made while it was
+        // covered and the press highlight after it finished fading.
+        _controller
+          ..clear()
+          ..allowSnapshotting = true;
         _probeSnapshot(true);
       }
     });

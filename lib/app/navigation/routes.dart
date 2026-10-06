@@ -223,54 +223,24 @@ Page<dynamic> _modalPage(
   );
 }
 
-/// Applies the same transition freeze + raster snapshot as `_page`'s
-/// builder, driven by the enclosing route's `secondaryAnimation`. The home
-/// shell is a [NoTransitionPage], so root-level pushes/pops (settings,
-/// viewer) over it would otherwise re-raster the whole shell — branch
-/// feeds, bottom navigation and the active branch page — on every frame.
-class _SecondaryAnimationTickerGate extends StatefulWidget {
-  const _SecondaryAnimationTickerGate({required this.child});
+/// Applies the same raster snapshot as `_page`'s transition builder, driven
+/// by the enclosing route's `secondaryAnimation`. The home shell is a
+/// [NoTransitionPage], so root-level pushes/pops (settings, viewer) over it
+/// would otherwise re-raster the whole shell — branch feeds, bottom
+/// navigation and the active branch page — on every frame.
+class _SecondaryAnimationSnapshotGate extends StatelessWidget {
+  const _SecondaryAnimationSnapshotGate({required this.child});
 
   final Widget child;
 
   @override
-  State<_SecondaryAnimationTickerGate> createState() =>
-      _SecondaryAnimationTickerGateState();
-}
-
-class _SecondaryAnimationTickerGateState
-    extends State<_SecondaryAnimationTickerGate> {
-  ModalRoute<dynamic>? _route;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final route = ModalRoute.of(context);
-    if (identical(route, _route)) return;
-    _route?.secondaryAnimation?.removeStatusListener(_onStatus);
-    _route = route;
-    _route?.secondaryAnimation?.addStatusListener(_onStatus);
-  }
-
-  @override
-  void dispose() {
-    _route?.secondaryAnimation?.removeStatusListener(_onStatus);
-    super.dispose();
-  }
-
-  void _onStatus(AnimationStatus status) => setState(() {});
-
-  @override
   Widget build(BuildContext context) {
-    final secondary = _route?.secondaryAnimation;
-    return TickerMode(
-      enabled: !(secondary?.isAnimating ?? false),
-      child: RoutePopSnapshot(
-        animation: _route?.animation ?? const AlwaysStoppedAnimation<double>(1),
-        secondaryAnimation:
-            secondary ?? const AlwaysStoppedAnimation<double>(0),
-        child: widget.child,
-      ),
+    final route = ModalRoute.of(context);
+    return RoutePopSnapshot(
+      animation: route?.animation ?? const AlwaysStoppedAnimation<double>(1),
+      secondaryAnimation:
+          route?.secondaryAnimation ?? const AlwaysStoppedAnimation<double>(0),
+      child: child,
     );
   }
 }
@@ -1154,7 +1124,7 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
               : 'home-shell-page',
           child: _scoped(
             appRootRouteObserver,
-            _SecondaryAnimationTickerGate(
+            _SecondaryAnimationSnapshotGate(
               child: HomePage(navigationShell: navigationShell),
             ),
           ),

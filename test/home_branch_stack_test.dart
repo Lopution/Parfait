@@ -149,7 +149,7 @@ void main() {
     expect(ranking, findsOneWidget);
   });
 
-  testWidgets('both branches stay frozen textures until the switch lands', (
+  testWidgets('the incoming branch stays live while the outgoing one freezes', (
     tester,
   ) async {
     await _pumpHome(tester);
@@ -157,13 +157,13 @@ void main() {
     final recommended = find.byType(RecommendedHomePage, skipOffstage: false);
     bool tickersOn(Finder page) =>
         TickerMode.valuesOf(tester.element(page)).enabled;
-    // The branch's own snapshot: the outermost below the fade-through, above
-    // the route snapshots inside the branch Navigator.
-    bool snapshotting() => tester
+    // The branch's own snapshot: the outermost below the fade-through,
+    // above the route snapshots inside the branch Navigator.
+    bool snapshotting(Finder page) => tester
         .widget<SnapshotWidget>(
           find
               .ancestor(
-                of: recommended,
+                of: page,
                 matching: find.descendant(
                   of: find.byType(FadeThroughTransition, skipOffstage: false),
                   matching: find.byType(SnapshotWidget, skipOffstage: false),
@@ -175,20 +175,22 @@ void main() {
         .controller
         .allowSnapshotting;
     expect(tickersOn(recommended), isTrue);
-    expect(snapshotting(), isFalse);
+    expect(snapshotting(recommended), isFalse);
 
     await tester.tap(_barIcon(AppIcons.ranking));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
     final ranking = find.byType(RankingPage);
+    // Outgoing branch: frozen texture. Incoming branch: live.
     expect(tickersOn(recommended), isFalse);
-    expect(tickersOn(ranking), isFalse);
-    expect(snapshotting(), isTrue);
+    expect(tickersOn(ranking), isTrue);
+    expect(snapshotting(recommended), isTrue);
+    expect(snapshotting(ranking), isFalse);
 
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
     expect(tickersOn(ranking), isTrue);
-    expect(snapshotting(), isFalse);
+    expect(snapshotting(ranking), isFalse);
   });
 
   testWidgets('a switch interrupting another keeps its outgoing branch', (
