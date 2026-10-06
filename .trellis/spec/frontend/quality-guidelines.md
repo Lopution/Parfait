@@ -33,7 +33,7 @@ the repository rules on top of it:
 The CI `analyze` job runs
 `dart format --output=none --set-exit-if-changed lib test` before
 `flutter analyze`, so an unformatted change fails the required
-`analyze-and-test` check (it aggregates `analyze` and the four `flutter test`
+`analyze-and-test` check (it aggregates `analyze` and the six `flutter test`
 shards) even when the code analyzes. `flutter test --total-shards` splits
 individual test cases, not files, so every test must set up its own state
 (for example `SharedPreferencesAsyncPlatform.instance`) instead of relying on
