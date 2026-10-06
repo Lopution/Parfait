@@ -1124,6 +1124,17 @@ Future<void> PixivImage.preload(
   page's "设为默认". The input and result pages keep per-type session
   drafts seeded from those defaults — the URL describes only the current
   tab's set, and a user query carries none.
+- A min/max bound pair is checked where the user sees it, never fixed
+  behind their back. The sheet's number fields take digits only (at most
+  9), so the text shown is the bound applied; a reversed pair shows
+  `searchInvalidBoundRange` under its row and disables Apply and "设为默认",
+  as `start > end` does for dates. `toQuery` throws `FormatException` on a
+  reversed pair instead of swapping it — the client-side bookmark predicate
+  reads the same pair, so a wire-only swap would filter every result out.
+  Stored settings and result URLs decode through
+  `SearchFilters.decodeBounds`: negatives are dropped and a reversed pair
+  (earlier sheets saved them) is put in order. Owning tests:
+  `search_models_test.dart`, `search_catalog_test.dart`.
 - Detail pages size multi-page images by each decoded frame's intrinsic
   ratio — never by a fixed `AspectRatio` on the container. The app API's
   `meta_pages[]` carries only `image_urls` (no per-page width/height), so
@@ -1869,11 +1880,12 @@ Owning test: `expandable_text_test.dart`.
 
 **Search results.** The result types (illustration, novel, user) are an
 `AppTabBar` on the results page. A tab switch replaces the route
-(`replaceSearchResults` with `query.withType(type)`), so the page keeps
-its State and the URL keeps the type. Switching carries the filters
-(`SearchQuery.carriedFilters`): a `UserSearchQuery` does not search with
-them but holds them as `retainedFilters`, so illustration → user →
-illustration comes back with the same filters. A results page built
+(`replaceSearchResults` with `searchQueryForType` for the new type), so
+the page keeps its State and the URL keeps the type. The page holds one
+filter draft per artwork type for this search, seeded from the persisted
+defaults with the URL's own type laid over it; a user query carries no
+filters, so illustration → user → illustration comes back with the
+illustration draft. A results page built
 without `onTypeChanged` (the tag page) switches locally. The filter
 summary bar under the tabs shows only for work types; every part of it
 reads as words (`searchRangeAtLeast`, `searchDateFrom`, …), never a
