@@ -4,7 +4,6 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
 import io.github.lopution.parfait.appwidget.RecommendWidgetProvider
 import io.github.lopution.parfait.appwidget.RefreshWidgetProvider
 import io.github.lopution.parfait.appwidget.WidgetRenderer
@@ -22,7 +21,10 @@ object WidgetForegroundChannel {
     private const val CHANNEL = "parfait/widget"
 
     fun configure(context: Context, engine: FlutterEngine) {
-        MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
+        // Rendering decodes covers from disk. Flutter runs Dart on the
+        // Android main thread, so that work must not happen there; the
+        // WorkManager worker already calls renderAll off the main thread.
+        backgroundMethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "notifySnapshotChanged" -> {
