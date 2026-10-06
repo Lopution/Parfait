@@ -60,7 +60,9 @@ void main() {
     expect(tester.binding.hasScheduledFrame, isFalse);
   });
 
-  testWidgets('normal motion keeps the shimmer running', (tester) async {
+  testWidgets('normal motion sweeps each bone without an offscreen mask', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _host(
         const FuncSkeleton(
@@ -71,8 +73,17 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(ShaderMask), findsOneWidget);
+    // The bone paints the sweep gradient itself: no ShaderMask, which was
+    // a full-page saveLayer on every frame.
+    expect(find.byType(ShaderMask), findsNothing);
     expect(tester.binding.hasScheduledFrame, isTrue);
+    expect(
+      find.byType(SkeletonBone),
+      paints..something((method, arguments) {
+        if (method != #drawRRect) return false;
+        return (arguments[1] as Paint).shader != null;
+      }),
+    );
   });
 
   testWidgets('a nested skeleton defers to the outer shimmer and label', (
@@ -94,7 +105,7 @@ void main() {
     await tester.pump();
 
     // One sweep for the whole tree, one announcement.
-    expect(find.byType(ShaderMask), findsOneWidget);
+    expect(tester.binding.transientCallbackCount, 1);
     expect(find.bySemanticsLabel('Loading page'), findsOneWidget);
     expect(find.bySemanticsLabel('Loading grid'), findsNothing);
   });
@@ -149,20 +160,21 @@ void main() {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(360, 800);
 
+    // Reduced motion: the bone paints its plain colour, no sweep.
     await tester.pumpWidget(
-      _host(const IllustGridSkeleton(label: 'Loading content')),
+      _host(const IllustGridSkeleton(label: 'Loading content'), reduce: true),
     );
     await tester.pump();
 
     final context = tester.element(find.byType(IllustGridSkeleton));
     final expected = Theme.of(context).colorScheme.surfaceContainer;
-    final bone = tester.widget<Container>(
-      find.descendant(
-        of: find.byType(SkeletonBone).first,
-        matching: find.byType(Container),
+    final bone = find.byType(SkeletonBone).first;
+    expect(
+      bone,
+      paints..rrect(
+        rrect: FuncShape.card.toRRect(Offset.zero & tester.getSize(bone)),
+        color: expected,
       ),
     );
-    expect((bone.decoration! as BoxDecoration).color, expected);
-    expect((bone.decoration! as BoxDecoration).borderRadius, FuncShape.card);
   });
 }
