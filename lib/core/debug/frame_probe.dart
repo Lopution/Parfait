@@ -212,6 +212,22 @@ class FrameProbe {
   /// How many of the slowest frames the report breaks down.
   static const int _slowestListed = 16;
 
+  /// The panel the report came from, in the units the UX review harness's
+  /// device profile takes: logical size, density, font scale and the
+  /// system bar insets.
+  static String _surfaceLine() {
+    final dispatcher = SchedulerBinding.instance.platformDispatcher;
+    final view = dispatcher.implicitView;
+    if (view == null) return 'surface: (no view)';
+    final dpr = view.devicePixelRatio;
+    String dp(double physical) => (physical / dpr).toStringAsFixed(1);
+    return 'surface: ${dp(view.physicalSize.width)}x'
+        '${dp(view.physicalSize.height)}dp @ ${dpr}x'
+        ', text scale ${dispatcher.textScaleFactor}'
+        ', insets top ${dp(view.viewPadding.top)}dp'
+        ' bottom ${dp(view.viewPadding.bottom)}dp';
+  }
+
   String report() {
     final buffer = StringBuffer()
       ..writeln('# frame probe')
@@ -256,6 +272,7 @@ class FrameProbe {
         '${knownRate ? '' : ' (not reported, assumed)'}'
         ', frame budget ${(budget.inMicroseconds / 1000).toStringAsFixed(1)}ms',
       )
+      ..writeln(_surfaceLine())
       ..writeln(
         'over budget: $overBudget '
         '(${(overBudget * 100 / _frames.length).toStringAsFixed(1)}%)'

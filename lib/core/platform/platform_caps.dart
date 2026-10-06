@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:meta/meta.dart';
 
 /// Single probe point for platform capability branching.
 ///
@@ -16,13 +17,21 @@ class PlatformCaps {
     this.isIOS = false,
   });
 
-  factory PlatformCaps.system() => PlatformCaps(
-    isAndroid: Platform.isAndroid,
-    isWindows: Platform.isWindows,
-    isLinux: Platform.isLinux,
-    isMacOS: Platform.isMacOS,
-    isIOS: Platform.isIOS,
-  );
+  factory PlatformCaps.system() =>
+      debugSystemOverride ??
+      PlatformCaps(
+        isAndroid: Platform.isAndroid,
+        isWindows: Platform.isWindows,
+        isLinux: Platform.isLinux,
+        isMacOS: Platform.isMacOS,
+        isIOS: Platform.isIOS,
+      );
+
+  /// What [PlatformCaps.system] reports instead of the host, for widgets
+  /// that read it without a provider scope. The UX review harness renders
+  /// the Android app on a Linux host with it; it must be reset after use.
+  @visibleForTesting
+  static PlatformCaps? debugSystemOverride;
 
   final bool isAndroid;
   final bool isWindows;

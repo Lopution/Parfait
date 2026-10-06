@@ -284,6 +284,14 @@ void main() {
 
     final report = probe.report();
     expect(report, contains('display: 120Hz, frame budget 8.3ms'));
+    // The test view: 800x600 logical at 3x, no system bars.
+    expect(
+      report,
+      contains(
+        'surface: 800.0x600.0dp @ 3.0x, text scale 1.0, '
+        'insets top 0.0dp bottom 0.0dp',
+      ),
+    );
     expect(report, contains('over budget: 2 (40.0%)  >2x budget: 1'));
     expect(report, contains('interval: p50 8.333ms'));
     expect(report, contains('max 16.667ms'));

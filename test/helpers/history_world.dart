@@ -35,6 +35,10 @@ Future<HistoryRepository> openHistoryRepository(
     await database.close();
     await directory.delete(recursive: true);
   });
+  // Open now, in the caller's zone: sqflite's reply port binds to the zone
+  // that opens the database, and one first opened by a widget in the fake
+  // zone never hears back from the tear-down's close.
+  await database.database;
   final repository = HistoryRepository(database: database);
   for (final record in records) {
     await repository.upsert(record);
