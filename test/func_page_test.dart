@@ -499,11 +499,13 @@ void main() {
     expect(route.reverseTransitionDuration, Duration.zero);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-  testWidgets('TickerMode freezes the page while a transition runs', (
+  testWidgets('the entering page stays live while a transition runs', (
     tester,
   ) async {
     late final PageRoute<void> pushed;
     late BuildContext rootContext;
+    final probe = ValueNotifier<double>(0);
+    addTearDown(probe.dispose);
     PageRoute<void> page(Widget child) =>
         FuncPage<void>(
               transitionDuration: const Duration(milliseconds: 800),
@@ -522,7 +524,7 @@ void main() {
                 Builder(
                   builder: (context) => TextButton(
                     onPressed: () {
-                      pushed = page(const Text('page b'));
+                      pushed = page(_TickerProbe(seen: probe));
                       Navigator.of(context).push(pushed);
                     },
                     child: const Text('page a'),
@@ -538,21 +540,18 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     expect(pushed.animation!.isAnimating, isTrue);
-    // The guard sits above the route content: a disabled TickerMode must
-    // wrap the pushed page's subtree.
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget is TickerMode && !widget.enabled,
-      ),
-      findsWidgets,
-    );
-    await tester.pumpAndSettle();
+    // No disabled TickerMode wraps the pushed page mid-transition, and its
+    // tickers keep running: icons, bookmark state and image fades update
+    // live instead of jumping when the transition lands.
     expect(
       find.byWidgetPredicate(
         (widget) => widget is TickerMode && !widget.enabled,
       ),
       findsNothing,
     );
+    expect(probe.value, greaterThan(0));
+    await tester.pumpAndSettle();
+    expect(probe.value, 1);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('only the visible branch answers the back gesture', (
@@ -785,4 +784,38 @@ class _StubProfileEditRepository implements ProfileEditRepository {
     ProfileSubmitRequest request, {
     CancelToken? cancelToken,
   }) async => ProfileEditConfirmed(user);
+}
+
+/// A ticker probe for route-transition tests: drives an animation from the
+/// pushed page and records progress, so a frozen ticker reads 0 mid-flight.
+class _TickerProbe extends StatefulWidget {
+  const _TickerProbe({required this.seen});
+
+  final ValueNotifier<double> seen;
+
+  @override
+  State<_TickerProbe> createState() => _TickerProbeState();
+}
+
+class _TickerProbeState extends State<_TickerProbe>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 800),
+  )..addListener(() => widget.seen.value = _controller.value);
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => const Text('page b');
 }

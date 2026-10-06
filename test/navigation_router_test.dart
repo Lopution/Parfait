@@ -426,13 +426,17 @@ void main() {
 
     await tester.binding.handlePopRoute();
     await tester.pump();
-    // While the reverse animation runs, both routes hand their subtree to a
-    // SnapshotWidget so each frame blits a captured texture.
+    // While the reverse animation runs, both leaving directions hand their
+    // subtree to a SnapshotWidget so each frame blits a captured texture:
+    // the popping route and the settled reveal it uncovers.
     await tester.pump(const Duration(milliseconds: 16));
     final snapshots = tester.widgetList<SnapshotWidget>(
       find.byType(SnapshotWidget, skipOffstage: false),
     );
-    expect(snapshots.where((s) => s.controller.allowSnapshotting), isNotEmpty);
+    expect(
+      snapshots.where((s) => s.controller.allowSnapshotting),
+      hasLength(2),
+    );
     // The live subtree stays mounted so a cancelled pop or route state
     // survives the snapshot window.
     expect(find.byType(MePage, skipOffstage: false), findsOneWidget);

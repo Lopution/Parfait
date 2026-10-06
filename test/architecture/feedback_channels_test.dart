@@ -118,6 +118,9 @@ const _heroFiles = <String>{
 /// Counts are pinned so a new hard-coded animation duration fails here.
 const _durationCensus = <String, int>{
   'lib/app/motion/motion_tokens.dart': 18,
+  // Press-feedback settle window before a covered page may be snapshotted:
+  // a throttle on capture timing, not an animation.
+  'lib/app/motion/page_transitions.dart': 1,
   'lib/app/haptics/app_haptics.dart': 3,
   'lib/app/widgets/smooth_wheel_scroll.dart': 2,
   // Show delay of the image progress ring: a debounce, not an animation.
