@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/debug/frame_probe.dart';
 import 'motion_tokens.dart';
 
 /// Transition-window guard shared by every route transition: [TickerMode]
@@ -160,6 +161,12 @@ class RoutePopSnapshot extends StatefulWidget {
 class _RoutePopSnapshotState extends State<RoutePopSnapshot> {
   final _controller = SnapshotController();
 
+  /// Frame-probe bookkeeping: whether this page's transition and capture
+  /// are counted as live scenes.
+  bool _probedTransition = false;
+  bool _probedSnapshot = false;
+  String _routeLabel = '';
+
   bool get _animating =>
       widget.animation.isAnimating || widget.secondaryAnimation.isAnimating;
 
@@ -168,6 +175,15 @@ class _RoutePopSnapshotState extends State<RoutePopSnapshot> {
     super.initState();
     widget.animation.addStatusListener(_sync);
     widget.secondaryAnimation.addStatusListener(_sync);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (FrameProbe.available) {
+      _routeLabel = _labelOf(ModalRoute.settingsOf(context));
+    }
+    // Here rather than in initState so the probe marks can name the route.
     _sync();
   }
 
@@ -175,13 +191,17 @@ class _RoutePopSnapshotState extends State<RoutePopSnapshot> {
   void dispose() {
     widget.animation.removeStatusListener(_sync);
     widget.secondaryAnimation.removeStatusListener(_sync);
+    _probeTransition(false);
+    _probeSnapshot(false);
     _controller.dispose();
     super.dispose();
   }
 
   void _sync([AnimationStatus? _]) {
+    _probeTransition(_animating);
     if (!_animating) {
       _controller.allowSnapshotting = false;
+      _probeSnapshot(false);
       return;
     }
     if (_controller.allowSnapshotting) return;
@@ -194,9 +214,54 @@ class _RoutePopSnapshotState extends State<RoutePopSnapshot> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _animating) {
         _controller.allowSnapshotting = true;
+        _probeSnapshot(true);
       }
     });
   }
+
+  void _probeTransition(bool active) {
+    if (!FrameProbe.available || active == _probedTransition) return;
+    _probedTransition = active;
+    final probe = FrameProbe.instance;
+    if (active) {
+      probe
+        ..enter('transition')
+        ..mark('transition $_routeLabel ${_direction()}');
+    } else {
+      probe
+        ..exit('transition')
+        ..mark('transition $_routeLabel end');
+    }
+  }
+
+  void _probeSnapshot(bool active) {
+    if (!FrameProbe.available || active == _probedSnapshot) return;
+    _probedSnapshot = active;
+    if (active) {
+      FrameProbe.instance
+        ..enter('snapshot')
+        ..mark('snapshot $_routeLabel');
+    } else {
+      FrameProbe.instance.exit('snapshot');
+    }
+  }
+
+  /// Which way this page moves: its own animation enters/pops it, the
+  /// secondary one covers/reveals it.
+  String _direction() {
+    if (widget.animation.isAnimating) {
+      return widget.animation.status == AnimationStatus.forward ? 'in' : 'out';
+    }
+    return widget.secondaryAnimation.status == AnimationStatus.forward
+        ? 'covered'
+        : 'revealed';
+  }
+
+  static String _labelOf(RouteSettings? settings) => switch (settings) {
+    RouteSettings(name: final name?) => name,
+    Page(key: ValueKey(:final value)) => '$value',
+    _ => '${settings?.runtimeType}',
+  };
 
   @override
   Widget build(BuildContext context) {

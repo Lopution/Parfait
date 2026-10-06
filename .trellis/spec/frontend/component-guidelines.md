@@ -1353,6 +1353,16 @@ motion). Only the current branch is hit-testable, semantic, and
 `BranchActivityScope.active` during the flight; `Offstage` keeps unvisited
 branches unbuilt.
 
+During the flight both branches are frozen: `TickerMode` is off for each
+of them, and every branch sits in a `SnapshotWidget` that shares one
+`SnapshotController` (`SnapshotMode.permissive`, so a branch showing a
+platform view paints live). The fade then composites two textures instead
+of re-rendering two live pages into offscreen layers each frame. The
+snapshot is released when the switch lands; a per-switch generation number
+keeps an interrupted switch's completion from releasing the newer one. The
+`SnapshotWidget` stays in the tree when idle, so starting a switch never
+remounts a branch.
+
 In-page tab strips keep the gesture. `TabSwipeSwitcher` requires a
 `tabController`, follows a horizontal drag, and commits or cancels at the
 edge — the drag never crosses into a branch switch. `TabBar` owns the
@@ -1709,7 +1719,41 @@ over `MotionTokens.medium` (Material's 200 ms exit), with
 `AnimationStyle.noAnimation` under reduced motion. Dialogs use
 `MotionTokens.dialog`; snackbars resolve `medium` / `fast`.
 
-### 6. Tests
+### 6. Rebuild and semantics budget
+
+On Android, Dart runs on the platform main thread. With an accessibility
+service running, every semantics update also makes the service re-read
+the tree on that thread. Users with an always-on service (GKD, TalkBack)
+pay this on every frame that changes semantics. So widgets repeated per
+card or per image keep their dependencies narrow:
+
+- Read `MediaQuery` through aspect getters
+  (`MediaQuery.maybeDisableAnimationsOf`, `sizeOf`, …). A whole-object
+  `MediaQuery.of` / `maybeOf` dependency rebuilds every card whenever any
+  field changes, such as insets or `accessibleNavigation`.
+- Do not depend on `TickerMode.valuesOf` in per-card or per-image state.
+  Route transitions and branch switches flip `TickerMode` for a whole
+  page, and every dependent rebuilds in that frame.
+  - Mix in `TickerModeWatch` (`motion_tokens.dart`): read `tickersEnabled`
+    and override `didChangeTickerMode`. Rebuild there only when the output
+    actually changes. Examples:
+    - `PressScale` drives only a card that is off its rest scale;
+    - `StaggeredEntrance` lands a frozen entrance on its end state;
+    - `PixivImage` rebuilds only a cold load still in flight.
+  - A one-shot read at an animation's start uses
+    `TickerMode.getValuesNotifier(context).value` (`StateFade`).
+- Opacity-driven entrances pass `alwaysIncludeSemantics: true`. The card
+  then joins the semantics tree with its batch, not once per stagger step.
+- Progress semantics values move in 10 % steps
+  (`ImageLoadProgressOverlay`); the drawn indicator stays continuous.
+- Measurement builds count the scenes in progress for the frame probe:
+  - a subtree whose lifetime is the scene (a Hero shuttle) is wrapped in
+    `ProbeScene`;
+  - anything else pairs `FrameProbe.instance.enter` / `exit`.
+
+  Both are no-ops unless `FrameProbe.available`.
+
+### 7. Tests
 
 Wrap the subject in `MotionScope(reduce:, speed:)` and step frames with
 `tester.pump(duration)`; spring settle times are about 150 ms
@@ -2048,16 +2092,22 @@ their feature (`IllustDetailSkeleton`, `ProfileSkeleton`).
   `surfaceContainer` — the same color `PixivImage` resolves as its image
   placeholder, so the swap to real content does not shift the surface.
   One shared `AnimationController` (`MotionTokens.shimmer`, 1400 ms,
-  `repeat()`) sweeps a highlight gradient over the whole tree via
-  `ShaderMask`; bones never animate individually and never hard-code a
-  color (they read it from `FuncSkeleton`'s inherited widget).
+  `repeat()`) drives a diagonal highlight sweep across the whole
+  skeleton.
+  - Each `SkeletonBone` paints its own slice of one gradient. The gradient
+    spans the outermost skeleton's box, which is also a repaint boundary.
+  - So there is no `ShaderMask` and no other offscreen layer. A full-page
+    mask cost an offscreen layer on every frame the skeleton was up.
+  - Bones never run their own animation and never hard-code a color.
+    Colors and the shared sweep come from `FuncSkeleton`'s inherited
+    widget.
 - Nesting: a `FuncSkeleton` under another one (a page skeleton embedding
-  `IllustGridSkeleton`) renders its child as-is — no controller, no
-  `ShaderMask`, no second semantics node. The outermost skeleton owns
-  all three.
-- Reduced motion: when `MotionTokens.enabled(context)` is false the
-  controller never starts and no `ShaderMask` is built — the bones render
-  as a static fill. `didChangeDependencies` tracks the toggle.
+  `IllustGridSkeleton`) renders its child as-is: no controller, no second
+  gradient root, no second semantics node. The outermost skeleton owns all
+  three.
+- Reduced motion: when `MotionTokens.enabled(context)` is false, the
+  controller never starts and the bones paint a static fill.
+  `didChangeDependencies` tracks the toggle.
 - Semantics: `FuncSkeleton` exposes exactly one node —
   `Semantics(label:, container: true)` wrapping
   `ExcludeSemantics(child: …)`. The label is a localized loading string

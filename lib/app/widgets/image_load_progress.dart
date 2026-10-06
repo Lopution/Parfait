@@ -132,9 +132,12 @@ class _ProgressDisc extends StatelessWidget {
             strokeWidth: ImageLoadProgressOverlay._strokeWidth,
             color: FuncTokens.onImageControl,
             semanticsLabel: context.l10n.imageLoading,
+            // Tens, not single percents: each new value is a semantics
+            // update, and on Android each update makes an accessibility
+            // service re-read the whole tree on the UI thread.
             semanticsValue: fraction == null
                 ? null
-                : '${(fraction * 100).round()}%',
+                : '${(fraction * 10).floor() * 10}%',
           ),
         ),
       ),

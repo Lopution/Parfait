@@ -218,6 +218,70 @@ void main() {
     expect(image.fadeOutDuration, MotionTokens.imageFadeOut);
   });
 
+  group('ticker mode flips', () {
+    /// [image] under a TickerMode driven by [tickers]; the image widget is
+    /// const, so only the image's own reaction can rebuild it.
+    Widget frozenBy(ValueNotifier<bool> tickers, Widget image) => _host(
+      ValueListenableBuilder<bool>(
+        valueListenable: tickers,
+        builder: (_, enabled, child) =>
+            TickerMode(enabled: enabled, child: child!),
+        child: image,
+      ),
+    );
+
+    CachedNetworkImage image(WidgetTester tester) =>
+        tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage));
+
+    testWidgets('a cold load in flight disarms and rearms its fade', (
+      tester,
+    ) async {
+      final tickers = ValueNotifier(true);
+      addTearDown(tickers.dispose);
+      await tester.pumpWidget(
+        frozenBy(
+          tickers,
+          const PixivImage(url: 'https://i.pximg.net/cold-flip.jpg'),
+        ),
+      );
+      expect(image(tester).fadeInDuration, MotionTokens.imageFade);
+
+      // A transition starts: the snapshot must not bake a half fade.
+      tickers.value = false;
+      await tester.pump();
+      expect(image(tester).fadeInDuration, Duration.zero);
+
+      tickers.value = true;
+      await tester.pump();
+      expect(image(tester).fadeInDuration, MotionTokens.imageFade);
+    });
+
+    testWidgets('an image the flip cannot change is not rebuilt', (
+      tester,
+    ) async {
+      // Every image on a page used to rebuild in the frame a transition
+      // started or ended — the layout spikes on device.
+      final tickers = ValueNotifier(true);
+      addTearDown(tickers.dispose);
+      await tester.pumpWidget(
+        frozenBy(
+          tickers,
+          const PixivImage(
+            url: 'https://i.pximg.net/no-fade-flip.jpg',
+            fade: false,
+          ),
+        ),
+      );
+      final before = image(tester);
+
+      tickers.value = false;
+      await tester.pump();
+      tickers.value = true;
+      await tester.pump();
+      expect(image(tester), same(before));
+    });
+  });
+
   testWidgets('an image on screen holds its URL in the image demand', (
     tester,
   ) async {

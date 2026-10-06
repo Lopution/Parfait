@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:animations/animations.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -146,6 +147,68 @@ void main() {
       findsOneWidget,
     );
     expect(ranking, findsOneWidget);
+  });
+
+  testWidgets('both branches stay frozen textures until the switch lands', (
+    tester,
+  ) async {
+    await _pumpHome(tester);
+    // Still found once the switch has put it offstage.
+    final recommended = find.byType(RecommendedHomePage, skipOffstage: false);
+    bool tickersOn(Finder page) =>
+        TickerMode.valuesOf(tester.element(page)).enabled;
+    // The branch's own snapshot: the outermost below the fade-through, above
+    // the route snapshots inside the branch Navigator.
+    bool snapshotting() => tester
+        .widget<SnapshotWidget>(
+          find
+              .ancestor(
+                of: recommended,
+                matching: find.descendant(
+                  of: find.byType(FadeThroughTransition, skipOffstage: false),
+                  matching: find.byType(SnapshotWidget, skipOffstage: false),
+                  skipOffstage: false,
+                ),
+              )
+              .last,
+        )
+        .controller
+        .allowSnapshotting;
+    expect(tickersOn(recommended), isTrue);
+    expect(snapshotting(), isFalse);
+
+    await tester.tap(_barIcon(AppIcons.ranking));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    final ranking = find.byType(RankingPage);
+    expect(tickersOn(recommended), isFalse);
+    expect(tickersOn(ranking), isFalse);
+    expect(snapshotting(), isTrue);
+
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    expect(tickersOn(ranking), isTrue);
+    expect(snapshotting(), isFalse);
+  });
+
+  testWidgets('a switch interrupting another keeps its outgoing branch', (
+    tester,
+  ) async {
+    await _pumpHome(tester);
+    await tester.tap(_barIcon(AppIcons.ranking));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    _select(tester, 4);
+    await tester.pump();
+    // The first switch's cancellation must not end the second one early.
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(find.byType(RankingPage), findsOneWidget);
+    expect(find.byType(SettingsPage), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    expect(find.byType(RankingPage), findsNothing);
+    expect(find.byType(SettingsPage), findsOneWidget);
   });
 
   testWidgets('reduced motion switches branches within a frame', (

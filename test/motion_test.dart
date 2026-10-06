@@ -42,6 +42,20 @@ Widget _wrap(
   );
 }
 
+var _gateReads = 0;
+
+/// Counts its builds; reads only the motion gate.
+class _GateReader extends StatelessWidget {
+  const _GateReader();
+
+  @override
+  Widget build(BuildContext context) {
+    _gateReads++;
+    MotionTokens.enabled(context);
+    return const SizedBox.shrink();
+  }
+}
+
 /// The rendered press scale: PressScale drives a [ScaleTransition] from its
 /// own spring controller. 1.0 when the wrapper renders no transition.
 double _pressScale(WidgetTester tester) {
@@ -208,6 +222,32 @@ void main() {
       expect(await resolve(tester, platformDisable: true), Duration.zero);
     });
 
+    testWidgets('does not rebuild on unrelated MediaQuery changes', (
+      tester,
+    ) async {
+      _gateReads = 0;
+      Widget host(MediaQueryData data) => MediaQuery(
+        data: data,
+        child: const MotionScope(reduce: false, child: _GateReader()),
+      );
+      await tester.pumpWidget(host(const MediaQueryData()));
+      // Insets and the platform's accessibleNavigation flag change at
+      // startup; every card and image reads this gate.
+      await tester.pumpWidget(
+        host(
+          const MediaQueryData(
+            padding: EdgeInsets.only(top: 24),
+            accessibleNavigation: true,
+          ),
+        ),
+      );
+      expect(_gateReads, 1);
+      await tester.pumpWidget(
+        host(const MediaQueryData(disableAnimations: true)),
+      );
+      expect(_gateReads, 2);
+    });
+
     testWidgets('collapses when both sources ask', (tester) async {
       expect(
         await resolve(tester, reduce: true, platformDisable: true),
@@ -367,6 +407,26 @@ void main() {
         MotionTokens.listEntrance + MotionTokens.listStaggerStep * 3,
       );
       expect(tester.widget<Opacity>(opacityFinder).opacity, 1);
+    });
+
+    testWidgets('the card is in the semantics tree before it fades in', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        _wrap(const StaggeredEntrance(index: 8, id: 8, child: Text('card'))),
+      );
+      final opacity = tester.widget<Opacity>(
+        find.descendant(
+          of: find.byType(StaggeredEntrance),
+          matching: find.byType(Opacity),
+        ),
+      );
+      expect(opacity.opacity, 0);
+      // Joining at mount keeps the stagger from sending one tree update
+      // per step as each card turns visible.
+      expect(find.bySemanticsLabel('card'), findsOneWidget);
+      semantics.dispose();
     });
 
     testWidgets('below-fold card waits for first viewport exposure', (
@@ -565,6 +625,46 @@ void main() {
         ),
         findsNothing,
       );
+    });
+
+    testWidgets('an entrance frozen mid-play lands on its end state', (
+      tester,
+    ) async {
+      final played = <int>{};
+      final tickers = ValueNotifier(true);
+      addTearDown(tickers.dispose);
+      // The entrance itself is the same instance on every pump: only its
+      // own ticker-mode reaction can land it.
+      final entrance = StaggeredEntrance(
+        index: 0,
+        id: 0,
+        played: played,
+        child: const Text('card'),
+      );
+      await tester.pumpWidget(
+        _wrap(
+          ValueListenableBuilder<bool>(
+            valueListenable: tickers,
+            builder: (_, enabled, child) =>
+                TickerMode(enabled: enabled, child: child!),
+            child: entrance,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      Opacity opacity() => tester.widget<Opacity>(
+        find.descendant(
+          of: find.byType(StaggeredEntrance),
+          matching: find.byType(Opacity),
+        ),
+      );
+      expect(opacity().opacity, lessThan(1));
+
+      tickers.value = false;
+      await tester.pump();
+      expect(opacity().opacity, 1);
+      expect(played, contains(0));
     });
 
     testWidgets('a remounted item does not replay once its id is played', (
