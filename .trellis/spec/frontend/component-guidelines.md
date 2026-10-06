@@ -1075,6 +1075,18 @@ Future<void> PixivImage.preload(
   non-premium popular sorts to the `/v1/search/popular-preview/*` endpoints
   (which reject a `sort` parameter). `Account.isPremium` comes from the OAuth
   `user.is_premium` field and persists in account metadata JSON.
+- Search filters are typed: sealed `SearchFilters` splits into
+  `IllustSearchFilters` (ratio/content-type/pixel bounds) and
+  `NovelSearchFilters` (`text_length_*`, `is_original_only`, `text`/`keyword`
+  targets); each type only offers, sends and displays its own dimensions —
+  decode clamps a foreign `target` into the type's options rather than
+  letting it reach the wire or a label. Persisted defaults are two sets
+  (`searchIllustFilters`/`searchNovelFilters` in `AppSettings`, read through
+  `searchIllustFiltersProvider`/`searchNovelFiltersProvider`; a pre-split
+  `searchFilters` blob seeds both once), edited explicitly via the result
+  page's "设为默认". The input and result pages keep per-type session
+  drafts seeded from those defaults — the URL describes only the current
+  tab's set, and a user query carries none.
 - Detail pages size multi-page images by each decoded frame's intrinsic
   ratio — never by a fixed `AspectRatio` on the container. The app API's
   `meta_pages[]` carries only `image_urls` (no per-page width/height), so
