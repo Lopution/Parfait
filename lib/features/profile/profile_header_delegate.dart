@@ -12,6 +12,7 @@ import '../../app/theme/func_semantic_tokens.dart';
 import '../../core/user/user_entity.dart';
 import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/app_tab_bar.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/follow_switch_button.dart';
 import '../../app/widgets/image_overlay_button.dart';
 import '../../l10n/context.dart';
@@ -698,11 +699,16 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
     required this.controller,
     required this.labels,
     required this.onTabTap,
+    this.scrolled = false,
   });
 
   final TabController controller;
   final List<String> labels;
   final ValueChanged<int> onTabTap;
+
+  /// Whether a tab's content has scrolled under the strip. The strip is
+  /// the page's top edge then, and shows the top bar's edge line.
+  final bool scrolled;
 
   @override
   double get minExtent => kToolbarHeight;
@@ -721,10 +727,17 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
       color: Theme.of(context).scaffoldBackgroundColor,
       child: SizedBox(
         height: kToolbarHeight,
-        child: AppTabBar(
-          controller: controller,
-          onTap: onTabTap,
-          labels: labels,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            AppTabBar(controller: controller, onTap: onTabTap, labels: labels),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: ScrollEdgeLine(visible: scrolled),
+            ),
+          ],
         ),
       ),
     );
@@ -734,5 +747,6 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant ReplicaProfileTabsDelegate oldDelegate) =>
       oldDelegate.controller != controller ||
       !listEquals(oldDelegate.labels, labels) ||
-      oldDelegate.onTabTap != onTabTap;
+      oldDelegate.onTabTap != onTabTap ||
+      oldDelegate.scrolled != scrolled;
 }

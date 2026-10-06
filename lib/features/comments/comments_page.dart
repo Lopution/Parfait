@@ -7,6 +7,7 @@ import '../../app/haptics/app_haptics.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/removal.dart';
 import '../../app/navigation/routes.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/replica_empty_state.dart';
@@ -56,7 +57,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       // Manual insets: the composer reserves the IME/panel extent in layout
       // instead of letting the Scaffold squeeze the whole body.
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(title: Text(context.l10n.commentTitle)),
+      appBar: AppTopBar(title: Text(context.l10n.commentTitle)),
       body: Column(
         children: [
           Expanded(
@@ -204,7 +205,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
     final sending = store.mutations[mutationKey]?.pending == true;
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(title: Text(context.l10n.commentReplies)),
+      appBar: AppTopBar(title: Text(context.l10n.commentReplies)),
       body: Column(
         children: [
           Expanded(

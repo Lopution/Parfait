@@ -249,19 +249,29 @@ per line number.
 with `inversePrimary` actions, so a SnackBar reads as inverted chrome on
 both themes. Do not restyle it to a container tier.
 
-**AppBar scrolled-under.** `appBarTheme.backgroundColor` must stay a
-`WidgetStateColor` that resolves `colorScheme.surface` at rest and
-`colorScheme.surfaceContainer` under `WidgetState.scrolledUnder` — M3's
-"tint when content scrolls beneath" without an elevation overlay. Feature
-`AppBar`s never set a background. For a page whose tabs each own a
+**AppBar scrolled-under.** Page top bars are `AppTopBar`
+(`lib/app/widgets/app_top_bar.dart`); a raw `AppBar(`/`SliverAppBar(` in
+`lib/` fails `test/architecture/top_bar_test.dart`. The bar never changes
+colour or lifts: `appBarTheme.backgroundColor` is the page surface in both
+states and `scrolledUnderElevation` is 0 (an elevation shadow does not show
+on the dark page). Content scrolled beneath the bar is marked by a
+`ScrollEdgeLine` along its bottom edge — a 1dp hairline in
+`FuncSemanticTokens.divider`, faded on the `effectsFast` spring (at once
+under reduced motion). `AppTopBar` tracks "scrolled under" with the
+`AppBar` rule (a `ScrollUpdateNotification` passing `notificationPredicate`
+from a vertical scrollable past its leading edge) in a notifier, so only
+the line rebuilds. Feature bars never set a background except the
+selection bar. A self-drawn pinned bar that is the page's top edge puts a
+`ScrollEdgeLine` at its own bottom (the profile tab strip, on the
+`NestedScrollView`'s `innerBoxIsScrolled`). For a page whose tabs each own a
 scrollable, pick the rule by the tab body, not by hand:
 
 | Tab body | Scroll-notification depth | Rule |
 |---|---|---|
 | `TabSlideStack` (no Scrollable ancestor; list depth 0) | 0 | Default judgement is already the visible list — call `announceTabScroll` after each switch |
-| `TabBarView`/`PageView` wrapping the list | 1 | `AppBar(notificationPredicate: (n) => n.depth == 1)` |
+| `TabBarView`/`PageView` wrapping the list | 1 | `AppTopBar(notificationPredicate: (n) => n.depth == 1)` |
 
-The AppBar only reacts to `ScrollUpdateNotification`, so after a tab switch
+The bar only reacts to `ScrollUpdateNotification`, so after a tab switch
 it would keep the previous tab's state: call `announceTabScroll` on the new
 tab's `ScrollController` (see the Tab Navigation Animation Contract).
 
@@ -568,7 +578,7 @@ class FitLabel extends StatelessWidget {
 }
 
 // lib/app/widgets/selection_app_bar.dart
-AppBar selectionAppBar(BuildContext context, {required int count,
+AppTopBar selectionAppBar(BuildContext context, {required int count,
     required VoidCallback onClose, required List<Widget> actions});
 ```
 
@@ -1441,7 +1451,7 @@ did not originate from the `TabBar` tap callback.
 After a tab switch the page calls `announceTabScroll(context, controller)`
 (`tab_swipe_switcher.dart`): it dispatches one synthetic
 `ScrollUpdateNotification` from a body-level context — above the page's
-scrollables but below the Scaffold — so the AppBar's scrolled-under state
+scrollables but below the Scaffold — so the top bar's scrolled-under state
 re-reads the new tab's position. Dispatching through the list's own
 position (`position.didUpdateScrollPositionBy(0)`) would make the feed's
 load-more listener see a zero-delta scroll and fire an extra request.

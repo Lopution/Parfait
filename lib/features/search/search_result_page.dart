@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -267,7 +268,7 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
       // IME hides during the push transition — the constant-low-FPS
       // search-suggestion push came from that relayout storm.
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(
+      appBar: AppTopBar(
         titleSpacing: 0,
         title: Tooltip(
           message: context.l10n.searchModifyQuery,

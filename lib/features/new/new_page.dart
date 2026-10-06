@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -200,7 +201,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
       // every time the IME animates (e.g. the push that hides the search
       // keyboard) — a relayout storm across all five live branches.
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(
+      appBar: AppTopBar(
         titleSpacing: 0,
         title: AppTabBar(
           controller: _tabController,

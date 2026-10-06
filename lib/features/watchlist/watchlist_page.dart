@@ -9,6 +9,7 @@ import '../../app/navigation/routes.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/app_tab_bar.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/entity_row.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -33,7 +34,7 @@ class WatchlistPage extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        appBar: AppBar(
+        appBar: AppTopBar(
           title: Text(context.l10n.watchlistTitle),
           // The feeds sit one Scrollable deep inside the TabBarView's
           // PageView, so their notifications arrive at depth 1.

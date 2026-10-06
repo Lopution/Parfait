@@ -165,14 +165,10 @@ ThemeData replicaTheme(
     colorScheme: colorScheme,
     textTheme: textTheme,
     appBarTheme: AppBarThemeData(
-      // A plain colour would be used for the scrolled-under state too
-      // (AppBar resolves both from the same property), hiding M3's
-      // surfaceContainer step. Only the background changes; no shadow.
-      backgroundColor: WidgetStateColor.resolveWith(
-        (states) => states.contains(WidgetState.scrolledUnder)
-            ? colorScheme.surfaceContainer
-            : background,
-      ),
+      // One colour in both states: content scrolled under the bar is marked
+      // by AppTopBar's edge line, not by a tint or a shadow (an elevation
+      // shadow does not show on the dark page).
+      backgroundColor: background,
       foregroundColor: text,
       elevation: 0,
       scrolledUnderElevation: 0,

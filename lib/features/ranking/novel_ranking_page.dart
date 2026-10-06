@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/motion/feed_entrance.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/app_tab_bar.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -190,7 +191,7 @@ class _NovelRankingPageState extends State<NovelRankingPage>
       Localizations.localeOf(context).toLanguageTag(),
     );
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppTopBar(
         titleSpacing: 0,
         actions: [RankingDateButton(date: _date, onChanged: _changeDate)],
         title: AppTabBar(

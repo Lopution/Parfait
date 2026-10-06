@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/settings/settings_choice_tile.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_group_content.dart';
@@ -63,7 +64,7 @@ class _DownloadDestinationPageState
     return guardDraft(
       dirty: _albumDirty,
       child: Scaffold(
-        appBar: AppBar(title: Text(context.l10n.saveLocation)),
+        appBar: AppTopBar(title: Text(context.l10n.saveLocation)),
         body: settingsNarrowBody(
           ListView(
             padding: const EdgeInsets.only(

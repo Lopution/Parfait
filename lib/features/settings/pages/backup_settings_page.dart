@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/motion/app_overlays.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/settings/settings_action_tile.dart';
 import '../../../app/widgets/settings/settings_choice_tile.dart';
@@ -174,7 +175,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.backupSettings)),
+      appBar: AppTopBar(title: Text(l10n.backupSettings)),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(

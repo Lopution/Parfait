@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/widgets/app_top_bar.dart';
 import '../../../core/debug/frame_probe.dart';
 import '../../../core/image/image_worker_providers.dart';
 import '../../../l10n/context.dart';
@@ -112,7 +113,7 @@ class _FrameProbePageState extends ConsumerState<FrameProbePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.frameProbeTitle)),
+      appBar: AppTopBar(title: Text(context.l10n.frameProbeTitle)),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.all(FuncSpacing.lg),

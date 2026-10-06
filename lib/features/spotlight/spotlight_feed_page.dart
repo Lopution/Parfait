@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/app_tab_bar.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/spotlight_article_card.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
@@ -95,7 +96,7 @@ class _SpotlightFeedPageState extends State<SpotlightFeedPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppTopBar(
         title: Text(context.l10n.spotlightTitle),
         bottom: AppTabBar(
           controller: _tabController,

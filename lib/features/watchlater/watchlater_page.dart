@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/haptics/app_haptics.dart';
 import '../../app/motion/removal.dart';
 import '../../app/pull_to_refresh.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
@@ -119,7 +120,7 @@ class _WatchLaterPageState extends ConsumerState<WatchLaterPage> {
                   ),
                 ],
               )
-            : AppBar(
+            : AppTopBar(
                 title: Text(l10n.watchLaterTitle),
                 actions: [
                   // Spelled out like every list's manage entry.

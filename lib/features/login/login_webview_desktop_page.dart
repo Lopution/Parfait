@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
@@ -214,7 +215,7 @@ class _LoginWebViewDesktopPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppTopBar(
         title: Text(widget.title),
         centerTitle: true,
         actions: [

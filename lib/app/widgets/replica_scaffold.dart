@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'app_top_bar.dart';
+
 class ReplicaScaffold extends StatelessWidget {
   const ReplicaScaffold({
     super.key,
@@ -22,8 +24,7 @@ class ReplicaScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final canPop = Navigator.of(context).canPop();
     return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
+      appBar: AppTopBar(
         title: title,
         centerTitle: centerTitle,
         automaticallyImplyLeading: false,

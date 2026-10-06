@@ -12,6 +12,7 @@ import '../../app/navigation/routes.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/entity_row.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -37,7 +38,7 @@ class _LocalNovelsPageState extends ConsumerState<LocalNovelsPage> {
   Widget build(BuildContext context) {
     final async = ref.watch(localNovelStoreProvider);
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppTopBar(
         title: Text(context.l10n.localNovelsTitle),
         actions: [
           IconButton(

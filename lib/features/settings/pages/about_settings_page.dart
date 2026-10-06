@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../app/motion/app_overlays.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/settings/settings_action_tile.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_group_content.dart';
@@ -77,7 +78,7 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
     final appName = 'Parfait';
     final updateService = ref.watch(updateServiceProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.aboutSettings)),
+      appBar: AppTopBar(title: Text(context.l10n.aboutSettings)),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(

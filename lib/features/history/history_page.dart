@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/format/app_format.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -118,7 +119,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   ),
                 ],
               )
-            : AppBar(
+            : AppTopBar(
                 title: Text(context.l10n.historySettings),
                 actions: [
                   // Spelled out like every list's manage entry: an icon

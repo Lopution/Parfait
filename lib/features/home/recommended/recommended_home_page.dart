@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../app/motion/press_scale.dart';
 import '../../../app/motion/feed_entrance.dart';
+import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
@@ -214,7 +215,7 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
       // every time the IME animates (e.g. the push that hides the search
       // keyboard) — a relayout storm across all five live branches.
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(
+      appBar: AppTopBar(
         titleSpacing: 0,
         title: _RecommendedTypeSelector(
           controller: _tabController,
