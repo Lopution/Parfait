@@ -69,6 +69,13 @@ the `fdroid` flavor keeps it empty because the updater is disabled there).
 
 ## Release procedure (per release)
 
+Before cutting a release, dispatch the Windows compile guard once on the
+release ref and wait for green — it no longer runs on every pull request:
+
+```bash
+gh workflow run windows.yml --ref <release-ref>
+```
+
 1. Build the two split APKs: see above, `github` flavor. Flutter 3.47.2
    names them `app-arm64-v8a-github-release.apk` and
    `app-armeabi-v7a-github-release.apk`.

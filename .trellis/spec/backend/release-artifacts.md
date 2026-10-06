@@ -85,10 +85,17 @@
   `/build`), Windows `<repo>/build/windows/x64/plugins/rhttp/cargokit_build`. The
   `Swatinem/rust-cache` `workspaces` entry must name that directory
   (`plugins/rhttp/rhttp/rust -> ../../../../build/...`), otherwise the cache hits but
-  rhttp is rebuilt from scratch. `ci.yml` and `release.yml` share `shared-key: android`.
-  Only the `plugin` job (`cargo test`) uses the default `rust/target`.
-- A PR reads caches from `main` only; caches are written on `main` pushes, so a
-  cache change shows its full effect after it merges.
+  rhttp is rebuilt from scratch. `ci.yml` and `release.yml` share `shared-key: android`;
+  the Windows entry lives in `windows.yml`. Only the `plugin` job (`cargo test`)
+  uses the default `rust/target`.
+- `windows-build` is its own workflow (`windows.yml`), not a `ci.yml` job: it
+  runs on pull requests that touch `windows/`, `plugins/`, `pubspec.*`,
+  `rust-toolchain.toml` or the workflows, nightly on `main`, and on
+  `workflow_dispatch` for any branch (`gh workflow run windows.yml --ref <ref>`).
+  Pushes to `main` no longer run it; dispatch it on the release ref before
+  publishing.
+- A PR reads caches from `main` only; caches are written on `main` pushes and
+  scheduled runs, so a cache change shows its full effect after it merges.
 
 ## Updater manifest (schema 2)
 
