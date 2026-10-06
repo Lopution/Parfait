@@ -30,7 +30,6 @@ jobs:
             build:
               - 'lib/**'
               - 'android/**'
-              - 'windows/**'
               - 'linux/**'
               - 'ios/**'
               - 'macos/**'
@@ -70,14 +69,14 @@ jobs:
       - run: flutter analyze
 
   test:
-    name: test (shard ${{ matrix.shard }} of 2)
+    name: test (shard ${{ matrix.shard }} of 4)
     runs-on: ubuntu-latest
     strategy:
-      # Let both shards finish so one failure does not hide the other's.
+      # Let all shards finish so one failure does not hide the others'.
       fail-fast: false
       matrix:
         # Keep in step with --total-shards below.
-        shard: [0, 1]
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v6
       - uses: subosito/flutter-action@v2
@@ -86,7 +85,7 @@ jobs:
           channel: "stable"
           cache: true
       - run: flutter pub get --enforce-lockfile
-      - run: flutter test --total-shards 2 --shard-index ${{ matrix.shard }}
+      - run: flutter test --total-shards 4 --shard-index ${{ matrix.shard }}
 
   analyze-and-test:
     # The single check the ruleset requires. It aggregates analyze and every
@@ -107,33 +106,6 @@ jobs:
             echo "::error::analyze or a test shard did not succeed"
             exit 1
           fi
-
-  windows-build:
-    # Compile-only guard for the desktop port: proves the Windows runner,
-    # the rhttp MSVC toolchain and the InAppWebView/WebView2 integration all
-    # link. Runtime acceptance (login, real data) stays a manual checklist.
-    needs: changes
-    if: needs.changes.outputs.build == 'true'
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: "3.47.2"
-          channel: "stable"
-          cache: true
-      # The repo's rust-toolchain.toml already carries the MSVC target;
-      # windows-latest ships rustup with the toolchain auto-installed.
-      - uses: Swatinem/rust-cache@v2
-        with:
-          # cargokit.cmake builds into <plugin build dir>/cargokit_build.
-          workspaces: plugins/rhttp/rhttp/rust -> ../../../../build/windows/x64/plugins/rhttp/cargokit_build
-      - run: flutter pub get --enforce-lockfile
-      - run: flutter build windows --release
-      - uses: actions/upload-artifact@v4
-        with:
-          name: parfait-windows-x64
-          path: build/windows/x64/runner/Release
 
   android-release:
     # Release-side safety: the release workflow must never publish a debug

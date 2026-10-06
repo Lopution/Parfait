@@ -1,0 +1,49 @@
+name: Windows build
+
+# Compile-only guard for the desktop port: proves the Windows runner, the
+# rhttp MSVC toolchain and the InAppWebView/WebView2 integration all link.
+# Runtime acceptance (login, real data) stays a manual checklist.
+#
+# It is not a required check, so a workflow-level paths filter is safe:
+# unrelated PRs never trigger it and no required check is left pending.
+on:
+  pull_request:
+    paths:
+      - 'windows/**'
+      - 'plugins/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/windows.yml'
+  schedule:
+    # Nightly safety net on the default branch: the rare Dart-only change that
+    # breaks the Windows compile (conditional imports, plugin registration)
+    # surfaces here at the latest.
+    - cron: '23 18 * * *'
+  # Manual run on any branch (pre-release check, image-pipeline stages):
+  # gh workflow run windows.yml --ref <branch>
+  workflow_dispatch:
+
+jobs:
+  windows-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.2"
+          channel: "stable"
+          cache: true
+      # The repo's rust-toolchain.toml already carries the MSVC target;
+      # windows-latest ships rustup with the toolchain auto-installed.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # cargokit.cmake builds into <plugin build dir>/cargokit_build.
+          workspaces: plugins/rhttp/rhttp/rust -> ../../../../build/windows/x64/plugins/rhttp/cargokit_build
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter build windows --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: parfait-windows-x64
+          path: build/windows/x64/runner/Release
