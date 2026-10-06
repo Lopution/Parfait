@@ -2,6 +2,7 @@ import 'package:animations/animations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/debug/frame_probe.dart';
 import '../layout/app_breakpoints.dart';
 import '../motion/motion_tokens.dart';
 import '../navigation/home_shell_metrics.dart';
@@ -64,6 +65,15 @@ class _HomeBranchStackState extends State<HomeBranchStack>
     value: 1,
   );
   late final AnimationController _navVisibility;
+
+  /// Freezes both branches into one texture each while they fade through.
+  /// Fading a live page re-renders it into a full-screen offscreen layer
+  /// on every frame; a texture takes the opacity in a single draw.
+  final SnapshotController _switchSnapshot = SnapshotController();
+
+  /// Bumped per switch, so an interrupted switch's completion leaves the
+  /// newer one alone.
+  int _switchGeneration = 0;
   final ReTapChannel _reTap = ReTapChannel();
   final ValueNotifier<double> _navBarVisibleExtent = ValueNotifier(0);
   int _current = 0;
@@ -103,16 +113,25 @@ class _HomeBranchStackState extends State<HomeBranchStack>
     if (index == _current) return;
     _outgoing = _current;
     _current = index;
+    final generation = ++_switchGeneration;
     final duration = MotionTokens.resolve(context, MotionTokens.branchSwitch);
     if (duration == Duration.zero) {
       _outgoing = null;
+      _switchSnapshot.allowSnapshotting = false;
       _switch.value = 1;
       return;
     }
+    FrameProbe.instance
+      ..enter('branch switch')
+      ..mark('branch switch $_outgoing→$index');
+    _switchSnapshot.allowSnapshotting = true;
     _switch
       ..duration = duration
       ..forward(from: 0).whenCompleteOrCancel(() {
-        if (mounted) setState(() => _outgoing = null);
+        FrameProbe.instance.exit('branch switch');
+        if (!mounted || generation != _switchGeneration) return;
+        _switchSnapshot.allowSnapshotting = false;
+        setState(() => _outgoing = null);
       });
   }
 
@@ -120,6 +139,7 @@ class _HomeBranchStackState extends State<HomeBranchStack>
   void dispose() {
     _reTap.dispose();
     _switch.dispose();
+    _switchSnapshot.dispose();
     _navVisibility.dispose();
     _navBarVisibleExtent.dispose();
     super.dispose();
@@ -226,8 +246,11 @@ class _HomeBranchStackState extends State<HomeBranchStack>
           for (var i = 0; i < widget.children.length; i++)
             Offstage(
               offstage: i != _current && i != _outgoing,
+              // Both sides stay frozen until the switch lands: an entrance
+              // or image fade inside a fading branch nests one offscreen
+              // layer in another, and the snapshot would bake it half done.
               child: TickerMode(
-                enabled: i == _current || i == _outgoing,
+                enabled: i == _current && _outgoing == null,
                 child: IgnorePointer(
                   ignoring: i != _current,
                   child: ExcludeSemantics(
@@ -242,7 +265,14 @@ class _HomeBranchStackState extends State<HomeBranchStack>
                             ? _switch
                             : kAlwaysDismissedAnimation,
                         fillColor: Colors.transparent,
-                        child: widget.children[i],
+                        // Always in the tree, so starting a switch never
+                        // remounts a branch; idle, it paints live.
+                        child: SnapshotWidget(
+                          // A branch showing a platform view paints live.
+                          mode: SnapshotMode.permissive,
+                          controller: _switchSnapshot,
+                          child: widget.children[i],
+                        ),
                       ),
                     ),
                   ),
