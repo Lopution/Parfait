@@ -1,15 +1,6 @@
 import 'package:meta/meta.dart';
 
-/// Completes a queued image fetch whose turn came after everyone waiting
-/// for it went away. The fetch never reached the network.
-class ImageFetchDropped implements Exception {
-  const ImageFetchDropped(this.url);
-
-  final String url;
-
-  @override
-  String toString() => 'ImageFetchDropped: $url';
-}
+export '../../image/lane_permit_gate.dart' show ImageFetchDropped;
 
 /// How long a released URL still counts as wanted. Absorbs the brief
 /// unmount/remount of a Hero flight or a list re-layout.

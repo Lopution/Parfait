@@ -10,8 +10,7 @@ import 'package:http/http.dart' as http;
 
 import 'secure_resolver.dart';
 import 'network_contracts.dart';
-import 'network_fast_route_store.dart';
-import 'route_kind_store.dart';
+import 'route_memory.dart';
 import 'rhttp_client_factory.dart';
 import '../rhttp_gate.dart';
 
@@ -103,12 +102,12 @@ class NetworkAccessPolicy {
   /// Persisted compatibility-tier host addresses. When present, the
   /// compatibility tier is attempted before the cold direct probe and does
   /// not need a DNS lookup or a HEAD request.
-  final PixivFastRouteStore? fastRouteStore;
+  final FastRouteMemory? fastRouteStore;
 
   /// Persists the winning route *kind* per network identity so the next
   /// cold start on the same network seeds the group preference instead of
   /// paying the discovery walk again.
-  final RouteKindStore? routeKindStore;
+  final RouteKindMemory? routeKindStore;
 
   /// Cloudflare DoH endpoints' anycast IPs (the
   /// DNS names themselves are only used for SNI/Host — the TCP peer is

@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:collection';
 
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:http/http.dart' as http;
 
+import '../../image/lane_permit_gate.dart';
 import 'image_demand.dart';
 import 'network_contracts.dart';
 import 'segmented_fetch.dart';
@@ -110,8 +110,8 @@ class PriorityFileService extends FileService {
   }) : _httpClient = httpClient,
        _segmentBudget = segmentBudget,
        _service = HttpFileService(httpClient: httpClient),
-       _foreground = _PermitGate(foregroundSlots, demand?.wants),
-       _background = _PermitGate(backgroundSlots, demand?.wants) {
+       _foreground = LanePermitGate(foregroundSlots, demand?.wants),
+       _background = LanePermitGate(backgroundSlots, demand?.wants) {
     concurrentFetches = _kWebHelperAdmitAll;
   }
 
@@ -140,8 +140,8 @@ class PriorityFileService extends FileService {
   final http.Client _httpClient;
   final SegmentBudget? _segmentBudget;
   final HttpFileService _service;
-  final _PermitGate _foreground;
-  final _PermitGate _background;
+  final LanePermitGate _foreground;
+  final LanePermitGate _background;
 
   @override
   Future<FileServiceResponse> get(
@@ -260,62 +260,6 @@ class PriorityFileService extends FileService {
   void promote(String url) {
     final waiter = _background.take(url);
     if (waiter != null) _foreground.admit(waiter);
-  }
-}
-
-class _Waiter {
-  _Waiter(this.url);
-
-  final String url;
-  final completer = Completer<_PermitGate>();
-}
-
-class _PermitGate {
-  _PermitGate(this._slots, this._wants);
-
-  final int _slots;
-
-  /// Asked when a queued waiter's turn comes; null admits every waiter.
-  final bool Function(String url)? _wants;
-  var _inFlight = 0;
-  final _waiters = Queue<_Waiter>();
-
-  Future<_PermitGate> acquire(String url) => admit(_Waiter(url));
-
-  /// Grants [waiter] a slot now or queues it; the future completes with
-  /// this gate once the slot is granted.
-  Future<_PermitGate> admit(_Waiter waiter) {
-    if (_inFlight < _slots) {
-      _inFlight++;
-      waiter.completer.complete(this);
-    } else {
-      _waiters.add(waiter);
-    }
-    return waiter.completer.future;
-  }
-
-  /// Removes and returns the first queued waiter for [url], if any.
-  _Waiter? take(String url) {
-    for (final waiter in _waiters) {
-      if (waiter.url == url) {
-        _waiters.remove(waiter);
-        return waiter;
-      }
-    }
-    return null;
-  }
-
-  void release() {
-    while (_waiters.isNotEmpty) {
-      final next = _waiters.removeFirst();
-      if (_wants?.call(next.url) ?? true) {
-        // The slot passes to the waiter without dipping _inFlight.
-        next.completer.complete(this);
-        return;
-      }
-      next.completer.completeError(ImageFetchDropped(next.url));
-    }
-    _inFlight--;
   }
 }
 
