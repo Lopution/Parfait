@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart'
+    show FilteringTextInputFormatter, LengthLimitingTextInputFormatter;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -99,15 +101,33 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
     super.dispose();
   }
 
-  int? _parseBound(String raw) {
-    final value = int.tryParse(raw.trim());
-    return value == null || value < 0 ? null : value;
-  }
+  /// The number fields only take digits, so the text is the bound.
+  int? _boundOf(String text) => text.isEmpty ? null : int.parse(text);
 
-  bool get _invalidRange {
+  bool get _reversedDates {
     final start = _filters.startDate;
     final end = _filters.endDate;
     return start != null && end != null && start.isAfter(end);
+  }
+
+  /// The error under a min/max row whose minimum is above its maximum.
+  String? _boundError(int? min, int? max) => SearchFilters.isReversed(min, max)
+      ? context.l10n.searchInvalidBoundRange
+      : null;
+
+  /// A reversed pair is shown, never fixed behind the user's back: the
+  /// sheet will not apply until it is corrected.
+  bool get _canApply {
+    final bounds = [
+      (_filters.bookmarkMin, _filters.bookmarkMax),
+      if (_illust case final illust?) ...[
+        (illust.widthMin, illust.widthMax),
+        (illust.heightMin, illust.heightMax),
+      ],
+      if (_novel case final novel?) (novel.textLengthMin, novel.textLengthMax),
+    ];
+    return !_reversedDates &&
+        !bounds.any((pair) => SearchFilters.isReversed(pair.$1, pair.$2));
   }
 
   bool get _isPremium =>
@@ -278,7 +298,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
               label: context.l10n.searchEndDate,
               value: _dateText(context, _filters.endDate),
               onTap: () => _pickDate(start: false),
-              errorText: _invalidRange
+              errorText: _reversedDates
                   ? context.l10n.searchInvalidDateRange
                   : null,
               onClear: _filters.endDate == null
@@ -313,32 +333,25 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: FuncSpacing.sm),
-            Row(
-              children: [
-                Expanded(
-                  child: _NumberField(
-                    controller: _bookmarkMin,
-                    hint: context.l10n.searchMin,
-                    onChanged: (value) => setState(
-                      () => _filters = _filters.copyShared(
-                        bookmarkMin: _parseBound(value),
-                      ),
-                    ),
-                  ),
+            _BoundRow(
+              minController: _bookmarkMin,
+              maxController: _bookmarkMax,
+              minHint: context.l10n.searchMin,
+              maxHint: context.l10n.searchMax,
+              errorText: _boundError(
+                _filters.bookmarkMin,
+                _filters.bookmarkMax,
+              ),
+              onMinChanged: (value) => setState(
+                () => _filters = _filters.copyShared(
+                  bookmarkMin: _boundOf(value),
                 ),
-                const SizedBox(width: FuncSpacing.md),
-                Expanded(
-                  child: _NumberField(
-                    controller: _bookmarkMax,
-                    hint: context.l10n.searchMax,
-                    onChanged: (value) => setState(
-                      () => _filters = _filters.copyShared(
-                        bookmarkMax: _parseBound(value),
-                      ),
-                    ),
-                  ),
+              ),
+              onMaxChanged: (value) => setState(
+                () => _filters = _filters.copyShared(
+                  bookmarkMax: _boundOf(value),
                 ),
-              ],
+              ),
             ),
             if (_illust case final illust?) ...[
               const SizedBox(height: FuncSpacing.md),
@@ -399,13 +412,12 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                 maxController: _widthMax,
                 minHint: context.l10n.searchMin,
                 maxHint: context.l10n.searchMax,
+                errorText: _boundError(illust.widthMin, illust.widthMax),
                 onMinChanged: (value) => setState(
-                  () =>
-                      _filters = illust.copyWith(widthMin: _parseBound(value)),
+                  () => _filters = illust.copyWith(widthMin: _boundOf(value)),
                 ),
                 onMaxChanged: (value) => setState(
-                  () =>
-                      _filters = illust.copyWith(widthMax: _parseBound(value)),
+                  () => _filters = illust.copyWith(widthMax: _boundOf(value)),
                 ),
               ),
               const SizedBox(height: FuncSpacing.sm),
@@ -415,13 +427,12 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                 maxController: _heightMax,
                 minHint: context.l10n.searchMin,
                 maxHint: context.l10n.searchMax,
+                errorText: _boundError(illust.heightMin, illust.heightMax),
                 onMinChanged: (value) => setState(
-                  () =>
-                      _filters = illust.copyWith(heightMin: _parseBound(value)),
+                  () => _filters = illust.copyWith(heightMin: _boundOf(value)),
                 ),
                 onMaxChanged: (value) => setState(
-                  () =>
-                      _filters = illust.copyWith(heightMax: _parseBound(value)),
+                  () => _filters = illust.copyWith(heightMax: _boundOf(value)),
                 ),
               ),
             ],
@@ -438,15 +449,17 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                 maxController: _textLengthMax,
                 minHint: context.l10n.searchMin,
                 maxHint: context.l10n.searchMax,
+                errorText: _boundError(
+                  novel.textLengthMin,
+                  novel.textLengthMax,
+                ),
                 onMinChanged: (value) => setState(
-                  () => _filters = novel.copyWith(
-                    textLengthMin: _parseBound(value),
-                  ),
+                  () =>
+                      _filters = novel.copyWith(textLengthMin: _boundOf(value)),
                 ),
                 onMaxChanged: (value) => setState(
-                  () => _filters = novel.copyWith(
-                    textLengthMax: _parseBound(value),
-                  ),
+                  () =>
+                      _filters = novel.copyWith(textLengthMax: _boundOf(value)),
                 ),
               ),
               const SizedBox(height: FuncSpacing.sm),
@@ -470,9 +483,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: _invalidRange
-                    ? null
-                    : () => _pop(makeDefault: false),
+                onPressed: _canApply ? () => _pop(makeDefault: false) : null,
                 child: Text(context.l10n.searchApply),
               ),
             ),
@@ -481,9 +492,7 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: _invalidRange
-                      ? null
-                      : () => _pop(makeDefault: true),
+                  onPressed: _canApply ? () => _pop(makeDefault: true) : null,
                   child: Text(context.l10n.searchSetDefault),
                 ),
               ),
@@ -534,6 +543,10 @@ class _FilterGroup<T> extends StatelessWidget {
   }
 }
 
+/// Digits a bound field takes — far above any count, width or length pixiv
+/// has, and well inside an int.
+const _maxBoundDigits = 9;
+
 class _NumberField extends StatelessWidget {
   const _NumberField({
     required this.controller,
@@ -550,6 +563,12 @@ class _NumberField extends StatelessWidget {
     return TextField(
       controller: controller,
       keyboardType: TextInputType.number,
+      // A pasted "-5" or "1.5" keeps only its digits, in sight: the field
+      // never holds text that is quietly dropped.
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(_maxBoundDigits),
+      ],
       decoration: InputDecoration(
         hintText: hint,
         isDense: true,
@@ -562,28 +581,36 @@ class _NumberField extends StatelessWidget {
 
 class _BoundRow extends StatelessWidget {
   const _BoundRow({
-    required this.label,
+    this.label,
     required this.minController,
     required this.maxController,
     required this.minHint,
     required this.maxHint,
+    required this.errorText,
     required this.onMinChanged,
     required this.onMaxChanged,
   });
 
-  final String label;
+  /// Leading label; null when the section title already names the row.
+  final String? label;
   final TextEditingController minController;
   final TextEditingController maxController;
   final String minHint;
   final String maxHint;
+
+  /// Shown under the row, announced as it appears.
+  final String? errorText;
   final ValueChanged<String> onMinChanged;
   final ValueChanged<String> onMaxChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final theme = Theme.of(context);
+    final label = this.label;
+    final errorText = this.errorText;
+    final fields = Row(
       children: [
-        SizedBox(width: 48, child: Text(label)),
+        if (label != null) SizedBox(width: 48, child: Text(label)),
         Expanded(
           child: _NumberField(
             controller: minController,
@@ -599,6 +626,27 @@ class _BoundRow extends StatelessWidget {
             onChanged: onMaxChanged,
           ),
         ),
+      ],
+    );
+    // One tree shape with or without the error: the fields keep their
+    // element, so the one being typed in keeps focus as the error appears.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        fields,
+        if (errorText != null)
+          Padding(
+            padding: const EdgeInsets.only(top: FuncSpacing.xs),
+            child: Semantics(
+              liveRegion: true,
+              child: Text(
+                errorText,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

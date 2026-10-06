@@ -700,6 +700,121 @@ void main() {
     expect(find.text('标题和简介'), findsNothing);
   });
 
+  group('filter sheet bounds', () {
+    const reversedError = '最小值不能大于最大值';
+
+    Future<SearchFilterSheetResult? Function()> open(
+      WidgetTester tester,
+      SearchFilters initial,
+    ) async {
+      SearchFilterSheetResult? result;
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: ProviderScope(
+            child: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () async {
+                    result = await showSearchFilterSheet(
+                      context,
+                      initial: initial,
+                      offerSetDefault: true,
+                    );
+                  },
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      return () => result;
+    }
+
+    Future<void> enter(WidgetTester tester, int field, String text) async {
+      final finder = find.byType(TextField).at(field);
+      await tester.ensureVisible(finder);
+      await tester.enterText(finder, text);
+      await tester.pump();
+    }
+
+    bool applyEnabled(WidgetTester tester) =>
+        tester.widget<FilledButton>(find.byType(FilledButton)).enabled;
+
+    bool setDefaultEnabled(WidgetTester tester) =>
+        tester.widget<OutlinedButton>(find.byType(OutlinedButton)).enabled;
+
+    testWidgets('a reversed pair shows an error and blocks apply until '
+        'fixed', (tester) async {
+      final result = await open(tester, IllustSearchFilters.defaults);
+      // Fields in order: bookmark, width, height — min then max.
+      await enter(tester, 0, '500');
+      await enter(tester, 1, '100');
+      expect(find.text(reversedError), findsOneWidget);
+      expect(applyEnabled(tester), isFalse);
+      expect(setDefaultEnabled(tester), isFalse);
+      // The field being typed in keeps focus as the error appears.
+      expect(
+        tester
+            .widget<EditableText>(find.byType(EditableText).at(1))
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
+
+      await enter(tester, 1, '1000');
+      expect(find.text(reversedError), findsNothing);
+      expect(applyEnabled(tester), isTrue);
+
+      // Only digits get in, so what shows is what applies.
+      await enter(tester, 2, '-12.5');
+      expect(find.text('125'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('应用'));
+      await tester.tap(find.text('应用'));
+      await tester.pumpAndSettle();
+      final filters = result()!.filters as IllustSearchFilters;
+      expect((filters.bookmarkMin, filters.bookmarkMax), (500, 1000));
+      expect(filters.widthMin, 125);
+    });
+
+    testWidgets('the height pair is checked', (tester) async {
+      await open(tester, IllustSearchFilters.defaults);
+      await enter(tester, 5, '100');
+      await enter(tester, 4, '200');
+      expect(find.text(reversedError), findsOneWidget);
+      expect(applyEnabled(tester), isFalse);
+    });
+
+    testWidgets('the novel text length pair is checked', (tester) async {
+      await open(tester, NovelSearchFilters.defaults);
+      // Novel fields: bookmark, then text length.
+      await enter(tester, 2, '9000');
+      await enter(tester, 3, '100');
+      expect(find.text(reversedError), findsOneWidget);
+      expect(applyEnabled(tester), isFalse);
+    });
+
+    testWidgets('a stored reversed pair opens ordered', (tester) async {
+      // What a pre-check sheet saved, read back as the app reads settings.
+      await open(
+        tester,
+        IllustSearchFilters.fromJson({'bookmarkMin': 500, 'bookmarkMax': 100}),
+      );
+      final fields = tester
+          .widgetList<TextField>(find.byType(TextField))
+          .map((field) => field.controller!.text)
+          .take(2);
+      expect(fields, ['100', '500']);
+      expect(find.text(reversedError), findsNothing);
+    });
+  });
+
   testWidgets('search guide renders trending tags and the three input tabs', (
     tester,
   ) async {
@@ -1290,7 +1405,7 @@ void main() {
       initialLocation:
           '/search/results?q=cat&type=illust&sort=nonsense&ai=bogus'
           '&bmin=abc&ct=not-a-type&ratio=diagonal&start=not-a-date'
-          '&wmin=-5',
+          '&wmin=-5&hmin=900&hmax=600',
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(
@@ -1317,7 +1432,10 @@ void main() {
     expect(filters.contentType, SearchContentType.illustAndMangaAndUgoira);
     expect(filters.ratio, isNull);
     expect(filters.startDate, isNull);
-    expect(filters.widthMin, -5); // syntactically valid ints still decode
+    // Bounds decode like stored ones: a negative bound is dropped and a
+    // reversed pair is put in order rather than failing the search.
+    expect(filters.widthMin, isNull);
+    expect((filters.heightMin, filters.heightMax), (600, 900));
     expect(page.query.cacheKey, isNotNull);
   });
 

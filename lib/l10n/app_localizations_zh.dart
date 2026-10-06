@@ -1947,6 +1947,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchInvalidDateRange => '开始日期不能晚于结束日期';
 
   @override
+  String get searchInvalidBoundRange => '最小值不能大于最大值';
+
+  @override
   String get searchPopularPreviewHint => '未开通会员，热门排序将使用人气预览结果';
 
   @override

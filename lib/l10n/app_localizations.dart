@@ -3773,6 +3773,12 @@ abstract class AppLocalizations {
   /// **'开始日期不能晚于结束日期'**
   String get searchInvalidDateRange;
 
+  /// No description provided for @searchInvalidBoundRange.
+  ///
+  /// In zh, this message translates to:
+  /// **'最小值不能大于最大值'**
+  String get searchInvalidBoundRange;
+
   /// No description provided for @searchPopularPreviewHint.
   ///
   /// In zh, this message translates to:

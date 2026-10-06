@@ -831,6 +831,7 @@
   "searchStartDate": "開始日",
   "searchEndDate": "終了日",
   "searchInvalidDateRange": "開始日は終了日より後にできません",
+  "searchInvalidBoundRange": "最小値は最大値より大きくできません",
   "searchPopularPreviewHint": "プレミアム未加入のため、人気順はプレビュー結果を使用します",
   "searchNoSuggestions": "候補はありません",
   "searchSuggestionFill": "検索欄に入力",

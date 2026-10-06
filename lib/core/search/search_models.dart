@@ -272,11 +272,24 @@ sealed class SearchFilters {
     return (startDate, endDate);
   }
 
-  /// A lower bound above the upper bound is a typo the user should not have
-  /// to fix — swap the pair on the wire (Shaft's `isValid` does the same).
+  /// Whether [min] is above [max]. The filter sheet shows such a pair as an
+  /// error and will not apply it; the wire rejects it.
+  static bool isReversed(int? min, int? max) =>
+      min != null && max != null && min > max;
+
+  /// A bound pair read from storage or a link: negative values are dropped
+  /// and a reversed pair is put in order. Earlier sheets saved reversed
+  /// pairs and swapped them on the wire, so ordering keeps what those users
+  /// searched for — and the sheet then shows the pair it sends.
+  static (int?, int?) decodeBounds(int? min, int? max) {
+    final low = min != null && min >= 0 ? min : null;
+    final high = max != null && max >= 0 ? max : null;
+    return isReversed(low, high) ? (high, low) : (low, high);
+  }
+
   static Map<String, String> _boundQuery(String name, int? min, int? max) {
-    if (min != null && max != null && min > max) {
-      return {'${name}_min': '$max', '${name}_max': '$min'};
+    if (isReversed(min, max)) {
+      throw FormatException('search ${name}_min is above ${name}_max');
     }
     return {
       if (min != null) '${name}_min': '$min',
@@ -336,17 +349,12 @@ typedef _SharedFieldValues = ({
 });
 
 /// Per-field validation shared by both subclasses: one damaged field falls
-/// back to its default without discarding the other selections. [defaults]
-/// provides the per-type fallbacks for non-nullable selectors.
+/// back to its default without discarding the other selections. The target
+/// is not clamped here — each subclass clamps it into its own options.
 _SharedFieldValues _sharedFieldsFromJson(Map<dynamic, dynamic> json) {
   DateTime? dateOf(String key) {
     final raw = json[key];
     return raw is String ? DateTime.tryParse(raw) : null;
-  }
-
-  int? intOf(String key) {
-    final raw = json[key];
-    return raw is int ? raw : null;
   }
 
   T? wireOf<T>(String key, Iterable<T> values, String Function(T) wire) {
@@ -355,6 +363,11 @@ _SharedFieldValues _sharedFieldsFromJson(Map<dynamic, dynamic> json) {
     return values.where((value) => wire(value) == raw).firstOrNull;
   }
 
+  final (bookmarkMin, bookmarkMax) = _boundsFromJson(
+    json,
+    'bookmarkMin',
+    'bookmarkMax',
+  );
   return (
     target:
         wireOf('target', SearchTarget.values, (v) => v.wireValue) ??
@@ -370,9 +383,23 @@ _SharedFieldValues _sharedFieldsFromJson(Map<dynamic, dynamic> json) {
             .where((value) => value.name == json['aiFilter'])
             .firstOrNull ??
         SearchAiFilter.all,
-    bookmarkMin: intOf('bookmarkMin'),
-    bookmarkMax: intOf('bookmarkMax'),
+    bookmarkMin: bookmarkMin,
+    bookmarkMax: bookmarkMax,
   );
+}
+
+/// A stored bound pair through [SearchFilters.decodeBounds]; a value that
+/// is not an int counts as unset.
+(int?, int?) _boundsFromJson(
+  Map<dynamic, dynamic> json,
+  String minKey,
+  String maxKey,
+) {
+  int? intOf(String key) => switch (json[key]) {
+    final int value => value,
+    _ => null,
+  };
+  return SearchFilters.decodeBounds(intOf(minKey), intOf(maxKey));
 }
 
 /// Illustration/manga search filters — the full shared set plus ratio,
@@ -446,11 +473,12 @@ final class IllustSearchFilters extends SearchFilters {
   factory IllustSearchFilters.fromJson(Object? json) {
     if (json is! Map) return defaults;
     final shared = _sharedFieldsFromJson(json);
-    int? intOf(String key) {
-      final raw = json[key];
-      return raw is int ? raw : null;
-    }
-
+    final (widthMin, widthMax) = _boundsFromJson(json, 'widthMin', 'widthMax');
+    final (heightMin, heightMax) = _boundsFromJson(
+      json,
+      'heightMin',
+      'heightMax',
+    );
     return IllustSearchFilters(
       target: SearchFilters.clampTarget(shared.target, defaults.targetOptions),
       sort: shared.sort,
@@ -475,10 +503,10 @@ final class IllustSearchFilters extends SearchFilters {
               defaults.contentType,
         _ => defaults.contentType,
       },
-      widthMin: intOf('widthMin'),
-      widthMax: intOf('widthMax'),
-      heightMin: intOf('heightMin'),
-      heightMax: intOf('heightMax'),
+      widthMin: widthMin,
+      widthMax: widthMax,
+      heightMin: heightMin,
+      heightMax: heightMax,
     );
   }
 
@@ -657,11 +685,11 @@ final class NovelSearchFilters extends SearchFilters {
   factory NovelSearchFilters.fromJson(Object? json) {
     if (json is! Map) return defaults;
     final shared = _sharedFieldsFromJson(json);
-    int? intOf(String key) {
-      final raw = json[key];
-      return raw is int ? raw : null;
-    }
-
+    final (textLengthMin, textLengthMax) = _boundsFromJson(
+      json,
+      'textLengthMin',
+      'textLengthMax',
+    );
     return NovelSearchFilters(
       target: SearchFilters.clampTarget(shared.target, defaults.targetOptions),
       sort: shared.sort.novelSafe,
@@ -671,8 +699,8 @@ final class NovelSearchFilters extends SearchFilters {
       aiFilter: shared.aiFilter,
       bookmarkMin: shared.bookmarkMin,
       bookmarkMax: shared.bookmarkMax,
-      textLengthMin: intOf('textLengthMin'),
-      textLengthMax: intOf('textLengthMax'),
+      textLengthMin: textLengthMin,
+      textLengthMax: textLengthMax,
       originalOnly: json['originalOnly'] == true,
     );
   }

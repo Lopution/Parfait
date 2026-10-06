@@ -2034,6 +2034,10 @@ class AppLocalizationsRu extends AppLocalizations {
       'Дата начала не может быть позже даты окончания';
 
   @override
+  String get searchInvalidBoundRange =>
+      'Минимум не может быть больше максимума';
+
+  @override
   String get searchPopularPreviewHint =>
       'Без Premium сортировка по популярности использует предпросмотр';
 

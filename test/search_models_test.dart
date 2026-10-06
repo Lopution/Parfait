@@ -264,6 +264,54 @@ void main() {
     }
   });
 
+  test('a reversed bound pair is rejected on the wire', () {
+    // The sheet will not apply one, and decoding orders stored ones, so a
+    // reversed pair here is a bug to surface — never a value to fix up.
+    final reversed = <SearchFilters>[
+      const IllustSearchFilters(bookmarkMin: 10, bookmarkMax: 5),
+      const IllustSearchFilters(widthMin: 10, widthMax: 5),
+      const IllustSearchFilters(heightMin: 10, heightMax: 5),
+      const NovelSearchFilters(textLengthMin: 10, textLengthMax: 5),
+    ];
+    for (final (index, filters) in reversed.indexed) {
+      expect(
+        () => filters.toQuery(word: 'cat'),
+        throwsFormatException,
+        reason: 'pair $index',
+      );
+    }
+    // An equal pair asks for one exact value.
+    final exact = const IllustSearchFilters(
+      bookmarkMin: 5,
+      bookmarkMax: 5,
+    ).toQuery(word: 'cat');
+    expect((exact['bookmark_num_min'], exact['bookmark_num_max']), ('5', '5'));
+  });
+
+  test('stored bounds decode in order and without negatives', () {
+    // Earlier sheets saved reversed pairs and swapped them on the wire.
+    final illust = IllustSearchFilters.fromJson({
+      'bookmarkMin': 500,
+      'bookmarkMax': 100,
+      'widthMin': -1,
+      'widthMax': 800,
+      'heightMin': 600,
+      'heightMax': 'tall',
+    });
+    expect((illust.bookmarkMin, illust.bookmarkMax), (100, 500));
+    expect((illust.widthMin, illust.widthMax), (null, 800));
+    expect((illust.heightMin, illust.heightMax), (600, null));
+    expect(illust.toQuery(word: 'cat')['bookmark_num_min'], '100');
+
+    final novel = NovelSearchFilters.fromJson({
+      'textLengthMin': 9000,
+      'textLengthMax': 100,
+      'bookmarkMax': -3,
+    });
+    expect((novel.textLengthMin, novel.textLengthMax), (100, 9000));
+    expect(novel.bookmarkMax, isNull);
+  });
+
   test('copyShared edits shared dimensions and keeps the type\'s own', () {
     const illust = IllustSearchFilters(
       ratio: SearchRatioPattern.portrait,
