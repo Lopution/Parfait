@@ -77,6 +77,8 @@
 | 9 | `parfait/widget_background` | Method (**direction reversed**) | `appwidget/WidgetHeadlessRunner.kt` | `lib/core/widget/widget_background.dart` | main (engine setup) |
 | 10 | `parfait/updater` | Method | `android/app/src/{github,fdroid}/…/DistributionUpdaterChannel.kt` | `lib/core/updater/update_platform.dart` | github: background TaskQueue (`installApk` → main); fdroid: main |
 | 11 | `parfait/haptics` | Method | `HapticsChannel.kt` (+ `HapticPlanner.kt`) | `lib/app/haptics/haptics_driver.dart` | main |
+| 12 | `parfait/accessibility` | Method | `AccessibilityChannel.kt` | `lib/core/platform/accessibility.dart` | main |
+| 13 | `parfait/accessibility/events` | Event | `AccessibilityChannel.kt` (`TouchExplorationStreamHandler`) | `accessibility.dart` (`touchExplorationChanges`) | main |
 
 Unknown method on every MethodChannel: `result.notImplemented()`.
 
@@ -448,6 +450,38 @@ is reachable **only** on the fdroid flavor, and only for methods other than
   strength), `haptics_failed` (anything the device threw). Dart's `play`
   logs both and never throws; `capabilities` surfaces them to the settings
   footer as "unknown".
+
+---
+
+## 12. `parfait/accessibility`
+
+- **Handler:** `AccessibilityChannel.kt` (`AccessibilitySignals` injected
+  into `handle` for JVM tests).
+- **Dart:** `lib/core/platform/accessibility.dart`
+  (`MethodChannelAppAccessibility`; `NoopAppAccessibility` off Android).
+- **Thread:** main (`AccessibilityManager` reads process-cached flags).
+
+| Method | Arguments | Return |
+|--------|-----------|--------|
+| `getTouchExplorationEnabled` | _(none)_ | `Boolean` |
+| `recommendedTimeoutMillis` | `{originalTimeoutMs: Int, contentFlags: Int}` | `Int` |
+
+- `contentFlags` is the Android `AccessibilityManager.FLAG_CONTENT_*` bit
+  mask (`FLAG_CONTENT_TEXT = 1`, `FLAG_CONTENT_CONTROLS = 4`), composed on
+  the Dart side.
+- `recommendedTimeoutMillis` needs API 29 — minSdk is 29, no version gate.
+- Errors: `a11y_invalid_argument` for missing or wrong-type arguments.
+
+---
+
+## 13. `parfait/accessibility/events` (EventChannel)
+
+- **Handler:** `TouchExplorationStreamHandler` inside
+  `AccessibilityChannel.kt`.
+- **Dart:** `AppAccessibility.touchExplorationChanges`.
+- **Emission:** the current `isTouchExplorationEnabled` value on
+  `onListen`, then each `TouchExplorationStateChangeListener` change. The
+  stream is Boolean-only; unknown platform errors surface as stream errors.
 
 ---
 
