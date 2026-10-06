@@ -183,6 +183,20 @@ that froze that wrong behaviour are deleted in the **same commit**. Do not
 leave `skip:` behind to hide them, and do not keep an assertion that encodes
 the defect the guard used to enforce.
 
+### Assert observable behaviour, not constructor arguments
+
+A test asserts what a user or a caller can observe: rendered output,
+semantics, navigation, visible state changes. It must not read a framework
+or third-party widget's constructor parameters (`tester.widget<T>(…).param`)
+— those pin *how* the code is written, so every refactor fails them in bulk.
+The one exception is a parameter that is itself the contract with no
+observable alternative; keep the assertion and leave a one-line comment
+naming that contract.
+
+Cover one behaviour at one layer; do not repeat the same outcome at both the
+widget and the page level. Every fixed bug keeps a regression test — see
+"Regression tests must be proven against the defect" for how to validate it.
+
 ### A test that cannot fail proves nothing
 
 When a case depends on a condition being reached (an overscroll actually
@@ -309,6 +323,8 @@ import trips `depend_on_referenced_packages`.
   not a raw `'$n'` interpolated into a label.
 - Do tests assert the observable terminal state and preserve existing account,
   cancellation, cursor, Hero, tab, and refresh contracts?
+- If the PR replaces an implementation, are its tests deleted or rewritten in
+  the same PR instead of left asserting the old internals?
 - Were generated files, lockfiles, and native/plugin boundaries changed only
   through their owning workflow?
 - Do `flutter analyze`, the focused tests, the full suite, formatting, and
