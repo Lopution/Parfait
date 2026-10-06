@@ -1,0 +1,79 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+
+import 'review_support.dart';
+
+/// Feed motion: pull to refresh, load more, the bottom bar following the
+/// scroll, and tab switches.
+void main() {
+  testFilm(
+    'feed/pull-to-refresh',
+    location: '/recommended',
+    notes:
+        'A slow pull down from the top of the home feed and release: the '
+        'refresh indicator follows the finger, spins while the feed '
+        'reloads, then retracts; cards do not blank or jump.',
+    script: (film, router) async {
+      await film.swipe(
+        find.text('illust 1000'),
+        const Offset(0, 360),
+        count: 24,
+        hold: 4,
+      );
+    },
+  );
+
+  testFilm(
+    'feed/load-more',
+    location: '/recommended',
+    notes:
+        'Flinging to the end of page one: the load-more footer shows, page '
+        'two appends below without the list jumping, and images of the new '
+        'cards fade in.',
+    script: (film, router) async {
+      for (var i = 0; i < 3; i++) {
+        await film.swipe(
+          find.byType(CustomScrollView),
+          const Offset(0, -1500),
+          count: 8,
+        );
+      }
+    },
+  );
+
+  testFilm(
+    'feed/bottom-bar-on-scroll',
+    location: '/recommended',
+    notes:
+        'Scrolling the feed up hides the bottom bar, scrolling back down '
+        'brings it back. The bar slides as a unit, its pill indicator stays '
+        'on the selected destination, and nothing behind it flickers.',
+    script: (film, router) async {
+      await film.swipe(
+        find.text('illust 1002'),
+        const Offset(0, -600),
+        count: 20,
+        hold: 2,
+      );
+      await film.swipe(
+        find.text('illust 1004'),
+        const Offset(0, 300),
+        count: 15,
+        hold: 2,
+      );
+    },
+  );
+
+  testFilm(
+    'feed/tab-switch',
+    location: '/recommended',
+    notes:
+        'Home top tabs: illustrations → manga → novels. The indicator '
+        'slides, the pages swap without a blank frame, novel cards come in '
+        'with their covers.',
+    script: (film, router) async {
+      await film.tap(find.text('漫画'));
+      await film.tap(find.text('小说'));
+    },
+  );
+}
