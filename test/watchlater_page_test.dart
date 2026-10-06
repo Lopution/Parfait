@@ -11,11 +11,13 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/card_world.dart';
 import 'helpers/illust_fixtures.dart';
+import 'helpers/prompt_host.dart';
 
 Widget _app(ProviderContainer container) {
   return UncontrolledProviderScope(
     container: container,
     child: MaterialApp(
+      builder: promptHostBuilder,
       localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('zh', 'CN'),
@@ -88,7 +90,7 @@ void main() {
     expect(find.widgetWithText(TextButton, '管理'), findsOneWidget);
     expect(find.text('已从稍后再看移除'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(SnackBarAction, '撤销'));
+    await tester.tap(promptAction('撤销'));
     await _settle(tester);
     expect(await _ids(repository), [3, 2, 1]);
     expect(find.byType(IllustCard), findsNWidgets(3));

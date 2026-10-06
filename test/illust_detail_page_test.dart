@@ -59,6 +59,7 @@ import 'helpers/test_preferences.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:visibility_detector/visibility_detector.dart';
+import 'helpers/prompt_host.dart';
 
 /// Records what the detail page hands to the platform share boundary —
 /// the system sheet is an external boundary, so a recording stand-in is
@@ -131,6 +132,7 @@ Future<void> pumpDetail(
   if (router != null) addTearDown(router.dispose);
   Widget app = router == null
       ? MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: const [
             Locale('zh', 'CN'),
@@ -142,6 +144,7 @@ Future<void> pumpDetail(
           home: IllustDetailPage(illustId: illustId),
         )
       : MaterialApp.router(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: const [
             Locale('zh', 'CN'),
@@ -229,6 +232,7 @@ void main() {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -257,6 +261,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -280,6 +285,7 @@ void main() {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -307,6 +313,7 @@ void main() {
         final navigatorKey = GlobalKey<NavigatorState>();
         await tester.pumpWidget(
           MaterialApp(
+            builder: promptHostBuilder,
             navigatorKey: navigatorKey,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
@@ -344,6 +351,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -364,6 +372,7 @@ void main() {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
             MaterialApp(
+              builder: promptHostBuilder,
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: const Locale('zh', 'CN'),
@@ -393,6 +402,7 @@ void main() {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -431,6 +441,7 @@ void main() {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
             MaterialApp(
+              builder: promptHostBuilder,
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: const Locale('zh', 'CN'),
@@ -464,6 +475,7 @@ void main() {
           // new route) keeps the session flag too.
           await tester.pumpWidget(
             MaterialApp(
+              builder: promptHostBuilder,
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: const Locale('zh', 'CN'),
@@ -489,6 +501,7 @@ void main() {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
             MaterialApp(
+              builder: promptHostBuilder,
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: const Locale('zh', 'CN'),
@@ -533,6 +546,7 @@ void main() {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
             MaterialApp(
+              builder: promptHostBuilder,
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: const Locale('zh', 'CN'),
@@ -582,6 +596,7 @@ void main() {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -633,6 +648,7 @@ void main() {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -665,6 +681,7 @@ void main() {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -694,6 +711,7 @@ void main() {
           UncontrolledProviderScope(
             container: container,
             child: MaterialApp(
+              builder: promptHostBuilder,
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: const Locale('zh', 'CN'),
@@ -729,6 +747,7 @@ void main() {
           UncontrolledProviderScope(
             container: container,
             child: MaterialApp(
+              builder: promptHostBuilder,
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: const Locale('zh', 'CN'),
@@ -784,6 +803,7 @@ void main() {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
             MaterialApp(
+              builder: promptHostBuilder,
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: const Locale('zh', 'CN'),
@@ -827,6 +847,7 @@ void main() {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
             MaterialApp(
+              builder: promptHostBuilder,
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: const Locale('zh', 'CN'),
@@ -880,6 +901,7 @@ void main() {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
             MaterialApp(
+              builder: promptHostBuilder,
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: const Locale('zh', 'CN'),
@@ -945,6 +967,7 @@ void main() {
     }) async {
       await tester.pumpWidget(
         MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -1575,6 +1598,7 @@ void main() {
             UncontrolledProviderScope(
               container: container,
               child: MaterialApp(
+                builder: promptHostBuilder,
                 localizationsDelegates: appLocalizationsDelegates,
                 supportedLocales: AppLocalizations.supportedLocales,
                 locale: const Locale('zh', 'CN'),

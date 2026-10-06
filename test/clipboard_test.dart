@@ -6,6 +6,7 @@ import 'package:parfait/app/clipboard.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
 
 import 'helpers/recording_haptics.dart';
+import 'helpers/prompt_host.dart';
 
 /// Platform clipboard stand-in; [fail] makes the write throw.
 List<String> _mockClipboard({bool fail = false}) {
@@ -29,6 +30,7 @@ Future<BuildContext> _pumpHost(WidgetTester tester) async {
   late BuildContext context;
   await tester.pumpWidget(
     MaterialApp(
+      builder: promptHostBuilder,
       home: Scaffold(
         body: Builder(
           builder: (c) {

@@ -42,6 +42,7 @@ import 'helpers/fake_account.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 String _novelJson(int id) => jsonEncode({
   'id': id,
@@ -218,6 +219,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: const MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
@@ -256,6 +258,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: const MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
@@ -284,6 +287,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: const MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
@@ -320,6 +324,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp.router(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -389,6 +394,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: const MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
@@ -420,6 +426,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: const MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
@@ -461,6 +468,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp.router(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -613,6 +621,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp.router(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -661,6 +670,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: const MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
@@ -671,7 +681,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       await tester.pumpAndSettle();
-      expect(find.byType(SnackBar), findsNothing);
+      expect(shownPrompt, findsNothing);
 
       // Fail the next recommended request, then refresh — the error must
       // surface in the viewport as a SnackBar with a retry action.
@@ -686,10 +696,10 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.byType(SnackBar), findsOneWidget);
+      expect(shownPrompt, findsOneWidget);
       expect(find.textContaining('刷新失败'), findsOneWidget);
       expect(
-        find.descendant(of: find.byType(SnackBar), matching: find.text('重试')),
+        find.descendant(of: shownPrompt, matching: find.text('重试')),
         findsOneWidget,
       );
     });
@@ -708,6 +718,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: const MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),

@@ -22,6 +22,7 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 /// Network boundary stand-in; [error] makes the next mutation fail.
 class _FakeFollowRepository implements FollowRepository {
@@ -94,11 +95,14 @@ Future<void> _pump(
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: locale,
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(textScale)),
-          child: child!,
+        builder: (context, child) => promptHostBuilder(
+          context,
+          MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
         ),
         home: home,
       ),
@@ -287,7 +291,7 @@ void main() {
     await tester.tap(action('取消关注'));
     await tester.pumpAndSettle();
     expect(follows.calls.last, 'delete 7');
-    await tester.tap(find.widgetWithText(SnackBarAction, '撤销'));
+    await tester.tap(promptAction('撤销'));
     await tester.pumpAndSettle();
     expect(follows.calls.last, 'add 7 public');
     expect(container.read(followStoreProvider)[7]?.followed, isTrue);

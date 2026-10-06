@@ -42,6 +42,7 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'helpers/bookmark_world.dart';
 import 'helpers/profile_world.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 class _FakeOutboundUrlOpener implements OutboundUrlOpener {
   final requests = <String>[];
@@ -121,6 +122,7 @@ Future<void> _pumpProfile(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
+        builder: promptHostBuilder,
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
@@ -251,6 +253,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -400,6 +403,7 @@ void main() {
     final controller = ScrollController();
     await tester.pumpWidget(
       MaterialApp(
+        builder: promptHostBuilder,
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
@@ -459,6 +463,7 @@ void main() {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
             MaterialApp(
+              builder: promptHostBuilder,
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: const Locale('zh', 'CN'),
@@ -537,6 +542,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        builder: promptHostBuilder,
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
@@ -578,6 +584,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        builder: promptHostBuilder,
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
@@ -631,6 +638,7 @@ void main() {
       final controller = ScrollController();
       await tester.pumpWidget(
         MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -714,6 +722,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        builder: promptHostBuilder,
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
@@ -771,6 +780,7 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -845,6 +855,7 @@ void main() {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -924,6 +935,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        builder: promptHostBuilder,
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
@@ -966,6 +978,7 @@ void main() {
     (tester) async {
       final controller = ScrollController();
       Widget app(UserEntity user) => MaterialApp(
+        builder: promptHostBuilder,
         theme: replicaTheme(Brightness.light),
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -1045,6 +1058,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -1139,6 +1153,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -1226,6 +1241,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -1408,11 +1424,14 @@ void main() {
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(textScaler: const TextScaler.linear(1.3)),
-              child: child!,
+            builder: (context, child) => promptHostBuilder(
+              context,
+              MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: const TextScaler.linear(1.3)),
+                child: child!,
+              ),
             ),
             home: isMe
                 ? MePage(onEditProfile: () {})
@@ -1482,11 +1501,14 @@ void main() {
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: locale,
-              builder: (context, child) => MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: TextScaler.linear(textScale)),
-                child: child!,
+              builder: (context, child) => promptHostBuilder(
+                context,
+                MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(textScale)),
+                  child: child!,
+                ),
               ),
               home: isMe
                   ? MePage(onEditProfile: () {})
@@ -1573,11 +1595,14 @@ void main() {
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: const TextScaler.linear(2)),
-            child: child!,
+          builder: (context, child) => promptHostBuilder(
+            context,
+            MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            ),
           ),
           home: const UserPage(userId: 42),
         ),
@@ -1648,11 +1673,14 @@ void main() {
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('ru'),
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(textScaler: const TextScaler.linear(2)),
-              child: child!,
+            builder: (context, child) => promptHostBuilder(
+              context,
+              MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: const TextScaler.linear(2)),
+                child: child!,
+              ),
             ),
             home: const UserPage(userId: 42),
           ),
@@ -1756,6 +1784,7 @@ void main() {
             UncontrolledProviderScope(
               container: container,
               child: MaterialApp(
+                builder: promptHostBuilder,
                 localizationsDelegates: appLocalizationsDelegates,
                 supportedLocales: AppLocalizations.supportedLocales,
                 locale: const Locale('zh', 'CN'),
@@ -1830,6 +1859,7 @@ void main() {
           UncontrolledProviderScope(
             container: container,
             child: MaterialApp(
+              builder: promptHostBuilder,
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: const Locale('zh', 'CN'),
@@ -1892,6 +1922,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -1926,6 +1957,7 @@ void main() {
       'colour', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        builder: promptHostBuilder,
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
@@ -1985,6 +2017,7 @@ void main() {
           UncontrolledProviderScope(
             container: container,
             child: MaterialApp(
+              builder: promptHostBuilder,
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: const Locale('zh', 'CN'),
@@ -2057,6 +2090,7 @@ void main() {
           UncontrolledProviderScope(
             container: container,
             child: MaterialApp(
+              builder: promptHostBuilder,
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: const Locale('zh', 'CN'),
@@ -2164,6 +2198,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -2230,11 +2265,14 @@ void main() {
               localizationsDelegates: appLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               locale: const Locale('zh', 'CN'),
-              builder: (context, child) => MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: TextScaler.linear(textScale)),
-                child: child!,
+              builder: (context, child) => promptHostBuilder(
+                context,
+                MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(textScale)),
+                  child: child!,
+                ),
               ),
               home: const UserPage(userId: 42),
             ),
@@ -2324,6 +2362,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -2369,6 +2408,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -2435,6 +2475,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -2488,6 +2529,7 @@ void main() {
       addTearDown(controller.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          builder: promptHostBuilder,
           theme: replicaTheme(Brightness.light),
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
@@ -2598,6 +2640,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -2631,6 +2674,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        builder: promptHostBuilder,
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),

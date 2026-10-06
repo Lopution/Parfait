@@ -10,6 +10,7 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 /// Captures outbound `launch` calls on the url_launcher method channel —
 /// the app calls `launchUrl`, which the platform interface forwards as a
@@ -70,6 +71,7 @@ void main() {
           updateServiceProvider.overrideWith((ref) async => effectiveService),
         ],
         child: MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -129,6 +131,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -166,6 +169,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),

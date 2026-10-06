@@ -147,8 +147,8 @@ ThemeData replicaTheme(
         primary: colorScheme.primary,
       ),
     ],
-    // Keep app hints floating so their entrance and exit use the same
-    // readable fade behavior across copy, saved, and exit messages.
+    // The prompt card (PromptHost) takes its surface, shape, elevation and
+    // action color from here; placement and motion are the host's.
     snackBarTheme:
         const SnackBarThemeData(
           behavior: SnackBarBehavior.floating,

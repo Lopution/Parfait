@@ -30,6 +30,13 @@ abstract final class MotionTokens {
   /// Medium UI transitions.
   static const medium = Duration(milliseconds: 200);
 
+  /// Prompt entrance — Compose M3 `SnackbarHost`: a 150ms linear fade with
+  /// a 0.8→1 fast-out-slow-in scale. The exit reverses both over [fast]
+  /// rather than Compose's 75ms fade, which read as no animation on device.
+  static const promptEnter = Duration(milliseconds: 150);
+  static const promptEnterScale = 0.8;
+  static const promptScaleCurve = Curves.fastOutSlowIn;
+
   /// Card press feedback: rest scale while pressed (the motion is the
   /// [MotionSpring.spatialFast] spring).
   static const pressScale = 0.97;
@@ -116,7 +123,7 @@ abstract final class MotionTokens {
   );
 
   /// [resolve] for the few callers above [MotionScope] (the MaterialApp
-  /// theme animation, the root messenger), which pass the settings in.
+  /// theme animation), which pass the settings in.
   static Duration resolveWith(
     BuildContext context,
     Duration base, {

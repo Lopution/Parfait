@@ -57,6 +57,7 @@ import 'helpers/fake_account.dart';
 import 'helpers/settings_world.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 class _AccountRepository implements AccountMetadataRepository {
   _AccountRepository([this.initial = const [], this.failLoad = false]);
@@ -761,6 +762,7 @@ void main() {
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -836,6 +838,7 @@ void main() {
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -952,6 +955,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       const MaterialApp(
+        builder: promptHostBuilder,
         home: Scaffold(
           body: Column(
             children: [
@@ -1001,6 +1005,7 @@ void main() {
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -1041,6 +1046,7 @@ void main() {
         ProviderScope(
           overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
           child: const MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
@@ -1123,6 +1129,7 @@ void main() {
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -1149,6 +1156,7 @@ void main() {
     );
     await tester.pumpWidget(
       const MaterialApp(
+        builder: promptHostBuilder,
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: Locale('zh', 'CN'),
@@ -1173,6 +1181,7 @@ void main() {
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -1205,6 +1214,7 @@ void main() {
             credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
           ],
           child: const MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
@@ -1290,6 +1300,7 @@ void main() {
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -1341,6 +1352,7 @@ void main() {
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -1400,6 +1412,7 @@ void main() {
           ),
         ],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -1455,6 +1468,7 @@ void main() {
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -1507,6 +1521,7 @@ void main() {
           translationCredentialStoreProvider.overrideWithValue(store),
         ],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -1535,6 +1550,7 @@ void main() {
           translationCredentialStoreProvider.overrideWithValue(store),
         ],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -1568,6 +1584,7 @@ void main() {
           translationCredentialStoreProvider.overrideWithValue(store),
         ],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -1615,6 +1632,7 @@ void main() {
           translationCredentialStoreProvider.overrideWithValue(store),
         ],
         child: MaterialApp.router(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -1659,6 +1677,7 @@ void main() {
             translationCredentialStoreProvider.overrideWithValue(store),
           ],
           child: MaterialApp.router(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -1701,6 +1720,7 @@ void main() {
         ProviderScope(
           overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
           child: MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -1773,6 +1793,7 @@ void main() {
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
         child: MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -1876,6 +1897,7 @@ void main() {
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -1912,6 +1934,7 @@ void main() {
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -1941,6 +1964,7 @@ void main() {
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: MaterialApp.router(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -1986,6 +2010,7 @@ void main() {
           userRepositoryProvider.overrideWithValue(_FakeProfileRepository()),
         ],
         child: MaterialApp.router(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -2026,6 +2051,7 @@ void main() {
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: MaterialApp.router(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -2076,6 +2102,7 @@ void main() {
           ),
         ],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -2137,6 +2164,7 @@ void main() {
             ),
           ],
           child: const MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
@@ -2188,6 +2216,7 @@ void main() {
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: MaterialApp.router(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -2238,6 +2267,7 @@ void main() {
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: MaterialApp.router(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -2297,6 +2327,7 @@ void main() {
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
         child: MaterialApp.router(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -2348,6 +2379,7 @@ void main() {
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
         child: MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -2406,6 +2438,7 @@ void main() {
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -2476,6 +2509,7 @@ void main() {
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -2511,6 +2545,7 @@ void main() {
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
         child: const MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('zh', 'CN'),
@@ -2540,6 +2575,7 @@ void main() {
       ProviderScope(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
         child: MaterialApp(
+          builder: promptHostBuilder,
           localizationsDelegates: appLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('zh', 'CN'),
@@ -2613,6 +2649,7 @@ void main() {
             networkAccessPolicyProvider.overrideWithValue(policy),
           ],
           child: const MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),
@@ -2658,6 +2695,7 @@ void main() {
     Widget host(Widget home) => ProviderScope(
       overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
       child: MaterialApp(
+        builder: promptHostBuilder,
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
@@ -2709,6 +2747,7 @@ void main() {
         networkAccessPolicyProvider.overrideWithValue(policy),
       ],
       child: MaterialApp(
+        builder: promptHostBuilder,
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: const Locale('zh', 'CN'),
@@ -2796,6 +2835,7 @@ void main() {
             hapticsDriverProvider.overrideWithValue(driver),
           ],
           child: const MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: Locale('zh', 'CN'),

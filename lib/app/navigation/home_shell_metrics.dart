@@ -26,15 +26,17 @@ class HomeShellChrome extends InheritedWidget {
   /// stacked slide-out animations (route cover + scroll auto-hide) are
   /// resolved into one live value by `FuncShellBottomNav`. The Hero
   /// landing clip reads it per frame so a half-returned bar clips at its
-  /// real top edge instead of the resting one.
+  /// real top edge instead of the resting one; the bar also anchors
+  /// prompts with it (`PromptAnchor`).
   ///
   /// The instance is a stable notifier owned by `HomeBranchStack`;
   /// [updateShouldNotify] deliberately ignores it. Stays 0 on rail
   /// layouts, where no bottom bar exists.
   ///
-  /// Read `.value` only — never listen. `FuncShellBottomNav` writes it from
-  /// its own `build`, so a listener that rebuilds would mark widgets dirty
-  /// mid-build.
+  /// Read `.value` only — never rebuild on it. `FuncShellBottomNav` writes
+  /// it from its own `build`, so a listener that rebuilds would mark
+  /// widgets dirty mid-build; relayout-only listeners (the prompt layout)
+  /// are safe.
   final ValueListenable<double> bottomBarVisibleExtent;
 
   static HomeShellChrome? maybeOf(BuildContext context) =>
@@ -49,25 +51,6 @@ class HomeShellChrome extends InheritedWidget {
   @override
   bool updateShouldNotify(HomeShellChrome oldWidget) =>
       bottomBarExtent != oldWidget.bottomBarExtent;
-}
-
-/// Whether the shell's floating bottom bar is currently mounted.
-///
-/// The only consumer that cannot reach [HomeShellChrome] is the app-level
-/// update prompt: the root ScaffoldMessenger sits above the shell, so it
-/// needs a plain presence flag rather than an inherited extent. Published
-/// by `FuncShellBottomNav` on mount/deactivate — the prompt appears long
-/// after first frame, so publish timing is irrelevant.
-final homeShellBarVisibleProvider =
-    NotifierProvider<_HomeShellBarVisibleNotifier, bool>(
-      _HomeShellBarVisibleNotifier.new,
-    );
-
-class _HomeShellBarVisibleNotifier extends Notifier<bool> {
-  @override
-  bool build() => false;
-
-  void setVisible(bool visible) => state = visible;
 }
 
 /// Branches whose root route is currently covered by a pushed route inside

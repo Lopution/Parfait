@@ -36,6 +36,7 @@ import 'helpers/comment_world.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler,
@@ -493,6 +494,7 @@ void main() {
       tester.view.physicalSize = Size(width, 600);
       await tester.pumpWidget(
         MaterialApp(
+          builder: promptHostBuilder,
           locale: const Locale('zh', 'CN'),
           supportedLocales: const [Locale('zh', 'CN')],
           localizationsDelegates: appLocalizationsDelegates,
@@ -549,6 +551,7 @@ void main() {
     final sent = <int>[];
     await tester.pumpWidget(
       MaterialApp(
+        builder: promptHostBuilder,
         locale: const Locale('zh', 'CN'),
         supportedLocales: const [Locale('zh', 'CN')],
         localizationsDelegates: appLocalizationsDelegates,
@@ -605,6 +608,7 @@ void main() {
         ProviderScope(
           overrides: [accountStoreProvider.overrideWith(commentsAccountStore)],
           child: MaterialApp(
+            builder: promptHostBuilder,
             locale: const Locale('zh', 'CN'),
             supportedLocales: const [Locale('zh', 'CN')],
             localizationsDelegates: appLocalizationsDelegates,
@@ -674,6 +678,7 @@ void main() {
           commentRepositoryProvider.overrideWithValue(FakeCommentRepository()),
         ],
         child: MaterialApp.router(
+          builder: promptHostBuilder,
           locale: const Locale('zh', 'CN'),
           supportedLocales: const [Locale('zh', 'CN')],
           localizationsDelegates: appLocalizationsDelegates,
@@ -715,6 +720,7 @@ void main() {
             ),
           ],
           child: MaterialApp.router(
+            builder: promptHostBuilder,
             locale: const Locale('zh', 'CN'),
             supportedLocales: const [Locale('zh', 'CN')],
             localizationsDelegates: appLocalizationsDelegates,
@@ -769,6 +775,7 @@ void main() {
   );
 
   Widget composerApp(Widget home) => MaterialApp(
+    builder: promptHostBuilder,
     locale: const Locale('zh', 'CN'),
     supportedLocales: const [Locale('zh', 'CN')],
     localizationsDelegates: appLocalizationsDelegates,

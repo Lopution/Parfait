@@ -1391,7 +1391,7 @@ Future<void> openDownloadTasks(BuildContext context) async {
   await _push(context, '/downloads');
 }
 
-/// Binds the SnackBar action to the router while the submitting page is
+/// Binds the prompt action to the router while the submitting page is
 /// alive, so it remains valid after that page is popped or disposed.
 void showDownloadSubmittedSnackBar(
   BuildContext context, {
@@ -1405,7 +1405,7 @@ void showDownloadSubmittedSnackBar(
     alreadyQueued ? l10n.downloadAlreadyQueued : l10n.downloadQueuedMessage,
     action: router == null
         ? null
-        : SnackBarAction(
+        : PromptAction(
             label: l10n.downloadViewResult,
             onPressed: () => unawaited(router.push<void>('/downloads')),
           ),

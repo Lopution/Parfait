@@ -31,6 +31,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 /// Records every `/v1/mute/edit` body; `/v1/mute/list` answers from
 /// [listTags]/[listUsers]. Mirrors the mute_store_test fixture.
@@ -639,6 +640,7 @@ void main() {
             backupFilePickerProvider.overrideWithValue(() async => fileBytes),
           ],
           child: MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -671,7 +673,7 @@ void main() {
       (await pumpPage(tester)).exportResult = null;
       await tester.tap(find.text('导出备份'));
       await tester.pumpAndSettle();
-      expect(find.byType(SnackBar), findsNothing);
+      expect(shownPrompt, findsNothing);
     });
 
     testWidgets('import picks a strategy, then confirms before applying', (

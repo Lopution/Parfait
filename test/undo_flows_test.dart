@@ -15,6 +15,7 @@ import 'helpers/bookmark_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/profile_world.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 const _bookmarkKey = BookmarkKey(BookmarkEntityType.illust, 1);
 
@@ -30,6 +31,7 @@ Future<void> _pumpPushed(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
+        builder: promptHostBuilder,
         navigatorKey: navigator,
         locale: const Locale('zh', 'CN'),
         supportedLocales: const [Locale('zh', 'CN')],
@@ -51,7 +53,7 @@ Future<void> _closePage(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-Finder get _undo => find.widgetWithText(SnackBarAction, '撤销');
+Finder get _undo => promptAction('撤销');
 
 void main() {
   testWidgets('a private, tagged bookmark comes back private with its tags', (
@@ -154,6 +156,6 @@ void main() {
 
     expect(follows.requests, ['restrict:42', 'delete:42']);
     expect(container.read(followStoreProvider)[42]!.followed, isFalse);
-    expect(find.byType(SnackBar), findsNothing);
+    expect(shownPrompt, findsNothing);
   });
 }

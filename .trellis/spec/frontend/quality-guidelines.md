@@ -280,9 +280,9 @@ holds the `listenManual` reference implementation.
 
 ### `material_ui` shadows Flutter's material widgets in tests
 
-**Problem**: the app's pages import `package:material_ui/material_ui.dart`, whose `SwitchListTile`, `SnackBar`, `ScaffoldMessenger`, `ListTile` are its own classes, not `flutter/material.dart`'s. A test importing `flutter/material.dart` then finds nothing with `find.byType(SnackBar)` / `find.widgetWithText(SwitchListTile, …)`, and — worse — `showAppSnackBar` resolves `material_ui`'s `ScaffoldMessenger.maybeOf`, which a plain Flutter `MaterialApp` does not provide, so the snackbar is silently dropped and the failure looks like the write path never ran (seen 2026-09-16 in `server_display_settings_test.dart`).
+**Problem**: the app's pages import `package:material_ui/material_ui.dart`, whose `SwitchListTile`, `ListTile`, `TextButton` are its own classes, not `flutter/material.dart`'s. A test importing `flutter/material.dart` then finds nothing with `find.widgetWithText(SwitchListTile, …)` and the failure looks like the write path never ran (seen 2026-09-16 in `server_display_settings_test.dart`, then with snackbars).
 
-**Required pattern**: widget tests pump `material_ui`'s `MaterialApp` and assert on the app's wrapper types (`SettingsControl`) or `material_ui`'s `SnackBar`/`SwitchListTile`; import `package:material_ui/material_ui.dart` instead of `flutter/material.dart` in test files that touch snackbars or switch tiles.
+**Required pattern**: widget tests pump `material_ui`'s `MaterialApp` and assert on the app's wrapper types (`SettingsControl`) or `material_ui`'s `SwitchListTile`; import `package:material_ui/material_ui.dart` instead of `flutter/material.dart`. A test that shows prompts installs `promptHostBuilder` (`test/helpers/prompt_host.dart`) — `PromptHost.of` throws without a host rather than dropping the prompt.
 
 ### A failing `AsyncNotifierProvider.build` never settles `.future`
 

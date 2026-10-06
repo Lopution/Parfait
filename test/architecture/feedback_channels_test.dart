@@ -2,10 +2,11 @@
 // durations and the hero tag family (W10 contract C1).
 //
 // Asserted on the source tree (all paths repo-relative):
-//   - bare `SnackBar(` / `showSnackBar(` callsites outside
-//     lib/app/widgets/app_snack_bar.dart: zero — callers go through
-//     showAppSnackBar / showAppSnackBarOn (the latter's callsites are
-//     pinned below)
+//   - material's SnackBar path (`SnackBar(`, `SnackBarAction(`,
+//     `showSnackBar(`, `ScaffoldMessenger`) anywhere in lib/: zero — the
+//     one PromptHost presents every prompt, reached through
+//     showAppSnackBar; direct host access (`PromptHost.of(`,
+//     `PromptHostState`) stays in the pinned files below
 //   - `HapticFeedback.` callsites outside lib/app/haptics/: zero —
 //     AppHaptics and its platform driver are the only owners
 //   - raw selection controls (ChoiceChip/FilterChip,
@@ -36,8 +37,16 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Owner file for the SnackBar channel.
-const _snackBarOwner = 'lib/app/widgets/app_snack_bar.dart';
+/// Files that may reach the prompt host directly: the host itself, the
+/// `showAppSnackBar` entry, the app root (update prompt through its key)
+/// and Undo, which captures the host so a failed undo can still report
+/// after the page that offered it is gone.
+const _promptHostCallSites = <String>{
+  'lib/app/widgets/prompt_host.dart',
+  'lib/app/widgets/app_snack_bar.dart',
+  'lib/app/app.dart',
+  'lib/app/widgets/undo_snack_bar.dart',
+};
 
 /// Owner directory for haptic feedback (AppHaptics + its platform driver).
 const _hapticsOwnerDir = 'lib/app/haptics/';
@@ -82,17 +91,6 @@ const _overlaysOwner = 'lib/app/motion/app_overlays.dart';
 /// funcSystemBarsStyle, never a raw overlay-style widget or constructor.
 const _systemUiOwner = 'lib/app/system_ui.dart';
 
-/// Approved `showAppSnackBarOn` callsites: the root-level presentations that
-/// cannot reach a scoped messenger context (root exit hint, app-level update
-/// notice), and a failed Undo, which reports on the messenger captured when
-/// its snackbar showed — the page that offered it may be gone. Everything
-/// else must use `showAppSnackBar(context, ...)`.
-const _snackBarOnCallSites = <String>{
-  'lib/app/app.dart',
-  'lib/features/home/home_page.dart',
-  'lib/app/widgets/undo_snack_bar.dart',
-};
-
 /// Raw overlay entries that are intentional framework pickers, not app
 /// overlay surfaces — the app overlay contract (sheet spring, dialog token +
 /// reduced-motion gate) does not restyle them.
@@ -117,10 +115,13 @@ const _heroFiles = <String>{
 /// throttle, wheel floor clamp, ugoira frame delay, debug probe poll).
 /// Counts are pinned so a new hard-coded animation duration fails here.
 const _durationCensus = <String, int>{
-  'lib/app/motion/motion_tokens.dart': 18,
+  'lib/app/motion/motion_tokens.dart': 19,
   // Press-feedback settle window before a covered page may be snapshotted:
   // a throttle on capture timing, not an animation.
   'lib/app/motion/page_transitions.dart': 1,
+  // The platform's recommended prompt dwell, converted from its
+  // millisecond answer: a timeout, not an animation.
+  'lib/app/widgets/prompt_host.dart': 1,
   'lib/app/haptics/app_haptics.dart': 3,
   'lib/app/widgets/smooth_wheel_scroll.dart': 2,
   // Show delay of the image progress ring: a debounce, not an animation.
@@ -155,37 +156,32 @@ Map<String, Set<String>> _matches(List<String> roots, RegExp pattern) {
 }
 
 void main() {
-  test('SnackBar presentation has exactly one owner', () {
-    final bareCtor = _matches([
-      'lib',
-    ], RegExp(r'(?<![A-Za-z])SnackBar\(')).keys.toSet();
+  test('prompts have exactly one host', () {
+    // material_ui's SnackBar reads the engine's accessibleNavigation flag
+    // and anchors to Scaffold geometry; neither is right here.
+    final material = _matches(
+      ['lib'],
+      RegExp(
+        r'(?<![A-Za-z])(SnackBar\(|SnackBarAction\(|showSnackBar\(|'
+        r'ScaffoldMessenger)',
+      ),
+    );
     expect(
-      bareCtor.difference({_snackBarOwner}),
+      material,
       isEmpty,
       reason:
-          'bare SnackBar( outside $_snackBarOwner: '
-          '${bareCtor.difference({_snackBarOwner}).join(', ')}',
+          'material SnackBar path in lib — use showAppSnackBar:\n'
+          '${material.entries.map((e) => '${e.key}: ${e.value.join(', ')}').join('\n')}',
     );
 
-    final rawShow = _matches([
+    final direct = _matches([
       'lib',
-    ], RegExp(r'(?<![A-Za-z])showSnackBar\(')).keys.toSet();
+    ], RegExp(r'PromptHost\.of\(|PromptHostState')).keys.toSet();
     expect(
-      rawShow.difference({_snackBarOwner}),
-      isEmpty,
-      reason: 'showSnackBar( outside $_snackBarOwner',
-    );
-
-    // showAppSnackBarOn exists for presentations whose context sits above
-    // the branch-scoped messenger; its callsites stay pinned.
-    final onCallSites = _matches([
-      'lib',
-    ], RegExp(r'showAppSnackBarOn\(')).keys.toSet();
-    expect(
-      onCallSites.difference({..._snackBarOnCallSites, _snackBarOwner}),
+      direct.difference(_promptHostCallSites),
       isEmpty,
       reason:
-          'unapproved showAppSnackBarOn callsite — '
+          'unapproved direct prompt host access — '
           'prefer showAppSnackBar(context, ...)',
     );
   });

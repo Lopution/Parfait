@@ -19,6 +19,7 @@ import 'package:parfait/core/auth/account_transfer_service.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 /// Clipboard import stub whose result future the test controls, so the
 /// busy state can be observed deterministically.
@@ -110,6 +111,7 @@ void main() {
         child: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
           child: MaterialApp(
+            builder: promptHostBuilder,
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: locale ?? const Locale('zh', 'CN'),

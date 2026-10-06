@@ -10,9 +10,11 @@ import 'package:parfait/core/logging/crash_log.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/context.dart';
+import 'helpers/prompt_host.dart';
 
 Widget _host(Widget child) {
   return MaterialApp(
+    builder: promptHostBuilder,
     localizationsDelegates: appLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     locale: const Locale('zh', 'CN'),

@@ -125,7 +125,7 @@ class _ErrorDetailsState extends State<ErrorDetails> {
   }
 }
 
-/// The one feedback shape for an operation that failed (D1): the SnackBar
+/// The one feedback shape for an operation that failed (D1): the prompt
 /// shows "action: category" — never raw exception text — and the original
 /// error plus stack land in [CrashLog] so a shared crash.log still carries
 /// the diagnosis.
@@ -134,7 +134,7 @@ void showErrorSnackBar(
   required String action,
   required Object error,
   StackTrace? stack,
-  SnackBarAction? snackBarAction,
+  PromptAction? snackBarAction,
   Duration duration = const Duration(seconds: 4),
 }) {
   CrashLog.record(error, stack);

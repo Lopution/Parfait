@@ -25,6 +25,7 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/card_world.dart';
 import 'helpers/illust_fixtures.dart';
+import 'helpers/prompt_host.dart';
 
 /// Records the payloads the card sheet hands to the platform share
 /// boundary — the system sheet itself is plugin territory.
@@ -46,6 +47,7 @@ Widget _cardApp(ProviderContainer container, Widget home) {
   return UncontrolledProviderScope(
     container: container,
     child: MaterialApp(
+      builder: promptHostBuilder,
       localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('zh', 'CN'),
@@ -174,7 +176,7 @@ void main() {
     expect(container.read(muteStoreProvider).isWorkMuted(7), isFalse);
     expect(find.text('已解除屏蔽'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(SnackBarAction, '撤销'));
+    await tester.tap(promptAction('撤销'));
     await tester.pumpAndSettle();
     expect(container.read(muteStoreProvider).isWorkMuted(7), isTrue);
   });

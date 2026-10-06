@@ -15,8 +15,10 @@ import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:parfait/features/novel/novel_reader_stage.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:parfait/app/widgets/prompt_host.dart';
 
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 /// Stage-level test with a recording progress binding: pins the D1 write
 /// gate — only user-committed turns reach `save`.
@@ -212,7 +214,7 @@ void main() {
     debugPrint = prevDebugPrint;
     expect(binding.saveCalls, 1);
     expect(binding.saves, isEmpty);
-    expect(find.byType(SnackBar), findsNothing);
+    expect(shownPrompt, findsNothing);
     expect(printed, contains(contains('novel anchor persist failed')));
   });
 
@@ -249,7 +251,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.byType(SnackBar), findsOneWidget);
+    expect(shownPrompt, findsOneWidget);
     // The copy must say the change applied for this session only — the
     // old "保存失败" wording hid that the on-screen values were live.
     expect(find.text('阅读设置未能保存，仅本次生效'), findsOneWidget);
@@ -257,9 +259,7 @@ void main() {
     // The in-memory value still applied — the snackbar reports the
     // persistence failure rather than silently dropping it. Dismiss it
     // programmatically so it stops covering the bottom bar.
-    ScaffoldMessenger.of(
-      tester.element(find.byType(Scaffold).first),
-    ).hideCurrentSnackBar();
+    PromptHost.of(tester.element(find.byType(Scaffold).first)).hideCurrent();
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.tune_outlined));
     await tester.pumpAndSettle();
@@ -437,6 +437,7 @@ Widget _stageApp(
         sharedPreferencesProvider.overrideWithValue(preferences),
     ],
     child: MaterialApp(
+      builder: promptHostBuilder,
       theme: theme,
       localizationsDelegates: appLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,

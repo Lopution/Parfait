@@ -21,6 +21,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/prompt_host.dart';
 
 /// Mute API transport: one muted tag on the server; every `/v1/mute/edit`
 /// is recorded and answered with [editStatus].
@@ -100,6 +101,7 @@ Future<(ProviderContainer, _MuteApi)> _pump(
       UncontrolledProviderScope(
         container: container,
         child: const MaterialApp(
+          builder: promptHostBuilder,
           locale: Locale('zh', 'CN'),
           supportedLocales: [Locale('zh', 'CN')],
           localizationsDelegates: appLocalizationsDelegates,
@@ -165,7 +167,7 @@ void main() {
       find.descendant(of: row(), matching: find.byType(FadeTransition)).first,
     );
     expect(fade.opacity.value, 1);
-    expect(find.byType(SnackBar), findsOneWidget);
+    expect(shownPrompt, findsOneWidget);
   });
 
   testWidgets('a landed unmute offers Undo, which mutes the tag again', (
@@ -180,7 +182,7 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
     expect(container.read(muteStoreProvider).tags, isEmpty);
 
-    await tester.tap(find.widgetWithText(SnackBarAction, '撤销'));
+    await tester.tap(promptAction('撤销'));
     await _settle(tester);
     expect(api.edits.last['add_tags[]'], 'bad-tag');
     expect(container.read(muteStoreProvider).tags, {'bad-tag'});
@@ -279,7 +281,7 @@ void main() {
     expect(container.read(muteStoreProvider).isWorkMuted(7), isFalse);
     expect(find.text(workHint), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(SnackBarAction, '撤销'));
+    await tester.tap(promptAction('撤销'));
     await _settle(tester);
     final restored = container.read(muteStoreProvider).works[7]!;
     expect(restored.title, 'seven');
