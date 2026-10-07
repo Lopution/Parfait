@@ -2093,6 +2093,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get detailSectionTags => '标签';
 
   @override
+  String get detailViewAll => '查看全部';
+
+  @override
+  String get detailSectionAuthorWorks => '作者的其他作品';
+
+  @override
+  String get detailAuthorNoOtherWorks => '暂无其他作品';
+
+  @override
+  String get detailAuthorWorksLoadFailed => '作者作品加载失败';
+
+  @override
   String detailExpandPages(int count) {
     return '展开全部 $count 张';
   }

@@ -2190,6 +2190,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get detailSectionTags => 'Tags';
 
   @override
+  String get detailViewAll => 'See all';
+
+  @override
+  String get detailSectionAuthorWorks => 'More by this artist';
+
+  @override
+  String get detailAuthorNoOtherWorks => 'No other works yet';
+
+  @override
+  String get detailAuthorWorksLoadFailed =>
+      'Couldn\'t load the artist\'s works';
+
+  @override
   String detailExpandPages(int count) {
     return 'Show all $count images';
   }

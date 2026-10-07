@@ -1423,6 +1423,31 @@ The stats and author blocks stand on `surfaceContainerLow` with
 reached from the floating action bar; the info area has no comments
 button. The block uses the theme's text roles only.
 
+Below the info block, before related works, come two more sections, each
+under a `DetailSectionHeader` (header semantics, "See all" as
+`detailViewAll`):
+
+- **Comment preview** (`CommentsPreviewSlivers`): the first
+  `CommentsPreviewSlivers.shown` (3) root comments — avatar, name, two
+  lines of `CommentText` or the stamp — on one `surfaceContainerLow`
+  surface that opens the comments page. It reads
+  `commentFeedProvider(CommentFeedQuery.root(...))`, the comments page's
+  own feed, so that page opens on them. No comments: `commentNoResults`
+  with a `commentInput` action; a failure: `commentLoadFailed` with retry.
+- **Author's other works** (`AuthorWorksSlivers`): a horizontal strip of
+  up to 12 square tiles from the author page's works feed
+  (`profileIllustFeedProvider`, kind `work`), this work left out; each
+  tile is one button node named by the work's title. "See all" opens the
+  author. No other work: `detailAuthorNoOtherWorks`.
+
+Both, like related works, go through `OnDemandSliver`: nothing is
+requested until the section is on screen on the current pager page, and
+until then it holds a static placeholder (header plus a blank of the
+body's usual height, no spinner). The loading skeleton, the states and
+the content swap through `StateFade`. `CommentText` lives in
+`lib/app/widgets/` so the detail feature can use it without importing the
+comments feature.
+
 ### 2. Multi-image works
 
 On the narrow (single scroll) layout, an illustration (`IllustType.illust`)
@@ -1541,7 +1566,11 @@ On the narrow layout, once content renders:
   toggle; an illustration set opens on page 1, expands and folds back
   from the end button and from the pill, landing at page 1's end; manga
   shows every page, and page selection expands without a fold button; the
-  count leaves once page 1's last strip is behind the top bar; selection uses the shared bar
+  count leaves once page 1's last strip is behind the top bar; the comment
+  preview and author strip request nothing until on screen, show three
+  comments under a header and open the comments page, offer to write the
+  first comment, leave this work out of the strip and open the others,
+  and say when the author has no other work; selection uses the shared bar
   and back leaves the mode first; the viewer has one counter, no
   fullscreen button, a thumbnail jump grid with the current page selected,
   and a long work's sheet opens on the current page; the action bar holds

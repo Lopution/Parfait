@@ -2191,6 +2191,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String get detailSectionTags => 'Теги';
 
   @override
+  String get detailViewAll => 'Все';
+
+  @override
+  String get detailSectionAuthorWorks => 'Другие работы автора';
+
+  @override
+  String get detailAuthorNoOtherWorks => 'Других работ пока нет';
+
+  @override
+  String get detailAuthorWorksLoadFailed =>
+      'Не удалось загрузить работы автора';
+
+  @override
   String detailExpandPages(int count) {
     return 'Показать все ($count)';
   }

@@ -1176,6 +1176,22 @@
   "@detailSectionTags": {
     "description": "Section heading over the artwork tags."
   },
+  "detailViewAll": "查看全部",
+  "@detailViewAll": {
+    "description": "Action beside a detail-page section heading; opens the full list."
+  },
+  "detailSectionAuthorWorks": "作者的其他作品",
+  "@detailSectionAuthorWorks": {
+    "description": "Section heading over a strip of the author's other works."
+  },
+  "detailAuthorNoOtherWorks": "暂无其他作品",
+  "@detailAuthorNoOtherWorks": {
+    "description": "The author's other-works strip when the author has no other work."
+  },
+  "detailAuthorWorksLoadFailed": "作者作品加载失败",
+  "@detailAuthorWorksLoadFailed": {
+    "description": "The author's other-works strip failed to load."
+  },
   "detailExpandPages": "展开全部 {count} 张",
   "@detailExpandPages": {
     "description": "Under the first image of a multi-image illustration; shows the rest.",

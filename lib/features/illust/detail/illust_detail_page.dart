@@ -28,6 +28,8 @@ import '../../../app/motion/state_fade.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/widgets/feed/feed_states.dart';
+import 'author_works_section.dart';
+import 'comments_preview_section.dart';
 import 'related_illusts_section.dart';
 import 'widgets/detail_action_bar.dart';
 import 'widgets/detail_image_pager.dart';
@@ -723,6 +725,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
           ),
         ),
       ),
+      // Comment preview and the author's other works; like related works,
+      // each asks for its data only once it is on screen.
+      CommentsPreviewSlivers(illustId: widget.illustId),
+      AuthorWorksSlivers(entity: entity),
       // Official client behaviour: "関連作品" below the caption/tags,
       // paginated as the user scrolls to the bottom of the page.
       RelatedIllustsSlivers(illustId: widget.illustId),
