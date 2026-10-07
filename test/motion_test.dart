@@ -868,6 +868,25 @@ void main() {
       expect(_pressScale(tester), 1.0);
     });
 
+    testWidgets('a release after the press removed the widget is ignored', (
+      tester,
+    ) async {
+      // A long press that swaps the list it was in disposes the pressed
+      // widget while the finger is still down; the up event still reaches
+      // the old Listener.
+      await tester.pumpWidget(
+        _wrap(const PressScale(child: Text('card content'))),
+      );
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(PressScale)),
+      );
+      await tester.pump();
+      await tester.pumpWidget(_wrap(const Text('another list')));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('the press-feedback setting turns the scale off', (
       tester,
     ) async {
