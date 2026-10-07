@@ -108,6 +108,7 @@ class IllustEntity {
     this.metaSinglePageOriginalUrl,
     this.visible = true,
     this.createDate,
+    this.totalComments,
   });
 
   final int id;
@@ -141,6 +142,10 @@ class IllustEntity {
 
   /// `create_date` raw ISO string (display uses y/m/d per beta56).
   final String? createDate;
+
+  /// `total_comments`; null when the payload did not carry it (feed items
+  /// often omit it), so an unknown count is never shown as 0.
+  final int? totalComments;
 
   bool get isR18 => xRestrict == 1;
 
@@ -337,6 +342,7 @@ class IllustEntity {
     bool? visible,
     int? pageCount,
     Object? createDate = _sentinel,
+    Object? totalComments = _sentinel,
   }) {
     return IllustEntity(
       id: id,
@@ -369,6 +375,9 @@ class IllustEntity {
       createDate: identical(createDate, _sentinel)
           ? this.createDate
           : createDate as String?,
+      totalComments: identical(totalComments, _sentinel)
+          ? this.totalComments
+          : totalComments as int?,
     );
   }
 
@@ -404,6 +413,7 @@ class IllustEntity {
     'meta_single_page': {'original_image_url': metaSinglePageOriginalUrl},
     'visible': visible,
     'create_date': createDate,
+    'total_comments': totalComments,
   };
 
   /// Parses one illust object. Unknown/optional fields degrade gracefully;
@@ -496,6 +506,9 @@ class IllustEntity {
       ),
       visible: json['visible'] is! bool || (json['visible'] as bool),
       createDate: readOptionalString(json['create_date']),
+      totalComments: json['total_comments'] is int
+          ? json['total_comments'] as int
+          : null,
     );
   }
 
