@@ -3,6 +3,10 @@ import 'package:material_ui/material_ui.dart';
 
 import 'haptics/app_haptics.dart';
 
+/// How long the refresh indicator takes to shrink away once the refresh
+/// completes; the list retracts right after.
+const _indicatorExit = Duration(milliseconds: 200);
+
 /// The shared pull-to-refresh wrapper used by feed pages.
 ///
 /// EasyRefresh owns the complete scroll/refresh lifecycle. [MaterialHeader]
@@ -40,6 +44,10 @@ class PullToRefresh extends StatelessWidget {
             ? IndicatorPosition.locator
             : IndicatorPosition.above,
         safeArea: !isNested,
+        // This header owns the lifecycle; MaterialHeader below only paints.
+        // Its default 1s hold would keep the list pulled down over an empty
+        // gap long after the 200ms indicator exit — match the painter.
+        processedDuration: _indicatorExit,
         builder: (context, state) {
           final revealStart = 36.0;
           final revealRange = 20.0;
@@ -58,6 +66,7 @@ class PullToRefresh extends StatelessWidget {
             child: Opacity(
               opacity: terminal,
               child: MaterialHeader(
+                processedDuration: _indicatorExit,
                 triggerOffset: 100,
                 clamping: false,
                 position: isNested

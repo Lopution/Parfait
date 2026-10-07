@@ -243,6 +243,40 @@ void main() {
     expect(tester.getTopLeft(bar).dy, lessThan(844));
   });
 
+  testWidgets('bottom bar stays hidden when a deep link builds the stack', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    // A cold start from a link builds root + pushed page in one go: no
+    // didPushNext ever reaches the branch root.
+    final router = createPixivRouter(initialLocation: '/recommended/history');
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final bar = find.byType(FuncBottomNav);
+    expect(bar, findsOneWidget);
+    expect(tester.getTopLeft(bar).dy, greaterThanOrEqualTo(844));
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/recommended');
+    expect(tester.getTopLeft(bar).dy, lessThan(844));
+  });
+
   testWidgets('settings pushes over the shell and returns to the tab', (
     tester,
   ) async {

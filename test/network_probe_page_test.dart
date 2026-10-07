@@ -154,5 +154,7 @@ void main() {
     // No run yet: host cards render in the not-run state and no overview.
     expect(find.text('探测总览'), findsNothing);
     expect(find.text('尚未运行'), findsWidgets);
+    // The default mirror re-lists the origin image host: probe it once.
+    expect(find.text('i.pximg.net'), findsOneWidget);
   });
 }

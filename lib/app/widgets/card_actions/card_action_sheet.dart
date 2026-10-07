@@ -34,6 +34,9 @@ Future<void> showCardActionSheet(BuildContext context, IllustEntity entity) {
             label: entity.title,
             child: ListView(
               shrinkWrap: true,
+              // Scrolls only when it overflows; otherwise a drag on the
+              // actions moves the sheet (see showAppBottomSheet).
+              primary: false,
               children: [
                 _SheetHeader(entity),
                 for (final action in actions)

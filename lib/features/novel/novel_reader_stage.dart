@@ -698,6 +698,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                         constraints: const BoxConstraints(maxHeight: 240),
                         child: ListView.builder(
                           shrinkWrap: true,
+                          primary: false,
                           itemCount: chapters.length,
                           itemBuilder: (context, index) {
                             final chapter = chapters[index];
