@@ -203,6 +203,15 @@ class PromoteMessage extends WorkerMessage {
   final String url;
 }
 
+/// Starts ([watching]) or stops reporting download progress for [url].
+/// Progress is a subscription by URL, not a property of a fetch: a widget
+/// showing a progress ring may attach to a decode another caller started.
+class WatchMessage extends WorkerMessage {
+  const WatchMessage(this.url, {required this.watching});
+  final String url;
+  final bool watching;
+}
+
 /// Asks for an [ImageWorkerStatus]; [id] matches the reply.
 class StatusMessage extends WorkerMessage {
   const StatusMessage(this.id);
@@ -231,6 +240,8 @@ WorkerMessage decodeWorkerMessage(Object? raw) {
       return PromoteMessage(raw['url'] as String);
     case 'status':
       return StatusMessage(raw['id'] as int);
+    case 'watch':
+      return WatchMessage(raw['url'] as String, watching: raw['on'] as bool);
   }
   throw StateError('unknown worker message type: ${raw['type']}');
 }
@@ -252,6 +263,12 @@ Map<String, Object?> encodePromote(String url) => {
 Map<String, Object?> encodeStatusRequest(int id) => {
   'type': 'status',
   'id': id,
+};
+
+Map<String, Object?> encodeWatch(String url, {required bool watching}) => {
+  'type': 'watch',
+  'url': url,
+  'on': watching,
 };
 
 Map<String, Object?> encodeConfig(ImageWorkerConfig config) => {
@@ -286,6 +303,15 @@ class ResultEvent extends WorkerEvent {
   final int id;
   final String path;
   final int bytes;
+}
+
+/// [received] of [total] bytes of [url] have arrived; [total] is null when
+/// the response declared no length. Sent only for watched URLs, throttled.
+class ProgressEvent extends WorkerEvent {
+  const ProgressEvent(this.url, this.received, this.total);
+  final String url;
+  final int received;
+  final int? total;
 }
 
 class FailureEvent extends WorkerEvent {
@@ -327,6 +353,12 @@ Map<String, Object?> encodeWorkerEvent(WorkerEvent event) => switch (event) {
     'id': id,
     'path': path,
     'bytes': bytes,
+  },
+  ProgressEvent(:final url, :final received, :final total) => {
+    'type': 'progress',
+    'url': url,
+    'received': received,
+    'total': total,
   },
   FailureEvent(:final id, :final message, :final statusCode) => {
     'type': 'failure',
@@ -387,6 +419,11 @@ WorkerEvent decodeWorkerEvent(Object? raw) {
       raw['id'] as int,
       raw['path'] as String,
       raw['bytes'] as int,
+    ),
+    'progress' => ProgressEvent(
+      raw['url'] as String,
+      raw['received'] as int,
+      raw['total'] as int?,
     ),
     'failure' => FailureEvent(
       raw['id'] as int,

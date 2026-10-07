@@ -71,7 +71,10 @@ class _Harness {
   late SendPort worker;
   _Server? server;
 
-  Future<void> start({http.Client Function()? fetchClient}) async {
+  Future<void> start({
+    http.Client Function()? fetchClient,
+    DateTime Function()? clock,
+  }) async {
     dir = Directory.systemTemp.createTempSync('parfait-worker-');
     addTearDown(() => dir.delete(recursive: true));
     mainPort.listen((m) => _events.add(decodeWorkerEvent(m)));
@@ -81,6 +84,7 @@ class _Harness {
       cacheDir: dir.path,
       transportInit: () async {},
       fetchClient: fetchClient,
+      clock: clock,
     );
     unawaited(host.run());
     worker = await workerReady();
@@ -117,6 +121,16 @@ class _Harness {
   }
 
   void cancel(int id) => worker.send(encodeCancel(id));
+
+  void watch(String url, {bool watching = true}) =>
+      worker.send(encodeWatch(url, watching: watching));
+
+  /// Every progress report received and not yet taken, oldest first.
+  List<ProgressEvent> takeProgress() {
+    final progress = _received.whereType<ProgressEvent>().toList();
+    _received.removeWhere((e) => e is ProgressEvent);
+    return progress;
+  }
 
   bool _matches(WorkerEvent e, int id) =>
       (e is ResultEvent && e.id == id) || (e is FailureEvent && e.id == id);
@@ -305,5 +319,108 @@ void main() {
     for (var i = 0; i < 8; i++) {
       expect(await harness.eventFor(100 + i), isA<ResultEvent>());
     }
+  });
+
+  test('progress goes out for watched URLs only, a tenth at a time', () async {
+    // RangeServingClient answers in 64 KiB chunks: ten of them.
+    const chunk = 64 * 1024;
+    const size = 10 * chunk;
+    const watched = 'https://i.pximg.net/img-master/watched.jpg';
+    const unwatched = 'https://i.pximg.net/img-master/unwatched.jpg';
+    const dropped = 'https://i.pximg.net/img-master/dropped.jpg';
+    final client = RangeServingClient({
+      for (final url in [watched, unwatched, dropped]) url: patternBytes(size),
+    });
+    // Every reading is a second on: the interval never holds a tenth back.
+    var now = DateTime(2026, 10, 7);
+    final harness = _Harness();
+    addTearDown(harness.stop);
+    await harness.start(
+      fetchClient: () => client,
+      clock: () => now = now.add(const Duration(seconds: 1)),
+    );
+
+    harness
+      ..watch(watched)
+      ..watch(dropped)
+      ..watch(dropped, watching: false)
+      ..fetch(1, watched)
+      ..fetch(2, unwatched)
+      ..fetch(3, dropped);
+    for (final id in [1, 2, 3]) {
+      expect(await harness.eventFor(id), isA<ResultEvent>());
+    }
+    final progress = harness.takeProgress();
+    expect([for (final p in progress) p.url], everyElement(watched));
+    expect(
+      [for (final p in progress) p.received],
+      [for (var i = 1; i <= 10; i++) i * chunk],
+    );
+    expect([for (final p in progress) p.total], everyElement(size));
+
+    // A disk hit transfers nothing, so it reports nothing.
+    harness.fetch(4, watched);
+    expect(await harness.eventFor(4), isA<ResultEvent>());
+    expect(harness.takeProgress(), isEmpty);
+  });
+
+  test('watch and progress messages survive the wire', () {
+    for (final watching in [true, false]) {
+      expect(
+        decodeWorkerMessage(encodeWatch('u', watching: watching)),
+        isA<WatchMessage>()
+            .having((m) => m.url, 'url', 'u')
+            .having((m) => m.watching, 'watching', watching),
+      );
+    }
+    for (final total in [1000, null]) {
+      expect(
+        decodeWorkerEvent(encodeWorkerEvent(ProgressEvent('u', 10, total))),
+        isA<ProgressEvent>()
+            .having((e) => e.url, 'url', 'u')
+            .having((e) => e.received, 'received', 10)
+            .having((e) => e.total, 'total', total),
+      );
+    }
+  });
+
+  group('ImageProgressThrottle', () {
+    late DateTime now;
+    late ImageProgressThrottle throttle;
+    setUp(() {
+      now = DateTime(2026, 10, 7);
+      throttle = ImageProgressThrottle(clock: () => now);
+    });
+    void wait(int ms) => now = now.add(Duration(milliseconds: ms));
+
+    test('the first bytes report at once, short of a tenth', () {
+      expect(throttle.shouldReport(1, 1000), isTrue);
+    });
+
+    test('a further report needs a new tenth and the interval', () {
+      expect(throttle.shouldReport(50, 1000), isTrue);
+      wait(500);
+      expect(throttle.shouldReport(99, 1000), isFalse, reason: 'same tenth');
+      expect(throttle.shouldReport(100, 1000), isTrue);
+      wait(50);
+      expect(throttle.shouldReport(250, 1000), isFalse, reason: 'too soon');
+      wait(50);
+      expect(throttle.shouldReport(260, 1000), isTrue);
+    });
+
+    test('a jump over several tenths reports once', () {
+      expect(throttle.shouldReport(10, 1000), isTrue);
+      wait(100);
+      expect(throttle.shouldReport(900, 1000), isTrue);
+      wait(100);
+      expect(throttle.shouldReport(990, 1000), isFalse);
+      expect(throttle.shouldReport(1000, 1000), isTrue);
+    });
+
+    test('without a total only the first bytes report', () {
+      expect(throttle.shouldReport(10, null), isTrue);
+      wait(1000);
+      expect(throttle.shouldReport(1 << 20, null), isFalse);
+    });
   });
 }

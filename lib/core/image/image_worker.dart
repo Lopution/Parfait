@@ -49,6 +49,10 @@ class ImageWorker implements ImageFetcher {
   void Function(String identity, String group, String kind)? onRouteKindLearned;
   void Function(String host)? onRouteExhausted;
 
+  /// Progress listeners by URL. They outlive any one isolate: a
+  /// replacement is told to report every URL still here.
+  final _progressListeners = <String, Set<ImageProgressListener>>{};
+
   Future<ImageWorkerClient>? _client;
   ImageWorkerClient? _live;
   var _starts = 0;
@@ -102,6 +106,30 @@ class ImageWorker implements ImageFetcher {
     return client.fetch(url, priority: priority);
   }
 
+  /// Calls [listener] with [url]'s download progress until the returned
+  /// function is called. Only a transfer reports progress: a disk hit
+  /// reports nothing.
+  void Function() watchProgress(String url, ImageProgressListener listener) {
+    final listeners = _progressListeners.putIfAbsent(url, () => {});
+    if (listeners.isEmpty) _live?.watchProgress(url, watching: true);
+    listeners.add(listener);
+    return () {
+      final listeners = _progressListeners[url];
+      if (listeners == null || !listeners.remove(listener)) return;
+      if (listeners.isNotEmpty) return;
+      _progressListeners.remove(url);
+      _live?.watchProgress(url, watching: false);
+    };
+  }
+
+  void _reportProgress(String url, int received, int? total) {
+    final listeners = _progressListeners[url];
+    if (listeners == null) return;
+    for (final listener in List.of(listeners)) {
+      listener(received, total);
+    }
+  }
+
   /// Sends the current settings to the running worker. A worker that
   /// starts later reads them itself.
   Future<void> configChanged() async {
@@ -146,6 +174,7 @@ class ImageWorker implements ImageFetcher {
       ..onFastRouteLearned = onFastRouteLearned
       ..onRouteKindLearned = onRouteKindLearned
       ..onRouteExhausted = onRouteExhausted
+      ..onProgress = _reportProgress
       ..onDied = (error) {
         _lastFailure = error;
         if (!identical(_live, client)) return;
@@ -153,6 +182,9 @@ class ImageWorker implements ImageFetcher {
         _client = null;
       };
     _live = client;
+    for (final url in _progressListeners.keys) {
+      client.watchProgress(url, watching: true);
+    }
     return client;
   }
 
@@ -165,6 +197,9 @@ class ImageWorker implements ImageFetcher {
     await live?.dispose();
   }
 }
+
+/// Bytes of an image received so far; [total] is null when unknown.
+typedef ImageProgressListener = void Function(int received, int? total);
 
 enum ImageWorkerState {
   /// No request has needed it yet.

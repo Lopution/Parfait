@@ -9,6 +9,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
+import 'package:parfait/core/image/worker_image_provider.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 
 import 'helpers/image_network.dart';
@@ -33,7 +34,7 @@ class _PendingCacheManager extends ScriptedCacheManager {
 }
 
 /// Both pipelines in one scope: the worker serves a PNG for every URL, the
-/// legacy download never finishes.
+/// legacy download (original files only) never finishes.
 class _World {
   final workerUrls = <String>[];
   final legacy = _PendingCacheManager();
@@ -57,18 +58,6 @@ class _World {
   );
 }
 
-/// Real IO turns between pumps until [done] (the worker's hops each need
-/// one), failing after a bound.
-Future<void> _settleUntil(WidgetTester tester, bool Function() done) async {
-  for (var i = 0; i < 60 && !done(); i++) {
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 20)),
-    );
-    await tester.pump();
-  }
-  expect(done(), isTrue, reason: 'settled within the bound');
-}
-
 bool _painted(WidgetTester tester) => tester
     .widgetList<RawImage>(find.byType(RawImage))
     .any((image) => image.image != null);
@@ -80,13 +69,13 @@ void main() {
       ..clearLiveImages(),
   );
 
-  testWidgets('a worker card frame stands in while the legacy detail image '
+  testWidgets('a worker card frame stands in while the legacy original '
       'loads', (tester) async {
-    // The card → detail Hero: the card decoded on the worker, the detail
-    // image reports progress and loads on the legacy pipeline. The card's
-    // frame must cover the detail slot until its own decode lands.
+    // The card → viewer Hero: the card decoded on the worker, the viewer
+    // shows the original file, still on the legacy pipeline. The card's
+    // frame must cover the viewer slot until its own decode lands.
     const card = 'https://i.pximg.net/img-master/hand-off_square.jpg';
-    const detail = 'https://i.pximg.net/img-master/hand-off_master.jpg';
+    const original = 'https://i.pximg.net/img-original/hand-off_p0.png';
     final world = _World();
     await tester.pumpWidget(
       world.host(
@@ -97,18 +86,18 @@ void main() {
         ),
       ),
     );
-    await _settleUntil(tester, () => _painted(tester));
+    await pumpIoUntil(tester, () => _painted(tester));
     expect(world.workerUrls, [card]);
 
     final progress = ValueNotifier(const ImageLoadProgress.idle());
     addTearDown(progress.dispose);
-    // A fresh element, as on the detail route.
+    // A fresh element, as on the viewer route.
     await tester.pumpWidget(
       world.host(
         KeyedSubtree(
           key: UniqueKey(),
           child: PixivImage(
-            url: detail,
+            url: original,
             transitionKey: 'hand-off',
             progress: progress,
           ),
@@ -116,64 +105,61 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(world.legacy.urls, [detail]);
+    expect(world.legacy.urls, [original]);
     expect(_painted(tester), isTrue, reason: 'the card frame stands in');
     expect(world.workerUrls, [card], reason: 'the stand-in is not refetched');
   });
 
-  testWidgets('a legacy request for a URL the worker decoded does not hide '
-      'the worker frame', (tester) async {
-    // A tier record says the tier decoded, not where. The detail image
-    // (legacy) of the card's own URL must not count as decoded because the
-    // card recorded the tier — a later hand-off would pick it as the
-    // stand-in and wait on its download instead of the card's frame.
-    const card = 'https://i.pximg.net/img-master/record_medium.jpg';
-    const next = 'https://i.pximg.net/img-master/record_large.jpg';
+  testWidgets('a detail image with progress decodes the card\'s file on the '
+      'worker', (tester) async {
+    // The detail page shows the card's URL uncapped, with a progress ring.
+    // Both decodes are the worker's: the file the card downloaded is read
+    // from disk, nothing is fetched again and the ring never shows.
+    const url = 'https://i.pximg.net/img-master/shared_master.jpg';
     final world = _World();
+    await tester.pumpWidget(
+      world.host(
+        const PixivImage(url: url, memCacheWidth: 200, transitionKey: 'same'),
+      ),
+    );
+    await pumpIoUntil(tester, () => _painted(tester));
+
     final progress = ValueNotifier(const ImageLoadProgress.idle());
     addTearDown(progress.dispose);
-    Widget fresh(PixivImage image) =>
-        world.host(KeyedSubtree(key: UniqueKey(), child: image));
+    final reports = <ImageLoadProgress>[];
+    progress.addListener(() => reports.add(progress.value));
     await tester.pumpWidget(
-      fresh(
-        const PixivImage(
-          url: card,
-          memCacheWidth: 200,
-          transitionKey: 'record',
-          tierKey: 'record:0',
-          tier: IllustImageTier.medium,
+      world.host(
+        KeyedSubtree(
+          key: UniqueKey(),
+          child: PixivImage(
+            url: url,
+            transitionKey: 'same',
+            progress: progress,
+          ),
         ),
       ),
     );
-    await _settleUntil(tester, () => _painted(tester));
-    await tester.pumpWidget(
-      fresh(
-        PixivImage(
-          url: card,
-          transitionKey: 'record',
-          tierKey: 'record:0',
-          tier: IllustImageTier.medium,
-          progress: progress,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pumpWidget(
-      fresh(PixivImage(url: next, transitionKey: 'record', progress: progress)),
-    );
-    await tester.pump();
-    expect(world.legacy.urls, [card, next]);
     expect(_painted(tester), isTrue, reason: 'the card frame stands in');
+    final uncapped = WorkerImageProvider(world.worker, url);
+    await pumpIoUntil(
+      tester,
+      () =>
+          PaintingBinding.instance.imageCache.statusForKey(uncapped).keepAlive,
+    );
+    expect(world.workerUrls, [url]);
+    expect(world.legacy.urls, isEmpty);
+    expect(reports.where((report) => report.loading), isEmpty);
   });
 
-  testWidgets('a lower tier the worker decoded underlays a legacy viewer '
-      'page without a fetch', (tester) async {
+  testWidgets('a lower tier the worker decoded underlays a legacy original '
+      'without a fetch', (tester) async {
     // A viewer page with no Hero history paints the best lower tier of the
     // same page while its own tier loads. The card decoded that tier on
     // the worker, at the card's width: the underlay must be that decode,
-    // not an uncapped legacy one that would download the file again.
+    // not an uncapped one that would download the file again.
     const medium = 'https://i.pximg.net/img-master/underlay_medium.jpg';
-    const large = 'https://i.pximg.net/img-master/underlay_large.jpg';
+    const original = 'https://i.pximg.net/img-original/underlay_p0.png';
     final world = _World();
     await tester.pumpWidget(
       world.host(
@@ -185,7 +171,7 @@ void main() {
         ),
       ),
     );
-    await _settleUntil(tester, () => _painted(tester));
+    await pumpIoUntil(tester, () => _painted(tester));
 
     final progress = ValueNotifier(const ImageLoadProgress.idle());
     addTearDown(progress.dispose);
@@ -194,9 +180,9 @@ void main() {
         KeyedSubtree(
           key: UniqueKey(),
           child: PixivImage(
-            url: large,
+            url: original,
             tierKey: 'underlay:0',
-            tier: IllustImageTier.large,
+            tier: IllustImageTier.original,
             progress: progress,
           ),
         ),
@@ -204,7 +190,7 @@ void main() {
     );
     await tester.pump();
     expect(_painted(tester), isTrue, reason: 'the medium tier underlays');
-    expect(world.legacy.urls, [large]);
+    expect(world.legacy.urls, [original]);
     expect(world.workerUrls, [medium]);
   });
 
@@ -212,29 +198,23 @@ void main() {
       'show it', (tester) async {
     const preview = 'https://i.pximg.net/img-master/preload_square.jpg';
     const detail = 'https://i.pximg.net/img-master/preload_master.jpg';
+    const original = 'https://i.pximg.net/img-original/preload_p0.png';
     final world = _World();
     await tester.pumpWidget(world.host(const SizedBox()));
     final context = tester.element(find.byType(SizedBox).last);
 
-    final previewDone = PixivImage.preload(
-      context,
-      preview,
-      memCacheWidth: 200,
-    );
-    // The detail page shows progress, so it stays legacy.
-    unawaited(
-      PixivImage.preload(
-        context,
-        detail,
-        cacheManager: world.legacy,
-        memCacheWidth: 200,
-        useWorker: false,
-      ),
-    );
-    // An original file and an uncapped decode stay legacy, as the widget
-    // would load them.
-    const original = 'https://i.pximg.net/img-original/preload_p0.png';
-    const uncapped = 'https://i.pximg.net/img-master/preload_uncapped.jpg';
+    final results = <ImagePreloadResult>[];
+    for (final (url, width) in [(preview, 200), (detail, null)]) {
+      unawaited(
+        PixivImage.preload(
+          context,
+          url,
+          cacheManager: world.legacy,
+          memCacheWidth: width,
+        ).then(results.add),
+      );
+    }
+    // An original file stays legacy, as the widget would load it.
     unawaited(
       PixivImage.preload(
         context,
@@ -243,17 +223,10 @@ void main() {
         memCacheWidth: 200,
       ),
     );
-    unawaited(
-      PixivImage.preload(context, uncapped, cacheManager: world.legacy),
-    );
-    var previewResult = ImagePreloadResult.failed;
-    unawaited(previewDone.then((result) => previewResult = result));
-    await _settleUntil(
-      tester,
-      () => previewResult == ImagePreloadResult.decoded,
-    );
-    expect(world.workerUrls, [preview]);
-    expect(world.legacy.urls, unorderedEquals([detail, original, uncapped]));
+    await pumpIoUntil(tester, () => results.length == 2);
+    expect(results, everyElement(ImagePreloadResult.decoded));
+    expect(world.workerUrls, unorderedEquals([preview, detail]));
+    expect(world.legacy.urls, [original]);
 
     // The warmed entry is the one the widget resolves: its first frame is
     // the image, with no placeholder and no second fetch.
@@ -261,6 +234,6 @@ void main() {
       world.host(const PixivImage(url: preview, memCacheWidth: 200)),
     );
     expect(_painted(tester), isTrue);
-    expect(world.workerUrls, [preview]);
+    expect(world.workerUrls, unorderedEquals([preview, detail]));
   });
 }

@@ -30,6 +30,41 @@ class ImageHttpStatus implements Exception {
   String toString() => 'HTTP $statusCode for $url';
 }
 
+/// When a watched transfer's progress is worth a message: the first bytes
+/// at once, then each further tenth of a known total, at most every
+/// [interval]. Without a total only the first report goes out — the ring
+/// can show no more than "loading" then. One instance per transfer.
+class ImageProgressThrottle {
+  ImageProgressThrottle({
+    DateTime Function()? clock,
+    this.interval = defaultInterval,
+  }) : _clock = clock ?? DateTime.now;
+
+  static const defaultInterval = Duration(milliseconds: 100);
+
+  /// Reports per transfer at most: one per tenth (the screen reader reads
+  /// the ring in tens).
+  static const steps = 10;
+
+  final DateTime Function() _clock;
+  final Duration interval;
+  DateTime? _lastAt;
+  var _lastStep = 0;
+
+  bool shouldReport(int received, int? total) {
+    final now = _clock();
+    final lastAt = _lastAt;
+    final step = total == null || total <= 0 ? 0 : received * steps ~/ total;
+    if (lastAt != null &&
+        (step <= _lastStep || now.difference(lastAt) < interval)) {
+      return false;
+    }
+    _lastAt = now;
+    _lastStep = step;
+    return true;
+  }
+}
+
 /// Isolate entry point. Spawned with a map:
 /// `{sendPort, config, cacheDir}`.
 @pragma('vm:entry-point')
@@ -85,6 +120,9 @@ class ImageWorkerHost {
   /// Requests between arrival and their scheduler submit (the disk lookup).
   final _lookingUp = <int>{};
 
+  /// URLs whose download progress the main isolate shows.
+  final _watched = <String>{};
+
   NetworkAccessPolicy? _policy;
   http.Client? _imageClient;
   ImageMirror _mirror = ImageMirror.direct;
@@ -123,6 +161,8 @@ class ImageWorkerHost {
           if (!_lookingUp.remove(id)) _scheduler.cancel(id);
         case PromoteMessage(:final url):
           _scheduler.promoteUrl(url);
+        case WatchMessage(:final url, :final watching):
+          watching ? _watched.add(url) : _watched.remove(url);
         case ConfigMessage(:final config):
           _applyConfig(config);
         case StatusMessage(:final id):
@@ -265,10 +305,29 @@ class ImageWorkerHost {
     }
     final file = await _cache.store(
       url,
-      response.stream,
+      _reportingProgress(url, response.stream, response.contentLength),
       expectedLength: response.contentLength,
     );
     return (file, response.contentLength ?? await file.length());
+  }
+
+  /// [body] with throttled progress reports while [url] is watched. The
+  /// watch is read per chunk, so a ring that appears mid-transfer starts
+  /// reporting with the next bytes.
+  Stream<List<int>> _reportingProgress(
+    String url,
+    Stream<List<int>> body,
+    int? total,
+  ) {
+    final throttle = ImageProgressThrottle(clock: _clock);
+    var received = 0;
+    return body.map((chunk) {
+      received += chunk.length;
+      if (_watched.contains(url) && throttle.shouldReport(received, total)) {
+        _send(ProgressEvent(url, received, total));
+      }
+      return chunk;
+    });
   }
 
   void _reportFailure(int id, Object error) {

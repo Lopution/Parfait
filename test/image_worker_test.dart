@@ -112,6 +112,44 @@ void main() {
     expect(worker.starts, 2);
   });
 
+  test('progress reaches each watcher of a URL until it stops', () async {
+    final starts = _Starts([null]);
+    addTearDown(starts.close);
+    final worker = _worker(starts.call);
+    final first = <(int, int?)>[];
+    final second = <(int, int?)>[];
+    final stopFirst = worker.watchProgress(_url, (r, t) => first.add((r, t)));
+    final stopSecond = worker.watchProgress(_url, (r, t) => second.add((r, t)));
+    addTearDown(stopSecond);
+    stopFirst();
+
+    await _fetch(worker);
+    expect(first, isEmpty);
+    expect(second, [(onePixelPng.length, onePixelPng.length)]);
+  });
+
+  test('every worker that starts is told the watched URLs, a replacement '
+      'included', () async {
+    final starts = _Starts([readyThenExitWorkerEntry, null]);
+    addTearDown(starts.close);
+    final worker = _worker(starts.call);
+    final reports = <int>[];
+    addTearDown(
+      worker.watchProgress(_url, (received, _) => reports.add(received)),
+    );
+
+    await expectLater(_fetch(worker), throwsA(isA<ImageWorkerUnavailable>()));
+    final deadline = DateTime.now().add(_exitBound);
+    while (worker.live != null && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(worker.live, isNull);
+
+    await _fetch(worker);
+    expect(worker.starts, 2);
+    expect(reports, [onePixelPng.length]);
+  });
+
   test('failed starts are retried until the budget is spent', () async {
     var calls = 0;
     final worker = _worker((_, _) async {

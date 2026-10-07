@@ -60,6 +60,9 @@ class ImageWorkerClient implements ImageFetcher {
   void Function(String identity, String group, String kind)? onRouteKindLearned;
   void Function(String host)? onRouteExhausted;
 
+  /// Download progress of a URL [watchProgress] turned on.
+  void Function(String url, int received, int? total)? onProgress;
+
   /// Called once when the worker dies (never on [dispose]).
   void Function(Object error)? onDied;
 
@@ -221,6 +224,12 @@ class ImageWorkerClient implements ImageFetcher {
     if (_idsByUrl.containsKey(url)) _worker.send(encodePromote(url));
   }
 
+  /// Starts or stops progress reports for [url]. The caller counts its
+  /// watchers; this only forwards the switch.
+  void watchProgress(String url, {required bool watching}) {
+    if (_dead == null) _worker.send(encodeWatch(url, watching: watching));
+  }
+
   /// The worker's queue and disk usage right now.
   Future<ImageWorkerStatus> status() {
     final dead = _dead;
@@ -262,6 +271,8 @@ class ImageWorkerClient implements ImageFetcher {
           id,
           (entry) => entry.$2.complete(FetchResult(id, File(path), bytes)),
         );
+      case ProgressEvent(:final url, :final received, :final total):
+        onProgress?.call(url, received, total);
       case FailureEvent(:final id, :final message, :final statusCode):
         _complete(
           id,

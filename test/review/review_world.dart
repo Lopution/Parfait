@@ -251,9 +251,8 @@ class ReviewWorld {
         appAccessibilityProvider.overrideWithValue(
           _ReviewAccessibility(touchExploration),
         ),
-        // Images: generated PNGs. Capped thumbnails load through the real
-        // image worker; progress, originals and uncapped images through
-        // the legacy cache chain.
+        // Images: generated PNGs. Original files load through the legacy
+        // cache chain, everything else through the real image worker.
         imageWorkerProvider.overrideWithValue(
           inProcessImageWorker(
             () => MockClient(

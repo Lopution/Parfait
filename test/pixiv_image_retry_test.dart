@@ -15,16 +15,17 @@ import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/image_network.dart';
 
-/// One URL per pipeline: the legacy group's uncapped decode is recorded
-/// app-wide, and a capped request for a URL with one paints that instead.
-const _legacyUrl = 'https://i.pximg.net/img-master/retry-legacy.jpg';
+/// One URL per pipeline: only an original file still loads on the legacy
+/// one, and its uncapped decode is recorded app-wide — a capped request for
+/// a URL with one paints that instead.
+const _legacyUrl = 'https://i.pximg.net/img-original/retry-legacy.png';
 const _workerUrl = 'https://i.pximg.net/img-master/retry-worker.jpg';
 
 /// What the network does on one attempt.
 enum _Outcome { transient, notFound, image }
 
 /// Both image pipelines behind one script: the legacy cache manager (an
-/// uncapped image) and the background worker (a capped one). The retry
+/// original file) and the background worker (a capped image). The retry
 /// policy above them is shared, so every test runs on each.
 abstract class _Pipeline {
   _Outcome Function(int attempt) script = (_) => _Outcome.image;

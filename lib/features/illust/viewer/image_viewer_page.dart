@@ -23,6 +23,7 @@ import '../../../core/illust/illust_download_controller.dart';
 import '../../../core/share/share_service.dart';
 import '../../../core/network/compat/image_demand.dart';
 import '../../../core/network/compat/network_providers.dart';
+import '../../../core/image/image_worker_providers.dart';
 import '../../../app/system_ui.dart';
 import '../../../app/theme/func_tokens.dart';
 import '../../../l10n/lookup.dart';
@@ -209,28 +210,31 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     } on StateError {
       return;
     }
-    final network = container.read(pixivNetworkFactoryProvider);
     final neighbours = <int, String>{
       for (final neighbour in [page - 1, page + 1])
         if (neighbour >= 0 && neighbour < _pageCount)
           neighbour: ?urlFor(neighbour),
     };
     // A page turn replaces the window: a still-queued warm-up for a page
-    // the user swiped away from is dropped.
-    final demand = network.imageDemand
+    // the user swiped away from is dropped. The neighbours load through the
+    // image worker, so the window is the worker's.
+    final demand = container.read(imageWorkerProvider).demand
       ..setPrefetchWindow(this, neighbours.values.toSet());
+    // A tier record can upgrade a neighbour to its original file, which
+    // still loads on the legacy pipeline.
+    final legacyCache = container
+        .read(pixivNetworkFactoryProvider)
+        .imageCacheManager;
     _prefetchDemand = demand;
     for (final MapEntry(key: neighbour, value: url) in neighbours.entries) {
       unawaited(
         PixivImage.preload(
           context,
           url,
-          cacheManager: network.imageCacheManager,
+          cacheManager: legacyCache,
           demand: demand,
           tierKey: widget.tierKeyForPage?.call(neighbour),
           tier: IllustImageTier.medium,
-          // Viewer pages show a progress ring.
-          useWorker: false,
         ).catchError((_) => ImagePreloadResult.failed),
       );
     }
