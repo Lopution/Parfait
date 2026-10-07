@@ -432,7 +432,8 @@ its use case calls for:
 | Use case | Control | Examples |
 |---|---|---|
 | Peer views | Top tabs (`AppTabBar`, Tab Navigation Animation Contract) | search guide types, Spotlight categories, bookmark tags public/private |
-| A setting with one value from a short list | `SettingsMenuTile` (current value + menu) | image qualities, animation speed, haptic strength |
+| A setting with one value from a short list (2–4) | `SettingsMenuTile` (current value at the row's end + menu) | image qualities, animation speed, haptic strength |
+| A setting with one value from a longer list | A `SettingsGroup` of `SettingsChoiceTile`s | language, theme, page transition |
 | A two-way property | A switch (`SettingsControl`) | the bookmark sheet's "private" |
 | A choice of action | Buttons, one per action | the follow sheet |
 | A list filter | `FilterMenuButton`: a "current value ▾" button opening a menu | own bookmarks and follows (Profile Header Contract) |
@@ -709,18 +710,25 @@ its own text link, at least 48dp tall, one semantics node labelled with
 its text; following opens the following tab, My Pixiv opens its tab on
 your own page and is plain text elsewhere (another user's My Pixiv list
 has no tab). A preview snapshot without detail counters shows no line
-rather than zeros. On a narrow screen the line wraps. Work counts live on
-the tabs; the about tab lists every count (`ProfileStatistic` rows).
+rather than zeros. On a narrow screen the line wraps. Work totals sit
+above their lists (see Tabs); the about tab lists every count
+(`ProfileStatistic` rows).
 
 **Tabs.** `UserPage` builds one tab per work type the user has — illust,
 manga, novel, series, each only when its count is above zero — labelled
-"name count" (`AppFormat.count`; `AppTabBar` draws labels with tabular
-figures). Series counts illust series only: the series tab lists
+with the name alone. A count would widen the labels past an equal share
+of the row (five zh tabs fit 360dp only without them) and flip the row
+to scrolling once the detail loads; each work list instead starts with
+its total ("共 N 件", `profileWorksTotal`, `AppFormat.count`), fixed
+above the list in the slot your own bookmarks and follows use for their
+filters, and absent from a preview snapshot. In ja, en and ru the labels
+are wider than an equal share at 360dp, so the row scrolls there (the
+`AppTabBar` rule). Series counts illust series only: the series tab lists
 `/v1/user/illust-series`, and no endpoint lists a user's novel series.
 Another user's page puts the work tabs first, then bookmarks, following,
 about; your own keeps bookmarks, following, fans, My Pixiv first and the
 work tabs last. A preview snapshot without counters keeps all four work
-tabs, without counts. The tab controller is rebuilt when the set of tabs
+tabs. The tab controller is rebuilt when the set of tabs
 changes on refresh; the selected tab stays selected if it survives,
 otherwise the first tab is selected. `ReplicaProfileTabsDelegate` takes
 the labels and is a constant 56dp `AppTabBar`.
@@ -744,8 +752,10 @@ only share, edit, bulk download and copy link.
   height monotonically with no jumps.
 - Name row at 320dp / 1.3x for both pages: the long name ellipsizes, share
   and the main action stay on its row, the statistics line sits below.
-- Tabs: only types with works, with counts; no works opens on the first
-  other tab; a tab that disappears on refresh falls back to the first.
+- Tabs: only types with works, labelled without counts, each work list
+  showing its total and the other lists none; five zh tabs (yours and
+  another user's) share 360dp evenly; no works opens on the first other
+  tab; a tab that disappears on refresh falls back to the first.
 - Stats: following opens its tab with a 48dp target; another user's My
   Pixiv is no button. `profile_statistics_test.dart` covers the line on
   its own (one line, semantics, wrapping).
@@ -769,7 +779,14 @@ check and checked semantics) and `destructive` (label and icon in the
 `danger` color — delete and other irreversible actions, which still
 confirm before acting); `onSelected` receives the anchor's context;
 `style` forwards to the default `IconButton` (over-artwork palette);
-`anchorBuilder` replaces the anchor (the reverse-image engine chip). The
+`anchorBuilder` replaces the anchor (the reverse-image engine chip).
+The menu opens below its anchor, lined up with the anchor's end edge
+(`edge: AppMenuEdge.end`, the default — M3 for ⋮ buttons and values at
+the end of a row); a dropdown at the start of a row (`FilterMenuButton`)
+passes `AppMenuEdge.start`. `MenuAnchor` itself only lines up start
+edges and the menu's width is known only at layout, so the end edge is
+the start edge of a `MenuAnchor` laid out in the mirrored direction; the
+anchor and the items are wrapped back in the ambient direction. The
 panel is width-capped at `kAppMenuMaxWidth` with
 `crossAxisUnconstrained: false` — the default lets the panel grow past
 the cap and clip long labels instead of truncating them. Menu items have
@@ -814,7 +831,8 @@ the same thing, the visible one stays and the entry goes.
 
 Owning tests: `app_menu_button_test.dart` (outside press closes, no
 scroll or tap passes through, back closes the menu first, checked and
-disabled rows, reduced motion, 320-wide ru truncation) and
+disabled rows, reduced motion, 320-wide ru truncation, end and start
+edge alignment in LTR and RTL with the anchor and items unmirrored) and
 `app_overlays_test.dart` (drag-release closes one layer, release over the
 content keeps it open, non-dismissible stays, scrim dismiss action).
 
@@ -2140,16 +2158,20 @@ reintroduce it or hand-build group containers.
     while the palette loads). `contentPadding` lines the row up inside an
     already padded form (the bookmark sheet).
   - `SettingsMenuTile<T>(title:, value:, options:, onChanged:, icon:,
-    haptics:)` is a setting with one value from a short list: title,
-    the current option's label as subtitle, `Icons.arrow_drop_down`
-    trailing. A tap opens an `AppMenuButton` menu anchored to the row
-    (outside press and back close it); every option is checkable and the
+    haptics:)` is a setting with one value from two to four options
+    (asserted; a longer list is an inline group of `SettingsChoiceTile`s):
+    title, and at the row's end the current option's label (subtitle look,
+    at most 160dp, ellipsized) with `Icons.arrow_drop_down`. A tap opens
+    an `AppMenuButton` menu anchored to the row and lined up with its end
+    edge — below the row, under the value, never over the title (outside
+    press and back close it); every option is checkable and the
     one matching `value` is checked — `options` are `AppMenuEntry`s whose
     own `checked` is ignored. A different pick plays `select` (unless
     `haptics: false`) and calls `onChanged`; the current one changes
     nothing; `onChanged: null` disables the row. Explanations go in the
     group `footer`. Owning tests: `settings_test.dart` (current value,
-    checked semantics, back closes, write and update),
+    checked semantics, value at the row end, menu below the row on its end
+    edge, back closes, write and update),
     `selection_controls_haptics_test.dart`.
   - `SettingsChoiceTile` is one option in a single-choice list. It always
     sets `ListTile.selected` and, when selected, shows a `primary`

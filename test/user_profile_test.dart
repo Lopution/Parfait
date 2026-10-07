@@ -1126,9 +1126,8 @@ void main() {
     },
   );
 
-  testWidgets('work tabs follow the types a user has, with their counts', (
-    tester,
-  ) async {
+  testWidgets('work tabs follow the types a user has; each list shows its '
+      'total', (tester) async {
     final repository = FakeUserRepository(
       detail: sampleUser(42).copyWith(
         totalIllusts: 12345,
@@ -1142,21 +1141,25 @@ void main() {
 
     // Manga and series are empty, and novel series have no list of their
     // own: neither gets a tab.
-    expect(_tabLabels(tester), ['插画 1.2万', '小说 3', '收藏', '关注', '关于']);
-    // Another user's lists have no filters to offer.
+    // The labels carry no counts: they share the row evenly.
+    expect(_tabLabels(tester), ['插画', '小说', '收藏', '关注', '关于']);
+    expect(find.text('共 1.2万 件'), findsOneWidget);
+    // Another user's lists have no filters to offer, and no total.
     await tester.tap(find.text('收藏'));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('profile-filter-restrict')), findsNothing);
-    await tester.tap(find.text('插画 1.2万'));
+    expect(find.textContaining('共 '), findsNothing);
+    await tester.tap(find.text('插画'));
     await tester.pumpAndSettle();
     expect(find.byType(ChoiceChip), findsNothing);
     expect(repository.requests, contains('works:42:illust:first'));
     expect(find.byType(EasyRefresh), findsOneWidget);
     expect(find.byType(HeaderLocator), findsOneWidget);
 
-    await tester.tap(find.text('小说 3'));
+    await tester.tap(find.text('小说'));
     await tester.pumpAndSettle();
     expect(find.byType(ProfileNovelFeed), findsOneWidget);
+    expect(find.text('共 3 件'), findsOneWidget);
     expect(_selectedTabIndex(tester), 1);
 
     // Re-tapping a tab keeps it selected.
@@ -1332,16 +1335,16 @@ void main() {
     repository.detail = repository.detail.copyWith(totalNovels: 1);
     await container.read(userDetailControllerProvider(42).notifier).reload();
     await tester.pumpAndSettle();
-    expect(_tabLabels(tester), ['插画 2', '漫画 2', '小说 1', '收藏', '关注', '关于']);
+    expect(_tabLabels(tester), ['插画', '漫画', '小说', '收藏', '关注', '关于']);
     expect(_selectedTabIndex(tester), 3);
 
     // The selected tab is gone after the refresh: the first tab takes over.
-    await tester.tap(find.text('漫画 2'));
+    await tester.tap(find.text('漫画'));
     await tester.pumpAndSettle();
     repository.detail = repository.detail.copyWith(totalManga: 0);
     await container.read(userDetailControllerProvider(42).notifier).reload();
     await tester.pumpAndSettle();
-    expect(_tabLabels(tester), ['插画 2', '小说 1', '收藏', '关注', '关于']);
+    expect(_tabLabels(tester), ['插画', '小说', '收藏', '关注', '关于']);
     expect(_selectedTabIndex(tester), 0);
     expect(tester.takeException(), isNull);
   });
@@ -1363,15 +1366,7 @@ void main() {
     );
     final container = await makeProfileWorld(users: repository);
     await _pumpProfile(tester, container);
-    expect(_tabLabels(tester), [
-      '插画 13',
-      '漫画 14',
-      '小说 15',
-      '系列 3',
-      '收藏',
-      '关注',
-      '关于',
-    ]);
+    expect(_tabLabels(tester), ['插画', '漫画', '小说', '系列', '收藏', '关注', '关于']);
 
     // The header line: following opens its tab; another user's My Pixiv
     // list has no tab, so that count is plain text.
@@ -2670,32 +2665,39 @@ void main() {
     }
 
     const ownZh = ['收藏', '关注', '粉丝', '好P友', '插画'];
+    const othersZh = ['插画', '漫画', '收藏', '关注', '关于'];
 
-    testWidgets('isMe zh labels share equal-width slots at natural size', (
-      tester,
-    ) async {
-      await pumpTabs(tester, locale: const Locale('zh', 'CN'), labels: ownZh);
-      final bar = tester.widget<TabBar>(find.byType(TabBar));
-      expect(bar.isScrollable, isFalse);
-      expect(bar.tabAlignment, TabAlignment.fill);
-      // Slots live in the Expanded wrappers; a Tab's own box keeps its
-      // natural label size even when the bar fills the row.
-      final widths = [
-        for (var i = 0; i < 5; i++)
-          tester
-              .getRect(
-                find.ancestor(
-                  of: find.byType(Tab).at(i),
-                  matching: find.byType(Expanded),
-                ),
-              )
-              .width,
-      ];
-      for (final width in widths) {
-        expect(width, moreOrLessEquals(widths.first, epsilon: 0.01));
-      }
-      expect(labelFontSize(tester), labelSize);
-    });
+    for (final (name, labels) in [('own', ownZh), ('others', othersZh)]) {
+      testWidgets('$name zh five tabs share equal-width slots at 360dp, '
+          'natural size', (tester) async {
+        await pumpTabs(
+          tester,
+          locale: const Locale('zh', 'CN'),
+          labels: labels,
+          width: 360,
+        );
+        final bar = tester.widget<TabBar>(find.byType(TabBar));
+        expect(bar.isScrollable, isFalse);
+        expect(bar.tabAlignment, TabAlignment.fill);
+        // Slots live in the Expanded wrappers; a Tab's own box keeps its
+        // natural label size even when the bar fills the row.
+        final widths = [
+          for (var i = 0; i < 5; i++)
+            tester
+                .getRect(
+                  find.ancestor(
+                    of: find.byType(Tab).at(i),
+                    matching: find.byType(Expanded),
+                  ),
+                )
+                .width,
+        ];
+        for (final width in widths) {
+          expect(width, moreOrLessEquals(widths.first, epsilon: 0.01));
+        }
+        expect(labelFontSize(tester), labelSize);
+      });
+    }
 
     testWidgets('zh labels scroll at 2x text scale, still at 14sp', (
       tester,
@@ -2764,7 +2766,7 @@ void main() {
   );
 
   testWidgets('tab labels stay on one line at 1.3x text scale', (tester) async {
-    const labels = ['插画 1.2万', '漫画 3', '收藏', '关注', '关于'];
+    const labels = ['插画', '漫画', '收藏', '关注', '关于'];
     final controller = TabController(length: labels.length, vsync: tester);
     addTearDown(controller.dispose);
     tester.view.physicalSize = const Size(390, 844);

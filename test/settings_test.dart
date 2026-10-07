@@ -784,6 +784,16 @@ void main() {
       tester.getSemantics(row),
       isSemantics(isButton: true, label: '预览质量\n中图'),
     );
+    // The value sits at the row's end, after the title.
+    final rowRect = tester.getRect(row);
+    expect(
+      tester.getRect(find.descendant(of: preview, matching: find.text('中图'))),
+      predicate<Rect>(
+        (value) =>
+            value.left > tester.getRect(find.text('预览质量')).right &&
+            value.right > rowRect.center.dx,
+      ),
+    );
 
     await tester.tap(row);
     await tester.pumpAndSettle();
@@ -792,6 +802,13 @@ void main() {
       matching: find.byType(MenuItemButton),
     );
     expect(find.byType(MenuItemButton), findsNWidgets(2));
+    // The menu opens below the row, under the value: it covers neither the
+    // row's title nor its value.
+    final menu = tester
+        .getRect(find.byType(MenuItemButton).first)
+        .expandToInclude(tester.getRect(find.byType(MenuItemButton).last));
+    expect(menu.top, greaterThanOrEqualTo(rowRect.bottom));
+    expect(menu.right, moreOrLessEquals(rowRect.right));
     expect(
       tester.getSemantics(item('中图')),
       isSemantics(hasCheckedState: true, isChecked: true),

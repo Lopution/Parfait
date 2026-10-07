@@ -1654,9 +1654,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rankingLoadMoreFailed => 'Failed to load more';
 
   @override
-  String get profileWork => 'Works';
-
-  @override
   String get profileBookmarked => 'Bookmarked';
 
   @override
@@ -1676,6 +1673,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String profileMyPixivCount(String count) {
     return '$count My Pixiv';
+  }
+
+  @override
+  String profileWorksTotal(String count) {
+    return '$count in total';
   }
 
   @override

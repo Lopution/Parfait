@@ -56,6 +56,27 @@ void main() {
   );
 
   testFilm(
+    'overlay/settings-menu',
+    location: '/settings/browse',
+    notes:
+        'A settings choice row: its value sits at the row end; the menu '
+        'opens below the row lined up with its end edge, under the value, '
+        'the title left clear. Picking another option closes it and the '
+        'value updates; reopened, an outside tap closes it.',
+    script: (film, router) async {
+      await film.tap(find.text('预览质量'));
+      await film.tap(
+        find.descendant(
+          of: find.byType(MenuItemButton),
+          matching: find.text('大图'),
+        ),
+      );
+      await film.tap(find.text('预览质量'));
+      await film.tap(find.text('浏览设置'));
+    },
+  );
+
+  testFilm(
     'overlay/profile-menu',
     location: '/recommended/user/99',
     notes:

@@ -7,6 +7,18 @@ import '../theme/func_semantic_tokens.dart';
 /// truncate inside it instead of widening the menu.
 const double kAppMenuMaxWidth = 280;
 
+/// Which edge of its anchor a menu lines up with. The menu opens below the
+/// anchor either way.
+enum AppMenuEdge {
+  /// The menu's start edge under the anchor's start edge: a dropdown
+  /// button at the start of a row.
+  start,
+
+  /// The menu's end edge under the anchor's end edge (M3): a ⋮ button or
+  /// a value at the end of a row or toolbar.
+  end,
+}
+
 /// One row of an [AppMenuButton].
 @immutable
 class AppMenuEntry<T> {
@@ -49,6 +61,7 @@ class AppMenuButton<T> extends StatefulWidget {
     this.icon = const Icon(Icons.more_vert),
     this.style,
     this.anchorBuilder,
+    this.edge = AppMenuEdge.end,
   });
 
   final List<AppMenuEntry<T>> entries;
@@ -70,6 +83,10 @@ class AppMenuButton<T> extends StatefulWidget {
   /// Replaces the default icon button; call `toggle` to open or close.
   final Widget Function(BuildContext context, VoidCallback toggle)?
   anchorBuilder;
+
+  /// The anchor edge the menu lines up with; [AppMenuEdge.end] unless the
+  /// anchor sits at the start of its row.
+  final AppMenuEdge edge;
 
   @override
   State<AppMenuButton<T>> createState() => _AppMenuButtonState<T>();
@@ -114,40 +131,65 @@ class _AppMenuButtonState<T> extends State<AppMenuButton<T>> {
 
   @override
   Widget build(BuildContext context) {
+    // MenuAnchor lines the menu's start edge up with the anchor's, and the
+    // menu's width is only known at layout. Laid out in the mirrored
+    // direction, its start edge is the ambient end edge; the anchor and the
+    // items keep the ambient direction.
+    final direction = Directionality.of(context);
+    final menuDirection = switch (widget.edge) {
+      AppMenuEdge.start => direction,
+      AppMenuEdge.end => switch (direction) {
+        TextDirection.ltr => TextDirection.rtl,
+        TextDirection.rtl => TextDirection.ltr,
+      },
+    };
+    Widget ambient(Widget child) =>
+        Directionality(textDirection: direction, child: child);
     return PopScope(
       canPop: !_open,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _controller.close();
       },
-      child: MenuAnchor(
-        controller: _controller,
-        consumeOutsideTap: true,
-        animated: MotionTokens.enabled(context),
-        // Constrained: the default lets the panel grow past the width cap
-        // (and the screen) and clips long labels instead of truncating.
-        crossAxisUnconstrained: false,
-        style: const MenuStyle(
-          maximumSize: WidgetStatePropertyAll(
-            Size(kAppMenuMaxWidth, double.infinity),
-          ),
+      child: Directionality(
+        textDirection: menuDirection,
+        child: _anchor(ambient),
+      ),
+    );
+  }
+
+  Widget _anchor(Widget Function(Widget child) ambient) {
+    return MenuAnchor(
+      controller: _controller,
+      consumeOutsideTap: true,
+      animated: MotionTokens.enabled(context),
+      // Constrained: the default lets the panel grow past the width cap
+      // (and the screen) and clips long labels instead of truncating.
+      crossAxisUnconstrained: false,
+      style: const MenuStyle(
+        maximumSize: WidgetStatePropertyAll(
+          Size(kAppMenuMaxWidth, double.infinity),
         ),
-        onOpen: () => _setOpen(true),
-        onClose: () => _setOpen(false),
-        menuChildren: [for (final entry in widget.entries) _item(entry)],
-        builder: (anchorContext, controller, _) {
-          _anchorContext = anchorContext;
-          void toggle() =>
-              controller.isOpen ? controller.close() : controller.open();
-          return widget.anchorBuilder?.call(anchorContext, toggle) ??
-              IconButton(
-                tooltip:
-                    widget.tooltip ??
-                    MaterialLocalizations.of(context).showMenuTooltip,
-                style: widget.style,
-                icon: widget.icon,
-                onPressed: toggle,
-              );
-        },
+      ),
+      onOpen: () => _setOpen(true),
+      onClose: () => _setOpen(false),
+      menuChildren: [for (final entry in widget.entries) ambient(_item(entry))],
+      builder: (_, controller, _) => ambient(
+        Builder(
+          builder: (anchorContext) {
+            _anchorContext = anchorContext;
+            void toggle() =>
+                controller.isOpen ? controller.close() : controller.open();
+            return widget.anchorBuilder?.call(anchorContext, toggle) ??
+                IconButton(
+                  tooltip:
+                      widget.tooltip ??
+                      MaterialLocalizations.of(context).showMenuTooltip,
+                  style: widget.style,
+                  icon: widget.icon,
+                  onPressed: toggle,
+                );
+          },
+        ),
       ),
     );
   }

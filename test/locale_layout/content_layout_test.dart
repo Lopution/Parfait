@@ -71,6 +71,11 @@ void main() {
   // The detail page tracks the visible image through VisibilityDetector;
   // a zero interval keeps its timer from outliving a test.
   VisibilityDetectorController.instance.updateInterval = Duration.zero;
+  // Answered from setUp, so the handlers outlive every container a test
+  // disposes in its own tear-down: a cancel sent after they are gone gets
+  // its missing-plugin reply in real time and fails whichever test runs
+  // real async next (the reverse image pages decode under runAsync).
+  setUp(answerConnectivityChannels);
 
   localeLayoutMatrix('content: illust detail', (tester, locale, profile) async {
     final illust = illustJson(
@@ -267,9 +272,6 @@ void main() {
     final directory = Directory.systemTemp.createTempSync('reverse-layout-');
     addTearDown(() => directory.deleteSync(recursive: true));
     InAppWebViewPlatform.instance = FakeInAppWebViewPlatform();
-    // The page decodes the picked file under runAsync, where the
-    // connectivity plugin's missing-plugin replies would land.
-    answerConnectivityChannels();
     final l10n = lookupAppLocalizations(locale);
     await _pumpChecked(
       tester,
@@ -314,9 +316,6 @@ void main() {
     final directory = Directory.systemTemp.createTempSync('reverse-layout-');
     addTearDown(() => directory.deleteSync(recursive: true));
     InAppWebViewPlatform.instance = FakeInAppWebViewPlatform();
-    // The page decodes the picked file under runAsync, where the
-    // connectivity plugin's missing-plugin replies would land.
-    answerConnectivityChannels();
     final l10n = lookupAppLocalizations(locale);
     await _pumpChecked(
       tester,

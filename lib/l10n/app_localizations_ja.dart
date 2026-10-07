@@ -1598,9 +1598,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get rankingLoadMoreFailed => '追加コンテンツの読み込みに失敗しました';
 
   @override
-  String get profileWork => '作品';
-
-  @override
   String get profileBookmarked => 'ブックマーク';
 
   @override
@@ -1620,6 +1617,11 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String profileMyPixivCount(String count) {
     return 'マイピク $count';
+  }
+
+  @override
+  String profileWorksTotal(String count) {
+    return '全 $count 件';
   }
 
   @override

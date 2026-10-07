@@ -543,7 +543,6 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'profileTagFilterAll' => l10n.profileTagFilterAll,
   'profileTagMore' => l10n.profileTagMore,
   'profileWebsite' => l10n.profileWebsite,
-  'profileWork' => l10n.profileWork,
   'profileWorkspace' => l10n.profileWorkspace,
   'qualityLarge' => l10n.qualityLarge,
   'qualityMedium' => l10n.qualityMedium,

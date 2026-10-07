@@ -150,7 +150,7 @@ void main() {
       controller.index = index;
       final delegate = ReplicaProfileTabsDelegate(
         controller: controller,
-        labels: const ['插画 12', '系列 3', '收藏', '关注'],
+        labels: const ['插画', '系列', '收藏', '关注'],
         onTabTap: (_) {},
       );
       expect(delegate.minExtent, kToolbarHeight);
