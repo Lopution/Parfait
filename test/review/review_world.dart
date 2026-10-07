@@ -37,6 +37,7 @@ import 'package:parfait/core/platform/accessibility.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import '../helpers/connectivity_channels.dart';
 import '../helpers/download_world.dart';
 import '../helpers/fake_account.dart';
 import '../helpers/history_world.dart';
@@ -112,22 +113,7 @@ class ReviewWorld {
     );
     final responders = _defaultResponders()..addAll(api);
 
-    // Connectivity is an external boundary; wifi keeps the network
-    // identity stable so feeds do not cycle their resolution.
-    const statusChannel = MethodChannel(
-      'dev.fluttercommunity.plus/connectivity_status',
-    );
-    const checkChannel = MethodChannel(
-      'dev.fluttercommunity.plus/connectivity',
-    );
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    messenger.setMockMethodCallHandler(statusChannel, (_) async => null);
-    messenger.setMockMethodCallHandler(checkChannel, (_) async => ['wifi']);
-    addTearDown(() {
-      messenger.setMockMethodCallHandler(statusChannel, null);
-      messenger.setMockMethodCallHandler(checkChannel, null);
-    });
+    answerConnectivityChannels();
 
     final transport = FakeTransport();
     for (var i = 0; i < 8; i++) {

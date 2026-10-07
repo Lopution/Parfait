@@ -25,6 +25,7 @@ import 'package:parfait/features/spotlight/spotlight_feed_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import '../helpers/connectivity_channels.dart';
 import '../helpers/detail_world.dart';
 import '../helpers/illust_fixtures.dart';
 import '../helpers/locale_layout.dart';
@@ -266,6 +267,9 @@ void main() {
     final directory = Directory.systemTemp.createTempSync('reverse-layout-');
     addTearDown(() => directory.deleteSync(recursive: true));
     InAppWebViewPlatform.instance = FakeInAppWebViewPlatform();
+    // The page decodes the picked file under runAsync, where the
+    // connectivity plugin's missing-plugin replies would land.
+    answerConnectivityChannels();
     final l10n = lookupAppLocalizations(locale);
     await _pumpChecked(
       tester,
@@ -310,6 +314,9 @@ void main() {
     final directory = Directory.systemTemp.createTempSync('reverse-layout-');
     addTearDown(() => directory.deleteSync(recursive: true));
     InAppWebViewPlatform.instance = FakeInAppWebViewPlatform();
+    // The page decodes the picked file under runAsync, where the
+    // connectivity plugin's missing-plugin replies would land.
+    answerConnectivityChannels();
     final l10n = lookupAppLocalizations(locale);
     await _pumpChecked(
       tester,
