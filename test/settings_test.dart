@@ -30,6 +30,9 @@ import 'package:parfait/core/network/compat/pixiv_network_factory.dart'
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/naming_rule.dart';
+import 'package:parfait/core/download/download_manager.dart';
+import 'package:parfait/core/download/download_providers.dart';
+import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/settings/app_settings.dart';
@@ -58,6 +61,7 @@ import 'package:parfait/l10n/lookup.dart';
 import 'package:parfait/l10n/app_localizations_zh.dart';
 import 'package:parfait/app/motion/removal.dart';
 
+import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/image_network.dart';
 import 'helpers/settings_world.dart';
@@ -1397,6 +1401,73 @@ void main() {
     expect(dyOf('收藏'), dyOf('下载任务'));
     expect(dyOf('历史记录'), greaterThan(dyOf('收藏')));
     expect(find.byTooltip('切换账号'), findsOneWidget);
+  });
+
+  testWidgets('the dashboard badge counts downloads as they start and end', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final gate = Completer<void>();
+    final manager = DownloadManager(
+      transport: FakeTransport()
+        ..responses.add(
+          ScriptedResponse(
+            contentLength: 1,
+            chunks: [
+              [1],
+            ],
+            completers: [gate],
+          ),
+        ),
+      sinkFactory: MemorySinkFactory(),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(
+            FakeSettingsRepository(baseTestSettings()),
+          ),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            FakeAccountMetadataRepository(),
+          ),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+          downloadManagerProvider.overrideWithValue(manager),
+        ],
+        child: const MaterialApp(
+          builder: promptHostBuilder,
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: MeDashboardPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+    Badge downloadsBadge() => tester.widget<Badge>(
+      find.ancestor(
+        of: find.byIcon(Icons.downloading_outlined),
+        matching: find.byType(Badge),
+      ),
+    );
+    expect(downloadsBadge().isLabelVisible, isFalse);
+
+    manager.submit(downloadRequest(1));
+    await pumpUntil(tester, () => downloadsBadge().isLabelVisible);
+    expect(downloadsBadge().isLabelVisible, isTrue);
+    expect(
+      find.descendant(
+        of: find.byWidget(downloadsBadge()),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
+
+    gate.complete();
+    await pumpUntil(tester, () => !downloadsBadge().isLabelVisible);
+    expect(downloadsBadge().isLabelVisible, isFalse);
+    await manager.dispose();
   });
 
   testWidgets('backup page renders its hint below the action rows', (

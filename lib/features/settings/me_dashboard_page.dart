@@ -140,6 +140,23 @@ class _AccountRow extends StatelessWidget {
   }
 }
 
+/// Download tasks not yet finished. The manager reports every progress
+/// tick; the count is re-emitted only when it moves, so the grid rebuilds
+/// when a task starts or ends, not on every tick.
+final _activeDownloadCountProvider = StreamProvider.autoDispose<int>((
+  ref,
+) async* {
+  final manager = ref.watch(downloadManagerProvider);
+  int count() => manager.tasks.where((task) => !isTerminal(task.status)).length;
+  var last = count();
+  yield last;
+  await for (final _ in manager.changes) {
+    final next = count();
+    if (next == last) continue;
+    yield last = next;
+  }
+});
+
 /// One entry of [_ContentEntries].
 typedef _Entry = ({IconData icon, String label, VoidCallback onTap, int badge});
 
@@ -167,13 +184,7 @@ class _ContentEntries extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    // One-time snapshot: the page does not subscribe to the manager's
-    // `changes` stream, so the badge refreshes with the next rebuild.
-    final activeTasks = ref
-        .read(downloadManagerProvider)
-        .tasks
-        .where((task) => !isTerminal(task.status))
-        .length;
+    final activeTasks = ref.watch(_activeDownloadCountProvider).value ?? 0;
     final List<_Entry> entries = [
       (
         icon: Icons.favorite_border,
