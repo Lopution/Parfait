@@ -102,10 +102,9 @@ The image worker owns a second, image-purpose `NetworkAccessPolicy` and its
 `ImageWorkerConfig` the main isolate pushes. It learns routes on its own
 but never persists them: learned fast routes and route kinds go back to the
 main isolate's `fastRouteStoreProvider`/`routeKindStoreProvider`, the only
-writers of those preferences. Images outside a `ProviderScope`, the only
-ones the worker does not load, still use
-`PixivNetworkFactory.imageCacheManager` — see the Image Worker Contract in
-`frontend/state-management.md`.
+writers of those preferences. `PixivNetworkFactory` builds only the API
+and OAuth clients; every Pixiv image goes through the worker — see the
+Image Worker Contract in `frontend/state-management.md`.
 
 ## Naming and Upgrade Rules
 
