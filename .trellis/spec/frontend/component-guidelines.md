@@ -1297,9 +1297,10 @@ Future<ImagePreloadResult> PixivImage.preload(
   entry transition completes; it is wrapped in `IgnorePointer`; and its
   screen-reader label uses `viewerPageLabel`. The detail page keeps no
   persistent information strip.
-- The detail AppBar directly exposes only download-all and the bookmark
-  heart. Share, page selection, and artwork-info navigation live in the ⋮
-  overflow menu with text labels; no action may depend solely on a long
+- Download-all, comments and the bookmark heart sit in the floating
+  `DetailActionBar` (see the Artwork Detail Layout Contract); the detail
+  AppBar carries only the ⋮ menu. Share, page selection, and artwork-info
+  navigation live in that ⋮ overflow menu with text labels; no action may depend solely on a long
   press. Artwork-info navigation must reach the lazily built InfoBlock in
   long works.
 - Related works load on demand. Opening a detail page sends no
@@ -1467,7 +1468,59 @@ needs no in-mode guard. A submitted selection shows
   `completed`, then calls `jumpToPage`. A long jump does not animate the
   pages in between.
 
-### 5. Tests required
+### 5. Action bar and immersive top
+
+On the narrow layout, once content renders:
+
+- **Action bar.** `DetailActionBar`
+  (`lib/features/illust/detail/widgets/detail_action_bar.dart`) floats
+  centred at the bottom, `DetailActionBar.margin` above the safe area: one
+  `surfaceContainerHigh` stadium (outline, elevation 3) holding download,
+  comments and the bookmark heart as separate icon buttons — no dividers,
+  no segments. The heart sits on a tonal `secondaryContainer` circle as the
+  page's main action. The page ends its scroll with a
+  `DetailActionBar.restingExtent` spacer so the last content clears it.
+  Page selection hides the bar (the selection bar carries its own
+  download).
+- **Download state.** The download button shows the whole work through
+  `IllustDownloadController.workStateFor`: a determinate ring (mean of the
+  pages' progress; indeterminate while nothing is measured), a `primary`
+  check once every page is saved (tooltip `detailDownloaded`), an `error`
+  alert after a failure. It listens to `DownloadManager.changes` itself —
+  `events` carries terminal events only — so progress ticks rebuild the
+  button, not the page.
+- **Scroll hide.** The bar slides below the screen edge reading down and
+  returns reading up, on `MotionTokens.navBarShow`/`navBarHide`, through
+  the same `ScrollHideTracker` + `slideChrome`
+  (`lib/app/motion/scroll_hide.dart`) the shell bar uses: depth-0 vertical
+  updates only, a run past the touch slop decides, overscroll is clamped
+  out. Under touch exploration it does not hide, and is driven back if
+  hidden. Hidden, it is excluded from semantics and ignores pointers.
+- **Prompts.** The bar is the page's `PromptAnchor` with its live visible
+  extent, so prompts rest above it and ride its slide. `PromptAnchors`
+  notifications raised during build or layout are deferred to one
+  post-frame notify; an anchor under a `LayoutBuilder` would otherwise
+  mutate the prompt layout mid-`performLayout`.
+- **Immersive top.** The `Scaffold` extends its body behind the AppBar and
+  page 1 starts at y = 0, under the status bar. `AppTopBar(immersion:)` is
+  0 there: a transparent bar over an `imageControl` gradient scrim, light
+  controls with a soft shadow, light status-bar icons, no title. Over the
+  last `kToolbarHeight` before page 1 leaves the top the value runs to 1:
+  surface alpha, control colour and the work's title fade in together.
+  The `ScrollEdgeLine` stays off until the bar is fully drawn — while it
+  fades, the surface itself is the edge, so two edges never stack. Overlays
+  on page 1 (selection badge, page pill) are inset by the status bar plus
+  toolbar height. The two-pane layout and loading/error states keep the
+  opaque bar.
+- **Hero landing.** The flight lands under the see-through bar
+  (`occludesContent` false), not clipped below it. The flight paints over
+  the bar, so a detail opened from a card (`heroImageUrl` set) holds the
+  bar at `entrance` 0 and fades it in over `MotionTokens.fast` once the
+  route animation completes. The route status is read after the first
+  frame: before the push starts, the route's proxy animation reports a
+  placeholder `completed`.
+
+### 6. Tests required
 
 - `illust_detail_page_test.dart`: info block order; the author row follows
   in place and your own work has no follow button; the metadata line's
@@ -1477,13 +1530,19 @@ needs no in-mode guard. A submitted selection shows
   every page, and page selection expands; selection uses the shared bar
   and back leaves the mode first; the viewer has one counter, no
   fullscreen button, a thumbnail jump grid with the current page selected,
-  and a long work's sheet opens on the current page.
+  and a long work's sheet opens on the current page; the action bar holds
+  download, comments and bookmark while the top bar keeps only the menu;
+  the ring follows half-downloaded pages, then the saved state, with the
+  prompt above the bar; the bar slides away and back and stays under
+  touch exploration; page 1 runs under a see-through bar that draws in.
+- `hero_transition_test.dart`: mid-flight the top bar's `entrance` is 0,
+  after landing 1.
 - `priority_surface_semantics_test.dart`: the viewer counter and fit are
   named buttons.
 - The `content: illust detail` locale matrix covers the info block in four
   languages at 320dp and 1.3x.
 
-### 6. Wrong vs Correct
+### 7. Wrong vs Correct
 
 #### Wrong
 

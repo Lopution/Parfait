@@ -624,6 +624,7 @@
   "settingsCredentialNotConfigured": "未設定",
   "add": "追加",
   "viewerNoImages": "表示できる画像がありません",
+  "detailDownloaded": "ダウンロード済み",
   "downloadAll": "すべてダウンロード",
   "downloadQueuedMessage": "ダウンロードキューに追加しました",
   "downloadAlreadyQueued": "すでにダウンロードキューにあります",

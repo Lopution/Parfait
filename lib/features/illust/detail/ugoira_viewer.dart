@@ -231,9 +231,11 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
               // three states: preparing (asset not loaded → disabled),
               // exporting (progress spinner), failed (error icon, tap to
               // retry).
+              // Bottom corner, opposite the GIF badge: the top of the
+              // artwork sits under the detail page's see-through bar.
               Positioned(
-                top: 12,
-                right: 12,
+                right: 7,
+                bottom: 7,
                 child: _ExportButton(
                   assetReady: _asset != null,
                   snapshot: _exportJob?.snapshot,

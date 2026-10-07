@@ -706,6 +706,7 @@
   "settingsCredentialNotConfigured": "未配置",
   "add": "添加",
   "viewerNoImages": "没有可显示的图片",
+  "detailDownloaded": "已下载",
   "downloadAll": "下载全部",
   "downloadQueuedMessage": "已加入下载队列",
   "downloadAlreadyQueued": "已在下载队列中",

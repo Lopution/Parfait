@@ -23,6 +23,7 @@ import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -336,7 +337,13 @@ void main() {
         isEmpty,
         reason: 'the page draws no copy of the artwork under the flight',
       );
+      // The flight is drawn over the see-through top bar: the bar waits
+      // for the landing and fades in rather than cutting in.
+      double barEntrance() =>
+          tester.widget<AppTopBar>(find.byType(AppTopBar)).entrance!.value;
+      expect(barEntrance(), 0);
       await tester.pumpAndSettle();
+      expect(barEntrance(), 1);
       expect(
         find.descendant(of: page, matching: find.byType(PixivImage)),
         findsOneWidget,

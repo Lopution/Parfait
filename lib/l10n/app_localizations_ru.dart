@@ -1464,6 +1464,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get viewerNoImages => 'Нет изображений для отображения';
 
   @override
+  String get detailDownloaded => 'Скачано';
+
+  @override
   String get downloadAll => 'Скачать всё';
 
   @override

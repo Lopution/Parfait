@@ -624,6 +624,7 @@
   "settingsCredentialNotConfigured": "Not configured",
   "add": "Add",
   "viewerNoImages": "No images to display",
+  "detailDownloaded": "Downloaded",
   "downloadAll": "Download All",
   "downloadQueuedMessage": "Added to the download queue",
   "downloadAlreadyQueued": "Already in the download queue",

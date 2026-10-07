@@ -1389,6 +1389,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get viewerNoImages => '没有可显示的图片';
 
   @override
+  String get detailDownloaded => '已下载';
+
+  @override
   String get downloadAll => '下载全部';
 
   @override

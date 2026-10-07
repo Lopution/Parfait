@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import '../../core/debug/frame_probe.dart';
 import '../navigation/home_shell_metrics.dart';
 import '../theme/func_semantic_tokens.dart';
+import '../widgets/app_top_bar.dart';
 import 'hero_rect_clip.dart';
 
 /// Hero flight geometry shared by the feed cards and the detail page.
@@ -450,6 +451,11 @@ double _heroTopChrome(BuildContext? context, BuildContext heroContext) {
   final statusTop = media?.viewPadding.top ?? media?.padding.top ?? 0;
   final scaffold = heroContext.findAncestorWidgetOfExactType<Scaffold>();
   final appBar = scaffold?.appBar;
+  // A see-through bar over artwork hides nothing: the image lands under
+  // it and the status bar.
+  if (appBar is AppTopBar && !appBar.occludesContent) {
+    return _pinnedHeaderChrome(heroContext, statusTop);
+  }
   final appBarChrome = appBar is PreferredSizeWidget
       ? appBar.preferredSize.height
       : 0;

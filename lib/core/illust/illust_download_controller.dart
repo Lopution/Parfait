@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart' show immutable;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../download/download_manager.dart';
+import '../download/download_request.dart' show DownloadTarget;
 import '../download/download_task.dart';
 import '../entity/illust_entity.dart';
 import '../download/download_providers.dart';
@@ -11,6 +13,15 @@ import '../settings/settings_controller.dart';
 /// IllustSaveState and backed by real DownloadManager tasks (R4 — no
 /// no-op paths).
 enum IllustPageSaveState { none, downloading, error, exist }
+
+/// A whole work's download state; [progress] (0..1) only while downloading.
+@immutable
+class IllustWorkSaveState {
+  const IllustWorkSaveState(this.state, {this.progress});
+
+  final IllustPageSaveState state;
+  final double? progress;
+}
 
 class _IllustDownloadController {
   _IllustDownloadController(this._ref);
@@ -25,7 +36,11 @@ class _IllustDownloadController {
         .watch(illustDownloadCoordinatorProvider)
         .taskFor(illustId: illustId, pageIndex: pageIndex);
     if (task == null) return IllustPageSaveState.none;
-    return switch (task.status) {
+    return _pageState(task.status);
+  }
+
+  static IllustPageSaveState _pageState(DownloadStatus status) {
+    return switch (status) {
       DownloadStatus.queued ||
       DownloadStatus.running ||
       DownloadStatus.finalizing ||
@@ -36,6 +51,44 @@ class _IllustDownloadController {
       DownloadStatus.canceled ||
       DownloadStatus.orphaned => IllustPageSaveState.none,
     };
+  }
+
+  /// Whole-work state for one download button: downloading while any page
+  /// is in flight (with the mean progress over all pages), exist once every
+  /// page is saved, error when a page failed and none is in flight.
+  IllustWorkSaveState workStateFor(IllustEntity entity) {
+    final pages = entity.pageCount;
+    final states = List.filled(pages, IllustPageSaveState.none);
+    final progress = List.filled(pages, 0.0);
+    // One pass over the manager's tasks rather than one scan per page.
+    for (final task in _manager.tasks) {
+      final index = task.pageIndex;
+      if (task.illustId != entity.id ||
+          task.target != DownloadTarget.illustPage.name ||
+          index < 0 ||
+          index >= pages) {
+        continue;
+      }
+      states[index] = _pageState(task.status);
+      progress[index] = switch (states[index]) {
+        IllustPageSaveState.exist => 1,
+        IllustPageSaveState.downloading => task.progress ?? 0,
+        _ => 0,
+      };
+    }
+    if (states.contains(IllustPageSaveState.downloading)) {
+      return IllustWorkSaveState(
+        IllustPageSaveState.downloading,
+        progress: progress.fold<double>(0, (sum, value) => sum + value) / pages,
+      );
+    }
+    if (pages > 0 && states.every((s) => s == IllustPageSaveState.exist)) {
+      return const IllustWorkSaveState(IllustPageSaveState.exist);
+    }
+    if (states.contains(IllustPageSaveState.error)) {
+      return const IllustWorkSaveState(IllustPageSaveState.error);
+    }
+    return const IllustWorkSaveState(IllustPageSaveState.none);
   }
 
   /// Submits (or retries) one page; beta56 download(index). Throws
