@@ -458,8 +458,6 @@ class _IllustSearchFeed extends ConsumerWidget {
       return FeedEmpty(
         icon: Icons.search,
         title: context.l10n.searchNoResults,
-        retryLabel: context.l10n.searchRetry,
-        onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
         actionLabel: context.l10n.searchModifyQuery,
         onAction: () => openSearchInput(
           context,
@@ -540,8 +538,6 @@ class _NovelSearchFeed extends ConsumerWidget {
       return FeedEmpty(
         icon: Icons.search,
         title: context.l10n.searchNoResults,
-        retryLabel: context.l10n.searchRetry,
-        onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
         actionLabel: context.l10n.searchModifyQuery,
         onAction: () => openSearchInput(
           context,
@@ -609,8 +605,6 @@ class _UserSearchFeed extends ConsumerWidget {
       return FeedEmpty(
         icon: Icons.search,
         title: context.l10n.searchNoResults,
-        retryLabel: context.l10n.searchRetry,
-        onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
         actionLabel: context.l10n.searchModifyQuery,
         onAction: () => openSearchInput(
           context,

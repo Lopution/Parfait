@@ -34,7 +34,8 @@ class ReplicaScaffold extends StatelessWidget {
             ? IconButton(
                 tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back_ios_new),
+                // The platform's back glyph, as every BackButton (U1).
+                icon: const BackButtonIcon(),
               )
             : null,
       ),

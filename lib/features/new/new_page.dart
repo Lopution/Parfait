@@ -307,7 +307,7 @@ class _NewFeedBody extends ConsumerWidget {
           return FeedEmpty(
             icon: Icons.inbox_outlined,
             title: context.l10n.newEmpty,
-            retryLabel: context.l10n.newRetry,
+            retryLabel: context.l10n.refresh,
             onRefresh: () =>
                 ref.read(newFeedProvider(feedKey).notifier).refresh(),
           );

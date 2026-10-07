@@ -73,10 +73,6 @@ class ProfileNovelFeed extends ConsumerWidget {
                     child: FeedEmpty(
                       icon: Icons.inbox_outlined,
                       title: context.l10n.profileItemsEmpty,
-                      retryLabel: context.l10n.profileRetry,
-                      onRefresh: () => ref
-                          .read(userNovelFeedProvider(userId).notifier)
-                          .refresh(),
                     ),
                   )
                 else

@@ -81,9 +81,6 @@ class _WatchlistFeedBody extends ConsumerWidget {
               return FeedEmpty(
                 icon: Icons.collections_bookmark_outlined,
                 title: context.l10n.watchlistEmpty,
-                retryLabel: context.l10n.retry,
-                onRefresh: () =>
-                    ref.read(watchlistFeedProvider(type).notifier).refresh(),
               );
             }
             return PullToRefresh(

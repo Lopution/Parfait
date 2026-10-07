@@ -24,7 +24,6 @@ import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
 import '../../core/user/user_store.dart';
 import '../../app/widgets/errors/error_details.dart';
-import '../../core/errors/error_category.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import '../../app/theme/func_semantic_tokens.dart';
@@ -90,6 +89,11 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
     _accountSubscription?.close();
     _editSubscription?.close();
     super.dispose();
+  }
+
+  void _retryInitialize() {
+    setState(() => _initializationError = null);
+    unawaited(_initialize());
   }
 
   Future<void> _initialize() async {
@@ -219,7 +223,12 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
             child: session == null
                 ? _initializationError == null
                       ? const FeedLoading()
-                      : _InitializationFailure(error: _initializationError!)
+                      : FeedError(
+                          title: context.l10n.profileEditLoadFailed,
+                          error: _initializationError,
+                          retryLabel: context.l10n.retry,
+                          onRetry: _retryInitialize,
+                        )
                 : _ProfileEditBody(
                     key: _bodyKey,
                     session: session,
@@ -282,35 +291,6 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
                   ),
                 ),
               ),
-      ),
-    );
-  }
-}
-
-class _InitializationFailure extends StatelessWidget {
-  const _InitializationFailure({required this.error});
-
-  final Object error;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(FuncSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off, size: 52),
-            const SizedBox(height: FuncSpacing.md),
-            Text(context.l10n.profileEditLoadFailed),
-            const SizedBox(height: FuncSpacing.sm),
-            Text(
-              errorCategoryText(context, categorizeError(error)),
-              textAlign: TextAlign.center,
-            ),
-            ErrorDetails(error: error),
-          ],
-        ),
       ),
     );
   }

@@ -96,10 +96,6 @@ class UserSeriesFeed extends ConsumerWidget {
                     child: FeedEmpty(
                       icon: Icons.collections_bookmark_outlined,
                       title: context.l10n.profileItemsEmpty,
-                      retryLabel: context.l10n.retry,
-                      onRefresh: () => ref
-                          .read(userSeriesFeedProvider(userId).notifier)
-                          .refresh(),
                     ),
                   )
                 else

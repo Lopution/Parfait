@@ -6,7 +6,6 @@ import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pull_to_refresh.dart';
-import '../../app/widgets/replica_empty_state.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/i18n/replica_language.dart';
 import '../../core/network/api_date.dart';
@@ -331,10 +330,10 @@ class _RankingModeBody extends ConsumerWidget {
           return IllustGridSkeleton(label: context.l10n.contentLoading);
         }
         if (feed.isEmptyAndReady) {
-          return ReplicaEmptyState(
-            message: context.l10n.rankingEmpty,
-            retryLabel: context.l10n.retry,
-            onRetry: () => ref
+          return FeedEmpty(
+            title: context.l10n.rankingEmpty,
+            retryLabel: context.l10n.refresh,
+            onRefresh: () => ref
                 .read(rankingFeedControllerProvider(feedKey).notifier)
                 .refresh(),
           );

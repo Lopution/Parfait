@@ -128,9 +128,6 @@ class _TagList extends ConsumerWidget {
       return FeedEmpty(
         icon: Icons.label_outline,
         title: l10n.bookmarkTagsEmpty,
-        retryLabel: l10n.retry,
-        onRefresh: () =>
-            ref.read(userBookmarkTagsProvider(query).notifier).refresh(),
       );
     }
     return NotificationListener<ScrollNotification>(

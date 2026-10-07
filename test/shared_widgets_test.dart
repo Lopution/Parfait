@@ -55,7 +55,7 @@ void main() {
     expect(find.byIcon(Icons.settings), findsOneWidget);
     expect(find.byType(FloatingActionButton), findsOneWidget);
     // A root-level scaffold has no implicit back button.
-    expect(find.byIcon(Icons.arrow_back_ios_new), findsNothing);
+    expect(find.byType(BackButtonIcon), findsNothing);
   });
 
   testWidgets('TagChip exposes tap and block-mode selected semantics', (

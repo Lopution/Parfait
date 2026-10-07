@@ -681,7 +681,9 @@ class _HeaderBackButtonState extends State<_HeaderBackButton> {
   Widget build(BuildContext context) {
     if (!_canPop) return const SizedBox.shrink();
     final tooltip = MaterialLocalizations.of(context).backButtonTooltip;
-    const icon = Icon(Icons.arrow_back_ios_new);
+    // The platform's back glyph, as every BackButton (U1); over artwork
+    // only the backing changes.
+    const icon = BackButtonIcon();
     void pop() => Navigator.of(context).maybePop();
     if (widget.overArtwork) {
       return ImageOverlayButton(icon: icon, tooltip: tooltip, onPressed: pop);

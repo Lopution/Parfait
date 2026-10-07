@@ -94,6 +94,13 @@ state or action.
   network comes back (HCI 9, `networkRestoreSignalProvider` counts the
   no-network → network transitions); only network and timeout failures, or
   an unknown error, retry — a 404 or a parse error would fail the same way.
+- A status view (empty, error, restricted) draws its own button.
+  `StateActionButton` (tonal, leading icon) is the one button of
+  `FeedEmpty` and `FeedError` and of any custom status (H1). An empty view
+  offers `refresh` only where content can still arrive (a live feed);
+  content that is simply not there — a user without works, an empty
+  history, no search results — offers no refresh and no retry (U4), at most
+  another action (modify the search, import). `retry` belongs to failures.
 - A shared state widget (`FeedEmpty`/`FeedError`/`FeedTail` family) carries an
   English fallback label. User-visible strings are `required` parameters so a
   call site that forgets `context.l10n.*` fails to compile instead of shipping
@@ -425,7 +432,10 @@ the width evenly (`TabAlignment.fill`); otherwise the row switches to
 `isScrollable` and aligns from the start edge. Labels render at the themed
 14sp (`replicaTheme` sets the `TabBarTheme` label styles) and are never
 shrunk to fit — overflow always resolves through scrolling, not smaller
-text. `onTap` is passed through to `TabBar.onTap` unchanged; per the Tab
+text. A scrolling row sits in `ScrollEdgeFade`, which masks out
+`FuncSpacing.xl` at each end that has tabs past it (H3); it listens to the
+row's own scroll and metrics notifications, so it needs no controller.
+`onTap` is passed through to `TabBar.onTap` unchanged; per the Tab
 Navigation Animation Contract a re-tap handler must not `animateTo` the
 already-selected index.
 

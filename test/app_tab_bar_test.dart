@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/app_tab_bar.dart';
+import 'package:parfait/app/widgets/scroll_edge_fade.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 Widget _host(
@@ -54,6 +55,32 @@ RichText _labelRichText(WidgetTester tester, String label) {
 }
 
 void main() {
+  group('edge fades (H3)', () {
+    const many = ['插画', '漫画', '小说', '收藏插画', '收藏小说', '关注', '粉丝', '系列'];
+
+    testWidgets('a row that fits fades nothing', (tester) async {
+      await _pumpBar(tester, const ['推荐', '排行', '新作', '追更']);
+      expect(find.byType(ScrollEdgeFade), findsNothing);
+    });
+
+    testWidgets('a scrolling row fades the side that has more tabs', (
+      tester,
+    ) async {
+      await _pumpBar(tester, many);
+      (bool, bool) fades() =>
+          tester.state<ScrollEdgeFadeState>(find.byType(ScrollEdgeFade)).fades;
+      expect(fades(), (false, true));
+
+      await tester.drag(find.text('收藏插画'), const Offset(-30, 0));
+      await tester.pumpAndSettle();
+      expect(fades(), (true, true));
+
+      await tester.drag(find.text('收藏插画'), const Offset(-2000, 0));
+      await tester.pumpAndSettle();
+      expect(fades(), (true, false));
+    });
+  });
+
   testWidgets('four short labels share equal slots when they fit', (
     tester,
   ) async {

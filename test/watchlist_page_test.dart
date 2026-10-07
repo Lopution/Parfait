@@ -20,10 +20,12 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/watchlist_world.dart';
+import 'helpers/prompt_host.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
 
 Widget _app(Widget child) => MaterialApp(
+  builder: promptHostBuilder,
   localizationsDelegates: appLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: child,

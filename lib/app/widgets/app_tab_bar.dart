@@ -1,12 +1,13 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../theme/func_semantic_tokens.dart';
+import 'scroll_edge_fade.dart';
 
 /// The single entry point for top-of-page tab rows (D3). Labels always
 /// render at the themed size — they are never shrunk to fit. When the
 /// widest label fits every equal slot, the row divides the width evenly;
-/// otherwise it scrolls from the start edge. Counts in labels use tabular
-/// figures.
+/// otherwise it scrolls from the start edge, and an edge with more tabs
+/// past it fades out (H3). Counts in labels use tabular figures.
 class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
   const AppTabBar({
     super.key,
@@ -71,7 +72,7 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
         final fits =
             widest + _labelPadding.horizontal <=
             constraints.maxWidth / labels.length;
-        return TabBar(
+        final bar = TabBar(
           controller: controller,
           isScrollable: !fits,
           tabAlignment: fits ? TabAlignment.fill : TabAlignment.start,
@@ -91,6 +92,7 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
               ),
           ],
         );
+        return fits ? bar : ScrollEdgeFade(child: bar);
       },
     );
   }
