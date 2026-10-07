@@ -8,6 +8,7 @@ import 'package:rhttp/rhttp.dart';
 import '../network/compat/network_contracts.dart';
 import '../network/compat/network_policy.dart';
 import '../network/compat/pixiv_network_factory.dart';
+import '../network/compat/segmented_fetch.dart';
 import '../network/pixiv_headers.dart';
 import '../settings/image_mirror.dart';
 import 'disk_image_cache.dart';
@@ -122,6 +123,19 @@ class ImageWorkerHost {
 
   /// URLs whose download progress the main isolate shows.
   final _watched = <String>{};
+
+  /// Extra connections for originals fetched in parallel ranges. The
+  /// worker's own: a permit never crosses the isolate boundary. Three
+  /// fill one original's [SegmentedFetch.defaultParallel] — the viewer
+  /// usually fetches one at a time. Downloads keep their own budget.
+  final _segmentBudget = SegmentBudget(limit: segmentLimit);
+  static const segmentLimit = 3;
+
+  /// Path marker of full-size originals, the only images worth splitting.
+  static const _segmentedPath = '/img-original/';
+
+  /// Transfers in parallel ranges still running; [close] ends them.
+  final _segmentedFetches = <SegmentedFetch>{};
 
   NetworkAccessPolicy? _policy;
   http.Client? _imageClient;
@@ -286,9 +300,9 @@ class ImageWorkerHost {
     );
   }
 
-  /// The single admitted-flight body: one policy GET, then an atomic commit
-  /// into the cache. Called by the scheduler only after the fetch holds its
-  /// lane permit.
+  /// The single admitted-flight body: one policy GET (an original: its
+  /// ranges), then an atomic commit into the cache. Called by the scheduler
+  /// only after the fetch holds its lane permit.
   Future<(File, int)> _fetch(String url) async {
     // A flight for the URL may have committed between this request's own
     // lookup and its submit; the re-check is a stat, the miss a download.
@@ -296,19 +310,88 @@ class ImageWorkerHost {
     if (cached != null) {
       return (cached, await cached.length());
     }
-    final request = http.Request('GET', Uri.parse(url))
-      ..headers.addAll(PixivHeaders.image());
-    final response = await _imageClient!.send(request);
+    final uri = Uri.parse(url);
+    final (body, segmented) = uri.path.contains(_segmentedPath)
+        ? await _openInRanges(uri)
+        : (await _wholeBody(await _request(uri), uri), null);
+    if (segmented != null) _segmentedFetches.add(segmented);
+    try {
+      final file = await _cache.store(
+        url,
+        _reportingProgress(url, body.stream, body.length),
+        expectedLength: body.length,
+      );
+      return (file, body.length ?? await file.length());
+    } finally {
+      _segmentedFetches.remove(segmented);
+    }
+  }
+
+  /// An original file: its first range, then the rest in parallel ranges
+  /// when the server answers a sized 206 from byte 0. A 200 (`Range`
+  /// ignored) is the whole file; anything else fails like any image. The
+  /// worker sends no conditional headers, so every range asks the same.
+  Future<(_Body, SegmentedFetch?)> _openInRanges(Uri uri) async {
+    final first = await _request(
+      uri,
+      range: (0, SegmentedFetch.defaultSegmentBytes - 1),
+    );
+    final range = parseContentRange(first.headers['content-range']);
+    final total = range?.total;
+    if (first.statusCode != 206 ||
+        range == null ||
+        range.start != 0 ||
+        total == null) {
+      return (await _wholeBody(first, uri), null);
+    }
+    if (range.end + 1 >= total) {
+      return ((stream: first.stream, length: total), null);
+    }
+    final segmented = SegmentedFetch(
+      open: (start, end, {ifRange, required cancel}) async =>
+          RangeResponse.fromHttp(
+            await _request(
+              uri,
+              range: (start, end),
+              ifRange: ifRange,
+              cancel: cancel,
+            ),
+          ),
+      budget: _segmentBudget,
+    );
+    final body = segmented.continueFrom(RangeResponse.fromHttp(first));
+    return ((stream: body, length: total), segmented);
+  }
+
+  Future<http.StreamedResponse> _request(
+    Uri uri, {
+    (int, int)? range,
+    String? ifRange,
+    NetworkCancelSignal? cancel,
+  }) {
+    final request = http.AbortableRequest(
+      'GET',
+      uri,
+      abortTrigger: cancel?.whenCancel,
+    )..headers.addAll(PixivHeaders.image());
+    if (range case (final start, final end)) {
+      request.headers['range'] = 'bytes=$start-$end';
+    }
+    if (ifRange != null) request.headers['if-range'] = ifRange;
+    return _imageClient!.send(request);
+  }
+
+  /// [response]'s body when it is the whole file; any other status fails
+  /// the fetch with it.
+  static Future<_Body> _wholeBody(
+    http.StreamedResponse response,
+    Uri uri,
+  ) async {
     if (response.statusCode != 200) {
       await response.stream.drain<void>();
-      throw ImageHttpStatus(response.statusCode, url);
+      throw ImageHttpStatus(response.statusCode, '$uri');
     }
-    final file = await _cache.store(
-      url,
-      _reportingProgress(url, response.stream, response.contentLength),
-      expectedLength: response.contentLength,
-    );
-    return (file, response.contentLength ?? await file.length());
+    return (stream: response.stream, length: response.contentLength);
   }
 
   /// [body] with throttled progress reports while [url] is watched. The
@@ -347,9 +430,15 @@ class ImageWorkerHost {
   Future<void> close() async {
     _closed = true;
     _inbox.close();
+    for (final segmented in List.of(_segmentedFetches)) {
+      segmented.close();
+    }
     await _policy?.dispose();
   }
 }
+
+/// A response body and its length, when the server declared one.
+typedef _Body = ({Stream<List<int>> stream, int? length});
 
 bool _listEquals<T>(List<T> a, List<T> b) {
   if (a.length != b.length) return false;

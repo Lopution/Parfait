@@ -63,8 +63,8 @@ class DownloadManager {
   final Future<File?> Function(Uri url)? cacheLookup;
 
   /// Extra connections for fetching one file in parallel byte ranges,
-  /// shared with the image cache. Null keeps every download on a single
-  /// connection.
+  /// shared by the main isolate's transfers (the image worker keeps its
+  /// own). Null keeps every download on a single connection.
   final SegmentBudget? segmentBudget;
   final Duration progressThrottle;
   final DownloadSubmissionContextProvider? _submissionContext;

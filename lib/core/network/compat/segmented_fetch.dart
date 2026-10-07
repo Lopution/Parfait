@@ -2,19 +2,22 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:typed_data';
 
+import 'package:http/http.dart' as http;
 import 'package:meta/meta.dart';
 
 import 'network_contracts.dart';
 
-/// Extra connections shared by every segmented transfer (image originals
-/// and downloads). A transfer's first connection is not counted here: its
-/// image lane or download slot already accounts for it.
+/// Extra connections shared by the segmented transfers of one isolate: on
+/// the main isolate downloads (`segmentBudgetProvider`), in the image
+/// worker its originals. A transfer's first connection is not counted
+/// here: its image lane or download slot already accounts for it.
 class SegmentBudget {
   SegmentBudget({this.limit = defaultLimit});
 
-  /// With 8 foreground + 2 background image slots and 3 download jobs this
-  /// stays under ~19 HTTP/1.1 connections per host. Lower it if the CDN
-  /// starts answering 403/429 under load.
+  /// With the worker's 8 foreground + 2 background image slots and its own
+  /// 3 extra original connections, plus 3 download jobs, this stays under
+  /// ~22 HTTP/1.1 connections per host. Lower it if the CDN starts
+  /// answering 403/429 under load.
   static const defaultLimit = 6;
 
   final int limit;
@@ -59,6 +62,22 @@ class RangeResponse {
     required this.body,
     required this.close,
   });
+
+  /// [response] as a range; closing it cancels an unread body, which
+  /// still holds the connection.
+  factory RangeResponse.fromHttp(http.StreamedResponse response) =>
+      RangeResponse(
+        statusCode: response.statusCode,
+        headers: response.headers,
+        body: response.stream,
+        close: () async {
+          try {
+            await response.stream.listen(null).cancel();
+          } on StateError {
+            // Already listened to: its subscriber tears it down.
+          }
+        },
+      );
 
   final int statusCode;
   final Map<String, String> headers;

@@ -22,7 +22,6 @@ import '../../../core/download/download_task.dart'
 import '../../../core/illust/illust_download_controller.dart';
 import '../../../core/share/share_service.dart';
 import '../../../core/network/compat/image_demand.dart';
-import '../../../core/network/compat/network_providers.dart';
 import '../../../core/image/image_worker_providers.dart';
 import '../../../app/system_ui.dart';
 import '../../../app/theme/func_tokens.dart';
@@ -220,18 +219,12 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     // image worker, so the window is the worker's.
     final demand = container.read(imageWorkerProvider).demand
       ..setPrefetchWindow(this, neighbours.values.toSet());
-    // A tier record can upgrade a neighbour to its original file, which
-    // still loads on the legacy pipeline.
-    final legacyCache = container
-        .read(pixivNetworkFactoryProvider)
-        .imageCacheManager;
     _prefetchDemand = demand;
     for (final MapEntry(key: neighbour, value: url) in neighbours.entries) {
       unawaited(
         PixivImage.preload(
           context,
           url,
-          cacheManager: legacyCache,
           demand: demand,
           tierKey: widget.tierKeyForPage?.call(neighbour),
           tier: IllustImageTier.medium,

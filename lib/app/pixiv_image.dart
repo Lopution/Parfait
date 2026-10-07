@@ -325,14 +325,11 @@ class PixivImage extends ConsumerStatefulWidget {
     cacheManager: cacheManager,
   );
 
-  /// Whether a decode goes through the background worker: every image but
-  /// original files, which stay on the legacy pipeline until the worker
-  /// fetches them in segments. Without a [ProviderScope] there is no
-  /// worker at all.
-  static _ImageSource _sourceFor(String url, {required bool hasWorker}) =>
-      hasWorker && !url.contains('/img-original/')
-      ? _ImageSource.worker
-      : _ImageSource.legacy;
+  /// Whether a decode goes through the background worker: every image
+  /// does. Only without a [ProviderScope] is there no worker, and the
+  /// legacy pipeline loads it.
+  static _ImageSource _sourceFor({required bool hasWorker}) =>
+      hasWorker ? _ImageSource.worker : _ImageSource.legacy;
 
   /// The provider the widget resolves for [url] on [source], wrapped the
   /// way OctoImage wraps it — the same key is the same decoded entry.
@@ -588,7 +585,7 @@ class PixivImage extends ConsumerStatefulWidget {
         ? IllustTierCache.resolve(tierKey, tier, url)
         : (url, tier);
     final worker = _workerOf(context);
-    final source = _sourceFor(resolved.$1, hasWorker: worker != null);
+    final source = _sourceFor(hasWorker: worker != null);
     final holder = source == _ImageSource.worker ? worker!.demand : demand;
     if (priority == ImageFetchPriority.foreground) {
       holder?.holdFor(resolved.$1, _userPreloadHold);
@@ -935,7 +932,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
       legacyDemand = network.imageDemand;
       worker = ref.watch(imageWorkerProvider);
     }
-    final pipeline = PixivImage._sourceFor(imageUrl, hasWorker: worker != null);
+    final pipeline = PixivImage._sourceFor(hasWorker: worker != null);
     _HistoryEntry entryAt(int? width) => (imageUrl, width, pipeline);
     // A URL's only decoded entry can be the viewer's uncapped frame (the
     // viewer decodes without a memCacheWidth cap). Requesting a fresh

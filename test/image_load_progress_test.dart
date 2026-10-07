@@ -18,7 +18,6 @@ import 'helpers/image_network.dart';
 import 'helpers/detail_world.dart';
 
 const _url = 'https://i.pximg.net/img-master/progress.jpg';
-const _originalUrl = 'https://i.pximg.net/img-original/progress_p0.png';
 
 Widget _app(Widget child) => MaterialApp(
   localizationsDelegates: appLocalizationsDelegates,
@@ -37,16 +36,6 @@ Future<void> _settle(WidgetTester tester) async {
     );
     await tester.pump();
   }
-}
-
-/// A legacy download the test feeds by hand: progress events, then the
-/// file.
-class _Download {
-  final controller = StreamController<FileResponse>();
-  late final manager = ScriptedCacheManager((_) => controller.stream);
-
-  void progress(int downloaded, int total) =>
-      controller.add(DownloadProgress(_originalUrl, total, downloaded));
 }
 
 /// A worker transfer the test feeds by hand: [_url]'s body arrives as the
@@ -154,9 +143,7 @@ void main() {
     });
   });
 
-  testWidgets('PixivImage reports the worker download it is painting', (
-    tester,
-  ) async {
+  testWidgets('PixivImage reports the download it is painting', (tester) async {
     final transfer = _Transfer(total: onePixelPng.length);
     final progress = ValueNotifier(const ImageLoadProgress.idle());
     addTearDown(progress.dispose);
@@ -177,39 +164,6 @@ void main() {
     transfer.body.add(onePixelPng.sublist(head));
     unawaited(transfer.body.close());
     await pumpIoUntil(tester, () => !progress.value.loading);
-    expect(progress.value, const ImageLoadProgress.idle());
-  });
-
-  testWidgets('PixivImage reports the legacy download of an original file', (
-    tester,
-  ) async {
-    final file = await onePixelPngDownload(tester, _originalUrl);
-    final download = _Download();
-    final progress = ValueNotifier(const ImageLoadProgress.idle());
-    addTearDown(progress.dispose);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          pixivNetworkFactoryProvider.overrideWithValue(
-            ScriptedImageNetwork(download.manager),
-          ),
-          imageWorkerProvider.overrideWithValue(legacyOnlyImageWorker()),
-        ],
-        child: _app(PixivImage(url: _originalUrl, progress: progress)),
-      ),
-    );
-    await tester.pump();
-    expect(progress.value, const ImageLoadProgress.idle());
-
-    download.progress(400, 1000);
-    await tester.pump();
-    expect(progress.value, const ImageLoadProgress.loading(0.4));
-
-    download.controller.add(file);
-    unawaited(download.controller.close());
-    for (var i = 0; i < 20 && progress.value.loading; i++) {
-      await _settle(tester);
-    }
     expect(progress.value, const ImageLoadProgress.idle());
   });
 

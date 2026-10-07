@@ -8,6 +8,7 @@ import 'package:http/io_client.dart';
 import 'package:parfait/core/image/image_worker_host.dart';
 import 'package:parfait/core/image/image_worker_protocol.dart';
 import 'package:parfait/core/image/lane_permit_gate.dart';
+import 'package:parfait/core/network/compat/segmented_fetch.dart';
 import 'package:parfait/core/network/pixiv_headers.dart';
 
 import 'helpers/image_network.dart';
@@ -362,6 +363,94 @@ void main() {
     harness.fetch(4, watched);
     expect(await harness.eventFor(4), isA<ResultEvent>());
     expect(harness.takeProgress(), isEmpty);
+  });
+
+  group('an original file', () {
+    const original = 'https://i.pximg.net/img-original/big_p0.png';
+    const segment = SegmentedFetch.defaultSegmentBytes;
+    // Four segments, the last one short.
+    const size = 3 * segment + 12345;
+
+    Future<_Harness> started(RangeServingClient client) async {
+      final harness = _Harness();
+      addTearDown(harness.stop);
+      await harness.start(fetchClient: () => client);
+      return harness;
+    }
+
+    test('arrives whole from parallel ranges, its progress against the '
+        'whole length', () async {
+      final bytes = patternBytes(size);
+      final client = RangeServingClient({original: bytes});
+      final harness = await started(client);
+
+      harness
+        ..watch(original)
+        ..fetch(1, original);
+      final result = await harness.eventFor(1) as ResultEvent;
+      expect(result.bytes, size);
+      expect(await File(result.path).readAsBytes(), bytes);
+      expect(client.ranges.first, 'bytes=0-${segment - 1}');
+      expect(client.ranges, hasLength(4));
+      expect(client.ranges, everyElement(isNotNull));
+      // Every range is a pixiv image request, not only the first.
+      expect(
+        client.requests.map((r) => r.headers['referer']),
+        everyElement(PixivHeaders.image()['Referer']),
+      );
+      final progress = harness.takeProgress();
+      expect(progress, isNotEmpty);
+      expect(progress.map((p) => p.total), everyElement(size));
+      expect(progress.last.received, lessThanOrEqualTo(size));
+    });
+
+    test('a server that ignores Range sends the whole file at once', () async {
+      final bytes = patternBytes(size);
+      final client = RangeServingClient({original: bytes}, honorRange: false);
+      final harness = await started(client);
+
+      harness.fetch(1, original);
+      final result = await harness.eventFor(1) as ResultEvent;
+      expect(await File(result.path).readAsBytes(), bytes);
+      expect(client.requests, hasLength(1));
+    });
+
+    test('a missing file fails with its status', () async {
+      final harness = await started(RangeServingClient({}));
+
+      harness.fetch(1, original);
+      final failure = await harness.eventFor(1) as FailureEvent;
+      expect(failure.statusCode, 404);
+    });
+
+    test('transfers share the worker\'s extra connections', () async {
+      const other = 'https://i.pximg.net/img-original/other_p0.png';
+      final client = RangeServingClient({
+        original: patternBytes(size),
+        other: patternBytes(size),
+      }, hold: true);
+      final harness = await started(client);
+
+      harness
+        ..fetch(1, original)
+        ..fetch(2, other);
+      // Each first range rides its lane permit; every further connection
+      // comes from the worker's budget, whichever transfer takes it.
+      const open = 2 + ImageWorkerHost.segmentLimit;
+      await pollUntil(() => client.requests.length >= open);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(client.requests, hasLength(open));
+
+      final results = Future.wait([harness.eventFor(1), harness.eventFor(2)]);
+      var done = false;
+      unawaited(results.whenComplete(() => done = true));
+      while (!done) {
+        client.releaseHeld();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(await results, everyElement(isA<ResultEvent>()));
+      expect(client.requests, hasLength(8));
+    });
   });
 
   test('watch and progress messages survive the wire', () {

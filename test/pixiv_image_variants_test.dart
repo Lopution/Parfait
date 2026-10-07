@@ -45,23 +45,18 @@ int? _workerDecodeWidthOf(WidgetTester tester) {
 double? _layoutWidthOf(WidgetTester tester) =>
     tester.widget<OctoImage>(find.byType(OctoImage)).width;
 
-/// The fades of the image on screen, on whichever pipeline it loads. The
-/// fade is the contract here; it only becomes visible once a frame loads.
+/// The fades of the image on screen. The fade is the contract here; it
+/// only becomes visible once a frame loads.
 (Duration? fadeIn, Duration? fadeOut) _fadesOf(WidgetTester tester) {
-  final legacy = find.byType(CachedNetworkImage);
-  if (legacy.evaluate().isNotEmpty) {
-    final image = tester.widget<CachedNetworkImage>(legacy);
-    return (image.fadeInDuration, image.fadeOutDuration);
-  }
   final image = tester.widget<OctoImage>(find.byType(OctoImage));
   return (image.fadeInDuration, image.fadeOutDuration);
 }
 
-/// An original file stays on the legacy pipeline; every other image loads
-/// on the worker. Slot and fade policy must not depend on which.
-const _pipelines = [
-  ('legacy', 'https://i.pximg.net/img-original', null),
-  ('worker', 'https://i.pximg.net/img-master', 300),
+/// Slot and fade policy must not depend on the kind of image: an original
+/// file (fetched in ranges, decoded uncapped) or a capped one.
+const _kinds = [
+  ('original', 'https://i.pximg.net/img-original', null),
+  ('capped', 'https://i.pximg.net/img-master', 300),
 ];
 
 void main() {
@@ -189,8 +184,8 @@ void main() {
     expect(image.fadeInDuration, Duration.zero);
   });
 
-  for (final (pipeline, base, width) in _pipelines) {
-    group(pipeline, () {
+  for (final (kind, base, width) in _kinds) {
+    group(kind, () {
       testWidgets('a recycled slot swapping to another work never '
           'crossfades', (tester) async {
         // Feed lists reuse card elements by position; pull-to-refresh can

@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
@@ -15,60 +14,27 @@ import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/image_network.dart';
 
-/// One URL per pipeline: only an original file still loads on the legacy
-/// one, and its uncapped decode is recorded app-wide — a capped request for
-/// a URL with one paints that instead.
-const _legacyUrl = 'https://i.pximg.net/img-original/retry-legacy.png';
-const _workerUrl = 'https://i.pximg.net/img-master/retry-worker.jpg';
+/// One URL per kind of image: an uncapped decode is recorded app-wide, and
+/// a capped request for a URL with one paints that instead.
+const _cappedUrl = 'https://i.pximg.net/img-master/retry-capped.jpg';
+const _originalUrl = 'https://i.pximg.net/img-original/retry-original.png';
 
 /// What the network does on one attempt.
 enum _Outcome { transient, notFound, image }
 
-/// Both image pipelines behind one script: the legacy cache manager (an
-/// original file) and the background worker (a capped image). The retry
-/// policy above them is shared, so every test runs on each.
-abstract class _Pipeline {
+/// The worker's network behind one script. The retry policy above it is
+/// the same for a capped image and an original fetched in ranges (the
+/// script answers a range request with the whole file), so every test runs
+/// on each.
+class _Pipeline {
+  _Pipeline(this.name, this.image);
+
+  final String name;
+  final PixivImage image;
   _Outcome Function(int attempt) script = (_) => _Outcome.image;
   var requests = 0;
 
-  PixivImage get image;
-  Future<List<Override>> overrides(WidgetTester tester);
-}
-
-class _LegacyPipeline extends _Pipeline {
-  @override
-  PixivImage get image => const PixivImage(url: _legacyUrl);
-
-  @override
-  Future<List<Override>> overrides(WidgetTester tester) async {
-    final download = await onePixelPngDownload(tester, _legacyUrl);
-    final manager = ScriptedCacheManager((_) {
-      requests++;
-      return switch (script(requests)) {
-        _Outcome.transient => Stream.error(
-          const SocketException('connection reset'),
-        ),
-        _Outcome.notFound => Stream.error(
-          HttpExceptionWithStatus(404, 'not found'),
-        ),
-        _Outcome.image => Stream.value(download),
-      };
-    });
-    return [
-      pixivNetworkFactoryProvider.overrideWithValue(
-        ScriptedImageNetwork(manager),
-      ),
-      imageWorkerProvider.overrideWithValue(legacyOnlyImageWorker()),
-    ];
-  }
-}
-
-class _WorkerPipeline extends _Pipeline {
-  @override
-  PixivImage get image => const PixivImage(url: _workerUrl, memCacheWidth: 200);
-
-  @override
-  Future<List<Override>> overrides(WidgetTester tester) async {
+  List<Override> overrides() {
     final worker = inProcessImageWorker(
       () => MockClient((_) async {
         requests++;
@@ -82,7 +48,7 @@ class _WorkerPipeline extends _Pipeline {
     return [
       pixivNetworkFactoryProvider.overrideWithValue(
         ScriptedImageNetwork(
-          ScriptedCacheManager((_) => fail('a worker image reached legacy')),
+          ScriptedCacheManager((_) => fail('an image reached legacy')),
         ),
       ),
       imageWorkerProvider.overrideWithValue(worker),
@@ -97,7 +63,7 @@ Future<void> _pump(
 }) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: await pipeline.overrides(tester),
+      overrides: pipeline.overrides(),
       child: MaterialApp(
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -137,10 +103,13 @@ void main() {
   );
 
   for (final pipeline in <_Pipeline Function()>[
-    _LegacyPipeline.new,
-    _WorkerPipeline.new,
+    () => _Pipeline(
+      'capped',
+      const PixivImage(url: _cappedUrl, memCacheWidth: 200),
+    ),
+    () => _Pipeline('original', const PixivImage(url: _originalUrl)),
   ]) {
-    group(pipeline().runtimeType.toString(), () {
+    group(pipeline().name, () {
       testWidgets('a transient failure retries after 1 s and 3 s and then '
           'shows the image', (tester) async {
         final network = pipeline()

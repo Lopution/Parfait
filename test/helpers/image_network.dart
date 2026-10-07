@@ -206,18 +206,6 @@ final onePixelPng = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
 );
 
-/// A fresh download of [url] whose file is a decodable 1×1 PNG, written
-/// under a mocked temp directory (real IO).
-Future<FileInfo> onePixelPngDownload(WidgetTester tester, String url) async {
-  mockPathProvider();
-  final file = (await tester.runAsync(() async {
-    final file = await IOFileSystem('parfait_png').createFile('a.png');
-    await file.writeAsBytes(onePixelPng);
-    return file;
-  }))!;
-  return FileInfo(file, FileSource.Online, DateTime(2100), url);
-}
-
 class _NoFileSystem implements FileSystem {
   @override
   dynamic noSuchMethod(Invocation invocation) =>
@@ -308,12 +296,6 @@ ImageWorker inProcessImageWorker(http.Client Function() fetchClient) {
   });
   return worker;
 }
-
-/// A worker for tests whose images all load on the legacy pipeline; a
-/// request that reaches it fails the test.
-ImageWorker legacyOnlyImageWorker() => inProcessImageWorker(
-  () => MockClient((request) => fail('${request.url} reached the worker')),
-);
 
 /// A worker whose isolate never comes up: every image on it stays a
 /// placeholder. For tests about how an image is set up, not loaded.
