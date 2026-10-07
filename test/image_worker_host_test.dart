@@ -139,6 +139,7 @@ class _Harness {
     ResultEvent() => e.id == id,
     FailureEvent() => e.id == id,
     CachedEvent() => e.id == id,
+    RoutesEvent() => e.id == id,
     _ => false,
   };
 
@@ -479,7 +480,18 @@ void main() {
     expect(server.hits['/img/cached.jpg'], 1);
   });
 
-  test('watch, progress and lookup messages survive the wire', () {
+  test('a route request answers the policy\'s routes', () async {
+    // Nothing was fetched, so the real policy has settled no route yet:
+    // the answer is an empty map, not silence.
+    final harness = _Harness();
+    addTearDown(harness.stop);
+    await harness.start();
+
+    harness.worker.send(encodeRoutesRequest(4));
+    expect((await harness.eventFor(4) as RoutesEvent).routes, isEmpty);
+  });
+
+  test('watch, progress, lookup and route messages survive the wire', () {
     for (final watching in [true, false]) {
       expect(
         decodeWorkerMessage(encodeWatch('u', watching: watching)),
@@ -493,6 +505,18 @@ void main() {
       isA<LookupMessage>()
           .having((m) => m.id, 'id', 7)
           .having((m) => m.url, 'url', 'u'),
+    );
+    expect(
+      decodeWorkerMessage(encodeRoutesRequest(8)),
+      isA<RoutesMessage>().having((m) => m.id, 'id', 8),
+    );
+    expect(
+      decodeWorkerEvent(encodeWorkerEvent(const RoutesEvent(8, {'h': 'ech'}))),
+      isA<RoutesEvent>().having((e) => e.id, 'id', 8).having(
+        (e) => e.routes,
+        'routes',
+        {'h': 'ech'},
+      ),
     );
     for (final path in ['/cache/a', null]) {
       expect(

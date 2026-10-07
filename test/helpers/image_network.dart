@@ -297,6 +297,33 @@ ImageWorker inProcessImageWorker(http.Client Function() fetchClient) {
   return worker;
 }
 
+/// A client whose worker is a script on the far side of the protocol, for
+/// answers no in-process host can give (a policy with settled routes):
+/// every route request gets [routes], every lookup a miss, and anything
+/// else no answer.
+Future<ImageWorkerClient> scriptedImageWorkerClient(
+  ImageDemand demand, {
+  Map<String, String> routes = const {},
+}) {
+  final inbox = ReceivePort();
+  final peer = ReceivePort();
+  void reply(WorkerEvent event) =>
+      inbox.sendPort.send(encodeWorkerEvent(event));
+  peer.listen((raw) {
+    switch (decodeWorkerMessage(raw)) {
+      case RoutesMessage(:final id):
+        reply(RoutesEvent(id, routes));
+      case LookupMessage(:final id):
+        reply(CachedEvent(id, null));
+      case _:
+        break;
+    }
+  });
+  addTearDown(peer.close);
+  reply(ReadyEvent(peer.sendPort));
+  return ImageWorkerClient.attach(inbox, demand: demand);
+}
+
 /// A worker whose isolate never comes up: every image on it stays a
 /// placeholder. For tests about how an image is set up, not loaded.
 ImageWorker stalledImageWorker() => ImageWorker(

@@ -298,6 +298,9 @@ class AppLocalizationsRu extends AppLocalizations {
       'Маршрутов пока нет — поработайте в приложении и обновите.';
 
   @override
+  String get networkRouteForImages => 'Загрузка изображений';
+
+  @override
   String get networkRouteKindDirect => 'Напрямую';
 
   @override

@@ -290,6 +290,7 @@ class ImageWorker implements ImageFetcher {
   Future<File?> cachedFile(String url); // disk only; starts the worker
   Future<void> configChanged();
   Future<ImageWorkerSnapshot> snapshot(); // probe page; never starts one
+  Future<Map<String, NetworkRouteKind>> routeSnapshot(); // never starts one
 }
 final imageWorkerProvider = Provider<ImageWorker>(…); // once per container
 class WorkerImageProvider extends ImageProvider<WorkerImageProvider> {
@@ -350,6 +351,13 @@ class ImageProgressThrottle { bool shouldReport(int received, int? total); }
   worker like `fetch`. A miss, a file evicted before it is read, or an
   unavailable worker falls back to the network with a log line. Sharing
   sends a link and needs no file.
+- Route diagnostics: the worker's policy learns image-host routes the main
+  policy never sees. `routeSnapshot` asks the running worker for its
+  `effectiveRouteSnapshot` (empty when none runs; it never starts one, and
+  a worker that does not answer within `statusTimeout` fails it). The
+  network page lists those entries after the main policy's, each marked
+  `networkRouteForImages`; a failed answer shows only the main routes and
+  logs it.
 - Originals in the worker: an `/img-original/` fetch asks for its first
   1 MiB range; a sized 206 from byte 0 continues in parallel ranges
   (Segmented Transfer Contract) on the worker's own

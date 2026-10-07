@@ -287,7 +287,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkEffectiveRoutes => '現在有効な経路';
 
   @override
-  String get networkEffectiveRoutesEmpty => '経路情報はまだありません——少し浏览してから更新してください。';
+  String get networkEffectiveRoutesEmpty => '経路情報はまだありません——少し閲覧してから更新してください。';
+
+  @override
+  String get networkRouteForImages => '画像の読み込み';
 
   @override
   String get networkRouteKindDirect => '直连';

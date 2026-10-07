@@ -281,6 +281,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkEffectiveRoutesEmpty => '还没有路由记录——逛一逛再刷新。';
 
   @override
+  String get networkRouteForImages => '图片加载';
+
+  @override
   String get networkRouteKindDirect => '直连';
 
   @override

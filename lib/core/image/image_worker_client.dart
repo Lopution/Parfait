@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../logging/crash_log.dart';
 import '../network/compat/image_demand.dart';
+import '../network/compat/network_contracts.dart';
 import 'image_worker_host.dart';
 import 'image_worker_protocol.dart';
 import 'lane_permit_gate.dart';
@@ -236,6 +237,15 @@ class ImageWorkerClient implements ImageFetcher {
   Future<ImageWorkerStatus> status() async =>
       (await _ask(encodeStatusRequest) as StatusEvent).status;
 
+  /// The routes the worker's policy currently uses, by host.
+  Future<Map<String, NetworkRouteKind>> routeSnapshot() async {
+    final reply = await _ask(encodeRoutesRequest) as RoutesEvent;
+    return {
+      for (final MapEntry(:key, :value) in reply.routes.entries)
+        key: NetworkRouteKind.values.byName(value),
+    };
+  }
+
   /// [url]'s file in the disk cache, or null on a miss; never fetches.
   Future<File?> cachedFile(String url) async {
     final reply = await _ask((id) => encodeLookup(id, url)) as CachedEvent;
@@ -306,7 +316,9 @@ class ImageWorkerClient implements ImageFetcher {
         onRouteExhausted?.call(host);
       case WorkerErrorEvent(:final message, :final stack):
         CrashLog.record(RemoteError(message, stack));
-      case StatusEvent(:final id) || CachedEvent(:final id):
+      case StatusEvent(:final id) ||
+          CachedEvent(:final id) ||
+          RoutesEvent(:final id):
         _questions.remove(id)?.complete(event);
       case ReadyEvent():
         break; // consumed during connect

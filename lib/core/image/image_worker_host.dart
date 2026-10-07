@@ -181,6 +181,14 @@ class ImageWorkerHost {
           _applyConfig(config);
         case LookupMessage(:final id, :final url):
           unawaited(_lookup(id, url));
+        case RoutesMessage(:final id):
+          final routes = _policy?.effectiveRouteSnapshot() ?? const {};
+          _send(
+            RoutesEvent(id, {
+              for (final MapEntry(:key, :value) in routes.entries)
+                key: value.name,
+            }),
+          );
         case StatusMessage(:final id):
           _send(
             StatusEvent(

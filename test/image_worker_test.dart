@@ -11,6 +11,7 @@ import 'package:parfait/core/image/image_worker_host.dart';
 import 'package:parfait/core/image/image_worker_protocol.dart';
 import 'package:parfait/core/image/lane_permit_gate.dart';
 import 'package:parfait/core/network/compat/image_demand.dart';
+import 'package:parfait/core/network/compat/network_contracts.dart';
 
 import 'helpers/image_network.dart';
 import 'helpers/worker_entries.dart';
@@ -234,6 +235,24 @@ void main() {
     final snapshot = await worker.snapshot();
     expect(snapshot.state, ImageWorkerState.idle);
     expect(snapshot.describe(), 'image worker: idle, starts 0/3\n');
+  });
+
+  test('route snapshots never start a worker', () async {
+    final worker = _worker((_, _) => fail('the network page started a worker'));
+    expect(await worker.routeSnapshot(), isEmpty);
+    expect(worker.starts, 0);
+  });
+
+  test('a route snapshot comes from the running worker', () async {
+    final worker = _worker(
+      (_, demand) =>
+          scriptedImageWorkerClient(demand, routes: {'i.pximg.net': 'noSni'}),
+    );
+    await worker.cachedFile(_url);
+
+    expect(await worker.routeSnapshot(), {
+      'i.pximg.net': NetworkRouteKind.noSni,
+    });
   });
 
   test('a snapshot reports the running worker\'s queue and disk', () async {

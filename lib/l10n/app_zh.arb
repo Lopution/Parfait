@@ -99,6 +99,7 @@
   "networkModeCompatPreferHint": "优先尝试兼容通道，不行再直连；适合直连已被阻断的网络。",
   "networkEffectiveRoutes": "当前生效路由",
   "networkEffectiveRoutesEmpty": "还没有路由记录——逛一逛再刷新。",
+  "networkRouteForImages": "图片加载",
   "networkRouteKindDirect": "直连",
   "networkRouteKindCompat": "兼容通道",
   "networkThirdParty": "第三方服务可达性",

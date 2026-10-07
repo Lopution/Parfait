@@ -99,6 +99,7 @@
   "networkModeCompatPreferHint": "Сначала совместимые каналы, прямое — как запасной вариант; если прямой доступ заблокирован.",
   "networkEffectiveRoutes": "Текущие маршруты",
   "networkEffectiveRoutesEmpty": "Маршрутов пока нет — поработайте в приложении и обновите.",
+  "networkRouteForImages": "Загрузка изображений",
   "networkRouteKindDirect": "Напрямую",
   "networkRouteKindCompat": "Совместимый канал",
   "networkThirdParty": "Доступность сторонних сервисов",

@@ -20,9 +20,13 @@ import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/comments/comment_translation.dart';
 import 'package:parfait/core/comments/translation_credentials.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/image/image_worker.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart'
-    show PixivDestinationRegistry;
+    show PixivDestinationPurpose, PixivDestinationRegistry;
 import 'package:parfait/core/network/compat/network_policy.dart';
+import 'package:parfait/core/network/compat/pixiv_network_factory.dart'
+    show PixivPolicyHttpClient;
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/naming_rule.dart';
@@ -54,6 +58,7 @@ import 'package:parfait/l10n/app_localizations_zh.dart';
 import 'package:parfait/app/motion/removal.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/image_network.dart';
 import 'helpers/settings_world.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
@@ -632,6 +637,7 @@ void main() {
       'networkModeCompatPreferHint',
       'networkEffectiveRoutes',
       'networkEffectiveRoutesEmpty',
+      'networkRouteForImages',
       'networkRouteKindDirect',
       'networkRouteKindCompat',
       'networkThirdParty',
@@ -2549,6 +2555,79 @@ void main() {
 
     expect(repository.value.imageSource, AppSettings.normalImageSource);
     expect(find.textContaining('无效自定义源'), findsOneWidget);
+  });
+
+  testWidgets('effective routes list the image worker\'s hosts too', (
+    tester,
+  ) async {
+    // Images load through the worker isolate's own policy: its routes are
+    // a second answer, marked as image loading next to the main ones.
+    final policy = stubNetworkPolicy();
+    addTearDown(policy.dispose);
+    final worker = ImageWorker(
+      start: (_, demand) =>
+          scriptedImageWorkerClient(demand, routes: {'i.pximg.net': 'ech'}),
+      config: () async => testImageWorkerConfig,
+    );
+    await tester.runAsync(() async {
+      await PixivPolicyHttpClient(
+        policy: policy,
+        purpose: PixivDestinationPurpose.appApi,
+      ).get(Uri.parse('https://app-api.pixiv.net/v1/walkthrough'));
+      // Only a running worker is asked; the page never starts one.
+      await worker.cachedFile('https://i.pximg.net/img-master/a.jpg');
+    });
+    addTearDown(() => tester.runAsync(worker.dispose));
+    tester.view.physicalSize = const Size(800, 4800);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(
+            FakeSettingsRepository(baseTestSettings()),
+          ),
+          networkAccessPolicyProvider.overrideWithValue(policy),
+          imageWorkerProvider.overrideWithValue(worker),
+        ],
+        child: const MaterialApp(
+          builder: promptHostBuilder,
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: NetworkSettingsPage(),
+        ),
+      ),
+    );
+    await pumpIoUntil(
+      tester,
+      () => find.text('i.pximg.net', skipOffstage: false).evaluate().isNotEmpty,
+    );
+    await _scrollCentered(
+      tester,
+      find.text('i.pximg.net', skipOffstage: false),
+    );
+
+    final apiRoute = find.widgetWithText(ListTile, 'app-api.pixiv.net');
+    expect(apiRoute, findsOneWidget);
+    expect(
+      find.descendant(of: apiRoute, matching: find.text('图片加载')),
+      findsNothing,
+    );
+    final imageRoute = find.widgetWithText(ListTile, 'i.pximg.net');
+    expect(
+      find.descendant(of: imageRoute, matching: find.text('图片加载')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: imageRoute, matching: find.text('ECH')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('还没有路由记录'), findsNothing);
+
+    // Unmount and unwind the third-party reachability probe timeouts.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
   });
 
   testWidgets('browse page keeps only blocking and quality groups', (

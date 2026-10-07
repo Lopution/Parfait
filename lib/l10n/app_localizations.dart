@@ -612,6 +612,12 @@ abstract class AppLocalizations {
   /// **'还没有路由记录——逛一逛再刷新。'**
   String get networkEffectiveRoutesEmpty;
 
+  /// No description provided for @networkRouteForImages.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片加载'**
+  String get networkRouteForImages;
+
   /// No description provided for @networkRouteKindDirect.
   ///
   /// In zh, this message translates to:
