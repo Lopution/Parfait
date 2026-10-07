@@ -2133,6 +2133,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get detailAuthorWorksLoadFailed => '作者の作品を読み込めませんでした';
 
   @override
+  String get feedContinueLoading => '続きを読み込む';
+
+  @override
   String detailExpandPages(int count) {
     return '全$count枚を表示';
   }

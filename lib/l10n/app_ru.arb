@@ -888,6 +888,7 @@
   "detailSectionAuthorWorks": "Другие работы автора",
   "detailAuthorNoOtherWorks": "Других работ пока нет",
   "detailAuthorWorksLoadFailed": "Не удалось загрузить работы автора",
+  "feedContinueLoading": "Загрузить ещё",
   "detailExpandPages": "Показать все ({count})",
   "illustDetailOpenLinkFailed": "Не удалось открыть ссылку",
   "illustDetailRestricted": "Работа удалена или ограничена (ID: {id})",

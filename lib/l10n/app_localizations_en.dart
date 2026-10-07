@@ -2203,6 +2203,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Couldn\'t load the artist\'s works';
 
   @override
+  String get feedContinueLoading => 'Continue loading';
+
+  @override
   String detailExpandPages(int count) {
     return 'Show all $count images';
   }

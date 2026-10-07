@@ -6,13 +6,16 @@ import 'package:material_ui/material_ui.dart';
 import '../../../core/errors/error_category.dart';
 import '../../../core/network/network_restore_signal.dart';
 import '../../../core/paging/paged_feed_controller.dart';
+import '../../../l10n/context.dart';
 import '../../motion/state_fade.dart';
 import '../errors/error_details.dart';
 import '../../theme/func_semantic_tokens.dart';
 
-/// Shared feed-tail widget: load-more spinner, load-more error + retry and
-/// the exhausted marker. Consumes [PagedFeedState] phase semantics; text and
-/// retry wiring stay caller-owned (i18n accessors live at the call site).
+/// Shared feed-tail widget: load-more spinner, load-more error + retry,
+/// "continue" once automatic paging paused, and the exhausted marker.
+/// Consumes [PagedFeedState] phase semantics; error and end texts and the
+/// retry wiring stay caller-owned. [onRetry] also continues a paused feed
+/// (`PagedFeedController.retryLoadMore`).
 class FeedTail extends StatelessWidget {
   const FeedTail({
     super.key,
@@ -75,6 +78,19 @@ class FeedTail extends StatelessWidget {
               onRetry: retry,
               child: tail,
             );
+    }
+    if (feed.loadMorePaused && onRetry != null) {
+      return Padding(
+        padding: padding,
+        child: Center(
+          child: TextButton.icon(
+            key: const Key('feed-continue-loading'),
+            onPressed: onRetry,
+            icon: const Icon(Icons.expand_more),
+            label: Text(context.l10n.feedContinueLoading),
+          ),
+        ),
+      );
     }
     if (feed.exhausted && endMessage != null) {
       return Padding(

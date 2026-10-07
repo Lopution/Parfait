@@ -888,6 +888,7 @@
   "detailSectionAuthorWorks": "この作者の他の作品",
   "detailAuthorNoOtherWorks": "他の作品はまだありません",
   "detailAuthorWorksLoadFailed": "作者の作品を読み込めませんでした",
+  "feedContinueLoading": "続きを読み込む",
   "detailExpandPages": "全{count}枚を表示",
   "illustDetailOpenLinkFailed": "リンクを開けませんでした",
   "illustDetailRestricted": "この作品は削除または非公開になりました（ID: {id}）",
