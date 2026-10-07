@@ -218,6 +218,21 @@ class StatusMessage extends WorkerMessage {
   final int id;
 }
 
+/// Asks for the routes the worker's policy currently uses; [id] matches
+/// the [RoutesEvent] reply.
+class RoutesMessage extends WorkerMessage {
+  const RoutesMessage(this.id);
+  final int id;
+}
+
+/// Asks whether [url] is in the disk cache, without fetching it; [id]
+/// matches the [CachedEvent] reply.
+class LookupMessage extends WorkerMessage {
+  const LookupMessage(this.id, this.url);
+  final int id;
+  final String url;
+}
+
 /// Parses a raw wire map; unknown shapes throw so a protocol drift is loud.
 WorkerMessage decodeWorkerMessage(Object? raw) {
   if (raw is! Map) throw StateError('worker message is not a map: $raw');
@@ -242,6 +257,10 @@ WorkerMessage decodeWorkerMessage(Object? raw) {
       return StatusMessage(raw['id'] as int);
     case 'watch':
       return WatchMessage(raw['url'] as String, watching: raw['on'] as bool);
+    case 'lookup':
+      return LookupMessage(raw['id'] as int, raw['url'] as String);
+    case 'routes':
+      return RoutesMessage(raw['id'] as int);
   }
   throw StateError('unknown worker message type: ${raw['type']}');
 }
@@ -263,6 +282,17 @@ Map<String, Object?> encodePromote(String url) => {
 Map<String, Object?> encodeStatusRequest(int id) => {
   'type': 'status',
   'id': id,
+};
+
+Map<String, Object?> encodeRoutesRequest(int id) => {
+  'type': 'routes',
+  'id': id,
+};
+
+Map<String, Object?> encodeLookup(int id, String url) => {
+  'type': 'lookup',
+  'id': id,
+  'url': url,
 };
 
 Map<String, Object?> encodeWatch(String url, {required bool watching}) => {
@@ -383,6 +413,16 @@ Map<String, Object?> encodeWorkerEvent(WorkerEvent event) => switch (event) {
     'message': message,
     'stack': stack,
   },
+  CachedEvent(:final id, :final path) => {
+    'type': 'cached',
+    'id': id,
+    'path': path,
+  },
+  RoutesEvent(:final id, :final routes) => {
+    'type': 'routes',
+    'id': id,
+    'routes': routes,
+  },
   StatusEvent(:final id, :final status) => {
     'type': 'status',
     'id': id,
@@ -407,6 +447,22 @@ class StatusEvent extends WorkerEvent {
   const StatusEvent(this.id, this.status);
   final int id;
   final ImageWorkerStatus status;
+}
+
+/// The answer to a [RoutesMessage]: `NetworkRouteKind.name` by host, the
+/// hosts whose remembered route is usable now.
+class RoutesEvent extends WorkerEvent {
+  const RoutesEvent(this.id, this.routes);
+  final int id;
+  final Map<String, String> routes;
+}
+
+/// The answer to a [LookupMessage]: the cached file's [path], or null on
+/// a miss.
+class CachedEvent extends WorkerEvent {
+  const CachedEvent(this.id, this.path);
+  final int id;
+  final String? path;
 }
 
 /// Main-side decode of upstream messages.
@@ -443,6 +499,11 @@ WorkerEvent decodeWorkerEvent(Object? raw) {
     'workerError' => WorkerErrorEvent(
       raw['message'] as String,
       raw['stack'] as String,
+    ),
+    'cached' => CachedEvent(raw['id'] as int, raw['path'] as String?),
+    'routes' => RoutesEvent(
+      raw['id'] as int,
+      (raw['routes'] as Map).cast<String, String>(),
     ),
     'status' => StatusEvent(
       raw['id'] as int,

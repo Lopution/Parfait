@@ -298,6 +298,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'No route learned yet — browse a bit and refresh.';
 
   @override
+  String get networkRouteForImages => 'Image loading';
+
+  @override
   String get networkRouteKindDirect => 'Direct';
 
   @override

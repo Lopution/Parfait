@@ -179,6 +179,16 @@ class ImageWorkerHost {
           watching ? _watched.add(url) : _watched.remove(url);
         case ConfigMessage(:final config):
           _applyConfig(config);
+        case LookupMessage(:final id, :final url):
+          unawaited(_lookup(id, url));
+        case RoutesMessage(:final id):
+          final routes = _policy?.effectiveRouteSnapshot() ?? const {};
+          _send(
+            RoutesEvent(id, {
+              for (final MapEntry(:key, :value) in routes.entries)
+                key: value.name,
+            }),
+          );
         case StatusMessage(:final id):
           _send(
             StatusEvent(
@@ -195,6 +205,18 @@ class ImageWorkerHost {
       }
     } on Object catch (error, stack) {
       _send(WorkerErrorEvent('$error', '$stack'));
+    }
+  }
+
+  /// Answers whether [url] is on disk; never fetches it.
+  Future<void> _lookup(int id, String url) async {
+    try {
+      final file = await _cache.lookup(url);
+      _send(CachedEvent(id, file?.path));
+    } on Object catch (error, stack) {
+      // An unreadable cache is a miss to the caller, and a crash-log line.
+      _send(CachedEvent(id, null));
+      _send(WorkerErrorEvent('lookup $url: $error', '$stack'));
     }
   }
 

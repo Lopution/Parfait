@@ -99,6 +99,7 @@
   "networkModeCompatPreferHint": "Tries compatibility routes first, direct as fallback; for networks where direct access is blocked.",
   "networkEffectiveRoutes": "Effective routes",
   "networkEffectiveRoutesEmpty": "No route learned yet — browse a bit and refresh.",
+  "networkRouteForImages": "Image loading",
   "networkRouteKindDirect": "Direct",
   "networkRouteKindCompat": "Compat route",
   "networkThirdParty": "Third-party reachability",

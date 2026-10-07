@@ -18,6 +18,7 @@ import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/network/compat/network_contracts.dart'
     show NetworkRouteKind, NetworkRedirectException, PixivDestinationPurpose;
+import '../../core/image/image_worker_providers.dart';
 import '../../core/network/compat/network_providers.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
@@ -609,6 +610,11 @@ class _EffectiveRoutesSectionState
     extends ConsumerState<_EffectiveRoutesSection> {
   Map<String, NetworkRouteKind> _routes = const {};
 
+  /// Images load through the worker isolate's own policy, so its routes
+  /// are a separate answer that arrives later.
+  Map<String, NetworkRouteKind> _imageRoutes = const {};
+  var _refreshes = 0;
+
   @override
   void initState() {
     super.initState();
@@ -619,6 +625,20 @@ class _EffectiveRoutesSectionState
     setState(() {
       _routes = ref.read(networkAccessPolicyProvider).effectiveRouteSnapshot();
     });
+    unawaited(_refreshImageRoutes(++_refreshes));
+  }
+
+  Future<void> _refreshImageRoutes(int refresh) async {
+    final worker = ref.read(imageWorkerProvider);
+    Map<String, NetworkRouteKind> routes;
+    try {
+      routes = await worker.routeSnapshot();
+    } on Object catch (error) {
+      debugPrint('image worker routes unavailable: $error');
+      routes = const {};
+    }
+    if (!mounted || refresh != _refreshes) return;
+    setState(() => _imageRoutes = routes);
   }
 
   String _kindLabel(BuildContext context, NetworkRouteKind kind) {
@@ -631,9 +651,23 @@ class _EffectiveRoutesSectionState
     };
   }
 
+  Widget _routeTile(
+    BuildContext context,
+    MapEntry<String, NetworkRouteKind> route, {
+    bool images = false,
+  }) => ListTile(
+    dense: true,
+    title: Text(route.key),
+    subtitle: images ? Text(context.l10n.networkRouteForImages) : null,
+    trailing: Text(
+      _kindLabel(context, route.value),
+      style: Theme.of(context).textTheme.bodySmall,
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
-    final entries = _routes.entries.toList();
+    final empty = _routes.isEmpty && _imageRoutes.isEmpty;
     return SettingsGroup(
       title: Row(
         children: [
@@ -646,7 +680,7 @@ class _EffectiveRoutesSectionState
         ],
       ),
       children: [
-        if (entries.isEmpty)
+        if (empty)
           SettingsGroupContent(
             child: Align(
               alignment: Alignment.centerLeft,
@@ -656,16 +690,11 @@ class _EffectiveRoutesSectionState
               ),
             ),
           )
-        else
-          for (final entry in entries)
-            ListTile(
-              dense: true,
-              title: Text(entry.key),
-              trailing: Text(
-                _kindLabel(context, entry.value),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
+        else ...[
+          for (final route in _routes.entries) _routeTile(context, route),
+          for (final route in _imageRoutes.entries)
+            _routeTile(context, route, images: true),
+        ],
       ],
     );
   }

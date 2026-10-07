@@ -287,8 +287,10 @@ class ImageWorker implements ImageFetcher {
   ImageWorkerState get state; // idle/starting/running/stopped/gaveUp/disposed
   Future<FetchResult> fetch(String url, {required ImageFetchPriority priority});
   void Function() watchProgress(String url, ImageProgressListener listener);
+  Future<File?> cachedFile(String url); // disk only; starts the worker
   Future<void> configChanged();
   Future<ImageWorkerSnapshot> snapshot(); // probe page; never starts one
+  Future<Map<String, NetworkRouteKind>> routeSnapshot(); // never starts one
 }
 final imageWorkerProvider = Provider<ImageWorker>(…); // once per container
 class WorkerImageProvider extends ImageProvider<WorkerImageProvider> {
@@ -341,6 +343,21 @@ class ImageProgressThrottle { bool shouldReport(int received, int? total); }
 - Inside the worker: a disk hit answers before any lane; a miss queues on the
   foreground (8) or background (2) lane, coalesced by URL. The disk cache is
   `parfait_images_v2` in the temp directory, 256 MB LRU, written tmp+rename.
+- Cache reuse: `cachedFile` answers from the worker's disk cache without
+  queuing or fetching. Downloads (and the viewer's save, which is a
+  download) use it as `DownloadManager.cacheLookup`; the in-app widget
+  refresh reads covers through it (`WidgetFeedLoader.cachedImage`), while
+  the background widget isolate has no worker and downloads. It starts the
+  worker like `fetch`. A miss, a file evicted before it is read, or an
+  unavailable worker falls back to the network with a log line. Sharing
+  sends a link and needs no file.
+- Route diagnostics: the worker's policy learns image-host routes the main
+  policy never sees. `routeSnapshot` asks the running worker for its
+  `effectiveRouteSnapshot` (empty when none runs; it never starts one, and
+  a worker that does not answer within `statusTimeout` fails it). The
+  network page lists those entries after the main policy's, each marked
+  `networkRouteForImages`; a failed answer shows only the main routes and
+  logs it.
 - Originals in the worker: an `/img-original/` fetch asks for its first
   1 MiB range; a sized 206 from byte 0 continues in parallel ranges
   (Segmented Transfer Contract) on the worker's own
@@ -1565,6 +1582,9 @@ or TLS client.
   re-auth, which advances the credential revision, so comparing revisions
   there would classify every real auth failure as `superseded` and leave stale
   artwork on the home screen.
+- Covers: an in-app refresh first asks the image worker's disk cache
+  (`cachedImage`), with the same byte cap as a download; the background
+  isolate has no worker and downloads every cover.
 - `no_account` and same-account `auth_required` clear the snapshot. A
   transient network, parse, image or storage error retains the same-account
   last-good snapshot and uses bounded WorkManager retry. No result is changed

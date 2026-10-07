@@ -12,6 +12,7 @@ import '../auth/credential_store.dart';
 import '../entity/illust_entity.dart';
 import '../network/api_error.dart';
 import '../network/compat/network_contracts.dart';
+import '../image/image_worker_providers.dart';
 import '../network/compat/network_providers.dart';
 import '../mute/mute_models.dart';
 import '../mute/mute_predicate.dart';
@@ -91,9 +92,11 @@ class WidgetFeedLoader {
     this.blockR18 = false,
     this.blockAI = false,
     this.muteState = const MuteState(),
+    Future<File?> Function(String url)? cachedImage,
     DateTime Function() now = _defaultNow,
   }) : _apiClient = apiClient,
        _imageClient = imageClient,
+       _cachedImage = cachedImage,
        _accountStore = accountStore,
        _credentialStore = credentialStore,
        _storeFactory = storeFactory,
@@ -101,6 +104,10 @@ class WidgetFeedLoader {
 
   final PixivHttpClient _apiClient;
   final http.Client _imageClient;
+
+  /// The image worker's disk cache, inside the app; null in the background
+  /// isolate, which has no worker and always downloads.
+  final Future<File?> Function(String url)? _cachedImage;
   final AccountStore _accountStore;
   final CredentialStore _credentialStore;
   final FutureOr<WidgetSnapshotStore> Function() _storeFactory;
@@ -175,7 +182,8 @@ class WidgetFeedLoader {
       final generation = _generationToken();
       var totalImageBytes = 0;
       for (final illust in candidates) {
-        final bytes = await _downloadCover(illust);
+        final bytes =
+            await _cachedCover(illust) ?? await _downloadCover(illust);
         if (bytes == null) {
           // One failed cover aborts this pass; the last-good snapshot stays
           // active for the same account and the caller schedules a retry.
@@ -279,6 +287,27 @@ class WidgetFeedLoader {
     }
   }
 
+  /// One cover from the image worker's disk cache — the feed usually showed
+  /// it already. Null on a miss or an unusable file; the caller downloads.
+  Future<List<int>?> _cachedCover(IllustEntity illust) async {
+    final lookup = _cachedImage;
+    if (lookup == null) return null;
+    try {
+      final file = await lookup(illust.imageUrls.squareMedium);
+      if (file == null) return null;
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty || bytes.length > _widgetCoverMaxBytes) {
+        log('WidgetFeedLoader cached cover size rejected: ${bytes.length}');
+        return null;
+      }
+      return bytes;
+    } on Object catch (error) {
+      // Evicted between the lookup and the read, or no worker: download.
+      log('WidgetFeedLoader cached cover unavailable: ${error.runtimeType}');
+      return null;
+    }
+  }
+
   /// Downloads one cover through the image policy client with a byte cap.
   /// The exact-host registry inside the policy client rejects any non-pximg
   /// URL before a socket is opened.
@@ -354,6 +383,7 @@ final widgetFeedLoaderProvider = Provider<WidgetFeedLoader>((ref) {
   return WidgetFeedLoader(
     apiClient: ref.watch(pixivHttpClientProvider),
     imageClient: network.client(PixivDestinationPurpose.image),
+    cachedImage: ref.watch(imageWorkerProvider).cachedFile,
     accountStore: ref.watch(accountStoreProvider.notifier),
     credentialStore: ref.watch(credentialStoreProvider),
     storeFactory: WidgetSnapshotStore.standard,

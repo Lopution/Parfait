@@ -9,6 +9,7 @@ import '../platform/media_store_channel.dart';
 import '../platform/platform_caps.dart';
 import '../platform/saf_tree.dart';
 import '../settings/settings_controller.dart';
+import '../image/image_worker_providers.dart';
 import '../network/compat/network_providers.dart';
 import '../network/compat/policy_download_transport.dart';
 import 'download_manager.dart';
@@ -74,16 +75,12 @@ final downloadManagerProvider = Provider<DownloadManager>((ref) {
   final manager = DownloadManager(
     transport: ref.watch(pixivMediaTransportProvider),
     sinkFactory: ref.watch(downloadSinkFactoryProvider),
-    // A file already sitting in the image disk cache is a completed
-    // download waiting to be materialized — serve it from disk instead of
-    // re-fetching the same bytes over the network.
-    cacheLookup: (url) async {
-      final info = await ref
-          .read(pixivNetworkFactoryProvider)
-          .imageCacheManager
-          .getFileFromCache(url.toString());
-      return info?.file;
-    },
+    // A file already sitting in the image worker's disk cache (the viewer
+    // showed the original) is a completed download waiting to be
+    // materialized — serve it from disk instead of re-fetching the same
+    // bytes over the network.
+    cacheLookup: (url) =>
+        ref.read(imageWorkerProvider).cachedFile(url.toString()),
     maxConcurrent: ref.read(maxDownloadCountProvider),
     segmentBudget: ref.watch(segmentBudgetProvider),
     requireOwnedSubmissions: true,

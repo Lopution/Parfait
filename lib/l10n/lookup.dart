@@ -423,6 +423,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'networkProbeTitle' => l10n.networkProbeTitle,
   'networkProbeWorst' => l10n.networkProbeWorst,
   'networkReachable' => l10n.networkReachable,
+  'networkRouteForImages' => l10n.networkRouteForImages,
   'networkRouteKindCompat' => l10n.networkRouteKindCompat,
   'networkRouteKindDirect' => l10n.networkRouteKindDirect,
   'networkSettings' => l10n.networkSettings,

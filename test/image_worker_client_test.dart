@@ -11,6 +11,7 @@ import 'package:parfait/core/image/image_worker_host.dart';
 import 'package:parfait/core/image/image_worker_protocol.dart';
 import 'package:parfait/core/image/lane_permit_gate.dart';
 import 'package:parfait/core/network/compat/image_demand.dart';
+import 'package:parfait/core/network/compat/network_contracts.dart';
 
 import 'helpers/image_network.dart';
 import 'helpers/worker_entries.dart';
@@ -347,6 +348,29 @@ void main() {
     ];
     await harness.client.dispose();
     await Future.wait(failures);
+  });
+
+  test('route snapshots arrive as route kinds by host', () async {
+    final client = await scriptedImageWorkerClient(
+      ImageDemand(),
+      routes: {'i.pximg.net': 'ech', 'i.pixiv.cat': 'direct'},
+    );
+    addTearDown(client.dispose);
+
+    expect(await client.routeSnapshot(), {
+      'i.pximg.net': NetworkRouteKind.ech,
+      'i.pixiv.cat': NetworkRouteKind.direct,
+    });
+  });
+
+  test('a disposed client fails route questions at once', () async {
+    final client = await scriptedImageWorkerClient(ImageDemand());
+    await client.dispose();
+
+    await expectLater(
+      client.routeSnapshot(),
+      throwsA(isA<ImageWorkerUnavailable>()),
+    );
   });
 
   test('a worker that dies fails pending and later requests loudly', () async {
