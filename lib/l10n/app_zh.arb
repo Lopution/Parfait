@@ -818,24 +818,6 @@
   "profileFollowing": "关注",
   "profileFans": "粉丝",
   "profileMyPixiv": "好P友",
-  "profileFollowingCount": "{count} 关注",
-  "@profileFollowingCount": {
-    "description": "Profile header: following count, a link to the following list. count is already formatted.",
-    "placeholders": {
-      "count": {
-        "type": "String"
-      }
-    }
-  },
-  "profileMyPixivCount": "{count} 好P友",
-  "@profileMyPixivCount": {
-    "description": "Profile header: My Pixiv count. count is already formatted.",
-    "placeholders": {
-      "count": {
-        "type": "String"
-      }
-    }
-  },
   "profileWorksTotal": "共 {count} 件",
   "@profileWorksTotal": {
     "description": "Profile work tab: the total number of works (or series) above the list. count is already formatted.",
@@ -1195,6 +1177,23 @@
   "feedContinueLoading": "继续加载",
   "@feedContinueLoading": {
     "description": "Feed tail button after automatic paging paused: loads the next pages."
+  },
+  "commentAuthorBadge": "作者",
+  "@commentAuthorBadge": {
+    "description": "Marker beside the work author's name in its comments"
+  },
+  "commentShowReplies": "查看回复",
+  "@commentShowReplies": {
+    "description": "Comment action that opens the replies when the reply count is unknown"
+  },
+  "novelEntryBookmarks": "{count} 次收藏",
+  "@novelEntryBookmarks": {
+    "description": "Spoken part of a novel list row: its bookmark count, already formatted (e.g. 1.2万)",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
   },
   "detailExpandPages": "展开全部 {count} 张",
   "@detailExpandPages": {

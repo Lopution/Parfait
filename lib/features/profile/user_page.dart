@@ -411,24 +411,22 @@ class _UserPageState extends ConsumerState<UserPage>
     };
   }
 
-  /// The header's statistics line. A preview snapshot has no counters, so
-  /// it shows none rather than zeros.
+  /// The header's counters. A preview snapshot has no counters, so it
+  /// shows none rather than zeros.
   List<ProfileHeaderStat> _headerStats(UserEntity user) {
     if (!user.hasDetail) return const [];
     final l10n = context.l10n;
     return [
       ProfileHeaderStat(
         id: 'following',
-        text: l10n.profileFollowingCount(
-          AppFormat.count(context, user.totalFollowUsers),
-        ),
+        value: user.totalFollowUsers,
+        label: l10n.profileFollowing,
         onTap: _openTab(_ProfileTab.following),
       ),
       ProfileHeaderStat(
         id: 'myPixiv',
-        text: l10n.profileMyPixivCount(
-          AppFormat.count(context, user.totalMyPixivUsers),
-        ),
+        value: user.totalMyPixivUsers,
+        label: l10n.profileMyPixiv,
         onTap: _openTab(_ProfileTab.myPixiv),
       ),
     ];

@@ -108,7 +108,7 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   final int selectedTabIndex;
   final ValueChanged<BuildContext> onShare;
 
-  /// The statistics line under the name: following and My Pixiv.
+  /// The counters under the name: following and My Pixiv.
   final List<ProfileHeaderStat> stats;
   final bool isFollowed;
   final VoidCallback? onEditProfile;
@@ -246,7 +246,8 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                 clipBehavior: Clip.hardEdge,
                 children: [
                   // 1. Banner band: cover image, or a surfaceContainerHigh
-                  // strip so the header separates from the page colour.
+                  // strip so the header separates from the page colour;
+                  // either fades into the page at its bottom.
                   Positioned(
                     top: geometry.contentOffset,
                     left: 0,
@@ -371,33 +372,60 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
   }
 }
 
-/// Banner artwork band. No scrim and no over-artwork text: the identity
-/// content sits on the page surface below the banner, so nothing readable
-/// is painted over the image and the overlay controls carry their own
-/// filled background.
+/// Banner artwork band. Its lower part fades into the page surface, so the
+/// banner has no hard edge under the avatar and the identity block. No
+/// text is painted over the image, and the overlay controls carry their
+/// own filled background.
 class _ProfileBackground extends StatelessWidget {
   const _ProfileBackground({required this.user});
+
+  /// Height of the fade at the banner's bottom: most of the band below
+  /// the toolbar.
+  static const fadeHeight = 64.0;
 
   final UserEntity user;
 
   @override
   Widget build(BuildContext context) {
-    if (user.backgroundImageUrl == null) {
-      // No cover uploaded: a lighter opaque container separates the banner
-      // from the page colour and still hides the feed items scrolling
-      // underneath (the tab strip below is opaque, so that seam is covered
-      // too).
-      return ColoredBox(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-      );
-    }
-    return PixivImage.detail(
-      user.backgroundImageUrl!,
-      fit: BoxFit.cover,
-      // Background images have widely varying aspect ratios; anchoring to
-      // the top keeps the main subject visible when the header crops the
-      // lower part of a tall image.
-      alignment: Alignment.topCenter,
+    final colors = Theme.of(context).colorScheme;
+    final backgroundUrl = user.backgroundImageUrl;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (backgroundUrl == null)
+          // No cover uploaded: a lighter opaque container separates the
+          // banner from the page colour and still hides the feed items
+          // scrolling underneath (the tab strip below is opaque, so that
+          // seam is covered too).
+          ColoredBox(color: colors.surfaceContainerHigh)
+        else
+          PixivImage.detail(
+            backgroundUrl,
+            fit: BoxFit.cover,
+            // Background images have widely varying aspect ratios;
+            // anchoring to the top keeps the main subject visible when the
+            // header crops the lower part of a tall image.
+            alignment: Alignment.topCenter,
+          ),
+        Positioned(
+          key: const ValueKey('profile-banner-fade'),
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: fadeHeight,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [colors.surface.withValues(alpha: 0), colors.surface],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -406,7 +434,7 @@ class _ProfileBackground extends StatelessWidget {
 /// height: a banner spacer (the banner itself is painted by the layered
 /// header), the overlapping 80dp avatar, the name row — name and @account
 /// on the left, share and the main action on the right — and the
-/// statistics line. The measured height of this widget drives
+/// counters. The measured height of this widget drives
 /// [ReplicaProfileHeaderDelegate.expandedExtent].
 class _ExpandedIdentity extends StatelessWidget {
   const _ExpandedIdentity({
@@ -502,12 +530,15 @@ class _ExpandedIdentity extends StatelessWidget {
             ),
             if (stats.isNotEmpty)
               Padding(
-                // The links carry their own xs inset; line their text up
+                // The blocks carry their own xs inset; line their text up
                 // with the name.
-                padding: const EdgeInsets.symmetric(
-                  horizontal: FuncSpacing.lg - FuncSpacing.xs,
+                padding: const EdgeInsets.fromLTRB(
+                  FuncSpacing.lg - FuncSpacing.xs,
+                  FuncSpacing.xs,
+                  FuncSpacing.lg - FuncSpacing.xs,
+                  0,
                 ),
-                child: ProfileStatLine(stats: stats),
+                child: ProfileStatRow(stats: stats),
               ),
             const SizedBox(height: FuncSpacing.sm),
           ],

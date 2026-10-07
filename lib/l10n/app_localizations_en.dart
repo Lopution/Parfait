@@ -1690,16 +1690,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileMyPixiv => 'My Pixiv';
 
   @override
-  String profileFollowingCount(String count) {
-    return '$count following';
-  }
-
-  @override
-  String profileMyPixivCount(String count) {
-    return '$count My Pixiv';
-  }
-
-  @override
   String profileWorksTotal(String count) {
     return '$count in total';
   }
@@ -2204,6 +2194,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get feedContinueLoading => 'Continue loading';
+
+  @override
+  String get commentAuthorBadge => 'Author';
+
+  @override
+  String get commentShowReplies => 'View replies';
+
+  @override
+  String novelEntryBookmarks(String count) {
+    return '$count bookmarks';
+  }
 
   @override
   String detailExpandPages(int count) {

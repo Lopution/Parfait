@@ -3137,18 +3137,6 @@ abstract class AppLocalizations {
   /// **'好P友'**
   String get profileMyPixiv;
 
-  /// Profile header: following count, a link to the following list. count is already formatted.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count} 关注'**
-  String profileFollowingCount(String count);
-
-  /// Profile header: My Pixiv count. count is already formatted.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count} 好P友'**
-  String profileMyPixivCount(String count);
-
   /// Profile work tab: the total number of works (or series) above the list. count is already formatted.
   ///
   /// In zh, this message translates to:
@@ -4054,6 +4042,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'继续加载'**
   String get feedContinueLoading;
+
+  /// Marker beside the work author's name in its comments
+  ///
+  /// In zh, this message translates to:
+  /// **'作者'**
+  String get commentAuthorBadge;
+
+  /// Comment action that opens the replies when the reply count is unknown
+  ///
+  /// In zh, this message translates to:
+  /// **'查看回复'**
+  String get commentShowReplies;
+
+  /// Spoken part of a novel list row: its bookmark count, already formatted (e.g. 1.2万)
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 次收藏'**
+  String novelEntryBookmarks(String count);
 
   /// Under the first image of a multi-image illustration; shows the rest.
   ///

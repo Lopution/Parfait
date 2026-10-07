@@ -1633,16 +1633,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get profileMyPixiv => 'マイピク';
 
   @override
-  String profileFollowingCount(String count) {
-    return 'フォロー $count';
-  }
-
-  @override
-  String profileMyPixivCount(String count) {
-    return 'マイピク $count';
-  }
-
-  @override
   String profileWorksTotal(String count) {
     return '全 $count 件';
   }
@@ -2134,6 +2124,17 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get feedContinueLoading => '続きを読み込む';
+
+  @override
+  String get commentAuthorBadge => '作者';
+
+  @override
+  String get commentShowReplies => '返信を表示';
+
+  @override
+  String novelEntryBookmarks(String count) {
+    return 'ブックマーク $count 件';
+  }
 
   @override
   String detailExpandPages(int count) {

@@ -6,7 +6,7 @@ import 'package:parfait/features/profile/profile_statistics.dart';
 
 Finder _link(String id) => find.byKey(ValueKey('profile-stat-$id-header'));
 
-Future<void> _pumpLine(
+Future<void> _pumpRow(
   WidgetTester tester, {
   required double width,
   required List<ProfileHeaderStat> stats,
@@ -23,7 +23,7 @@ Future<void> _pumpLine(
         child: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,
-            child: ProfileStatLine(stats: stats),
+            child: ProfileStatRow(stats: stats),
           ),
         ),
       ),
@@ -33,20 +33,22 @@ Future<void> _pumpLine(
 }
 
 void main() {
-  testWidgets('the links share one line, each a 48dp target', (tester) async {
+  testWidgets('the blocks share one row, each a 48dp target', (tester) async {
     var tapped = <String>[];
-    await _pumpLine(
+    await _pumpRow(
       tester,
       width: 411,
       stats: [
         ProfileHeaderStat(
           id: 'following',
-          text: '12 关注',
+          value: 12,
+          label: '关注',
           onTap: () => tapped.add('following'),
         ),
         ProfileHeaderStat(
           id: 'myPixiv',
-          text: '3 好P友',
+          value: 3,
+          label: '好P友',
           onTap: () => tapped.add('myPixiv'),
         ),
       ],
@@ -57,7 +59,11 @@ void main() {
     expect(following.top, myPixiv.top);
     expect(following.right, lessThan(myPixiv.left));
     expect(following.height, greaterThanOrEqualTo(48));
-    expect(find.text('·'), findsOneWidget);
+    // The figure sits over its label, and is the larger of the two.
+    final figure = tester.getRect(find.text('12'));
+    final label = tester.getRect(find.text('关注'));
+    expect(figure.bottom, lessThanOrEqualTo(label.top));
+    expect(figure.height, greaterThan(label.height));
 
     await tester.tap(_link('myPixiv'));
     await tester.tap(_link('following'));
@@ -65,41 +71,53 @@ void main() {
     tapped = [];
   });
 
-  testWidgets('a link announces its text; a read-only one is no button', (
-    tester,
-  ) async {
-    await _pumpLine(
-      tester,
-      width: 411,
-      stats: [
-        ProfileHeaderStat(id: 'following', text: '12 关注', onTap: () {}),
-        const ProfileHeaderStat(id: 'myPixiv', text: '3 好P友'),
-      ],
-    );
-    expect(
-      tester.getSemantics(_link('following')),
-      isSemantics(label: '12 关注', isButton: true, hasTapAction: true),
-    );
-    expect(
-      tester.getSemantics(_link('myPixiv')),
-      isSemantics(label: '3 好P友', isButton: false, hasTapAction: false),
-    );
-  });
+  testWidgets(
+    'a block announces label and figure; a read-only one is no button',
+    (tester) async {
+      await _pumpRow(
+        tester,
+        width: 411,
+        stats: [
+          ProfileHeaderStat(
+            id: 'following',
+            value: 12,
+            label: '关注',
+            onTap: () {},
+          ),
+          const ProfileHeaderStat(id: 'myPixiv', value: 3, label: '好P友'),
+        ],
+      );
+      expect(
+        tester.getSemantics(_link('following')),
+        isSemantics(label: '关注, 12', isButton: true, hasTapAction: true),
+      );
+      expect(
+        tester.getSemantics(_link('myPixiv')),
+        isSemantics(label: '好P友, 3', isButton: false, hasTapAction: false),
+      );
+    },
+  );
 
-  testWidgets('a narrow screen wraps the line instead of overflowing', (
+  testWidgets('a narrow screen wraps the blocks instead of overflowing', (
     tester,
   ) async {
-    await _pumpLine(
+    await _pumpRow(
       tester,
       width: 200,
       textScale: 1.3,
       stats: [
         ProfileHeaderStat(
           id: 'following',
-          text: 'Подписки: 1,2 тыс.',
+          value: 1234,
+          label: 'Подписки на авторов',
           onTap: () {},
         ),
-        ProfileHeaderStat(id: 'myPixiv', text: 'Мои Pixiv: 567', onTap: () {}),
+        ProfileHeaderStat(
+          id: 'myPixiv',
+          value: 567,
+          label: 'Мои друзья в Pixiv',
+          onTap: () {},
+        ),
       ],
     );
     expect(tester.takeException(), isNull);
