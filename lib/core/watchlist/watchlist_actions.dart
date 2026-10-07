@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../actionqueue/action_bootstrap.dart';
 import '../actionqueue/action_models.dart';
+import '../mutation/mutation_models.dart';
 import '../network/api_error.dart';
 import 'watchlist_models.dart';
 import 'watchlist_repository.dart';
@@ -16,15 +17,38 @@ class _WatchlistActions {
 
   final Ref _ref;
 
+  /// Flips the shown value at once and settles on the server one request
+  /// at a time — the [_BookmarkActions.toggle] rules, without Undo.
   Future<void> toggle(WatchlistKey key) async {
     final store = _ref.read(watchlistStoreProvider.notifier);
-    final added = store.entryOf(key)?.added ?? false;
-    final operation = added ? store.beginDelete(key) : store.beginAdd(key);
-    if (operation == null) return;
-    await _run(operation);
+    final entry = store.entryOf(key);
+    final wish = !(entry?.shown ?? false);
+    if (entry != null && entry.isUnsettled) {
+      final operation = entry.pending;
+      if (operation == null || !entry.isQueued) {
+        store.want(key, wish);
+        return;
+      }
+      final dropped = await _ref
+          .read(actionQueueProvider)
+          .dropPending(owner: operation.accountId, dedupeKey: key.dedupeKey);
+      if (dropped) store.cancel(operation);
+      return;
+    }
+    Future<bool> request(bool target) async {
+      final operation = target ? store.beginAdd(key) : store.beginDelete(key);
+      return operation != null && await _run(operation);
+    }
+
+    await settleToggle(
+      first: () => request(wish),
+      request: request,
+      nextWish: () => store.entryOf(key)?.wish,
+    );
   }
 
-  Future<void> _run(WatchlistOp operation) async {
+  /// True when the server confirmed [operation].
+  Future<bool> _run(WatchlistOp operation) async {
     final store = _ref.read(watchlistStoreProvider.notifier);
     final repository = _ref.read(watchlistRepositoryProvider);
     try {
@@ -42,19 +66,24 @@ class _WatchlistActions {
       // A completed call is connectivity evidence — replay anything that
       // was queued while offline.
       pumpActionQueue(_ref);
+      return true;
     } on ApiError catch (error) {
-      if (isConnectivityError(error) && _enqueueOffline(operation)) {
-        return;
+      if (isConnectivityError(error) && await _enqueueOffline(operation)) {
+        store.markQueued(operation);
+      } else {
+        store.fail(operation, error);
       }
-      store.fail(operation, error);
     } catch (error) {
       store.fail(operation, error);
     }
+    return false;
   }
 
-  bool _enqueueOffline(WatchlistOp operation) {
+  /// True when the intent is durably queued; a queue failure falls back to
+  /// the visible error path.
+  Future<bool> _enqueueOffline(WatchlistOp operation) async {
     try {
-      _ref
+      await _ref
           .read(actionQueueProvider)
           .enqueue(
             owner: operation.accountId,

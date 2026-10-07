@@ -9,6 +9,9 @@ class RecordingBookmarkRepository implements BookmarkRepository {
   final List<(int id, String restrict, List<String>? tags)> adds = [];
   final List<int> deletes = [];
   Object? addError;
+
+  /// When set, adds wait on it — a still-in-flight add.
+  Completer<void>? addGate;
   BookmarkDetail detail = const BookmarkDetail(
     isBookmarked: false,
     restrict: BookmarkRestrict.public,
@@ -30,6 +33,7 @@ class RecordingBookmarkRepository implements BookmarkRepository {
     List<String>? tags,
     CancelToken? cancelToken,
   }) async {
+    await addGate?.future;
     final error = addError;
     if (error != null) throw error;
     adds.add((id, restrict.name, tags));
@@ -47,6 +51,7 @@ class RecordingBookmarkRepository implements BookmarkRepository {
     List<String>? tags,
     CancelToken? cancelToken,
   }) async {
+    await addGate?.future;
     final error = addError;
     if (error != null) throw error;
     adds.add((id, restrict.name, tags));

@@ -89,6 +89,7 @@ class FollowStore extends Notifier<Map<int, FollowEntry>> {
         followed: previous?.followed ?? false,
         restrict: previous?.restrict,
         pending: operation,
+        wish: kind == FollowOperationKind.add,
         confirmedRevision: previous?.confirmedRevision,
         status: MutationStatus.pending,
       ),
@@ -96,15 +97,37 @@ class FollowStore extends Notifier<Map<int, FollowEntry>> {
     return operation;
   }
 
+  /// [BookmarkStore.want] for follows.
+  void want(int userId, bool wish) {
+    final entry = state[userId];
+    if (entry == null || !entry.isUnsettled) return;
+    final settled = !entry.isPending && wish == entry.followed;
+    state = {...state, userId: entry.copyWith(wish: wish, clearWish: settled)};
+  }
+
+  /// [operation] failed on connectivity and now waits in the offline queue.
+  void markQueued(FollowOperation operation) {
+    final entry = state[operation.userId];
+    if (entry?.pending?.envelope != operation.envelope) return;
+    state = {
+      ...state,
+      operation.userId: entry!.copyWith(status: MutationStatus.queued),
+    };
+  }
+
+  /// A wish the user made meanwhile survives when it differs from the
+  /// committed value, for the follow-up request.
   void commit(FollowOperation operation) {
     if (!_owns(operation)) return;
     final added = operation.kind == FollowOperationKind.add;
+    final wish = state[operation.userId]?.wish;
     _ledger.finish(operation.envelope);
     state = {
       ...state,
       operation.userId: FollowEntry(
         followed: added,
         restrict: added ? operation.restrict : null,
+        wish: wish == added ? null : wish,
         confirmedRevision: operation.revision,
         status: MutationStatus.confirmed,
       ),
@@ -112,16 +135,20 @@ class FollowStore extends Notifier<Map<int, FollowEntry>> {
     onConfirmed?.call(operation.userId, added);
   }
 
+  /// [BookmarkStore.fail] for follows: rolls back, silently when the user
+  /// had already tapped away from the target.
   void fail(FollowOperation operation, Object error) {
     if (!_owns(operation)) return;
+    final previous = state[operation.userId];
     final cancelled =
-        error is ApiCancelled || operation.cancelToken.isCancelled;
+        error is ApiCancelled ||
+        operation.cancelToken.isCancelled ||
+        previous?.wish != (operation.kind == FollowOperationKind.add);
     if (cancelled) {
       _ledger.discard(operation.envelope, MutationDiscardReason.cancelled);
     } else {
       _ledger.finish(operation.envelope);
     }
-    final previous = state[operation.userId];
     if (previous?.pending?.envelope != operation.envelope) return;
     state = {
       ...state,
@@ -210,7 +237,7 @@ class FollowStore extends Notifier<Map<int, FollowEntry>> {
   ) {
     final (userId: _, :followed, :restrict) = snapshot;
     if (followed == null && restrict == null) return null;
-    if (entry?.isPending == true) return null;
+    if (entry?.isUnsettled == true) return null;
     final confirmed = entry?.confirmedRevision;
     if (snapshotRevision != null &&
         confirmed != null &&
@@ -278,7 +305,7 @@ class FollowStore extends Notifier<Map<int, FollowEntry>> {
     if (!settleState) return;
     final next = <int, FollowEntry>{...state};
     for (final item in next.entries) {
-      if (!item.value.isPending) continue;
+      if (!item.value.isUnsettled) continue;
       next[item.key] = FollowEntry(
         followed: item.value.followed,
         restrict: item.value.restrict,

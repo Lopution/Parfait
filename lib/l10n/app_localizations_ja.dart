@@ -2496,6 +2496,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get watchlistRemove => 'フォロー解除';
 
   @override
+  String get watchlistFailed => 'シリーズのフォロー操作に失敗しました';
+
+  @override
   String get watchlistNewContent => '新着';
 
   @override

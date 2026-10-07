@@ -2570,6 +2570,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchlistRemove => 'Unfollow series';
 
   @override
+  String get watchlistFailed => 'Series follow action failed';
+
+  @override
   String get watchlistNewContent => 'New';
 
   @override

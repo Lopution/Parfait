@@ -23,7 +23,9 @@ abstract interface class ActionStore {
   /// returned.
   Future<StoredAction?> nextReady(String owner, int nowMs);
 
-  Future<void> markRunning(int id);
+  /// Claims a pending row for replay. False when the row is gone or no
+  /// longer pending — dropped by [deletePending] after [nextReady] read it.
+  Future<bool> markRunning(int id);
 
   /// Returns a row to pending. [attempt] and [nextAttemptAtMs] carry the
   /// row-backoff schedule for row-scope retries; both stay null/unchanged
@@ -35,6 +37,10 @@ abstract interface class ActionStore {
 
   /// Deletes a row — successful replay or explicit drop.
   Future<void> delete(int id);
+
+  /// Deletes the *pending* row of owner + dedupe key. False when there is
+  /// none — never queued, already replayed, or running right now.
+  Future<bool> deletePending(String owner, String dedupeKey);
 
   /// All rows of one owner, oldest first (tests/diagnostics).
   Future<List<StoredAction>> listFor(String owner);
@@ -79,8 +85,16 @@ final class SqliteActionStore implements ActionStore {
   }
 
   @override
-  Future<void> markRunning(int id) =>
-      _update(id, {'status': ActionStatus.running.dbValue});
+  Future<bool> markRunning(int id) async {
+    final db = await _database.database;
+    final claimed = await db.update(
+      FeedDatabase.actionTable,
+      {'status': ActionStatus.running.dbValue},
+      where: 'id = ? AND status = ?',
+      whereArgs: [id, ActionStatus.pending.dbValue],
+    );
+    return claimed > 0;
+  }
 
   @override
   Future<void> markPending(int id, {int? attempt, int? nextAttemptAtMs}) async {
@@ -100,6 +114,17 @@ final class SqliteActionStore implements ActionStore {
   Future<void> delete(int id) async {
     final db = await _database.database;
     await db.delete(FeedDatabase.actionTable, where: 'id = ?', whereArgs: [id]);
+  }
+
+  @override
+  Future<bool> deletePending(String owner, String dedupeKey) async {
+    final db = await _database.database;
+    final deleted = await db.delete(
+      FeedDatabase.actionTable,
+      where: 'owner = ? AND dedupe_key = ? AND status = ?',
+      whereArgs: [owner, dedupeKey, ActionStatus.pending.dbValue],
+    );
+    return deleted > 0;
   }
 
   @override
@@ -203,8 +228,14 @@ final class InMemoryActionStore implements ActionStore {
   }
 
   @override
-  Future<void> markRunning(int id) =>
-      _apply(id, (row) => row.copyWith(status: ActionStatus.running));
+  Future<bool> markRunning(int id) async {
+    final index = _rows.indexWhere(
+      (row) => row.id == id && row.status == ActionStatus.pending,
+    );
+    if (index < 0) return false;
+    _rows[index] = _rows[index].copyWith(status: ActionStatus.running);
+    return true;
+  }
 
   @override
   Future<void> markPending(int id, {int? attempt, int? nextAttemptAtMs}) =>
@@ -227,6 +258,18 @@ final class InMemoryActionStore implements ActionStore {
   @override
   Future<void> delete(int id) async {
     _rows.removeWhere((row) => row.id == id);
+  }
+
+  @override
+  Future<bool> deletePending(String owner, String dedupeKey) async {
+    final before = _rows.length;
+    _rows.removeWhere(
+      (row) =>
+          row.owner == owner &&
+          row.dedupeKey == dedupeKey &&
+          row.status == ActionStatus.pending,
+    );
+    return _rows.length < before;
   }
 
   @override

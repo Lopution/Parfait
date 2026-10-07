@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/physics.dart';
 import 'package:material_ui/material_ui.dart';
@@ -29,29 +28,25 @@ import 'undo_snack_bar.dart';
 String _bookmarkText(BuildContext context, String key) =>
     l10nLookup(context.l10n, key);
 
-/// Toggles the bookmark of [key] and plays the haptic of the settled
-/// outcome: added → success, removed → select, failed → error. A queued
-/// (offline) or cancelled toggle stays silent — when its replay lands later
-/// the user is elsewhere, and a background haptic would mislead. A removal
-/// offers Undo, which restores the old visibility and tags. Returns whether
-/// the toggle landed as a new bookmark (the success case).
-Future<bool> toggleBookmarkWithUndo(
+/// Toggles the bookmark of [key]. The heart flips on this frame
+/// (optimistic), so the haptic plays now too: add → success, remove →
+/// select. A failure rolls the heart back with an error haptic; the button
+/// reports the cause. A confirmed removal offers Undo, which restores the
+/// old visibility and tags.
+Future<void> toggleBookmarkWithUndo(
   BuildContext context,
   BookmarkKey key,
 ) async {
   // Read up front: the toggle may outlive the widget that started it.
   final container = ProviderScope.containerOf(context, listen: false);
   final store = container.read(bookmarkStoreProvider.notifier);
-  final before = store.entryOf(key)?.bookmarked ?? false;
+  final wish = !(store.entryOf(key)?.shown ?? false);
+  wish ? AppHaptics.success() : AppHaptics.select();
   final removed = await container.read(bookmarkActionsProvider).toggle(key);
-  final after = store.entryOf(key);
-  if (after == null || after.isPending) return false;
-  if (after.error != null) {
+  if (store.entryOf(key)?.error != null) {
     AppHaptics.error();
-    return false;
+    return;
   }
-  if (after.bookmarked == before) return false;
-  after.bookmarked ? AppHaptics.success() : AppHaptics.select();
   if (removed != null && context.mounted) {
     showUndoSnackBar(
       context,
@@ -61,11 +56,13 @@ Future<bool> toggleBookmarkWithUndo(
           .addWithRestrict(removed.key, removed.restrict, tags: removed.tags),
     );
   }
-  return after.bookmarked;
 }
 
 /// Peak overshoot of the heart pop above its rest scale of 1.
-const _heartPopPeak = 0.2;
+const _heartPopPeak = 0.25;
+
+/// The particle burst around a heart that was just added.
+const _burstDuration = Duration(milliseconds: 450);
 
 /// Initial velocity that carries an underdamped spring released at rest
 /// position up to [_heartPopPeak]. For x(t) = v/ωd · e^(−ζωt) · sin(ωd t)
@@ -79,12 +76,13 @@ double _heartPopVelocity(SpringDescription spring) {
 }
 
 /// Beta56 BookmarkSwitchButton replica driven entirely by the shared
-/// BookmarkStore: heart icon (isButton app-bar/row variant), pending
-/// CupertinoActivityIndicator (24px, R4), short-press toggle and
-/// long-press public/private sheet (suppressed while pending or already
-/// bookmarked, R6). A landed add pops the heart on the
-/// [MotionSpring.expressiveSpatialFast] spring — only for the user's own
-/// toggle here, never for a refresh, a replay or a first build.
+/// BookmarkStore: heart icon (isButton app-bar/row variant), short-press
+/// toggle and long-press create/edit sheet (suppressed while a request is
+/// unsettled, R6). The heart shows the user's wish at once
+/// ([BookmarkEntry.shown]); an add pops it to 1.25× on the
+/// [MotionSpring.expressiveSpatialFast] spring with a particle burst — only
+/// for the user's own tap or sheet here, never for a refresh, a replay or a
+/// first build.
 class BookmarkSwitchButton extends ConsumerStatefulWidget {
   const BookmarkSwitchButton({
     super.key,
@@ -107,9 +105,15 @@ class BookmarkSwitchButton extends ConsumerStatefulWidget {
 }
 
 class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   /// The heart's scale; unbounded so the pop may pass 1.
   late final AnimationController _pop = AnimationController.unbounded(
+    vsync: this,
+    value: 1,
+  );
+
+  /// The particle burst; at rest (1) it paints nothing.
+  late final AnimationController _burst = AnimationController(
     vsync: this,
     value: 1,
   );
@@ -126,16 +130,19 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
     if (oldWidget.illustId != widget.illustId ||
         oldWidget.isNovel != widget.isNovel) {
       _pop.value = 1;
+      _burst.value = 1;
     }
   }
 
   @override
   void dispose() {
     _pop.dispose();
+    _burst.dispose();
     super.dispose();
   }
 
-  /// Pops the heart when [added] settled for the work still shown.
+  /// Pops the heart and bursts particles when [added] for the work still
+  /// shown.
   void _popIfAdded(bool added, BookmarkKey key) {
     if (!added || !mounted || key != _key) return;
     final spring = MotionTokens.spring(
@@ -152,11 +159,15 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
         snapToEnd: true,
       ),
     );
+    _burst.duration = MotionTokens.resolve(context, _burstDuration);
+    _burst.forward(from: 0);
   }
 
-  Future<void> _toggle() async {
+  void _toggle() {
     final key = _key;
-    _popIfAdded(await toggleBookmarkWithUndo(context, key), key);
+    final shown = ref.read(bookmarkStoreProvider)[key]?.shown ?? false;
+    _popIfAdded(!shown, key);
+    unawaited(toggleBookmarkWithUndo(context, key));
   }
 
   Future<void> _showBookmarkSheet({required bool bookmarked}) async {
@@ -181,13 +192,13 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
     if (widget.isPlaceholder) return const SizedBox.shrink();
     final colorScheme = Theme.of(context).colorScheme;
     final entry = ref.watch(bookmarkStoreProvider.select((s) => s[_key]));
-    final bookmarked = entry?.bookmarked ?? false;
-    final pending = entry?.isPending ?? false;
+    final bookmarked = entry?.shown ?? false;
+    final unsettled = entry?.isUnsettled ?? false;
     final semanticLabel =
         '${_bookmarkText(context, widget.isNovel ? 'bookmarkNovel' : 'bookmarkIllust')}: ${widget.title}';
 
-    // R5: failures restore the confirmed icon (non-optimistic means it never
-    // moved) and surface an observable error.
+    // R5: a failure rolls the heart back to the confirmed value and
+    // surfaces an observable error.
     ref.listen<Object?>(bookmarkStoreProvider.select((s) => s[_key]?.error), (
       previous,
       next,
@@ -201,38 +212,32 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
       }
     });
 
-    if (pending) {
-      return Semantics(
-        container: true,
-        button: true,
-        enabled: false,
-        label: semanticLabel,
-        liveRegion: true,
-        child: Padding(
-          padding: EdgeInsets.all(
-            widget.isButton ? FuncSpacing.md : FuncSpacing.sm,
-          ),
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: Center(
-              child: CupertinoActivityIndicator(color: colorScheme.onSurface),
+    // Long-press opens the sheet in both directions: create for a fresh work,
+    // edit (prefilled from bookmark detail) for an already-bookmarked one.
+    final onLongPress = unsettled
+        ? null
+        : () => _showBookmarkSheet(bookmarked: bookmarked);
+    final heart = Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: _BurstPainter(
+                progress: _burst,
+                colors: [colorScheme.primary, colorScheme.tertiary],
+              ),
             ),
           ),
         ),
-      );
-    }
-
-    // Long-press opens the sheet in both directions: create for a fresh work,
-    // edit (prefilled from bookmark detail) for an already-bookmarked one.
-    final onLongPress = pending
-        ? null
-        : () => _showBookmarkSheet(bookmarked: bookmarked);
-    final heart = ScaleTransition(
-      scale: _pop,
-      child: bookmarked
-          ? Icon(Icons.favorite_sharp, color: colorScheme.primary, size: 24)
-          : const Icon(Icons.favorite_outline_sharp, size: 24),
+        ScaleTransition(
+          scale: _pop,
+          child: bookmarked
+              ? Icon(Icons.favorite_sharp, color: colorScheme.primary, size: 24)
+              : const Icon(Icons.favorite_outline_sharp, size: 24),
+        ),
+      ],
     );
 
     if (widget.isButton) {
@@ -275,6 +280,46 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
       ),
     );
   }
+}
+
+/// A ring of dots flying out of the heart and shrinking away, painted around
+/// its 24px box without taking layout space.
+class _BurstPainter extends CustomPainter {
+  _BurstPainter({required this.progress, required this.colors})
+    : super(repaint: progress);
+
+  final Animation<double> progress;
+  final List<Color> colors;
+
+  static const _count = 8;
+  static const _startRadius = 8.0;
+  static const _endRadius = 20.0;
+  static const _dotRadius = 2.5;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = progress.value;
+    if (t >= 1) return;
+    final travel = Curves.easeOutCubic.transform(t);
+    final distance = _startRadius + (_endRadius - _startRadius) * travel;
+    final dot = _dotRadius * (1 - t);
+    final center = size.center(Offset.zero);
+    final paint = Paint();
+    for (var i = 0; i < _count; i++) {
+      final angle = (i + 0.5) * 2 * math.pi / _count;
+      paint.color = colors[i % colors.length];
+      canvas.drawCircle(
+        center + Offset(math.cos(angle), math.sin(angle)) * distance,
+        dot,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BurstPainter oldDelegate) =>
+      oldDelegate.progress != progress ||
+      !listEquals(oldDelegate.colors, colors);
 }
 
 /// Bookmark create/edit sheet: restrict selector plus a tag editor — selected

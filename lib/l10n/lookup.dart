@@ -808,6 +808,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'watchLaterTitle' => l10n.watchLaterTitle,
   'watchlistAdd' => l10n.watchlistAdd,
   'watchlistEmpty' => l10n.watchlistEmpty,
+  'watchlistFailed' => l10n.watchlistFailed,
   'watchlistLoadFailed' => l10n.watchlistLoadFailed,
   'watchlistLoadMoreFailed' => l10n.watchlistLoadMoreFailed,
   'watchlistManga' => l10n.watchlistManga,

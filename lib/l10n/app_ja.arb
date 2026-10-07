@@ -1029,6 +1029,7 @@
   "watchlistLoadMoreFailed": "追加の読み込みに失敗しました",
   "watchlistAdd": "シリーズをフォロー",
   "watchlistRemove": "フォロー解除",
+  "watchlistFailed": "シリーズのフォロー操作に失敗しました",
   "watchlistNewContent": "新着",
   "localNovelsTitle": "ローカル小説",
   "localNovelsEmpty": "インポートした小説はまだありません",

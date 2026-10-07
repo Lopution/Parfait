@@ -237,12 +237,39 @@ void main() {
       addTearDown(world.container.dispose);
       world.fixture.statuses['manga'] = 403;
 
-      await world.container.read(watchlistActionsProvider).toggle(_mangaKey);
+      final toggle = world.container
+          .read(watchlistActionsProvider)
+          .toggle(_mangaKey);
+      expect(
+        world.container.read(watchlistStoreProvider)[_mangaKey]!.shown,
+        isTrue,
+        reason: 'flipped on the tap',
+      );
+      await toggle;
 
       final entry = world.container.read(watchlistStoreProvider)[_mangaKey]!;
       expect(entry.isPending, isFalse);
+      expect(entry.shown, isFalse, reason: 'rolled back');
       expect(entry.status, MutationStatus.failed);
       expect(await world.store.listFor('100'), isEmpty);
+    });
+
+    test('a second tap in flight follows up after the first', () async {
+      final world = await _makeWorld();
+      addTearDown(world.container.dispose);
+      final actions = world.container.read(watchlistActionsProvider);
+
+      final first = actions.toggle(_mangaKey);
+      await actions.toggle(_mangaKey);
+      await first;
+
+      expect(world.fixture.requests.map((r) => r.url.path), [
+        '/v1/watchlist/manga/add',
+        '/v1/watchlist/manga/delete',
+      ]);
+      final entry = world.container.read(watchlistStoreProvider)[_mangaKey]!;
+      expect(entry.added, isFalse);
+      expect(entry.wish, isNull);
     });
   });
 
@@ -255,11 +282,26 @@ void main() {
       await world.container.read(watchlistActionsProvider).toggle(_mangaKey);
 
       final entry = world.container.read(watchlistStoreProvider)[_mangaKey]!;
-      expect(entry.isPending, isTrue);
+      expect(entry.isQueued, isTrue);
       expect(entry.added, isFalse);
       final rows = await world.store.listFor('100');
       expect(rows.single.type, ActionTypes.watchlistAdd);
       expect(rows.single.dedupeKey, 'watchlist:manga:9');
+    });
+
+    test('a tap on a queued watch takes the intent back', () async {
+      final world = await _makeWorld();
+      addTearDown(world.container.dispose);
+      world.fixture.failures['manga'] = http.ClientException('offline');
+      final actions = world.container.read(watchlistActionsProvider);
+
+      await actions.toggle(_mangaKey);
+      await actions.toggle(_mangaKey);
+
+      final entry = world.container.read(watchlistStoreProvider)[_mangaKey]!;
+      expect(entry.shown, isFalse);
+      expect(entry.isPending, isFalse);
+      expect(await world.store.listFor('100'), isEmpty);
     });
 
     test('replay confirms the still-pending watch', () async {

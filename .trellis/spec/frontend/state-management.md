@@ -71,7 +71,16 @@ an in-memory route `extra` is only a first-frame snapshot.
 
 **What**: cross-page mutable flags (bookmarked today; extensible to followed/liked) live in `BookmarkStore`, keyed by `(accountId, entityType, entityId)`. UI is a pure subscriber; entities sync via `illustStoreProvider`'s `onConfirmed` closure (one-way dependency — the store must NEVER `ref.read` the entity store or Riverpod circular-dependency errors appear at runtime).
 
-**Mutation protocol**: `begin` records a non-optimistic pending entry (UI shows `CupertinoActivityIndicator` 24px) and dedupes concurrent ops per key → repository call → `commit`/`fail` validate the operation revision against the pending one (late responses from stale revisions are dropped). Remote snapshots enter via `observeRemote`, gated by the same revision clock. Every awaited repository call is wrapped in try/catch that ends in `fail` so pending spinners can never stick.
+**Mutation protocol**: `begin` records a pending entry and dedupes concurrent ops per key → repository call → `commit`/`fail` validate the operation revision against the pending one (late responses from stale revisions are dropped). Remote snapshots enter via `observeRemote`, gated by the same revision clock. Every awaited repository call is wrapped in try/catch that ends in `fail` so a pending entry can never stick.
+
+**Optimistic toggles (bookmark, follow, watchlist — 2026-10 reversal of beta56's "flip only after the server confirms")**:
+
+- Each entry keeps the confirmed value (`bookmarked` / `followed` / `added`) apart from `wish`, the value the user last chose while it is unconfirmed. Widgets render `entry.shown` (`wish ?? confirmed`), so a tap changes the UI on that frame; no pending spinner. Only `commit` changes the confirmed value, and only confirmed changes mirror into entity stores (`onConfirmed`).
+- One request per target at a time, last tap wins. A tap while the entry `isUnsettled` (a request pending, or a wish awaiting its follow-up) only calls `want(key, wish)`. The action that started the request runs `settleToggle` (lib/core/mutation/mutation_models.dart): after each commit it reads the remaining `wish` and sends the next request, so rapid taps cost at most one extra request and the shown value never jumps back. Never supersede an in-flight toggle with the opposite request — two writes in flight can land on the server in either order.
+- A follow-up re-add after a delete restores what the delete removed (visibility, bookmark tags); a private bookmark tapped back mid-delete stays private.
+- Failure: `fail` rolls the shown value back to the confirmed one and keeps the classified error; the widget reports it through the prompt host (`showErrorSnackBar`) and plays the error haptic. If the user had already tapped away from the failed operation's target, the failure is moot: status `cancelled`, no error.
+- Offline: a connectivity failure enqueues the intent and marks the entry `queued` (still pending, wish still shown). A tap on a queued entry can only mean "back to the confirmed value": `ActionQueue.dropPending` deletes the pending row and the operation is cancelled. A row already running cannot be dropped, so that tap is ignored; `ActionStore.markRunning` claims only a still-pending row, so a row dropped after `nextReady` read it never replays.
+- Haptics play on the tap (the state the user sees changed); the heart pops to 1.25× with a particle burst on an add, gated by reduced motion. Long-press sheets act on settled entries only.
 
 **Network contract (pixiv_http_client)**: token-expiry triggers the single-flight refresh on **401 OR 400 whose body contains `invalid_grant`** — observed live: `/v1/illust/recommended` surfaces an expired token as 400 invalid_grant, not 401. A plain 400 (parameter error) must NOT refresh. Diagnostics: non-2xx responses attach a clamped body snippet to `ApiHttpError.detail` (never contains credentials).
 
@@ -85,11 +94,12 @@ objects or follow booleans.
 
 **Mutation and merge rules**:
 
-- Follow mutations are non-optimistic: `beginAdd`/`beginDelete` records a
-  revision and pending operation, the repository call is awaited, and only
-  `commit` changes the confirmed value. `fail` releases pending and keeps the
-  previous confirmed value visible. Late completions and remote snapshots older
-  than the confirmed revision are ignored.
+- Follow mutations follow the optimistic toggle rules above:
+  `beginAdd`/`beginDelete` records a revision, pending operation and wish;
+  the button shows the wish at once, and only `commit` changes the confirmed
+  value. `fail` releases pending and rolls the shown value back to the
+  confirmed one. Late completions and remote snapshots older than the
+  confirmed revision are ignored.
 - A fetch site captures `FollowStore.revisionNow()` before its request and
   passes it to `UserStore.mergeAll`. A detail/preview merge can enrich identity
   and profile fields, but the follow store's confirmed value is authoritative.
@@ -1233,10 +1243,13 @@ events; it never persists request bodies or credentials.
 - Feature stores keep the last server-confirmed value separate from pending
   presentation state. Only a still-active envelope can commit; a late result
   cannot update the confirmed value, another account, or a disposed provider.
-- Terminal status is observable as `idle`, `pending`, `confirmed`, `failed`,
-  `cancelled` or `superseded`. Cancellation clears the pending marker without
-  manufacturing a server-confirmed change; ordinary failures preserve the
-  previous confirmed value and retain the classified error.
+- Status is observable as `idle`, `pending`, `queued` (waiting in the offline
+  action queue), `confirmed`, `failed`, `cancelled` or `superseded`.
+  Cancellation clears the pending marker and the wish without manufacturing
+  a server-confirmed change; ordinary failures preserve the previous
+  confirmed value and retain the classified error.
+- Remote snapshots never overwrite an unsettled entry (pending, or a wish
+  awaiting its follow-up request).
 - Account switch, logout, credential-refresh invalidation and owner disposal
   cancel active owners. A provider rebuild may
   reopen an empty ledger to retain bounded discard telemetry, but it never
@@ -1269,15 +1282,21 @@ events; it never persists request bodies or credentials.
 - Base: a Bookmark/Follow/Comment POST with `allowAuthReplay: true` refreshes
   once and replays the original body exactly once; a second 401 is surfaced.
   The default (`allowAuthReplay: false`) still never replays a body.
-- Bad: mark a bookmark true when the request starts, retry a possibly-sent
-  comment body after refreshing, or keep an unscoped pending map that becomes
-  visible after switching from account A to B.
+- Good: add, delete, add tapped within one request: the heart shows each tap
+  at once, only the first add is sent, and the entry settles on bookmarked.
+- Bad: set the confirmed bookmark value when the request starts (the shown
+  value is the wish; the confirmed one waits for the server), send the
+  reverse toggle while the first is in flight, retry a possibly-sent comment
+  body after refreshing, or keep an unscoped pending map that becomes visible
+  after switching from account A to B.
 
 #### 6. Tests Required
 
 - Envelope tests assert all identity fields, owner cancellation, no secret in
   diagnostics, exact dedupe, reverse supersede and bounded discard telemetry.
-- Store/action tests use delayed fakes to assert non-optimistic pending,
+- Store/action tests use delayed fakes to assert the shown value flipping
+  before the server answers, rollback on failure, last-tap-wins coalescing
+  with one request in flight, the queued-intent take-back,
   server-confirmed commit, failed/429/401 state, cancellation, disposal,
   account switch, late response suppression, cancel-token forwarding and
   cross-page synchronization for Bookmark, Follow and Comments.

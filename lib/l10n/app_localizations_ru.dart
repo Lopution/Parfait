@@ -2562,6 +2562,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchlistRemove => 'Не следить';
 
   @override
+  String get watchlistFailed => 'Не удалось изменить отслеживание серии';
+
+  @override
   String get watchlistNewContent => 'Новое';
 
   @override

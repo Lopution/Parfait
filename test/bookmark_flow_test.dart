@@ -33,12 +33,13 @@ class _RecordedRequest {
   final Map<String, String> body;
 }
 
-/// HTTP transport recording bookmark calls; completion of each response can
-/// be held back with [gate] to observe the pending phase.
+/// HTTP transport recording bookmark calls; [gate] observes each request
+/// and the response waits for the future it returns, to hold the pending
+/// phase open.
 class _BookmarkApiFixture {
   _BookmarkApiFixture({this.gate});
 
-  final void Function(_RecordedRequest request)? gate;
+  final FutureOr<void> Function(_RecordedRequest request)? gate;
 
   final List<_RecordedRequest> requests = [];
 
@@ -53,7 +54,7 @@ class _BookmarkApiFixture {
         Uri.splitQueryString(request.body),
       );
       requests.add(recorded);
-      gate?.call(recorded);
+      await gate?.call(recorded);
       final status = request.url.path.endsWith('/add')
           ? addStatus
           : deleteStatus;
@@ -69,7 +70,7 @@ class _BookmarkApiFixture {
 typedef World = (ProviderContainer, _BookmarkApiFixture);
 
 Future<World> _makeWorld({
-  void Function(_RecordedRequest request)? gate,
+  FutureOr<void> Function(_RecordedRequest request)? gate,
   int addStatus = 200,
   int deleteStatus = 200,
 }) async {
@@ -161,24 +162,29 @@ void main() {
     expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isFalse);
   });
 
-  test('pending phase is observable and non-optimistic (R4)', () async {
+  test('the shown value flips before the server answers', () async {
     final inFlight = Completer<void>();
+    final release = Completer<void>();
     final (container, fixture) = await _makeWorld(
       gate: (_) {
         if (!inFlight.isCompleted) inFlight.complete();
+        return release.future;
       },
     );
     const key = BookmarkKey(BookmarkEntityType.illust, 7);
 
     final action = container.read(bookmarkActionsProvider).toggle(key);
-    await inFlight.future;
-
     final entry = container.read(bookmarkStoreProvider)[key]!;
-    expect(entry.isPending, isTrue, reason: 'spinner phase observable');
-    expect(entry.bookmarked, isFalse, reason: 'no optimistic flip');
+    expect(entry.shown, isTrue, reason: 'flipped on the tap itself');
+    expect(entry.bookmarked, isFalse, reason: 'not confirmed yet');
+    await inFlight.future;
+    expect(container.read(bookmarkStoreProvider)[key]!.isPending, isTrue);
 
+    release.complete();
     await action;
-    expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isTrue);
+    final settled = container.read(bookmarkStoreProvider)[key]!;
+    expect(settled.bookmarked, isTrue);
+    expect(settled.wish, isNull);
   });
 
   test('failure restores the confirmed icon and surfaces error (R5)', () async {
@@ -192,20 +198,115 @@ void main() {
 
     final entry = container.read(bookmarkStoreProvider)[key]!;
     expect(entry.bookmarked, isFalse);
+    expect(entry.shown, isFalse, reason: 'rolled back');
     expect(entry.isPending, isFalse);
     expect(entry.error, isNotNull);
   });
 
-  test('rapid duplicate toggles fire only one request (R5)', () async {
-    final (container, fixture) = await _makeWorld();
+  test('a failure the user already tapped away from stays silent', () async {
+    final release = Completer<void>();
+    final (container, fixture) = await _makeWorld(
+      addStatus: 403,
+      gate: (_) => release.future,
+    );
+    const key = BookmarkKey(BookmarkEntityType.illust, 8);
+    final actions = container.read(bookmarkActionsProvider);
+
+    final add = actions.toggle(key);
+    await actions.toggle(key);
+    expect(container.read(bookmarkStoreProvider)[key]!.shown, isFalse);
+    release.complete();
+    await add;
+
+    final entry = container.read(bookmarkStoreProvider)[key]!;
+    expect(entry.shown, isFalse);
+    expect(entry.error, isNull);
+    expect(fixture.requests, hasLength(1));
+  });
+
+  group('rapid taps settle on the last one, one request at a time', () {
     const key = BookmarkKey(BookmarkEntityType.illust, 9);
 
-    final first = container.read(bookmarkActionsProvider).toggle(key);
-    final second = container.read(bookmarkActionsProvider).toggle(key);
-    await first;
-    await second;
+    Future<(ProviderContainer, _BookmarkApiFixture, Completer<void>)>
+    heldWorld() async {
+      final release = Completer<void>();
+      final (container, fixture) = await _makeWorld(
+        gate: (request) =>
+            request.uri.path.endsWith('/add') ? release.future : null,
+      );
+      return (container, fixture, release);
+    }
 
-    expect(fixture.requests, hasLength(1));
+    test('an odd number of taps sends only the first request', () async {
+      final (container, fixture, release) = await heldWorld();
+      final actions = container.read(bookmarkActionsProvider);
+      final shown = <bool>[];
+      container.listen(
+        bookmarkStoreProvider.select((state) => state[key]?.shown),
+        (_, next) => shown.add(next!),
+      );
+
+      final first = actions.toggle(key);
+      await actions.toggle(key);
+      await actions.toggle(key);
+      release.complete();
+      await first;
+
+      expect(fixture.requests.map((r) => r.uri.path), [
+        '/v2/illust/bookmark/add',
+      ]);
+      expect(shown, [true, false, true], reason: 'one flip per tap, no jump');
+      expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isTrue);
+    });
+
+    test('an even number of taps follows up once the first answers', () async {
+      final (container, fixture, release) = await heldWorld();
+      final actions = container.read(bookmarkActionsProvider);
+
+      final first = actions.toggle(key);
+      await actions.toggle(key);
+      await Future<void>.delayed(Duration.zero);
+      expect(fixture.requests, hasLength(1), reason: 'never two in flight');
+      release.complete();
+      await first;
+
+      expect(fixture.requests.map((r) => r.uri.path), [
+        '/v2/illust/bookmark/add',
+        '/v1/illust/bookmark/delete',
+      ]);
+      final entry = container.read(bookmarkStoreProvider)[key]!;
+      expect(entry.bookmarked, isFalse);
+      expect(entry.shown, isFalse);
+      expect(entry.wish, isNull);
+    });
+
+    test('tapping back mid-delete keeps a private bookmark private', () async {
+      final release = Completer<void>();
+      final (container, fixture) = await _makeWorld(
+        gate: (request) =>
+            request.uri.path.endsWith('/delete') ? release.future : null,
+      );
+      final actions = container.read(bookmarkActionsProvider);
+      await actions.addWithRestrict(
+        key,
+        BookmarkRestrict.private,
+        tags: const ['cat'],
+      );
+
+      final delete = actions.toggle(key);
+      await actions.toggle(key);
+      release.complete();
+      await delete;
+
+      expect(fixture.requests.map((r) => r.uri.path), [
+        '/v2/illust/bookmark/add',
+        '/v1/illust/bookmark/delete',
+        '/v2/illust/bookmark/add',
+      ]);
+      expect(fixture.requests.last.body['restrict'], 'private');
+      expect(fixture.requests.last.body['tags[]'], 'cat');
+      expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isTrue);
+    });
   });
 
   test('sheet confirm sends the chosen restrict (R3)', () async {

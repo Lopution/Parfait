@@ -539,7 +539,7 @@ class _UserPageState extends ConsumerState<UserPage>
     final followed = widget.isMe
         ? user.isFollowed ?? false
         : ref.watch(
-                followStoreProvider.select((state) => state[user.id]?.followed),
+                followStoreProvider.select((state) => state[user.id]?.shown),
               ) ??
               user.isFollowed ??
               false;

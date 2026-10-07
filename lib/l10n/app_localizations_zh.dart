@@ -2468,6 +2468,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get watchlistRemove => '取消追更';
 
   @override
+  String get watchlistFailed => '追更操作失败';
+
+  @override
   String get watchlistNewContent => '更新';
 
   @override

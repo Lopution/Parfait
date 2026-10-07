@@ -85,6 +85,7 @@ class WatchlistStore extends Notifier<Map<WatchlistKey, WatchlistEntry>> {
       key: WatchlistEntry(
         added: previous?.added ?? false,
         pending: operation,
+        wish: kind == WatchlistOpKind.add,
         confirmedRevision: previous?.confirmedRevision,
         status: MutationStatus.pending,
       ),
@@ -92,14 +93,36 @@ class WatchlistStore extends Notifier<Map<WatchlistKey, WatchlistEntry>> {
     return operation;
   }
 
+  /// [BookmarkStore.want] for the watchlist.
+  void want(WatchlistKey key, bool wish) {
+    final entry = state[key];
+    if (entry == null || !entry.isUnsettled) return;
+    final settled = !entry.isPending && wish == entry.added;
+    state = {...state, key: entry.copyWith(wish: wish, clearWish: settled)};
+  }
+
+  /// [operation] failed on connectivity and now waits in the offline queue.
+  void markQueued(WatchlistOp operation) {
+    final entry = state[operation.key];
+    if (entry?.pending?.envelope != operation.envelope) return;
+    state = {
+      ...state,
+      operation.key: entry!.copyWith(status: MutationStatus.queued),
+    };
+  }
+
+  /// A wish the user made meanwhile survives when it differs from the
+  /// committed value, for the follow-up request.
   void commit(WatchlistOp operation) {
     if (!_owns(operation)) return;
     final added = operation.kind == WatchlistOpKind.add;
+    final wish = state[operation.key]?.wish;
     _ledger.finish(operation.envelope);
     state = {
       ...state,
       operation.key: WatchlistEntry(
         added: added,
+        wish: wish == added ? null : wish,
         confirmedRevision: operation.revision,
         status: MutationStatus.confirmed,
       ),
@@ -107,15 +130,20 @@ class WatchlistStore extends Notifier<Map<WatchlistKey, WatchlistEntry>> {
     _mirror(operation.key, added);
   }
 
+  /// [BookmarkStore.fail] for the watchlist: rolls back, silently when the
+  /// user had already tapped away from the target.
   void fail(WatchlistOp operation, Object error) {
     if (!_owns(operation)) return;
-    final cancelled = error is ApiCancelled || operation.isCancelled;
+    final previous = state[operation.key];
+    final cancelled =
+        error is ApiCancelled ||
+        operation.isCancelled ||
+        previous?.wish != (operation.kind == WatchlistOpKind.add);
     if (cancelled) {
       _ledger.discard(operation.envelope, MutationDiscardReason.cancelled);
     } else {
       _ledger.finish(operation.envelope);
     }
-    final previous = state[operation.key];
     if (previous?.pending?.envelope != operation.envelope) return;
     state = {
       ...state,
@@ -126,6 +154,15 @@ class WatchlistStore extends Notifier<Map<WatchlistKey, WatchlistEntry>> {
         status: cancelled ? MutationStatus.cancelled : MutationStatus.failed,
       ),
     };
+  }
+
+  /// Takes back a queued [operation] whose offline intent was dropped; the
+  /// confirmed value shows again.
+  bool cancel(WatchlistOp operation) {
+    if (!_owns(operation)) return false;
+    _ledger.discard(operation.envelope, MutationDiscardReason.cancelled);
+    _setCancelled(operation);
+    return true;
   }
 
   /// Settles an offline-replayed intent — identical contract to
@@ -150,7 +187,7 @@ class WatchlistStore extends Notifier<Map<WatchlistKey, WatchlistEntry>> {
   }) {
     if (added == null) return;
     final entry = state[key];
-    if (entry?.isPending == true) return;
+    if (entry?.isUnsettled == true) return;
     final confirmed = entry?.confirmedRevision;
     if (snapshotRevision != null &&
         confirmed != null &&
@@ -217,7 +254,7 @@ class WatchlistStore extends Notifier<Map<WatchlistKey, WatchlistEntry>> {
     if (!settleState) return;
     final next = <WatchlistKey, WatchlistEntry>{...state};
     for (final item in next.entries) {
-      if (!item.value.isPending) continue;
+      if (!item.value.isUnsettled) continue;
       next[item.key] = WatchlistEntry(
         added: item.value.added,
         confirmedRevision: item.value.confirmedRevision,

@@ -1029,6 +1029,7 @@
   "watchlistLoadMoreFailed": "Failed to load more",
   "watchlistAdd": "Follow series",
   "watchlistRemove": "Unfollow series",
+  "watchlistFailed": "Series follow action failed",
   "watchlistNewContent": "New",
   "localNovelsTitle": "Local novels",
   "localNovelsEmpty": "No imported local novels yet",

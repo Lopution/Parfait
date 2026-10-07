@@ -116,7 +116,9 @@ void main() {
     );
   });
 
-  testWidgets('haptics follow the settled outcome', (tester) async {
+  testWidgets('haptics play on the tap; a failure adds an error', (
+    tester,
+  ) async {
     final haptics = recordHaptics();
     final (_, repository) = await _pump(tester);
 
@@ -129,31 +131,71 @@ void main() {
     expect(repository.deletes, [1]);
     expect(haptics.roles, [HapticRole.success, HapticRole.select]);
 
-    // The throttle reads the wall clock; let the heavy lane re-arm too.
+    // The throttle reads the wall clock; let the heavy lane re-arm between
+    // the tap's haptic and the failure's.
     await tester.runAsync(() => Future<void>.delayed(AppHaptics.heavyInterval));
+    final gate = repository.addGate = Completer<void>();
     repository.addError = StateError('boom');
     await tester.tap(find.byType(BookmarkSwitchButton));
+    await tester.pump();
+    expect(haptics.roles.last, HapticRole.success, reason: 'felt on the tap');
+    await tester.runAsync(() => Future<void>.delayed(AppHaptics.heavyInterval));
+    gate.complete();
     await tester.pumpAndSettle();
     expect(haptics.roles, [
       HapticRole.success,
       HapticRole.select,
+      HapticRole.success,
       HapticRole.error,
     ]);
   });
 
-  testWidgets('pending phase shows a CupertinoActivityIndicator (R4)', (
+  testWidgets('an unconfirmed add already shows the filled heart', (
     tester,
   ) async {
-    final (container, _) = await _pump(tester);
-    const key = BookmarkKey(BookmarkEntityType.illust, 1);
+    final (container, repository) = await _pump(tester);
+    final gate = repository.addGate = Completer<void>();
 
-    container
-        .read(bookmarkStoreProvider.notifier)
-        .beginAdd(key, BookmarkRestrict.public);
+    await tester.tap(find.byType(BookmarkSwitchButton));
     await tester.pump();
 
-    expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
-    expect(find.byIcon(Icons.favorite_outline_sharp), findsNothing);
+    expect(find.byIcon(Icons.favorite_sharp), findsOneWidget);
+    expect(find.byType(CupertinoActivityIndicator), findsNothing);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('收藏插画: work 1')),
+      isSemantics(
+        label: '收藏插画: work 1',
+        isButton: true,
+        hasToggledState: true,
+        isToggled: true,
+        hasTapAction: true,
+        hasLongPressAction: false,
+      ),
+      reason: 'the sheet waits until the request settles',
+    );
+    const key = BookmarkKey(BookmarkEntityType.illust, 1);
+    expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isFalse);
+
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isTrue);
+  });
+
+  testWidgets('a failed add rolls the heart back and says why', (tester) async {
+    final (_, repository) = await _pump(tester);
+    final gate = repository.addGate = Completer<void>();
+    repository.addError = StateError('boom');
+
+    await tester.tap(find.byType(BookmarkSwitchButton));
+    await tester.pump();
+    expect(find.byIcon(Icons.favorite_sharp), findsOneWidget);
+
+    gate.complete();
+    await tester.pump();
+    await tester.pump();
+    expect(find.byIcon(Icons.favorite_outline_sharp), findsOneWidget);
+    expect(find.textContaining('收藏操作失败'), findsOneWidget);
+    await tester.pumpAndSettle();
   });
 
   testWidgets(
@@ -589,7 +631,7 @@ void main() {
         .value;
 
     /// Pumps [span] in small steps and returns the largest heart scale
-    /// seen (1 while the heart is replaced by the pending spinner).
+    /// seen.
     Future<double> peakScale(
       WidgetTester tester, {
       Duration span = const Duration(milliseconds: 600),
@@ -609,23 +651,24 @@ void main() {
       return peak;
     }
 
-    testWidgets('a landed add pops the heart to ~1.2 and settles at 1', (
+    testWidgets('a tap that adds pops the heart to ~1.25 and settles at 1', (
       tester,
     ) async {
-      await _pump(tester);
+      final (_, repository) = await _pump(tester);
+      // The pop starts on the tap, not on the server's answer.
+      final gate = repository.addGate = Completer<void>();
 
       await tester.tap(find.byType(BookmarkSwitchButton));
       final peak = await peakScale(tester);
+      gate.complete();
 
       expect(find.byIcon(Icons.favorite_sharp), findsOneWidget);
-      expect(peak, inInclusiveRange(1.15, 1.25));
+      expect(peak, inInclusiveRange(1.2, 1.3));
       await tester.pumpAndSettle();
       expect(heartScale(tester), 1);
     });
 
-    testWidgets('a removal, a refresh or a failed add does not pop', (
-      tester,
-    ) async {
+    testWidgets('a removal or a refresh does not pop', (tester) async {
       final (container, repository) = await _pump(tester);
 
       // Refresh: the store learns the work is bookmarked.
@@ -638,11 +681,6 @@ void main() {
       await tester.tap(find.byType(BookmarkSwitchButton));
       expect(await peakScale(tester), 1);
       expect(repository.deletes, [1]);
-
-      repository.addError = StateError('boom');
-      await tester.tap(find.byType(BookmarkSwitchButton));
-      expect(await peakScale(tester), 1);
-      await tester.pumpAndSettle();
     });
 
     testWidgets('reduced motion bookmarks without the pop', (tester) async {
@@ -667,7 +705,7 @@ void main() {
       await tester.longPress(find.byType(BookmarkSwitchButton));
       await tester.pumpAndSettle();
       await tester.tap(find.text('确定'));
-      expect(await peakScale(tester), inInclusiveRange(1.15, 1.25));
+      expect(await peakScale(tester), inInclusiveRange(1.2, 1.3));
       await tester.pumpAndSettle();
       expect(repository.adds, hasLength(1));
 

@@ -4775,6 +4775,12 @@ abstract class AppLocalizations {
   /// **'取消追更'**
   String get watchlistRemove;
 
+  /// No description provided for @watchlistFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'追更操作失败'**
+  String get watchlistFailed;
+
   /// No description provided for @watchlistNewContent.
   ///
   /// In zh, this message translates to:

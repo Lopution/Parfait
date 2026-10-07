@@ -79,6 +79,13 @@ final class ActionQueue {
     return _store.enqueue(draft);
   }
 
+  /// Takes back [owner]'s queued intent under [dedupeKey]. False when no
+  /// pending row is left to drop — never queued, replayed, or replaying.
+  Future<bool> dropPending({
+    required String owner,
+    required String dedupeKey,
+  }) => _store.deletePending(owner, dedupeKey);
+
   /// Drains [owner]'s ready rows serially, oldest first. Re-entrant calls
   /// are coalesced — a drain already in progress simply continues. A
   /// queue-cooldown failure stops the drain until [cooldown] elapses.
@@ -113,7 +120,8 @@ final class ActionQueue {
       telemetry.dropped++;
       return;
     }
-    await _store.markRunning(action.id);
+    // Dropped between nextReady and here: the user took the intent back.
+    if (!await _store.markRunning(action.id)) return;
     try {
       await handler(action);
       await _store.delete(action.id);

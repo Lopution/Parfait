@@ -1029,6 +1029,7 @@
   "watchlistLoadMoreFailed": "Не удалось загрузить ещё",
   "watchlistAdd": "Следить за серией",
   "watchlistRemove": "Не следить",
+  "watchlistFailed": "Не удалось изменить отслеживание серии",
   "watchlistNewContent": "Новое",
   "localNovelsTitle": "Локальные новеллы",
   "localNovelsEmpty": "Пока нет импортированных новелл",

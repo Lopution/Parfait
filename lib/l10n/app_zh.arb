@@ -1296,6 +1296,7 @@
   "watchlistLoadMoreFailed": "加载更多失败",
   "watchlistAdd": "追更",
   "watchlistRemove": "取消追更",
+  "watchlistFailed": "追更操作失败",
   "watchlistNewContent": "更新",
   "localNovelsTitle": "本地小说",
   "localNovelsEmpty": "还没有导入的本地小说",

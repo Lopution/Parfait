@@ -147,13 +147,14 @@ class BookmarkEntry {
     this.restrict,
     this.tags = const [],
     this.pending,
+    this.wish,
     this.error,
     this.confirmedRevision,
     this.status = MutationStatus.idle,
   });
 
-  /// Last confirmed value. Never flipped before its operation commits
-  /// (R4: 非 optimistic).
+  /// Last confirmed value. Never flipped before its operation commits; the
+  /// UI shows [shown] instead.
   final bool bookmarked;
 
   /// Visibility of the current bookmark (null when unknown/not bookmarked).
@@ -163,8 +164,13 @@ class BookmarkEntry {
   /// no tag dimension, so [observeRemote] never touches this.
   final List<String> tags;
 
-  /// Operation in flight, if any.
+  /// Operation in flight or queued offline, if any.
   final BookmarkOp? pending;
+
+  /// The value the user last chose while it is unconfirmed; null once
+  /// settled. Taps during a request only move this — the request in flight
+  /// is followed up once it settles (optimistic, last tap wins).
+  final bool? wish;
 
   /// Failure of the most recent operation, cleared by the next begin/commit.
   final Object? error;
@@ -177,18 +183,32 @@ class BookmarkEntry {
   /// source of truth while [status] is pending, failed, cancelled or stale.
   final MutationStatus status;
 
-  bool get isPending => status == MutationStatus.pending && pending != null;
+  /// What the UI shows: the user's wish at once, the confirmed value after.
+  bool get shown => wish ?? bookmarked;
+
+  /// In flight or queued offline.
+  bool get isPending =>
+      pending != null &&
+      (status == MutationStatus.pending || status == MutationStatus.queued);
+
+  bool get isQueued => status == MutationStatus.queued && pending != null;
+
+  /// A request is pending or a wish still awaits its follow-up request;
+  /// remote snapshots must not overwrite either.
+  bool get isUnsettled => isPending || wish != null;
 
   BookmarkEntry copyWith({
     bool? bookmarked,
     BookmarkRestrict? restrict,
     List<String>? tags,
     BookmarkOp? pending,
+    bool? wish,
     Object? error,
     int? confirmedRevision,
     MutationStatus? status,
     bool clearRestrict = false,
     bool clearPending = false,
+    bool clearWish = false,
     bool clearError = false,
   }) {
     return BookmarkEntry(
@@ -196,6 +216,7 @@ class BookmarkEntry {
       restrict: clearRestrict ? null : (restrict ?? this.restrict),
       tags: tags ?? this.tags,
       pending: clearPending ? null : (pending ?? this.pending),
+      wish: clearWish ? null : (wish ?? this.wish),
       error: clearError ? null : (error ?? this.error),
       confirmedRevision: confirmedRevision ?? this.confirmedRevision,
       status: status ?? this.status,
@@ -204,7 +225,7 @@ class BookmarkEntry {
 
   @override
   String toString() =>
-      'BookmarkEntry(bookmarked: $bookmarked, restrict: $restrict, '
-      'pending: $pending, status: $status, error: $error, '
-      'confirmed: $confirmedRevision)';
+      'BookmarkEntry(bookmarked: $bookmarked, wish: $wish, '
+      'restrict: $restrict, pending: $pending, status: $status, '
+      'error: $error, confirmed: $confirmedRevision)';
 }
