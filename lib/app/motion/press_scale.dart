@@ -163,6 +163,10 @@ class _PressScaleState extends State<PressScale>
   void _onPointerEnd(PointerEvent event) => _release();
 
   void _release() {
+    // The pointer stream outlives the widget when the press itself tore
+    // it down (a long press that swaps the list it was in): the up event
+    // still reaches this Listener after dispose.
+    if (!mounted) return;
     _pressDelay?.cancel();
     _downPosition = null;
     _setPressed(false);

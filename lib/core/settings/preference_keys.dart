@@ -45,4 +45,8 @@ abstract final class PreferenceKeys {
   /// gesture). Device-local by design — a UI affordance, not a synced
   /// preference.
   static const String developerOptions = 'parfait.developer_options.v1';
+
+  /// Recent search keywords, newest first (`SearchHistoryNotifier`).
+  /// Device-local and shared by every account on the device.
+  static const String searchHistory = 'parfait.search.history.v1';
 }

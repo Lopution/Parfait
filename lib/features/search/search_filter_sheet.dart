@@ -11,6 +11,7 @@ import 'search_text.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_choice_chip.dart';
+import '../../app/widgets/fit_label.dart';
 
 /// What the filter sheet applies: the edited set plus whether the user also
 /// asked to persist it as that type's default ("设为默认").
@@ -24,6 +25,8 @@ Future<SearchFilterSheetResult?> showSearchFilterSheet(
   return showAppBottomSheet<SearchFilterSheetResult>(
     context: context,
     isScrollControlled: true,
+    // A long sheet: its top edge stays below the status bar.
+    useSafeArea: true,
     builder: (_) =>
         _SearchFilterSheet(initial: initial, offerSetDefault: offerSetDefault),
   );
@@ -163,345 +166,411 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
   void _pop({required bool makeDefault}) =>
       Navigator.of(context).pop((filters: _filters, makeDefault: makeDefault));
 
+  void _reset() => setState(() {
+    _filters = _defaults;
+    for (final controller in [
+      _bookmarkMin,
+      _bookmarkMax,
+      _widthMin,
+      _widthMax,
+      _heightMin,
+      _heightMax,
+      _textLengthMin,
+      _textLengthMax,
+    ]) {
+      controller.clear();
+    }
+  });
+
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          FuncSpacing.xl,
-          FuncSpacing.lg,
-          FuncSpacing.xl,
-          FuncSpacing.lg,
+    // The modal route does not consume viewInsets: the sheet lifts above
+    // the IME so the field being typed in and the apply bar stay in sight.
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final availableHeight = MediaQuery.heightOf(context) - keyboardInset;
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboardInset),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: availableHeight * _maxHeightFactor,
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    context.l10n.searchFilters,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => setState(() {
-                    _filters = _defaults;
-                    for (final controller in [
-                      _bookmarkMin,
-                      _bookmarkMax,
-                      _widthMin,
-                      _widthMax,
-                      _heightMin,
-                      _heightMax,
-                      _textLengthMin,
-                      _textLengthMax,
-                    ]) {
-                      controller.clear();
-                    }
-                  }),
-                  child: Text(context.l10n.searchReset),
-                ),
-              ],
-            ),
-            _FilterGroup<SearchTarget>(
-              title: context.l10n.searchTarget,
-              // Each type only offers — and only ever sends — its own
-              // search-range values.
-              values: _filters.targetOptions,
-              selected: _filters.normalizedTarget,
-              label: (value) => searchText(context, value.labelKey),
-              onSelected: (value) =>
-                  setState(() => _filters = _filters.copyShared(target: value)),
-            ),
-            const SizedBox(height: FuncSpacing.md),
-            _FilterGroup<SearchSort>(
-              title: context.l10n.searchSort,
-              // Gendered popularity sorts are illust-only — the novel sheet
-              // does not show them, so the selected and the requested value
-              // can no longer disagree.
-              values: _filters.sortOptions,
-              selected: _filters.normalizedSort,
-              label: (value) => searchText(context, value.labelKey),
-              onSelected: (value) =>
-                  setState(() => _filters = _filters.copyShared(sort: value)),
-            ),
-            // Popularity sorts are Premium-only server-side; free accounts
-            // are silently rerouted to the popular-preview endpoint for any
-            // of them — the hint covers the gendered sorts too.
-            if (_filters.normalizedSort.isPopular && !_isPremium)
-              Padding(
-                padding: const EdgeInsets.only(top: FuncSpacing.xs),
-                child: Text(
-                  context.l10n.searchPopularPreviewHint,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                FuncSpacing.xl,
+                FuncSpacing.lg,
+                FuncSpacing.md,
+                FuncSpacing.xs,
               ),
-            const SizedBox(height: FuncSpacing.md),
-            Text(
-              context.l10n.searchDuration,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: FuncSpacing.sm),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                AppChoiceChip(
-                  label: Text(context.l10n.searchAllTime),
-                  // "All time" means unconstrained: a custom date bound is
-                  // still sent on the wire even when duration is null, so
-                  // the chip is neither selected by nor allowed to leave
-                  // behind stale bounds.
-                  selected:
-                      _filters.duration == null &&
-                      _filters.startDate == null &&
-                      _filters.endDate == null,
-                  onSelected: () => setState(
-                    () => _filters = _filters.copyShared(
-                      duration: null,
-                      startDate: null,
-                      endDate: null,
-                    ),
-                  ),
-                ),
-                for (final value in SearchDuration.values)
-                  AppChoiceChip(
-                    label: Text(searchText(context, value.labelKey)),
-                    selected: _filters.duration == value,
-                    onSelected: () => setState(
-                      // A duration preset resolves to a concrete date range
-                      // on the wire, so it replaces any custom bounds.
-                      () => _filters = _filters.copyShared(
-                        duration: value,
-                        startDate: null,
-                        endDate: null,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: FuncSpacing.md),
-            _DateFilterTile(
-              label: context.l10n.searchStartDate,
-              value: _dateText(context, _filters.startDate),
-              onTap: () => _pickDate(start: true),
-              onClear: _filters.startDate == null
-                  ? null
-                  : () => setState(
-                      () => _filters = _filters.copyShared(startDate: null),
-                    ),
-            ),
-            _DateFilterTile(
-              label: context.l10n.searchEndDate,
-              value: _dateText(context, _filters.endDate),
-              onTap: () => _pickDate(start: false),
-              errorText: _reversedDates
-                  ? context.l10n.searchInvalidDateRange
-                  : null,
-              onClear: _filters.endDate == null
-                  ? null
-                  : () => setState(
-                      () => _filters = _filters.copyShared(endDate: null),
-                    ),
-            ),
-            const SizedBox(height: FuncSpacing.md),
-            Text(
-              context.l10n.searchAiSection,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: FuncSpacing.sm),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                for (final value in SearchAiFilter.values)
-                  AppChoiceChip(
-                    label: Text(searchText(context, value.labelKey)),
-                    selected: _filters.aiFilter == value,
-                    onSelected: () => setState(
-                      () => _filters = _filters.copyShared(aiFilter: value),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: FuncSpacing.md),
-            Text(
-              context.l10n.searchBookmarkSection,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: FuncSpacing.sm),
-            _BoundRow(
-              minController: _bookmarkMin,
-              maxController: _bookmarkMax,
-              minHint: context.l10n.searchMin,
-              maxHint: context.l10n.searchMax,
-              errorText: _boundError(
-                _filters.bookmarkMin,
-                _filters.bookmarkMax,
-              ),
-              onMinChanged: (value) => setState(
-                () => _filters = _filters.copyShared(
-                  bookmarkMin: _boundOf(value),
-                ),
-              ),
-              onMaxChanged: (value) => setState(
-                () => _filters = _filters.copyShared(
-                  bookmarkMax: _boundOf(value),
-                ),
-              ),
-            ),
-            if (_illust case final illust?) ...[
-              const SizedBox(height: FuncSpacing.md),
-              Text(
-                context.l10n.searchRatioSection,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: FuncSpacing.sm),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
+              child: Row(
                 children: [
-                  AppChoiceChip(
-                    label: Text(context.l10n.searchRatioAny),
-                    selected: illust.ratio == null,
-                    onSelected: () =>
-                        setState(() => _filters = illust.copyWith(ratio: null)),
+                  Expanded(
+                    child: Text(
+                      context.l10n.searchFilters,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                   ),
-                  for (final value in SearchRatioPattern.values)
-                    AppChoiceChip(
-                      label: Text(searchText(context, value.labelKey)),
-                      selected: illust.ratio == value,
-                      onSelected: () => setState(
-                        () => _filters = illust.copyWith(ratio: value),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: FuncSpacing.md),
-              Text(
-                context.l10n.searchContentSection,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: FuncSpacing.sm),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  for (final value in SearchContentType.values)
-                    AppChoiceChip(
-                      label: Text(searchText(context, value.labelKey)),
-                      selected: illust.contentType == value,
-                      onSelected: () => setState(
-                        () => _filters = illust.copyWith(contentType: value),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: FuncSpacing.md),
-              Text(
-                context.l10n.searchResolutionSection,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: FuncSpacing.sm),
-              _BoundRow(
-                label: context.l10n.searchWidth,
-                minController: _widthMin,
-                maxController: _widthMax,
-                minHint: context.l10n.searchMin,
-                maxHint: context.l10n.searchMax,
-                errorText: _boundError(illust.widthMin, illust.widthMax),
-                onMinChanged: (value) => setState(
-                  () => _filters = illust.copyWith(widthMin: _boundOf(value)),
-                ),
-                onMaxChanged: (value) => setState(
-                  () => _filters = illust.copyWith(widthMax: _boundOf(value)),
-                ),
-              ),
-              const SizedBox(height: FuncSpacing.sm),
-              _BoundRow(
-                label: context.l10n.searchHeight,
-                minController: _heightMin,
-                maxController: _heightMax,
-                minHint: context.l10n.searchMin,
-                maxHint: context.l10n.searchMax,
-                errorText: _boundError(illust.heightMin, illust.heightMax),
-                onMinChanged: (value) => setState(
-                  () => _filters = illust.copyWith(heightMin: _boundOf(value)),
-                ),
-                onMaxChanged: (value) => setState(
-                  () => _filters = illust.copyWith(heightMax: _boundOf(value)),
-                ),
-              ),
-            ],
-            if (_novel case final novel?) ...[
-              const SizedBox(height: FuncSpacing.md),
-              Text(
-                context.l10n.searchTextLength,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: FuncSpacing.sm),
-              _BoundRow(
-                label: context.l10n.searchChars,
-                minController: _textLengthMin,
-                maxController: _textLengthMax,
-                minHint: context.l10n.searchMin,
-                maxHint: context.l10n.searchMax,
-                errorText: _boundError(
-                  novel.textLengthMin,
-                  novel.textLengthMax,
-                ),
-                onMinChanged: (value) => setState(
-                  () =>
-                      _filters = novel.copyWith(textLengthMin: _boundOf(value)),
-                ),
-                onMaxChanged: (value) => setState(
-                  () =>
-                      _filters = novel.copyWith(textLengthMax: _boundOf(value)),
-                ),
-              ),
-              const SizedBox(height: FuncSpacing.sm),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  AppChoiceChip(
-                    label: Text(context.l10n.searchOriginalOnly),
-                    selected: novel.originalOnly,
-                    onSelected: () => setState(
-                      () => _filters = novel.copyWith(
-                        originalOnly: !novel.originalOnly,
-                      ),
-                    ),
+                  TextButton(
+                    onPressed: _reset,
+                    child: Text(context.l10n.searchReset),
                   ),
                 ],
               ),
-            ],
-            const SizedBox(height: FuncSpacing.md),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _canApply ? () => _pop(makeDefault: false) : null,
-                child: Text(context.l10n.searchApply),
-              ),
             ),
-            if (widget.offerSetDefault) ...[
-              const SizedBox(height: FuncSpacing.sm),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: _canApply ? () => _pop(makeDefault: true) : null,
-                  child: Text(context.l10n.searchSetDefault),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  FuncSpacing.xl,
+                  0,
+                  FuncSpacing.xl,
+                  FuncSpacing.lg,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ..._matchGroup(context),
+                    const _GroupDivider(),
+                    ..._timeGroup(context),
+                    const _GroupDivider(),
+                    ..._workGroup(context),
+                    const _GroupDivider(),
+                    ..._countGroup(context),
+                  ],
                 ),
               ),
-            ],
+            ),
+            const Divider(height: 1),
+            // Fixed under the scrolling groups: applying never needs a
+            // scroll to the end.
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: FuncSpacing.xl,
+                  vertical: FuncSpacing.md,
+                ),
+                child: _ActionBar(
+                  apply: FilledButton(
+                    onPressed: _canApply
+                        ? () => _pop(makeDefault: false)
+                        : null,
+                    child: Text(context.l10n.searchApply),
+                  ),
+                  setDefault: widget.offerSetDefault
+                      ? OutlinedButton(
+                          onPressed: _canApply
+                              ? () => _pop(makeDefault: true)
+                              : null,
+                          child: Text(context.l10n.searchSetDefault),
+                        )
+                      : null,
+                  setDefaultLabel: context.l10n.searchSetDefault,
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+
+  /// What is matched and in which order.
+  List<Widget> _matchGroup(BuildContext context) => [
+    _FilterGroup<SearchTarget>(
+      title: context.l10n.searchTarget,
+      // Each type only offers — and only ever sends — its own search-range
+      // values.
+      values: _filters.targetOptions,
+      selected: _filters.normalizedTarget,
+      label: (value) => searchText(context, value.labelKey),
+      onSelected: (value) =>
+          setState(() => _filters = _filters.copyShared(target: value)),
+    ),
+    const SizedBox(height: FuncSpacing.md),
+    _FilterGroup<SearchSort>(
+      title: context.l10n.searchSort,
+      // Gendered popularity sorts are illust-only — the novel sheet does
+      // not show them, so the selected and the requested value can no
+      // longer disagree.
+      values: _filters.sortOptions,
+      selected: _filters.normalizedSort,
+      label: (value) => searchText(context, value.labelKey),
+      onSelected: (value) =>
+          setState(() => _filters = _filters.copyShared(sort: value)),
+    ),
+    // Popularity sorts are Premium-only server-side; free accounts are
+    // silently rerouted to the popular-preview endpoint for any of them —
+    // the hint covers the gendered sorts too.
+    if (_filters.normalizedSort.isPopular && !_isPremium)
+      Padding(
+        padding: const EdgeInsets.only(top: FuncSpacing.xs),
+        child: Text(
+          context.l10n.searchPopularPreviewHint,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+  ];
+
+  /// When the work was posted: a preset or a custom range.
+  List<Widget> _timeGroup(BuildContext context) => [
+    _SectionTitle(context.l10n.searchDuration),
+    Wrap(
+      spacing: FuncSpacing.sm,
+      runSpacing: FuncSpacing.xs,
+      children: [
+        AppChoiceChip(
+          label: Text(context.l10n.searchAllTime),
+          // "All time" means unconstrained: a custom date bound is still
+          // sent on the wire even when duration is null, so the chip is
+          // neither selected by nor allowed to leave behind stale bounds.
+          selected:
+              _filters.duration == null &&
+              _filters.startDate == null &&
+              _filters.endDate == null,
+          onSelected: () => setState(
+            () => _filters = _filters.copyShared(
+              duration: null,
+              startDate: null,
+              endDate: null,
+            ),
+          ),
+        ),
+        for (final value in SearchDuration.values)
+          AppChoiceChip(
+            label: Text(searchText(context, value.labelKey)),
+            selected: _filters.duration == value,
+            onSelected: () => setState(
+              // A duration preset resolves to a concrete date range on the
+              // wire, so it replaces any custom bounds.
+              () => _filters = _filters.copyShared(
+                duration: value,
+                startDate: null,
+                endDate: null,
+              ),
+            ),
+          ),
+      ],
+    ),
+    const SizedBox(height: FuncSpacing.xs),
+    _DateFilterTile(
+      label: context.l10n.searchStartDate,
+      value: _dateText(context, _filters.startDate),
+      onTap: () => _pickDate(start: true),
+      onClear: _filters.startDate == null
+          ? null
+          : () =>
+                setState(() => _filters = _filters.copyShared(startDate: null)),
+    ),
+    _DateFilterTile(
+      label: context.l10n.searchEndDate,
+      value: _dateText(context, _filters.endDate),
+      onTap: () => _pickDate(start: false),
+      errorText: _reversedDates ? context.l10n.searchInvalidDateRange : null,
+      onClear: _filters.endDate == null
+          ? null
+          : () => setState(() => _filters = _filters.copyShared(endDate: null)),
+    ),
+  ];
+
+  /// What kind of work: AI, then the type's own kinds.
+  List<Widget> _workGroup(BuildContext context) => [
+    _FilterGroup<SearchAiFilter>(
+      title: context.l10n.searchAiSection,
+      values: SearchAiFilter.values,
+      selected: _filters.aiFilter,
+      label: (value) => searchText(context, value.labelKey),
+      onSelected: (value) =>
+          setState(() => _filters = _filters.copyShared(aiFilter: value)),
+    ),
+    if (_illust case final illust?) ...[
+      const SizedBox(height: FuncSpacing.md),
+      _FilterGroup<SearchRatioPattern?>(
+        title: context.l10n.searchRatioSection,
+        values: const [null, ...SearchRatioPattern.values],
+        selected: illust.ratio,
+        label: (value) => value == null
+            ? context.l10n.searchRatioAny
+            : searchText(context, value.labelKey),
+        onSelected: (value) =>
+            setState(() => _filters = illust.copyWith(ratio: value)),
+      ),
+      const SizedBox(height: FuncSpacing.md),
+      _FilterGroup<SearchContentType>(
+        title: context.l10n.searchContentSection,
+        values: SearchContentType.values,
+        selected: illust.contentType,
+        label: (value) => searchText(context, value.labelKey),
+        onSelected: (value) =>
+            setState(() => _filters = illust.copyWith(contentType: value)),
+      ),
+    ],
+    if (_novel case final novel?) ...[
+      const SizedBox(height: FuncSpacing.sm),
+      Wrap(
+        children: [
+          AppChoiceChip(
+            label: Text(context.l10n.searchOriginalOnly),
+            selected: novel.originalOnly,
+            onSelected: () => setState(
+              () =>
+                  _filters = novel.copyWith(originalOnly: !novel.originalOnly),
+            ),
+          ),
+        ],
+      ),
+    ],
+  ];
+
+  /// Bounds on counts and sizes.
+  List<Widget> _countGroup(BuildContext context) => [
+    _SectionTitle(context.l10n.searchBookmarkSection),
+    _BoundRow(
+      minController: _bookmarkMin,
+      maxController: _bookmarkMax,
+      minHint: context.l10n.searchMin,
+      maxHint: context.l10n.searchMax,
+      errorText: _boundError(_filters.bookmarkMin, _filters.bookmarkMax),
+      onMinChanged: (value) => setState(
+        () => _filters = _filters.copyShared(bookmarkMin: _boundOf(value)),
+      ),
+      onMaxChanged: (value) => setState(
+        () => _filters = _filters.copyShared(bookmarkMax: _boundOf(value)),
+      ),
+    ),
+    if (_illust case final illust?) ...[
+      const SizedBox(height: FuncSpacing.md),
+      _SectionTitle(context.l10n.searchResolutionSection),
+      _BoundRow(
+        label: context.l10n.searchWidth,
+        minController: _widthMin,
+        maxController: _widthMax,
+        minHint: context.l10n.searchMin,
+        maxHint: context.l10n.searchMax,
+        errorText: _boundError(illust.widthMin, illust.widthMax),
+        onMinChanged: (value) => setState(
+          () => _filters = illust.copyWith(widthMin: _boundOf(value)),
+        ),
+        onMaxChanged: (value) => setState(
+          () => _filters = illust.copyWith(widthMax: _boundOf(value)),
+        ),
+      ),
+      const SizedBox(height: FuncSpacing.sm),
+      _BoundRow(
+        label: context.l10n.searchHeight,
+        minController: _heightMin,
+        maxController: _heightMax,
+        minHint: context.l10n.searchMin,
+        maxHint: context.l10n.searchMax,
+        errorText: _boundError(illust.heightMin, illust.heightMax),
+        onMinChanged: (value) => setState(
+          () => _filters = illust.copyWith(heightMin: _boundOf(value)),
+        ),
+        onMaxChanged: (value) => setState(
+          () => _filters = illust.copyWith(heightMax: _boundOf(value)),
+        ),
+      ),
+    ],
+    if (_novel case final novel?) ...[
+      const SizedBox(height: FuncSpacing.md),
+      _SectionTitle(context.l10n.searchTextLength),
+      _BoundRow(
+        label: context.l10n.searchChars,
+        minController: _textLengthMin,
+        maxController: _textLengthMax,
+        minHint: context.l10n.searchMin,
+        maxHint: context.l10n.searchMax,
+        errorText: _boundError(novel.textLengthMin, novel.textLengthMax),
+        onMinChanged: (value) => setState(
+          () => _filters = novel.copyWith(textLengthMin: _boundOf(value)),
+        ),
+        onMaxChanged: (value) => setState(
+          () => _filters = novel.copyWith(textLengthMax: _boundOf(value)),
+        ),
+      ),
+    ],
+  ];
+}
+
+/// Tallest the sheet grows, as a share of the height above the keyboard:
+/// the scrim above it keeps the page underneath in sight.
+const _maxHeightFactor = 0.9;
+
+/// Apply, with "设为默认" beside it when offered. Side by side in equal
+/// halves while the longer label fits a half on one line; stacked, apply
+/// last and nearest the thumb, when it does not (long locales, large text).
+class _ActionBar extends StatelessWidget {
+  const _ActionBar({
+    required this.apply,
+    required this.setDefault,
+    required this.setDefaultLabel,
+  });
+
+  final Widget apply;
+  final Widget? setDefault;
+  final String setDefaultLabel;
+
+  /// M3 common buttons' horizontal padding, both sides.
+  static const _buttonPadding = FuncSpacing.xl * 2;
+
+  @override
+  Widget build(BuildContext context) {
+    final setDefault = this.setDefault;
+    if (setDefault == null) return apply;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final half = (constraints.maxWidth - FuncSpacing.md) / 2;
+        final label = LabelFit.measureLabel(
+          setDefaultLabel,
+          Theme.of(context).textTheme.labelLarge!,
+          MediaQuery.textScalerOf(context),
+          Directionality.of(context),
+        );
+        if (label + _buttonPadding <= half) {
+          return Row(
+            children: [
+              Expanded(child: setDefault),
+              const SizedBox(width: FuncSpacing.md),
+              Expanded(child: apply),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            setDefault,
+            const SizedBox(height: FuncSpacing.sm),
+            apply,
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// The rule between two groups of related filters.
+class _GroupDivider extends StatelessWidget {
+  const _GroupDivider();
+
+  @override
+  Widget build(BuildContext context) =>
+      const Divider(height: FuncSpacing.xl * 1.5);
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: FuncSpacing.sm),
+    child: Text(text, style: Theme.of(context).textTheme.titleSmall),
+  );
 }
 
 class _FilterGroup<T> extends StatelessWidget {
@@ -524,11 +593,10 @@ class _FilterGroup<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: FuncSpacing.sm),
+        _SectionTitle(title),
         Wrap(
-          spacing: 8,
-          runSpacing: 4,
+          spacing: FuncSpacing.sm,
+          runSpacing: FuncSpacing.xs,
           children: [
             for (final value in values)
               AppChoiceChip(

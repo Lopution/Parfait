@@ -12,12 +12,15 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/search_world.dart';
+import 'helpers/test_preferences.dart';
 
 Future<GoRouter> _pumpRouter(
   WidgetTester tester, {
   required String initialLocation,
   Locale locale = const Locale('zh', 'CN'),
 }) async {
+  // The input page reads the search history from preferences.
+  installMemoryPreferences();
   final router = createPixivRouter(initialLocation: initialLocation);
   addTearDown(router.dispose);
   // Wide surface: the whole chip row fits, so every chip is on screen.
@@ -124,6 +127,52 @@ void main() {
     expect(router.state.uri.queryParameters['type'], 'novel');
     expect(router.state.uri.queryParameters.containsKey('wmin'), isFalse);
     expect(find.text('宽 800 以上'), findsNothing);
+  });
+
+  testWidgets('the filter button counts the active fields; the chip row '
+      'only shows while some are active', (tester) async {
+    await _pumpRouter(
+      tester,
+      initialLocation: '/search/results?q=cat&type=illust',
+    );
+    expect(find.byTooltip('筛选'), findsOneWidget);
+    expect(find.byType(ActionChip), findsNothing);
+
+    await tester.tap(find.byTooltip('筛选'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('最早发布'));
+    await tester.tap(find.text('排除 AI'));
+    await tester.pump();
+    await tester.tap(find.text('应用'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('筛选（已启用 2 项）'), findsOneWidget);
+    expect(find.widgetWithText(ActionChip, '最早发布'), findsOneWidget);
+    expect(find.widgetWithText(ActionChip, '排除 AI'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ActionChip, '重置'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('筛选'), findsOneWidget);
+    expect(find.byType(ActionChip), findsNothing);
+  });
+
+  testWidgets('the input page badges its own draft in the same slot', (
+    tester,
+  ) async {
+    await _pumpRouter(tester, initialLocation: '/search/input?type=illust');
+    await tester.tap(find.byTooltip('筛选'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('仅 AI'));
+    await tester.pump();
+    await tester.tap(find.text('应用'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('筛选（已启用 1 项）'), findsOneWidget);
+
+    // The user tab has no filters.
+    await tester.tap(_tab('用户'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('筛选'), findsNothing);
+    expect(find.byTooltip('筛选（已启用 1 项）'), findsNothing);
   });
 
   const filtered =

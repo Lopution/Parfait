@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/haptics/app_haptics.dart';
+import '../../app/motion/app_overlays.dart';
 import '../../app/motion/state_fade.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
@@ -17,18 +19,24 @@ import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/search/search_autocomplete_controller.dart';
+import '../../core/search/search_history.dart';
 import '../../core/search/search_models.dart';
 import '../../core/search/search_repository.dart';
+import '../../core/search/search_shortcut.dart';
 import '../../core/search/search_trending_controller.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../core/spotlight/spotlight_feed_controller.dart';
 import '../../core/spotlight/spotlight_models.dart';
 import '../../core/spotlight/spotlight_store.dart';
+import 'search_field_button.dart';
+import 'search_filter_labels.dart';
 import 'search_filter_sheet.dart';
 import 'search_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
+import '../../app/widgets/tag_chips.dart';
+import '../../app/widgets/undo_snack_bar.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 
 /// Search guide shown by the Home bottom-navigation entry: a search field
@@ -164,7 +172,10 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage>
       // keyboard) — a relayout storm across all five live branches.
       resizeToAvoidBottomInset: false,
       appBar: AppTopBar(
-        title: _SearchField(
+        title: SearchFieldButton(
+          // The input page body spells out what can be searched.
+          text: l10n.searchBarHint,
+          isHint: true,
           onTap: () => openSearchInput(context, type: _active),
         ),
         actions: [
@@ -213,56 +224,6 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage>
 /// the feature's root page.
 class SearchPage extends SearchHomePage {
   const SearchPage({super.key});
-}
-
-/// Looks like a search field, acts as a button: the input page owns typing.
-class _SearchField extends StatelessWidget {
-  const _SearchField({required this.onTap});
-
-  static const double height = 48;
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Semantics(
-      button: true,
-      child: Material(
-        color: colors.surfaceContainerHigh,
-        shape: const StadiumBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: height),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-              child: Row(
-                children: [
-                  Icon(Icons.search, color: colors.onSurfaceVariant),
-                  const SizedBox(width: FuncSpacing.md),
-                  Expanded(
-                    // One line only: the input page body spells out what
-                    // can be searched.
-                    child: Text(
-                      context.l10n.searchBarHint,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// One tab of the search guide: the Spotlight section (illust tab only),
@@ -326,13 +287,20 @@ class _TrendingTab extends ConsumerWidget {
 }
 
 /// A section title on the search guide. With [onTap] the whole row is one
-/// target (at least 48dp tall) ending in [action] and a chevron.
+/// target (at least 48dp tall) ending in [action] and a chevron; a
+/// [trailing] control instead sits at the row's end on its own.
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.action, this.onTap});
+  const _SectionHeader({
+    required this.title,
+    this.action,
+    this.onTap,
+    this.trailing,
+  }) : assert(trailing == null || onTap == null);
 
   final String title;
   final String? action;
   final VoidCallback? onTap;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -347,7 +315,8 @@ class _SectionHeader extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                maxLines: 1,
+                // Two lines: large text and long locales next to an action.
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleMedium,
               ),
@@ -361,6 +330,7 @@ class _SectionHeader extends StatelessWidget {
               ),
               Icon(Icons.chevron_right, color: theme.colorScheme.primary),
             ],
+            ?trailing,
           ],
         ),
       ),
@@ -852,8 +822,18 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
       showAppSnackBar(context, context.l10n.searchInputEmpty);
       return;
     }
+    _search(keyword);
+  }
+
+  /// Searches [keyword] with this page's filter drafts. An id or a pixiv
+  /// link opens what it names instead (see [openSearchResults]) and stays
+  /// out of the history.
+  void _search(String keyword) {
     ref.read(searchAutocompleteProvider.notifier).cancel();
-    openSearchResults(context, _query(keyword));
+    if (searchShortcutFor(keyword, _types[_selectedIndex]) == null) {
+      unawaited(ref.read(searchHistoryProvider.notifier).record(keyword));
+    }
+    unawaited(openSearchResults(context, _query(keyword)));
   }
 
   SearchQuery _query(String keyword) {
@@ -873,13 +853,12 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   );
   late NovelSearchFilters _novelFilters = ref.read(searchNovelFiltersProvider);
 
+  SearchFilters get _filters => _types[_selectedIndex] == SearchResultType.novel
+      ? _novelFilters
+      : _illustFilters;
+
   Future<void> _editFilters() async {
-    final result = await showSearchFilterSheet(
-      context,
-      initial: _types[_selectedIndex] == SearchResultType.novel
-          ? _novelFilters
-          : _illustFilters,
-    );
+    final result = await showSearchFilterSheet(context, initial: _filters);
     if (!mounted || result == null) return;
     // The draft belongs to this input session only — persisting it is the
     // result page's "设为默认" job, not the apply button's.
@@ -894,22 +873,23 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   }
 
   void _onSearchChanged(String value) {
-    ref.read(searchAutocompleteProvider.notifier).update(value);
+    final autocomplete = ref.read(searchAutocompleteProvider.notifier)
+      ..update(value);
+    // An id or a link opens directly; asking for tag suggestions for it
+    // would only fill the list with noise.
+    if (searchShortcutFor(value, _types[_selectedIndex]) != null) {
+      autocomplete.cancel();
+    }
   }
 
-  /// Row tap only fills the field — the same gesture that submits on the
-  /// result page must not submit here, so the user keeps editing context.
-  /// The trailing action is the explicit "search this now" affordance.
-  void _fillSuggestion(SearchSuggestion suggestion) {
-    _textController
-      ..text = suggestion.keyword
-      ..selection = TextSelection.collapsed(offset: suggestion.keyword.length);
+  /// Puts [keyword] in the field to edit it further.
+  void _fill(String keyword) {
+    _textController.value = TextEditingValue(
+      text: keyword,
+      selection: TextSelection.collapsed(offset: keyword.length),
+    );
+    _onSearchChanged(keyword);
     _focusNode.requestFocus();
-  }
-
-  void _searchSuggestion(SearchSuggestion suggestion) {
-    _fillSuggestion(suggestion);
-    _submit();
   }
 
   void _clear() {
@@ -939,7 +919,17 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
     return SearchBar(
       controller: _textController,
       focusNode: _focusNode,
-      constraints: const BoxConstraints(minHeight: 48),
+      // Flat, with the icon and text where [SearchFieldButton] draws them
+      // on the guide and the result page: the field reads as one across
+      // both pushes.
+      constraints: const BoxConstraints(minHeight: SearchFieldButton.height),
+      elevation: const WidgetStatePropertyAll(0),
+      backgroundColor: WidgetStatePropertyAll(
+        Theme.of(context).colorScheme.surfaceContainerHigh,
+      ),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+      ),
       hintText: context.l10n.searchBarHint,
       leading: const Icon(Icons.search),
       trailing: [
@@ -972,6 +962,15 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
         ),
         titleSpacing: 0,
         title: _buildSearchBar(context),
+        // The same slot as the result page's filter button, so the field
+        // keeps its place across the push.
+        actions: [
+          if (supportsFilters)
+            SearchFilterButton(filters: _filters, onPressed: _editFilters)
+          else
+            // Keeps the field off the screen edge.
+            const SizedBox(width: FuncSpacing.lg),
+        ],
         bottom: AppTabBar(
           controller: _tabController,
           labels: [
@@ -979,56 +978,50 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
           ],
         ),
       ),
-      body: Column(
-        children: [
-          if (supportsFilters)
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  right: FuncSpacing.md,
-                  top: FuncSpacing.sm,
-                ),
-                child: OutlinedButton.icon(
-                  onPressed: _editFilters,
-                  icon: const Icon(Icons.tune, size: 18),
-                  label: Text(context.l10n.searchFilters),
-                ),
-              ),
-            ),
-          Expanded(
-            child: _SearchAutocompletePanel(
-              onFill: _fillSuggestion,
-              onSearch: _searchSuggestion,
-            ),
-          ),
-        ],
+      body: _SearchInputBody(
+        type: _types[_selectedIndex],
+        onSearch: _search,
+        onFill: _fill,
       ),
     );
   }
 }
 
-class _SearchAutocompletePanel extends ConsumerWidget {
-  const _SearchAutocompletePanel({
-    required this.onFill,
+/// Below the input: where to start while the field is empty, the
+/// suggestions for what is typed, or the work or user an id or a link
+/// opens.
+///
+/// A suggestion, a recent search or a trending tag searches on tap; a
+/// long press (or a suggestion's trailing button) puts it in the field to
+/// edit instead.
+class _SearchInputBody extends ConsumerWidget {
+  const _SearchInputBody({
+    required this.type,
     required this.onSearch,
+    required this.onFill,
   });
 
-  /// Row tap: fill the text field only.
-  final ValueChanged<SearchSuggestion> onFill;
-
-  /// Trailing action: fill and submit immediately.
-  final ValueChanged<SearchSuggestion> onSearch;
+  final SearchResultType type;
+  final ValueChanged<String> onSearch;
+  final ValueChanged<String> onFill;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(searchAutocompleteProvider);
     if (state.keyword.isEmpty) {
-      return Center(
-        child: Text(
-          context.l10n.searchHint,
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
+      return _SearchStart(type: type, onSearch: onSearch, onFill: onFill);
+    }
+    final shortcut = searchShortcutFor(state.keyword, type);
+    if (shortcut != null) {
+      return ListView(
+        padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
+        children: [
+          ListTile(
+            leading: const Icon(Icons.open_in_new),
+            title: Text(_shortcutLabel(context, shortcut)),
+            onTap: () => unawaited(openSearchShortcut(context, shortcut)),
+          ),
+        ],
       );
     }
     if (state.loading) {
@@ -1057,24 +1050,200 @@ class _SearchAutocompletePanel extends ConsumerWidget {
       itemBuilder: (context, index) {
         final suggestion = state.suggestions[index];
         return Semantics(
-          // The row's tap fills the field; the trailing button submits.
-          // Distinct labels keep the two actions apart for assistive tech.
-          hint: context.l10n.searchSuggestionFill,
+          onLongPressHint: context.l10n.searchSuggestionFill,
           child: ListTile(
             leading: const Icon(Icons.search),
             title: Text(suggestion.displayName),
             subtitle: suggestion.translatedName == null
                 ? null
                 : Text(suggestion.keyword),
-            onTap: () => onFill(suggestion),
+            onTap: () => onSearch(suggestion.keyword),
+            onLongPress: () {
+              AppHaptics.longPress();
+              onFill(suggestion.keyword);
+            },
             trailing: IconButton(
-              tooltip: context.l10n.searchSuggestionSearch,
-              onPressed: () => onSearch(suggestion),
-              icon: const Icon(Icons.search),
+              tooltip: context.l10n.searchSuggestionFill,
+              onPressed: () => onFill(suggestion.keyword),
+              icon: const Icon(Icons.north_west),
             ),
           ),
         );
       },
     );
   }
+
+  static String _shortcutLabel(BuildContext context, SearchShortcut shortcut) {
+    final id = shortcut.id;
+    return switch (shortcut.kind) {
+      SearchShortcutKind.illust => context.l10n.searchOpenIllust(id),
+      SearchShortcutKind.novel => context.l10n.searchOpenNovel(id),
+      SearchShortcutKind.user => context.l10n.searchOpenUser(id),
+    };
+  }
+}
+
+/// The empty input's start points: recent searches, then the selected
+/// kind's trending tags (users have none).
+class _SearchStart extends ConsumerWidget {
+  const _SearchStart({
+    required this.type,
+    required this.onSearch,
+    required this.onFill,
+  });
+
+  final SearchResultType type;
+  final ValueChanged<String> onSearch;
+  final ValueChanged<String> onFill;
+
+  /// Two or three rows of tags on a phone; the full grid is on the search
+  /// tab.
+  static const _trendingShown = 12;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final history = ref.watch(searchHistoryProvider);
+    final trending = type == SearchResultType.user
+        ? const <TrendingTag>[]
+        : ref.watch(trendingTagsProvider(type)).value ?? const <TrendingTag>[];
+    if (history.isEmpty && trending.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(FuncSpacing.xl),
+          child: Text(
+            l10n.searchHint,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ),
+      );
+    }
+    void fillWithHaptic(String keyword) {
+      AppHaptics.longPress();
+      onFill(keyword);
+    }
+
+    return ListView(
+      padding: EdgeInsets.only(
+        bottom: FuncSpacing.xl + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      children: [
+        if (history.isNotEmpty) ...[
+          _SectionHeader(
+            title: l10n.searchHistoryTitle,
+            trailing: TextButton(
+              onPressed: () => unawaited(_confirmClear(context, ref)),
+              child: Text(l10n.searchHistoryClear),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+            child: Wrap(
+              spacing: FuncSpacing.sm,
+              runSpacing: FuncSpacing.sm,
+              children: [
+                for (final keyword in history)
+                  _HistoryChip(
+                    keyword: keyword,
+                    onTap: () => onSearch(keyword),
+                    onLongPress: () => fillWithHaptic(keyword),
+                    onDeleted: () => unawaited(_remove(context, ref, keyword)),
+                  ),
+              ],
+            ),
+          ),
+        ],
+        if (trending.isNotEmpty) ...[
+          _SectionHeader(title: l10n.searchTrending),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.md),
+            child: TagChips(
+              children: [
+                for (final tag in trending.take(_trendingShown))
+                  TagChip(
+                    label: tag.name,
+                    translated: tag.translatedName,
+                    onTap: () => onSearch(tag.name),
+                    onLongPress: () => fillWithHaptic(tag.name),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  static Future<void> _remove(
+    BuildContext context,
+    WidgetRef ref,
+    String keyword,
+  ) async {
+    final index = await ref
+        .read(searchHistoryProvider.notifier)
+        .remove(keyword);
+    if (index == null || !context.mounted) return;
+    showUndoSnackBar(
+      context,
+      context.l10n.searchHistoryRemoved,
+      onUndo: (container) => container
+          .read(searchHistoryProvider.notifier)
+          .restore(keyword, index),
+    );
+  }
+
+  /// Clearing every entry has no undo, so it asks first.
+  static Future<void> _confirmClear(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
+    final confirmed = await showAppDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Text(l10n.searchHistoryClearConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.searchHistoryClear),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(searchHistoryProvider.notifier).clear();
+  }
+}
+
+/// A recent search: tap searches it again, long press edits it, the
+/// trailing cross removes it (with undo).
+class _HistoryChip extends StatelessWidget {
+  const _HistoryChip({
+    required this.keyword,
+    required this.onTap,
+    required this.onLongPress,
+    required this.onDeleted,
+  });
+
+  final String keyword;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final VoidCallback onDeleted;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    onLongPressHint: context.l10n.searchSuggestionFill,
+    child: GestureDetector(
+      onLongPress: onLongPress,
+      child: InputChip(
+        avatar: const Icon(Icons.history),
+        label: Text(keyword),
+        onPressed: onTap,
+        onDeleted: onDeleted,
+        deleteButtonTooltipMessage: context.l10n.searchHistoryRemove,
+      ),
+    ),
+  );
 }

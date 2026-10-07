@@ -161,6 +161,8 @@ void main() {
               initial: type == SearchResultType.novel
                   ? NovelSearchFilters.defaults
                   : IllustSearchFilters.defaults,
+              // The result page's sheet: the longest action row.
+              offerSetDefault: true,
             ),
           ),
         ),

@@ -1213,6 +1213,24 @@ Future<ImagePreloadResult> PixivImage.preload(
   `SearchFilters.decodeBounds`: negatives are dropped and a reversed pair
   (earlier sheets saved them) is put in order. Owning tests:
   `search_models_test.dart`, `search_catalog_test.dart`.
+- Search chrome: the input page, the result page and the guide put the
+  field in one place (back, field, `SearchFilterButton`), so the field reads
+  as the same one across pushes; `SearchFieldButton` draws its icon and text
+  where `SearchBar` does. The filter button's badge counts
+  `searchFilterLabels` — the same list the result page shows as chips under
+  the tabs, a row that exists only while a filter is active. The filter
+  sheet opens below the status bar, scrolls its groups (match, time, work,
+  counts) between a fixed header (title, reset) and a fixed action bar that
+  rides above the IME; "设为默认" sits beside Apply and stacks above it when
+  its label does not fit half the bar. Owning tests:
+  `search_result_page_test.dart`, `search_catalog_test.dart`.
+- The input page starts empty-field users on recent searches
+  (`searchHistoryProvider`, 20, newest first; removal is undoable, clearing
+  all confirms) and the type's trending tags. A suggestion, recent search or
+  trending tag searches on tap and fills the field on long press. A bare id
+  or a pixiv link (`searchShortcutFor`) opens the work or user directly —
+  `openSearchResults` checks it, so every submit path agrees — and is never
+  recorded. Owning test: `search_input_test.dart`.
 - Detail pages size multi-page images by each decoded frame's intrinsic
   ratio — never by a fixed `AspectRatio` on the container. The app API's
   `meta_pages[]` carries only `image_urls` (no per-page width/height), so

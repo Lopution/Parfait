@@ -1885,6 +1885,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchFilters => 'Фильтры';
 
   @override
+  String searchFiltersActive(int count) {
+    return 'Фильтры, включено: $count';
+  }
+
+  @override
   String get searchReset => 'Сбросить';
 
   @override
@@ -2072,6 +2077,36 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get searchSuggestionSearch => 'Искать сразу';
+
+  @override
+  String get searchHistoryTitle => 'Недавние запросы';
+
+  @override
+  String get searchHistoryClear => 'Очистить всё';
+
+  @override
+  String get searchHistoryClearConfirm => 'Очистить все недавние запросы?';
+
+  @override
+  String get searchHistoryRemoved => 'Удалено из недавних запросов';
+
+  @override
+  String get searchHistoryRemove => 'Удалить из недавних запросов';
+
+  @override
+  String searchOpenIllust(int id) {
+    return 'Открыть иллюстрацию/мангу ID $id';
+  }
+
+  @override
+  String searchOpenNovel(int id) {
+    return 'Открыть новеллу ID $id';
+  }
+
+  @override
+  String searchOpenUser(int id) {
+    return 'Открыть пользователя ID $id';
+  }
 
   @override
   String get searchModifyQuery => 'Изменить запрос';

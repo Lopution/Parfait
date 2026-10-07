@@ -1825,6 +1825,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchFilters => 'フィルター';
 
   @override
+  String searchFiltersActive(int count) {
+    return 'フィルター（$count 件適用中）';
+  }
+
+  @override
   String get searchReset => 'リセット';
 
   @override
@@ -2009,6 +2014,36 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get searchSuggestionSearch => '今すぐ検索';
+
+  @override
+  String get searchHistoryTitle => '検索履歴';
+
+  @override
+  String get searchHistoryClear => 'すべて消去';
+
+  @override
+  String get searchHistoryClearConfirm => '検索履歴をすべて消去しますか？';
+
+  @override
+  String get searchHistoryRemoved => '検索履歴から削除しました';
+
+  @override
+  String get searchHistoryRemove => '検索履歴から削除';
+
+  @override
+  String searchOpenIllust(int id) {
+    return 'イラスト・マンガ ID $id を開く';
+  }
+
+  @override
+  String searchOpenNovel(int id) {
+    return '小説 ID $id を開く';
+  }
+
+  @override
+  String searchOpenUser(int id) {
+    return 'ユーザー ID $id を開く';
+  }
 
   @override
   String get searchModifyQuery => '検索を編集';

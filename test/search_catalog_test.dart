@@ -753,6 +753,58 @@ void main() {
     bool setDefaultEnabled(WidgetTester tester) =>
         tester.widget<OutlinedButton>(find.byType(OutlinedButton)).enabled;
 
+    testWidgets('the sheet stays below the status bar with its actions '
+        'fixed in reach', (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 24, bottom: 16);
+      addTearDown(tester.view.reset);
+      // The app's shape: the scope above the navigator, so the sheet route
+      // rebuilds under it as the insets change.
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => showSearchFilterSheet(
+                    context,
+                    initial: IllustSearchFilters.defaults,
+                    offerSetDefault: true,
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      final sheet = tester.getRect(find.byType(BottomSheet));
+      expect(sheet.top, greaterThanOrEqualTo(24));
+      // Both actions are on screen before any scroll, above the gesture
+      // bar, and stay put while the groups scroll.
+      final apply = tester.getRect(find.byType(FilledButton));
+      expect(apply.bottom, lessThanOrEqualTo(640 - 16));
+      expect(find.byType(OutlinedButton).hitTestable(), findsOneWidget);
+      await tester.drag(find.text('排序'), const Offset(0, -400));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byType(FilledButton)), apply);
+
+      // The keyboard lifts the actions above it.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byType(FilledButton)).bottom,
+        lessThanOrEqualTo(640 - 300),
+      );
+    });
+
     testWidgets('a reversed pair shows an error and blocks apply until '
         'fixed', (tester) async {
       final result = await open(tester, IllustSearchFilters.defaults);
@@ -925,55 +977,6 @@ void main() {
       ),
     );
     expect(scaffold.resizeToAvoidBottomInset, isFalse);
-  });
-
-  testWidgets('a suggestion row tap fills the field; only the action submits', (
-    tester,
-  ) async {
-    final repository = FakeSearchRepository(
-      autocompleteHandler: (keyword, _) async => const [
-        SearchSuggestion(keyword: 'neko', translatedName: '猫'),
-      ],
-    );
-    final router = createPixivRouter(initialLocation: '/search/input');
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField), 'cat');
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pumpAndSettle();
-
-    expect(find.text('猫'), findsOneWidget);
-    // Row tap = fill only: the suggestion keyword lands in the field and
-    // the page stays put — submitting on a fill gesture made every touch
-    // of the list jump straight to results.
-    await tester.tap(find.text('猫'));
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/search/input');
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).controller!.text,
-      'neko',
-    );
-
-    // The trailing action is the explicit immediate-search affordance.
-    await tester.tap(find.byTooltip('立即搜索'));
-    await tester.pumpAndSettle();
-
-    expect(router.state.uri.path, '/search/results');
-    expect(router.state.uri.queryParameters['q'], 'neko');
-    expect(router.state.uri.queryParameters['type'], 'illust');
-    expect(find.byType(SearchResultPage), findsOneWidget);
   });
 
   testWidgets('U2: a trending tag renders its representative image', (

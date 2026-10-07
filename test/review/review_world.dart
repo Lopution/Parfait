@@ -31,6 +31,7 @@ import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/core/platform/accessibility.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
+import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../helpers/connectivity_channels.dart';
@@ -98,8 +99,11 @@ class ReviewWorld {
       :downloadSingles,
       :signedIn,
       :touchExploration,
+      :searchHistory,
     ) = setup;
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+    SharedPreferencesAsyncPlatform.instance = memoryPreferences({
+      if (searchHistory.isNotEmpty) PreferenceKeys.searchHistory: searchHistory,
+    });
     PackageInfo.setMockInitialValues(
       appName: 'Parfait',
       packageName: 'io.github.lopution.parfait',
@@ -290,6 +294,7 @@ class ReviewSetup {
     this.signedIn = true,
     this.accounts = 1,
     this.touchExploration = false,
+    this.searchHistory = const [],
     this.overrides = const [],
   });
 
@@ -311,6 +316,9 @@ class ReviewSetup {
   /// TalkBack off.
   final bool touchExploration;
 
+  /// Recent search keywords, newest first.
+  final List<String> searchHistory;
+
   final List<Override> overrides;
 
   ReviewSetup copyWith({bool? touchExploration}) => ReviewSetup(
@@ -323,6 +331,7 @@ class ReviewSetup {
     signedIn: signedIn,
     accounts: accounts,
     touchExploration: touchExploration ?? this.touchExploration,
+    searchHistory: searchHistory,
     overrides: overrides,
   );
 }

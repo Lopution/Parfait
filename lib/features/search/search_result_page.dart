@@ -4,7 +4,6 @@ import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/format/app_format.dart';
 import '../../app/person_avatar.dart';
 import '../../app/widgets/novel_entry.dart';
 import '../../app/pull_to_refresh.dart';
@@ -28,6 +27,8 @@ import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../app/widgets/skeleton/list_skeletons.dart';
 import '../../app/navigation/routes.dart';
+import 'search_field_button.dart';
+import 'search_filter_labels.dart';
 import 'search_filter_sheet.dart';
 import 'search_text.dart';
 import '../../l10n/context.dart';
@@ -247,6 +248,9 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
     // The user tab has no filters: the bar goes away and the app bar gets
     // shorter.
     final showFilters = _selectedType != SearchResultType.user;
+    final filterLabels = showFilters
+        ? searchFilterLabels(context, _filtersFor(_selectedType))
+        : const <String>[];
     final tabBar = AppTabBar(
       controller: _tabController,
       onTap: (index) {
@@ -272,52 +276,26 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
       resizeToAvoidBottomInset: false,
       appBar: AppTopBar(
         titleSpacing: 0,
-        title: Tooltip(
-          message: context.l10n.searchModifyQuery,
-          child: InkWell(
-            borderRadius: FuncShape.control,
-            onTap: _editQuery,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: FuncSpacing.xs,
-                vertical: FuncSpacing.xs,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      widget.query.keyword.trim(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: FuncSpacing.xs),
-                  Icon(
-                    Icons.edit_outlined,
-                    size: 18,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ],
-              ),
-            ),
-          ),
+        title: SearchFieldButton(
+          text: widget.query.keyword.trim(),
+          tapHint: context.l10n.searchModifyQuery,
+          onTap: _editQuery,
         ),
-        // The summary row is persistent context (visible in
-        // loading/error/empty alike): one chip per active filter, tapping
-        // any chip opens the sheet, the clear entry stays on the row even
-        // when nothing is active so its affordance never moves.
+        // One chip per active filter under the tabs; tapping one reopens
+        // the sheet. With nothing active the row is gone and the badged
+        // button alone says so.
         bottom: PreferredSize(
           preferredSize: Size.fromHeight(
-            tabBar.preferredSize.height + (showFilters ? _filterBarHeight : 0),
+            tabBar.preferredSize.height +
+                (filterLabels.isEmpty ? 0 : _filterBarHeight),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               tabBar,
-              if (showFilters)
+              if (filterLabels.isNotEmpty)
                 _FilterSummaryBar(
-                  filters: _filtersFor(_selectedType),
+                  labels: filterLabels,
                   onEdit: _editFilters,
                   // Clearing resets this tab to its type's empty set —
                   // the persisted defaults stay untouched.
@@ -332,11 +310,13 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
         ),
         actions: [
           if (showFilters)
-            IconButton(
-              tooltip: context.l10n.searchFilters,
+            SearchFilterButton(
+              filters: _filtersFor(_selectedType),
               onPressed: _editFilters,
-              icon: const Icon(Icons.tune),
-            ),
+            )
+          else
+            // Keeps the field off the screen edge.
+            const SizedBox(width: FuncSpacing.lg),
         ],
       ),
       body: Builder(
@@ -694,119 +674,27 @@ class _SearchUserTile extends StatelessWidget {
   }
 }
 
-/// Persistent filter context under the result-page title: one chip per
-/// non-default field plus a clear entry. Tapping any chip reopens the
-/// sheet; clearing replaces the route with default filters so the URL
-/// keeps describing exactly what the user sees.
+/// The active filters under the result-page tabs: one chip per field plus
+/// a reset at the end. Tapping a chip reopens the sheet; reset replaces
+/// the route with default filters so the URL keeps describing exactly what
+/// the user sees.
 class _FilterSummaryBar extends StatelessWidget {
   const _FilterSummaryBar({
-    required this.filters,
+    required this.labels,
     required this.onEdit,
     required this.onClear,
   });
 
-  final SearchFilters filters;
+  final List<String> labels;
   final VoidCallback onEdit;
   final VoidCallback onClear;
 
-  String? _dateLabel(BuildContext context) {
-    final l10n = context.l10n;
-    final start = filters.startDate == null
-        ? null
-        : AppFormat.date(context, filters.startDate!);
-    final end = filters.endDate == null
-        ? null
-        : AppFormat.date(context, filters.endDate!);
-    return switch ((start, end)) {
-      (null, null) => null,
-      (final start?, null) => l10n.searchDateFrom(start),
-      (null, final end?) => l10n.searchDateUntil(end),
-      (final start?, final end?) => l10n.searchDateBetween(start, end),
-    };
-  }
-
-  /// One bounded filter as "label, bound(s)"; null when neither bound is
-  /// set. [format] renders a bound (compact counts or raw pixels).
-  static String? _rangeLabel(
-    BuildContext context,
-    String label,
-    int? min,
-    int? max,
-    String Function(int value) format,
-  ) {
-    final l10n = context.l10n;
-    return switch ((min, max)) {
-      (null, null) => null,
-      (final min?, null) => l10n.searchRangeAtLeast(label, format(min)),
-      (null, final max?) => l10n.searchRangeAtMost(label, format(max)),
-      (final min?, final max?) => l10n.searchRangeBetween(
-        label,
-        format(min),
-        format(max),
-      ),
-    };
-  }
-
-  List<String> _activeLabels(BuildContext context) {
-    final l10n = context.l10n;
-    String pixels(int value) => '$value';
-    return [
-      if (filters.normalizedTarget != SearchTarget.partialMatchForTags)
-        searchText(context, filters.normalizedTarget.labelKey),
-      if (filters.normalizedSort != SearchSort.dateDesc)
-        searchText(context, filters.normalizedSort.labelKey),
-      if (filters.duration != null)
-        searchText(context, filters.duration!.labelKey),
-      ?_dateLabel(context),
-      if (filters.aiFilter != SearchAiFilter.all)
-        searchText(context, filters.aiFilter.labelKey),
-      ?_rangeLabel(
-        context,
-        l10n.searchBookmarkSection,
-        filters.bookmarkMin,
-        filters.bookmarkMax,
-        (value) => AppFormat.count(context, value),
-      ),
-      // Each type only displays its own dimensions.
-      ...switch (filters) {
-        final IllustSearchFilters f => [
-          if (f.ratio != null) searchText(context, f.ratio!.labelKey),
-          if (f.contentType != SearchContentType.illustAndMangaAndUgoira)
-            searchText(context, f.contentType.labelKey),
-          ?_rangeLabel(
-            context,
-            l10n.searchWidth,
-            f.widthMin,
-            f.widthMax,
-            pixels,
-          ),
-          ?_rangeLabel(
-            context,
-            l10n.searchHeight,
-            f.heightMin,
-            f.heightMax,
-            pixels,
-          ),
-        ],
-        final NovelSearchFilters f => [
-          ?_rangeLabel(
-            context,
-            l10n.searchTextLength,
-            f.textLengthMin,
-            f.textLengthMax,
-            pixels,
-          ),
-          if (f.originalOnly) l10n.searchOriginalOnly,
-        ],
-      },
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
-    final labels = _activeLabels(context);
     return SizedBox(
       height: _filterBarHeight,
+      // Full width: the chips start at the edge instead of centring.
+      width: double.infinity,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(
@@ -817,22 +705,14 @@ class _FilterSummaryBar extends StatelessWidget {
         ),
         child: Row(
           children: [
-            if (labels.isEmpty)
-              ActionChip(
-                avatar: const Icon(Icons.tune, size: 16),
-                label: Text(context.l10n.searchFilters),
-                onPressed: onEdit,
-              )
-            else
-              for (final label in labels) ...[
-                ActionChip(label: Text(label), onPressed: onEdit),
-                const SizedBox(width: FuncSpacing.sm),
-              ],
-            const SizedBox(width: FuncSpacing.xs),
+            for (final label in labels) ...[
+              ActionChip(label: Text(label), onPressed: onEdit),
+              const SizedBox(width: FuncSpacing.sm),
+            ],
             ActionChip(
               avatar: const Icon(Icons.filter_alt_off_outlined, size: 16),
               label: Text(context.l10n.searchReset),
-              onPressed: labels.isEmpty ? null : onClear,
+              onPressed: onClear,
             ),
           ],
         ),

@@ -13,6 +13,7 @@ import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/core/search/search_trending_controller.dart';
 import 'package:parfait/core/series/series_recent_open_store.dart';
+import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_series_section.dart';
@@ -192,6 +193,13 @@ void main() {
   };
   for (final MapEntry(key: name, value: page) in searchPages.entries) {
     localeLayoutMatrix('content: $name', (tester, locale, profile) async {
+      installMemoryPreferences({
+        PreferenceKeys.searchHistory: [
+          'a long recent search keyword',
+          'landscape',
+          '猫',
+        ],
+      });
       final repository = FakeSearchRepository(trendingTagCount: 6)
         ..illustPage = SearchIllustPage(
           illusts: [
