@@ -9,6 +9,7 @@ import 'package:path/path.dart' as path;
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -157,6 +158,9 @@ Future<_World> _makeWorld() async {
       feedSnapshotStoreProvider.overrideWithValue(
         FeedSnapshotStore(database: database),
       ),
+      // Snapshot writes encode inline so a test can await them; the
+      // isolate round trip is data_worker_test's.
+      dataWorkerProvider.overrideWithValue(const InlineDataWorker()),
     ],
   );
   final client = PixivHttpClient(
@@ -305,12 +309,23 @@ void main() {
     ]);
 
     const codec = IllustSnapshotCodec();
-    final encoded = codec.encodeEntities(ref, const [5, 6, 999]);
-    expect(encoded.keys.toSet(), {'5', '6'});
+    const ids = [5, 6, 999];
+    final entities = codec.lookupEntities(ref, ids);
+    expect(entities.keys.toSet(), {5, 6});
+    final encoded = encodeFeedSnapshot((
+      codec: codec,
+      ids: ids,
+      entities: entities,
+    ));
+    expect(jsonDecode(encoded.ids), ids);
+    final payload =
+        (jsonDecode(encoded.entities) as Map<String, Object?>)['illust']!
+            as Map<String, Object?>;
+    expect(payload.keys.toSet(), {'5', '6'});
 
     // Drop the live entities, then restore through the codec.
     world.container.read(illustStoreProvider).clear();
-    final restored = codec.restoreEntities(ref, const [5, 6], encoded);
+    final restored = codec.restoreEntities(ref, const [5, 6], payload);
     expect(restored, [5, 6]);
     expect(world.container.read(illustStoreProvider).get(5)?.id, 5);
     expect(world.container.read(illustStoreProvider).get(6)?.id, 6);

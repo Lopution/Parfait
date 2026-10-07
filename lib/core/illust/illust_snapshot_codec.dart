@@ -16,13 +16,13 @@ final class IllustSnapshotCodec extends FeedSnapshotCodec {
   String get entityType => 'illust';
 
   @override
-  Map<String, Object?> encodeEntities(Ref ref, List<int> ids) {
+  Map<int, Object> lookupEntities(Ref ref, List<int> ids) {
     final store = ref.read(illustStoreProvider);
-    return {
-      for (final id in ids)
-        if (store.get(id) case final entity?) '$id': entity.toJson(),
-    };
+    return {for (final id in ids) id: ?store.get(id)};
   }
+
+  @override
+  Object? encodeEntity(Object entity) => (entity as IllustEntity).toJson();
 
   @override
   List<int> restoreEntities(

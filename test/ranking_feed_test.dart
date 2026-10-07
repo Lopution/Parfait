@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -144,6 +145,8 @@ Future<(ProviderContainer, _RankingFixture)> _makeWorld({
       feedSnapshotStoreProvider.overrideWithValue(
         snapshots ?? MemoryFeedSnapshotStore(),
       ),
+      // Snapshot writes encode inline so a test can await them.
+      dataWorkerProvider.overrideWithValue(const InlineDataWorker()),
       accountMetadataRepositoryProvider.overrideWithValue(
         FakeAccountMetadataRepository(
           accounts: [

@@ -109,11 +109,11 @@ class _PixivSearchRepository implements SearchRepository {
     CancelToken? cancelToken,
   }) async {
     final request = _pageRequest(query, cursor: cursor);
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _parseIllustPage,
       cancelToken: cancelToken,
     );
-    return _parseIllustPage(json);
   }
 
   @override
@@ -123,11 +123,11 @@ class _PixivSearchRepository implements SearchRepository {
     CancelToken? cancelToken,
   }) async {
     final request = _pageRequest(query, cursor: cursor);
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _parseNovelPage,
       cancelToken: cancelToken,
     );
-    return _parseNovelPage(json);
   }
 
   @override
@@ -137,11 +137,11 @@ class _PixivSearchRepository implements SearchRepository {
     CancelToken? cancelToken,
   }) async {
     final request = _pageRequest(query, cursor: cursor);
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _parseUserPage,
       cancelToken: cancelToken,
     );
-    return _parseUserPage(json);
   }
 
   @override
@@ -287,7 +287,7 @@ class _PixivSearchRepository implements SearchRepository {
     };
   }
 
-  SearchIllustPage _parseIllustPage(Map<String, dynamic> json) {
+  static SearchIllustPage _parseIllustPage(Map<String, dynamic> json) {
     try {
       final page = IllustEntity.parsePage(json);
       return SearchIllustPage(illusts: page.illusts, nextUrl: page.nextUrl);
@@ -296,7 +296,7 @@ class _PixivSearchRepository implements SearchRepository {
     }
   }
 
-  SearchNovelPage _parseNovelPage(Map<String, dynamic> json) {
+  static SearchNovelPage _parseNovelPage(Map<String, dynamic> json) {
     try {
       final raw = json['novels'];
       if (raw is! List) {
@@ -317,7 +317,7 @@ class _PixivSearchRepository implements SearchRepository {
     }
   }
 
-  SearchUserPage _parseUserPage(Map<String, dynamic> json) {
+  static SearchUserPage _parseUserPage(Map<String, dynamic> json) {
     try {
       final raw = json['user_previews'];
       if (raw is! List) {

@@ -96,13 +96,12 @@ class RankingRepository {
             path: request.uri.path,
             query: request.uri.query,
           );
-    try {
-      final json = await _client.getJson(target, cancelToken: cancelToken);
-      final page = IllustEntity.parsePage(json);
-      return RankingIllustPage(illusts: page.illusts, nextUrl: page.nextUrl);
-    } on FormatException catch (error) {
-      throw ApiParseError(error);
-    }
+    final page = await _client.getParsed(
+      target,
+      IllustEntity.parsePage,
+      cancelToken: cancelToken,
+    );
+    return RankingIllustPage(illusts: page.illusts, nextUrl: page.nextUrl);
   }
 
   static void validateModeCursor(

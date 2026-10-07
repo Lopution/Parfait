@@ -55,16 +55,12 @@ class _PixivNewFeedRepository implements NewFeedRepository {
     CancelToken? cancelToken,
   }) async {
     final request = _request(key, cursor: cursor);
-    final json = await _client.getJson(
+    final page = await _client.getParsed(
       _target(request),
+      IllustEntity.parsePage,
       cancelToken: cancelToken,
     );
-    try {
-      final page = IllustEntity.parsePage(json);
-      return NewIllustPage(illusts: page.illusts, nextUrl: page.nextUrl);
-    } on FormatException catch (error) {
-      throw ApiParseError(error);
-    }
+    return NewIllustPage(illusts: page.illusts, nextUrl: page.nextUrl);
   }
 
   @override
@@ -74,28 +70,28 @@ class _PixivNewFeedRepository implements NewFeedRepository {
     CancelToken? cancelToken,
   }) async {
     final request = _request(key, cursor: cursor);
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _parseNovelPage,
       cancelToken: cancelToken,
     );
-    try {
-      final raw = json['novels'];
-      if (raw is! List) {
-        throw const FormatException('novels list is missing or malformed');
-      }
-      return NewNovelPage(
-        novels: [
-          for (final item in raw)
-            if (item is Map<String, dynamic>)
-              NovelEntity.fromJson(item)
-            else
-              throw const FormatException('novels contains a non-object'),
-        ],
-        nextUrl: readNextUrl(json['next_url']),
-      );
-    } on FormatException catch (error) {
-      throw ApiParseError(error);
+  }
+
+  static NewNovelPage _parseNovelPage(Map<String, dynamic> json) {
+    final raw = json['novels'];
+    if (raw is! List) {
+      throw const FormatException('novels list is missing or malformed');
     }
+    return NewNovelPage(
+      novels: [
+        for (final item in raw)
+          if (item is Map<String, dynamic>)
+            NovelEntity.fromJson(item)
+          else
+            throw const FormatException('novels contains a non-object'),
+      ],
+      nextUrl: readNextUrl(json['next_url']),
+    );
   }
 
   @override

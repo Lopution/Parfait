@@ -586,4 +586,43 @@ void main() {
     expect(inset.top, isNot(closeTo(0, 0.01)));
     expect(inset.left, FuncSpacing.sm);
   });
+  testWidgets('appending a page leaves the built cards alone', (tester) async {
+    final (container, _) = await makeWorld();
+    addTearDown(container.dispose);
+    Element bodyOf(int id) {
+      Element? body;
+      tester
+          .element(find.byKey(ValueKey('illust-recommended:illust-$id')))
+          .visitChildren((child) => body = child);
+      return body!;
+    }
+
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('zh', 'CN'),
+            home: RecommendedIllustPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final before = bodyOf(1).widget;
+
+      await container
+          .read(recommendedIllustControllerProvider.notifier)
+          .loadMore();
+      await tester.pumpAndSettle();
+      expect(
+        container.read(recommendedIllustControllerProvider).value!.ids,
+        hasLength(17),
+      );
+      // The grid rebuilt every built card with the longer list; the card
+      // handed its unchanged body back, so its subtree was skipped.
+      expect(identical(bodyOf(1).widget, before), isTrue);
+    });
+  });
 }

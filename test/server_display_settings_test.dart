@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -91,6 +92,8 @@ Future<(ProviderContainer, _ApiScript)> _world(
           },
         ),
       ),
+      // The app's isolate worker answers outside fake time.
+      dataWorkerProvider.overrideWithValue(const InlineDataWorker()),
       pixivNetworkFactoryProvider.overrideWithValue(
         PixivNetworkFactory(
           NetworkAccessPolicy(
@@ -316,6 +319,8 @@ void main() {
               },
             ),
           ),
+          // The app's isolate worker answers outside fake time.
+          dataWorkerProvider.overrideWithValue(const InlineDataWorker()),
           pixivNetworkFactoryProvider.overrideWithValue(
             PixivNetworkFactory(
               NetworkAccessPolicy(

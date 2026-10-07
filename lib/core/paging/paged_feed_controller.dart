@@ -12,6 +12,7 @@ import '../debug/frame_probe.dart';
 import '../entity/illust_entity.dart';
 import '../entity/illust_store.dart';
 import '../network/api_error.dart';
+import '../network/data_worker.dart';
 import '../network/pixiv_http_client.dart';
 import '../mute/mute_models.dart';
 import '../mute/mute_predicate.dart';
@@ -739,7 +740,8 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   }
 
   /// Persists the committed page-one view after a successful initial load or
-  /// refresh. Failures are swallowed — a snapshot that fails to write only
+  /// refresh. Only the store lookup runs here; encoding runs on the data
+  /// worker. Failures are swallowed — a snapshot that fails to write only
   /// means the next cold start takes the network path again.
   void _persistSnapshot(List<int> ids) {
     final codec = snapshotCodec;
@@ -748,18 +750,27 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     final capped = ids.length > _snapshotIdCap
         ? ids.sublist(0, _snapshotIdCap)
         : ids;
-    final entities = codec.encodeEntities(ref, capped);
+    final entities = codec.lookupEntities(ref, capped);
     if (entities.isEmpty) return;
+    final store = ref.read(feedSnapshotStoreProvider);
+    final key = feedKey;
+    final cursor = _nextCursor;
     unawaited(
       ref
-          .read(feedSnapshotStoreProvider)
-          .write(
-            accountId,
-            feedKey,
+          .read(dataWorkerProvider)
+          .run(encodeFeedSnapshot, (
+            codec: codec,
             ids: capped,
-            entities: {codec.entityType: entities},
-            cursor: _nextCursor,
-            snapshotVersion: codec.snapshotVersion,
+            entities: entities,
+          ), label: 'snapshot encode ${capped.length}')
+          .then(
+            (encoded) => store.writeEncoded(
+              accountId,
+              key,
+              encoded,
+              cursor: cursor,
+              snapshotVersion: codec.snapshotVersion,
+            ),
           )
           .onError((_, _) {}),
     );

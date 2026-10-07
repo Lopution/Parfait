@@ -98,11 +98,11 @@ class BookmarkRepository {
       'restrict': bookmarkRestrictWire(restrict),
     };
     final request = _pageRequest(path: path, query: query, cursor: cursor);
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _parseTagPage,
       cancelToken: cancelToken,
     );
-    return _parseTagPage(json);
   }
 
   bool validateUserTagsCursor(
@@ -230,7 +230,7 @@ class BookmarkRepository {
     );
   }
 
-  UserBookmarkTagPage _parseTagPage(Map<String, dynamic> json) {
+  static UserBookmarkTagPage _parseTagPage(Map<String, dynamic> json) {
     final raw = json['bookmark_tags'];
     if (raw is! List) {
       throw const ApiParseError('bookmark_tags is missing or malformed');
