@@ -12,6 +12,7 @@ import 'package:parfait/app/navigation/routes.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/widgets/skeleton/illust_grid_skeleton.dart';
@@ -1019,6 +1020,13 @@ void main() {
   for (final tab in ['插画 & 漫画', '小说']) {
     testWidgets('long-pressing a $tab trending tag opens its representative '
         'work', (tester) async {
+      // The opened detail page tracks page visibility; post-frame updates
+      // leave no timer behind when the test ends on the push.
+      final interval = VisibilityDetectorController.instance.updateInterval;
+      VisibilityDetectorController.instance.updateInterval = Duration.zero;
+      addTearDown(
+        () => VisibilityDetectorController.instance.updateInterval = interval,
+      );
       final haptics = recordHaptics();
       final repository = FakeSearchRepository();
       final router = createPixivRouter(initialLocation: '/search');

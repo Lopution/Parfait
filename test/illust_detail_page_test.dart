@@ -2271,8 +2271,6 @@ void main() {
       expect(find.text('第 1 页，共 1 页'), findsNothing);
       expect(find.text('1 / 1'), findsNothing);
       expect(find.byTooltip('跳到作品信息区'), findsNothing);
-      // Nothing to count, so nothing tracks page visibility either.
-      expect(find.byType(VisibilityDetector), findsNothing);
     });
 
     testWidgets(
