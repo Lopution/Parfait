@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 /// Bottom chrome that prompts must clear, registered by the widgets that
@@ -12,11 +13,38 @@ import 'package:flutter/widgets.dart';
 /// its route is (see [PromptAnchor]). A hidden or covered anchor reports 0,
 /// so the max settles on whatever chrome is actually on screen.
 ///
-/// Listeners are notified synchronously whenever a contribution changes —
-/// mid-build, from animation ticks and from unmounting — so they must only
-/// schedule layout (a layout delegate's `relayout`), never rebuild.
+/// Listeners are notified whenever a contribution changes — from animation
+/// ticks and from unmounting — so they must only schedule layout (a layout
+/// delegate's `relayout`), never rebuild. A change reported while the frame
+/// builds and lays out (an anchor mounting under a `LayoutBuilder`, chrome
+/// publishing its extent from `build`) is held until that frame ends:
+/// marking the prompt layout dirty from inside another subtree's layout is
+/// not allowed.
 class PromptAnchors extends ChangeNotifier {
   final _entries = <_AnchorEntry>{};
+  bool _notifyScheduled = false;
+
+  void _changed() {
+    final scheduler = SchedulerBinding.instance;
+    if (scheduler.schedulerPhase != SchedulerPhase.persistentCallbacks) {
+      notifyListeners();
+      return;
+    }
+    if (_notifyScheduled) return;
+    _notifyScheduled = true;
+    scheduler.addPostFrameCallback((_) {
+      if (!_notifyScheduled) return;
+      _notifyScheduled = false;
+      notifyListeners();
+    });
+  }
+
+  @override
+  void dispose() {
+    // A notification still held for the frame end has nobody to tell.
+    _notifyScheduled = false;
+    super.dispose();
+  }
 
   double get extent {
     var extent = 0.0;
@@ -30,16 +58,16 @@ class PromptAnchors extends ChangeNotifier {
     ValueListenable<double> extent,
     ModalRoute<dynamic>? route,
   ) {
-    final entry = _AnchorEntry(extent, route, notifyListeners);
+    final entry = _AnchorEntry(extent, route, _changed);
     _entries.add(entry);
-    notifyListeners();
+    _changed();
     return entry;
   }
 
   void _remove(_AnchorEntry entry) {
     if (!_entries.remove(entry)) return;
     entry.detach();
-    notifyListeners();
+    _changed();
   }
 }
 

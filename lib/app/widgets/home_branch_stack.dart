@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/debug/frame_probe.dart';
 import '../layout/app_breakpoints.dart';
 import '../motion/motion_tokens.dart';
+import '../motion/scroll_hide.dart';
 import '../pull_to_refresh.dart';
 import '../navigation/home_shell_metrics.dart';
 import 'func_bottom_nav.dart';
@@ -89,9 +90,7 @@ class _HomeBranchStackState extends State<HomeBranchStack>
   final ValueNotifier<double> _navBarVisibleExtent = ValueNotifier(0);
   int _current = 0;
   int? _outgoing;
-  double _scrollAccum = 0;
-  double? _lastPixels;
-  BuildContext? _lastScrollable;
+  final _scrollHide = ScrollHideTracker();
 
   /// `accessibleNavigation` below TouchExplorationScope: TalkBack is
   /// exploring, not merely some assistive service reading nodes.
@@ -178,49 +177,10 @@ class _HomeBranchStackState extends State<HomeBranchStack>
 
   bool _onScrollNotification(ScrollNotification notification) {
     if (_touchExploration) return false;
-    if (notification.depth != 0) return false;
-    if (notification.metrics.axis != Axis.vertical) return false;
-    final metrics = notification.metrics;
-    if (!metrics.hasContentDimensions) return false;
-    if (!identical(notification.context, _lastScrollable)) {
-      _lastScrollable = notification.context;
-      _lastPixels = null;
-      _scrollAccum = 0;
-    }
-    final clamped = metrics.pixels.clamp(
-      metrics.minScrollExtent,
-      metrics.maxScrollExtent,
-    );
-    final last = _lastPixels;
-    _lastPixels = clamped;
-    if (notification is! ScrollUpdateNotification || last == null) {
-      return false;
-    }
-    final delta = clamped - last;
-    if (delta == 0) return false;
-    _scrollAccum = (_scrollAccum * delta < 0) ? delta : _scrollAccum + delta;
     final slop = MediaQuery.maybeGestureSettingsOf(context)?.touchSlop ?? 8.0;
-    if (_scrollAccum > slop) {
-      _setNavHidden(true);
-      _scrollAccum = 0;
-    } else if (_scrollAccum < -slop) {
-      _setNavHidden(false);
-      _scrollAccum = 0;
-    }
+    final hide = _scrollHide.update(notification, slop: slop);
+    if (hide != null) slideChrome(context, _navVisibility, hidden: hide);
     return false;
-  }
-
-  void _setNavHidden(bool hidden) {
-    if (_navVisibility.status.isForwardOrCompleted != hidden) return;
-    if (MotionTokens.enabled(context)) {
-      if (hidden) {
-        _navVisibility.reverse();
-      } else {
-        _navVisibility.forward();
-      }
-    } else {
-      _navVisibility.value = hidden ? 0 : 1;
-    }
   }
 
   Widget _buildRail(BuildContext context) {
