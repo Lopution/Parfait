@@ -4,6 +4,7 @@
 library;
 
 import 'dart:async';
+import 'dart:developer' show log;
 import '../network/pixiv_headers.dart';
 import 'dart:io';
 
@@ -1166,9 +1167,10 @@ class DownloadManager {
           // byte accounting stays identical to a 206 continuation.
           return await _FileDownloadResponse.open(cached, resumeOffset);
         }
-      } on Object {
-        // Cache lookup is best-effort — a corrupt store never blocks the
-        // network path.
+      } on Object catch (error) {
+        // Cache lookup is best-effort — a corrupt store or an unavailable
+        // image worker never blocks the network path.
+        log('DownloadManager cache lookup failed: $error');
       }
     }
     final headers = PixivHeaders.image(userAgent: true);

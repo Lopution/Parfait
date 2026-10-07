@@ -48,7 +48,9 @@ class ImageWorkerClient implements ImageFetcher {
   final _pending = <int, (String url, Completer<FetchResult>)>{};
   final _idsByUrl = <String, Set<int>>{};
   final _rechecks = <String, Timer>{};
-  final _statusRequests = <int, Completer<ImageWorkerStatus>>{};
+
+  /// Questions to the worker awaiting their reply event, by id.
+  final _questions = <int, Completer<WorkerEvent>>{};
   var _nextId = 1;
   Object? _dead;
 
@@ -231,13 +233,25 @@ class ImageWorkerClient implements ImageFetcher {
   }
 
   /// The worker's queue and disk usage right now.
-  Future<ImageWorkerStatus> status() {
+  Future<ImageWorkerStatus> status() async =>
+      (await _ask(encodeStatusRequest) as StatusEvent).status;
+
+  /// [url]'s file in the disk cache, or null on a miss; never fetches.
+  Future<File?> cachedFile(String url) async {
+    final reply = await _ask((id) => encodeLookup(id, url)) as CachedEvent;
+    final path = reply.path;
+    return path == null ? null : File(path);
+  }
+
+  /// Sends the [question] built for a fresh id; completes with the reply
+  /// carrying that id.
+  Future<WorkerEvent> _ask(Map<String, Object?> Function(int id) question) {
     final dead = _dead;
     if (dead != null) return Future.error(dead);
     final id = _nextId++;
-    final completer = Completer<ImageWorkerStatus>();
-    _statusRequests[id] = completer;
-    _worker.send(encodeStatusRequest(id));
+    final completer = Completer<WorkerEvent>();
+    _questions[id] = completer;
+    _worker.send(question(id));
     return completer.future;
   }
 
@@ -292,8 +306,8 @@ class ImageWorkerClient implements ImageFetcher {
         onRouteExhausted?.call(host);
       case WorkerErrorEvent(:final message, :final stack):
         CrashLog.record(RemoteError(message, stack));
-      case StatusEvent(:final id, :final status):
-        _statusRequests.remove(id)?.complete(status);
+      case StatusEvent(:final id) || CachedEvent(:final id):
+        _questions.remove(id)?.complete(event);
       case ReadyEvent():
         break; // consumed during connect
       case InitErrorEvent():
@@ -332,10 +346,10 @@ class ImageWorkerClient implements ImageFetcher {
     }
     _pending.clear();
     _idsByUrl.clear();
-    for (final completer in _statusRequests.values) {
+    for (final completer in _questions.values) {
       completer.completeError(error);
     }
-    _statusRequests.clear();
+    _questions.clear();
   }
 
   /// Whether the worker died or this client was disposed; [fetch] then

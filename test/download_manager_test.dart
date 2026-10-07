@@ -7,7 +7,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'helpers/download_world.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/illust_fixtures.dart';
+import 'helpers/image_network.dart';
+import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
+import 'package:http/testing.dart';
+import 'package:parfait/core/image/image_worker_protocol.dart';
+import 'package:parfait/core/image/lane_permit_gate.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_request.dart';
 import 'package:parfait/core/download/download_destination.dart';
@@ -251,6 +256,59 @@ void main() {
       );
       expect(manager.tasks.single.status, DownloadStatus.succeeded);
       expect(sinks.sinks.single.bytes, cachedBytes);
+    });
+
+    test(
+      'a file the image worker cached materializes without a request',
+      () async {
+        const url = 'https://i.pximg.net/img-original/img/42_p0.jpg';
+        final worker = inProcessImageWorker(
+          () => MockClient((_) async => http.Response.bytes(onePixelPng, 200)),
+        );
+        await worker.fetch(url, priority: ImageFetchPriority.foreground);
+        final transport = FakeTransport();
+        final sinks = MemorySinkFactory();
+        final manager = DownloadManager(
+          transport: transport,
+          sinkFactory: sinks,
+          // As the app wires it.
+          cacheLookup: (url) => worker.cachedFile('$url'),
+        );
+        addTearDown(manager.dispose);
+
+        manager.submit(request(url: url));
+        await _Watcher(manager).pumpUntilTerminal();
+
+        expect(transport.openedUrls, isEmpty);
+        expect(manager.tasks.single.status, DownloadStatus.succeeded);
+        expect(sinks.sinks.single.bytes, onePixelPng);
+      },
+    );
+
+    test('a failing cacheLookup falls through to the transport', () async {
+      final transport = FakeTransport();
+      transport.responses.add(
+        ScriptedResponse(
+          contentLength: 3,
+          chunks: [
+            [1, 2, 3],
+          ],
+        ),
+      );
+      final sinks = MemorySinkFactory();
+      final manager = DownloadManager(
+        transport: transport,
+        sinkFactory: sinks,
+        cacheLookup: (url) async =>
+            throw const ImageWorkerUnavailable('gave up after 3 starts'),
+      );
+      addTearDown(manager.dispose);
+
+      manager.submit(request());
+      await _Watcher(manager).pumpUntilTerminal();
+
+      expect(transport.openedUrls, hasLength(1));
+      expect(manager.tasks.single.status, DownloadStatus.succeeded);
     });
 
     test('cacheLookup miss falls through to the transport', () async {

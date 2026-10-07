@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show File;
 
 import '../logging/crash_log.dart';
 import '../network/compat/image_demand.dart';
@@ -104,6 +105,15 @@ class ImageWorker implements ImageFetcher {
   }) async {
     final client = await _ready();
     return client.fetch(url, priority: priority);
+  }
+
+  /// [url]'s file in the worker's disk cache, or null on a miss; never
+  /// fetches it. Starts the worker like [fetch]: a lookup comes right
+  /// before an image is needed (a download, a widget refresh), and a cold
+  /// worker answering "miss" would only re-download what is on disk.
+  Future<File?> cachedFile(String url) async {
+    final client = await _ready();
+    return client.cachedFile(url);
   }
 
   /// Calls [listener] with [url]'s download progress until the returned

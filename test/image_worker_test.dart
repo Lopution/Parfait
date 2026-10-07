@@ -150,6 +150,17 @@ void main() {
     expect(reports, [onePixelPng.length]);
   });
 
+  test('a cache lookup starts the worker and answers from its disk', () async {
+    final starts = _Starts([null]);
+    addTearDown(starts.close);
+    final worker = _worker(starts.call);
+
+    expect(await worker.cachedFile(_url), isNull);
+    expect(worker.starts, 1);
+    final result = await _fetch(worker);
+    expect((await worker.cachedFile(_url))?.path, result.file.path);
+  });
+
   test('failed starts are retried until the budget is spent', () async {
     var calls = 0;
     final worker = _worker((_, _) async {

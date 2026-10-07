@@ -77,6 +77,7 @@ class _Transports {
   int coverStatus = 200;
   List<int> coverBytes = List.filled(64, 7);
   final pages = <http.Request>[];
+  final covers = <String>[];
   Future<void> Function()? beforeFirstCover;
   bool _firstCoverStarted = false;
 
@@ -111,6 +112,7 @@ class _Transports {
   });
 
   http.Client images() => MockClient((request) async {
+    covers.add('${request.url}');
     if (!_firstCoverStarted) {
       _firstCoverStarted = true;
       await beforeFirstCover?.call();
@@ -132,6 +134,7 @@ _makeWorld({
   bool blockR18 = false,
   bool blockAI = false,
   MuteState muteState = const MuteState(),
+  Future<File?> Function(String url)? cachedImage,
 }) async {
   final transports = _Transports();
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -189,6 +192,7 @@ _makeWorld({
     blockR18: blockR18,
     blockAI: blockAI,
     muteState: muteState,
+    cachedImage: cachedImage,
   );
   return (container, loader, store, transports);
 }
@@ -315,6 +319,43 @@ void main() {
       expect(store.read()!.accountKey, previous.accountKey);
     },
   );
+
+  test('a cover in the image cache is read, not downloaded', () async {
+    final dir = await Directory.systemTemp.createTemp('widget_cached_cover');
+    addTearDown(() => dir.delete(recursive: true));
+    final cached = await File('${dir.path}/cover').writeAsBytes([1, 2, 3]);
+    final (container, loader, store, transports) = await _makeWorld(
+      cachedImage: (_) async => cached,
+    );
+    addTearDown(container.dispose);
+
+    final result = await loader.load();
+    expect(result.outcome, WidgetFeedOutcome.written);
+    expect(transports.covers, isEmpty);
+    for (final item in store.read()!.items) {
+      expect(store.resolveImage(item.imageFile)!.readAsBytesSync(), [1, 2, 3]);
+    }
+  });
+
+  test('a cover the cache lacks or cannot read is downloaded', () async {
+    final dir = await Directory.systemTemp.createTemp('widget_cached_cover');
+    addTearDown(() => dir.delete(recursive: true));
+    final (container, loader, store, transports) = await _makeWorld(
+      // Illust 1 is not cached; illust 3's file was evicted after the
+      // lookup answered.
+      cachedImage: (url) async =>
+          url.contains('c1_') ? null : File('${dir.path}/evicted'),
+    );
+    addTearDown(container.dispose);
+
+    final result = await loader.load();
+    expect(result.outcome, WidgetFeedOutcome.written);
+    expect(transports.covers, [
+      'https://i.pximg.net/c1_sq.jpg',
+      'https://i.pximg.net/c3_sq.jpg',
+    ]);
+    expect(store.read()!.items, hasLength(2));
+  });
 
   test('oversize cover is rejected as transient', () async {
     final (container, loader, _, transports) = await _makeWorld();

@@ -133,8 +133,14 @@ class _Harness {
     return progress;
   }
 
-  bool _matches(WorkerEvent e, int id) =>
-      (e is ResultEvent && e.id == id) || (e is FailureEvent && e.id == id);
+  void lookup(int id, String url) => worker.send(encodeLookup(id, url));
+
+  bool _matches(WorkerEvent e, int id) => switch (e) {
+    ResultEvent() => e.id == id,
+    FailureEvent() => e.id == id,
+    CachedEvent() => e.id == id,
+    _ => false,
+  };
 
   Future<WorkerEvent> eventFor(int id, {Duration? timeout}) {
     // The scan and the listen happen in one synchronous turn: an event
@@ -453,13 +459,47 @@ void main() {
     });
   });
 
-  test('watch and progress messages survive the wire', () {
+  test('a lookup answers from disk and never fetches', () async {
+    final harness = _Harness();
+    addTearDown(harness.stop);
+    final server = _Server();
+    await server.start();
+    harness.server = server;
+    await harness.start(fetchClient: IOClient.new);
+    final url = server.url('/img/cached.jpg');
+
+    harness.lookup(1, url);
+    expect((await harness.eventFor(1) as CachedEvent).path, isNull);
+    expect(server.hits, isEmpty);
+
+    harness.fetch(2, url);
+    final fetched = await harness.eventFor(2) as ResultEvent;
+    harness.lookup(3, url);
+    expect((await harness.eventFor(3) as CachedEvent).path, fetched.path);
+    expect(server.hits['/img/cached.jpg'], 1);
+  });
+
+  test('watch, progress and lookup messages survive the wire', () {
     for (final watching in [true, false]) {
       expect(
         decodeWorkerMessage(encodeWatch('u', watching: watching)),
         isA<WatchMessage>()
             .having((m) => m.url, 'url', 'u')
             .having((m) => m.watching, 'watching', watching),
+      );
+    }
+    expect(
+      decodeWorkerMessage(encodeLookup(7, 'u')),
+      isA<LookupMessage>()
+          .having((m) => m.id, 'id', 7)
+          .having((m) => m.url, 'url', 'u'),
+    );
+    for (final path in ['/cache/a', null]) {
+      expect(
+        decodeWorkerEvent(encodeWorkerEvent(CachedEvent(7, path))),
+        isA<CachedEvent>()
+            .having((e) => e.id, 'id', 7)
+            .having((e) => e.path, 'path', path),
       );
     }
     for (final total in [1000, null]) {
