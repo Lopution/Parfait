@@ -286,6 +286,7 @@ class ImageWorker implements ImageFetcher {
   final ImageDemand demand; // the worker's own; outlives any one isolate
   ImageWorkerState get state; // idle/starting/running/stopped/gaveUp/disposed
   Future<FetchResult> fetch(String url, {required ImageFetchPriority priority});
+  void Function() watchProgress(String url, ImageProgressListener listener);
   Future<void> configChanged();
   Future<ImageWorkerSnapshot> snapshot(); // probe page; never starts one
 }
@@ -296,21 +297,32 @@ class WorkerImageProvider extends ImageProvider<WorkerImageProvider> {
 }
 class ImageWorkerUnavailable implements Exception { final String reason; }
 class FetchFailure implements Exception { final int? statusCode; }
-static Future<ImagePreloadResult> PixivImage.preload(…, {bool useWorker = true});
+typedef ImageProgressListener = void Function(int received, int? total);
+class ImageProgressThrottle { bool shouldReport(int received, int? total); }
 ```
 
 #### 3. Contracts
 
-- Pipeline choice: a `PixivImage` loads through the worker when it has a
-  `ProviderScope`, no `progress`, a decode width (`memCacheWidth`), and a
-  non-`/img-original/` URL. Everything else stays legacy until the worker
-  reports progress. `preload` applies the same rule; a caller whose image
-  will be shown with progress (detail tier, viewer and its neighbours)
-  passes `useWorker: false` so the warm-up lands on the entry that widget
-  resolves.
-- The worker path renders `OctoImage(ResizeImage(WorkerImageProvider))` with
-  `CachedNetworkImage`'s fades, placeholder and gapless hand-off. A decode is
-  recorded on its first frame in `imageBuilder`.
+- Pipeline choice: every `PixivImage` with a `ProviderScope` loads through
+  the worker — capped or not, with or without `progress`, original files
+  included. Only outside a scope (no worker) does the legacy stack load it.
+  `preload` applies the same rule, so a warm-up lands on the entry the
+  widget showing it resolves.
+- The worker path renders `OctoImage(ResizeImage(WorkerImageProvider))` (the
+  bare provider when uncapped) with `CachedNetworkImage`'s fades,
+  placeholder and gapless hand-off. A decode is recorded on its first frame
+  in `imageBuilder`.
+- Progress is a subscription by URL, not part of a fetch: one decode entry
+  serves resolvers with and without a ring (Hero phase, card-tap warm-up),
+  so the first resolver must not decide whether bytes are reported.
+  `watchProgress` counts listeners per URL and sends `watch` on the first
+  and `watch off` after the last; every worker that starts, a replacement
+  included, is told every watched URL. The host reports only watched URLs:
+  the first bytes at once, then each further tenth of a known total at most
+  every 100 ms (`ImageProgressThrottle`); without a total only the first
+  report goes out. A disk hit transfers nothing and reports nothing.
+  `PixivImage` turns reports into `ImageLoadProgress.ofBytes` and goes back
+  to `idle` on the stream's frame or error, as on the legacy pipeline.
 - Decode identity is (url, decode width, pipeline). Transition history, the
   completion log and the last decode per URL are keyed by it. A stand-in
   (Hero hand-off, tier underlay) paints a decode that actually completed —
@@ -325,9 +337,18 @@ static Future<ImagePreloadResult> PixivImage.preload(…, {bool useWorker = true
   with a request in flight that nobody wants after the 500 ms release grace
   is cancelled; a queued fetch is dropped (`ImageFetchDropped`), a streaming
   one is never interrupted. `onHeld` promotes a queued background fetch.
+  The viewer's neighbour window is a prefetch window on `ImageWorker.demand`.
 - Inside the worker: a disk hit answers before any lane; a miss queues on the
   foreground (8) or background (2) lane, coalesced by URL. The disk cache is
   `parfait_images_v2` in the temp directory, 256 MB LRU, written tmp+rename.
+- Originals in the worker: an `/img-original/` fetch asks for its first
+  1 MiB range; a sized 206 from byte 0 continues in parallel ranges
+  (Segmented Transfer Contract) on the worker's own
+  `SegmentBudget(limit: ImageWorkerHost.segmentLimit)` (3), so no permit
+  crosses the isolate boundary. A 200 is the whole file; anything else,
+  a 206 from another offset or without a total included, fails with its
+  status. Progress counts against the whole length. Closing the host ends
+  running ranged transfers.
 - Config: settings, mirror, DoH, ECH, mode and network identity reach the
   isolate as a whole `ImageWorkerConfig` (`configChanged`); a network
   identity change arrives through `NetworkAccessPolicy.onRevisionAdvanced`.
@@ -344,32 +365,34 @@ static Future<ImagePreloadResult> PixivImage.preload(…, {bool useWorker = true
 `disk_image_cache_test.dart`, `image_fetch_scheduler_test.dart`,
 `image_worker_host_test.dart`, `image_worker_client_test.dart`,
 `image_worker_test.dart`, `worker_image_provider_test.dart`,
-`pixiv_image_pipelines_test.dart`, and the worker cases in
-`pixiv_image_retry_test.dart` and `pixiv_image_variants_test.dart`. Widget
-tests use the helpers in `test/helpers/image_network.dart`:
-`inProcessImageWorker` (real host, protocol, cache and scheduler; only the
-`http.Client` is scripted), `legacyOnlyImageWorker` (fails a test whose
-image reaches it) and `stalledImageWorker` (never comes up; for setup-only
-assertions). Real IO advances in `runAsync` turns between pumps. A test
-world that answers the path_provider channel must override
-`imageWorkerProvider`, or the production provider spawns a real isolate.
+`pixiv_image_pipelines_test.dart` (nothing reaches the legacy cache while
+a worker exists), `image_load_progress_test.dart`,
+`pixiv_image_retry_test.dart` (a capped image and an original) and
+`pixiv_image_variants_test.dart`. Widget tests use the helpers in
+`test/helpers/image_network.dart`: `inProcessImageWorker` (real host,
+protocol, cache and scheduler; only the `http.Client` is scripted) and
+`stalledImageWorker` (never comes up; for setup-only assertions). Real IO
+advances in `runAsync` turns between pumps (`pumpIoUntil`). A test that
+leaves a worker transfer in flight ends with `unmountPastReleaseGrace`: the
+release arms a re-check timer that must not outlive the test. A test world
+that answers the path_provider channel must override `imageWorkerProvider`,
+or the production provider spawns a real isolate.
 
 #### 5. Wrong vs Correct
 
-**Wrong**: warming a detail-tier image with the default `useWorker: true`
-— the detail page shows it with progress on the legacy stack, so the
-warm-up is a second download nobody paints.
+**Wrong**: a `wantsProgress` flag on the fetch, or progress read from the
+worker image stream's chunk events — a card-tap warm-up resolves the entry
+first, and the detail page's ring attached later never sees a byte.
 
-**Correct**: `PixivImage.preload(context, url, memCacheWidth: w,
-useWorker: false)` for a progress consumer; the default for cards, avatars
-and covers.
+**Correct**: `ImageWorker.watchProgress(url, …)` next to a listener on the
+stream the widget resolves, which only returns the ring to `idle`.
 
 ### Image Scheduling Contract (`PriorityFileService`, `ImageDemand`, `lib/core/network/compat/`)
 
 #### 1. Scope / Trigger
 
-Pixiv images the worker does not load — progress, originals, uncapped
-decodes — go through the shared image `CacheManager`, whose file service is
+Pixiv images outside a `ProviderScope` — the only ones the worker does not
+load — go through the shared image `CacheManager`, whose file service is
 `PriorityFileService`. This contract applies when adding such an entry
 point or preload, or when touching lane sizes.
 
@@ -395,7 +418,8 @@ class ImageFetchDropped implements Exception {}
 enum ImagePreloadResult { decoded, dropped, failed }
 static Future<ImagePreloadResult> PixivImage.preload(…, {ImageDemand? demand,
     ImageFetchPriority priority = ImageFetchPriority.background});
-class ImageLoadProgress { const .idle(); const .loading([double? fraction]); }
+class ImageLoadProgress { const .idle(); const .loading([double? fraction]);
+    factory .ofBytes(int received, int? total); } // both pipelines
 PixivImage(…, {ValueNotifier<ImageLoadProgress>? progress}); // also .detail
 class ImageLoadProgressOverlay { ImageLoadProgressOverlay({required progress}); }
 ```
@@ -422,7 +446,7 @@ class ImageLoadProgressOverlay { ImageLoadProgressOverlay({required progress}); 
   release (Hero flights, re-layout). Immediate admissions and transfers
   already streaming are never checked or interrupted.
 - Holders: every legacy `PixivImage` holds its effective URL while mounted
-  (hold new before releasing old); the viewer owns its neighbour window.
+  (hold new before releasing old).
   User-asked preloads (card tap → detail tier, `openImageViewer`) are
   foreground and `holdFor` 10 s. Without a `ProviderScope` nothing registers
   and nothing is dropped. A `failed` preload is not retried — retrying is the
@@ -438,8 +462,9 @@ class ImageLoadProgressOverlay { ImageLoadProgressOverlay({required progress}); 
   A manual retry restores the three automatic ones; a URL change resets them;
   dispose cancels a pending one.
 - Progress: `PixivImage.progress` follows the same stream the widget
-  resolves (no second decode), attached after the frame. `loading` starts at
-  the first byte chunk, so connecting or queued fetches report nothing; an
+  resolves (no second decode), attached after the frame; on the worker the
+  bytes come from `watchProgress` (Image Worker Contract). `loading` starts
+  at the first bytes, so connecting or queued fetches report nothing; an
   image or error goes back to `idle`, and a new key resets to `idle` first.
   The overlay shows after 300 ms of `loading`, is `IgnorePointer`, and sits
   outside any Hero (and outside the viewer's zoom). The detail page passes
@@ -450,13 +475,13 @@ class ImageLoadProgressOverlay { ImageLoadProgressOverlay({required progress}); 
 
 `priority_file_service_test.dart` (lanes, promotion, drop at turn, no leak,
 grace, no interruption, `WebHelper` admits all), `image_demand_test.dart`,
-`pixiv_image_preload_test.dart`, `pixiv_image_retry_test.dart`,
-`image_load_progress_test.dart`, the hold test in
-`pixiv_image_variants_test.dart`. The image chain is real (`test/helpers/image_network.dart`); only the HTTP client and the
-path_provider channel are fakes, and disk work runs inside `runAsync`. Retry
-and progress tests script the cache manager's `getFileStream` instead
-(`ScriptedCacheManager`) and clear `imageCache` in `setUp` — a cached error or
-image for the same URL answers without asking the manager.
+`pixiv_image_preload_test.dart` (no `ProviderScope`, so the legacy stack).
+The image chain is real (`test/helpers/image_network.dart`); only the HTTP
+client and the path_provider channel are fakes, and disk work runs inside
+`runAsync`. Retry, progress and the hold test (`pixiv_image_variants_test.dart`)
+run on the worker now (Image Worker Contract) and clear `imageCache` in
+`setUp` — a cached error or image for the same URL answers without asking
+the network.
 
 #### 5. Wrong vs Correct
 
@@ -472,14 +497,16 @@ with a registered window or a foreground `holdFor`).
 
 Large Pixiv files (`/img-original/` images, downloads) are fetched as
 parallel byte ranges so one slow CDN connection cannot set the pace. This
-applies when touching `PriorityFileService._fetch`, `DownloadManager._open`,
-the budget, or adding another bulk transfer.
+applies when touching `ImageWorkerHost._openInRanges`,
+`PriorityFileService._fetch`, `DownloadManager._open`, the budgets, or
+adding another bulk transfer.
 
 #### 2. Signatures
 
 ```dart
 class SegmentBudget { SegmentBudget({int limit = 6}); bool tryAcquire(); void release(); }
-final segmentBudgetProvider = Provider<SegmentBudget>(…); // one per app
+final segmentBudgetProvider = Provider<SegmentBudget>(…); // main isolate
+class RangeResponse { factory RangeResponse.fromHttp(http.StreamedResponse r); }
 typedef RangeOpen = Future<RangeResponse> Function(int start, int endInclusive,
     {String? ifRange, required NetworkCancelSignal cancel});
 class SegmentedFetch {
@@ -503,9 +530,12 @@ DownloadManager({…, SegmentBudget? segmentBudget}); // null = single stream
   any other answer as is, and the download manager keeps its 200/416 resume
   branches.
 - The first connection is covered by its image lane or download slot; up to
-  `maxParallel − 1` more come from the one shared `SegmentBudget`
-  (`segmentBudgetProvider`, not the network factory, which is rebuilt per
-  policy). No budget left = the first connection does everything.
+  `maxParallel − 1` more come from the isolate's `SegmentBudget`: on the
+  main isolate the one `segmentBudgetProvider` (not the network factory,
+  which is rebuilt per policy, limit 6), in the image worker its own
+  (limit 3). Together with the worker's 10 image lanes and 3 download jobs
+  that is at most ~22 connections per host. No budget left = the first
+  connection does everything.
 - Every later segment sends `If-Range` with the first ETag. A segment that is
   not a 206 with exactly its range and the same total fails the whole
   transfer with `SegmentedFetchMismatch`, never retried — stitching it in
@@ -521,11 +551,12 @@ DownloadManager({…, SegmentBudget? segmentBudget}); // null = single stream
 - Cancelling (signal or `close()`) closes every connection, returns the
   budget and ends the output with `SegmentedFetchCancelled`; the download
   manager maps it to `DownloadCancelledException`.
-- Image cache: only `/img-original/` paths segment. The synthetic response is
-  a 200 with the total length and no `content-range`, so `WebHelper` and the
-  cache format are unchanged. Later segments drop
-  `If-None-Match`/`If-Modified-Since` (a 304 cannot be stitched). The
-  foreground/background lane holds one slot for the whole transfer.
+- Images: only `/img-original/` paths segment, and the lane holds one slot
+  for the whole transfer. The worker sends no conditional headers, so every
+  range asks the same (Image Worker Contract). The legacy image cache
+  returns a synthetic 200 with the total length and no `content-range`, so
+  `WebHelper` and its cache format are unchanged; its later segments drop
+  `If-None-Match`/`If-Modified-Since` (a 304 cannot be stitched).
 - Downloads: below 2 MiB remaining the rest follows on one connection
   (`maxParallel = 1`). `receivedBytes` shows `resumeOffset + fetchedBytes`
   (bytes fetched ahead of the sink included), while the resume anchor stays
@@ -537,10 +568,11 @@ DownloadManager({…, SegmentBudget? segmentBudget}); // null = single stream
 `segmented_fetch_test.dart` (sizes around segment edges, budget caps, slow
 and stalled restarts, restart limit, If-Range, mismatch, cancel and
 close-before-listen, paused reader) runs in `fakeAsync` against a paced
-in-memory server. `priority_file_service_test.dart` group `originals` and
-the `parallel ranges` group in `download_resume_test.dart` run the real
-cache manager / download manager over in-memory range servers
-(`RangeServingClient`, `_RangeTransport`).
+in-memory server. The `an original file` group in
+`image_worker_host_test.dart`, `priority_file_service_test.dart` group
+`originals` and the `parallel ranges` group in `download_resume_test.dart`
+run the real worker host / cache manager / download manager over in-memory
+range servers (`RangeServingClient`, `_RangeTransport`).
 
 #### 5. Wrong vs Correct
 

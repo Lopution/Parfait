@@ -325,25 +325,11 @@ class PixivImage extends ConsumerStatefulWidget {
     cacheManager: cacheManager,
   );
 
-  /// Whether a decode goes through the background worker. Stage 1 of the
-  /// worker migration moves capped decodes without a progress listener:
-  /// feed cards, avatars, covers and detail previews. Progress, original
-  /// files and uncapped decodes (the viewer and its Hero return shuttle,
-  /// which must share one decoded entry) stay on the legacy pipeline until
-  /// the worker reports progress. Without a [ProviderScope] there is no
-  /// worker at all.
-  static _ImageSource _sourceFor(
-    String url,
-    int? decodeWidth, {
-    required bool hasWorker,
-    required bool hasProgress,
-  }) =>
-      hasWorker &&
-          !hasProgress &&
-          decodeWidth != null &&
-          !url.contains('/img-original/')
-      ? _ImageSource.worker
-      : _ImageSource.legacy;
+  /// Whether a decode goes through the background worker: every image
+  /// does. Only without a [ProviderScope] is there no worker, and the
+  /// legacy pipeline loads it.
+  static _ImageSource _sourceFor({required bool hasWorker}) =>
+      hasWorker ? _ImageSource.worker : _ImageSource.legacy;
 
   /// The provider the widget resolves for [url] on [source], wrapped the
   /// way OctoImage wraps it — the same key is the same decoded entry.
@@ -579,12 +565,10 @@ class PixivImage extends ConsumerStatefulWidget {
   /// foreground so they never queue behind other warm-up, and hold the URL
   /// until the target page has had time to mount.
   ///
-  /// [useWorker] picks the pipeline of the widget that will show the image:
-  /// false when that widget reports progress (the detail page, the viewer),
-  /// which stage 1 keeps on the legacy pipeline — the warm-up must land on
-  /// the decoded entry that widget resolves. A legacy background preload is
-  /// only kept while something wants its URL — a widget showing it or the
-  /// caller's prefetch window in [demand].
+  /// The pipeline is the one the widget showing the image picks, so the
+  /// warm-up lands on the decoded entry that widget resolves. A legacy
+  /// background preload is only kept while something wants its URL — a
+  /// widget showing it or the caller's prefetch window in [demand].
   ///
   /// Completes with the outcome; never with an image error.
   static Future<ImagePreloadResult> preload(
@@ -596,19 +580,12 @@ class PixivImage extends ConsumerStatefulWidget {
     IllustImageTier? tier,
     int? memCacheWidth,
     ImageFetchPriority priority = ImageFetchPriority.background,
-    bool useWorker = true,
   }) async {
     final resolved = tierKey != null && tier != null
         ? IllustTierCache.resolve(tierKey, tier, url)
         : (url, tier);
-    final worker = useWorker ? _workerOf(context) : null;
-    // The widget's own rule: an uncapped or original warm-up stays legacy.
-    final source = _sourceFor(
-      resolved.$1,
-      memCacheWidth,
-      hasWorker: worker != null,
-      hasProgress: false,
-    );
+    final worker = _workerOf(context);
+    final source = _sourceFor(hasWorker: worker != null);
     final holder = source == _ImageSource.worker ? worker!.demand : demand;
     if (priority == ImageFetchPriority.foreground) {
       holder?.holdFor(resolved.$1, _userPreloadHold);
@@ -754,23 +731,26 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
     super.dispose();
   }
 
-  /// What [_trackProgress] last attached for: notifier, URL, decode width,
-  /// cache manager and load generation.
+  /// What [_trackProgress] last attached for: notifier, decode, cache
+  /// manager, worker and load generation.
   Object? _progressKey;
   ValueNotifier<ImageLoadProgress>? _progressNotifier;
   ImageStream? _progressStream;
   ImageStreamListener? _progressListener;
 
+  /// Ends the worker progress subscription; null on the legacy pipeline.
+  void Function()? _unwatchProgress;
+
   /// Follows the stream the visible image resolves — the same key, so no
   /// second decode. Attaches after the frame: a cache hit reports at once,
   /// and notifying the overlay (a sibling) mid-build is not allowed.
   void _trackProgress(
-    String url,
-    int? decodeWidth,
+    _HistoryEntry entry,
     BaseCacheManager? cacheManager,
+    ImageWorker? worker,
   ) {
     final notifier = widget.progress;
-    final key = (notifier, url, decodeWidth, cacheManager, _load);
+    final key = (notifier, entry, cacheManager, worker, _load);
     if (key == _progressKey) return;
     _progressKey = key;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -779,41 +759,50 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
       _progressNotifier?.value = const ImageLoadProgress.idle();
       _detachProgress();
       if (notifier != null) {
-        _attachProgress(notifier, url, decodeWidth, cacheManager);
+        _attachProgress(notifier, entry, cacheManager, worker);
       }
     });
   }
 
+  /// Loading starts with the first bytes, not with the request: a fetch
+  /// still connecting or queued reports nothing. The legacy stream carries
+  /// its bytes as chunk events; the worker reports them by URL to whoever
+  /// watches it, so a ring attached to a decode another caller started
+  /// still sees them.
   void _attachProgress(
     ValueNotifier<ImageLoadProgress> notifier,
-    String url,
-    int? decodeWidth,
+    _HistoryEntry entry,
     BaseCacheManager? cacheManager,
+    ImageWorker? worker,
   ) {
-    ImageProvider provider = PixivImage.provider(
+    final (url, decodeWidth, source) = entry;
+    final stream = PixivImage._imageProvider(
       url,
+      decodeWidth,
+      source,
       cacheManager: cacheManager,
-    );
-    if (decodeWidth != null) {
-      provider = ResizeImage.resizeIfNeeded(decodeWidth, null, provider);
-    }
-    final stream = provider.resolve(ImageConfiguration.empty);
+      worker: worker,
+    ).resolve(ImageConfiguration.empty);
     void idle() => notifier.value = const ImageLoadProgress.idle();
-    // Loading starts with the first bytes, not with the request: a fetch
-    // still connecting or queued reports nothing.
+    final onWorker = source == _ImageSource.worker;
     final listener = ImageStreamListener(
       (_, _) => idle(),
-      onChunk: (event) {
-        final total = event.expectedTotalBytes;
-        notifier.value = ImageLoadProgress.loading(
-          total == null || total <= 0
-              ? null
-              : (event.cumulativeBytesLoaded / total).clamp(0.0, 1.0),
-        );
-      },
+      onChunk: onWorker
+          ? null
+          : (event) => notifier.value = ImageLoadProgress.ofBytes(
+              event.cumulativeBytesLoaded,
+              event.expectedTotalBytes,
+            ),
       onError: (_, _) => idle(),
     );
     stream.addListener(listener);
+    if (onWorker) {
+      _unwatchProgress = worker!.watchProgress(
+        url,
+        (received, total) =>
+            notifier.value = ImageLoadProgress.ofBytes(received, total),
+      );
+    }
     _progressNotifier = notifier;
     _progressStream = stream;
     _progressListener = listener;
@@ -822,6 +811,8 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
   void _detachProgress() {
     final listener = _progressListener;
     if (listener != null) _progressStream?.removeListener(listener);
+    _unwatchProgress?.call();
+    _unwatchProgress = null;
     _progressNotifier = null;
     _progressStream = null;
     _progressListener = null;
@@ -941,16 +932,8 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
       legacyDemand = network.imageDemand;
       worker = ref.watch(imageWorkerProvider);
     }
-    _HistoryEntry entryAt(int? width) => (
-      imageUrl,
-      width,
-      PixivImage._sourceFor(
-        imageUrl,
-        width,
-        hasWorker: worker != null,
-        hasProgress: widget.progress != null,
-      ),
-    );
+    final pipeline = PixivImage._sourceFor(hasWorker: worker != null);
+    _HistoryEntry entryAt(int? width) => (imageUrl, width, pipeline);
     // A URL's only decoded entry can be the viewer's uncapped frame (the
     // viewer decodes without a memCacheWidth cap). Requesting a fresh
     // capped decode of it leaves a placeholder/swap window — the flash
@@ -966,7 +949,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
     final (_, effectiveWidth, source) = current;
     final onWorker = source == _ImageSource.worker;
     _hold(onWorker ? worker!.demand : legacyDemand, imageUrl);
-    _trackProgress(imageUrl, effectiveWidth, cacheManager);
+    _trackProgress(current, cacheManager, worker);
     if (!onWorker) {
       PixivImage._recordWhenDecoded(
         imageUrl,

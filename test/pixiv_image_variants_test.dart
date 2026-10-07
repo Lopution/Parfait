@@ -10,6 +10,7 @@ import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/image/image_worker.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
+import 'package:parfait/core/image/worker_image_provider.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -27,34 +28,36 @@ Widget _host(Widget child) => ProviderScope(
   ),
 );
 
-int? _legacyDecodeWidthOf(WidgetTester tester) => tester
-    .widget<CachedNetworkImage>(find.byType(CachedNetworkImage))
-    .memCacheWidth;
-
-/// A capped image loads through the worker; its decode width is the
-/// [ResizeImage] around the worker's provider. The width is the memory
-/// contract, and nothing paints it before a frame loads.
+/// An image loads through the worker; a capped decode is the
+/// [ResizeImage] around the worker's provider, an uncapped one the bare
+/// provider. The width is the memory contract, and nothing paints it before
+/// a frame loads.
 int? _workerDecodeWidthOf(WidgetTester tester) {
   expect(find.byType(CachedNetworkImage), findsNothing);
-  final image = tester.widget<OctoImage>(find.byType(OctoImage)).image;
-  return (image as ResizeImage).width;
+  return switch (tester.widget<OctoImage>(find.byType(OctoImage)).image) {
+    ResizeImage(:final width) => width,
+    WorkerImageProvider() => null,
+    final image => fail('unexpected provider $image'),
+  };
 }
 
-/// The fades of the image on screen, on whichever pipeline it loads. The
-/// fade is the contract here; it only becomes visible once a frame loads.
+/// The layout width the image on screen was given.
+double? _layoutWidthOf(WidgetTester tester) =>
+    tester.widget<OctoImage>(find.byType(OctoImage)).width;
+
+/// The fades of the image on screen. The fade is the contract here; it
+/// only becomes visible once a frame loads.
 (Duration? fadeIn, Duration? fadeOut) _fadesOf(WidgetTester tester) {
-  final legacy = find.byType(CachedNetworkImage);
-  if (legacy.evaluate().isNotEmpty) {
-    final image = tester.widget<CachedNetworkImage>(legacy);
-    return (image.fadeInDuration, image.fadeOutDuration);
-  }
   final image = tester.widget<OctoImage>(find.byType(OctoImage));
   return (image.fadeInDuration, image.fadeOutDuration);
 }
 
-/// An uncapped image stays on the legacy pipeline; a capped one moves to
-/// the worker. Slot and fade policy must not depend on which.
-const _pipelines = [('legacy', null), ('worker', 300)];
+/// Slot and fade policy must not depend on the kind of image: an original
+/// file (fetched in ranges, decoded uncapped) or a capped one.
+const _kinds = [
+  ('original', 'https://i.pximg.net/img-original', null),
+  ('capped', 'https://i.pximg.net/img-master', 300),
+];
 
 void main() {
   installMemoryPreferences();
@@ -106,7 +109,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(_legacyDecodeWidthOf(tester), isNull);
+    expect(_workerDecodeWidthOf(tester), isNull);
   });
 
   testWidgets(
@@ -127,12 +130,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(
-        tester
-            .widget<CachedNetworkImage>(find.byType(CachedNetworkImage))
-            .width,
-        320,
-      );
+      expect(_layoutWidthOf(tester), 320);
     },
   );
 
@@ -147,10 +145,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(
-      tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage)).width,
-      isNull,
-    );
+    expect(_layoutWidthOf(tester), isNull);
   });
 
   testWidgets('quality handoff keeps an old decoded frame placeholder', (
@@ -189,8 +184,8 @@ void main() {
     expect(image.fadeInDuration, Duration.zero);
   });
 
-  for (final (pipeline, width) in _pipelines) {
-    group(pipeline, () {
+  for (final (kind, base, width) in _kinds) {
+    group(kind, () {
       testWidgets('a recycled slot swapping to another work never '
           'crossfades', (tester) async {
         // Feed lists reuse card elements by position; pull-to-refresh can
@@ -198,21 +193,11 @@ void main() {
         // instant — fading work B in over retained work A reads as a
         // cross-work dissolve on every refreshed slot.
         await tester.pumpWidget(
-          _host(
-            PixivImage(
-              url: 'https://i.pximg.net/work-a.jpg',
-              memCacheWidth: width,
-            ),
-          ),
+          _host(PixivImage(url: '$base/work-a.jpg', memCacheWidth: width)),
         );
         await tester.pump();
         await tester.pumpWidget(
-          _host(
-            PixivImage(
-              url: 'https://i.pximg.net/work-b.jpg',
-              memCacheWidth: width,
-            ),
-          ),
+          _host(PixivImage(url: '$base/work-b.jpg', memCacheWidth: width)),
         );
         await tester.pump();
 
@@ -227,12 +212,7 @@ void main() {
         // the ordinary fade policy still applies.
         for (var i = 0; i < 2; i++) {
           await tester.pumpWidget(
-            _host(
-              PixivImage(
-                url: 'https://i.pximg.net/work-a.jpg',
-                memCacheWidth: width,
-              ),
-            ),
+            _host(PixivImage(url: '$base/work-a.jpg', memCacheWidth: width)),
           );
           await tester.pump();
         }
@@ -248,12 +228,7 @@ void main() {
       ) async {
         // A new element has no previous URL at all — the genuine cold load.
         await tester.pumpWidget(
-          _host(
-            PixivImage(
-              url: 'https://i.pximg.net/work-a.jpg',
-              memCacheWidth: width,
-            ),
-          ),
+          _host(PixivImage(url: '$base/work-a.jpg', memCacheWidth: width)),
         );
         await tester.pump();
 
@@ -277,8 +252,8 @@ void main() {
       ),
     );
 
-    CachedNetworkImage image(WidgetTester tester) =>
-        tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage));
+    OctoImage image(WidgetTester tester) =>
+        tester.widget<OctoImage>(find.byType(OctoImage));
 
     testWidgets('a cold load in flight disarms and rearms its fade', (
       tester,
@@ -343,9 +318,7 @@ void main() {
       ),
     );
     await tester.pumpWidget(images([a, a]));
-    final demand = ProviderScope.containerOf(
-      tester.element(find.byType(PixivImage).first),
-    ).read(pixivNetworkFactoryProvider).imageDemand;
+    final demand = _worker.demand;
     expect(demand.debugHolds(a), 2);
 
     // The second slot switches work: its hold moves with it.

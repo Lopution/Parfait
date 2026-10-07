@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -13,6 +14,7 @@ import 'package:parfait/core/image/image_worker.dart';
 import 'package:parfait/core/image/image_worker_client.dart';
 import 'package:parfait/core/image/image_worker_host.dart';
 import 'package:parfait/core/image/image_worker_protocol.dart';
+import 'package:parfait/core/network/compat/image_demand.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
 
@@ -179,22 +181,30 @@ Future<void> pollUntil(
   }
 }
 
+/// Real IO turns between pumps until [done] — an in-process worker's hops
+/// each need one — failing after a bound.
+Future<void> pumpIoUntil(WidgetTester tester, bool Function() done) async {
+  for (var i = 0; i < 60 && !done(); i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pump();
+  }
+  expect(done(), isTrue, reason: 'settled within the bound');
+}
+
+/// Unmounts the tree and lets the release grace run out: releasing a URL
+/// whose worker transfer is still in flight arms a re-check timer, which
+/// must not outlive the test.
+Future<void> unmountPastReleaseGrace(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox());
+  await tester.pump(releaseGrace);
+}
+
 /// A 1×1 PNG.
 final onePixelPng = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
 );
-
-/// A fresh download of [url] whose file is a decodable 1×1 PNG, written
-/// under a mocked temp directory (real IO).
-Future<FileInfo> onePixelPngDownload(WidgetTester tester, String url) async {
-  mockPathProvider();
-  final file = (await tester.runAsync(() async {
-    final file = await IOFileSystem('parfait_png').createFile('a.png');
-    await file.writeAsBytes(onePixelPng);
-    return file;
-  }))!;
-  return FileInfo(file, FileSource.Online, DateTime(2100), url);
-}
 
 class _NoFileSystem implements FileSystem {
   @override
@@ -286,12 +296,6 @@ ImageWorker inProcessImageWorker(http.Client Function() fetchClient) {
   });
   return worker;
 }
-
-/// A worker for tests whose images all load on the legacy pipeline; a
-/// request that reaches it fails the test.
-ImageWorker legacyOnlyImageWorker() => inProcessImageWorker(
-  () => MockClient((request) => fail('${request.url} reached the worker')),
-);
 
 /// A worker whose isolate never comes up: every image on it stays a
 /// placeholder. For tests about how an image is set up, not loaded.

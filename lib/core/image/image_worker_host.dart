@@ -8,6 +8,7 @@ import 'package:rhttp/rhttp.dart';
 import '../network/compat/network_contracts.dart';
 import '../network/compat/network_policy.dart';
 import '../network/compat/pixiv_network_factory.dart';
+import '../network/compat/segmented_fetch.dart';
 import '../network/pixiv_headers.dart';
 import '../settings/image_mirror.dart';
 import 'disk_image_cache.dart';
@@ -28,6 +29,41 @@ class ImageHttpStatus implements Exception {
 
   @override
   String toString() => 'HTTP $statusCode for $url';
+}
+
+/// When a watched transfer's progress is worth a message: the first bytes
+/// at once, then each further tenth of a known total, at most every
+/// [interval]. Without a total only the first report goes out — the ring
+/// can show no more than "loading" then. One instance per transfer.
+class ImageProgressThrottle {
+  ImageProgressThrottle({
+    DateTime Function()? clock,
+    this.interval = defaultInterval,
+  }) : _clock = clock ?? DateTime.now;
+
+  static const defaultInterval = Duration(milliseconds: 100);
+
+  /// Reports per transfer at most: one per tenth (the screen reader reads
+  /// the ring in tens).
+  static const steps = 10;
+
+  final DateTime Function() _clock;
+  final Duration interval;
+  DateTime? _lastAt;
+  var _lastStep = 0;
+
+  bool shouldReport(int received, int? total) {
+    final now = _clock();
+    final lastAt = _lastAt;
+    final step = total == null || total <= 0 ? 0 : received * steps ~/ total;
+    if (lastAt != null &&
+        (step <= _lastStep || now.difference(lastAt) < interval)) {
+      return false;
+    }
+    _lastAt = now;
+    _lastStep = step;
+    return true;
+  }
 }
 
 /// Isolate entry point. Spawned with a map:
@@ -85,6 +121,22 @@ class ImageWorkerHost {
   /// Requests between arrival and their scheduler submit (the disk lookup).
   final _lookingUp = <int>{};
 
+  /// URLs whose download progress the main isolate shows.
+  final _watched = <String>{};
+
+  /// Extra connections for originals fetched in parallel ranges. The
+  /// worker's own: a permit never crosses the isolate boundary. Three
+  /// fill one original's [SegmentedFetch.defaultParallel] — the viewer
+  /// usually fetches one at a time. Downloads keep their own budget.
+  final _segmentBudget = SegmentBudget(limit: segmentLimit);
+  static const segmentLimit = 3;
+
+  /// Path marker of full-size originals, the only images worth splitting.
+  static const _segmentedPath = '/img-original/';
+
+  /// Transfers in parallel ranges still running; [close] ends them.
+  final _segmentedFetches = <SegmentedFetch>{};
+
   NetworkAccessPolicy? _policy;
   http.Client? _imageClient;
   ImageMirror _mirror = ImageMirror.direct;
@@ -123,6 +175,8 @@ class ImageWorkerHost {
           if (!_lookingUp.remove(id)) _scheduler.cancel(id);
         case PromoteMessage(:final url):
           _scheduler.promoteUrl(url);
+        case WatchMessage(:final url, :final watching):
+          watching ? _watched.add(url) : _watched.remove(url);
         case ConfigMessage(:final config):
           _applyConfig(config);
         case StatusMessage(:final id):
@@ -246,9 +300,9 @@ class ImageWorkerHost {
     );
   }
 
-  /// The single admitted-flight body: one policy GET, then an atomic commit
-  /// into the cache. Called by the scheduler only after the fetch holds its
-  /// lane permit.
+  /// The single admitted-flight body: one policy GET (an original: its
+  /// ranges), then an atomic commit into the cache. Called by the scheduler
+  /// only after the fetch holds its lane permit.
   Future<(File, int)> _fetch(String url) async {
     // A flight for the URL may have committed between this request's own
     // lookup and its submit; the re-check is a stat, the miss a download.
@@ -256,19 +310,107 @@ class ImageWorkerHost {
     if (cached != null) {
       return (cached, await cached.length());
     }
-    final request = http.Request('GET', Uri.parse(url))
-      ..headers.addAll(PixivHeaders.image());
-    final response = await _imageClient!.send(request);
+    final uri = Uri.parse(url);
+    final (body, segmented) = uri.path.contains(_segmentedPath)
+        ? await _openInRanges(uri)
+        : (await _wholeBody(await _request(uri), uri), null);
+    if (segmented != null) _segmentedFetches.add(segmented);
+    try {
+      final file = await _cache.store(
+        url,
+        _reportingProgress(url, body.stream, body.length),
+        expectedLength: body.length,
+      );
+      return (file, body.length ?? await file.length());
+    } finally {
+      _segmentedFetches.remove(segmented);
+    }
+  }
+
+  /// An original file: its first range, then the rest in parallel ranges
+  /// when the server answers a sized 206 from byte 0. A 200 (`Range`
+  /// ignored) is the whole file; anything else fails like any image. The
+  /// worker sends no conditional headers, so every range asks the same.
+  Future<(_Body, SegmentedFetch?)> _openInRanges(Uri uri) async {
+    final first = await _request(
+      uri,
+      range: (0, SegmentedFetch.defaultSegmentBytes - 1),
+    );
+    final range = parseContentRange(first.headers['content-range']);
+    final total = range?.total;
+    if (first.statusCode != 206 ||
+        range == null ||
+        range.start != 0 ||
+        total == null) {
+      return (await _wholeBody(first, uri), null);
+    }
+    if (range.end + 1 >= total) {
+      return ((stream: first.stream, length: total), null);
+    }
+    final segmented = SegmentedFetch(
+      open: (start, end, {ifRange, required cancel}) async =>
+          RangeResponse.fromHttp(
+            await _request(
+              uri,
+              range: (start, end),
+              ifRange: ifRange,
+              cancel: cancel,
+            ),
+          ),
+      budget: _segmentBudget,
+    );
+    final body = segmented.continueFrom(RangeResponse.fromHttp(first));
+    return ((stream: body, length: total), segmented);
+  }
+
+  Future<http.StreamedResponse> _request(
+    Uri uri, {
+    (int, int)? range,
+    String? ifRange,
+    NetworkCancelSignal? cancel,
+  }) {
+    final request = http.AbortableRequest(
+      'GET',
+      uri,
+      abortTrigger: cancel?.whenCancel,
+    )..headers.addAll(PixivHeaders.image());
+    if (range case (final start, final end)) {
+      request.headers['range'] = 'bytes=$start-$end';
+    }
+    if (ifRange != null) request.headers['if-range'] = ifRange;
+    return _imageClient!.send(request);
+  }
+
+  /// [response]'s body when it is the whole file; any other status fails
+  /// the fetch with it.
+  static Future<_Body> _wholeBody(
+    http.StreamedResponse response,
+    Uri uri,
+  ) async {
     if (response.statusCode != 200) {
       await response.stream.drain<void>();
-      throw ImageHttpStatus(response.statusCode, url);
+      throw ImageHttpStatus(response.statusCode, '$uri');
     }
-    final file = await _cache.store(
-      url,
-      response.stream,
-      expectedLength: response.contentLength,
-    );
-    return (file, response.contentLength ?? await file.length());
+    return (stream: response.stream, length: response.contentLength);
+  }
+
+  /// [body] with throttled progress reports while [url] is watched. The
+  /// watch is read per chunk, so a ring that appears mid-transfer starts
+  /// reporting with the next bytes.
+  Stream<List<int>> _reportingProgress(
+    String url,
+    Stream<List<int>> body,
+    int? total,
+  ) {
+    final throttle = ImageProgressThrottle(clock: _clock);
+    var received = 0;
+    return body.map((chunk) {
+      received += chunk.length;
+      if (_watched.contains(url) && throttle.shouldReport(received, total)) {
+        _send(ProgressEvent(url, received, total));
+      }
+      return chunk;
+    });
   }
 
   void _reportFailure(int id, Object error) {
@@ -288,9 +430,15 @@ class ImageWorkerHost {
   Future<void> close() async {
     _closed = true;
     _inbox.close();
+    for (final segmented in List.of(_segmentedFetches)) {
+      segmented.close();
+    }
     await _policy?.dispose();
   }
 }
+
+/// A response body and its length, when the server declared one.
+typedef _Body = ({Stream<List<int>> stream, int? length});
 
 bool _listEquals<T>(List<T> a, List<T> b) {
   if (a.length != b.length) return false;

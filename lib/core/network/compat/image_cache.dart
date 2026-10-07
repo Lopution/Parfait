@@ -189,7 +189,7 @@ class PriorityFileService extends FileService {
         ? first.stream
         : SegmentedFetch(
             open: (start, end, {ifRange, required cancel}) async =>
-                _rangeResponse(
+                RangeResponse.fromHttp(
                   await _sendRange(
                     uri,
                     segmentHeaders,
@@ -200,7 +200,7 @@ class PriorityFileService extends FileService {
                   ),
                 ),
             budget: budget,
-          ).continueFrom(_rangeResponse(first));
+          ).continueFrom(RangeResponse.fromHttp(first));
     return HttpGetResponse(
       http.StreamedResponse(
         body,
@@ -231,21 +231,6 @@ class PriorityFileService extends FileService {
     if (ifRange != null) request.headers['if-range'] = ifRange;
     return _httpClient.send(request);
   }
-
-  static RangeResponse _rangeResponse(http.StreamedResponse response) =>
-      RangeResponse(
-        statusCode: response.statusCode,
-        headers: response.headers,
-        body: response.stream,
-        close: () async {
-          try {
-            // An unread body still holds the connection.
-            await response.stream.listen(null).cancel();
-          } on StateError {
-            // Already listened to: its subscriber tears it down.
-          }
-        },
-      );
 
   /// Moves a queued prefetch of [url] to the foreground lane: admitted at
   /// once when a foreground slot is free, otherwise queued behind the

@@ -16,6 +16,13 @@ class ImageLoadProgress {
   /// [fraction] is null while the total size is unknown.
   const ImageLoadProgress.loading([this.fraction]) : loading = true;
 
+  /// [received] of [total] bytes; an unknown or empty [total] is an
+  /// unknown fraction.
+  factory ImageLoadProgress.ofBytes(int received, int? total) =>
+      ImageLoadProgress.loading(
+        total == null || total <= 0 ? null : (received / total).clamp(0.0, 1.0),
+      );
+
   final bool loading;
   final double? fraction;
 

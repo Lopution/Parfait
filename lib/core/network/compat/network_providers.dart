@@ -184,8 +184,9 @@ final routeKindStoreProvider = Provider<RouteKindStore>(
   (ref) => RouteKindStore(preferences: ref.watch(sharedPreferencesProvider)),
 );
 
-/// Extra connections for segmented transfers, shared by the image cache and
-/// downloads. Outlives factory rebuilds so the cap stays app-wide.
+/// Extra connections for the main isolate's segmented transfers, shared by
+/// downloads and the legacy image cache (the image worker keeps its own).
+/// Outlives factory rebuilds so the cap stays app-wide.
 final segmentBudgetProvider = Provider<SegmentBudget>((ref) => SegmentBudget());
 
 final pixivNetworkFactoryProvider = Provider<PixivNetworkFactory>((ref) {

@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
@@ -36,13 +38,35 @@ Future<void> _settle(WidgetTester tester) async {
   }
 }
 
-/// A download the test feeds by hand: progress events, then the file.
-class _Download {
-  final controller = StreamController<FileResponse>();
-  late final manager = ScriptedCacheManager((_) => controller.stream);
+/// A worker transfer the test feeds by hand: [_url]'s body arrives as the
+/// test adds it, declared at [total] bytes; any other URL never answers.
+class _Transfer {
+  _Transfer({required this.total});
 
-  void progress(int downloaded, int total) =>
-      controller.add(DownloadProgress(_url, total, downloaded));
+  final int total;
+  final body = StreamController<List<int>>();
+  late final client = HeldBodyClient(
+    respond: (request) => '${request.url}' == _url
+        ? http.StreamedResponse(
+            body.stream,
+            200,
+            contentLength: total,
+            request: request,
+          )
+        : null,
+  );
+  late final worker = inProcessImageWorker(() => client);
+
+  bool get requested => client.urls.contains(_url);
+
+  List<Override> get overrides => [
+    pixivNetworkFactoryProvider.overrideWithValue(
+      ScriptedImageNetwork(
+        ScriptedCacheManager((_) => StreamController<FileResponse>().stream),
+      ),
+    ),
+    imageWorkerProvider.overrideWithValue(worker),
+  ];
 }
 
 void main() {
@@ -120,81 +144,60 @@ void main() {
   });
 
   testWidgets('PixivImage reports the download it is painting', (tester) async {
-    final file = await onePixelPngDownload(tester, _url);
-    final download = _Download();
+    final transfer = _Transfer(total: onePixelPng.length);
     final progress = ValueNotifier(const ImageLoadProgress.idle());
     addTearDown(progress.dispose);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          pixivNetworkFactoryProvider.overrideWithValue(
-            ScriptedImageNetwork(download.manager),
-          ),
-          imageWorkerProvider.overrideWithValue(legacyOnlyImageWorker()),
-        ],
+        overrides: transfer.overrides,
         child: _app(PixivImage(url: _url, progress: progress)),
       ),
     );
-    await tester.pump();
+    await pumpIoUntil(tester, () => transfer.requested);
     expect(progress.value, const ImageLoadProgress.idle());
 
-    download.progress(400, 1000);
-    await tester.pump();
-    expect(progress.value, const ImageLoadProgress.loading(0.4));
+    final head = onePixelPng.length * 2 ~/ 5;
+    transfer.body.add(onePixelPng.sublist(0, head));
+    await pumpIoUntil(tester, () => progress.value.loading);
+    expect(progress.value, ImageLoadProgress.ofBytes(head, onePixelPng.length));
 
-    download.controller.add(file);
-    unawaited(download.controller.close());
-    for (var i = 0; i < 20 && progress.value.loading; i++) {
-      await _settle(tester);
-    }
+    transfer.body.add(onePixelPng.sublist(head));
+    unawaited(transfer.body.close());
+    await pumpIoUntil(tester, () => !progress.value.loading);
     expect(progress.value, const ImageLoadProgress.idle());
   });
 
   testWidgets('a new URL does not inherit the old download\'s progress', (
     tester,
   ) async {
-    final first = StreamController<FileResponse>();
-    // The second URL's download never starts.
-    final network = ScriptedImageNetwork(
-      ScriptedCacheManager(
-        (attempt) => attempt == 1
-            ? first.stream
-            : StreamController<FileResponse>().stream,
-      ),
-    );
+    // The second URL's transfer never starts.
+    final transfer = _Transfer(total: 1000);
     final progress = ValueNotifier(const ImageLoadProgress.idle());
     addTearDown(progress.dispose);
-    final worker = legacyOnlyImageWorker();
     Widget image(String url) => ProviderScope(
-      overrides: [
-        pixivNetworkFactoryProvider.overrideWithValue(network),
-        imageWorkerProvider.overrideWithValue(worker),
-      ],
+      overrides: transfer.overrides,
       child: _app(PixivImage(url: url, progress: progress)),
     );
     await tester.pumpWidget(image(_url));
-    await tester.pump();
-    first.add(const DownloadProgress(_url, 1000, 700));
-    await tester.pump();
+    await pumpIoUntil(tester, () => transfer.requested);
+    transfer.body.add(List.filled(700, 0));
+    await pumpIoUntil(tester, () => progress.value.loading);
     expect(progress.value, const ImageLoadProgress.loading(0.7));
 
     await tester.pumpWidget(image('$_url?next'));
     await tester.pump();
     expect(progress.value, const ImageLoadProgress.idle());
+    await unmountPastReleaseGrace(tester);
   });
 
   group('detail page', () {
-    Future<_Download> pumpPage(
+    Future<void> pumpPage(
       WidgetTester tester, {
       required String? detailUrl,
     }) async {
-      final download = _Download();
+      final transfer = _Transfer(total: 1000);
       final (container, _, _) = await makeWorld(
-        extraOverrides: [
-          pixivNetworkFactoryProvider.overrideWithValue(
-            ScriptedImageNetwork(download.manager),
-          ),
-        ],
+        extraOverrides: transfer.overrides,
       );
       addTearDown(container.dispose);
       await tester.pumpWidget(
@@ -218,20 +221,35 @@ void main() {
           ),
         ),
       );
-      await tester.pump();
-      download.progress(100, 1000);
+      await pumpIoUntil(tester, () => transfer.requested);
+      transfer.body.add(List.filled(100, 0));
+      if (detailUrl != null) {
+        await pumpIoUntil(
+          tester,
+          () => tester
+              .widget<ImageLoadProgressOverlay>(
+                find.byType(ImageLoadProgressOverlay),
+              )
+              .progress
+              .value
+              .loading,
+        );
+      } else {
+        await _settle(tester);
+      }
       await tester.pump(const Duration(seconds: 1));
-      return download;
     }
 
     testWidgets('the settled detail image shows the ring', (tester) async {
       await pumpPage(tester, detailUrl: _url);
       expect(_ring, findsOneWidget);
+      await unmountPastReleaseGrace(tester);
     });
 
     testWidgets('the Hero-phase preview does not', (tester) async {
       await pumpPage(tester, detailUrl: null);
       expect(_ring, findsNothing);
+      await unmountPastReleaseGrace(tester);
     });
   });
 }
