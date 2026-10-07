@@ -12,6 +12,7 @@ import '../../core/novel/novel_entity.dart';
 import '../../core/user/user_entity.dart';
 import '../../l10n/context.dart';
 import 'novel_layout.dart';
+import 'novel_reader.dart';
 import 'novel_reader_stage.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 
@@ -24,7 +25,9 @@ final _localNovelContentProvider = FutureProvider.autoDispose
         throw StateError('local novel $localId not found');
       }
       return (novel, await File(novel.path).readAsString());
-    });
+      // A missing or unreadable file fails the same way again: show the
+      // error now instead of loading through Riverpod's retry backoff.
+    }, retry: (_, _) => null);
 
 /// Local TXT reader — feeds the imported text into the shared
 /// [NovelReaderStage] as a synthetic [NovelEntity] and persists a
@@ -39,7 +42,7 @@ class LocalNovelReaderPage extends ConsumerWidget {
     final async = ref.watch(_localNovelContentProvider(localId));
     return Scaffold(
       body: async.when(
-        loading: () => const NovelStatusScaffold(child: FeedLoading()),
+        loading: () => const NovelStatusScaffold(child: NovelPageSkeleton()),
         error: (error, _) => NovelStatusScaffold(
           child: FeedError(
             title: context.l10n.localNovelsLoadFailed,

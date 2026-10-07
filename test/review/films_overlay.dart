@@ -86,7 +86,11 @@ void main() {
     script: (film, router) async {
       await film.tap(find.byIcon(Icons.more_vert));
       await film.tap(find.text('user 99'));
-      await film.swipe(find.text('50 关注'), const Offset(0, -500), hold: 6);
+      await film.swipe(
+        find.byKey(const ValueKey('profile-stat-following-header')),
+        const Offset(0, -500),
+        hold: 6,
+      );
       await film.tap(find.byIcon(Icons.more_vert));
       await film.tap(find.text('user 99'));
     },

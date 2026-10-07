@@ -6,12 +6,14 @@ import '../../../app/navigation/routes.dart';
 import '../../../app/person_avatar.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/widgets/author_badge.dart';
 import '../../../app/widgets/comment_text.dart';
 import '../../../app/widgets/skeleton/func_skeleton.dart';
 import '../../../core/comments/comment_feed_controller.dart';
 import '../../../core/comments/comment_models.dart';
 import '../../../core/comments/comment_store.dart';
 import '../../../core/entity/comment_entity.dart';
+import '../../../core/entity/illust_store.dart';
 import '../../../l10n/context.dart';
 import 'on_demand_sliver.dart';
 import 'widgets/detail_section_header.dart';
@@ -75,6 +77,7 @@ class _PreviewBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(commentFeedProvider(query));
     final store = ref.watch(commentStoreProvider);
+    final authorId = ref.read(illustStoreProvider).get(query.workId)?.user.id;
     final state = async.asData?.value;
     final comments = [
       for (final id in state?.ids ?? const <int>[]) ?store.get(id),
@@ -128,7 +131,10 @@ class _PreviewBody extends ConsumerWidget {
                   children: [
                     for (final (index, comment) in comments.indexed) ...[
                       if (index > 0) const SizedBox(height: FuncSpacing.md),
-                      _PreviewTile(comment: comment),
+                      _PreviewTile(
+                        comment: comment,
+                        byAuthor: comment.user.id == authorId,
+                      ),
                     ],
                   ],
                 ),
@@ -141,11 +147,13 @@ class _PreviewBody extends ConsumerWidget {
   }
 }
 
-/// One comment, compact: avatar, name, two lines of text or the stamp.
+/// One comment, compact: avatar, name (marked when the work's author
+/// wrote it), two lines of text or the stamp.
 class _PreviewTile extends StatelessWidget {
-  const _PreviewTile({required this.comment});
+  const _PreviewTile({required this.comment, required this.byAuthor});
 
   final CommentEntity comment;
+  final bool byAuthor;
 
   @override
   Widget build(BuildContext context) {
@@ -160,11 +168,21 @@ class _PreviewTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                comment.user.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: textTheme.labelLarge,
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      comment.user.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.labelLarge,
+                    ),
+                  ),
+                  if (byAuthor) ...[
+                    const SizedBox(width: FuncSpacing.xs),
+                    const AuthorBadge(),
+                  ],
+                ],
               ),
               const SizedBox(height: FuncSpacing.xxs),
               if (comment.stampId != null && stampUrl != null)

@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../motion/press_scale.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
 
@@ -10,16 +9,20 @@ import '../theme/func_tokens.dart';
 /// and update markers all arrive through slots — a page never hand-draws
 /// its own variant of the same row.
 ///
-/// `NovelEntry` wraps this with the novel card chrome; management lists
-/// (watchlist, local novels, download tasks) use the row bare.
+/// A list row, so its press is ink alone (HCI 11): `NovelEntry` and the
+/// management lists (watchlist, local novels, download tasks) all render
+/// it full-bleed, without card chrome.
 class EntityRow extends StatelessWidget {
   const EntityRow({
     super.key,
     required this.leading,
     required this.title,
+    this.titleStyle,
+    this.overline,
     this.titleLeading,
     this.subtitle,
     this.meta,
+    this.footnote,
     this.badge,
     this.progress,
     this.trailing,
@@ -44,6 +47,13 @@ class EntityRow extends StatelessWidget {
   /// Already-localized primary text.
   final String title;
 
+  /// Title type; null keeps the body style at w600. Lists whose rows carry
+  /// a large cover (watchlist series) step it up.
+  final TextStyle? titleStyle;
+
+  /// Short label above the title — an episode's "第 N 话".
+  final String? overline;
+
   /// Marker at the start of the title line, baseline-aligned with it — the
   /// ranking position ([EntityRankLabel]).
   final Widget? titleLeading;
@@ -55,6 +65,9 @@ class EntityRow extends StatelessWidget {
   /// the shared caption token via [EntityMetaText]; reuse that widget when
   /// the same line must appear outside a row (history grid cells).
   final String? meta;
+
+  /// Last line, in the meta look — a novel's tags.
+  final String? footnote;
 
   /// Overlay badge pinned to the leading slot's top-left corner — "New"
   /// markers. Use [EntityBadge] for the shared container.
@@ -109,100 +122,123 @@ class EntityRow extends StatelessWidget {
       );
     }
 
-    return PressScale(
-      child: Semantics(
-        container: true,
-        button: onTap != null || onLongPress != null,
-        selected: selected,
-        label: label,
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Material(
-          type: selected ? MaterialType.canvas : MaterialType.transparency,
-          color: selected ? colorScheme.primaryContainer : null,
-          borderRadius: radius,
-          // Only the selection surface needs the rounded clip — paying a
-          // saveLayer per unselected feed row is wasted raster work.
-          clipBehavior: selected ? Clip.antiAlias : Clip.none,
-          child: InkWell(
-            // The outer Semantics already exposes the actions — the ink
-            // response must not announce a second unlabeled button.
-            excludeFromSemantics: true,
-            onTap: onTap,
-            onLongPress: onLongPress,
-            // A long-press host plays its own AppHaptics role; the ink
-            // response's vibration would double it.
-            enableFeedback: onLongPress == null,
-            borderRadius: radius,
-            child: Padding(
-              padding: padding,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // The row's a11y identity is the Semantics label above —
-                  // the cover and text children must not repeat it inside
-                  // the merged label (a labeled node absorbs descendant
-                  // text). Only [trailing] keeps its own node so embedded
-                  // actions stay reachable.
-                  ExcludeSemantics(child: leadingSlot),
-                  const SizedBox(width: FuncSpacing.md),
-                  Expanded(
-                    child: ExcludeSemantics(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _titleLine(
-                            Text(
-                              title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: selected ? selectedText : null,
-                              ),
+    return Semantics(
+      container: true,
+      button: onTap != null || onLongPress != null,
+      selected: selected,
+      label: label,
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Material(
+        type: selected ? MaterialType.canvas : MaterialType.transparency,
+        color: selected ? colorScheme.primaryContainer : null,
+        borderRadius: radius,
+        // Only the selection surface needs the rounded clip — paying a
+        // saveLayer per unselected feed row is wasted raster work.
+        clipBehavior: selected ? Clip.antiAlias : Clip.none,
+        child: InkWell(
+          // The outer Semantics already exposes the actions — the ink
+          // response must not announce a second unlabeled button.
+          excludeFromSemantics: true,
+          onTap: onTap,
+          onLongPress: onLongPress,
+          // A long-press host plays its own AppHaptics role; the ink
+          // response's vibration would double it.
+          enableFeedback: onLongPress == null,
+          // Full-bleed rows ink edge to edge; only the rounded selection
+          // surface clips it.
+          borderRadius: selected ? radius : null,
+          child: Padding(
+            padding: padding,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // The row's a11y identity is the Semantics label above —
+                // the cover and text children must not repeat it inside
+                // the merged label (a labeled node absorbs descendant
+                // text). Only [trailing] keeps its own node so embedded
+                // actions stay reachable.
+                ExcludeSemantics(child: leadingSlot),
+                const SizedBox(width: FuncSpacing.md),
+                Expanded(
+                  child: ExcludeSemantics(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (overline != null) ...[
+                          Text(
+                            overline!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelMedium!
+                                .copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: selected
+                                      ? selectedSecondary
+                                      : colorScheme.onSurfaceVariant,
+                                )
+                                .tabular,
+                          ),
+                          const SizedBox(height: FuncSpacing.xxs),
+                        ],
+                        _titleLine(
+                          Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: (titleStyle ?? const TextStyle()).copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: selected ? selectedText : null,
                             ),
                           ),
-                          if (subtitle != null) ...[
-                            const SizedBox(height: FuncSpacing.xs),
-                            Text(
-                              subtitle!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: selected
-                                  ? tokens.caption.copyWith(
-                                      color: selectedSecondary,
-                                    )
-                                  : tokens.caption,
-                            ),
-                          ],
-                          if (meta != null) ...[
-                            const SizedBox(height: FuncSpacing.xs),
-                            EntityMetaText(
-                              meta!,
-                              color: selected ? selectedSecondary : null,
-                            ),
-                          ],
-                          if (progress != null) ...[
-                            const SizedBox(height: FuncSpacing.xs),
-                            LinearProgressIndicator(value: progress),
-                          ],
+                        ),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: FuncSpacing.xs),
+                          Text(
+                            subtitle!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: selected
+                                ? tokens.caption.copyWith(
+                                    color: selectedSecondary,
+                                  )
+                                : tokens.caption,
+                          ),
                         ],
-                      ),
+                        if (meta != null) ...[
+                          const SizedBox(height: FuncSpacing.xs),
+                          EntityMetaText(
+                            meta!,
+                            color: selected ? selectedSecondary : null,
+                          ),
+                        ],
+                        if (footnote != null) ...[
+                          const SizedBox(height: FuncSpacing.xs),
+                          EntityMetaText(
+                            footnote!,
+                            color: selected ? selectedSecondary : null,
+                          ),
+                        ],
+                        if (progress != null) ...[
+                          const SizedBox(height: FuncSpacing.xs),
+                          LinearProgressIndicator(value: progress),
+                        ],
+                      ],
                     ),
                   ),
-                  if (trailing != null) ...[
-                    const SizedBox(width: FuncSpacing.sm),
-                    trailing!,
-                  ],
-                  if (selected) ...[
-                    const SizedBox(width: FuncSpacing.sm),
-                    Icon(
-                      Icons.check_circle,
-                      color: colorScheme.onPrimaryContainer,
-                    ),
-                  ],
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: FuncSpacing.sm),
+                  trailing!,
                 ],
-              ),
+                if (selected) ...[
+                  const SizedBox(width: FuncSpacing.sm),
+                  Icon(
+                    Icons.check_circle,
+                    color: colorScheme.onPrimaryContainer,
+                  ),
+                ],
+              ],
             ),
           ),
         ),

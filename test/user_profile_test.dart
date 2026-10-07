@@ -1402,21 +1402,21 @@ void main() {
     await _pumpProfile(tester, container);
     expect(_tabLabels(tester), ['插画', '漫画', '小说', '系列', '收藏', '关注', '关于']);
 
-    // The header line: following opens its tab; another user's My Pixiv
-    // list has no tab, so that count is plain text.
+    // The header counters: following opens its tab; another user's My
+    // Pixiv list has no tab, so that count is plain text.
     final followingStat = find.byKey(
       const ValueKey('profile-stat-following-header'),
     );
     expect(
       tester.getSemantics(followingStat),
-      isSemantics(label: '11 关注', isButton: true, hasTapAction: true),
+      isSemantics(label: '关注, 11', isButton: true, hasTapAction: true),
     );
     final myPixivStat = find.byKey(
       const ValueKey('profile-stat-myPixiv-header'),
     );
     expect(
       tester.getSemantics(myPixivStat),
-      isSemantics(label: '12 好P友', isButton: false, hasTapAction: false),
+      isSemantics(label: '好P友, 12', isButton: false, hasTapAction: false),
     );
     expect(tester.getSize(followingStat).height, greaterThanOrEqualTo(48));
     await tester.tap(followingStat);
@@ -1525,12 +1525,12 @@ void main() {
       expect(share.top, lessThan(name.bottom));
       expect(main.top, lessThan(name.bottom));
       expect(find.text('@sample'), findsOneWidget);
-      // The statistics line sits under the row.
+      // The counters sit under the row.
       final following = tester.getRect(
         find.byKey(const ValueKey('profile-stat-following-header')),
       );
       expect(following.top, greaterThanOrEqualTo(share.bottom - 0.5));
-      expect(find.text('1234 关注'), findsOneWidget);
+      expect(find.text('1234'), findsOneWidget);
     });
   }
 

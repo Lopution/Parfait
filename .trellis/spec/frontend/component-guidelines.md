@@ -2090,6 +2090,13 @@ as `illustPagesTotal`), ugoira bottom-left (icon only, read as
 `badgeUgoira`), AI bottom-right (read as `badgeAi`). The labels merge into
 the card's semantics.
 
+`NovelEntry` is a full-bleed `EntityRow` (16/12dp padding, no card, ink
+only): title, author, `series · word count` meta, a footnote of up to four
+`#tags`, and the bookmark count as an `EntityBadge` (`Icons.favorite` +
+compact count) 4dp inside the cover's bottom-left corner, only when above
+zero. The row reads "title, author, `novelEntryBookmarks`". `EntityRow`
+carries no `PressScale`: it is a list row (HCI 11).
+
 A ranking position is not a badge: `EntityRankLabel` leads the title line
 (`titleSmall`, bold, tabular, `onSurface`, 4dp before the title, no medal
 or top-three color) in `IllustCard(rank:)` and, through

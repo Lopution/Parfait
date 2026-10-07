@@ -6,8 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
-import 'package:parfait/app/widgets/feed/illust_card.dart';
-import 'package:parfait/app/widgets/skeleton/illust_grid_skeleton.dart';
+import 'package:parfait/app/widgets/entity_row.dart';
+import 'package:parfait/app/widgets/skeleton/list_skeletons.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
 import 'package:parfait/core/series/illust_series_context_controller.dart';
@@ -144,7 +144,9 @@ void main() {
     expect(container.read(illustSeriesStoreProvider), isEmpty);
   });
 
-  testWidgets('series page renders header and works grid', (tester) async {
+  testWidgets('series page renders the header and numbered episode rows', (
+    tester,
+  ) async {
     final (container, _) = await makeSeriesWorld();
     addTearDown(container.dispose);
 
@@ -166,11 +168,24 @@ void main() {
       expect(find.text('series 55'), findsWidgets);
       expect(find.text('共 12 个作品'), findsOneWidget);
       expect(find.text('author'), findsWidgets);
-      expect(find.byType(IllustCard), findsNWidgets(2));
+      // Newest first: counted down from the series' 12 works.
+      expect(find.byType(EntityRow), findsNWidgets(2));
+      expect(find.text('第 12 话'), findsOneWidget);
+      expect(find.text('第 11 话'), findsOneWidget);
+      final newest = find.byKey(const ValueKey('series-episode-912'));
+      expect(
+        find.descendant(of: newest, matching: find.text('illust 912')),
+        findsOneWidget,
+      );
+      // The number sits above the title.
+      expect(
+        tester.getTopLeft(find.text('第 12 话')).dy,
+        lessThan(tester.getTopLeft(find.text('illust 912')).dy),
+      );
     });
   });
 
-  testWidgets('series page shows the grid skeleton while the first page '
+  testWidgets('series page shows the episode skeleton while the first page '
       'is pending', (tester) async {
     final fixture = SeriesFixture()..pendingFetch = Completer<void>();
     final (container, _) = await makeSeriesWorld(fixture: fixture);
@@ -196,13 +211,13 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.byType(IllustGridSkeleton), findsOneWidget);
+      expect(find.byType(EpisodeListSkeleton), findsOneWidget);
       expect(find.byType(FeedEmpty), findsNothing);
 
       fixture.pendingFetch!.complete();
       await tester.pumpAndSettle();
-      expect(find.byType(IllustGridSkeleton), findsNothing);
-      expect(find.byType(IllustCard), findsWidgets);
+      expect(find.byType(EpisodeListSkeleton), findsNothing);
+      expect(find.byType(EntityRow), findsWidgets);
     });
   });
 
@@ -285,7 +300,16 @@ void main() {
     await mockNetworkImagesFor(() async {
       await pumpSeriesPage(tester, container);
     });
-    expect(find.widgetWithText(FilledButton, '开始阅读'), findsOneWidget);
+    final start = find.widgetWithText(FilledButton, '开始阅读');
+    expect(start, findsOneWidget);
+    // Reading leads and 追更 sits beside it at the same height.
+    final follow = find.widgetWithText(OutlinedButton, '追更');
+    expect(tester.getSize(follow).height, tester.getSize(start).height);
+    expect(tester.getCenter(follow).dy, tester.getCenter(start).dy);
+    expect(
+      tester.getTopLeft(follow).dx,
+      greaterThan(tester.getTopRight(start).dx),
+    );
     expect(find.textContaining('继续'), findsNothing);
     expect(find.text('从第 1 话开始'), findsNothing);
 

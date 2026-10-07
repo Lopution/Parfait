@@ -1607,16 +1607,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileMyPixiv => '好P友';
 
   @override
-  String profileFollowingCount(String count) {
-    return '$count 关注';
-  }
-
-  @override
-  String profileMyPixivCount(String count) {
-    return '$count 好P友';
-  }
-
-  @override
   String profileWorksTotal(String count) {
     return '共 $count 件';
   }
@@ -2106,6 +2096,17 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get feedContinueLoading => '继续加载';
+
+  @override
+  String get commentAuthorBadge => '作者';
+
+  @override
+  String get commentShowReplies => '查看回复';
+
+  @override
+  String novelEntryBookmarks(String count) {
+    return '$count 次收藏';
+  }
 
   @override
   String detailExpandPages(int count) {

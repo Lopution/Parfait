@@ -48,63 +48,53 @@ class ProfileStatistic extends StatelessWidget {
   }
 }
 
-/// One link in the profile header's statistics line. [text] is the
-/// visible, already formatted label ("12 关注").
+/// One counter in the profile header: a figure over its label.
 @immutable
 class ProfileHeaderStat {
-  const ProfileHeaderStat({required this.id, required this.text, this.onTap});
+  const ProfileHeaderStat({
+    required this.id,
+    required this.value,
+    required this.label,
+    this.onTap,
+  });
 
   final String id;
-  final String text;
+  final int value;
+  final String label;
 
   /// Opens the matching list; null leaves the stat as plain text.
   final VoidCallback? onTap;
 }
 
-/// The header's statistics as one line of text links separated by " · ".
-/// Each link is its own 48dp target; on a narrow screen the line wraps
-/// instead of overflowing.
-class ProfileStatLine extends StatelessWidget {
-  const ProfileStatLine({super.key, required this.stats});
+/// The header's counters as figure-over-label blocks, start-aligned. Each
+/// block is its own target, at least 48dp tall; on a narrow screen the
+/// blocks wrap instead of overflowing.
+class ProfileStatRow extends StatelessWidget {
+  const ProfileStatRow({super.key, required this.stats});
 
   final List<ProfileHeaderStat> stats;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        for (var i = 0; i < stats.length; i++) ...[
-          if (i > 0)
-            ExcludeSemantics(
-              child: Text(
-                '·',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          _ProfileStatLink(stat: stats[i]),
-        ],
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Wrap(
+    spacing: FuncSpacing.sm,
+    children: [for (final stat in stats) _ProfileStatBlock(stat: stat)],
+  );
 }
 
-class _ProfileStatLink extends StatelessWidget {
-  const _ProfileStatLink({required this.stat});
+class _ProfileStatBlock extends StatelessWidget {
+  const _ProfileStatBlock({required this.stat});
 
   final ProfileHeaderStat stat;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final figure = AppFormat.count(context, stat.value);
     return Semantics(
       key: ValueKey('profile-stat-${stat.id}-header'),
       container: true,
       button: stat.onTap != null,
-      label: stat.text,
+      label: '${stat.label}, $figure',
       onTap: stat.onTap,
       child: ExcludeSemantics(
         child: InkWell(
@@ -114,19 +104,28 @@ class _ProfileStatLink extends StatelessWidget {
             constraints: const BoxConstraints(
               minHeight: kMinInteractiveDimension,
             ),
-            // Centred in the 48dp target; a label wider than the line wraps.
-            child: Align(
-              widthFactor: 1,
-              alignment: AlignmentDirectional.centerStart,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xs),
-                child: Text(
-                  stat.text,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: FuncSpacing.xs,
+                vertical: FuncSpacing.xxs,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    figure,
+                    style: theme.textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w700)
+                        .tabular,
                   ),
-                ),
+                  Text(
+                    stat.label,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

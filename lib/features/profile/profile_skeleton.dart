@@ -95,20 +95,49 @@ class ProfileSkeleton extends StatelessWidget {
                           ],
                         ),
                       ),
-                      // The statistics line: one row of 48dp links.
+                      // The counters: figure-over-label blocks, at least
+                      // 48dp tall, as in the real header.
                       Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: FuncSpacing.lg,
+                        padding: const EdgeInsets.fromLTRB(
+                          FuncSpacing.lg,
+                          FuncSpacing.xs,
+                          FuncSpacing.lg,
+                          0,
                         ),
-                        child: SizedBox(
-                          height: kMinInteractiveDimension,
-                          child: Align(
-                            alignment: AlignmentDirectional.centerStart,
-                            child: SkeletonBone.text(
-                              width: 160,
-                              style: textTheme.bodyMedium,
-                            ),
-                          ),
+                        child: Row(
+                          children: [
+                            for (final width in const [48.0, 56.0]) ...[
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minHeight: kMinInteractiveDimension,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsetsDirectional.only(
+                                    top: FuncSpacing.xxs,
+                                    bottom: FuncSpacing.xxs,
+                                    end: FuncSpacing.lg,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      SkeletonBone.text(
+                                        width: width * 0.6,
+                                        style: textTheme.titleLarge?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      SkeletonBone.text(
+                                        width: width,
+                                        style: textTheme.labelMedium,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                       const SizedBox(height: FuncSpacing.sm),

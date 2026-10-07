@@ -2,20 +2,26 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/format/app_format.dart';
+import '../../app/motion/spring_size.dart';
+import '../../app/motion/state_fade.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_menu_button.dart';
+import '../../app/widgets/author_badge.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/comments/comment_translation.dart';
 import '../../core/entity/comment_entity.dart';
+import '../../core/entity/illust_store.dart';
+import '../../core/novel/novel_store.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/comment_text.dart';
 import '../../l10n/context.dart';
 
-/// One comment row. Reply and the replies link are text buttons under the
-/// body; translate and delete sit in the header's overflow menu. No
-/// long-press reply gesture is installed, matching beta56.
+/// One comment row. The work's author is marked beside the name. Reply and
+/// the replies link are pill buttons under the body; translate and delete
+/// sit in the header's overflow menu, and a translation opens below the
+/// body. No long-press reply gesture is installed, matching beta56.
 class CommentItem extends ConsumerStatefulWidget {
   const CommentItem({
     super.key,
@@ -46,6 +52,8 @@ class _CommentItemState extends ConsumerState<CommentItem> {
     final canDelete =
         account?.userId == widget.comment.user.id && widget.onDelete != null;
     final showTranslate = widget.comment.content.trim().isNotEmpty;
+    final byAuthor =
+        _workAuthorId(ref, widget.comment) == widget.comment.user.id;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         FuncSpacing.lg,
@@ -68,13 +76,23 @@ class _CommentItemState extends ConsumerState<CommentItem> {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            widget.comment.user.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  widget.comment.user.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              if (byAuthor) ...[
+                                const SizedBox(width: FuncSpacing.xs),
+                                const AuthorBadge(),
+                              ],
+                            ],
                           ),
                         ),
                         const SizedBox(width: FuncSpacing.sm),
@@ -86,25 +104,46 @@ class _CommentItemState extends ConsumerState<CommentItem> {
                     ),
                     const SizedBox(height: FuncSpacing.sm),
                     _CommentBody(comment: widget.comment),
-                    if (_translation != null)
-                      _TranslationOverlay(text: _translation!),
-                    if (_translating)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: FuncSpacing.sm),
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
+                    // Translation, its progress or its failure open below
+                    // the body instead of popping in.
+                    SpringSize(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_translation case final translation?)
+                            StateFade.onMount(
+                              child: _TranslationOverlay(text: translation),
+                            ),
+                          if (_translating)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(
+                                vertical: FuncSpacing.sm,
+                              ),
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          if (_translationError case final error?)
+                            StateFade.onMount(
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  top: FuncSpacing.xs,
+                                ),
+                                child: Text(
+                                  error,
+                                  style: TextStyle(
+                                    color: theme.colorScheme.error,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    if (_translationError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: FuncSpacing.xs),
-                        child: Text(
-                          _translationError!,
-                          style: TextStyle(color: theme.colorScheme.error),
-                        ),
-                      ),
+                    ),
                     _Actions(
                       comment: widget.comment,
                       onReply: widget.onReply,
@@ -170,6 +209,17 @@ class _CommentItemState extends ConsumerState<CommentItem> {
     }
   }
 }
+
+/// The author of the work [comment] belongs to, when the work is in the
+/// shared stores (it is whenever the thread was opened from its page).
+int? _workAuthorId(WidgetRef ref, CommentEntity comment) =>
+    switch (comment.kind) {
+      CommentWorkKind.illust =>
+        ref.read(illustStoreProvider).get(comment.workId)?.user.id,
+      CommentWorkKind.novel => ref.watch(
+        novelStoreProvider.select((novels) => novels[comment.workId]?.user.id),
+      ),
+    };
 
 String _translationFailureText(
   BuildContext context,
@@ -287,8 +337,8 @@ class _MoreMenu extends StatelessWidget {
   }
 }
 
-/// Reply and, when there are any, the link to the replies: text buttons
-/// with the default 48dp target, wrapping onto a second line when long
+/// Reply and, when there are any, the link to the replies: pill buttons,
+/// 32dp tall within a 48dp target, wrapping onto a second line when long
 /// labels do not fit.
 class _Actions extends StatelessWidget {
   const _Actions({required this.comment, this.onReply, this.onOpenReplies});
@@ -297,26 +347,44 @@ class _Actions extends StatelessWidget {
   final VoidCallback? onReply;
   final VoidCallback? onOpenReplies;
 
+  static const _pillHeight = 32.0;
+
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final showReplies = comment.hasReplies && onOpenReplies != null;
     if (onReply == null && !showReplies) return const SizedBox.shrink();
+    ButtonStyle pill(Color foreground) => TextButton.styleFrom(
+      foregroundColor: foreground,
+      backgroundColor: colors.surfaceContainerHigh,
+      shape: const StadiumBorder(),
+      minimumSize: const Size(0, _pillHeight),
+      padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.md),
+      tapTargetSize: MaterialTapTargetSize.padded,
+      textStyle: theme.textTheme.labelMedium?.copyWith(
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    // Pixiv's comment payload flags replies without counting them.
+    final repliesLabel = comment.replyCount > 0
+        ? context.l10n.commentViewReplies(comment.replyCount)
+        : context.l10n.commentShowReplies;
     return OverflowBar(
+      spacing: FuncSpacing.sm,
       overflowAlignment: OverflowBarAlignment.start,
       children: [
         if (onReply != null)
           TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: colors.onSurfaceVariant,
-            ),
+            style: pill(colors.onSurfaceVariant),
             onPressed: onReply,
             child: Text(context.l10n.commentReply),
           ),
         if (showReplies)
           TextButton(
+            style: pill(colors.primary),
             onPressed: onOpenReplies,
-            child: Text(context.l10n.commentViewReplies(comment.replyCount)),
+            child: Text(repliesLabel),
           ),
       ],
     );
