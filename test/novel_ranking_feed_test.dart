@@ -243,7 +243,7 @@ void main() {
       expect(find.text('每日'), findsOneWidget);
       expect(fixture.requests, hasLength(1));
 
-      await tester.tap(find.text('每日(男性欢迎)'));
+      await tester.tap(find.text('每日（男性欢迎）'));
       await tester.pump();
       await tester.pump();
       await tester.pumpAndSettle();
