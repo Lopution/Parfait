@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+
 import 'review_support.dart';
 
 /// Illust detail, viewer, comments and replies — the deep pages off feeds.
@@ -14,6 +17,20 @@ void main() {
     'illust/detail',
     location: detail,
     variants: {...ShotVariant.values},
+  );
+  // Past the first image: the top bar has drawn its surface and title; a
+  // short scroll back up has brought the action bar back.
+  testShot(
+    'illust/detail-scrolled',
+    location: detail,
+    before: (tester, router) async {
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      position.jumpTo(900);
+      await tester.pump();
+      position.jumpTo(860);
+    },
   );
   // The viewer reads the work the detail page loaded; a cold deep link has
   // no pages to show.
