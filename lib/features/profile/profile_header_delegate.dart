@@ -35,6 +35,10 @@ class ReplicaProfileHeaderGeometry {
   /// 80dp avatar centred on the banner's bottom edge.
   static const avatarRadius = 40.0;
 
+  /// The name row — name, share and the main action — starts this far
+  /// below the banner: under the avatar's lower half.
+  static const nameRowBelowBanner = avatarRadius + FuncSpacing.sm;
+
   /// The toolbar background finishes fading in as the banner's bottom edge
   /// approaches the toolbar's bottom edge over this distance.
   static const toolbarFadeDistance = FuncSpacing.xl;
@@ -69,6 +73,11 @@ class ReplicaProfileHeaderGeometry {
   /// and overflow controls take the image-overlay style and the status bar
   /// asks for light icons over the artwork.
   bool get bannerBehindToolbar => toolbarOpacity < 0.5;
+
+  /// Whether the name row has started sliding under the toolbar. From then
+  /// on its share and main action are cut off, so the overflow lists them.
+  bool get nameRowUnderToolbar =>
+      shrinkOffset > bannerBelowToolbar + nameRowBelowBanner;
 }
 
 /// Project-owned profile header. It avoids the old extended_sliver delegate.
@@ -317,9 +326,12 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                   Positioned(
                     top: topInset + 4,
                     right: 8,
+                    // Each action shows once at a time: the name row's
+                    // share and main action join the menu only when the
+                    // row goes under the toolbar.
                     child: _ProfileHeaderMoreButton(
                       actions: actions,
-                      includePrimary: true,
+                      includePrimary: geometry.nameRowUnderToolbar,
                       overArtwork: overArtwork,
                     ),
                   ),
@@ -436,7 +448,9 @@ class _ExpandedIdentity extends StatelessWidget {
           children: [
             SizedBox(height: bannerHeight),
             // The avatar's lower half.
-            const SizedBox(height: avatarRadius + FuncSpacing.sm),
+            const SizedBox(
+              height: ReplicaProfileHeaderGeometry.nameRowBelowBanner,
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
               child: LayoutBuilder(
@@ -572,7 +586,7 @@ class _ProfileHeaderAction {
 class _ProfileHeaderMoreButton extends StatelessWidget {
   const _ProfileHeaderMoreButton({
     required this.actions,
-    this.includePrimary = false,
+    required this.includePrimary,
     this.overArtwork = false,
   });
 

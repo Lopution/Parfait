@@ -634,7 +634,7 @@ void main() {
   });
 
   testWidgets(
-    'expanded and collapsed header actions use the same action list',
+    "the overflow lists the name row's actions once they scroll away",
     (tester) async {
       final controller = ScrollController();
       await tester.pumpWidget(
@@ -673,19 +673,51 @@ void main() {
       // The owner's main action is a tonal text button on the page
       // surface — not an icon button anymore.
       expect(find.text('编辑个人资料'), findsOneWidget);
-      // The persistent overflow carries the full list in every state.
-      await tester.tap(find.byIcon(Icons.more_vert));
-      await tester.pumpAndSettle();
-      expect(find.text('分享用户'), findsOneWidget);
-      // Inline main action + menu item.
-      expect(find.text('编辑个人资料'), findsNWidgets(2));
+      // Each action shows once at a time: while the name row is on screen
+      // the overflow leaves its share and main action out.
+      Future<void> openMenu() async {
+        await tester.tap(find.byIcon(Icons.more_vert));
+        await tester.pumpAndSettle();
+      }
+
+      Future<void> closeMenu() async {
+        await tester.tapAt(const Offset(10, 10));
+        await tester.pumpAndSettle();
+      }
+
+      await openMenu();
+      expect(find.text('分享用户'), findsNothing);
+      expect(find.text('编辑个人资料'), findsOneWidget);
       // The list filters sit over the lists now, not in the overflow.
       expect(find.text('公开'), findsNothing);
       expect(find.text('私密'), findsNothing);
       expect(find.text('收藏标签'), findsNothing);
       expect(find.text('下载全部作品'), findsOneWidget);
-      await tester.tapAt(const Offset(10, 10));
-      await tester.pumpAndSettle();
+      await closeMenu();
+
+      // The menu takes them over as soon as the row's top edge passes
+      // under the toolbar and the buttons start to be cut off.
+      const rowTop =
+          ReplicaProfileHeaderGeometry.bannerBelowToolbar +
+          ReplicaProfileHeaderGeometry.nameRowBelowBanner;
+      controller.jumpTo(rowTop);
+      await tester.pump();
+      expect(
+        tester.getRect(find.byTooltip('分享用户')).top,
+        greaterThanOrEqualTo(
+          tester.getRect(find.byIcon(Icons.more_vert)).bottom,
+        ),
+      );
+      await openMenu();
+      expect(find.text('分享用户'), findsNothing);
+      await closeMenu();
+      controller.jumpTo(rowTop + 1);
+      await tester.pump();
+      await openMenu();
+      expect(find.text('分享用户'), findsOneWidget);
+      // The cut-off inline button + the menu item.
+      expect(find.text('编辑个人资料'), findsNWidgets(2));
+      await closeMenu();
 
       controller.jumpTo(_headerCollapseRange(tester));
       await tester.pump();
@@ -759,7 +791,7 @@ void main() {
   testWidgets(
     'back and overflow actions fire through the whole collapse interval',
     (tester) async {
-      var shareCount = 0;
+      var copyCount = 0;
       final controller = ScrollController();
       Widget header() => Scaffold(
         body: CustomScrollView(
@@ -770,7 +802,8 @@ void main() {
                 user: sampleUser(42),
                 isMe: true,
                 selectedTabIndex: 0,
-                onShare: (_) => shareCount++,
+                onShare: (_) {},
+                onCopyLink: () => copyCount++,
                 expandedExtent: extent,
                 onExpandedExtentMeasured: onMeasured,
               ),
@@ -813,10 +846,10 @@ void main() {
         // while the collapsed toolbar only mounted at the very end.
         await tester.tap(find.byIcon(Icons.more_vert));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('分享用户'));
+        await tester.tap(find.text('复制链接'));
         await tester.pumpAndSettle();
-        expect(shareCount, 1, reason: 'progress $progress');
-        shareCount = 0;
+        expect(copyCount, 1, reason: 'progress $progress');
+        copyCount = 0;
 
         // Back actually pops the pushed route.
         await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
@@ -845,6 +878,7 @@ void main() {
                 isMe: true,
                 selectedTabIndex: 0,
                 onShare: (_) {},
+                onCopyLink: () {},
                 expandedExtent: extent,
                 onExpandedExtentMeasured: onMeasured,
               ),
@@ -926,6 +960,7 @@ void main() {
               isMe: true,
               selectedTabIndex: 0,
               onShare: (_) {},
+              onCopyLink: () {},
               expandedExtent: extent,
               onExpandedExtentMeasured: onMeasured,
             ),
