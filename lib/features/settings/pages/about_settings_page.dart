@@ -24,6 +24,7 @@ import '../../../core/updater/update_service.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../../../app/clipboard.dart';
+import '../settings_catalog.dart';
 
 class AboutSettingsPage extends ConsumerStatefulWidget {
   const AboutSettingsPage({super.key});
@@ -103,13 +104,13 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
                       children: [
                         SettingsActionTile(
                           icon: Icons.info_outline,
-                          title: Text(context.l10n.aboutVersion),
+                          setting: Setting.aboutVersion,
                           trailing: Text(label),
                           onTap: _onVersionTap,
                         ),
                         SettingsActionTile(
                           icon: Icons.menu_book_outlined,
-                          title: Text(context.l10n.aboutLicense),
+                          setting: Setting.aboutLicense,
                           subtitle: Text(context.l10n.aboutLicenseText),
                           onTap: () => showLicensePage(
                             context: context,
@@ -123,12 +124,12 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
                 ),
                 SettingsActionTile(
                   icon: Icons.people_outline,
-                  title: Text(context.l10n.aboutAttribution),
+                  setting: Setting.aboutAttribution,
                   subtitle: Text(context.l10n.aboutAttributionText),
                 ),
                 SettingsActionTile(
                   icon: Icons.code,
-                  title: Text(context.l10n.aboutSource),
+                  setting: Setting.aboutSource,
                   subtitle: const Text('github.com/$updateRepository'),
                   // The row opens the repository; copying the URL is the
                   // secondary trailing action (settings action row, not a
@@ -142,7 +143,7 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
                 ),
                 SettingsActionTile(
                   icon: Icons.bug_report_outlined,
-                  title: Text(context.l10n.aboutExportLogs),
+                  setting: Setting.aboutExportLogs,
                   onTap: () => _exportCrashLog(context),
                 ),
                 // Read-back of the display mode the engine actually got —
@@ -155,7 +156,7 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
                     future: FlutterDisplayMode.active,
                     builder: (context, snapshot) => SettingsActionTile(
                       icon: Icons.speed_outlined,
-                      title: Text(context.l10n.aboutDisplayRefreshRate),
+                      setting: Setting.aboutDisplayRefreshRate,
                       trailing: Text(
                         snapshot.hasData
                             ? '${snapshot.data!.refreshRate.toStringAsFixed(0)} Hz'
@@ -168,6 +169,7 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
             // The self-update block is one entry point, so it forms its own
             // group below the app info rows.
             SettingsGroup(
+              setting: Setting.aboutCheckUpdate,
               children: [
                 updateService.when(
                   loading: () => SettingsActionTile(

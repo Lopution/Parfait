@@ -33,7 +33,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get light => 'Light';
 
   @override
-  String get system => 'Follow the System';
+  String get system => 'System default';
 
   @override
   String get loginTitle => 'Register or log in';
@@ -226,6 +226,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get agreementUpdates =>
       'This agreement may change as features or laws change; continuing to use the app after a change means you accept the updated agreement.';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsSearchHint => 'Search settings';
+
+  @override
+  String get settingsSearchEmpty => 'No matching settings';
+
+  @override
+  String get settingsEntrySummary =>
+      'Appearance, browsing, network, downloads, backup';
 
   @override
   String get settingsGroupAppearance => 'Appearance';

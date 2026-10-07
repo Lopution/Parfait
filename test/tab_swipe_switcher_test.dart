@@ -8,7 +8,6 @@ import 'package:parfait/core/illust/ranking_repository.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
 import 'package:parfait/features/search/search_page.dart';
-import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -17,6 +16,7 @@ import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/credential.dart';
+import 'package:parfait/features/settings/me_dashboard_page.dart';
 
 const _account = Account(id: '100', userId: 100, name: 'tester');
 
@@ -170,10 +170,10 @@ void main() {
     tester,
   ) async {
     final router = await _pumpHome(tester, location: '/settings');
-    await _flingRight(tester, find.byType(SettingsPage));
+    await _flingRight(tester, find.byType(MeDashboardPage));
     await tester.pumpAndSettle();
     expect(_path(router), '/settings');
-    await _flingLeft(tester, find.byType(SettingsPage));
+    await _flingLeft(tester, find.byType(MeDashboardPage));
     await tester.pumpAndSettle();
     expect(_path(router), '/settings');
   });

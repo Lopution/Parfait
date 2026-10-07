@@ -11,6 +11,7 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../settings_catalog.dart';
 
 class ThemeSettingsPage extends ConsumerWidget {
   const ThemeSettingsPage({super.key});
@@ -43,6 +44,7 @@ class ThemeSettingsPage extends ConsumerWidget {
           ),
           children: [
             SettingsGroup(
+              setting: Setting.themeMode,
               children: [
                 for (final item in items)
                   SettingsChoiceTile(
@@ -88,7 +90,7 @@ class _FollowSystemColorsTile extends ConsumerWidget {
       _ => l10n.followSystemColorsUnavailable,
     };
     return SettingsControl(
-      title: Text(l10n.followSystemColors),
+      setting: Setting.followSystemColors,
       subtitle: subtitle == null ? null : Text(subtitle),
       value: enabled,
       onChanged: available

@@ -22,9 +22,11 @@ const _listTileAllowList = <String, int>{
   'lib/features/settings/pages/muted_items_page.dart': 3,
   // The picked SAF folder: read-only display, long-press copies the URI.
   'lib/features/settings/pages/download_destination_page.dart': 1,
-  // AccountSummaryTile's 58dp avatar headline row, and the account list
-  // rows with avatar/switch-spinner/delete affordances.
-  'lib/features/settings/pages/account_settings_page.dart': 2,
+  // The account list rows with avatar/switch-spinner/delete affordances.
+  'lib/features/settings/pages/account_settings_page.dart': 1,
+  // The dashboard's account card: 58dp avatar headline plus the switch
+  // button.
+  'lib/features/settings/me_dashboard_page.dart': 1,
   // The app identity row leads with the launcher icon, not a glyph.
   'lib/features/settings/pages/about_settings_page.dart': 1,
 };

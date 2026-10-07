@@ -31,6 +31,7 @@ import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/features/profile/profile_header_delegate.dart';
 import 'package:parfait/features/profile/profile_novel_feed.dart';
+import 'package:parfait/app/navigation/routes.dart' show MeTab;
 import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/profile/profile_skeleton.dart';
 import 'package:parfait/features/profile/user_series_feed.dart';
@@ -1266,6 +1267,32 @@ void main() {
       findsOneWidget,
     );
     expect(tagFilter.hitTestable(), findsNothing);
+  });
+
+  testWidgets('the me dashboard can open the profile on its follows', (
+    tester,
+  ) async {
+    final users = FakeUserRepository(
+      detail: sampleUser(100).copyWith(hasDetail: true),
+    );
+    final container = await makeProfileWorld(users: users);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          builder: promptHostBuilder,
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: MePage(onEditProfile: () {}, initialTab: MeTab.following),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+    expect(tabBar.controller!.index, 1, reason: '收藏, 关注, …');
+    expect(users.requests, contains(startsWith('relation:100:following')));
   });
 
   testWidgets('a long tag list sends the rest to the tag page', (tester) async {

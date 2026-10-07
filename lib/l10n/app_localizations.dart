@@ -141,13 +141,13 @@ abstract class AppLocalizations {
   /// No description provided for @dark.
   ///
   /// In zh, this message translates to:
-  /// **'黑暗'**
+  /// **'深色'**
   String get dark;
 
   /// No description provided for @light.
   ///
   /// In zh, this message translates to:
-  /// **'明亮'**
+  /// **'浅色'**
   String get light;
 
   /// No description provided for @system.
@@ -485,6 +485,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'协议可能随功能或法律变化而更新；更新后继续使用即表示接受更新后的协议。'**
   String get agreementUpdates;
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsSearchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索设置'**
+  String get settingsSearchHint;
+
+  /// No description provided for @settingsSearchEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有匹配的设置'**
+  String get settingsSearchEmpty;
+
+  /// No description provided for @settingsEntrySummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'外观、浏览、网络、下载、备份'**
+  String get settingsEntrySummary;
 
   /// No description provided for @settingsGroupAppearance.
   ///

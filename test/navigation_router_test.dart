@@ -25,6 +25,7 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
+import 'package:parfait/features/settings/me_dashboard_page.dart';
 
 void main() {
   setUp(() {
@@ -292,7 +293,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(router.state.uri.path, '/settings');
-    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(MeDashboardPage), findsOneWidget);
     expect(find.byType(FuncBottomNav), findsOneWidget);
 
     // Branch switch back restores the recommended tab.
@@ -367,11 +368,11 @@ void main() {
     tester,
   ) async {
     final router = await pumpRouter(tester, '/settings');
-    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(MeDashboardPage), findsOneWidget);
 
     // The shared history route is mounted on every stack — the settings
     // branch gets /settings/history, returning to the Me tab on pop.
-    unawaited(openHistory(tester.element(find.byType(SettingsPage))));
+    unawaited(openHistory(tester.element(find.byType(MeDashboardPage))));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(router.state.uri.path, '/settings/history');
@@ -380,7 +381,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(router.state.uri.path, '/settings');
-    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(MeDashboardPage), findsOneWidget);
 
     // From the /me overlay the same facade pushes the overlay-level
     // /me/history instead of bouncing to a branch.
@@ -422,7 +423,7 @@ void main() {
 
   testWidgets('every settings subroute returns to the Me root', (tester) async {
     final router = await pumpRouter(tester, '/settings');
-    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(MeDashboardPage), findsOneWidget);
 
     for (final sub in [
       'account',
@@ -485,7 +486,7 @@ void main() {
   ) async {
     final router = await pumpRouter(tester, '/settings/theme');
     expect(router.state.uri.path, '/settings/theme');
-    expect(find.byType(SettingsPage), findsNothing);
+    expect(find.byType(MeDashboardPage), findsNothing);
   });
 
   testWidgets('bookmark tag route restores and writes its restrict query', (
@@ -540,7 +541,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(router.state.uri.path, '/settings');
-    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(MeDashboardPage), findsOneWidget);
   });
 
   testWidgets('detail pushed from the reverse-image page does not stack a '

@@ -2214,8 +2214,9 @@ reintroduce it or hand-build group containers.
   horizontal margins.
 - Row types — all built on `ListTile`/`SwitchListTile`, so existing
   `find.widgetWithText(ListTile, …)` tests keep working:
-  - `SettingsTile` navigates to a subpage: optional `icon`, chevron
-    trailing.
+  - `SettingsTile` navigates to a subpage: optional `icon`, drawn
+    `onSecondaryContainer` in a 40dp `secondaryContainer` circle (the
+    settings index's category rows), chevron trailing.
   - `SettingsControl` is the `SwitchListTile` toggle; it plays the
     toggle haptic (see Haptics Contract). `onChanged: null` disables the
     row (a setting the platform cannot honour yet, e.g. system colors
@@ -2252,31 +2253,78 @@ reintroduce it or hand-build group containers.
     `horizontal: lg, vertical: sm` padding.
 - Hand-written `ListTile`s are allowed only for content rows — entries
   that are data rather than settings (muted items, the account list,
-  diagnostic results, the read-only download path, the
-  `AccountSummaryTile` identity block).
+  diagnostic results, the read-only download path, the dashboard's
+  account row).
   `test/architecture/settings_rows_test.dart` pins the exact per-file
   `ListTile(` count; adding a hand-written row means extending that
   whitelist with a stated reason.
 
-**Me tab layout.** The fifth shell destination is `homeMe` (`SettingsPage`
-still owns the `/settings` route; the label and icon change, the path
-does not). Its group order is fixed: (1) the untitled account card —
-signed-in subtitle shows the account ID and taps through to `openMe`,
-signed-out shows `login` and taps through to `openLogin`; (2) my content
-(`settingsGroupLibrary`): history (`openHistory` — stays on the current
-stack), watch-later, watchlist, local novels, download tasks
-(`openDownloadTasks`, a root overlay); (3) account (`accountSettings`):
-account management only; (4) appearance: theme, language, translation,
-motion & haptics (`/settings/motion`); (5) browse (`/settings/browse`,
-static `settingsBrowseHint` summary — blocking and image quality live
-there) plus the muted list; (6) network & downloads: network (which also
-owns the image-source controls), download settings; (7) data: backup;
-(8) untitled about; (9) the conditional developer group. Page ownership:
-`/settings/motion` holds transition style, animation speed, reduced
-motion, press feedback, and haptic strength; credential export lives in
-account management; the history record/Pixiv switches and delete-all
-live in the history page's overflow menu — there is no history settings
-page and no `/settings/history/view` route.
+**Settings search and anchors.** `lib/features/settings/settings_catalog.dart`
+is the whole search index: `enum SettingsPageRef` (path, title key,
+`parent` page, `indexed`) and `enum Setting` (page, title key or null for
+an untitled choice group, `optionKeys`, `extraKeys`, `available`). A new
+setting is added there and nowhere else.
+
+- Every row type, `SettingsGroupContent` and `SettingsGroup` take an
+  optional `setting:` (`SettingsEntry`, the interface in
+  `app/widgets/settings/settings_anchor.dart` that keeps `app/` free of
+  `features/`). Given one, a row takes its title from it and wraps
+  itself in a `SettingAnchor`. A row that opens a subpage passes the
+  subpage's `SettingsPageRef`. A choice group, a block whose rows depend
+  on state (credential rows, server settings) or a composite block is
+  anchored on the group; its conditional rows' titles go in `extraKeys`.
+- `searchSettings(l10n, query)` matches the current locale's titles,
+  options, extras and page names, case- and whitespace-insensitive.
+  Title prefix hits rank first, then title substrings, then
+  option/extra hits; catalog order breaks ties. A result row is the
+  matched text over its page path (`›`-joined), and opens
+  `Setting.location` (`<page path>?focus=<id>`).
+- Every settings route is wrapped in `SettingsFocusScope(target: focus)`.
+  After the first frame it `ensureVisible`s the target anchor (alignment
+  0.2, `medium` / `fastCurve`). If a lazy list has not built the target,
+  it pages down by the viewport, at most 20 times. The anchor then shows
+  a `primary` wash at 12% that holds for `settingHighlightHold` and fades
+  over `settingHighlightFade`. Reduced motion keeps the hold and drops
+  the fade. A group anchor leaves the wash to its segments
+  (`SettingHighlight`), so the wash follows the segment corners.
+- `test/settings_search_test.dart` renders every settings page and
+  requires its anchors to equal its catalog entries, each showing its
+  title and options, with no settings row left unanchored. It also
+  searches every entry by every term in all four locales and covers
+  result → reveal → mark and back-to-results through the router.
+
+**Me tab layout.** The fifth shell destination is `homeMe`; its root
+`/settings` is `MeDashboardPage`, and every `/settings/*` sub-route is
+unchanged. Top to bottom:
+
+1. The account row: a 58dp avatar, the name, and `labelValue(accountId,
+   id)`. Tapping it calls `openMe`; signed out it shows `login` and calls
+   `openLogin`. Its trailing `switch_account_outlined` button opens
+   `/settings/account`.
+2. My content (`settingsGroupLibrary`): a grid of entries, each a 48dp
+   `primaryContainer` circle over a `bodyMedium` label, four per row on
+   a phone and all in one row from 560dp. The entries are:
+   - bookmarks and following: `openMe(tab: MeTab.…)`, which pushes
+     `/me?tab=`;
+   - watchlist, history and watch later;
+   - download tasks, with a `Badge` counting active tasks;
+   - local novels.
+3. One `SettingsTile` to the settings index `/settings/all`.
+
+`SettingsPage` is the settings index with a `SearchBar` in the app bar's
+`bottom`. Typing swaps the groups for the results; an empty result shows
+`FeedEmpty`. The index's groups are: account; appearance (theme,
+language, translation, motion & haptics); browse (browse settings and
+the muted list); network & downloads; data (backup); the untitled about;
+and the conditional developer group.
+
+Page ownership:
+- `/settings/motion` holds transition style, animation speed, reduced
+  motion, press feedback and haptic strength.
+- Credential export lives in account management.
+- The history record/Pixiv switches and delete-all live in the history
+  page's overflow menu. There is no history settings page and no
+  `/settings/history/view` route.
 
 ## First-Load Skeletons
 

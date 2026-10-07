@@ -8,6 +8,7 @@ import '../../../app/widgets/settings/settings_group.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../settings_catalog.dart';
 
 class LanguageSettingsPage extends ConsumerWidget {
   const LanguageSettingsPage({super.key});
@@ -34,6 +35,7 @@ class LanguageSettingsPage extends ConsumerWidget {
           ),
           children: [
             SettingsGroup(
+              setting: Setting.appLanguage,
               children: [
                 for (final item in languageItems)
                   SettingsChoiceTile(

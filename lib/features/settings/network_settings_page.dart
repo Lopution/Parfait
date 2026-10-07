@@ -26,6 +26,7 @@ import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import 'settings_helpers.dart';
+import 'settings_catalog.dart';
 
 String _networkText(BuildContext context, String key) {
   return l10nLookup(context.l10n, key);
@@ -78,6 +79,7 @@ class NetworkSettingsPage extends ConsumerWidget {
           ),
           children: [
             SettingsGroup(
+              setting: Setting.networkMode,
               title: Text(context.l10n.networkModeListTitle),
               children: [
                 _modeTile(
@@ -111,7 +113,7 @@ class NetworkSettingsPage extends ConsumerWidget {
               children: [
                 SettingsTile(
                   icon: Icons.network_check,
-                  title: context.l10n.networkProbe,
+                  setting: SettingsPageRef.networkProbe,
                   subtitle: Text(context.l10n.networkProbeHint),
                   onTap: () => context.push<void>('/settings/network/probe'),
                 ),
@@ -123,7 +125,7 @@ class NetworkSettingsPage extends ConsumerWidget {
               children: [
                 SettingsTile(
                   icon: Icons.tune,
-                  title: context.l10n.networkAdvanced,
+                  setting: SettingsPageRef.networkAdvanced,
                   subtitle: Text(context.l10n.networkAdvancedHint),
                   onTap: () => context.push<void>('/settings/network/advanced'),
                 ),
@@ -262,6 +264,7 @@ class _ImageSourceSectionState extends ConsumerState<_ImageSourceSection> {
     return guardDraft(
       dirty: _customDirty,
       child: SettingsGroup(
+        setting: Setting.imageSource,
         title: Text(context.l10n.imageSource),
         children: [
           for (final mode in _presets)
@@ -536,6 +539,7 @@ class _NetworkAdvancedSettingsPageState
               SettingsGroup(
                 children: [
                   SettingsGroupContent(
+                    setting: Setting.dohEndpoints,
                     child: TextField(
                       controller: _dohController,
                       focusNode: _dohFocusNode,
@@ -552,25 +556,30 @@ class _NetworkAdvancedSettingsPageState
               ),
               SettingsGroup(
                 children: [
+                  // One row: Save commits both fields and closes the
+                  // block.
                   SettingsGroupContent(
-                    child: TextField(
-                      controller: _echHostController,
-                      focusNode: _echHostFocusNode,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.networkEchFrontHost,
-                        helperText: context.l10n.networkEchFrontHostHint,
-                        helperMaxLines: 5,
-                      ),
-                      onChanged: (_) => setState(() => _echHostDirty = true),
-                    ),
-                  ),
-                  SettingsGroupContent(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: FilledButton(
-                        onPressed: _dirty ? _saveAll : null,
-                        child: Text(context.l10n.save),
-                      ),
+                    setting: Setting.echFrontHost,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        TextField(
+                          controller: _echHostController,
+                          focusNode: _echHostFocusNode,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.networkEchFrontHost,
+                            helperText: context.l10n.networkEchFrontHostHint,
+                            helperMaxLines: 5,
+                          ),
+                          onChanged: (_) =>
+                              setState(() => _echHostDirty = true),
+                        ),
+                        const SizedBox(height: FuncSpacing.md),
+                        FilledButton(
+                          onPressed: _dirty ? _saveAll : null,
+                          child: Text(context.l10n.save),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -579,7 +588,7 @@ class _NetworkAdvancedSettingsPageState
                 children: [
                   SettingsActionTile(
                     icon: Icons.restart_alt,
-                    title: Text(context.l10n.networkAdvancedReset),
+                    setting: Setting.networkAdvancedReset,
                     onTap: _resetDefaults,
                   ),
                 ],
@@ -666,6 +675,7 @@ class _EffectiveRoutesSectionState
   Widget build(BuildContext context) {
     final empty = _routes.isEmpty && _imageRoutes.isEmpty;
     return SettingsGroup(
+      setting: Setting.networkEffectiveRoutes,
       title: Row(
         children: [
           Expanded(child: Text(context.l10n.networkEffectiveRoutes)),
@@ -758,6 +768,7 @@ class _ThirdPartyReachabilitySectionState
   @override
   Widget build(BuildContext context) {
     return SettingsGroup(
+      setting: Setting.networkThirdParty,
       title: Row(
         children: [
           Expanded(child: Text(context.l10n.networkThirdParty)),

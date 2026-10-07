@@ -14,6 +14,7 @@ import '../../../core/backup/backup_envelope.dart';
 import '../../../core/backup/backup_service.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../settings_catalog.dart';
 
 /// Platform file open for backup import. Behind a provider so widget tests
 /// can inject bytes without a platform file picker.
@@ -192,14 +193,14 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               children: [
                 SettingsActionTile(
                   icon: Icons.file_upload_outlined,
-                  title: Text(l10n.backupExport),
+                  setting: Setting.backupExport,
                   subtitle: Text(l10n.backupExportHint),
                   enabled: !_busy,
                   onTap: _export,
                 ),
                 SettingsActionTile(
                   icon: Icons.file_open_outlined,
-                  title: Text(l10n.backupImport),
+                  setting: Setting.backupImport,
                   subtitle: Text(l10n.backupImportHint),
                   enabled: !_busy,
                   onTap: _import,

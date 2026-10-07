@@ -1,12 +1,15 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'settings_anchor.dart';
+
 /// Settings row for showing the current value, running an action or
 /// displaying read-only info. Without [onTap] the tile is not clickable
 /// and shows no ink splash; [enabled] greys the row out entirely.
 class SettingsActionTile extends StatelessWidget {
   const SettingsActionTile({
     super.key,
-    required this.title,
+    this.title,
+    this.setting,
     this.icon,
     this.subtitle,
     this.trailing,
@@ -15,7 +18,12 @@ class SettingsActionTile extends StatelessWidget {
   });
 
   final IconData? icon;
-  final Widget title;
+
+  /// The title; defaults to the title of [setting].
+  final Widget? title;
+
+  /// The catalog entry this row is the place of (settings search).
+  final SettingsEntry? setting;
   final Widget? subtitle;
   final Widget? trailing;
   final VoidCallback? onTap;
@@ -24,13 +32,16 @@ class SettingsActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final icon = this.icon;
-    return ListTile(
-      leading: icon != null ? Icon(icon) : null,
-      title: title,
-      subtitle: subtitle,
-      trailing: trailing,
-      enabled: enabled,
-      onTap: onTap,
+    return anchorSettingsRow(
+      setting,
+      ListTile(
+        leading: icon != null ? Icon(icon) : null,
+        title: title ?? Text(settingsRowTitle(context, null, setting)),
+        subtitle: subtitle,
+        trailing: trailing,
+        enabled: enabled,
+        onTap: onTap,
+      ),
     );
   }
 }

@@ -14,6 +14,7 @@ import '../../../l10n/context.dart';
 import '../saf_tree_name.dart';
 import '../settings_helpers.dart';
 import '../../../app/clipboard.dart';
+import '../settings_catalog.dart';
 
 /// Single-entry save location chooser (D5): album vs SAF folder. Album
 /// defaults to the built-in Parfait album with an optional custom name;
@@ -94,6 +95,7 @@ class _DownloadDestinationPageState
             ),
             children: [
               SettingsGroup(
+                setting: Setting.saveLocationAlbum,
                 children: [
                   SettingsChoiceTile(
                     title: Text(context.l10n.saveLocationAlbum),
@@ -134,6 +136,7 @@ class _DownloadDestinationPageState
                 ],
               ),
               SettingsGroup(
+                setting: Setting.saveLocationSafFolder,
                 children: [
                   SettingsChoiceTile(
                     title: Text(context.l10n.saveLocationSafFolder),

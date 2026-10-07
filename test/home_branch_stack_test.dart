@@ -23,6 +23,7 @@ import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
+import 'package:parfait/features/settings/me_dashboard_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
@@ -30,15 +31,21 @@ import 'helpers/test_preferences.dart';
 
 const _account = Account(id: '100', userId: 100, name: 'tester');
 
+/// A split-screen phone height: the "me" dashboard at the root of the
+/// settings branch fits a full phone screen and only scrolls on a short
+/// one.
+const _shortHeight = 480.0;
+
 Future<GoRouter> _pumpHome(
   WidgetTester tester, {
   String location = '/recommended',
   double width = 390,
+  double height = 844,
   bool reduceMotion = false,
   Stream<bool> touchExploration = const Stream.empty(),
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  tester.view.physicalSize = Size(width, 844);
+  tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final router = createPixivRouter(initialLocation: location);
@@ -210,12 +217,12 @@ void main() {
     // The first switch's cancellation must not end the second one early.
     await tester.pump(const Duration(milliseconds: 150));
     expect(find.byType(RankingPage), findsOneWidget);
-    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(MeDashboardPage), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
     expect(find.byType(RankingPage), findsNothing);
-    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(MeDashboardPage), findsOneWidget);
   });
 
   testWidgets('reduced motion switches branches within a frame', (
@@ -245,9 +252,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     await tester.pumpAndSettle();
-    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(MeDashboardPage), findsOneWidget);
 
-    // Scroll the settings list, then leave again.
+    // Open the settings index on this branch, scroll it, then leave.
+    unawaited(router.push<void>('/settings/all'));
+    await tester.pumpAndSettle();
     final list = find.descendant(
       of: find.byType(SettingsPage),
       matching: find.byType(ListView),
@@ -280,7 +289,12 @@ void main() {
 
   testWidgets('cold start builds no unvisited branch', (tester) async {
     await _pumpHome(tester);
-    for (final type in [RankingPage, NewPage, SearchHomePage, SettingsPage]) {
+    for (final type in [
+      RankingPage,
+      NewPage,
+      SearchHomePage,
+      MeDashboardPage,
+    ]) {
       expect(find.byType(type, skipOffstage: false), findsNothing);
     }
 
@@ -427,7 +441,7 @@ void main() {
 
   group('touch exploration', () {
     final settingsList = find.descendant(
-      of: find.byType(SettingsPage),
+      of: find.byType(MeDashboardPage),
       matching: find.byType(ListView),
     );
 
@@ -437,6 +451,7 @@ void main() {
       await _pumpHome(
         tester,
         location: '/settings',
+        height: _shortHeight,
         touchExploration: Stream.value(true),
       );
       final nav = find.byType(FuncBottomNav);
@@ -457,6 +472,7 @@ void main() {
       await _pumpHome(
         tester,
         location: '/settings',
+        height: _shortHeight,
         touchExploration: exploration.stream,
       );
       final nav = find.byType(FuncBottomNav);
@@ -465,7 +481,7 @@ void main() {
       // Hide with a real scroll first.
       await tester.drag(settingsList, const Offset(0, -300));
       await tester.pumpAndSettle();
-      expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
+      expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_shortHeight));
 
       exploration.add(true);
       await tester.pumpAndSettle();
@@ -474,14 +490,14 @@ void main() {
 
     testWidgets('semantics alone does not pin the bar', (tester) async {
       final handle = tester.ensureSemantics();
-      await _pumpHome(tester, location: '/settings');
+      await _pumpHome(tester, location: '/settings', height: _shortHeight);
       final nav = find.byType(FuncBottomNav);
 
       // Services that only open the semantics tree do not set
       // accessibleNavigation — the bar keeps its hide-on-scroll.
       await tester.drag(settingsList, const Offset(0, -300));
       await tester.pumpAndSettle();
-      expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
+      expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_shortHeight));
       handle.dispose();
     });
 
@@ -497,13 +513,14 @@ void main() {
       await _pumpHome(
         tester,
         location: '/settings',
+        height: _shortHeight,
         touchExploration: Stream.value(false),
       );
       final nav = find.byType(FuncBottomNav);
 
       await tester.drag(settingsList, const Offset(0, -300));
       await tester.pumpAndSettle();
-      expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
+      expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_shortHeight));
     });
 
     testWidgets('the engine flag applies until Android reports', (
@@ -516,7 +533,7 @@ void main() {
       addTearDown(
         tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
       );
-      await _pumpHome(tester, location: '/settings');
+      await _pumpHome(tester, location: '/settings', height: _shortHeight);
       final nav = find.byType(FuncBottomNav);
       final shownTop = tester.getTopLeft(nav).dy;
 

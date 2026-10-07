@@ -223,6 +223,18 @@ class AppLocalizationsJa extends AppLocalizations {
       '本規約は機能や法律の変更に応じて更新されることがあります。更新後も利用を続けた場合、更新後の規約に同意したものとします。';
 
   @override
+  String get settingsTitle => '設定';
+
+  @override
+  String get settingsSearchHint => '設定を検索';
+
+  @override
+  String get settingsSearchEmpty => '一致する設定はありません';
+
+  @override
+  String get settingsEntrySummary => '外観、閲覧、ネットワーク、ダウンロード、バックアップ';
+
+  @override
   String get settingsGroupAppearance => '外観';
 
   @override

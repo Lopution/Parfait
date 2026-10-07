@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../motion/motion_tokens.dart';
 import '../../motion/removal.dart';
 import '../../theme/func_semantic_tokens.dart';
+import 'settings_anchor.dart';
 
 /// Inset settings group: optional header, the rows, optional footnote below.
 ///
@@ -23,8 +24,14 @@ class SettingsGroup extends StatelessWidget {
     super.key,
     this.title,
     this.footer,
+    this.setting,
     required this.children,
   });
+
+  /// The catalog entry this group is the place of (settings search): a
+  /// choice group, or a block whose rows only exist in some states. When
+  /// the search reveals it, every segment takes the mark.
+  final SettingsEntry? setting;
 
   /// Space between two segments of one group.
   static const double segmentGap = 2;
@@ -58,7 +65,8 @@ class SettingsGroup extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final title = this.title;
     final footer = this.footer;
-    return Padding(
+    final setting = this.setting;
+    final group = Padding(
       padding: const EdgeInsets.fromLTRB(
         FuncSpacing.lg,
         0,
@@ -103,6 +111,8 @@ class SettingsGroup extends StatelessWidget {
         ],
       ),
     );
+    if (setting == null) return group;
+    return SettingAnchor(entry: setting, paintsMark: false, child: group);
   }
 
   Widget _segments(BuildContext context) {
@@ -173,6 +183,7 @@ class _Segment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (duration, curve) = motion;
+    final mark = SettingHighlight.maybeOf(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -192,7 +203,9 @@ class _Segment extends StatelessWidget {
           animationDuration: duration,
           // Ink stays inside its own segment.
           clipBehavior: Clip.antiAlias,
-          child: child,
+          child: mark == null
+              ? child
+              : SettingMarkOverlay(mark: mark, child: child),
         ),
       ],
     );

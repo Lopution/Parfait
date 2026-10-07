@@ -16,6 +16,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../../../app/widgets/app_slider.dart';
+import '../settings_catalog.dart';
 
 /// Template variables in the order the chips list them: the work, its
 /// pages, the file, dates, then the series. Covers
@@ -125,6 +126,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                 children: [
                   // One row: the label names the slider under it.
                   SettingsGroupContent(
+                    setting: Setting.maxDownloadCount,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -161,7 +163,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
               SettingsGroup(
                 children: [
                   SettingsTile(
-                    title: context.l10n.saveLocation,
+                    setting: SettingsPageRef.downloadDestination,
                     subtitle: Text(
                       downloadDestinationLabel(context, destination),
                     ),
@@ -169,7 +171,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                         context.push<void>('/settings/download/destination'),
                   ),
                   SettingsControl(
-                    title: Text(context.l10n.downloadCaption),
+                    setting: Setting.downloadCaption,
                     subtitle: Text(context.l10n.downloadCaptionHint),
                     value: settings.downloadCaption,
                     onChanged: (enabled) => persistSettings(
@@ -182,6 +184,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                 ],
               ),
               SettingsGroup(
+                setting: Setting.namingPreset,
                 title: Text(context.l10n.namingPreset),
                 children: [
                   for (final preset in NamingPreset.values)

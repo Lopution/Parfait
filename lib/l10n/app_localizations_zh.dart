@@ -27,10 +27,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get next => '下一步';
 
   @override
-  String get dark => '黑暗';
+  String get dark => '深色';
 
   @override
-  String get light => '明亮';
+  String get light => '浅色';
 
   @override
   String get system => '跟随系统';
@@ -214,6 +214,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agreementUpdates => '协议可能随功能或法律变化而更新；更新后继续使用即表示接受更新后的协议。';
+
+  @override
+  String get settingsTitle => '设置';
+
+  @override
+  String get settingsSearchHint => '搜索设置';
+
+  @override
+  String get settingsSearchEmpty => '没有匹配的设置';
+
+  @override
+  String get settingsEntrySummary => '外观、浏览、网络、下载、备份';
 
   @override
   String get settingsGroupAppearance => '外观';

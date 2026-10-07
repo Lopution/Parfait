@@ -15,6 +15,7 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../settings_catalog.dart';
 
 /// Motion and haptics: page transition style, animation speed, reduce
 /// motion, press feedback and the Android haptic strength picker.
@@ -43,6 +44,7 @@ class MotionSettingsPage extends ConsumerWidget {
           ),
           children: [
             SettingsGroup(
+              setting: Setting.pageTransition,
               title: Text(context.l10n.motionPageTransition),
               children: [
                 for (final style in PageTransitionStyle.values)
@@ -67,7 +69,7 @@ class MotionSettingsPage extends ConsumerWidget {
               ),
               children: [
                 SettingsMenuTile<AnimationSpeed>(
-                  title: context.l10n.animationSpeed,
+                  setting: Setting.animationSpeed,
                   value: settings.animationSpeed,
                   options: [
                     for (final speed in AnimationSpeed.values)
@@ -93,7 +95,7 @@ class MotionSettingsPage extends ConsumerWidget {
             SettingsGroup(
               children: [
                 SettingsControl(
-                  title: Text(context.l10n.reduceMotion),
+                  setting: Setting.reduceMotion,
                   subtitle: Text(context.l10n.reduceMotionHint),
                   value: settings.reduceMotion,
                   onChanged: (value) => persistSettings(
@@ -104,7 +106,7 @@ class MotionSettingsPage extends ConsumerWidget {
                   ),
                 ),
                 SettingsControl(
-                  title: Text(context.l10n.pressFeedback),
+                  setting: Setting.pressFeedback,
                   subtitle: Text(context.l10n.pressFeedbackHint),
                   value: settings.pressFeedback,
                   onChanged: (value) => persistSettings(
@@ -150,7 +152,7 @@ class _HapticStrengthGroup extends ConsumerWidget {
       },
       children: [
         SettingsMenuTile<HapticStrength>(
-          title: l10n.hapticStrength,
+          setting: Setting.hapticStrength,
           value: selected,
           options: [
             for (final strength in HapticStrength.values)

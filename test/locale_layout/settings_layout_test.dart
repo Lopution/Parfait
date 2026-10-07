@@ -9,6 +9,7 @@ import 'package:parfait/core/i18n/replica_language.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
+import 'package:parfait/features/settings/me_dashboard_page.dart';
 import 'package:parfait/features/settings/network_probe_page.dart';
 import 'package:parfait/features/settings/network_settings_page.dart';
 import 'package:parfait/features/settings/pages/translation_credentials_page.dart';
@@ -22,6 +23,7 @@ import '../helpers/test_preferences.dart';
 /// The settings pages, each in the language its own settings select.
 /// The frame probe is a debug page and stays out.
 final _pages = <String, Widget>{
+  'me dashboard': const MeDashboardPage(),
   'settings': const SettingsPage(),
   'browse': const BrowseSettingsPage(),
   'motion': const MotionSettingsPage(),

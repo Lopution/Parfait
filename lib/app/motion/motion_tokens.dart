@@ -101,6 +101,14 @@ abstract final class MotionTokens {
   /// The particle burst around a heart that was just added.
   static const bookmarkBurst = Duration(milliseconds: 450);
 
+  /// A setting opened from the settings search: how long its row stays
+  /// marked before the mark fades. A dwell, not an animation — it holds
+  /// under reduced motion too, so the row is still found.
+  static const settingHighlightHold = Duration(milliseconds: 1200);
+
+  /// The fade that clears that mark.
+  static const settingHighlightFade = Duration(milliseconds: 600);
+
   /// Whether motion should play. Three sources, one gate: the platform's
   /// `disableAnimations` (a11y) OR the platform's `reduceMotion`
   /// (iOS "Reduce Motion" does NOT raise `disableAnimations` — reading only

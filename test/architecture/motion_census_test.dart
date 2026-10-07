@@ -36,6 +36,9 @@ const _census = <String, int>{
   // Wheel scrolling is scroll physics for mouse input; scaling it changes
   // how scrolling feels, not how fast an animation plays.
   'lib/app/widgets/smooth_wheel_scroll.dart': 1,
+  // How long a searched setting stays marked: a dwell that must hold
+  // under reduced motion; the fade after it is resolved.
+  'lib/app/widgets/settings/settings_anchor.dart': 1,
 };
 
 final _springCall = RegExp(r'(?<![\w.])(?:MotionTokens\.)?spring(?:Curve)?\(');

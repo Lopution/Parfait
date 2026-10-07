@@ -228,6 +228,19 @@ class AppLocalizationsRu extends AppLocalizations {
       'Соглашение может меняться вслед за функциями приложения или законодательством; продолжая пользоваться приложением после изменений, вы принимаете обновлённое соглашение.';
 
   @override
+  String get settingsTitle => 'Настройки';
+
+  @override
+  String get settingsSearchHint => 'Поиск настроек';
+
+  @override
+  String get settingsSearchEmpty => 'Ничего не найдено';
+
+  @override
+  String get settingsEntrySummary =>
+      'Оформление, просмотр, сеть, загрузки, резервные копии';
+
+  @override
   String get settingsGroupAppearance => 'Внешний вид';
 
   @override
@@ -2480,7 +2493,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get bookmarkTags => 'Теги закладок';
 
   @override
-  String get bookmarkTagNewHint => 'Введите тег и нажмите Enter';
+  String get bookmarkTagNewHint => 'Новый тег, затем Enter';
 
   @override
   String get bookmarkTagFilterEmpty => 'Среди загруженных работ нет совпадений';
@@ -2543,7 +2556,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get seriesNext => 'Следующая';
 
   @override
-  String get watchlistTitle => 'Отслеживаемое';
+  String get watchlistTitle => 'Мои серии';
 
   @override
   String get watchlistManga => 'Манга';
@@ -2552,7 +2565,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchlistNovel => 'Новелла';
 
   @override
-  String get watchlistEmpty => 'В отслеживаемом пока нет серий';
+  String get watchlistEmpty => 'Вы пока не отслеживаете ни одной серии';
 
   @override
   String get watchlistLoadFailed => 'Не удалось загрузить список';

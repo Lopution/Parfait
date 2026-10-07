@@ -6,9 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
-import '../../app/navigation/routes.dart';
 import '../../app/widgets/app_top_bar.dart';
-import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings/settings_group.dart';
@@ -17,15 +15,13 @@ import '../../app/widgets/settings_load_error.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/comments/comment_translation.dart';
 import '../../core/debug/frame_probe.dart';
-import '../../core/download/download_providers.dart';
-import '../../core/download/download_task.dart' show isTerminal;
 import '../../core/mute/mute_store.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../core/settings/shared_preferences.dart';
 import '../../l10n/context.dart';
-import 'pages/account_settings_page.dart';
+import 'settings_catalog.dart';
 import 'settings_helpers.dart';
 
 export 'pages/about_settings_page.dart';
@@ -41,209 +37,235 @@ export 'pages/motion_settings_page.dart';
 export 'pages/theme_settings_page.dart';
 export 'pages/translate_settings_page.dart';
 
-class SettingsPage extends ConsumerWidget {
+/// All settings, grouped by intent, with a search over every setting
+/// (`/settings/all`, opened from the "me" dashboard). While the search has
+/// text, its results replace the groups.
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends ConsumerState<SettingsPage> {
+  final _query = TextEditingController();
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
-    final accounts = ref.watch(accountStoreProvider);
+    final query = _query.text;
     return Scaffold(
-      // Root pages own no inline composer: leaving the default `true`
-      // would subscribe this whole subtree to per-frame viewInsets churn
-      // every time the IME animates (e.g. the push that hides the search
-      // keyboard) — a relayout storm across all five live branches.
-      resizeToAvoidBottomInset: false,
-      appBar: AppTopBar(title: Text(context.l10n.homeMe)),
+      appBar: AppTopBar(
+        title: Text(context.l10n.settingsTitle),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(_searchBarExtent),
+          child: settingsNarrowBody(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                FuncSpacing.lg,
+                0,
+                FuncSpacing.lg,
+                FuncSpacing.sm,
+              ),
+              // The search page's field: one look for every search.
+              child: SearchBar(
+                controller: _query,
+                constraints: const BoxConstraints(minHeight: 48),
+                hintText: context.l10n.settingsSearchHint,
+                leading: const Icon(Icons.search),
+                trailing: [
+                  if (query.isNotEmpty)
+                    IconButton(
+                      tooltip: context.l10n.searchClear,
+                      icon: const Icon(Icons.close),
+                      onPressed: () => setState(_query.clear),
+                    ),
+                ],
+                onChanged: (_) => setState(() {}),
+                textInputAction: TextInputAction.search,
+              ),
+            ),
+          ),
+        ),
+      ),
       body: settings.when(
         loading: () => const FeedLoading(),
         error: (error, _) => SettingsLoadError(
           error: error,
           onRetry: () => ref.read(settingsProvider.notifier).reload(),
         ),
-        data: (settings) =>
-            _SettingsList(accounts: accounts, settings: settings),
+        data: (settings) => query.trim().isEmpty
+            ? _SettingsGroups(settings: settings)
+            : _SearchResults(query: query),
       ),
     );
   }
 }
 
-class _SettingsList extends ConsumerWidget {
-  const _SettingsList({required this.accounts, required this.settings});
+/// The search field under the title: the field plus its bottom padding.
+const double _searchBarExtent = 48 + FuncSpacing.sm;
 
-  final AsyncValue<AccountState> accounts;
+class _SearchResults extends StatelessWidget {
+  const _SearchResults({required this.query});
+
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
+    final results = searchSettings(context.l10n, query);
+    if (results.isEmpty) {
+      return FeedEmpty(
+        icon: Icons.search_off,
+        title: context.l10n.settingsSearchEmpty,
+      );
+    }
+    return settingsNarrowBody(
+      ListView(
+        // The results are a lookup: dragging them puts the keyboard away.
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.only(
+          top: FuncSpacing.sm,
+          bottom: FuncSpacing.xl,
+        ),
+        children: [
+          SettingsGroup(
+            children: [
+              for (final result in results)
+                SettingsTile(
+                  title: result.label,
+                  subtitle: result.path.isEmpty
+                      ? null
+                      : Text(result.path.join(' › ')),
+                  onTap: () => openSettingsPage(context, result.location),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsGroups extends ConsumerWidget {
+  const _SettingsGroups({required this.settings});
+
   final AppSettings settings;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (accounts.hasError) {
-      return SettingsLoadError(
-        error: accounts.error!,
-        onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
-        messageKey: 'accountReadFailed',
-      );
-    }
-    if (accounts.isLoading && !accounts.hasValue) {
-      return const FeedLoading();
-    }
-    final state = accounts.value;
-    if (state?.status == AccountStatus.failure) {
-      return SettingsLoadError(
-        error: state?.error ?? StateError('account state unavailable'),
-        onRetry: () => ref.read(accountStoreProvider.notifier).reload(),
-        messageKey: 'accountReadFailed',
-      );
-    }
-    final account = state?.current;
+    final account = ref.watch(accountStoreProvider).value?.current;
     // Root summaries answer "what is the current value" (Android summary
     // convention): concrete values, never a description of the title.
     final muted = ref.watch(muteStoreProvider);
     final mutedCount =
         muted.tags.length + muted.users.length + muted.works.length;
-    // One-time snapshot per design: the page does not subscribe to the
-    // manager's `changes` stream, so this count refreshes with the next
-    // page rebuild rather than live.
-    final activeTasks = ref
-        .read(downloadManagerProvider)
-        .tasks
-        .where((task) => !isTerminal(task.status))
-        .length;
-    // Hub layout: tiles are grouped by intent under labeled section
-    // headers instead of a flat list with bare dividers. Destructive/
-    // transfer actions (backup) sit in their own "data" group.
+    SettingsTile page(
+      SettingsPageRef page, {
+      required IconData icon,
+      Widget? subtitle,
+    }) => SettingsTile(
+      setting: page,
+      icon: icon,
+      subtitle: subtitle,
+      onTap: () => openSettingsPage(context, page.path),
+    );
+
+    // Tiles are grouped by intent under labeled section headers.
+    // Destructive/transfer actions (backup) sit in their own "data" group.
     return settingsNarrowBody(
       ListView(
-        // The root catalog is a bounded ~20-tile list: prebuilding all of
-        // it keeps maxScrollExtent stable during a fling — a lazy extent
-        // revision mid-flight makes the bottom-bar hide/show logic read
-        // the spring-back as a real reverse scroll.
+        // A bounded ~15-tile list: prebuilding it keeps maxScrollExtent
+        // stable during a fling.
         scrollCacheExtent: const ScrollCacheExtent.pixels(2000),
         padding: const EdgeInsets.only(
           top: FuncSpacing.sm,
           bottom: FuncSpacing.xl,
         ),
         children: [
-          SettingsGroup(children: [AccountSummaryTile(account: account)]),
-          SettingsGroup(
-            title: Text(context.l10n.settingsGroupLibrary),
-            children: [
-              SettingsTile(
-                icon: Icons.history,
-                title: context.l10n.historySettings,
-                onTap: () => openHistory(context),
-              ),
-              SettingsTile(
-                icon: Icons.bookmark_border,
-                title: context.l10n.watchLaterTitle,
-                onTap: () => openWatchLater(context),
-              ),
-              SettingsTile(
-                icon: Icons.collections_bookmark_outlined,
-                title: context.l10n.watchlistTitle,
-                onTap: () => openWatchlist(context),
-              ),
-              SettingsTile(
-                icon: Icons.menu_book_outlined,
-                title: context.l10n.localNovelsTitle,
-                onTap: () => openLocalNovels(context),
-              ),
-              SettingsTile(
-                icon: Icons.downloading_outlined,
-                title: context.l10n.downloaderSettings,
-                subtitle: Text(
-                  context.l10n.settingsDownloadTasksSummary(activeTasks),
-                ),
-                onTap: () => unawaited(openDownloadTasks(context)),
-              ),
-            ],
-          ),
           SettingsGroup(
             title: Text(context.l10n.accountSettings),
             children: [
-              SettingsTile(
+              page(
+                SettingsPageRef.account,
                 icon: Icons.manage_accounts_outlined,
-                title: context.l10n.accountManagement,
                 subtitle: Text(account?.name ?? context.l10n.signedOut),
-                onTap: () => openSettingsPage(context, '/settings/account'),
               ),
             ],
           ),
           SettingsGroup(
             title: Text(context.l10n.settingsGroupAppearance),
             children: [
-              SettingsTile(
+              page(
+                SettingsPageRef.theme,
                 icon: Icons.palette_outlined,
-                title: context.l10n.themeSettings,
                 subtitle: Text(themeModeLabel(context, settings.themeCode)),
-                onTap: () => openSettingsPage(context, '/settings/theme'),
               ),
-              SettingsTile(
+              page(
+                SettingsPageRef.language,
                 icon: Icons.language,
-                title: context.l10n.languageSettings,
                 subtitle: Text(languageDisplayName(settings.languageTag)),
-                onTap: () => openSettingsPage(context, '/settings/language'),
               ),
-              SettingsTile(
+              page(
+                SettingsPageRef.translate,
                 icon: Icons.translate,
-                title: context.l10n.translateSettings,
                 subtitle: _TranslationSummary(
                   provider: settings.translationProvider,
                 ),
-                onTap: () => openSettingsPage(context, '/settings/translate'),
               ),
-              SettingsTile(
+              page(
+                SettingsPageRef.motion,
                 icon: Icons.animation,
-                title: context.l10n.motionSettings,
                 subtitle: Text(
                   settings.reduceMotion
                       ? context.l10n.reduceMotion
                       : animationSpeedLabel(context, settings.animationSpeed),
                 ),
-                onTap: () => openSettingsPage(context, '/settings/motion'),
               ),
             ],
           ),
           SettingsGroup(
             title: Text(context.l10n.settingsGroupBrowse),
             children: [
-              SettingsTile(
+              // No single value summarizes the page now that the image
+              // source lives in network settings — a static hint instead,
+              // same as the backup tile.
+              page(
+                SettingsPageRef.browse,
                 icon: Icons.image_outlined,
-                title: context.l10n.browseSettings,
-                // No single value summarizes the page now that the image
-                // source lives in network settings — a static hint instead,
-                // same as the backup tile.
                 subtitle: Text(context.l10n.settingsBrowseHint),
-                onTap: () => openSettingsPage(context, '/settings/browse'),
               ),
-              SettingsTile(
+              page(
+                SettingsPageRef.muted,
                 icon: Icons.block_outlined,
-                title: context.l10n.mutedItemsSettings,
                 subtitle: Text(
                   mutedCount == 0
                       ? context.l10n.mutedEmpty
                       : context.l10n.settingsMutedSummary(mutedCount),
                 ),
-                onTap: () => openSettingsPage(context, '/settings/muted'),
               ),
             ],
           ),
           SettingsGroup(
             title: Text(context.l10n.settingsGroupNetwork),
             children: [
-              SettingsTile(
+              page(
+                SettingsPageRef.network,
                 icon: Icons.network_check,
-                title: context.l10n.networkSettings,
                 subtitle: Text(networkModeLabel(context, settings.networkMode)),
-                onTap: () => openSettingsPage(context, '/settings/network'),
               ),
-              SettingsTile(
+              page(
+                SettingsPageRef.download,
                 icon: Icons.download_outlined,
-                title: context.l10n.downloadSettings,
                 subtitle: Text(
                   '${namingPresetLabel(context, settings.namingRule.preset)} · '
                   '${downloadDestinationLabel(context, settings.downloadDestination)}',
                 ),
-                onTap: () => openSettingsPage(context, '/settings/download'),
               ),
             ],
           ),
@@ -252,21 +274,19 @@ class _SettingsList extends ConsumerWidget {
             children: [
               // No natural current value exists for backup — the static hint
               // tells the user what the page does instead (per design §4.8-1).
-              SettingsTile(
+              page(
+                SettingsPageRef.backup,
                 icon: Icons.backup_outlined,
-                title: context.l10n.backupSettings,
                 subtitle: Text(context.l10n.backupHint),
-                onTap: () => openSettingsPage(context, '/settings/backup'),
               ),
             ],
           ),
           SettingsGroup(
             children: [
-              SettingsTile(
+              page(
+                SettingsPageRef.about,
                 icon: Icons.info_outline,
-                title: context.l10n.aboutSettings,
                 subtitle: const _VersionSummary(),
-                onTap: () => openSettingsPage(context, '/settings/about'),
               ),
             ],
           ),
@@ -281,15 +301,12 @@ class _SettingsList extends ConsumerWidget {
             SettingsGroup(
               title: Text(context.l10n.settingsGroupDeveloper),
               children: [
-                SettingsTile(
+                page(
+                  SettingsPageRef.frameProbe,
                   icon: Icons.monitor_heart_outlined,
-                  title: context.l10n.frameProbeTitle,
-                  onTap: () =>
-                      openSettingsPage(context, '/settings/frame-probe'),
                 ),
               ],
             ),
-          const FuncNavBarSpacer(),
         ],
       ),
     );
