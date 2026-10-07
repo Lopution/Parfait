@@ -28,7 +28,7 @@ import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 
 String _accountSubtitle(BuildContext context, Account account) =>
-    '${context.l10n.accountId}: ${account.id}';
+    context.l10n.labelValue(context.l10n.accountId, account.id);
 
 /// Signed-in account summary on the settings hub: 58dp avatar and display
 /// type, not a settings row — it lives inside the first [SettingsGroup] and
@@ -192,6 +192,11 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                                       ),
                                     IconButton(
                                       tooltip: context.l10n.removeAccount,
+                                      // Destructive, so it does not take
+                                      // the selected row's primary tint.
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
                                       icon: const Icon(Icons.delete_outline),
                                       onPressed: _switchingTo == null
                                           ? () => _confirmRemove(account)

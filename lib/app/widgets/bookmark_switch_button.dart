@@ -191,8 +191,13 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
     final entry = ref.watch(bookmarkStoreProvider.select((s) => s[_key]));
     final bookmarked = entry?.shown ?? false;
     final unsettled = entry?.isUnsettled ?? false;
-    final semanticLabel =
-        '${_bookmarkText(context, widget.isNovel ? 'bookmarkNovel' : 'bookmarkIllust')}: ${widget.title}';
+    final semanticLabel = context.l10n.labelValue(
+      _bookmarkText(
+        context,
+        widget.isNovel ? 'bookmarkNovel' : 'bookmarkIllust',
+      ),
+      widget.title,
+    );
 
     // R5: a failure rolls the heart back to the confirmed value and
     // surfaces an observable error.

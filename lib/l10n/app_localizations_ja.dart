@@ -36,7 +36,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get system => 'システムのデフォルト';
 
   @override
-  String get loginTitle => '登録･ログイン';
+  String get loginTitle => '登録・ログイン';
 
   @override
   String get loginProxyNoticeTitle => 'お知らせ';
@@ -88,14 +88,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get loginFailed => 'ログインに失敗しました';
 
   @override
-  String get networkCompatibility => 'Pixiv公式ネットワーク互換';
+  String get networkCompatibility => 'Pixiv互換接続';
 
   @override
   String get networkCompatibilityHint =>
       'オンにすると、Pixiv公式ドメインには暗号化DNS、ECH、SNIなしなどの互換接続と直接接続のうち使えるものを選び、成功した方法を記憶します。最後の互換接続は証明書を検証しません。オフにすると直接接続のみになります。他の通信はプロキシしません。';
 
   @override
-  String get useLoginWithClipboard => 'クリップボードに保存されたデータでログイン';
+  String get useLoginWithClipboard => 'クリップボードからログイン';
 
   @override
   String get accountTransferExportTitle => 'アカウント認証情報をエクスポート';
@@ -147,10 +147,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get accountTransferStorageFailure => 'アカウント移行記録を安全に保存できません';
 
   @override
-  String get loginAgree => 'ログインすると利用規約に同意したものとみなします';
+  String get loginAgree => 'ログインすると以下に同意したことになります';
 
   @override
-  String get userAgreement => '《Parfait利用規約》';
+  String get userAgreement => '「Parfait利用規約」';
 
   @override
   String get agreementTitle => 'Parfait利用規約';
@@ -1534,6 +1534,11 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String errorWithReason(String action, String reason) {
     return '$action：$reason';
+  }
+
+  @override
+  String labelValue(String label, String value) {
+    return '$label：$value';
   }
 
   @override

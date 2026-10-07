@@ -58,7 +58,7 @@ void showUpdatePrompt(
 }) {
   final l10n = host.context.l10n;
   host.show(
-    '${l10n.aboutUpdateAvailable}: $version',
+    l10n.labelValue(l10n.aboutUpdateAvailable, version),
     duration: updatePromptDuration,
     action: PromptAction(label: l10n.aboutUpdateOpen, onPressed: onOpen),
   );

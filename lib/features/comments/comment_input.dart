@@ -149,7 +149,10 @@ class CommentComposerState extends State<CommentComposer> {
                       children: [
                         Expanded(
                           child: Text(
-                            '${context.l10n.commentReplyTo}: ${widget.replyTo}',
+                            context.l10n.labelValue(
+                              context.l10n.commentReplyTo,
+                              widget.replyTo!,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall,

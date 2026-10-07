@@ -75,11 +75,11 @@ void main() {
     final (container, repository) = await _pump(tester);
 
     expect(find.byIcon(Icons.favorite_outline_sharp), findsOneWidget);
-    expect(find.bySemanticsLabel('收藏插画: work 1'), findsOneWidget);
+    expect(find.bySemanticsLabel('收藏插画：work 1'), findsOneWidget);
     expect(
-      tester.getSemantics(find.bySemanticsLabel('收藏插画: work 1')),
+      tester.getSemantics(find.bySemanticsLabel('收藏插画：work 1')),
       isSemantics(
-        label: '收藏插画: work 1',
+        label: '收藏插画：work 1',
         isButton: true,
         hasToggledState: true,
         isToggled: false,
@@ -105,9 +105,9 @@ void main() {
     await tester.pump();
     expect(find.byIcon(Icons.favorite_sharp), findsOneWidget);
     expect(
-      tester.getSemantics(find.bySemanticsLabel('收藏插画: work 1')),
+      tester.getSemantics(find.bySemanticsLabel('收藏插画：work 1')),
       isSemantics(
-        label: '收藏插画: work 1',
+        label: '收藏插画：work 1',
         isButton: true,
         hasToggledState: true,
         isToggled: true,
@@ -162,9 +162,9 @@ void main() {
     expect(find.byIcon(Icons.favorite_sharp), findsOneWidget);
     expect(find.byType(CupertinoActivityIndicator), findsNothing);
     expect(
-      tester.getSemantics(find.bySemanticsLabel('收藏插画: work 1')),
+      tester.getSemantics(find.bySemanticsLabel('收藏插画：work 1')),
       isSemantics(
-        label: '收藏插画: work 1',
+        label: '收藏插画：work 1',
         isButton: true,
         hasToggledState: true,
         isToggled: true,

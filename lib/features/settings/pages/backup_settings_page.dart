@@ -70,7 +70,10 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     } on BackupImportException catch (error) {
       // `publicMessage` is crafted user-facing copy, not raw error text.
       final message = error.publicMessage;
-      showAppSnackBar(context, '${context.l10n.backupImportInvalid}: $message');
+      showAppSnackBar(
+        context,
+        context.l10n.errorWithReason(context.l10n.backupImportInvalid, message),
+      );
       return;
     }
     final strategy = await _pickStrategy(envelope);
@@ -183,8 +186,8 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
             bottom: FuncSpacing.xl,
           ),
           children: [
+            // The page title already names the only group.
             SettingsGroup(
-              title: Text(l10n.backupSettings),
               footer: Text(l10n.backupHint),
               children: [
                 SettingsActionTile(

@@ -1186,7 +1186,7 @@ void main() {
         home: Scaffold(body: AccountSummaryTile(account: account)),
       ),
     );
-    expect(find.text('账号 ID: 42'), findsOneWidget);
+    expect(find.text('账号 ID：42'), findsOneWidget);
     expect(find.text('private@example.invalid'), findsNothing);
 
     await tester.pumpWidget(
@@ -1213,7 +1213,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('账号 ID: 42'), findsOneWidget);
+    expect(find.text('账号 ID：42'), findsOneWidget);
     expect(find.text('private@example.invalid'), findsNothing);
   });
 
@@ -1457,15 +1457,8 @@ void main() {
         ),
       );
     }
-    expect(
-      tester.getSemantics(
-        find.descendant(
-          of: find.byType(SettingsGroup),
-          matching: find.text('备份与导入'),
-        ),
-      ),
-      isSemantics(isHeader: true),
-    );
+    // The page title names the only group; it is not repeated above it.
+    expect(find.text('备份与导入'), findsOneWidget);
   });
 
   testWidgets('settings home shows current-value summaries', (tester) async {

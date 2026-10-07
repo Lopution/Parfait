@@ -668,7 +668,12 @@ class _SearchUserTile extends StatelessWidget {
         title: Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: user.account.isEmpty
             ? null
-            : Text('${context.l10n.searchUserAccount}: ${user.account}'),
+            : Text(
+                context.l10n.labelValue(
+                  context.l10n.searchUserAccount,
+                  user.account,
+                ),
+              ),
         // ListTile asserts when the trailing widget consumes the entire
         // tile width, so an oversized localized button is capped at half
         // the row to leave the title a lane; the button scales its label

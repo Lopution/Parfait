@@ -85,7 +85,7 @@ void main() {
     expect(controller.text, '{title}{id}');
     expect(controller.selection, const TextSelection.collapsed(offset: 7));
     expect(fieldFocused(tester), isTrue);
-    expect(find.textContaining('预览: 作品标题123456'), findsOneWidget);
+    expect(find.textContaining('预览：作品标题123456'), findsOneWidget);
 
     // The draft is unsaved: save is offered and leaving asks first.
     expect(
@@ -108,7 +108,7 @@ void main() {
 
     expect(controller.text, '{w}_{id}');
     expect(controller.selection, const TextSelection.collapsed(offset: 3));
-    expect(find.textContaining('预览: 1200_123456'), findsOneWidget);
+    expect(find.textContaining('预览：1200_123456'), findsOneWidget);
   });
 
   testWidgets('without a cursor the variable goes at the end', (tester) async {
@@ -118,7 +118,7 @@ void main() {
     await tapChip(tester, '系列名');
 
     expect(controller.text, '{id}{series}');
-    expect(find.textContaining('预览: 123456系列名'), findsOneWidget);
+    expect(find.textContaining('预览：123456系列名'), findsOneWidget);
   });
 
   testWidgets('every variable shows a sample in the preview', (tester) async {
@@ -133,7 +133,7 @@ void main() {
       '{author_id}{pages}{h}{created}{series_order}{chapters}',
     );
     expect(
-      find.textContaining('预览: 78903160020260901_123000210'),
+      find.textContaining('预览：78903160020260901_123000210'),
       findsOneWidget,
     );
   });

@@ -47,6 +47,27 @@ class _DownloadDestinationPageState
     super.dispose();
   }
 
+  Future<void> _saveAlbum() async {
+    final name = DownloadDestination.normalizeAlbumName(_albumController.text);
+    if (name == null) {
+      showAppSnackBar(context, context.l10n.saveLocationAlbumInvalid);
+      return;
+    }
+    final saved = await persistSettings(
+      context,
+      () => ref
+          .read(settingsProvider.notifier)
+          .setDownloadDestination(DownloadDestination.customAlbum(name)),
+    );
+    if (saved && mounted) {
+      // Committed: the draft became the persisted
+      // value, so leaving no longer needs the discard
+      // prompt.
+      setState(() => _albumDirty = false);
+      showAppSnackBar(context, context.l10n.saved);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(settingsProvider);
@@ -84,51 +105,30 @@ class _DownloadDestinationPageState
                           .setDownloadDestination(DownloadDestination.builtin),
                     ),
                   ),
+                  // The field and its save are one row.
                   SettingsGroupContent(
-                    child: TextField(
-                      controller: _albumController,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.saveLocationCustomAlbum,
-                        helperText: context.l10n.saveLocationCustomAlbumHint,
-                        helperMaxLines: 3,
-                      ),
-                      maxLength: 64,
-                      onChanged: (_) => setState(() => _albumDirty = true),
-                    ),
-                  ),
-                  SettingsGroupContent(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: FilledButton(
-                        onPressed: () async {
-                          final name = DownloadDestination.normalizeAlbumName(
-                            _albumController.text,
-                          );
-                          if (name == null) {
-                            showAppSnackBar(
-                              context,
-                              context.l10n.saveLocationAlbumInvalid,
-                            );
-                            return;
-                          }
-                          final saved = await persistSettings(
-                            context,
-                            () => ref
-                                .read(settingsProvider.notifier)
-                                .setDownloadDestination(
-                                  DownloadDestination.customAlbum(name),
-                                ),
-                          );
-                          if (saved && context.mounted) {
-                            // Committed: the draft became the persisted
-                            // value, so leaving no longer needs the discard
-                            // prompt.
-                            setState(() => _albumDirty = false);
-                            showAppSnackBar(context, context.l10n.saved);
-                          }
-                        },
-                        child: Text(context.l10n.save),
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: _albumController,
+                          decoration: InputDecoration(
+                            labelText: context.l10n.saveLocationCustomAlbum,
+                            helperText:
+                                context.l10n.saveLocationCustomAlbumHint,
+                            helperMaxLines: 3,
+                          ),
+                          maxLength: 64,
+                          onChanged: (_) => setState(() => _albumDirty = true),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: FilledButton(
+                            onPressed: _saveAlbum,
+                            child: Text(context.l10n.save),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],

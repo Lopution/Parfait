@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/motion/app_overlays.dart';
 import '../../app/theme/func_semantic_tokens.dart';
-import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
@@ -294,9 +293,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         Expanded(
           child: ReplicaButton(
             label: text('register'),
-            backgroundColor: FuncTokens.lightBackground,
-            foregroundColor: Theme.of(context).colorScheme.primary,
-            borderColor: Theme.of(context).colorScheme.primary,
+            outlined: true,
             onPressed:
                 widget.onRegister ?? () => _openLoginWebview(create: true),
           ),
@@ -305,8 +302,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         Expanded(
           child: ReplicaButton(
             label: text('login'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-            foregroundColor: FuncTokens.lightBackground,
             onPressed: widget.onLogin ?? () => _openLoginWebview(),
           ),
         ),

@@ -111,7 +111,7 @@ abstract class AppLocalizations {
   /// No description provided for @welcome1.
   ///
   /// In zh, this message translates to:
-  /// **'感谢使用Parfait'**
+  /// **'感谢使用 Parfait'**
   String get welcome1;
 
   /// No description provided for @welcome2.
@@ -357,19 +357,19 @@ abstract class AppLocalizations {
   /// No description provided for @loginAgree.
   ///
   /// In zh, this message translates to:
-  /// **'登录即表示您同意'**
+  /// **'登录即表示你同意'**
   String get loginAgree;
 
   /// No description provided for @userAgreement.
   ///
   /// In zh, this message translates to:
-  /// **'《Parfait用户使用协议》'**
+  /// **'《Parfait 用户使用协议》'**
   String get userAgreement;
 
   /// No description provided for @agreementTitle.
   ///
   /// In zh, this message translates to:
-  /// **'Parfait用户使用协议'**
+  /// **'Parfait 用户使用协议'**
   String get agreementTitle;
 
   /// No description provided for @agreementIntro.
@@ -1664,7 +1664,7 @@ abstract class AppLocalizations {
   /// No description provided for @hideMutedHint.
   ///
   /// In zh, this message translates to:
-  /// **'关闭后,被屏蔽的作品以模糊卡片显示,点按可临时查看'**
+  /// **'关闭后，被屏蔽的作品以模糊卡片显示，点按可临时查看'**
   String get hideMutedHint;
 
   /// No description provided for @mutedContent.
@@ -2957,6 +2957,12 @@ abstract class AppLocalizations {
   /// **'{action}：{reason}'**
   String errorWithReason(String action, String reason);
 
+  /// A labelled value in running text, e.g. a setting and its current value.
+  ///
+  /// In zh, this message translates to:
+  /// **'{label}：{value}'**
+  String labelValue(String label, String value);
+
   /// No description provided for @rankingDay.
   ///
   /// In zh, this message translates to:
@@ -2966,31 +2972,31 @@ abstract class AppLocalizations {
   /// No description provided for @rankingDayR18.
   ///
   /// In zh, this message translates to:
-  /// **'每日(R-18)'**
+  /// **'每日（R-18）'**
   String get rankingDayR18;
 
   /// No description provided for @rankingDayMale.
   ///
   /// In zh, this message translates to:
-  /// **'每日(男性欢迎)'**
+  /// **'每日（男性欢迎）'**
   String get rankingDayMale;
 
   /// No description provided for @rankingDayMaleR18.
   ///
   /// In zh, this message translates to:
-  /// **'每日(男性欢迎 & R-18)'**
+  /// **'每日（男性欢迎 & R-18）'**
   String get rankingDayMaleR18;
 
   /// No description provided for @rankingDayFemale.
   ///
   /// In zh, this message translates to:
-  /// **'每日(女性欢迎)'**
+  /// **'每日（女性欢迎）'**
   String get rankingDayFemale;
 
   /// No description provided for @rankingDayFemaleR18.
   ///
   /// In zh, this message translates to:
-  /// **'每日(女性欢迎 & R-18)'**
+  /// **'每日（女性欢迎 & R-18）'**
   String get rankingDayFemaleR18;
 
   /// No description provided for @rankingWeek.
@@ -3002,37 +3008,37 @@ abstract class AppLocalizations {
   /// No description provided for @rankingWeekR18.
   ///
   /// In zh, this message translates to:
-  /// **'每周(R-18)'**
+  /// **'每周（R-18）'**
   String get rankingWeekR18;
 
   /// No description provided for @rankingWeekOriginal.
   ///
   /// In zh, this message translates to:
-  /// **'每周(原创)'**
+  /// **'每周（原创）'**
   String get rankingWeekOriginal;
 
   /// No description provided for @rankingWeekRookie.
   ///
   /// In zh, this message translates to:
-  /// **'每周(新人)'**
+  /// **'每周（新人）'**
   String get rankingWeekRookie;
 
   /// No description provided for @rankingWeekAi.
   ///
   /// In zh, this message translates to:
-  /// **'每周(AI)'**
+  /// **'每周（AI）'**
   String get rankingWeekAi;
 
   /// No description provided for @rankingWeekAiR18.
   ///
   /// In zh, this message translates to:
-  /// **'每周(AI & R-18)'**
+  /// **'每周（AI & R-18）'**
   String get rankingWeekAiR18;
 
   /// No description provided for @rankingWeekR18G.
   ///
   /// In zh, this message translates to:
-  /// **'每周(R-18G)'**
+  /// **'每周（R-18G）'**
   String get rankingWeekR18G;
 
   /// No description provided for @rankingMonth.

@@ -12,7 +12,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkDohEndpointsInvalid => 'DoH 地址列表无效';
 
   @override
-  String get welcome1 => '感谢使用Parfait';
+  String get welcome1 => '感谢使用 Parfait';
 
   @override
   String get welcome2 => '下面将进行首次启动设置';
@@ -141,13 +141,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountTransferStorageFailure => '账号迁移记录无法安全保存';
 
   @override
-  String get loginAgree => '登录即表示您同意';
+  String get loginAgree => '登录即表示你同意';
 
   @override
-  String get userAgreement => '《Parfait用户使用协议》';
+  String get userAgreement => '《Parfait 用户使用协议》';
 
   @override
-  String get agreementTitle => 'Parfait用户使用协议';
+  String get agreementTitle => 'Parfait 用户使用协议';
 
   @override
   String get agreementIntro =>
@@ -828,7 +828,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get hideMuted => '直接隐藏被屏蔽的作品';
 
   @override
-  String get hideMutedHint => '关闭后,被屏蔽的作品以模糊卡片显示,点按可临时查看';
+  String get hideMutedHint => '关闭后，被屏蔽的作品以模糊卡片显示，点按可临时查看';
 
   @override
   String get mutedContent => '已屏蔽';
@@ -1511,43 +1511,48 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String labelValue(String label, String value) {
+    return '$label：$value';
+  }
+
+  @override
   String get rankingDay => '每日';
 
   @override
-  String get rankingDayR18 => '每日(R-18)';
+  String get rankingDayR18 => '每日（R-18）';
 
   @override
-  String get rankingDayMale => '每日(男性欢迎)';
+  String get rankingDayMale => '每日（男性欢迎）';
 
   @override
-  String get rankingDayMaleR18 => '每日(男性欢迎 & R-18)';
+  String get rankingDayMaleR18 => '每日（男性欢迎 & R-18）';
 
   @override
-  String get rankingDayFemale => '每日(女性欢迎)';
+  String get rankingDayFemale => '每日（女性欢迎）';
 
   @override
-  String get rankingDayFemaleR18 => '每日(女性欢迎 & R-18)';
+  String get rankingDayFemaleR18 => '每日（女性欢迎 & R-18）';
 
   @override
   String get rankingWeek => '每周';
 
   @override
-  String get rankingWeekR18 => '每周(R-18)';
+  String get rankingWeekR18 => '每周（R-18）';
 
   @override
-  String get rankingWeekOriginal => '每周(原创)';
+  String get rankingWeekOriginal => '每周（原创）';
 
   @override
-  String get rankingWeekRookie => '每周(新人)';
+  String get rankingWeekRookie => '每周（新人）';
 
   @override
-  String get rankingWeekAi => '每周(AI)';
+  String get rankingWeekAi => '每周（AI）';
 
   @override
-  String get rankingWeekAiR18 => '每周(AI & R-18)';
+  String get rankingWeekAiR18 => '每周（AI & R-18）';
 
   @override
-  String get rankingWeekR18G => '每周(R-18G)';
+  String get rankingWeekR18G => '每周（R-18G）';
 
   @override
   String get rankingMonth => '每月';

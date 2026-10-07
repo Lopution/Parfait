@@ -1,7 +1,7 @@
 {
   "@@locale": "zh",
   "networkDohEndpointsInvalid": "DoH 地址列表无效",
-  "welcome1": "感谢使用Parfait",
+  "welcome1": "感谢使用 Parfait",
   "welcome2": "下面将进行首次启动设置",
   "start": "开始",
   "selectLanguage": "选择您的语言",
@@ -49,9 +49,9 @@
   "accountTransferCredentialUnavailable": "当前账号凭据不可用，请重新登录",
   "accountTransferClipboardUnavailable": "剪贴板当前不可用",
   "accountTransferStorageFailure": "账号迁移记录无法安全保存",
-  "loginAgree": "登录即表示您同意",
-  "userAgreement": "《Parfait用户使用协议》",
-  "agreementTitle": "Parfait用户使用协议",
+  "loginAgree": "登录即表示你同意",
+  "userAgreement": "《Parfait 用户使用协议》",
+  "agreementTitle": "Parfait 用户使用协议",
   "agreementIntro": "感谢使用 Parfait。使用本应用即表示你已阅读并同意以下条款；如不同意，请停止使用本应用。",
   "agreementServiceTitle": "服务说明",
   "agreementServiceBody": "Parfait 是开源的非官方 Pixiv 第三方客户端，与 Pixiv Inc. 没有隶属关系，源代码以 AGPL-3.0 许可证公开。\n\n本应用不提供内容，所有作品与资料都来自 Pixiv。",
@@ -350,7 +350,7 @@
   "blockR18": "本地屏蔽 R-18 作品",
   "blockAI": "本地屏蔽 AI 作品",
   "hideMuted": "直接隐藏被屏蔽的作品",
-  "hideMutedHint": "关闭后,被屏蔽的作品以模糊卡片显示,点按可临时查看",
+  "hideMutedHint": "关闭后，被屏蔽的作品以模糊卡片显示，点按可临时查看",
   "mutedContent": "已屏蔽",
   "mutedItemsSettings": "屏蔽管理",
   "mutedTagsSection": "屏蔽标签",
@@ -756,19 +756,31 @@
       }
     }
   },
+  "labelValue": "{label}：{value}",
+  "@labelValue": {
+    "description": "A labelled value in running text, e.g. a setting and its current value.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      }
+    }
+  },
   "rankingDay": "每日",
-  "rankingDayR18": "每日(R-18)",
-  "rankingDayMale": "每日(男性欢迎)",
-  "rankingDayMaleR18": "每日(男性欢迎 & R-18)",
-  "rankingDayFemale": "每日(女性欢迎)",
-  "rankingDayFemaleR18": "每日(女性欢迎 & R-18)",
+  "rankingDayR18": "每日（R-18）",
+  "rankingDayMale": "每日（男性欢迎）",
+  "rankingDayMaleR18": "每日（男性欢迎 & R-18）",
+  "rankingDayFemale": "每日（女性欢迎）",
+  "rankingDayFemaleR18": "每日（女性欢迎 & R-18）",
   "rankingWeek": "每周",
-  "rankingWeekR18": "每周(R-18)",
-  "rankingWeekOriginal": "每周(原创)",
-  "rankingWeekRookie": "每周(新人)",
-  "rankingWeekAi": "每周(AI)",
-  "rankingWeekAiR18": "每周(AI & R-18)",
-  "rankingWeekR18G": "每周(R-18G)",
+  "rankingWeekR18": "每周（R-18）",
+  "rankingWeekOriginal": "每周（原创）",
+  "rankingWeekRookie": "每周（新人）",
+  "rankingWeekAi": "每周（AI）",
+  "rankingWeekAiR18": "每周（AI & R-18）",
+  "rankingWeekR18G": "每周（R-18G）",
   "rankingMonth": "每月",
   "rankingEmpty": "暂无榜单内容",
   "rankingPickDate": "选择日期",

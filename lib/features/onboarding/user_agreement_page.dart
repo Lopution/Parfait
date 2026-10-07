@@ -16,6 +16,8 @@ class UserAgreementPage extends StatelessWidget {
     final l10n = context.l10n;
     return ReplicaScaffold(
       title: Text(l10n.agreementTitle),
+      // The agreement belongs to the sign-in flow.
+      upLocation: '/login',
       child: Align(
         alignment: Alignment.topCenter,
         // Article-role width cap — a readable line length on wide

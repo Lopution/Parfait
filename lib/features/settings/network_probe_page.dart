@@ -403,7 +403,10 @@ class NetworkProbeOverview extends StatelessWidget {
                 children: [
                   Flexible(
                     child: Text(
-                      '${context.l10n.networkProbeWorst}: ${worst.host}',
+                      context.l10n.labelValue(
+                        context.l10n.networkProbeWorst,
+                        worst.host,
+                      ),
                       style: theme.textTheme.bodySmall,
                     ),
                   ),
@@ -469,7 +472,10 @@ class NetworkProbeHostPanel extends StatelessWidget {
             const SizedBox(height: FuncSpacing.sm),
             if (error != null)
               Text(
-                '${context.l10n.networkProbeHostFailed}: $error',
+                context.l10n.labelValue(
+                  context.l10n.networkProbeHostFailed,
+                  '$error',
+                ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.error,
                 ),

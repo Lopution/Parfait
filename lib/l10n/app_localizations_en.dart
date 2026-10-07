@@ -36,7 +36,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get system => 'Follow the System';
 
   @override
-  String get loginTitle => 'Register or Login';
+  String get loginTitle => 'Register or log in';
 
   @override
   String get loginProxyNoticeTitle => 'Notice';
@@ -95,7 +95,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'When on, official Pixiv domains are reached through whichever works of direct connections and compatibility connections (encrypted DNS, ECH, no SNI), and the method that succeeded is remembered. The last compatibility tier does not verify certificates; turn this off to use direct connections only. Other traffic is never proxied.';
 
   @override
-  String get useLoginWithClipboard => 'Login with clipboard data';
+  String get useLoginWithClipboard => 'Log in with clipboard data';
 
   @override
   String get accountTransferExportTitle => 'Export account credential';
@@ -152,10 +152,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'The account-transfer record could not be stored safely';
 
   @override
-  String get loginAgree => 'By logging in you agree';
+  String get loginAgree => 'By logging in, you agree to the';
 
   @override
-  String get userAgreement => '《Parfait User Agreement》';
+  String get userAgreement => 'Parfait User Agreement';
 
   @override
   String get agreementTitle => 'Parfait User Agreement';
@@ -1590,6 +1590,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String errorWithReason(String action, String reason) {
     return '$action: $reason';
+  }
+
+  @override
+  String labelValue(String label, String value) {
+    return '$label: $value';
   }
 
   @override

@@ -123,29 +123,37 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
               SettingsGroup(
                 footer: Text(context.l10n.maxDownloadCountHint),
                 children: [
+                  // One row: the label names the slider under it.
                   SettingsGroupContent(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '${context.l10n.maxDownloadCount}: $_draftMaxDownloads',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
-                  // immediate-with-preview (D2): the thumb previews
-                  // `_draftMaxDownloads`, the write commits on release and a
-                  // failure rolls the draft back to the persisted count.
-                  SettingsGroupContent(
-                    child: AppSlider(
-                      min: 1,
-                      max: 10,
-                      divisions: 9,
-                      value: (_draftMaxDownloads ?? settings.maxDownloadCount)
-                          .toDouble(),
-                      label: '$_draftMaxDownloads',
-                      onChanged: (value) =>
-                          setState(() => _draftMaxDownloads = value.round()),
-                      onChangeEnd: (value) => _saveMaxDownloads(value.round()),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          context.l10n.labelValue(
+                            context.l10n.maxDownloadCount,
+                            '$_draftMaxDownloads',
+                          ),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        // immediate-with-preview (D2): the thumb previews
+                        // `_draftMaxDownloads`, the write commits on release
+                        // and a failure rolls the draft back to the
+                        // persisted count.
+                        AppSlider(
+                          min: 1,
+                          max: 10,
+                          divisions: 9,
+                          value:
+                              (_draftMaxDownloads ?? settings.maxDownloadCount)
+                                  .toDouble(),
+                          label: '$_draftMaxDownloads',
+                          onChanged: (value) => setState(
+                            () => _draftMaxDownloads = value.round(),
+                          ),
+                          onChangeEnd: (value) =>
+                              _saveMaxDownloads(value.round()),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -187,76 +195,80 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                             .setNamingRule(NamingRule(preset: preset)),
                       ),
                     ),
-                  if (namingRule.preset == NamingPreset.custom) ...[
+                  if (namingRule.preset == NamingPreset.custom)
+                    // The template, its helpers and its save are one row.
                     SettingsGroupContent(
-                      child: TextField(
-                        controller: _templateController,
-                        focusNode: _templateFocusNode,
-                        decoration: InputDecoration(
-                          labelText: context.l10n.namingTemplate,
-                          // The hint is the template syntax itself: the
-                          // parameterized getter can't go through the
-                          // key-based `settingsText` lookup (it would return
-                          // the raw key).
-                          hintText: context.l10n.namingTemplateHint(
-                            '{artist}',
-                            '{title}',
-                            '{id}',
-                            '{page}',
-                            '{ext}',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextField(
+                            controller: _templateController,
+                            focusNode: _templateFocusNode,
+                            decoration: InputDecoration(
+                              labelText: context.l10n.namingTemplate,
+                              // The hint is the template syntax itself: the
+                              // parameterized getter can't go through the
+                              // key-based `settingsText` lookup (it would
+                              // return the raw key).
+                              hintText: context.l10n.namingTemplateHint(
+                                '{artist}',
+                                '{title}',
+                                '{id}',
+                                '{page}',
+                                '{ext}',
+                              ),
+                              // One unbroken token: on narrow screens with
+                              // large text it needs a second line.
+                              hintMaxLines: 2,
+                              errorText:
+                                  !NamingRule.isValidTemplate(
+                                    _templateController.text,
+                                  )
+                                  ? context.l10n.namingTemplateInvalid
+                                  : null,
+                            ),
+                            maxLength: _templateMaxLength,
+                            onChanged: (_) =>
+                                setState(() => _templateDirty = true),
                           ),
-                          // One unbroken token: on narrow screens with
-                          // large text it needs a second line.
-                          hintMaxLines: 2,
-                          errorText:
-                              !NamingRule.isValidTemplate(
-                                _templateController.text,
-                              )
-                              ? context.l10n.namingTemplateInvalid
-                              : null,
-                        ),
-                        maxLength: _templateMaxLength,
-                        onChanged: (_) => setState(() => _templateDirty = true),
+                          _variableChips(context),
+                          const SizedBox(height: FuncSpacing.sm),
+                          Text(
+                            context.l10n.labelValue(
+                              context.l10n.namingPreview,
+                              _previewName(
+                                context,
+                                NamingRule(
+                                  preset: NamingPreset.custom,
+                                  template: _templateController.text,
+                                ),
+                              ),
+                            ),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: FuncSpacing.xs),
+                          Text(
+                            context.l10n.namingTemplateSanitizeNote,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          // An invalid template disables the action instead
+                          // of silently no-op'ing — the errorText already
+                          // explains why.
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: FilledButton(
+                              onPressed:
+                                  NamingRule.isValidTemplate(
+                                    _templateController.text,
+                                  )
+                                  ? _saveTemplate
+                                  : null,
+                              child: Text(context.l10n.save),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    SettingsGroupContent(child: _variableChips(context)),
-                    SettingsGroupContent(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          '${context.l10n.namingPreview}: '
-                          '${_previewName(context, namingRule.preset == NamingPreset.custom ? NamingRule(preset: NamingPreset.custom, template: _templateController.text) : namingRule)}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                    ),
-                    SettingsGroupContent(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          context.l10n.namingTemplateSanitizeNote,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                    ),
-                    // An invalid template disables the action instead of
-                    // silently no-op'ing — the errorText already explains
-                    // why.
-                    SettingsGroupContent(
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: FilledButton(
-                          onPressed:
-                              NamingRule.isValidTemplate(
-                                _templateController.text,
-                              )
-                              ? _saveTemplate
-                              : null,
-                          child: Text(context.l10n.save),
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ],

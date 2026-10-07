@@ -7,6 +7,7 @@ import 'package:parfait/app/motion/state_fade.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/author_summary.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
+import 'package:parfait/app/widgets/replica_button.dart';
 import 'package:parfait/app/widgets/replica_scaffold.dart';
 import 'package:parfait/app/widgets/tag_chips.dart';
 import 'package:parfait/core/network/api_error.dart';
@@ -56,6 +57,41 @@ void main() {
     expect(find.byType(FloatingActionButton), findsOneWidget);
     // A root-level scaffold has no implicit back button.
     expect(find.byType(BackButtonIcon), findsNothing);
+  });
+
+  testWidgets('the outlined ReplicaButton keeps the page colour in dark mode', (
+    tester,
+  ) async {
+    final theme = replicaTheme(Brightness.dark);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        home: Scaffold(
+          body: Column(
+            children: [
+              ReplicaButton(
+                label: 'Register',
+                outlined: true,
+                onPressed: () {},
+              ),
+              ReplicaButton(label: 'Log in', onPressed: () {}),
+            ],
+          ),
+        ),
+      ),
+    );
+    Material surface(String label) => tester.widget<Material>(
+      find
+          .ancestor(of: find.text(label), matching: find.byType(Material))
+          .first,
+    );
+    Color? ink(String label) =>
+        tester.widget<Text>(find.text(label)).style?.color;
+
+    expect(surface('Register').color, Colors.transparent);
+    expect(ink('Register'), theme.colorScheme.primary);
+    expect(surface('Log in').color, theme.colorScheme.primary);
+    expect(ink('Log in'), theme.colorScheme.onPrimary);
   });
 
   testWidgets('TagChip exposes tap and block-mode selected semantics', (

@@ -9,7 +9,7 @@
   "dark": "Тёмный",
   "light": "Светлый",
   "system": "Как в системе",
-  "loginTitle": "Вход или Регистрация",
+  "loginTitle": "Вход или регистрация",
   "loginProxyNoticeTitle": "Внимание",
   "loginProxyNoticeBody": "Из-за ограничений сети перед входом или регистрацией включите системный или внешний прокси. Parfait не содержит встроенного прокси.",
   "loginProxyNoticeCancel": "Отмена",
@@ -50,7 +50,7 @@
   "accountTransferClipboardUnavailable": "Буфер обмена недоступен",
   "accountTransferStorageFailure": "Запись переноса аккаунта не удалось безопасно сохранить",
   "loginAgree": "Входя в систему, вы принимаете",
-  "userAgreement": "《Пользовательское соглашение Parfait》",
+  "userAgreement": "«Пользовательское соглашение Parfait»",
   "agreementTitle": "Соглашение Parfait",
   "agreementIntro": "Спасибо за использование Parfait. Используя приложение, вы подтверждаете, что прочитали и приняли эти условия. Если вы не согласны, прекратите использование.",
   "agreementServiceTitle": "О сервисе",
@@ -674,6 +674,18 @@
       }
     }
   },
+  "labelValue": "{label}: {value}",
+  "@labelValue": {
+    "description": "A labelled value in running text, e.g. a setting and its current value.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      }
+    }
+  },
   "rankingDay": "Ежедневно",
   "rankingDayR18": "Ежедневно (R-18)",
   "rankingDayMale": "Ежедневно (Мужчины)",
@@ -715,7 +727,7 @@
   "profileAbout": "О пользователе",
   "profileIllust": "Иллюстрации",
   "profileManga": "Манга",
-  "profileNovel": "Романы",
+  "profileNovel": "Новеллы",
   "searchTitle": "Поиск",
   "searchHint": "Работы, пользователи или теги",
   "searchBarHint": "Поиск",
@@ -724,7 +736,7 @@
   "searchNoTrending": "Нет популярных тегов",
   "searchTrendingFailed": "Не удалось загрузить популярные теги",
   "searchIllustManga": "Иллюстрации и манга",
-  "searchNovel": "Романы",
+  "searchNovel": "Новеллы",
   "searchUser": "Пользователи",
   "searchCancel": "Отмена",
   "searchSubmit": "Поиск",
@@ -926,7 +938,7 @@
   "profileItemsEmpty": "Нет содержимого",
   "profileLoadMoreFailed": "Не удалось загрузить ещё",
   "profileRetry": "Повторить",
-  "profileNovelPending": "Списки романов подключит модуль Novel Reader",
+  "profileNovelPending": "Списки новелл подключит модуль Novel Reader",
   "profileShare": "Поделиться пользователем",
   "profileShareHint": "Можно поделиться ссылкой на пользователя",
   "profileShareClose": "Закрыть",

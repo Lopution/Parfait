@@ -43,6 +43,10 @@ const _textPlaceholderKeys = <String, String>{
   'downloadGroupAuthorTitle': 'author name',
   // `reason` is always errorCategoryText output (showErrorSnackBar).
   'errorWithReason': 'localized action and category',
+  // A count, version, account, host or file name the page shows as data;
+  // the network diagnostics page also passes probe output, which
+  // raw_error_text_test allows there.
+  'labelValue': 'localized label and the value shown beside it',
   'rankingLoadFailed': 'localized ranking mode label',
   'searchReverseChallenge': 'search engine name',
   'detailMetaSemantics': 'formatted date and compact counts',

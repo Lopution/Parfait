@@ -552,6 +552,11 @@ a row of controls, or a page.
   tooltip.
 - **User content** — titles, user names, tags, captions, comments — may
   ellipsize as before.
+- A label followed by its value goes through `l10n.labelValue(label,
+  value)` (an error through `errorWithReason`), never `'$label: $value'`:
+  Chinese and Japanese take a full-width colon with no space. Chinese copy
+  uses full-width punctuation throughout and a space between Chinese and
+  Latin words ("感谢使用 Parfait").
 - No layout errors (overflow) in any locale or profile.
 - A widget that measures its own text (the bottom bar, `AppTabBar`)
   measures with the exact style and text scaler it paints with, so the
@@ -982,6 +987,11 @@ The image viewer may open only overlay destinations. A viewer action that
 returns to the work detail closes the viewer rather than pushing a second
 detail page. Feedback actions that outlive their page bind the router while
 the message is shown, instead of reading a disposed page context later.
+
+A page that can be the only route on the stack (a direct link, a gate
+redirect) passes `ReplicaScaffold(upLocation:)`: with nothing to pop it
+still shows the back button, and back — button or system — goes there
+instead of leaving the app. The user agreement leads to `/login`.
 
 ## Predictive Back Contract
 

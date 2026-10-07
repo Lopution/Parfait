@@ -88,10 +88,7 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
           children: [
             SettingsGroup(
               children: [
-                const SettingsActionTile(
-                  icon: Icons.apps,
-                  title: Text('Parfait'),
-                ),
+                const ListTile(leading: _AppIcon(), title: Text('Parfait')),
                 // Version comes from the platform package, not a literal —
                 // the pubspec `version:` line is the single source of truth
                 // (R1).
@@ -287,8 +284,10 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
     final result = _checkResult;
     final release = result?.release;
     final statusText = switch (result?.status) {
-      UpdateCheckStatus.available =>
-        '${context.l10n.aboutUpdateAvailable}: ${release!.manifest.version}',
+      UpdateCheckStatus.available => context.l10n.labelValue(
+        context.l10n.aboutUpdateAvailable,
+        '${release!.manifest.version}',
+      ),
       UpdateCheckStatus.disabled => context.l10n.aboutUpdateUnavailable,
       UpdateCheckStatus.noUpdate => context.l10n.aboutUpdateNoUpdate,
       UpdateCheckStatus.prerelease => context.l10n.aboutUpdatePrerelease,
@@ -437,4 +436,30 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
       if (mounted) setState(() => _applying = false);
     }
   }
+}
+
+/// The launcher icon in the 24dp icon column of the rows below it. The
+/// artwork has its own margin, so it draws larger than the column and
+/// overflows it evenly; the titles stay aligned.
+class _AppIcon extends StatelessWidget {
+  const _AppIcon();
+
+  static const _columnWidth = 24.0;
+  static const _artworkSize = 40.0;
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: _columnWidth,
+    child: OverflowBox(
+      maxWidth: _artworkSize,
+      maxHeight: _artworkSize,
+      // Decoration: the row's title names the app.
+      child: Image.asset(
+        'assets/branding/parfait_icon.png',
+        width: _artworkSize,
+        height: _artworkSize,
+        excludeFromSemantics: true,
+      ),
+    ),
+  );
 }

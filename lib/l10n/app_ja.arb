@@ -9,7 +9,7 @@
   "dark": "ダーク",
   "light": "ライト",
   "system": "システムのデフォルト",
-  "loginTitle": "登録･ログイン",
+  "loginTitle": "登録・ログイン",
   "loginProxyNoticeTitle": "お知らせ",
   "loginProxyNoticeBody": "ネットワーク環境の制限により、ログインまたは登録の前にシステムまたは外部プロキシを有効にしてください。Parfaitに内蔵プロキシはありません。",
   "loginProxyNoticeCancel": "キャンセル",
@@ -32,9 +32,9 @@
   "loginReload": "再読み込み",
   "loginRestart": "再度ログイン",
   "loginFailed": "ログインに失敗しました",
-  "networkCompatibility": "Pixiv公式ネットワーク互換",
+  "networkCompatibility": "Pixiv互換接続",
   "networkCompatibilityHint": "オンにすると、Pixiv公式ドメインには暗号化DNS、ECH、SNIなしなどの互換接続と直接接続のうち使えるものを選び、成功した方法を記憶します。最後の互換接続は証明書を検証しません。オフにすると直接接続のみになります。他の通信はプロキシしません。",
-  "useLoginWithClipboard": "クリップボードに保存されたデータでログイン",
+  "useLoginWithClipboard": "クリップボードからログイン",
   "accountTransferExportTitle": "アカウント認証情報をエクスポート",
   "accountTransferWarning": "クリップボードは短時間保持され、他のアプリに読み取られる可能性があります。この形式は暗号化も送信者認証も提供しません。",
   "loginClipboardHint": "ログイン済みの端末で「マイページ → アカウント管理 → アカウント認証情報をエクスポート」からコピーし、ここに戻ってインポートしてください。",
@@ -49,8 +49,8 @@
   "accountTransferCredentialUnavailable": "現在の認証情報を利用できません。再ログインしてください",
   "accountTransferClipboardUnavailable": "クリップボードを利用できません",
   "accountTransferStorageFailure": "アカウント移行記録を安全に保存できません",
-  "loginAgree": "ログインすると利用規約に同意したものとみなします",
-  "userAgreement": "《Parfait利用規約》",
+  "loginAgree": "ログインすると以下に同意したことになります",
+  "userAgreement": "「Parfait利用規約」",
   "agreementTitle": "Parfait利用規約",
   "agreementIntro": "Parfaitをご利用いただきありがとうございます。本アプリを利用した時点で、以下の条項に同意したものとします。同意できない場合は利用を中止してください。",
   "agreementServiceTitle": "サービスについて",
@@ -670,6 +670,18 @@
         "type": "String"
       },
       "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "labelValue": "{label}：{value}",
+  "@labelValue": {
+    "description": "A labelled value in running text, e.g. a setting and its current value.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "value": {
         "type": "String"
       }
     }

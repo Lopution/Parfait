@@ -193,7 +193,10 @@ class _IllustCardBody extends ConsumerWidget {
         // image are left out of semantics, so the label carries them (and
         // the rank) instead of a screen reader reading them twice.
         label: muted
-            ? '${context.l10n.mutedContent}: ${entity.title}, ${entity.user.name}'
+            ? context.l10n.labelValue(
+                context.l10n.mutedContent,
+                '${entity.title}, ${entity.user.name}',
+              )
             : [
                 if (rank case final rank?) context.l10n.rankLabel(rank),
                 entity.title,

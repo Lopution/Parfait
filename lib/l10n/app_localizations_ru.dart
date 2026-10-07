@@ -36,7 +36,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get system => 'Как в системе';
 
   @override
-  String get loginTitle => 'Вход или Регистрация';
+  String get loginTitle => 'Вход или регистрация';
 
   @override
   String get loginProxyNoticeTitle => 'Внимание';
@@ -155,7 +155,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get loginAgree => 'Входя в систему, вы принимаете';
 
   @override
-  String get userAgreement => '《Пользовательское соглашение Parfait》';
+  String get userAgreement => '«Пользовательское соглашение Parfait»';
 
   @override
   String get agreementTitle => 'Соглашение Parfait';
@@ -1589,6 +1589,11 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String labelValue(String label, String value) {
+    return '$label: $value';
+  }
+
+  @override
   String get rankingDay => 'Ежедневно';
 
   @override
@@ -1703,7 +1708,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get profileManga => 'Манга';
 
   @override
-  String get profileNovel => 'Романы';
+  String get profileNovel => 'Новеллы';
 
   @override
   String get searchTitle => 'Поиск';
@@ -1730,7 +1735,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchIllustManga => 'Иллюстрации и манга';
 
   @override
-  String get searchNovel => 'Романы';
+  String get searchNovel => 'Новеллы';
 
   @override
   String get searchUser => 'Пользователи';
@@ -2297,7 +2302,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileNovelPending =>
-      'Списки романов подключит модуль Novel Reader';
+      'Списки новелл подключит модуль Novel Reader';
 
   @override
   String get profileShare => 'Поделиться пользователем';
