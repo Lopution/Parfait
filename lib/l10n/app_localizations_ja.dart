@@ -1734,21 +1734,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchInputEmpty => '検索語を入力してください';
 
   @override
-  String get searchReverseUnavailable => '画像検索は利用できません';
-
-  @override
-  String get searchReverseUnavailableDetail =>
-      '認証情報、利用規約、プライバシー審査を通過した構造化サービスがないため、画像のアップロードやウェブページのスクレイピングは行いません。';
-
-  @override
   String get searchReversePick => '画像を選択';
-
-  @override
-  String get searchReversePrivacy => 'プライバシーに関する注意';
-
-  @override
-  String get searchReversePrivacyDetail =>
-      '検索を確認した後だけ画像を承認済みサービスへ送信し、キャンセルまたは失敗時に一時データを削除します。';
 
   @override
   String get searchReversePreparing => '画像を準備中…';
@@ -1790,7 +1776,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String searchReverseChallenge(String engine) {
-    return '$engine が人による確認を求めています。今回の検索は完了していません。しばらくしてからお試しください';
+    return '$engine が人による確認を求めています。ウェブページで確認を済ませてから検索できます';
   }
 
   @override
@@ -1820,6 +1806,55 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get searchReverseEngineSwitch => 'エンジンを切り替え';
+
+  @override
+  String searchReverseEngineUnavailable(String engine) {
+    return '$engine は現在利用できません';
+  }
+
+  @override
+  String get searchReverseNetwork => '接続できませんでした。ネットワークを確認してもう一度お試しください';
+
+  @override
+  String searchReverseBadResponse(String engine) {
+    return '$engine から読み取れないページが返されました';
+  }
+
+  @override
+  String get searchReverseStopped => '検索を停止しました';
+
+  @override
+  String get searchReverseImageFormat =>
+      'この画像形式には対応していません。PNG、JPEG、GIF、WebP を選んでください';
+
+  @override
+  String get searchReverseImageTooLarge => '画像が大きすぎて処理できません';
+
+  @override
+  String get searchReverseImagePermission => 'この画像を読み取る権限がありません。もう一度選んでください';
+
+  @override
+  String get searchReverseImageUnreadable => 'この画像を読み取れません。別の画像を選んでください';
+
+  @override
+  String get searchReverseCleanupFailed => '一時画像を削除できませんでした';
+
+  @override
+  String get searchReversePickerUnavailable => 'この端末では画像を選べません';
+
+  @override
+  String get searchReversePrivacyNote => '画像は選んだエンジンにだけ送信され、このページを離れると削除されます';
+
+  @override
+  String get searchReverseOpenInBrowser => 'ウェブページで検索';
+
+  @override
+  String searchReverseTryEngine(String engine) {
+    return '$engine で検索';
+  }
+
+  @override
+  String get searchReverseAllEnginesTried => 'どのエンジンでも一致する結果は見つかりませんでした';
 
   @override
   String get searchFilters => 'フィルター';

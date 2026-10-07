@@ -209,7 +209,7 @@ These do **not** use a `reverse_image_` prefix. Do not rename in D2.
 | `input_unavailable` | `codeFor(FileNotFoundException)` |
 | `input_failed` | `codeFor` other |
 
-Hard limit: 10 MiB. Only `content:` URIs. `openExternal` requires `https`,
+Hard limit: 32 MiB (`ReverseImageInputLimits.maxEncodedBytes`); larger-than-upload images are scaled down in Dart. Only `content:` URIs. `openExternal` requires `https`,
 no userInfo / port / fragment.
 
 ---

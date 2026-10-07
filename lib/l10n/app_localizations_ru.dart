@@ -1787,21 +1787,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchInputEmpty => 'Введите запрос';
 
   @override
-  String get searchReverseUnavailable => 'Поиск по изображению недоступен';
-
-  @override
-  String get searchReverseUnavailableDetail =>
-      'Нет структурированного сервиса, прошедшего проверку учётных данных, условий и приватности; изображение не загружается и не обрабатывается через скрейпинг.';
-
-  @override
   String get searchReversePick => 'Выбрать изображение';
-
-  @override
-  String get searchReversePrivacy => 'Уведомление о приватности';
-
-  @override
-  String get searchReversePrivacyDetail =>
-      'Изображение отправляется одобренному сервису только после подтверждения, а временные данные удаляются после отмены или ошибки.';
 
   @override
   String get searchReversePreparing => 'Подготовка изображения…';
@@ -1846,7 +1832,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String searchReverseChallenge(String engine) {
-    return '$engine требует проверку человека. Этот поиск не завершён. Попробуйте позже.';
+    return '$engine просит подтвердить, что вы человек. Пройдите проверку и выполните поиск на его странице.';
   }
 
   @override
@@ -1880,6 +1866,62 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get searchReverseEngineSwitch => 'Сменить сервис';
+
+  @override
+  String searchReverseEngineUnavailable(String engine) {
+    return '$engine сейчас недоступен';
+  }
+
+  @override
+  String get searchReverseNetwork =>
+      'Нет соединения. Проверьте сеть и повторите попытку.';
+
+  @override
+  String searchReverseBadResponse(String engine) {
+    return '$engine вернул страницу, которую приложение не может прочитать';
+  }
+
+  @override
+  String get searchReverseStopped => 'Поиск остановлен';
+
+  @override
+  String get searchReverseImageFormat =>
+      'Этот формат не поддерживается. Выберите PNG, JPEG, GIF или WebP.';
+
+  @override
+  String get searchReverseImageTooLarge => 'Изображение слишком большое';
+
+  @override
+  String get searchReverseImagePermission =>
+      'Нет доступа к изображению. Выберите его снова.';
+
+  @override
+  String get searchReverseImageUnreadable =>
+      'Не удалось прочитать изображение. Выберите другое.';
+
+  @override
+  String get searchReverseCleanupFailed =>
+      'Не удалось удалить временное изображение';
+
+  @override
+  String get searchReversePickerUnavailable =>
+      'На этом устройстве нельзя выбрать изображение';
+
+  @override
+  String get searchReversePrivacyNote =>
+      'Изображение уходит только выбранному сервису и удаляется, когда вы уходите со страницы';
+
+  @override
+  String get searchReverseOpenInBrowser => 'Искать на веб-странице';
+
+  @override
+  String searchReverseTryEngine(String engine) {
+    return 'Искать в $engine';
+  }
+
+  @override
+  String get searchReverseAllEnginesTried =>
+      'Ни один сервис не нашёл совпадений';
 
   @override
   String get searchFilters => 'Фильтры';

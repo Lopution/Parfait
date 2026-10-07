@@ -54,32 +54,22 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('隐私提示'), findsOneWidget);
+      // One line of privacy, the pick fixed under it.
+      expect(find.text('图片只会上传到所选引擎，离开本页即删除'), findsOneWidget);
       expect(find.text('选择图片'), findsOneWidget);
       await tester.tap(find.text('选择图片'));
       await pumpUntilVisible(tester, find.text('图片已准备好'));
-      expect(find.text('图片已准备好'), findsWidgets);
       expect(find.text('开始反向搜图'), findsOneWidget);
+      expect(find.text('图片只会上传到所选引擎，离开本页即删除'), findsOneWidget);
 
-      await tester.ensureVisible(find.text('开始反向搜图'));
       await tester.tap(find.text('开始反向搜图'));
-      await pumpUntilVisible(
-        tester,
-        find.text('当前没有通过凭据、服务条款和隐私审查的结构化服务；不会上传图片或执行网页抓取。'),
-      );
-      expect(find.text('反向搜图暂不可用'), findsNothing);
-      expect(
-        find.text('当前没有通过凭据、服务条款和隐私审查的结构化服务；不会上传图片或执行网页抓取。'),
-        findsOneWidget,
-      );
+      await pumpUntilVisible(tester, find.text('SauceNAO 暂时无法使用'));
       // The failure keeps the prepared image so another engine can retry it.
       expect(platform.deletedPaths, isEmpty);
     },
   );
 
-  testWidgets('ready state can repick or clear the selected image', (
-    tester,
-  ) async {
+  testWidgets('ready state can repick the selected image', (tester) async {
     await _pumpPage(tester, platform: platform, providers: const {});
     await tester.pumpAndSettle();
 
@@ -91,12 +81,6 @@ void main() {
     await tester.tap(find.text('重新选择'));
     await pumpUntilVisible(tester, find.text('图片已准备好'));
     expect(platform.pickCount, 2);
-
-    // Clear releases the input and returns to the idle picker.
-    await tester.ensureVisible(find.text('取消'));
-    await tester.tap(find.text('取消'));
-    await pumpUntilVisible(tester, find.text('选择图片'));
-    expect(find.text('图片已准备好'), findsNothing);
     expect(platform.deletedPaths, isNotEmpty);
   });
 
@@ -201,12 +185,14 @@ void main() {
     expect(find.textContaining('秒后可重试'), findsNothing);
   });
 
-  testWidgets('challenge failure shows the human-verification copy', (
+  testWidgets('a challenge offers the engine web page with the image armed', (
     tester,
   ) async {
+    final armer = _FakeArmer('content://armed/1');
     await _pumpPage(
       tester,
       platform: platform,
+      uploadArmer: armer,
       providers: {
         ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
           ReverseImageSearchFailure(
@@ -221,10 +207,13 @@ void main() {
     await pumpUntilVisible(tester, find.text('开始反向搜图'));
     await tester.ensureVisible(find.text('开始反向搜图'));
     await tester.tap(find.text('开始反向搜图'));
-    await pumpUntilVisible(tester, find.text('SauceNAO 要求人机验证，本次搜索未完成，请稍后再试'));
+    const challenge = 'SauceNAO 要求人机验证；可以在网页中完成验证后搜索';
+    await pumpUntilVisible(tester, find.text(challenge));
 
-    expect(find.text('SauceNAO 要求人机验证，本次搜索未完成，请稍后再试'), findsOneWidget);
-    expect(find.text('当前没有通过凭据、服务条款和隐私审查的结构化服务；不会上传图片或执行网页抓取。'), findsNothing);
+    // The way out is the engine's own upload form, image armed.
+    await tester.tap(find.text('在网页中搜索'));
+    await pumpUntilVisible(tester, find.text('点按页面中的上传按钮开始搜索，已选图片会自动填入。'));
+    expect(armer.armedPaths, hasLength(1));
   });
 
   testWidgets('engine chips switch the selection and persist it', (
@@ -273,7 +262,7 @@ void main() {
     expect(stored?['reverseImageEngine'], 'iqdb');
   });
 
-  testWidgets('an input outside engine constraints disables that chip', (
+  testWidgets('an input outside engine constraints disables the search', (
     tester,
   ) async {
     final webp = File('${directory.path}/image.webp')
@@ -293,14 +282,8 @@ void main() {
     await tester.tap(find.text('选择图片'));
     await pumpUntilVisible(tester, find.text('图片已准备好'));
 
-    // IQDB only takes JPEG/PNG/GIF: its chip is disabled and, because it is
-    // the restored selection, the search button stays disabled with a reason.
-    expect(
-      tester
-          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'IQDB'))
-          .onSelected,
-      isNull,
-    );
+    // IQDB only takes JPEG/PNG/GIF and is the restored selection: the
+    // search stays disabled with a reason.
     expect(find.text('当前图片不满足该引擎的输入限制'), findsOneWidget);
     expect(
       tester
@@ -373,7 +356,7 @@ void main() {
     expect(find.text('请在页面的文件选择框中重新选择同一张图片。'), findsOneWidget);
   });
 
-  testWidgets('a failure keeps the engine chips and the same-engine retry', (
+  testWidgets('a failure offers the same-engine retry and the next engine', (
     tester,
   ) async {
     await _pumpPage(
@@ -392,17 +375,52 @@ void main() {
     await tester.tap(find.text('开始反向搜图'));
     await pumpUntilVisible(tester, find.text('重试当前引擎'));
 
-    expect(find.byType(ChoiceChip), findsNWidgets(4));
-    // The failed engine is marked on its chip.
+    // The header's engine chip is the one picker, marked as failed.
+    expect(find.byType(ChoiceChip), findsNothing);
     expect(
       find.descendant(
-        of: find.widgetWithText(ChoiceChip, 'SauceNAO'),
+        of: find.byKey(const ValueKey('reverseTaskHeader')),
         matching: find.byIcon(Icons.error_outline),
       ),
-      findsOneWidget,
+      findsWidgets,
     );
+    expect(find.text('SauceNAO 暂时无法使用'), findsOneWidget);
     expect(find.text('重试当前引擎'), findsOneWidget);
+    // The next engine that takes the image is one tap away.
+    expect(find.text('换用 IQDB 搜索'), findsOneWidget);
     expect(find.text('重新选择'), findsOneWidget);
+  });
+
+  testWidgets('no match leads to the next engine, then to another image', (
+    tester,
+  ) async {
+    // A WebP: IQDB cannot take it, so after SauceNAO comes Ascii2D's turn.
+    final webp = File('${directory.path}/image.webp')
+      ..writeAsBytesSync(_webpHeader(64, 64));
+    await _pumpPage(
+      tester,
+      platform: FakeReverseImagePlatform(webp, mimeType: 'image/webp'),
+      providers: {
+        for (final engine in ReverseImageEngine.values)
+          engine: const OutcomeReverseImageProvider(
+            ReverseImageSearchSuccess(),
+          ),
+      },
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('选择图片'));
+    await pumpUntilVisible(tester, find.text('开始反向搜图'));
+    await tester.tap(find.text('开始反向搜图'));
+    await pumpUntilVisible(tester, find.text('换用 Ascii2D 搜索'));
+
+    // One way on, and the image is still there to take it.
+    expect(find.byType(FilledButton), findsOneWidget);
+    expect(find.byType(OutlinedButton), findsNothing);
+    await tester.tap(find.text('换用 Ascii2D 搜索'));
+    await pumpUntilVisible(tester, find.text('换用 TinEye 搜索'));
+    await tester.tap(find.text('换用 TinEye 搜索'));
+    await pumpUntilVisible(tester, find.text('所有引擎都没有找到匹配结果'));
+    expect(find.widgetWithText(FilledButton, '重新选择'), findsOneWidget);
   });
 
   testWidgets('progress cancel stops the search but stays on the page', (

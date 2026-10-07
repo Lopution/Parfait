@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/reverse_image/image_input.dart';
 import 'package:parfait/core/reverse_image/reverse_image_controller.dart';
@@ -311,7 +312,7 @@ void main() {
     expect(platform.deletedPaths, isEmpty);
   });
 
-  test('webview success releases the owned input exactly once', () async {
+  test('a webview success keeps the image until the flow ends', () async {
     final file = File('${tempDirectory.path}/image.png')
       ..writeAsBytesSync(_pngHeader(12, 8));
     final platform = _FakeReverseImageInputPlatform(file);
@@ -344,6 +345,11 @@ void main() {
       ReverseImageFlowStatus.success,
     );
     expect(_stateOf(containerController, sessionController).webView, isNotNull);
+    // Kept for another engine; released exactly once when the flow ends.
+    expect(_stateOf(containerController, sessionController).input, isNotNull);
+    expect(platform.deletedPaths, isEmpty);
+    await controller.cancel();
+    await controller.cancel();
     expect(platform.deletedPaths, [file.path]);
   });
 
@@ -438,12 +444,154 @@ void main() {
     await controller.search();
     state = _stateOf(container, session);
     expect(state.status, ReverseImageFlowStatus.success);
-    // A provider-detected no-match releases the owned input — it is a
-    // terminal state with nothing to retry inside the engine's own page.
-    expect(state.input, isNull);
-    expect(platform.deletedPaths, [file.path]);
+    // A no-match keeps the image so a third engine can still be tried.
+    expect(state.input, isNotNull);
+    expect(platform.deletedPaths, isEmpty);
     expect(state.engineFailures, contains(ReverseImageEngine.sauceNao));
+    expect(state.noMatchEngines, {ReverseImageEngine.iqdb});
   });
+
+  test('the next engine skips failed, empty and unfit engines', () async {
+    // WebP: IQDB does not take it.
+    final file = File('${tempDirectory.path}/image.webp')
+      ..writeAsBytesSync(_webpHeader(12, 8));
+    final platform = _FakeReverseImageInputPlatform(file);
+    final session = ReverseImageSearchSession(
+      platform: platform,
+      providers: {
+        ReverseImageEngine.sauceNao: _OutcomeProvider(
+          const ReverseImageSearchSuccess(),
+        ),
+        ReverseImageEngine.ascii2d: _OutcomeProvider(
+          const ReverseImageSearchFailure(
+            code: ReverseImageProviderFailureCode.network,
+            message: 'offline',
+          ),
+        ),
+        ReverseImageEngine.tinEye: _OutcomeProvider(
+          const ReverseImageSearchSuccess(),
+        ),
+      },
+    );
+    final container = _flowContainer(session);
+    final controller = container.read(
+      reverseImageSearchControllerProvider(session).notifier,
+    );
+    await controller.prepare(
+      const ReverseImageInputReference(
+        contentUri: 'content://share/1',
+        mimeType: 'image/webp',
+        sizeBytes: 128,
+        hasReadUriPermission: true,
+        source: ReverseImageInputSource.picker,
+      ),
+    );
+    expect(_stateOf(container, session).nextEngine, ReverseImageEngine.ascii2d);
+
+    await controller.search();
+    // SauceNAO came back empty; IQDB cannot take WebP.
+    expect(_stateOf(container, session).nextEngine, ReverseImageEngine.ascii2d);
+    await controller.searchNextEngine();
+    var state = _stateOf(container, session);
+    expect(state.engine, ReverseImageEngine.ascii2d);
+    expect(state.status, ReverseImageFlowStatus.failure);
+    expect(state.nextEngine, ReverseImageEngine.tinEye);
+
+    await controller.searchNextEngine();
+    state = _stateOf(container, session);
+    expect(state.engine, ReverseImageEngine.tinEye);
+    expect(state.noMatchEngines, {
+      ReverseImageEngine.sauceNao,
+      ReverseImageEngine.tinEye,
+    });
+    expect(state.nextEngine, isNull);
+  });
+
+  test(
+    'a challenge falls back to the engine upload form in the browser',
+    () async {
+      final file = File('${tempDirectory.path}/image.png')
+        ..writeAsBytesSync(_pngHeader(12, 8));
+      final platform = _FakeReverseImageInputPlatform(file);
+      final armer = _RecordingUploadArmer();
+      final session = ReverseImageSearchSession.single(
+        platform: platform,
+        uploadArmer: armer,
+        provider: _OutcomeProvider(
+          const ReverseImageSearchFailure(
+            code: ReverseImageProviderFailureCode.challenge,
+            message: 'challenge',
+          ),
+        ),
+      );
+      final container = _flowContainer(session);
+      final controller = container.read(
+        reverseImageSearchControllerProvider(session).notifier,
+      );
+      await controller.prepare(
+        const ReverseImageInputReference(
+          contentUri: 'content://share/1',
+          mimeType: 'image/png',
+          sizeBytes: 128,
+          hasReadUriPermission: true,
+          source: ReverseImageInputSource.picker,
+        ),
+      );
+      await controller.search();
+      expect(
+        _stateOf(container, session).failure?.code,
+        ReverseImageProviderFailureCode.challenge,
+      );
+
+      await controller.searchInBrowser();
+      final state = _stateOf(container, session);
+      expect(state.status, ReverseImageFlowStatus.success);
+      expect(state.webUpload?.engine, ReverseImageEngine.sauceNao);
+      expect(
+        state.webUpload?.uploadPageUrl,
+        Uri.parse('https://saucenao.com/'),
+      );
+      expect(armer.armedPaths, [file.path]);
+      expect(state.webUpload?.armedUri, 'content://armed/1');
+    },
+  );
+
+  test(
+    'a large image is scaled to a 2048 long edge JPEG, not refused',
+    () async {
+      final source = img.Image(width: 3000, height: 1500);
+      img.fill(source, color: img.ColorRgb8(200, 80, 120));
+      final file = File('${tempDirectory.path}/large.png')
+        ..writeAsBytesSync(img.encodePng(source));
+      final platform = _FakeReverseImageInputPlatform(file);
+      final session = ReverseImageSearchSession.single(
+        platform: platform,
+        provider: _OutcomeProvider(const ReverseImageSearchSuccess()),
+      );
+      final container = _flowContainer(session);
+      final controller = container.read(
+        reverseImageSearchControllerProvider(session).notifier,
+      );
+      await controller.prepare(
+        ReverseImageInputReference(
+          contentUri: 'content://share/1',
+          mimeType: 'image/png',
+          sizeBytes: file.lengthSync(),
+          hasReadUriPermission: true,
+          source: ReverseImageInputSource.picker,
+        ),
+      );
+
+      final state = _stateOf(container, session);
+      expect(state.status, ReverseImageFlowStatus.ready);
+      final input = state.input!;
+      expect((input.width, input.height), (2048, 1024));
+      expect(input.format, ReverseImageFormat.jpeg);
+      expect(input.path, '${file.path}.scaled.jpg');
+      // The picked copy is released as soon as the scaled one exists.
+      expect(platform.deletedPaths, [file.path]);
+    },
+  );
 
   test('selectEngine without a held image only moves the selection', () async {
     final file = File('${tempDirectory.path}/image.png')
@@ -823,3 +971,31 @@ List<int> _be32(int value) => [
   (value >> 8) & 0xff,
   value & 0xff,
 ];
+
+/// A VP8X WebP header: RIFF, WEBP, the chunk, then 24-bit sizes minus one.
+Uint8List _webpHeader(int width, int height) {
+  List<int> le24(int value) => [
+    value & 0xff,
+    (value >> 8) & 0xff,
+    (value >> 16) & 0xff,
+  ];
+  return Uint8List.fromList([
+    ...'RIFF'.codeUnits,
+    0,
+    0,
+    0,
+    0,
+    ...'WEBP'.codeUnits,
+    ...'VP8X'.codeUnits,
+    10,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    ...le24(width - 1),
+    ...le24(height - 1),
+  ]);
+}
