@@ -24,6 +24,8 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'helpers/connectivity_channels.dart';
+import 'helpers/image_network.dart';
 import 'helpers/spotlight_world.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
@@ -134,6 +136,7 @@ Future<GoRouter> pumpArticle(
   WidgetTester tester, {
   Size size = const Size(390, 844),
   String html = _articleHtml,
+  Map<String, http.Response> images = const {},
   List<Override> extraOverrides = const [],
 }) async {
   tester.view.physicalSize = size;
@@ -162,11 +165,13 @@ Future<GoRouter> pumpArticle(
   addTearDown(router.dispose);
 
   final webClient = MockClient(
-    (request) async => http.Response.bytes(
-      utf8.encode(html),
-      200,
-      headers: {'content-type': 'text/html; charset=utf-8'},
-    ),
+    (request) async =>
+        images['${request.url}'] ??
+        http.Response.bytes(
+          utf8.encode(html),
+          200,
+          headers: {'content-type': 'text/html; charset=utf-8'},
+        ),
   );
   final (container, _) = await makeSpotlightWorld(webClient: webClient);
   addTearDown(container.dispose);
@@ -197,6 +202,9 @@ Future<GoRouter> pumpArticle(
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+    // Images on the page start the network policy's connectivity watch;
+    // unanswered, its replies land in whichever later test runs real async.
+    answerConnectivityChannels();
   });
 
   group('parseSpotlightArticle', () {
@@ -417,6 +425,41 @@ void main() {
       await tapSelectableLink(tester, '作品链接');
       await tester.pumpAndSettle();
       expect(router.state.uri.path, '/recommended/illust/12345');
+    });
+  });
+
+  group('a pixivision CDN image', () {
+    // Not a pximg host: plain third-party traffic, no Pixiv referer chain.
+    const cdn = 'https://embed.pixiv.net/pixivision/zh/a/101/ogimage.jpg';
+    const html =
+        '<article><header><h1 class="am__title">特辑标题</h1></header>'
+        '<div class="am__body"><p><img src="$cdn"></p></div></article>';
+
+    bool painted(WidgetTester tester) => tester
+        .widgetList<RawImage>(find.byType(RawImage))
+        .any((image) => image.image != null);
+
+    testWidgets('loads through the third-party client', (tester) async {
+      await pumpArticle(
+        tester,
+        html: html,
+        images: {cdn: http.Response.bytes(onePixelPng, 200)},
+      );
+      await pumpIoUntil(tester, () => painted(tester));
+      expect(find.byIcon(Icons.broken_image), findsNothing);
+    });
+
+    testWidgets('shows a broken image when the CDN fails', (tester) async {
+      await pumpArticle(
+        tester,
+        html: html,
+        images: {cdn: http.Response('', 404)},
+      );
+      await pumpIoUntil(
+        tester,
+        () => find.byIcon(Icons.broken_image).evaluate().isNotEmpty,
+      );
+      expect(painted(tester), isFalse);
     });
   });
 

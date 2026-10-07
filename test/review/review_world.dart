@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -187,13 +186,6 @@ class ReviewWorld {
       accounts: signedInAccounts,
       currentId: signedInAccounts.firstOrNull?.id,
     );
-    // pixivision's own CDN images bypass the app's image pipeline and load
-    // through cached_network_image's global manager. Not restored: reading
-    // the default would construct it, and it needs path_provider. Review
-    // processes run nothing else.
-    CachedNetworkImageProvider.defaultCacheManager = testImageCacheManager(
-      _ReviewFileService(),
-    );
     final pixivisionArticle = await File(
       'test/fixtures/pixivision/article_10943.html',
     ).readAsBytes();
@@ -221,14 +213,20 @@ class ReviewWorld {
           return client;
         }),
         // Third-party HTML: every pixivision article is the captured real
-        // page the article parser is tested against.
+        // page the article parser is tested against. pixivision's own CDN
+        // images are third-party traffic too and get generated PNGs.
         thirdPartyHttpClientProvider.overrideWithValue(
           MockClient(
-            (request) async => http.Response.bytes(
-              pixivisionArticle,
-              200,
-              headers: {'content-type': 'text/html; charset=utf-8'},
-            ),
+            (request) async => _reviewImagePath.hasMatch(request.url.path)
+                ? http.Response.bytes(
+                    ReviewImageBytes.forUrl('${request.url}'),
+                    200,
+                  )
+                : http.Response.bytes(
+                    pixivisionArticle,
+                    200,
+                    headers: {'content-type': 'text/html; charset=utf-8'},
+                  ),
           ),
         ),
         // The detail page's page-dims web call stays unavailable, matching
@@ -355,6 +353,9 @@ class _ReviewAccessibility implements AppAccessibility {
 
 /// A file service that renders each URL into a deterministic generated PNG.
 /// Colour bands keep cards recognisable on shots without shipped assets.
+/// Image paths the third-party stand-in answers with a PNG.
+final _reviewImagePath = RegExp(r'\.(jpe?g|png|gif|webp)$');
+
 class _ReviewFileService extends FileService {
   @override
   Future<FileServiceResponse> get(
