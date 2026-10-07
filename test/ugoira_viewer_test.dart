@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'helpers/image_network.dart';
 import 'helpers/test_preferences.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -100,12 +101,14 @@ void main() {
   ) async {
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(
-        navigatorKey: navigatorKey,
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-        home: const SizedBox.shrink(),
+      withStalledImages(
+        MaterialApp(
+          navigatorKey: navigatorKey,
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: const SizedBox.shrink(),
+        ),
       ),
     );
     navigatorKey.currentState!.push<void>(
@@ -141,16 +144,18 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
-        home: Scaffold(
-          body: UgoiraViewer(
-            illustId: 42,
-            previewUrl: 'https://i.pximg.net/42/large.jpg',
-            width: 800,
-            height: 600,
+      withStalledImages(
+        const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: Scaffold(
+            body: UgoiraViewer(
+              illustId: 42,
+              previewUrl: 'https://i.pximg.net/42/large.jpg',
+              width: 800,
+              height: 600,
+            ),
           ),
         ),
       ),

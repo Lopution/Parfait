@@ -24,10 +24,10 @@ class ImageCacheIncomplete implements Exception {
 /// On-disk image store owned by the background image worker.
 ///
 /// Keys are `sha1` of the *canonical* request URL (before mirror rewriting),
-/// so a mirror switch never invalidates entries — the same rule the legacy
-/// cache-manager store followed. Files are written to `<key>.tmp` and
-/// renamed onto `<key><ext>` atomically, so a hit can never observe a
-/// partially written file; leftover `.tmp` files are swept on open.
+/// so a mirror switch never invalidates entries. Files are written to
+/// `<key>.tmp` and renamed onto `<key><ext>` atomically, so a hit can never
+/// observe a partially written file; leftover `.tmp` files are swept on
+/// open.
 ///
 /// The index is in-memory and rebuilt from a directory scan on open —
 /// no sqlite, no platform channels, both of which the worker isolate cannot
@@ -44,7 +44,7 @@ class DiskImageCache {
   /// The worker cache directory name under the system temp dir.
   static const directoryName = 'parfait_images_v2';
 
-  /// Cache size ceiling — the same budget the legacy store carried.
+  /// Cache size ceiling.
   static const defaultMaxBytes = 256 * 1024 * 1024;
 
   static final _keyPattern = RegExp(r'^[0-9a-f]{40}(\.[a-z0-9]{1,5})?$');

@@ -76,8 +76,8 @@ abstract final class MotionTokens {
   /// First-load skeleton shimmer: one shared sweep per skeleton tree.
   static const shimmer = Duration(milliseconds: 1400);
 
-  /// Image fade-in inside PixivImage. 500ms matches CachedNetworkImage's
-  /// default; Glide's crossfade is 300ms.
+  /// Image fade-in inside PixivImage (OctoImage's default); Glide's
+  /// crossfade is 300ms.
   static const imageFade = Duration(milliseconds: 500);
 
   /// Feed-card fade-in — shorter than [imageFade] so a settling grid does

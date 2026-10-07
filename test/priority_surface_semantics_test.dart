@@ -12,12 +12,16 @@ import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:parfait/features/profile/profile_statistics.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
+import 'helpers/image_network.dart';
+
 Widget _host(Widget child) {
-  return MaterialApp(
-    locale: const Locale('zh', 'CN'),
-    supportedLocales: const [Locale('zh', 'CN')],
-    localizationsDelegates: appLocalizationsDelegates,
-    home: Scaffold(body: child),
+  return withStalledImages(
+    MaterialApp(
+      locale: const Locale('zh', 'CN'),
+      supportedLocales: const [Locale('zh', 'CN')],
+      localizationsDelegates: appLocalizationsDelegates,
+      home: Scaffold(body: child),
+    ),
   );
 }
 

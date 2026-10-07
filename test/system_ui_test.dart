@@ -27,6 +27,7 @@ import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
+import 'helpers/image_network.dart';
 import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
@@ -155,13 +156,15 @@ void main() {
   ) async {
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          theme: replicaTheme(Brightness.light),
-          home: const ImageViewerPage(
-            urls: ['https://i.pximg.net/1/original.jpg'],
+        withStalledImages(
+          MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            theme: replicaTheme(Brightness.light),
+            home: const ImageViewerPage(
+              urls: ['https://i.pximg.net/1/original.jpg'],
+            ),
           ),
         ),
       );
@@ -227,12 +230,14 @@ void main() {
     final navigatorKey = GlobalKey<NavigatorState>();
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        MaterialApp(
-          navigatorKey: navigatorKey,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: const Scaffold(body: SizedBox.expand()),
+        withStalledImages(
+          MaterialApp(
+            navigatorKey: navigatorKey,
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: const Scaffold(body: SizedBox.expand()),
+          ),
         ),
       );
       navigatorKey.currentState!.push(

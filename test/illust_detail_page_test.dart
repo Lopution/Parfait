@@ -50,6 +50,7 @@ import 'package:parfait/core/share/share_service.dart';
 import 'package:parfait/core/user/follow_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'helpers/image_network.dart';
 import 'helpers/detail_world.dart';
 import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
@@ -231,18 +232,20 @@ void main() {
     testWidgets('shows n / total and honors the initial page', (tester) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
+          withStalledImages(
+            MaterialApp(
+              builder: promptHostBuilder,
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
 
-            home: ImageViewerPage(
-              urls: [
-                'https://i.pximg.net/1/original.jpg',
-                'https://i.pximg.net/2/original.jpg',
-              ],
-              initialPage: 1,
+              home: ImageViewerPage(
+                urls: [
+                  'https://i.pximg.net/1/original.jpg',
+                  'https://i.pximg.net/2/original.jpg',
+                ],
+                initialPage: 1,
+              ),
             ),
           ),
         );
@@ -260,13 +263,15 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
+        withStalledImages(
+          MaterialApp(
+            builder: promptHostBuilder,
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
 
-          home: ImageViewerPage(urls: ['https://i.pximg.net/1/original.jpg']),
+            home: ImageViewerPage(urls: ['https://i.pximg.net/1/original.jpg']),
+          ),
         ),
       );
       await tester.pump();
@@ -284,13 +289,17 @@ void main() {
     testWidgets('zoom clamps to 0.9–6.0 via InteractiveViewer', (tester) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
+          withStalledImages(
+            MaterialApp(
+              builder: promptHostBuilder,
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
 
-            home: ImageViewerPage(urls: ['https://i.pximg.net/1/original.jpg']),
+              home: ImageViewerPage(
+                urls: ['https://i.pximg.net/1/original.jpg'],
+              ),
+            ),
           ),
         );
         await tester.pump();
@@ -312,13 +321,15 @@ void main() {
       await mockNetworkImagesFor(() async {
         final navigatorKey = GlobalKey<NavigatorState>();
         await tester.pumpWidget(
-          MaterialApp(
-            builder: promptHostBuilder,
-            navigatorKey: navigatorKey,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: const SizedBox.shrink(),
+          withStalledImages(
+            MaterialApp(
+              builder: promptHostBuilder,
+              navigatorKey: navigatorKey,
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              home: const SizedBox.shrink(),
+            ),
           ),
         );
         navigatorKey.currentState!.push<void>(
@@ -371,14 +382,16 @@ void main() {
       (tester) async {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
-            MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
+            withStalledImages(
+              MaterialApp(
+                builder: promptHostBuilder,
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: const Locale('zh', 'CN'),
 
-              home: ImageViewerPage(
-                urls: ['https://i.pximg.net/1/original.jpg'],
+                home: ImageViewerPage(
+                  urls: ['https://i.pximg.net/1/original.jpg'],
+                ),
               ),
             ),
           );
@@ -401,18 +414,20 @@ void main() {
     testWidgets('a lone tap hides and restores the chrome', (tester) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
+          withStalledImages(
+            MaterialApp(
+              builder: promptHostBuilder,
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
 
-            home: ImageViewerPage(
-              urls: [
-                'https://i.pximg.net/1/original.jpg',
-                'https://i.pximg.net/2/original.jpg',
-              ],
-              initialPage: 1,
+              home: ImageViewerPage(
+                urls: [
+                  'https://i.pximg.net/1/original.jpg',
+                  'https://i.pximg.net/2/original.jpg',
+                ],
+                initialPage: 1,
+              ),
             ),
           ),
         );
@@ -440,17 +455,19 @@ void main() {
       (tester) async {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
-            MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
+            withStalledImages(
+              MaterialApp(
+                builder: promptHostBuilder,
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: const Locale('zh', 'CN'),
 
-              home: ImageViewerPage(
-                urls: [
-                  'https://i.pximg.net/1/original.jpg',
-                  'https://i.pximg.net/2/original.jpg',
-                ],
+                home: ImageViewerPage(
+                  urls: [
+                    'https://i.pximg.net/1/original.jpg',
+                    'https://i.pximg.net/2/original.jpg',
+                  ],
+                ),
               ),
             ),
           );
@@ -474,18 +491,20 @@ void main() {
           // A route swap (replaceImageViewerPage builds a fresh widget on a
           // new route) keeps the session flag too.
           await tester.pumpWidget(
-            MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
+            withStalledImages(
+              MaterialApp(
+                builder: promptHostBuilder,
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: const Locale('zh', 'CN'),
 
-              home: ImageViewerPage(
-                urls: [
-                  'https://i.pximg.net/1/original.jpg',
-                  'https://i.pximg.net/2/original.jpg',
-                ],
-                initialPage: 1,
+                home: ImageViewerPage(
+                  urls: [
+                    'https://i.pximg.net/1/original.jpg',
+                    'https://i.pximg.net/2/original.jpg',
+                  ],
+                  initialPage: 1,
+                ),
               ),
             ),
           );
@@ -500,14 +519,16 @@ void main() {
       (tester) async {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
-            MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
+            withStalledImages(
+              MaterialApp(
+                builder: promptHostBuilder,
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: const Locale('zh', 'CN'),
 
-              home: ImageViewerPage(
-                urls: ['https://i.pximg.net/1/original.jpg'],
+                home: ImageViewerPage(
+                  urls: ['https://i.pximg.net/1/original.jpg'],
+                ),
               ),
             ),
           );
@@ -545,14 +566,16 @@ void main() {
       (tester) async {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
-            MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
+            withStalledImages(
+              MaterialApp(
+                builder: promptHostBuilder,
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: const Locale('zh', 'CN'),
 
-              home: ImageViewerPage(
-                urls: ['https://i.pximg.net/1/original.jpg'],
+                home: ImageViewerPage(
+                  urls: ['https://i.pximg.net/1/original.jpg'],
+                ),
               ),
             ),
           );
@@ -595,18 +618,20 @@ void main() {
     ) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
+          withStalledImages(
+            MaterialApp(
+              builder: promptHostBuilder,
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
 
-            home: ImageViewerPage(
-              urls: [
-                'https://i.pximg.net/1/original.jpg',
-                'https://i.pximg.net/2/original.jpg',
-                'https://i.pximg.net/3/original.jpg',
-              ],
+              home: ImageViewerPage(
+                urls: [
+                  'https://i.pximg.net/1/original.jpg',
+                  'https://i.pximg.net/2/original.jpg',
+                  'https://i.pximg.net/3/original.jpg',
+                ],
+              ),
             ),
           ),
         );
@@ -647,16 +672,19 @@ void main() {
     ) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: ImageViewerPage(
-              urls: [
-                for (var i = 0; i < 60; i++) 'https://i.pximg.net/$i/large.jpg',
-              ],
-              initialPage: 50,
+          withStalledImages(
+            MaterialApp(
+              builder: promptHostBuilder,
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              home: ImageViewerPage(
+                urls: [
+                  for (var i = 0; i < 60; i++)
+                    'https://i.pximg.net/$i/large.jpg',
+                ],
+                initialPage: 50,
+              ),
             ),
           ),
         );
@@ -680,13 +708,17 @@ void main() {
     ) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
+          withStalledImages(
+            MaterialApp(
+              builder: promptHostBuilder,
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
 
-            home: ImageViewerPage(urls: ['https://i.pximg.net/1/original.jpg']),
+              home: ImageViewerPage(
+                urls: ['https://i.pximg.net/1/original.jpg'],
+              ),
+            ),
           ),
         );
         await tester.pump();
@@ -802,21 +834,23 @@ void main() {
       (tester) async {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
-            MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-              home: Builder(
-                builder: (context) => TextButton(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => ImageViewerPage(
-                        urls: ['https://i.pximg.net/1/original.jpg'],
+            withStalledImages(
+              MaterialApp(
+                builder: promptHostBuilder,
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: const Locale('zh', 'CN'),
+                home: Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => ImageViewerPage(
+                          urls: ['https://i.pximg.net/1/original.jpg'],
+                        ),
                       ),
                     ),
+                    child: const Text('open'),
                   ),
-                  child: const Text('open'),
                 ),
               ),
             ),
@@ -846,17 +880,19 @@ void main() {
       (tester) async {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
-            MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
+            withStalledImages(
+              MaterialApp(
+                builder: promptHostBuilder,
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: const Locale('zh', 'CN'),
 
-              home: ImageViewerPage(
-                urls: [
-                  'https://i.pximg.net/1/original.jpg',
-                  'https://i.pximg.net/2/original.jpg',
-                ],
+                home: ImageViewerPage(
+                  urls: [
+                    'https://i.pximg.net/1/original.jpg',
+                    'https://i.pximg.net/2/original.jpg',
+                  ],
+                ),
               ),
             ),
           );
@@ -900,17 +936,19 @@ void main() {
       (tester) async {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
-            MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
+            withStalledImages(
+              MaterialApp(
+                builder: promptHostBuilder,
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: const Locale('zh', 'CN'),
 
-              home: ImageViewerPage(
-                urls: [
-                  'https://i.pximg.net/1/original.jpg',
-                  'https://i.pximg.net/2/original.jpg',
-                ],
+                home: ImageViewerPage(
+                  urls: [
+                    'https://i.pximg.net/1/original.jpg',
+                    'https://i.pximg.net/2/original.jpg',
+                  ],
+                ),
               ),
             ),
           );
@@ -966,20 +1004,22 @@ void main() {
       List<String> urls = const ['https://i.pximg.net/1/original.jpg'],
     }) async {
       await tester.pumpWidget(
-        MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: TextButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ImageViewerPage(urls: urls),
+        withStalledImages(
+          MaterialApp(
+            builder: promptHostBuilder,
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ImageViewerPage(urls: urls),
+                    ),
                   ),
+                  child: const Text('open-viewer'),
                 ),
-                child: const Text('open-viewer'),
               ),
             ),
           ),

@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -10,35 +9,13 @@ import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/core/image/worker_image_provider.dart';
-import 'package:parfait/core/network/compat/network_providers.dart';
 
 import 'helpers/image_network.dart';
 
-/// A legacy download that never finishes; [urls] records each request.
-class _PendingCacheManager extends ScriptedCacheManager {
-  _PendingCacheManager()
-    : super((_) => StreamController<FileResponse>().stream);
-
-  final urls = <String>[];
-
-  @override
-  Stream<FileResponse> getFileStream(
-    String url, {
-    String? key,
-    Map<String, String>? headers,
-    bool withProgress = false,
-  }) {
-    urls.add(url);
-    return super.getFileStream(url, withProgress: withProgress);
-  }
-}
-
 /// One scope as the app has it: the worker serves a PNG for every URL but
-/// original files, whose transfer never ends. The legacy cache must never
-/// be asked while a worker exists.
+/// original files, whose transfer never ends.
 class _World {
   final workerUrls = <String>[];
-  final legacy = _PendingCacheManager();
   late final worker = inProcessImageWorker(
     () => MockClient((request) {
       workerUrls.add('${request.url}');
@@ -49,12 +26,7 @@ class _World {
   );
 
   Widget host(Widget child) => ProviderScope(
-    overrides: [
-      pixivNetworkFactoryProvider.overrideWithValue(
-        ScriptedImageNetwork(legacy),
-      ),
-      imageWorkerProvider.overrideWithValue(worker),
-    ],
+    overrides: [imageWorkerProvider.overrideWithValue(worker)],
     child: MaterialApp(
       home: Center(child: SizedBox.square(dimension: 200, child: child)),
     ),
@@ -114,7 +86,6 @@ void main() {
       card,
       original,
     ], reason: 'the stand-in is not refetched');
-    expect(world.legacy.urls, isEmpty);
     await unmountPastReleaseGrace(tester);
   });
 
@@ -156,7 +127,6 @@ void main() {
           PaintingBinding.instance.imageCache.statusForKey(uncapped).keepAlive,
     );
     expect(world.workerUrls, [url]);
-    expect(world.legacy.urls, isEmpty);
     expect(reports.where((report) => report.loading), isEmpty);
   });
 
@@ -199,7 +169,6 @@ void main() {
     await pumpIoUntil(tester, () => world.workerUrls.contains(original));
     expect(_painted(tester), isTrue, reason: 'the medium tier underlays');
     expect(world.workerUrls, [medium, original]);
-    expect(world.legacy.urls, isEmpty);
     await unmountPastReleaseGrace(tester);
   });
 
@@ -218,27 +187,18 @@ void main() {
         PixivImage.preload(
           context,
           url,
-          cacheManager: world.legacy,
           memCacheWidth: width,
         ).then(results.add),
       );
     }
     // An original file loads on the worker too, as the widget would load it.
-    unawaited(
-      PixivImage.preload(
-        context,
-        original,
-        cacheManager: world.legacy,
-        memCacheWidth: 200,
-      ),
-    );
+    unawaited(PixivImage.preload(context, original, memCacheWidth: 200));
     await pumpIoUntil(
       tester,
       () => results.length == 2 && world.workerUrls.contains(original),
     );
     expect(results, everyElement(ImagePreloadResult.decoded));
     expect(world.workerUrls, unorderedEquals([preview, detail, original]));
-    expect(world.legacy.urls, isEmpty);
 
     // The warmed entry is the one the widget resolves: its first frame is
     // the image, with no placeholder and no second fetch.

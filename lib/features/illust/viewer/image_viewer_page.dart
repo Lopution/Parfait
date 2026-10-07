@@ -21,7 +21,7 @@ import '../../../core/download/download_task.dart'
     show DownloadEvent, DownloadGroupSubmission;
 import '../../../core/illust/illust_download_controller.dart';
 import '../../../core/share/share_service.dart';
-import '../../../core/network/compat/image_demand.dart';
+import '../../../core/image/image_demand.dart';
 import '../../../core/image/image_worker_providers.dart';
 import '../../../app/system_ui.dart';
 import '../../../app/theme/func_tokens.dart';
@@ -203,12 +203,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   void _prefetchNeighbours(int page) {
     final urlFor = widget.prefetchUrlForPage;
     if (urlFor == null || !mounted) return;
-    final ProviderContainer container;
-    try {
-      container = ProviderScope.containerOf(context, listen: false);
-    } on StateError {
-      return;
-    }
+    final container = ProviderScope.containerOf(context, listen: false);
     final neighbours = <int, String>{
       for (final neighbour in [page - 1, page + 1])
         if (neighbour >= 0 && neighbour < _pageCount)
@@ -225,7 +220,6 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
         PixivImage.preload(
           context,
           url,
-          demand: demand,
           tierKey: widget.tierKeyForPage?.call(neighbour),
           tier: IllustImageTier.medium,
         ).catchError((_) => ImagePreloadResult.failed),

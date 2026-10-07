@@ -1,13 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:http/http.dart' as http;
 
 import 'network_contracts.dart';
 import 'network_policy.dart';
-import 'image_cache.dart';
-import 'image_demand.dart';
-import 'segmented_fetch.dart';
 
 /// A policy-aware `package:http` client. The business request is the route
 /// attempt: selection never pays for a separate probe. A
@@ -143,33 +139,18 @@ class _RequestCancelSignal implements NetworkCancelSignal {
   }
 }
 
-/// Shared app-scoped factory for API, OAuth, image cache and other strict
-/// Pixiv HTTP consumers. The factory is the single place that can create a
-/// policy client, making independent direct clients auditable.
+/// Shared app-scoped factory for API, OAuth, image and other strict Pixiv
+/// HTTP consumers on the main isolate. The factory is the single place that
+/// can create a policy client, making independent direct clients auditable.
 class PixivNetworkFactory {
   /// [imageUrlRewriter] mirrors `i./s.pximg.net` URLs onto the selected
   /// image source before destination resolution; null/identity keeps the
   /// stock pximg path.
-  PixivNetworkFactory(this.policy, {this.imageUrlRewriter, this.segmentBudget});
+  PixivNetworkFactory(this.policy, {this.imageUrlRewriter});
 
   final NetworkAccessPolicy policy;
   final Uri Function(Uri url)? imageUrlRewriter;
-
-  /// Extra connections for originals fetched in parallel ranges, shared
-  /// with downloads; null keeps every image on one connection.
-  final SegmentBudget? segmentBudget;
   final Map<PixivDestinationPurpose, PixivPolicyHttpClient> _clients = {};
-  // CacheManager keeps its HttpFileService for the lifetime of the cache.
-  // NetworkAccessPolicy intentionally closes pooled clients when the account
-  // or network revision changes, so handing the manager a concrete client
-  // would leave every later image request using a closed socket pool (the
-  // post-first-login all-grey screen). The proxy resolves the current image
-  // client for each request and therefore survives a policy revision while
-  // retaining decoded/file cache entries.
-  late final PixivImageCache _imageCache = PixivImageCache(
-    httpClient: _ImageClientProxy(this),
-    segmentBudget: segmentBudget,
-  );
   Future<void>? _warmupFuture;
 
   PixivPolicyHttpClient client(PixivDestinationPurpose purpose) {
@@ -189,13 +170,6 @@ class PixivNetworkFactory {
   PixivPolicyHttpClient get oauthClient =>
       client(PixivDestinationPurpose.oauth);
 
-  CacheManager get imageCacheManager => _imageCache.manager;
-
-  /// Shared with [imageCacheManager]'s file service: image widgets and
-  /// prefetchers register what they wait for, queued fetches nobody wants
-  /// are dropped.
-  ImageDemand get imageDemand => _imageCache.demand;
-
   /// Eagerly constructs the shared API/OAuth/image clients and their fast
   /// route pools. It is idempotent so callers can safely trigger it from the
   /// app lifecycle and from headless widget startup.
@@ -204,27 +178,7 @@ class PixivNetworkFactory {
       client(PixivDestinationPurpose.appApi);
       client(PixivDestinationPurpose.oauth);
       client(PixivDestinationPurpose.image);
-      imageCacheManager;
       await policy.warmUp();
     }();
-  }
-
-  Future<void> dispose() async {
-    // The policy is borrowed, not owned: networkAccessPolicyProvider
-    // disposes it. Disposing it here too killed the shared policy whenever
-    // this factory rebuilt on an image-mirror change (the auto-source
-    // winner flip), leaving every later request on a dead policy.
-    await _imageCache.dispose();
-  }
-}
-
-class _ImageClientProxy extends http.BaseClient {
-  _ImageClientProxy(this.owner);
-
-  final PixivNetworkFactory owner;
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) {
-    return owner.client(PixivDestinationPurpose.image).send(request);
   }
 }

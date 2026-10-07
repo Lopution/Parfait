@@ -184,21 +184,18 @@ final routeKindStoreProvider = Provider<RouteKindStore>(
   (ref) => RouteKindStore(preferences: ref.watch(sharedPreferencesProvider)),
 );
 
-/// Extra connections for the main isolate's segmented transfers, shared by
-/// downloads and the legacy image cache (the image worker keeps its own).
-/// Outlives factory rebuilds so the cap stays app-wide.
+/// Extra connections for the main isolate's segmented transfers, which are
+/// downloads (the image worker keeps its own). Outlives download manager
+/// rebuilds so the cap stays app-wide.
 final segmentBudgetProvider = Provider<SegmentBudget>((ref) => SegmentBudget());
 
 final pixivNetworkFactoryProvider = Provider<PixivNetworkFactory>((ref) {
-  final factory = PixivNetworkFactory(
+  return PixivNetworkFactory(
     ref.watch(networkAccessPolicyProvider),
-    segmentBudget: ref.watch(segmentBudgetProvider),
     // Read the mirror lazily per request instead of watching it: the auto
-    // winner flips mid-session, and a watched rebuild would tear down the
-    // image cache plus every pooled client for a pure URL-rewrite rule
-    // change. The closure always resolves the current mirror.
+    // winner flips mid-session, and a watched rebuild would tear down every
+    // pooled client for a pure URL-rewrite rule change. The closure always
+    // resolves the current mirror.
     imageUrlRewriter: (url) => ref.read(imageMirrorProvider).rewrite(url),
   );
-  ref.onDispose(() => unawaited(factory.dispose()));
-  return factory;
 });

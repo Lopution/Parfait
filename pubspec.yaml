@@ -15,7 +15,6 @@ environment:
 dependencies:
   animations: ^3.0.0
   archive: ^4.2.0
-  cached_network_image: ^4.0.0
   charset: ^2.0.1
   connectivity_plus: ^7.3.1
   crypto: ^3.0.0
@@ -25,7 +24,6 @@ dependencies:
   file_selector: ^1.1.0
   flutter:
     sdk: flutter
-  flutter_cache_manager: ^3.4.2
   flutter_displaymode: ^0.7.0
   flutter_inappwebview: ^6.1.5
   flutter_localizations:

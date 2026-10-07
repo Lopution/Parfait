@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:parfait/core/network/compat/image_demand.dart';
+import 'package:parfait/core/image/image_demand.dart';
 
 const _a = 'https://i.pximg.net/a.jpg';
 const _b = 'https://i.pximg.net/b.jpg';

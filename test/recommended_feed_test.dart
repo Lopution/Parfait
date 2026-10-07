@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -502,8 +501,6 @@ void main() {
       await tester.pump();
     });
 
-    // Card previews load through the image worker.
-    expect(find.byType(CachedNetworkImage), findsNothing);
     final image = tester.widget<OctoImage>(find.byType(OctoImage).first);
     expect(
       image.gaplessPlayback,

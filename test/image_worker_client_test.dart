@@ -10,7 +10,7 @@ import 'package:parfait/core/image/image_worker_client.dart';
 import 'package:parfait/core/image/image_worker_host.dart';
 import 'package:parfait/core/image/image_worker_protocol.dart';
 import 'package:parfait/core/image/lane_permit_gate.dart';
-import 'package:parfait/core/network/compat/image_demand.dart';
+import 'package:parfait/core/image/image_demand.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 
 import 'helpers/image_network.dart';

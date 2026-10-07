@@ -12,11 +12,10 @@ import 'lane_permit_gate.dart';
 /// via `ImmutableBuffer.fromFilePath`, so Dart never touches image bytes
 /// and decode stays exactly where `FileImage` puts it.
 ///
-/// The cache key is [url] alone — the same identity rule the legacy
-/// provider kept (its `prefetch` hint also lived outside the key): a
-/// background preload and the visible resolve share one pending stream,
-/// and priority changes are scheduling events (the demand `hold` →
-/// `promoteUrl` signal), not new identities.
+/// The cache key is [url] alone, priority outside it: a background
+/// preload and the visible resolve share one pending stream, and priority
+/// changes are scheduling events (the demand `hold` → `promoteUrl`
+/// signal), not new identities.
 class WorkerImageProvider extends ImageProvider<WorkerImageProvider> {
   WorkerImageProvider(
     this.worker,
