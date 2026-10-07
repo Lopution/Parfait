@@ -659,22 +659,20 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                   ),
                 ),
                 // The shared page counter floats over the top-end of the
-                // artwork while an image page is actually on screen —
-                // scrolled past the last page it leaves with them. The
+                // artwork while an image page is actually on screen and
+                // fades out once the last page scrolls away. The
                 // pill is IgnorePointer, so taps fall through to the
                 // artwork below. Selection mode hides it: each page's
-                // badge occupies the same top-end corner. Only multi-page
-                // works carry page trackers, so only they get the pill.
+                // badge occupies the same top-end corner. Single-page
+                // works get no pill.
                 if (!entity.isUgoira && entity.pageCount > 1 && !_downloadMode)
                   Positioned.fill(
                     child: ValueListenableBuilder<int?>(
                       valueListenable: _topVisiblePage,
-                      builder: (context, page, _) => page == null
-                          ? const SizedBox.shrink()
-                          : DetailPageCounter(
-                              page: page,
-                              count: entity.pageCount,
-                            ),
+                      builder: (context, page, _) => DetailPageCounter(
+                        page: page,
+                        count: entity.pageCount,
+                      ),
                     ),
                   ),
               ],

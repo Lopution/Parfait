@@ -163,6 +163,91 @@ void main() {
     });
   });
 
+  testWidgets('only the entry page flies back; other pages slide away', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    VisibilityDetectorController.instance.updateInterval = Duration.zero;
+
+    final (container, _, _) = await makeWorld();
+    final entity = parseIllust(
+      illustJson(42, pageCount: 2, type: 'manga', withMetaPages: true),
+    );
+    container.read(illustStoreProvider).mergeAll([entity]);
+    final router = createPixivRouter(initialLocation: '/recommended');
+    addTearDown(router.dispose);
+
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final baseTag = illustHeroTag('feed', 42);
+      unawaited(
+        router.push<void>(
+          '/recommended/illust/42',
+          extra: IllustRouteExtra(entity: entity, heroScope: 'feed'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DetailPageImage).first);
+      await tester.pumpAndSettle();
+      final viewer = find.byType(ImageViewerPage);
+      expect(
+        find.descendant(
+          of: viewer,
+          matching: find.byWidgetPredicate(
+            (w) => w is Hero && w.tag == baseTag,
+          ),
+        ),
+        findsOneWidget,
+        reason: 'the viewer opened on page 1 carries its Hero',
+      );
+
+      // Page 2 is not where the viewer opened: it carries no Hero.
+      await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
+      await tester.pumpAndSettle();
+      expect(find.text('2 / 2'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: viewer,
+          matching: find.byWidgetPredicate(
+            (w) => w is Hero && '${w.tag}'.startsWith(baseTag),
+          ),
+        ),
+        findsNothing,
+      );
+
+      // Leaving from there slides the stage down instead of shrinking.
+      await tester.tap(find.byType(BackButton));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+      final slide = tester.widget<FractionalTranslation>(
+        find
+            .descendant(
+              of: viewer,
+              matching: find.byType(FractionalTranslation),
+            )
+            .first,
+      );
+      expect(slide.translation.dy, greaterThan(0));
+      await tester.pumpAndSettle();
+      expect(viewer, findsNothing);
+    });
+  });
+
   testWidgets('mid-flight the detail endpoint paints no image of its own', (
     tester,
   ) async {

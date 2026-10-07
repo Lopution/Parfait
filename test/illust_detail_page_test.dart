@@ -251,13 +251,71 @@ void main() {
           ),
         );
         await tester.pump();
-        // One page counter, in the top bar.
+        // One page counter, in the top bar, in the detail page's pill.
         expect(find.text('2 / 2'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('viewer-page-counter')),
+            matching: find.byType(PageCountPill),
+          ),
+          findsOneWidget,
+        );
 
         await tester.fling(find.byType(PageView), const Offset(300, 0), 1000);
         await tester.pumpAndSettle();
         expect(find.text('1 / 2'), findsOneWidget);
       });
+    });
+
+    testWidgets('both chrome bars sit on a scrim that fades into the art', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        withStalledImages(
+          MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: ImageViewerPage(urls: ['https://i.pximg.net/1/original.jpg']),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final scrims = tester
+          .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+          .map((box) => box.decoration)
+          .whereType<BoxDecoration>()
+          .map((decoration) => decoration.gradient)
+          .whereType<LinearGradient>()
+          .toList();
+      expect(scrims, hasLength(2));
+      for (final scrim in scrims) {
+        // Dark at the screen edge, clear toward the artwork.
+        expect(scrim.colors.first, FuncTokens.imageControl);
+        expect(scrim.colors.last.a, 0);
+      }
+      expect(
+        {for (final scrim in scrims) scrim.begin},
+        {Alignment.topCenter, Alignment.bottomCenter},
+      );
+
+      // The scrim's fade run takes no taps: a tap just below the top
+      // controls still reaches the stage and hides the chrome.
+      final back = tester.getRect(find.byType(BackButton));
+      await tester.tapAt(Offset(back.center.dx, back.bottom + 12));
+      await tester.pump(kDoubleTapTimeout + const Duration(milliseconds: 50));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widgetList<IgnorePointer>(
+              find.ancestor(
+                of: find.byType(BackButton),
+                matching: find.byType(IgnorePointer),
+              ),
+            )
+            .any((widget) => widget.ignoring),
+        isTrue,
+      );
     });
 
     testWidgets('the placeholder stays transparent over the black stage', (
@@ -2271,6 +2329,7 @@ void main() {
       expect(find.text('第 1 页，共 1 页'), findsNothing);
       expect(find.text('1 / 1'), findsNothing);
       expect(find.byTooltip('跳到作品信息区'), findsNothing);
+      expect(find.byType(PageCountPill), findsNothing);
     });
 
     testWidgets(
@@ -2336,7 +2395,7 @@ void main() {
         );
 
         // Scrolling past the artwork to the bottom leaves no page
-        // visible — the pill leaves with it. The first jump brings the
+        // visible — the pill fades out with it. The first jump brings the
         // related section on screen, which loads it on demand; the second
         // lands on the bottom of the now taller page.
         for (var i = 0; i < 2; i++) {
@@ -2349,7 +2408,7 @@ void main() {
           await tester.pump(const Duration(milliseconds: 300));
         }
         expect(find.text('作品说明文字'), findsOneWidget);
-        expect(find.byType(DetailPageCounter), findsNothing);
+        expect(find.byType(PageCountPill), findsNothing);
       },
     );
 
