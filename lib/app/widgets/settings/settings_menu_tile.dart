@@ -3,11 +3,18 @@ import 'package:material_ui/material_ui.dart';
 import '../../haptics/app_haptics.dart';
 import '../app_menu_button.dart';
 
-/// A setting with one value from a short list: the row shows the current
-/// value; tapping opens a menu anchored to the row, the current option
-/// checked. The menu is an [AppMenuButton], so an outside press or back
-/// closes it without touching the page. Picking another value plays the
-/// select haptic; picking the current one changes nothing.
+/// Widest the current value at the end of the row gets before it
+/// ellipsizes; the title keeps the rest of the row.
+const double _valueMaxWidth = 160;
+
+/// A setting with one value from a short list (two to four options; a
+/// longer list is an inline group of `SettingsChoiceTile`s): the row shows
+/// the current value at its end ("value ▾"); tapping opens a menu below
+/// the row, lined up with its end edge — under the value, clear of the
+/// title — the current option checked. The menu is an [AppMenuButton], so
+/// an outside press or back closes it without touching the page. Picking
+/// another value plays the select haptic; picking the current one changes
+/// nothing.
 class SettingsMenuTile<T> extends StatelessWidget {
   const SettingsMenuTile({
     super.key,
@@ -37,9 +44,14 @@ class SettingsMenuTile<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    assert(
+      options.length >= 2 && options.length <= 4,
+      'A menu holds two to four options; list more as SettingsChoiceTiles.',
+    );
     final onChanged = this.onChanged;
     final icon = this.icon;
     final current = options.where((option) => option.value == value);
+    final theme = Theme.of(context);
     return AppMenuButton<T>(
       entries: [
         for (final option in options)
@@ -60,8 +72,27 @@ class SettingsMenuTile<T> extends StatelessWidget {
         enabled: onChanged != null,
         leading: icon == null ? null : Icon(icon),
         title: Text(title),
-        subtitle: current.isEmpty ? null : Text(current.first.label),
-        trailing: const Icon(Icons.arrow_drop_down),
+        // The subtitle's look; ListTile greys it out with the row.
+        leadingAndTrailingTextStyle: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        trailing: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _valueMaxWidth),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (current.isNotEmpty)
+                Flexible(
+                  child: Text(
+                    current.first.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              const Icon(Icons.arrow_drop_down),
+            ],
+          ),
+        ),
         onTap: toggle,
       ),
     );

@@ -432,7 +432,8 @@ its use case calls for:
 | Use case | Control | Examples |
 |---|---|---|
 | Peer views | Top tabs (`AppTabBar`, Tab Navigation Animation Contract) | search guide types, Spotlight categories, bookmark tags public/private |
-| A setting with one value from a short list | `SettingsMenuTile` (current value + menu) | image qualities, animation speed, haptic strength |
+| A setting with one value from a short list (2–4) | `SettingsMenuTile` (current value at the row's end + menu) | image qualities, animation speed, haptic strength |
+| A setting with one value from a longer list | A `SettingsGroup` of `SettingsChoiceTile`s | language, theme, page transition |
 | A two-way property | A switch (`SettingsControl`) | the bookmark sheet's "private" |
 | A choice of action | Buttons, one per action | the follow sheet |
 | A list filter | `FilterMenuButton`: a "current value ▾" button opening a menu | own bookmarks and follows (Profile Header Contract) |
@@ -2148,16 +2149,20 @@ reintroduce it or hand-build group containers.
     while the palette loads). `contentPadding` lines the row up inside an
     already padded form (the bookmark sheet).
   - `SettingsMenuTile<T>(title:, value:, options:, onChanged:, icon:,
-    haptics:)` is a setting with one value from a short list: title,
-    the current option's label as subtitle, `Icons.arrow_drop_down`
-    trailing. A tap opens an `AppMenuButton` menu anchored to the row
-    (outside press and back close it); every option is checkable and the
+    haptics:)` is a setting with one value from two to four options
+    (asserted; a longer list is an inline group of `SettingsChoiceTile`s):
+    title, and at the row's end the current option's label (subtitle look,
+    at most 160dp, ellipsized) with `Icons.arrow_drop_down`. A tap opens
+    an `AppMenuButton` menu anchored to the row and lined up with its end
+    edge — below the row, under the value, never over the title (outside
+    press and back close it); every option is checkable and the
     one matching `value` is checked — `options` are `AppMenuEntry`s whose
     own `checked` is ignored. A different pick plays `select` (unless
     `haptics: false`) and calls `onChanged`; the current one changes
     nothing; `onChanged: null` disables the row. Explanations go in the
     group `footer`. Owning tests: `settings_test.dart` (current value,
-    checked semantics, back closes, write and update),
+    checked semantics, value at the row end, menu below the row on its end
+    edge, back closes, write and update),
     `selection_controls_haptics_test.dart`.
   - `SettingsChoiceTile` is one option in a single-choice list. It always
     sets `ListTile.selected` and, when selected, shows a `primary`
