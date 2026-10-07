@@ -2379,7 +2379,7 @@ void main() {
         await tester.pump();
       });
       expect(find.text('Related works'), findsOneWidget);
-      expect(find.byKey(const ValueKey('related-trigger-42')), findsNothing);
+      expect(find.byKey(const ValueKey('related-42-trigger')), findsNothing);
       expect(log, [42]);
     });
 

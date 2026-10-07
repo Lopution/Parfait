@@ -3,7 +3,6 @@ import 'package:material_ui/material_ui.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../core/entity/illust_store.dart';
 import '../../../app/widgets/errors/error_details.dart';
@@ -15,7 +14,7 @@ import '../../../core/paging/paged_feed_controller.dart';
 import '../../../core/illust/related_illust_controller.dart';
 import '../../../l10n/context.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
-import 'detail_page_activity.dart';
+import 'on_demand_sliver.dart';
 
 export '../../../core/illust/related_illust_controller.dart';
 export '../../../core/illust/related_illust_repository.dart';
@@ -25,11 +24,9 @@ export '../../../core/illust/related_illust_repository.dart';
 /// author) below the caption/tags, paginated as the user scrolls. Each tile
 /// pushes its own detail page.
 ///
-/// The first page is requested on demand: only once the section is on
-/// screen on the page the user is looking at ([DetailPageActivity]).
-/// Swiping through the detail pager (which prebuilds neighbours) therefore
-/// sends no related requests. A work whose related list already exists
-/// renders it straight away.
+/// The first page is requested on demand ([OnDemandSliver]): only once the
+/// section is on screen on the page the user is looking at. A work whose
+/// related list already exists renders it straight away.
 const _gridMainAxisSpacing = FuncSpacing.sm;
 
 class RelatedIllustsSlivers extends ConsumerStatefulWidget {
@@ -43,53 +40,17 @@ class RelatedIllustsSlivers extends ConsumerStatefulWidget {
 }
 
 class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
-  late bool _requested = _alreadyRequested();
-  bool _visible = false;
-  bool _active = true;
-
-  bool _alreadyRequested() =>
-      ref.exists(relatedIllustControllerProvider(widget.illustId));
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _active = DetailPageActivity.of(context);
-    // A build follows right away, no setState needed.
-    if (_visible && _active) _requested = true;
-  }
-
-  @override
-  void didUpdateWidget(RelatedIllustsSlivers oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.illustId != widget.illustId) {
-      _requested = _alreadyRequested();
-      _visible = false;
-    }
-  }
-
-  void _onVisibilityChanged(VisibilityInfo info) {
-    if (!mounted) return;
-    _visible = info.visibleFraction > 0;
-    if (_visible && _active && !_requested) {
-      setState(() => _requested = true);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (!_requested) {
+    final provider = relatedIllustControllerProvider(widget.illustId);
+    return OnDemandSliver(
+      id: 'related-${widget.illustId}',
+      alreadyRequested: () => ref.exists(provider),
       // Same box as the loading spinner, so starting the request does not
-      // shift anything. It stays static: an idle spinner below the fold
-      // (or on a prebuilt pager neighbour) would keep producing frames.
-      return SliverToBoxAdapter(
-        child: VisibilityDetector(
-          key: ValueKey('related-trigger-${widget.illustId}'),
-          onVisibilityChanged: _onVisibilityChanged,
-          child: _indicatorBox(null),
-        ),
-      );
-    }
-    return _buildSection(context);
+      // shift anything.
+      placeholder: _indicatorBox(null),
+      sliver: _buildSection,
+    );
   }
 
   static Widget _indicatorBox(Widget? indicator) => Padding(
