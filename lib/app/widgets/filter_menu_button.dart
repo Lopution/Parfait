@@ -35,6 +35,8 @@ class FilterMenuButton<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final moreLabel = this.moreLabel;
     return AppMenuButton<_FilterPick<T>>(
+      // Filters sit at the start of the row above the list.
+      edge: AppMenuEdge.start,
       entries: [
         for (final option in options)
           AppMenuEntry(

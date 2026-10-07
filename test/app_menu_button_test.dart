@@ -68,6 +68,39 @@ Future<void> _pump(
   );
 }
 
+/// A dropdown-style anchor in the middle of the page, clear of both screen
+/// edges, so either alignment shows without clamping.
+Widget _centeredAnchor({
+  required TextDirection direction,
+  AppMenuEdge edge = AppMenuEdge.end,
+}) {
+  return Directionality(
+    textDirection: direction,
+    child: Scaffold(
+      body: Align(
+        alignment: const Alignment(0, -0.5),
+        child: AppMenuButton<String>(
+          entries: _entries,
+          edge: edge,
+          onSelected: (_, _) {},
+          anchorBuilder: (context, toggle) => TextButton(
+            onPressed: toggle,
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [Text('anchor'), Icon(Icons.arrow_drop_down)],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// The open menu's panel: its items span the panel's width.
+Rect _menuRect(WidgetTester tester) => tester
+    .getRect(find.byType(MenuItemButton).first)
+    .expandToInclude(tester.getRect(find.byType(MenuItemButton).last));
+
 Future<void> _open(WidgetTester tester) async {
   await tester.tap(find.byIcon(Icons.more_vert));
   await tester.pumpAndSettle();
@@ -260,6 +293,42 @@ void main() {
     await tester.pump();
     expect(find.text('Share'), findsOneWidget);
   });
+
+  for (final direction in TextDirection.values) {
+    testWidgets('${direction.name}: the menu lines up with the end edge of '
+        'its anchor by default, the start edge on request', (tester) async {
+      final ltr = direction == TextDirection.ltr;
+      for (final edge in AppMenuEdge.values) {
+        await _pump(tester, _centeredAnchor(direction: direction, edge: edge));
+        await tester.tap(find.text('anchor'));
+        await tester.pumpAndSettle();
+
+        final anchor = tester.getRect(
+          find.widgetWithText(TextButton, 'anchor'),
+        );
+        final menu = _menuRect(tester);
+        final endAligned = edge == AppMenuEdge.end;
+        if (ltr == endAligned) {
+          expect(menu.right, moreOrLessEquals(anchor.right), reason: '$edge');
+        } else {
+          expect(menu.left, moreOrLessEquals(anchor.left), reason: '$edge');
+        }
+        expect(menu.top, greaterThanOrEqualTo(anchor.bottom));
+        // The anchor and the items keep the ambient direction.
+        final textFirst =
+            tester.getCenter(find.text('anchor')).dx <
+            tester.getCenter(find.byIcon(Icons.arrow_drop_down)).dx;
+        final iconFirst =
+            tester.getCenter(find.byIcon(Icons.share_outlined)).dx <
+            tester.getCenter(find.text('Share')).dx;
+        expect(textFirst, ltr, reason: '$edge anchor');
+        expect(iconFirst, ltr, reason: '$edge item');
+
+        await tester.tapAt(Offset.zero);
+        await tester.pumpAndSettle();
+      }
+    });
+  }
 
   testWidgets('long labels truncate inside the width cap on a narrow phone', (
     tester,

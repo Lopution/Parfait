@@ -769,7 +769,14 @@ check and checked semantics) and `destructive` (label and icon in the
 `danger` color — delete and other irreversible actions, which still
 confirm before acting); `onSelected` receives the anchor's context;
 `style` forwards to the default `IconButton` (over-artwork palette);
-`anchorBuilder` replaces the anchor (the reverse-image engine chip). The
+`anchorBuilder` replaces the anchor (the reverse-image engine chip).
+The menu opens below its anchor, lined up with the anchor's end edge
+(`edge: AppMenuEdge.end`, the default — M3 for ⋮ buttons and values at
+the end of a row); a dropdown at the start of a row (`FilterMenuButton`)
+passes `AppMenuEdge.start`. `MenuAnchor` itself only lines up start
+edges and the menu's width is known only at layout, so the end edge is
+the start edge of a `MenuAnchor` laid out in the mirrored direction; the
+anchor and the items are wrapped back in the ambient direction. The
 panel is width-capped at `kAppMenuMaxWidth` with
 `crossAxisUnconstrained: false` — the default lets the panel grow past
 the cap and clip long labels instead of truncating them. Menu items have
@@ -814,7 +821,8 @@ the same thing, the visible one stays and the entry goes.
 
 Owning tests: `app_menu_button_test.dart` (outside press closes, no
 scroll or tap passes through, back closes the menu first, checked and
-disabled rows, reduced motion, 320-wide ru truncation) and
+disabled rows, reduced motion, 320-wide ru truncation, end and start
+edge alignment in LTR and RTL with the anchor and items unmirrored) and
 `app_overlays_test.dart` (drag-release closes one layer, release over the
 content keeps it open, non-dismissible stays, scrim dismiss action).
 
