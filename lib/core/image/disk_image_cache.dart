@@ -185,8 +185,14 @@ class DiskImageCache {
       if (entity is! File) continue;
       final name = entity.uri.pathSegments.last;
       if (name.contains('.tmp')) {
-        // Interrupted write — a real key only ever exists complete.
-        unawaited(entity.delete().catchError((_) => File('')));
+        // Interrupted write — a real key only ever exists complete. Swept
+        // inline like the rest of the scan, so a reopened cache never races
+        // its own cleanup.
+        try {
+          entity.deleteSync();
+        } on FileSystemException {
+          // Already gone, or held by another writer; the next open retries.
+        }
         continue;
       }
       if (!_keyPattern.hasMatch(name)) continue;
