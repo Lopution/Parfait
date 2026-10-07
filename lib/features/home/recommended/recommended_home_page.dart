@@ -434,6 +434,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
     };
 
     return PullToRefresh(
+      scrollController: scrollController,
       onRefresh: onRefresh,
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {

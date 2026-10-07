@@ -1,6 +1,8 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/errors/error_category.dart';
+import '../../../core/network/network_restore_signal.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../motion/state_fade.dart';
 import '../errors/error_details.dart';
@@ -43,7 +45,8 @@ class FeedTail extends StatelessWidget {
     }
     final loadMoreError = feed.loadMoreError;
     if (feed.showLoadMoreError) {
-      return Center(
+      final retry = onRetry;
+      final tail = Center(
         child: Padding(
           padding: const EdgeInsets.all(FuncSpacing.lg),
           child: Column(
@@ -63,6 +66,13 @@ class FeedTail extends StatelessWidget {
           ),
         ),
       );
+      return retry == null
+          ? tail
+          : RetryOnNetworkRestore(
+              error: loadMoreError,
+              onRetry: retry,
+              child: tail,
+            );
     }
     if (feed.exhausted && endMessage != null) {
       return Padding(
@@ -251,18 +261,55 @@ class FeedError extends StatelessWidget {
       ],
     );
     // Always the result of a state change (loading → error): fade in.
-    return StateFade.onMount(
-      child: Center(
-        child: scrollable
-            ? SingleChildScrollView(
-                padding: const EdgeInsets.all(FuncSpacing.xl),
-                child: column,
-              )
-            : Padding(
-                padding: const EdgeInsets.all(FuncSpacing.xl),
-                child: column,
-              ),
+    return RetryOnNetworkRestore(
+      error: error,
+      onRetry: onRetry,
+      child: StateFade.onMount(
+        child: Center(
+          child: scrollable
+              ? SingleChildScrollView(
+                  padding: const EdgeInsets.all(FuncSpacing.xl),
+                  child: column,
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(FuncSpacing.xl),
+                  child: column,
+                ),
+        ),
       ),
     );
+  }
+}
+
+/// Runs [onRetry] once each time the network comes back while [child] — an
+/// error state — is on screen (HCI 9). Only failures a missing connection
+/// explains retry: a 404 or a parse error would fail the same way again.
+/// A retry that fails again just shows the error, until the next restore.
+class RetryOnNetworkRestore extends ConsumerWidget {
+  const RetryOnNetworkRestore({
+    super.key,
+    required this.error,
+    required this.onRetry,
+    required this.child,
+  });
+
+  /// The failure on screen; null when the caller does not know it.
+  final Object? error;
+  final VoidCallback onRetry;
+  final Widget child;
+
+  static bool _connectionFailure(Object? error) =>
+      error == null ||
+      switch (categorizeError(error)) {
+        ErrorCategory.network || ErrorCategory.timeout => true,
+        _ => false,
+      };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(networkRestoreSignalProvider, (_, _) {
+      if (_connectionFailure(error)) onRetry();
+    });
+    return child;
   }
 }

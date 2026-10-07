@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/widgets/feed/feed_grid.dart';
+import '../../../app/widgets/feed/feed_states.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -185,24 +186,28 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
   /// line plus the raw text behind [ErrorDetails], with retry beside it.
   /// A null error (defensive branch) still gets the localized headline.
   Widget _errorRow(BuildContext context, Object? error, VoidCallback onRetry) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: error == null
-              ? Text(context.l10n.relatedLoadFailed)
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(errorCategoryText(context, categorizeError(error))),
-                    ErrorDetails(error: error),
-                  ],
-                ),
-        ),
-        const SizedBox(width: FuncSpacing.md),
-        TextButton(onPressed: onRetry, child: Text(context.l10n.retry)),
-      ],
+    return RetryOnNetworkRestore(
+      error: error,
+      onRetry: onRetry,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: error == null
+                ? Text(context.l10n.relatedLoadFailed)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(errorCategoryText(context, categorizeError(error))),
+                      ErrorDetails(error: error),
+                    ],
+                  ),
+          ),
+          const SizedBox(width: FuncSpacing.md),
+          TextButton(onPressed: onRetry, child: Text(context.l10n.retry)),
+        ],
+      ),
     );
   }
 }
@@ -267,12 +272,16 @@ class _LoadMoreFooter extends ConsumerWidget {
       );
     }
     if (state.loadMorePhase == FeedPhase.error) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
-        child: Center(
-          child: TextButton(
-            onPressed: () => onLoadMore(),
-            child: Text(context.l10n.retry),
+      return RetryOnNetworkRestore(
+        error: state.loadMoreError,
+        onRetry: onLoadMore,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
+          child: Center(
+            child: TextButton(
+              onPressed: onLoadMore,
+              child: Text(context.l10n.retry),
+            ),
           ),
         ),
       );

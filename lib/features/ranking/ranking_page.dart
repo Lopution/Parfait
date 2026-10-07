@@ -342,6 +342,7 @@ class _RankingModeBody extends ConsumerWidget {
 
         final entities = store.getAll(feed.ids);
         return PullToRefresh(
+          scrollController: scrollController,
           onRefresh: () => ref
               .read(rankingFeedControllerProvider(feedKey).notifier)
               .refresh(),

@@ -7,6 +7,7 @@ import '../../settings/shared_preferences.dart';
 
 import '../../settings/app_settings.dart';
 import '../../settings/settings_controller.dart';
+import '../network_restore_signal.dart';
 import 'network_contracts.dart' as contracts;
 import 'auto_image_source.dart';
 import 'pixiv_network_factory.dart';
@@ -123,6 +124,7 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
     connectivityIdentity = identity;
     policy.advanceNetworkRevision(networkIdentity: identity);
     resolveAutoSource(identity);
+    ref.read(networkRestoreSignalProvider.notifier).observe(identity);
   }
 
   StreamSubscription<List<ConnectivityResult>>? connectivitySub;
@@ -168,7 +170,10 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
 /// layered over Wi-Fi differs from plain Wi-Fi — tunnel interfaces change
 /// which routes actually work.
 String _connectivityIdentity(List<ConnectivityResult> results) {
-  if (results.isEmpty) return 'none';
+  if (results.isEmpty ||
+      results.every((result) => result == ConnectivityResult.none)) {
+    return offlineNetworkIdentity;
+  }
   final names = results.map((r) => r.name).toList()..sort();
   return names.join('+');
 }

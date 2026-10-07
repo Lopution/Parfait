@@ -89,6 +89,11 @@ state or action.
   and restoration state.
 - A route facade hard-codes a branch path for a page that can be opened from
   another stack; use the current stack root and the `_push` integrity assertion.
+- An error state with a retry button that is not `FeedError`, `FeedTail` or
+  wrapped in `RetryOnNetworkRestore`. Those retry once by themselves when the
+  network comes back (HCI 9, `networkRestoreSignalProvider` counts the
+  no-network → network transitions); only network and timeout failures, or
+  an unknown error, retry — a 404 or a parse error would fail the same way.
 - A shared state widget (`FeedEmpty`/`FeedError`/`FeedTail` family) carries an
   English fallback label. User-visible strings are `required` parameters so a
   call site that forgets `context.l10n.*` fails to compile instead of shipping
@@ -1515,8 +1520,12 @@ fires the `ReTapChannel`. Consumers read it through
   landing on a covered page (`isCurrent`/`hasClients`/`mounted` guards).
 - The scroll itself goes through the shared `reTapScrollToTop(context,
   controller)` helper: `MotionTokens`-gated `animateTo(0)`, `jumpTo(0)`
-  under reduced motion. Re-tap is pure scroll-to-top — never a refresh,
-  a selector toggle, or a selection change.
+  under reduced motion. A list already at the top refreshes instead
+  (HCI 10): the helper calls `PullToRefresh.trigger(controller)`, which
+  runs the same indicator and `onRefresh` a released pull would. That
+  needs the feed's `PullToRefresh` to be given the list's
+  `scrollController`; without one the re-tap at the top does nothing.
+  Re-tap is never a selector toggle or a selection change.
 - In-page re-taps follow the same rule locally, calling
   `reTapScrollToTop` on that slot's own `ScrollController`: a `TabBar`
   `onTap` on the selected index while `!controller.indexIsChanging`.
@@ -1542,7 +1551,12 @@ const PullToRefresh({
   required RefreshCallback onRefresh,
   required Widget child,
   bool isNested = false,
+  ScrollController? scrollController,
 });
+
+/// Refreshes the list [controller] scrolls as a released pull would;
+/// false when no mounted wrapper was given [controller].
+static bool PullToRefresh.trigger(ScrollController controller);
 ```
 
 ### 3. Contracts
@@ -1598,6 +1612,10 @@ const PullToRefresh({
   - Every pull ends with the indicator hidden — whether it refreshed or cancelled.
   - Once `onRefresh` starts, no scroll activity resets the refreshing state
     until that Future completes. Exactly one `onRefresh` per qualifying pull.
+  - `trigger` springs the list onto the trigger offset (`MotionTokens.fast`,
+    a jump under reduced motion) and refreshes once it settles, exactly as
+    after a release; the indicator shows from the first frame. Only the
+    branch re-tap calls it.
 - The refresh threshold is decided in exactly one place. The wrapper must not
   maintain a drag-distance judgement in parallel with the framework's, and must
   not veto a refresh the framework has already triggered.

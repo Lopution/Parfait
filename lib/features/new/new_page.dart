@@ -315,6 +315,7 @@ class _NewFeedBody extends ConsumerWidget {
 
         final slivers = _buildSlivers(context, ref, feed);
         return PullToRefresh(
+          scrollController: scrollController,
           onRefresh: () =>
               ref.read(newFeedProvider(feedKey).notifier).refresh(),
           child: NotificationListener<ScrollNotification>(

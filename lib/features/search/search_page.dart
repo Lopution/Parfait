@@ -413,65 +413,58 @@ class _SpotlightSection extends ConsumerWidget {
         ),
         StateFade(
           kind: loading,
-          child: _strip(context, ref, articles, failed, loading),
+          child: loading
+              ? const _SpotlightStripSkeleton()
+              : articles.isNotEmpty
+              ? _strip(articles)
+              : failed
+              ? _failure(context, ref, async.error ?? feed?.initialError)
+              : const SizedBox.shrink(),
         ),
       ],
     );
   }
 
-  Widget _strip(
-    BuildContext context,
-    WidgetRef ref,
-    List<SpotlightArticle> articles,
-    bool failed,
-    bool loading,
-  ) {
-    final l10n = context.l10n;
-    if (loading) return const _SpotlightStripSkeleton();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (articles.isNotEmpty)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-            // Equal card heights whatever the title length.
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final (index, article) in articles.indexed) ...[
-                    if (index > 0) const SizedBox(width: FuncSpacing.sm),
-                    SizedBox(
-                      width: cardWidth,
-                      child: SpotlightArticleCard(
-                        article: article,
-                        imageWidth: cardWidth,
-                      ),
-                    ),
-                  ],
-                ],
+  Widget _strip(List<SpotlightArticle> articles) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+    // Equal card heights whatever the title length.
+    child: IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (index, article) in articles.indexed) ...[
+            if (index > 0) const SizedBox(width: FuncSpacing.sm),
+            SizedBox(
+              width: cardWidth,
+              child: SpotlightArticleCard(
+                article: article,
+                imageWidth: cardWidth,
               ),
             ),
-          )
-        else if (failed)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-            child: Row(
-              children: [
-                Expanded(child: Text(l10n.spotlightLoadFailed)),
-                TextButton(
-                  onPressed: () => ref
-                      .read(
-                        spotlightFeedProvider(SpotlightCategory.all).notifier,
-                      )
-                      .retryInitial(),
-                  child: Text(l10n.retry),
-                ),
-              ],
-            ),
-          ),
-      ],
+          ],
+        ],
+      ),
+    ),
+  );
+
+  Widget _failure(BuildContext context, WidgetRef ref, Object? error) {
+    final l10n = context.l10n;
+    void retry() => ref
+        .read(spotlightFeedProvider(SpotlightCategory.all).notifier)
+        .retryInitial();
+    return RetryOnNetworkRestore(
+      error: error,
+      onRetry: retry,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+        child: Row(
+          children: [
+            Expanded(child: Text(l10n.spotlightLoadFailed)),
+            TextButton(onPressed: retry, child: Text(l10n.retry)),
+          ],
+        ),
+      ),
     );
   }
 }
