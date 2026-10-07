@@ -2163,14 +2163,32 @@ class AppLocalizationsRu extends AppLocalizations {
   String get illustDetailTitle => 'Работа';
 
   @override
-  String detailMetaSemantics(String date, String views, String bookmarks) {
-    return 'Опубликовано $date, просмотров: $views, закладок: $bookmarks';
-  }
-
-  @override
   String detailMetaCountsSemantics(String views, String bookmarks) {
     return 'Просмотров: $views, закладок: $bookmarks';
   }
+
+  @override
+  String get detailCollapsePages => 'Свернуть';
+
+  @override
+  String get detailStatViews => 'Просмотры';
+
+  @override
+  String get detailStatBookmarks => 'Закладки';
+
+  @override
+  String get detailStatComments => 'Комментарии';
+
+  @override
+  String detailStatsSemantics(String views, String bookmarks, String comments) {
+    return 'Просмотров: $views, закладок: $bookmarks, комментариев: $comments';
+  }
+
+  @override
+  String get detailSectionCaption => 'Описание';
+
+  @override
+  String get detailSectionTags => 'Теги';
 
   @override
   String detailExpandPages(int count) {

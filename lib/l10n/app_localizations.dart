@@ -3977,17 +3977,53 @@ abstract class AppLocalizations {
   /// **'作品详情'**
   String get illustDetailTitle;
 
-  /// Screen-reader text for the artwork detail metadata line. views and bookmarks are compact counts.
-  ///
-  /// In zh, this message translates to:
-  /// **'投稿于 {date}，{views} 次浏览，{bookmarks} 次收藏'**
-  String detailMetaSemantics(String date, String views, String bookmarks);
-
   /// The metadata line's screen-reader text when the posting date is unknown.
   ///
   /// In zh, this message translates to:
   /// **'{views} 次浏览，{bookmarks} 次收藏'**
   String detailMetaCountsSemantics(String views, String bookmarks);
+
+  /// Folds an expanded illustration set back to its first image.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起'**
+  String get detailCollapsePages;
+
+  /// Label under the view count in the artwork stats card.
+  ///
+  /// In zh, this message translates to:
+  /// **'浏览'**
+  String get detailStatViews;
+
+  /// Label under the bookmark count in the artwork stats card.
+  ///
+  /// In zh, this message translates to:
+  /// **'收藏'**
+  String get detailStatBookmarks;
+
+  /// Label under the comment count in the artwork stats card.
+  ///
+  /// In zh, this message translates to:
+  /// **'评论'**
+  String get detailStatComments;
+
+  /// Screen-reader text for the artwork stats card. All three are compact counts.
+  ///
+  /// In zh, this message translates to:
+  /// **'{views} 次浏览，{bookmarks} 次收藏，{comments} 条评论'**
+  String detailStatsSemantics(String views, String bookmarks, String comments);
+
+  /// Section heading over the artwork caption.
+  ///
+  /// In zh, this message translates to:
+  /// **'简介'**
+  String get detailSectionCaption;
+
+  /// Section heading over the artwork tags.
+  ///
+  /// In zh, this message translates to:
+  /// **'标签'**
+  String get detailSectionTags;
 
   /// Under the first image of a multi-image illustration; shows the rest.
   ///

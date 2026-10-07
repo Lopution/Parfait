@@ -32,6 +32,31 @@ void main() {
       position.jumpTo(860);
     },
   );
+  // The info blocks: date, stats, author, titled caption and tags.
+  testShot(
+    'illust/detail-info',
+    location: detail,
+    variants: {ShotVariant.dark, ShotVariant.ru},
+    before: (tester, router) async {
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(240);
+    },
+  );
+  // An expanded set read into page 2: the fold pill hangs under the count.
+  testShot(
+    'illust/detail-expanded',
+    location: detail,
+    before: (tester, router) async {
+      await tester.tap(find.byKey(const Key('illust-expand-pages')));
+      await tester.pumpAndSettle();
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(330);
+    },
+  );
   // The viewer reads the work the detail page loaded; a cold deep link has
   // no pages to show.
   testShot(

@@ -8,14 +8,24 @@ import '../../../../l10n/context.dart';
 /// Page position over the artwork ("N / M"), shared by the narrow scroll
 /// body and the two-pane pager. Hidden for single-page works, while [page]
 /// is null (no artwork on screen) and until the route's entry transition
-/// settles; it fades in and out rather than cutting. Never takes pointer
-/// input.
+/// settles; it fades in and out rather than cutting. The count itself
+/// never takes pointer input.
+///
+/// With [onCollapse], an expanded illustration set gets a collapse pill
+/// under the count that comes and goes with it, so folding the set back
+/// never needs a scroll to its end.
 class DetailPageCounter extends StatefulWidget {
-  const DetailPageCounter({super.key, required this.page, required this.count});
+  const DetailPageCounter({
+    super.key,
+    required this.page,
+    required this.count,
+    this.onCollapse,
+  });
 
   /// Zero-based page shown as `page + 1`; null hides the pill.
   final int? page;
   final int count;
+  final VoidCallback? onCollapse;
 
   @override
   State<DetailPageCounter> createState() => _DetailPageCounterState();
@@ -118,11 +128,13 @@ class _DetailPageCounterState extends State<DetailPageCounter>
     }
     // Callers hand over the whole image area via Positioned.fill; the pill
     // pins itself to the top edge, matching the viewer's counter placement.
-    return IgnorePointer(
-      child: Align(
-        alignment: AlignmentDirectional.topEnd,
-        child: Padding(
-          padding: const EdgeInsets.all(FuncSpacing.md),
+    final onCollapse = widget.onCollapse;
+    return Align(
+      alignment: AlignmentDirectional.topEnd,
+      child: Padding(
+        padding: const EdgeInsets.all(FuncSpacing.md),
+        child: IgnorePointer(
+          ignoring: !_visible,
           child: ExcludeSemantics(
             excluding: !_visible,
             child: FadeTransition(
@@ -130,16 +142,54 @@ class _DetailPageCounterState extends State<DetailPageCounter>
               // ExcludeSemantics owns the hidden state, so the label is
               // there from the first frame of the fade-in.
               alwaysIncludeSemantics: true,
-              child: Semantics(
-                label: context.l10n.viewerPageLabel(page + 1, widget.count),
-                child: ExcludeSemantics(
-                  child: PageCountPill(page: page, count: widget.count),
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  IgnorePointer(
+                    child: Semantics(
+                      label: context.l10n.viewerPageLabel(
+                        page + 1,
+                        widget.count,
+                      ),
+                      child: ExcludeSemantics(
+                        child: PageCountPill(page: page, count: widget.count),
+                      ),
+                    ),
+                  ),
+                  if (onCollapse != null) _CollapsePill(onPressed: onCollapse),
+                ],
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Folds an expanded set back to its first image. Dark like the count it
+/// hangs under; its touch target reaches the 48dp minimum around a
+/// smaller visible pill.
+class _CollapsePill extends StatelessWidget {
+  const _CollapsePill({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      key: const Key('illust-collapse-pages-floating'),
+      style: TextButton.styleFrom(
+        backgroundColor: FuncTokens.imageControl,
+        foregroundColor: FuncTokens.onImageControl,
+        minimumSize: const Size(0, 32),
+        padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.md),
+        textStyle: Theme.of(context).textTheme.labelMedium,
+      ),
+      onPressed: onPressed,
+      icon: const Icon(Icons.expand_less, size: 18),
+      label: Text(context.l10n.detailCollapsePages),
     );
   }
 }

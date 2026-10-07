@@ -16,16 +16,19 @@ class AuthorRow extends StatelessWidget {
     required this.name,
     this.avatarUrl,
     this.trailing,
+    this.avatarRadius = 16,
   });
 
   /// Minimum height of the tap target (Material's 48dp touch target).
   static const double minHeight = kMinInteractiveDimension;
-  static const double _avatarRadius = 16;
 
   final int userId;
   final String name;
   final String? avatarUrl;
   final Widget? trailing;
+
+  /// 16 in a list row; a card that stands on its own uses a larger one.
+  final double avatarRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +54,7 @@ class AuthorRow extends StatelessWidget {
                   child: AuthorSummary(
                     name: name,
                     imageUrl: avatarUrl,
-                    avatarRadius: _avatarRadius,
+                    avatarRadius: avatarRadius,
                     compact: true,
                   ),
                 ),

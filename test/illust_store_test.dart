@@ -11,6 +11,7 @@ IllustEntity entity(
   List<IllustTag> tags = const [],
   bool visible = true,
   int pageCount = 1,
+  int? totalComments,
 }) => IllustEntity(
   id: id,
   title: 'title-$id',
@@ -38,6 +39,7 @@ IllustEntity entity(
   totalBookmarks: 5,
   visible: visible,
   createDate: createDate,
+  totalComments: totalComments,
 );
 
 IllustEntity _richSparseTarget() => entity(
@@ -104,6 +106,19 @@ void main() {
         );
       },
     );
+
+    test('a feed payload without a comment count keeps the known one', () {
+      final store = IllustStore();
+      store.mergeAll([entity(1, totalComments: 37)]);
+      store.mergeAll([entity(1)]);
+      expect(store.get(1)!.totalComments, 37);
+      store.updateBookmark(1, true);
+      expect(store.get(1)!.totalComments, 37);
+      // The count round-trips through the persisted shape; absent stays
+      // unknown rather than 0.
+      expect(IllustEntity.fromJson(store.get(1)!.toJson()).totalComments, 37);
+      expect(IllustEntity.fromJson(entity(2).toJson()).totalComments, isNull);
+    });
 
     test(
       'detail merge may overwrite empty caption/tags, visible=false, smaller pageCount',

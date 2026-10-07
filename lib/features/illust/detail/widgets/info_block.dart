@@ -36,6 +36,11 @@ class InfoBlock extends ConsumerWidget {
   /// Collapsed caption height; longer captions get a Show more toggle.
   static const captionLines = 4;
 
+  String? _postedDate(BuildContext context) {
+    final created = DateTime.tryParse(entity.createDate ?? '');
+    return created == null ? null : AppFormat.date(context, created);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
@@ -65,63 +70,89 @@ class InfoBlock extends ConsumerWidget {
             entity.title,
             style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: FuncSpacing.sm),
-          AuthorRow(
-            key: const Key('illust-author-row'),
-            userId: author.id,
-            name: author.name,
-            avatarUrl: author.profileImageUrl,
-            trailing: author.id == ownUserId
-                ? null
-                : FollowSwitchButton(
-                    userId: author.id,
-                    userName: author.name,
-                    userAccount: author.account,
-                    compact: true,
-                  ),
-          ),
-          const SizedBox(height: FuncSpacing.sm),
-          _MetaLine(entity: entity),
-          if (entity.caption.isNotEmpty) ...[
-            const SizedBox(height: FuncSpacing.lg),
-            // Pixiv captions are HTML; render them immediately so the detail
-            // content is complete on the same frame as the artwork.
-            CaptionRichText(caption: entity.caption, maxLines: captionLines),
+          if (_postedDate(context) case final date?) ...[
+            const SizedBox(height: FuncSpacing.xs),
+            Text(
+              date,
+              key: const Key('illust-detail-date'),
+              style: _metaStyle(context),
+            ),
           ],
           const SizedBox(height: FuncSpacing.lg),
-          TagChips(
-            children: [
-              for (final tag in entity.tags)
-                TagChip(
-                  label: tag.name,
-                  translated: tag.translatedName,
-                  blockMode: blockMode,
-                  blocked: mutedTags.contains(tag.name),
-                  onTap: () {
-                    if (blockMode) {
-                      unawaited(
-                        _toggleTagMute(
-                          context,
-                          muteStore,
-                          tag.name,
-                          muted: mutedTags.contains(tag.name),
-                        ),
-                      );
-                    } else {
-                      openTagSearch(context, tag.name);
-                    }
-                  },
-                  // Long-press opens the direct action menu (search /
-                  // copy / mute / batch-mute entry) instead of silently
-                  // flipping the block mode.
-                  onLongPress: () => _showTagActions(
-                    context,
-                    ref,
-                    tag,
-                    muted: mutedTags.contains(tag.name),
+          _StatsBlock(entity: entity),
+          const SizedBox(height: FuncSpacing.md),
+          _BlockSurface(
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              FuncSpacing.md,
+              FuncSpacing.sm,
+              FuncSpacing.md,
+              FuncSpacing.sm,
+            ),
+            child: AuthorRow(
+              key: const Key('illust-author-row'),
+              userId: author.id,
+              name: author.name,
+              avatarUrl: author.profileImageUrl,
+              avatarRadius: 24,
+              trailing: author.id == ownUserId
+                  ? null
+                  : FollowSwitchButton(
+                      userId: author.id,
+                      userName: author.name,
+                      userAccount: author.account,
+                      compact: true,
+                    ),
+            ),
+          ),
+          if (entity.caption.isNotEmpty)
+            _Section(
+              key: const Key('illust-detail-caption'),
+              heading: context.l10n.detailSectionCaption,
+              // Pixiv captions are HTML; render them immediately so the
+              // detail content is complete on the same frame as the
+              // artwork.
+              child: CaptionRichText(
+                caption: entity.caption,
+                maxLines: captionLines,
+              ),
+            ),
+          _Section(
+            key: const Key('illust-detail-tags'),
+            heading: context.l10n.detailSectionTags,
+            child: TagChips(
+              children: [
+                for (final tag in entity.tags)
+                  TagChip(
+                    label: tag.name,
+                    translated: tag.translatedName,
+                    blockMode: blockMode,
+                    blocked: mutedTags.contains(tag.name),
+                    onTap: () {
+                      if (blockMode) {
+                        unawaited(
+                          _toggleTagMute(
+                            context,
+                            muteStore,
+                            tag.name,
+                            muted: mutedTags.contains(tag.name),
+                          ),
+                        );
+                      } else {
+                        openTagSearch(context, tag.name);
+                      }
+                    },
+                    // Long-press opens the direct action menu (search /
+                    // copy / mute / batch-mute entry) instead of silently
+                    // flipping the block mode.
+                    onLongPress: () => _showTagActions(
+                      context,
+                      ref,
+                      tag,
+                      muted: mutedTags.contains(tag.name),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: FuncSpacing.lg),
           // ID stays selectable: users quote artwork IDs. SelectableText,
@@ -133,12 +164,6 @@ class InfoBlock extends ConsumerWidget {
             '${entity.width}×${entity.height} · ID ${entity.id}',
             key: const Key('illust-detail-footer'),
             style: _metaStyle(context),
-          ),
-          const SizedBox(height: FuncSpacing.lg),
-          OutlinedButton.icon(
-            onPressed: () => openIllustComments(context, entity.id),
-            icon: const Icon(Icons.comment_outlined),
-            label: Text(context.l10n.commentTitle),
           ),
         ],
       ),
@@ -233,50 +258,126 @@ TextStyle _metaStyle(BuildContext context) {
       .tabular;
 }
 
-/// Date · views · bookmarks on one line in the theme's own scale. A narrow
-/// screen or a long translation wraps it rather than dropping the date.
-/// Screen readers hear one sentence; the icons are not read.
-class _MetaLine extends StatelessWidget {
-  const _MetaLine({required this.entity});
+/// The work's reception at a glance: views, bookmarks and (when the
+/// payload carries it) comments as large tabular figures over small
+/// labels. Screen readers hear one sentence.
+class _StatsBlock extends StatelessWidget {
+  const _StatsBlock({required this.entity});
 
   final IllustEntity entity;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final style = _metaStyle(context);
-    final createDate = DateTime.tryParse(entity.createDate ?? '');
-    final date = createDate == null
-        ? null
-        : AppFormat.date(context, createDate);
     final views = AppFormat.count(context, entity.totalView);
     final bookmarks = AppFormat.count(context, entity.totalBookmarks);
-    InlineSpan icon(IconData data) => WidgetSpan(
-      alignment: PlaceholderAlignment.middle,
-      child: Icon(data, size: style.fontSize, color: style.color),
-    );
+    final comments = switch (entity.totalComments) {
+      final count? => AppFormat.count(context, count),
+      null => null,
+    };
     return Semantics(
+      key: const Key('illust-detail-stats'),
       container: true,
-      label: date == null
+      label: comments == null
           ? l10n.detailMetaCountsSemantics(views, bookmarks)
-          : l10n.detailMetaSemantics(date, views, bookmarks),
+          : l10n.detailStatsSemantics(views, bookmarks, comments),
       child: ExcludeSemantics(
-        child: Text.rich(
-          key: const Key('illust-detail-meta'),
-          TextSpan(
+        child: _BlockSurface(
+          padding: const EdgeInsets.symmetric(
+            horizontal: FuncSpacing.sm,
+            vertical: FuncSpacing.md,
+          ),
+          child: Row(
             children: [
-              if (date != null) TextSpan(text: '$date · '),
-              icon(Icons.remove_red_eye_outlined),
-              TextSpan(text: ' $views · '),
-              icon(Icons.favorite_border),
-              TextSpan(text: ' $bookmarks'),
+              _Stat(value: views, label: l10n.detailStatViews),
+              _Stat(value: bookmarks, label: l10n.detailStatBookmarks),
+              if (comments != null)
+                _Stat(value: comments, label: l10n.detailStatComments),
             ],
           ),
-          style: style,
         ),
       ),
     );
   }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: Column(
+        children: [
+          // A long compact count in a narrow column shrinks, never wraps.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+          const SizedBox(height: FuncSpacing.xxs),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The neutral container the stats and author blocks stand on.
+class _BlockSurface extends StatelessWidget {
+  const _BlockSurface({required this.padding, required this.child});
+
+  final EdgeInsetsGeometry padding;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      borderRadius: FuncShape.card,
+    ),
+    child: Padding(padding: padding, child: child),
+  );
+}
+
+/// One titled part of the info area: a heading, then its content.
+class _Section extends StatelessWidget {
+  const _Section({super.key, required this.heading, required this.child});
+
+  final String heading;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: FuncSpacing.xl),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Semantics(
+          header: true,
+          child: Text(heading, style: Theme.of(context).textTheme.titleMedium),
+        ),
+        const SizedBox(height: FuncSpacing.sm),
+        child,
+      ],
+    ),
+  );
 }
 
 /// Mutes or unmutes [tag]; a failure shows the error, a landed unmute

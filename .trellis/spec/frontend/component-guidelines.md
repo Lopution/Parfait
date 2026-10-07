@@ -1398,27 +1398,30 @@ onTap: () => Navigator.push(detailRoute); // do not await the preload
 top to bottom:
 
 1. Title: selectable `titleLarge`, no line cap.
-2. `AuthorRow` (`illust-author-row`) with a compact `FollowSwitchButton` as
-   `trailing`. Your own work (`usableCurrent.userId` is the author) has no
-   follow button.
-3. One metadata line (`illust-detail-meta`): date · views · bookmarks, see
-   below.
-4. Caption: `CaptionRichText(caption:, maxLines: InfoBlock.captionLines)`
-   (4), which collapses through `ExpandableText`. Links work in both
-   states; a caption that fits shows no toggle.
-5. Tags.
+2. Posting date (`illust-detail-date`), `AppFormat.date` in the metadata
+   style; absent when the payload has no date.
+3. Stats block (`illust-detail-stats`): views, bookmarks and — only when
+   the payload carries `total_comments` — comments, as `headlineSmall`
+   w600 tabular figures (scaled down, never wrapped, in a narrow column)
+   over `labelMedium` / `onSurfaceVariant` labels. Screen readers hear one
+   sentence: `detailStatsSemantics`, or `detailMetaCountsSemantics`
+   without a comment count. An unknown comment count is null on
+   `IllustEntity.totalComments`, never 0, and a payload without it does
+   not erase a known one in `IllustStore` merges.
+4. Author block: `AuthorRow` (`illust-author-row`, 24 avatar radius) with
+   a compact `FollowSwitchButton` as `trailing`. Your own work
+   (`usableCurrent.userId` is the author) has no follow button.
+5. Titled sections (`detailSectionCaption`, `detailSectionTags`), each a
+   `titleMedium` heading marked `header` for screen readers: the caption
+   (`CaptionRichText(maxLines: InfoBlock.captionLines)`, 4, collapsing
+   through `ExpandableText`; skipped when empty), then the tags.
 6. Footer (`illust-detail-footer`): `W×H · ID n` as one `SelectableText`
    in the metadata style, so the ID can still be copied.
-7. The comments button.
 
-The metadata line is one `Text.rich` in `bodySmall` / `onSurfaceVariant`,
-tabular. The icons are `WidgetSpan`s at the text size. It wraps rather
-than truncating, so the date never drops. The date is
-`AppFormat.date` and the counts are `AppFormat.count`. Screen readers hear
-one sentence, `detailMetaSemantics(date, views, bookmarks)`, with the
-icons excluded; without a posting date the line shows only the counts and
-reads `detailMetaCountsSemantics`. The block uses the theme's text roles
-only: there is no separate numeric style.
+The stats and author blocks stand on `surfaceContainerLow` with
+`FuncShape.card` corners — neutral surfaces, no tinted cards. Comments are
+reached from the floating action bar; the info area has no comments
+button. The block uses the theme's text roles only.
 
 ### 2. Multi-image works
 
@@ -1426,12 +1429,18 @@ On the narrow (single scroll) layout, an illustration (`IllustType.illust`)
 with more than one page shows only page 1, followed by a full-width
 `TextButton` (`illust-expand-pages`, at least 48dp tall):
 `detailExpandPages(n)` with a trailing `Icons.expand_more`, merged with
-`expanded: false` semantics. Tapping it shows every page and the button
-goes away; there is no collapse, because collapsing would jump the scroll
-position. Manga shows every page; ugoira and single-page works are
-unchanged. Entering page selection expands the set first, since every page
-has to be on screen to be picked. The state lives in the page's `State`
-and is not persisted. Page 1 stays the Hero endpoint.
+`expanded: false` semantics. Expanded, the same slot after the last page
+becomes `illust-collapse-pages` (`detailCollapsePages`, `expand_less`,
+`expanded: true`), and the page count gets a fold pill under it
+(`illust-collapse-pages-floating`: a 32dp `imageControl` pill with a 48dp
+touch target) that comes and goes with the count, so folding never needs
+a scroll to the end. Folding from past page 1 jumps to page 1's end under
+the top bar (the expand button and info right below) — as far as the
+shorter list allows — rather than wherever the list clamps. Manga shows
+every page; ugoira and single-page works are unchanged. Entering page
+selection expands the set first, since every page has to be on screen to
+be picked, and hides the fold button while selecting. The state lives in
+the page's `State` and is not persisted. Page 1 stays the Hero endpoint.
 
 The new pages appear without an `AnimatedSize`: the page list is a lazy
 sliver, and wrapping it in a box to animate the height would build every
@@ -1510,8 +1519,10 @@ On the narrow layout, once content renders:
   The `ScrollEdgeLine` stays off until the bar is fully drawn — while it
   fades, the surface itself is the edge, so two edges never stack. Overlays
   on page 1 (selection badge, page pill) are inset by the status bar plus
-  toolbar height. The two-pane layout and loading/error states keep the
-  opaque bar.
+  toolbar height. A page whose only visible strip sits behind the status
+  bar and toolbar does not count as on screen, so the page count fades out
+  instead of hanging over the info. The two-pane layout and loading/error
+  states keep the opaque bar.
 - **Hero landing.** The flight lands under the see-through bar
   (`occludesContent` false), not clipped below it. The flight paints over
   the bar, so a detail opened from a card (`heroImageUrl` set) holds the
@@ -1522,12 +1533,15 @@ On the narrow layout, once content renders:
 
 ### 6. Tests required
 
-- `illust_detail_page_test.dart`: info block order; the author row follows
-  in place and your own work has no follow button; the metadata line's
-  local date, compact counts and spoken sentence, including an unknown
-  date; a long caption collapses and expands and a short one has no
-  toggle; an illustration set opens on page 1 and expands, manga shows
-  every page, and page selection expands; selection uses the shared bar
+- `illust_detail_page_test.dart`: info block order with header-marked
+  section titles and no comments button; the author row follows in place
+  and your own work has no follow button; the local date, the stats'
+  compact figures and spoken sentence, including an unknown date and
+  comment count; a long caption collapses and expands and a short one has no
+  toggle; an illustration set opens on page 1, expands and folds back
+  from the end button and from the pill, landing at page 1's end; manga
+  shows every page, and page selection expands without a fold button; the
+  count leaves once page 1's last strip is behind the top bar; selection uses the shared bar
   and back leaves the mode first; the viewer has one counter, no
   fullscreen button, a thumbnail jump grid with the current page selected,
   and a long work's sheet opens on the current page; the action bar holds

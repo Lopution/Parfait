@@ -1125,21 +1125,6 @@
   "searchModifyQuery": "修改搜索",
   "searchUserAccount": "账号",
   "illustDetailTitle": "作品详情",
-  "detailMetaSemantics": "投稿于 {date}，{views} 次浏览，{bookmarks} 次收藏",
-  "@detailMetaSemantics": {
-    "description": "Screen-reader text for the artwork detail metadata line. views and bookmarks are compact counts.",
-    "placeholders": {
-      "date": {
-        "type": "String"
-      },
-      "views": {
-        "type": "String"
-      },
-      "bookmarks": {
-        "type": "String"
-      }
-    }
-  },
   "detailMetaCountsSemantics": "{views} 次浏览，{bookmarks} 次收藏",
   "@detailMetaCountsSemantics": {
     "description": "The metadata line's screen-reader text when the posting date is unknown.",
@@ -1151,6 +1136,45 @@
         "type": "String"
       }
     }
+  },
+  "detailCollapsePages": "收起",
+  "@detailCollapsePages": {
+    "description": "Folds an expanded illustration set back to its first image."
+  },
+  "detailStatViews": "浏览",
+  "@detailStatViews": {
+    "description": "Label under the view count in the artwork stats card."
+  },
+  "detailStatBookmarks": "收藏",
+  "@detailStatBookmarks": {
+    "description": "Label under the bookmark count in the artwork stats card."
+  },
+  "detailStatComments": "评论",
+  "@detailStatComments": {
+    "description": "Label under the comment count in the artwork stats card."
+  },
+  "detailStatsSemantics": "{views} 次浏览，{bookmarks} 次收藏，{comments} 条评论",
+  "@detailStatsSemantics": {
+    "description": "Screen-reader text for the artwork stats card. All three are compact counts.",
+    "placeholders": {
+      "views": {
+        "type": "String"
+      },
+      "bookmarks": {
+        "type": "String"
+      },
+      "comments": {
+        "type": "String"
+      }
+    }
+  },
+  "detailSectionCaption": "简介",
+  "@detailSectionCaption": {
+    "description": "Section heading over the artwork caption."
+  },
+  "detailSectionTags": "标签",
+  "@detailSectionTags": {
+    "description": "Section heading over the artwork tags."
   },
   "detailExpandPages": "展开全部 {count} 张",
   "@detailExpandPages": {

@@ -2093,14 +2093,32 @@ class AppLocalizationsJa extends AppLocalizations {
   String get illustDetailTitle => '作品詳細';
 
   @override
-  String detailMetaSemantics(String date, String views, String bookmarks) {
-    return '$date投稿、閲覧 $views、ブックマーク $bookmarks';
-  }
-
-  @override
   String detailMetaCountsSemantics(String views, String bookmarks) {
     return '閲覧 $views、ブックマーク $bookmarks';
   }
+
+  @override
+  String get detailCollapsePages => '折りたたむ';
+
+  @override
+  String get detailStatViews => '閲覧';
+
+  @override
+  String get detailStatBookmarks => 'ブックマーク';
+
+  @override
+  String get detailStatComments => 'コメント';
+
+  @override
+  String detailStatsSemantics(String views, String bookmarks, String comments) {
+    return '閲覧 $views、ブックマーク $bookmarks、コメント $comments';
+  }
+
+  @override
+  String get detailSectionCaption => 'キャプション';
+
+  @override
+  String get detailSectionTags => 'タグ';
 
   @override
   String detailExpandPages(int count) {
