@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/settings/settings_choice_tile.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_tile.dart';
@@ -82,7 +83,7 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
       (TranslationProvider.google, context.l10n.translateGoogle),
     ];
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.translateSettings)),
+      appBar: AppTopBar(title: Text(context.l10n.translateSettings)),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(

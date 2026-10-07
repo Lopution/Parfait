@@ -17,6 +17,7 @@ import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/tab_swipe_switcher.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
@@ -854,16 +855,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      Color appBarColor() => tester
-          .widget<Material>(
-            find
-                .descendant(
-                  of: find.byType(AppBar),
-                  matching: find.byType(Material),
-                )
-                .first,
+      bool edgeLine() => tester
+          .widget<ScrollEdgeLine>(
+            find.descendant(
+              of: find.byType(AppTopBar),
+              matching: find.byType(ScrollEdgeLine),
+            ),
           )
-          .color!;
+          .visible;
       final dayFeed = find
           .descendant(
             of: find.byType(RankingPage),
@@ -871,30 +870,30 @@ void main() {
           )
           .first;
 
-      expect(appBarColor(), theme.scaffoldBackgroundColor);
+      expect(edgeLine(), isFalse);
 
-      // Scroll the day feed: the bar picks up the scrolled-under step.
+      // Scroll the day feed: the edge line shows.
       // (jumpTo — touch drags are gated off the list by SmoothWheelScroll
       // on the desktop test platform.)
       tester.widget<CustomScrollView>(dayFeed).controller!.jumpTo(300);
       await tester.pumpAndSettle();
-      expect(appBarColor(), theme.colorScheme.surfaceContainer);
+      expect(edgeLine(), isTrue);
 
       // A first-visited tab mounts its list after the switch — the attach
-      // announce still lands the bar on the un-scrolled tab.
+      // announce still clears the line for the un-scrolled tab.
       await tester.tap(find.byType(Tab).at(1));
       await tester.pumpAndSettle();
-      expect(appBarColor(), theme.scaffoldBackgroundColor);
+      expect(edgeLine(), isFalse);
 
-      // Back to day: the kept scroll position re-tints the bar.
+      // Back to day: the kept scroll position shows it again.
       await tester.tap(find.byType(Tab).at(0));
       await tester.pumpAndSettle();
-      expect(appBarColor(), theme.colorScheme.surfaceContainer);
+      expect(edgeLine(), isTrue);
 
-      // And the now-visited r18 tab, never scrolled, restores again.
+      // And the now-visited r18 tab, never scrolled, clears it again.
       await tester.tap(find.byType(Tab).at(1));
       await tester.pumpAndSettle();
-      expect(appBarColor(), theme.scaffoldBackgroundColor);
+      expect(edgeLine(), isFalse);
     });
   });
 }

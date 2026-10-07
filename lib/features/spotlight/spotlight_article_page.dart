@@ -10,6 +10,7 @@ import '../../app/layout/content_widths.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/author_row.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/share/share_service.dart';
@@ -61,7 +62,7 @@ class SpotlightArticlePage extends ConsumerWidget {
       spotlightArticleBodyProvider((id: articleId, url: _url)),
     );
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppTopBar(
         title: Text(
           entry?.title ?? context.l10n.spotlightTitle,
           maxLines: 1,

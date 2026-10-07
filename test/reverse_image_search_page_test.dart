@@ -18,6 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'helpers/connectivity_channels.dart';
 import 'helpers/reverse_image_world.dart';
 import 'helpers/test_preferences.dart';
 
@@ -32,6 +33,7 @@ void main() {
     platform = FakeReverseImagePlatform(image);
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
     InAppWebViewPlatform.instance = FakeInAppWebViewPlatform();
+    answerConnectivityChannels();
   });
 
   tearDown(() {

@@ -611,6 +611,7 @@ class _UserPageState extends ConsumerState<UserPage>
                   controller: tabController,
                   labels: [for (final tab in _tabs) _tabLabel(tab, user)],
                   onTabTap: _onTabTap,
+                  scrolled: innerBoxIsScrolled,
                 ),
               ),
             ],

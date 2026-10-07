@@ -9,6 +9,7 @@ import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/reverse_image/desktop_image_input.dart';
@@ -204,7 +205,7 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
         if (!didPop) unawaited(_attemptPop());
       },
       child: Scaffold(
-        appBar: AppBar(
+        appBar: AppTopBar(
           title: Text(context.l10n.profileEditTitle),
           leading: IconButton(
             tooltip: MaterialLocalizations.of(context).backButtonTooltip,

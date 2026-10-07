@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../../app/widgets/app_top_bar.dart';
 import '../../core/network/compat/network_contracts.dart';
 import '../../core/network/compat/network_policy.dart';
 import '../../core/network/compat/network_probe.dart';
@@ -250,7 +251,7 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.networkProbeTitle)),
+      appBar: AppTopBar(title: Text(context.l10n.networkProbeTitle)),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.all(FuncSpacing.lg),

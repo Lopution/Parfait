@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'motion_tokens.dart';
@@ -21,14 +22,27 @@ const _tileExitScale = 0.9;
 /// fails. Owned by the page state and handed down by a [RemovalScope].
 class RemovalController {
   final Map<Object, _RemovableState> _items = {};
+  final _leaving = _LeavingIds();
+
+  /// Ids whose exit started and that are still built: rows on their way
+  /// out. A container that shapes its rows by position (SettingsGroup)
+  /// lays them out without these from the first frame of the exit.
+  ValueListenable<Set<Object>> get leaving => _leaving;
 
   /// Plays the exit of every built [Removable] among [ids]; ids not on
   /// screen are skipped. Completes at once under reduced motion.
-  Future<void> playExit(Iterable<Object> ids) =>
-      Future.wait([for (final id in ids) ?_items[id]?._animateTo(0)]);
+  Future<void> playExit(Iterable<Object> ids) {
+    final built = [
+      for (final id in ids)
+        if (_items.containsKey(id)) id,
+    ];
+    _leaving.add(built);
+    return Future.wait([for (final id in built) _items[id]!._animateTo(0)]);
+  }
 
   /// Brings back items whose delete failed after [playExit].
   void restore(Iterable<Object> ids) {
+    _leaving.remove(ids);
     for (final id in ids) {
       _items[id]?._animateTo(1);
     }
@@ -37,7 +51,42 @@ class RemovalController {
   void _register(Object id, _RemovableState item) => _items[id] = item;
 
   void _unregister(Object id, _RemovableState item) {
-    if (identical(_items[id], item)) _items.remove(id);
+    if (!identical(_items[id], item)) return;
+    _items.remove(id);
+    _leaving.forget(id);
+  }
+}
+
+/// [RemovalController.leaving]: an immutable set per change.
+class _LeavingIds extends ChangeNotifier
+    implements ValueListenable<Set<Object>> {
+  Set<Object> _value = const {};
+
+  @override
+  Set<Object> get value => _value;
+
+  void add(Iterable<Object> ids) {
+    final next = {..._value, ...ids};
+    if (next.length == _value.length) return;
+    _value = Set.unmodifiable(next);
+    notifyListeners();
+  }
+
+  void remove(Iterable<Object> ids) {
+    final next = _value.difference(ids.toSet());
+    if (next.length == _value.length) return;
+    _value = Set.unmodifiable(next);
+    notifyListeners();
+  }
+
+  /// Drops [id] without a notification. Called when its row unregisters,
+  /// which happens while the element tree is being finalized — listeners
+  /// cannot rebuild then — and only because the list holding the row was
+  /// rebuilt without it (or unmounted), so listeners already show the
+  /// layout without it. A row that comes back (undo) is no longer leaving.
+  void forget(Object id) {
+    if (!_value.contains(id)) return;
+    _value = Set.unmodifiable(_value.difference({id}));
   }
 }
 
@@ -173,8 +222,11 @@ class _RemovableState extends State<Removable>
   @override
   Widget build(BuildContext context) {
     final shaped = switch (widget.style) {
+      // Pinned to the top: the bottom edge moves, the rows below follow it
+      // up, and a container drawing the row's corners keeps them visible.
       RemovalStyle.row => SizeTransition(
         sizeFactor: _shaped,
+        alignment: AlignmentDirectional.topStart,
         child: widget.child,
       ),
       RemovalStyle.tile => ScaleTransition(

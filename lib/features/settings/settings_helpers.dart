@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/download/download_destination.dart';
@@ -88,7 +89,7 @@ Widget settingsUnavailable(
   required String titleKey,
 }) {
   return Scaffold(
-    appBar: AppBar(title: Text(settingsText(context, titleKey))),
+    appBar: AppTopBar(title: Text(settingsText(context, titleKey))),
     body: state.when(
       loading: () => const FeedLoading(),
       error: (error, _) => SettingsLoadError(

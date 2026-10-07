@@ -10,6 +10,7 @@ import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/download/download_providers.dart';
@@ -20,6 +21,7 @@ import 'package:parfait/features/settings/pages/download_task_presentation.dart'
 import 'package:parfait/features/settings/pages/download_tasks_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
+import 'package:parfait/app/widgets/sliver_surface_list.dart';
 
 import 'helpers/download_world.dart';
 import 'helpers/recording_haptics.dart';
@@ -60,6 +62,43 @@ Finder _taskRow(String taskId) => find.byKey(ValueKey('download-task-$taskId'));
 
 Finder _groupHeader(String groupId) =>
     find.byKey(ValueKey('download-group-$groupId'));
+
+/// The surfaces of the groups with a row built, top to bottom, in the
+/// coordinates [WidgetTester.getRect] uses.
+List<RRect> _groupSurfaces(WidgetTester tester) {
+  final sliver = tester.renderObject<RenderSliverSurfaceList>(
+    find.byType(SliverSurfaceList),
+  );
+  final origin = MatrixUtils.transformPoint(
+    sliver.getTransformTo(null),
+    Offset.zero,
+  );
+  return [for (final surface in sliver.surfaces) surface.shift(origin)];
+}
+
+RRect _groupSurface(WidgetTester tester) => _groupSurfaces(tester).single;
+
+/// The group's one surface runs from below the gap atop its [header] to
+/// [last]'s bottom, across the rows' width, with the card's corners.
+void _expectSurfaceSpans(WidgetTester tester, Finder header, Finder last) {
+  final surface = _groupSurface(tester);
+  final headerRect = tester.getRect(header);
+  expect(
+    surface.outerRect,
+    rectMoreOrLessEquals(
+      Rect.fromLTRB(
+        headerRect.left,
+        headerRect.top + FuncSpacing.sm,
+        headerRect.right,
+        tester.getRect(last).bottom,
+      ),
+    ),
+  );
+  expect(surface.tlRadius, FuncShape.card.topLeft);
+  expect(surface.trRadius, FuncShape.card.topRight);
+  expect(surface.blRadius, FuncShape.card.bottomLeft);
+  expect(surface.brRadius, FuncShape.card.bottomRight);
+}
 
 /// The selection bar's title: the bare count, read out as [label].
 Finder _selectionTitle(String label) => find.byWidgetPredicate(
@@ -876,17 +915,36 @@ void main() {
     final header = _groupHeader(group.id);
     expect(header, findsOneWidget);
     expect(_taskRows(skipOffstage: false), findsNothing);
+    // A collapsed group is a card of its own.
+    _expectSurfaceSpans(tester, header, header);
+    final headerInk = find
+        .descendant(of: header, matching: find.byType(InkWell))
+        .first;
+    final collapsedRect = tester.getRect(headerInk);
+    // The header never changes parent, so it keeps its element and the
+    // ripple of the tap that opens the group.
+    final headerElement = tester.element(headerInk);
+    final headerMaterial = Material.of(tester.element(headerInk));
 
-    // Tap the header title to expand: children appear inside the same
-    // container — their rects stay within the header's horizontal bounds
-    // and they share its surface color.
+    // Tap the header title to expand: children appear on the group's one
+    // surface, inside the header's horizontal bounds.
     await tester.tap(find.text('批量下载 · 2 项'));
     await tester.pump();
-    // The children grow in from zero height, then sit at full size.
-    final firstChild = _taskRow(manager.tasks.first.id);
+    expect((headerMaterial as dynamic).debugInkFeatures, isNotEmpty);
+    // The children grow in from zero height (a zero-height row at the top
+    // of its sliver counts as offstage), then sit at full size.
+    final firstChild = find.byKey(
+      ValueKey('download-task-${manager.tasks.first.id}'),
+      skipOffstage: false,
+    );
+    final lastChild = _taskRow(manager.tasks.last.id);
     expect(tester.getSize(firstChild).height, 0);
+    expect(tester.getRect(headerInk), collapsedRect);
     await tester.pump(const Duration(milliseconds: 60));
     expect(tester.getSize(firstChild).height, greaterThan(0));
+    // The outline grows with the rows: its bottom corners never wait.
+    _expectSurfaceSpans(tester, header, lastChild);
+    expect((headerMaterial as dynamic).debugInkFeatures, isNotEmpty);
     await tester.pump(const Duration(milliseconds: 300));
     final fullHeight = tester.getSize(firstChild).height;
     expect(_taskRows(), findsNWidgets(2));
@@ -894,41 +952,88 @@ void main() {
       find.descendant(of: header, matching: find.byIcon(Icons.expand_less)),
       findsOneWidget,
     );
+    _expectSurfaceSpans(tester, header, lastChild);
+    expect(tester.element(headerInk), same(headerElement));
     final headerRect = tester.getRect(header);
-    final surface = Theme.of(
-      tester.element(header),
-    ).colorScheme.surfaceContainer;
+    final surface = find.byType(SliverSurfaceList);
+    expect(
+      tester.widget<SliverSurfaceList>(surface).color,
+      Theme.of(tester.element(header)).colorScheme.surfaceContainer,
+    );
+    expect(find.ancestor(of: header, matching: surface), findsOneWidget);
     for (final task in manager.tasks) {
       final child = _taskRow(task.id);
       final childRect = tester.getRect(child);
       expect(childRect.left, greaterThanOrEqualTo(headerRect.left));
       expect(childRect.right, lessThanOrEqualTo(headerRect.right));
-      expect(
-        find.descendant(
-          of: child,
-          matching: find.byWidgetPredicate(
-            (widget) =>
-                widget is DecoratedBox &&
-                widget.decoration is BoxDecoration &&
-                (widget.decoration as BoxDecoration).color == surface,
-          ),
-        ),
-        findsOneWidget,
-        reason: 'children share the group container surface',
-      );
+      expect(find.ancestor(of: child, matching: surface), findsOneWidget);
     }
 
-    // Tap again to collapse: the children fold away, then leave the list.
+    // Tap again to collapse: the children fold away on the surface, then
+    // leave the list and the header is a card of its own again.
     await tester.tap(find.text('批量下载 · 2 项'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 60));
     expect(tester.getSize(firstChild).height, inExclusiveRange(0, fullHeight));
+    _expectSurfaceSpans(tester, header, lastChild);
     await tester.pump(const Duration(milliseconds: 300));
     expect(_taskRows(skipOffstage: false), findsNothing);
+    _expectSurfaceSpans(tester, header, header);
+    expect(tester.getRect(headerInk), collapsedRect);
     expect(
       find.descendant(of: header, matching: find.byIcon(Icons.expand_more)),
       findsOneWidget,
     );
+    expect(tester.element(headerInk), same(headerElement));
+  });
+
+  testWidgets('each group sits on a surface of its own, loose tasks on none', (
+    tester,
+  ) async {
+    final (container, manager, _) = await makeDownloadWorld(
+      maxConcurrent: 1,
+      responses: [gatedResponse(Completer<void>())],
+    );
+    final first = manager.submitGroup([downloadRequest(1), downloadRequest(2)]);
+    final second = manager.submitGroup([
+      downloadRequest(3),
+      downloadRequest(4),
+    ]);
+    final loose = manager.submit(downloadRequest(5));
+    await _pumpPage(tester, container);
+    await pumpUntil(tester, () => manager.tasks.length == 5);
+    await tester.pump();
+
+    final headers = [
+      for (final group in manager.groups)
+        tester.getRect(_groupHeader(group.id)),
+    ]..sort((a, b) => a.top.compareTo(b.top));
+    expect(
+      {for (final group in manager.groups) group.id},
+      {first.id, second.id},
+    );
+    final surfaces = _groupSurfaces(tester);
+    expect(surfaces, hasLength(2));
+    for (var i = 0; i < 2; i++) {
+      expect(
+        surfaces[i].outerRect,
+        rectMoreOrLessEquals(
+          Rect.fromLTRB(
+            headers[i].left,
+            headers[i].top + FuncSpacing.sm,
+            headers[i].right,
+            headers[i].bottom,
+          ),
+        ),
+      );
+    }
+    // The cards' old spacing: sm + xs above the first, sm between two,
+    // xs down to the loose rows.
+    final listTop = tester.getRect(find.byType(CustomScrollView)).top;
+    expect(surfaces[0].top - listTop, FuncSpacing.sm + FuncSpacing.xs);
+    expect(surfaces[1].top - surfaces[0].bottom, FuncSpacing.sm);
+    final looseRect = tester.getRect(_taskRow(loose.id));
+    expect(looseRect.top - surfaces[1].bottom, FuncSpacing.xs);
   });
 
   testWidgets('a five-hundred-item list only builds the visible rows', (
@@ -945,9 +1050,9 @@ void main() {
     await pumpUntil(tester, () => manager.tasks.isNotEmpty);
     await tester.pump();
 
-    // ListView.builder only realizes the viewport plus its cache extent —
+    // The lazy lists only realize the viewport plus its cache extent —
     // far below the full 500. >0 guards against a degenerate "no keyed
-    // rows at all" pass (the eager ListView had none).
+    // rows at all" pass (an eager list had none).
     expect(
       _taskRows(skipOffstage: false).evaluate().length,
       inInclusiveRange(1, 20),
@@ -1115,7 +1220,7 @@ void main() {
     await pumpUntil(tester, () => manager.tasks.isNotEmpty);
     await tester.pump();
 
-    final listRect = tester.getRect(find.byType(ListView));
+    final listRect = tester.getRect(find.byType(CustomScrollView));
     expect(listRect.width, 840);
     expect(listRect.left, (1200 - 840) / 2);
     // Let the completed download's stream drain finish before teardown.
@@ -1381,6 +1486,52 @@ void main() {
         expect(manager.groups.single.id, group.id);
         expect(manager.groups.single.jobIds, group.jobIds);
         expect(_groupHeader(group.id), findsOneWidget);
+      });
+    });
+
+    testWidgets('the group surface shrinks with its last row as it leaves', (
+      tester,
+    ) async {
+      final (container, manager, _) = await makeDownloadWorld(
+        responses: done(2),
+      );
+      final group = manager.submitGroup([
+        downloadRequest(1),
+        downloadRequest(2),
+      ]);
+      await mockNetworkImagesFor(() async {
+        await _pumpPage(tester, container);
+        await pumpUntil(
+          tester,
+          () =>
+              manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
+        );
+        await tester.pump();
+        final header = _groupHeader(group.id);
+        await tester.tap(
+          find.descendant(of: header, matching: find.byIcon(Icons.expand_more)),
+        );
+        await tester.pumpAndSettle();
+        final first = _taskRow(group.jobIds.first);
+        final last = _taskRow(group.jobIds.last);
+        final fullHeight = _groupSurface(tester).height;
+
+        await tester.tap(
+          find.descendant(
+            of: last,
+            matching: find.byIcon(Icons.remove_circle_outline),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        // Mid-exit: the outline ends at the collapsing row's bottom edge.
+        expect(_groupSurface(tester).height, lessThan(fullHeight));
+        _expectSurfaceSpans(tester, header, last);
+
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(manager.groups.single.jobIds, [group.jobIds.first]);
+        _expectSurfaceSpans(tester, header, first);
+        await tester.pumpAndSettle();
       });
     });
 

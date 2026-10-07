@@ -3,7 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'review_support.dart';
 
-/// The search input modal and the keyboard.
+/// The search input modal and the keyboard; the trending tags.
 void main() {
   testFilm(
     'search/input-ime',
@@ -22,6 +22,19 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.search);
       await film.keyboard(show: false);
       await film.untilSettled();
+    },
+  );
+
+  testFilm(
+    'search/trending-long-press',
+    location: '/search',
+    notes:
+        'Long-pressing a trending tag: the tile scales down while held, the '
+        'long-press haptic fires at the timeout and the representative '
+        'work opens; the tile springs back under the transition.',
+    script: (film, router) async {
+      await film.longPress(find.text('#翻译0'));
+      await film.frames(10);
     },
   );
 }

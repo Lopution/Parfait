@@ -37,6 +37,7 @@ import 'package:parfait/core/platform/accessibility.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import '../helpers/connectivity_channels.dart';
 import '../helpers/download_world.dart';
 import '../helpers/fake_account.dart';
 import '../helpers/history_world.dart';
@@ -112,22 +113,7 @@ class ReviewWorld {
     );
     final responders = _defaultResponders()..addAll(api);
 
-    // Connectivity is an external boundary; wifi keeps the network
-    // identity stable so feeds do not cycle their resolution.
-    const statusChannel = MethodChannel(
-      'dev.fluttercommunity.plus/connectivity_status',
-    );
-    const checkChannel = MethodChannel(
-      'dev.fluttercommunity.plus/connectivity',
-    );
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    messenger.setMockMethodCallHandler(statusChannel, (_) async => null);
-    messenger.setMockMethodCallHandler(checkChannel, (_) async => ['wifi']);
-    addTearDown(() {
-      messenger.setMockMethodCallHandler(statusChannel, null);
-      messenger.setMockMethodCallHandler(checkChannel, null);
-    });
+    answerConnectivityChannels();
 
     final transport = FakeTransport();
     for (var i = 0; i < 8; i++) {
@@ -179,18 +165,28 @@ class ReviewWorld {
     }
 
     final credentials = FakeCredentialStore();
-    if (signedIn) {
+    final signedInAccounts = [
+      if (signedIn)
+        for (var i = 0; i < setup.accounts; i++)
+          Account(
+            id: '${100 + i}',
+            userId: 100 + i,
+            name: i == 0 ? 'tester' : 'tester ${i + 1}',
+          ),
+    ];
+    for (final (i, account) in signedInAccounts.indexed) {
       credentials.seed(
-        '100',
-        const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
+        account.id,
+        Credential(
+          accessToken: 'access-${i + 1}',
+          refreshToken: 'refresh-${i + 1}',
+        ),
       );
     }
-    final metadata = signedIn
-        ? FakeAccountMetadataRepository(
-            accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-            currentId: '100',
-          )
-        : FakeAccountMetadataRepository(accounts: const []);
+    final metadata = FakeAccountMetadataRepository(
+      accounts: signedInAccounts,
+      currentId: signedInAccounts.firstOrNull?.id,
+    );
     // pixivision's own CDN images bypass the app's image pipeline and load
     // through cached_network_image's global manager. Not restored: reading
     // the default would construct it, and it needs path_provider. Review
@@ -302,6 +298,7 @@ class ReviewSetup {
     this.downloadGroups = 0,
     this.downloadSingles = 0,
     this.signedIn = true,
+    this.accounts = 1,
     this.touchExploration = false,
     this.overrides = const [],
   });
@@ -317,6 +314,9 @@ class ReviewSetup {
 
   final bool signedIn;
 
+  /// Signed-in accounts; the first is current.
+  final int accounts;
+
   /// TalkBack exploring by touch. Off is the user's usual state: GKD on,
   /// TalkBack off.
   final bool touchExploration;
@@ -331,6 +331,7 @@ class ReviewSetup {
     downloadGroups: downloadGroups,
     downloadSingles: downloadSingles,
     signedIn: signedIn,
+    accounts: accounts,
     touchExploration: touchExploration ?? this.touchExploration,
     overrides: overrides,
   );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/navigation/routes.dart';
 import '../../app/pull_to_refresh.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/bookmark/bookmark_tags_controller.dart';
@@ -60,7 +61,7 @@ class _BookmarkTagsPageState extends State<BookmarkTagsPage>
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppTopBar(
         title: Text(l10n.bookmarkTags),
         // The lists sit inside the TabBarView's page view.
         notificationPredicate: (notification) => notification.depth == 1,

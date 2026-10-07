@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/motion/app_overlays.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings/settings_action_tile.dart';
 import '../../app/widgets/settings/settings_choice_tile.dart';
@@ -36,7 +37,7 @@ Widget _networkUnavailable(
   required String titleKey,
 }) {
   return Scaffold(
-    appBar: AppBar(title: Text(_networkText(context, titleKey))),
+    appBar: AppTopBar(title: Text(_networkText(context, titleKey))),
     body: state.when(
       loading: () => const FeedLoading(),
       error: (error, _) => SettingsLoadError(
@@ -67,7 +68,7 @@ class NetworkSettingsPage extends ConsumerWidget {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.networkSettings)),
+      appBar: AppTopBar(title: Text(context.l10n.networkSettings)),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(
@@ -524,7 +525,7 @@ class _NetworkAdvancedSettingsPageState
     return guardDraft(
       dirty: _dirty,
       child: Scaffold(
-        appBar: AppBar(title: Text(context.l10n.networkAdvanced)),
+        appBar: AppTopBar(title: Text(context.l10n.networkAdvanced)),
         body: settingsNarrowBody(
           ListView(
             padding: const EdgeInsets.only(

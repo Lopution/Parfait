@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/settings/settings_choice_tile.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../core/settings/settings_controller.dart';
@@ -24,7 +25,7 @@ class LanguageSettingsPage extends ConsumerWidget {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.languageSettings)),
+      appBar: AppTopBar(title: Text(context.l10n.languageSettings)),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(

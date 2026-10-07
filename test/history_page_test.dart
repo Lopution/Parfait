@@ -24,6 +24,7 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'helpers/connectivity_channels.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/history_world.dart';
 import 'helpers/illust_fixtures.dart';
@@ -174,12 +175,6 @@ void main() {
     final supportDir = Directory.systemTemp.createTempSync('hist-img-');
     addTearDown(() => supportDir.delete(recursive: true));
     const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
-    const statusChannel = MethodChannel(
-      'dev.fluttercommunity.plus/connectivity_status',
-    );
-    const checkChannel = MethodChannel(
-      'dev.fluttercommunity.plus/connectivity',
-    );
     messenger.setMockMethodCallHandler(
       pathChannel,
       (call) async => switch (call.method) {
@@ -188,16 +183,8 @@ void main() {
         _ => null,
       },
     );
-    messenger.setMockMethodCallHandler(statusChannel, (call) async => null);
-    messenger.setMockMethodCallHandler(
-      checkChannel,
-      (call) async => <String>['wifi'],
-    );
-    addTearDown(() {
-      messenger.setMockMethodCallHandler(pathChannel, null);
-      messenger.setMockMethodCallHandler(statusChannel, null);
-      messenger.setMockMethodCallHandler(checkChannel, null);
-    });
+    addTearDown(() => messenger.setMockMethodCallHandler(pathChannel, null));
+    answerConnectivityChannels();
 
     await mockNetworkImagesFor(() async {
       // IllustStore is a plain provider — its map does not notify — so the

@@ -249,19 +249,29 @@ per line number.
 with `inversePrimary` actions, so a SnackBar reads as inverted chrome on
 both themes. Do not restyle it to a container tier.
 
-**AppBar scrolled-under.** `appBarTheme.backgroundColor` must stay a
-`WidgetStateColor` that resolves `colorScheme.surface` at rest and
-`colorScheme.surfaceContainer` under `WidgetState.scrolledUnder` — M3's
-"tint when content scrolls beneath" without an elevation overlay. Feature
-`AppBar`s never set a background. For a page whose tabs each own a
+**AppBar scrolled-under.** Page top bars are `AppTopBar`
+(`lib/app/widgets/app_top_bar.dart`); a raw `AppBar(`/`SliverAppBar(` in
+`lib/` fails `test/architecture/top_bar_test.dart`. The bar never changes
+colour or lifts: `appBarTheme.backgroundColor` is the page surface in both
+states and `scrolledUnderElevation` is 0 (an elevation shadow does not show
+on the dark page). Content scrolled beneath the bar is marked by a
+`ScrollEdgeLine` along its bottom edge — a 1dp hairline in
+`FuncSemanticTokens.divider`, faded on the `effectsFast` spring (at once
+under reduced motion). `AppTopBar` tracks "scrolled under" with the
+`AppBar` rule (a `ScrollUpdateNotification` passing `notificationPredicate`
+from a vertical scrollable past its leading edge) in a notifier, so only
+the line rebuilds. Feature bars never set a background except the
+selection bar. A self-drawn pinned bar that is the page's top edge puts a
+`ScrollEdgeLine` at its own bottom (the profile tab strip, on the
+`NestedScrollView`'s `innerBoxIsScrolled`). For a page whose tabs each own a
 scrollable, pick the rule by the tab body, not by hand:
 
 | Tab body | Scroll-notification depth | Rule |
 |---|---|---|
 | `TabSlideStack` (no Scrollable ancestor; list depth 0) | 0 | Default judgement is already the visible list — call `announceTabScroll` after each switch |
-| `TabBarView`/`PageView` wrapping the list | 1 | `AppBar(notificationPredicate: (n) => n.depth == 1)` |
+| `TabBarView`/`PageView` wrapping the list | 1 | `AppTopBar(notificationPredicate: (n) => n.depth == 1)` |
 
-The AppBar only reacts to `ScrollUpdateNotification`, so after a tab switch
+The bar only reacts to `ScrollUpdateNotification`, so after a tab switch
 it would keep the previous tab's state: call `announceTabScroll` on the new
 tab's `ScrollController` (see the Tab Navigation Animation Contract).
 
@@ -568,7 +578,7 @@ class FitLabel extends StatelessWidget {
 }
 
 // lib/app/widgets/selection_app_bar.dart
-AppBar selectionAppBar(BuildContext context, {required int count,
+AppTopBar selectionAppBar(BuildContext context, {required int count,
     required VoidCallback onClose, required List<Widget> actions});
 ```
 
@@ -1441,7 +1451,7 @@ did not originate from the `TabBar` tap callback.
 After a tab switch the page calls `announceTabScroll(context, controller)`
 (`tab_swipe_switcher.dart`): it dispatches one synthetic
 `ScrollUpdateNotification` from a body-level context — above the page's
-scrollables but below the Scaffold — so the AppBar's scrolled-under state
+scrollables but below the Scaffold — so the top bar's scrolled-under state
 re-reads the new tab's position. Dispatching through the list's own
 position (`position.didUpdateScrollPositionBy(0)`) would make the feed's
 load-more listener see a zero-delta scroll and fire an extra request.
@@ -1763,9 +1773,15 @@ Lists stay driven by their provider. The page state owns a
 `Removable(id:, style: row | tile)`. To delete: `await
 controller.playExit(ids)`, then commit the change, and call
 `controller.restore(ids)` when the commit fails. A row collapses and
-fades; a tile shrinks to 0.9 and fades and the grid reflows on the
+fades, pinned to its top edge (the bottom edge moves, the rows below
+follow, and a container that draws the row's corners keeps them in
+view); a tile shrinks to 0.9 and fades and the grid reflows on the
 commit. Ids not on screen are skipped and reduced motion completes at
-once. Row callbacks read the controller with `RemovalScope.of` (no
+once. `controller.leaving` lists the built ids whose exit started, from
+`playExit` until `restore` or until the row unregisters (its list rebuilt
+without it — dropped silently, since the tree is being finalized then).
+A container that shapes rows by position (`SettingsGroup`) lays out
+without them from the exit's first frame. Row callbacks read the controller with `RemovalScope.of` (no
 dependency). Read stores and actions before awaiting the exit: the
 widget may be gone afterwards.
 
@@ -2033,14 +2049,24 @@ Management-style lists (Settings → Download Tasks and any future
 batch-manageable list) render **rows**, not stacked cards, and follow
 these rules:
 
-- **Lazy construction.** The list is a `ListView.builder` over a
-  flattened entry model — group header, expanded group children, and
-  ungrouped items. Large item sets and large expanded groups must not
-  build every row eagerly; row keys (`download-task-*`/`download-group-*`)
-  follow the task or group identity.
-- **One container per group.** A group's children paint their share of the
-  same rounded `surfaceContainer` block as the header — the header rounds
-  the top corners, the last child the bottom — and groups start
+- **Lazy construction.** The list is a `CustomScrollView` of two flat,
+  lazily built lists: the groups (each header, plus its children while
+  expanded) and the ungrouped items. Large item sets and large expanded
+  groups must not build every row eagerly; row keys
+  (`download-task-*`/`download-group-*`) follow the task or group
+  identity, and the two lists are keyed so one leaving does not rebuild
+  the other's rows.
+- **One container per group.** The group list is a `SliverSurfaceList`
+  (`lib/app/widgets/sliver_surface_list.dart`): at paint time it draws one
+  rounded `surfaceContainer` rectangle over each group's built rows and
+  clips their content and ink to it. Rows never pick corners by position
+  and never change parent when a group opens or closes, so the outline
+  follows rows growing in, folding away and leaving (no frame shows a
+  square corner) and a header keeps its element and the ripple of the tap
+  that opened it. Do not split a group into its own slivers or reparent
+  rows with `GlobalKey`s: a deactivated element drops its ink. Each group
+  header carries the gap above its group as top padding (`leadingGap`),
+  so the gap leaves with the header. Groups start
   collapsed. Hierarchy is expressed by the shared surface, a smaller
   child thumbnail, and text-column alignment, not by indentation alone.
 - **Status color is icon-only.** Status text stays on the secondary text
@@ -2081,7 +2107,13 @@ reintroduce it or hand-build group containers.
   `SettingsGroupContent`) is one child and therefore one segment — the
   group never splits a child. Explanatory copy that used to sit above the
   rows belongs in `footer` so the rows come first. Empty `children` render
-  no segment. The gap is the only separator — never `Divider`.
+  no segment. The gap is the only separator — never `Divider`. Under a
+  `RemovalScope`, a `Removable` child in `leaving` no longer counts: the
+  other segments take their final corners and the gap above the leaving
+  row (or above the new first row) closes as the exit starts, both on the
+  `spatialFast` spring the row collapses on, so the commit moves nothing.
+  Removable segments are keyed by id, so gap and corner state follow
+  their row across the commit.
   Spacing between groups is `FuncSpacing.xl`; the page `ListView` keeps
   only `top: sm, bottom: xl` padding because the group supplies the
   horizontal margins.

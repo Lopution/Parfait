@@ -52,6 +52,37 @@ void main() {
   );
 
   testFilm(
+    'edit/download-group-remove',
+    location: '/downloads',
+    setup: const ReviewSetup(downloadGroups: 1),
+    notes:
+        'Removing the last item of an expanded download group: the group '
+        'surface shrinks with the leaving row, its bottom corners round on '
+        'every frame (ux3 #8).',
+    script: (film, router) async {
+      await film.tap(find.textContaining('批量下载'));
+      await film.tap(find.byIcon(Icons.more_vert).last);
+      await film.tap(find.text('移除').last);
+    },
+  );
+
+  testFilm(
+    'edit/account-remove',
+    location: '/settings/account',
+    setup: const ReviewSetup(accounts: 2),
+    notes:
+        'Removing the second of two accounts: the confirm dialog closes, '
+        'the row collapses from its bottom edge, and as it starts the first '
+        'row\'s bottom corners round and the gap between them closes — no '
+        'square corner and no 2dp step when the row is gone.',
+    script: (film, router) async {
+      await film.tap(find.byIcon(Icons.delete_outline).last);
+      await film.tap(find.text('确定'));
+      await film.frames(10);
+    },
+  );
+
+  testFilm(
     'edit/unmute-undo',
     location: '/settings/muted',
     notes:

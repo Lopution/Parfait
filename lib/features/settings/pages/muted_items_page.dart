@@ -9,6 +9,7 @@ import '../../../app/navigation/routes.dart';
 import '../../../app/person_avatar.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_group_content.dart';
@@ -132,7 +133,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
     // Works muted before titles were kept fall back to a loaded copy.
     final illusts = ref.watch(illustStoreProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.mutedItemsSettings)),
+      appBar: AppTopBar(title: Text(l10n.mutedItemsSettings)),
       body: RemovalScope(
         controller: _removals,
         child: settingsNarrowBody(

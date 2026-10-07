@@ -3,9 +3,11 @@ import 'dart:math' as math;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/haptics/app_haptics.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/app_tab_bar.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/spotlight_article_card.dart';
@@ -159,7 +161,7 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage>
       // every time the IME animates (e.g. the push that hides the search
       // keyboard) — a relayout storm across all five live branches.
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(
+      appBar: AppTopBar(
         title: _SearchField(
           onTap: () => openSearchInput(context, type: _active),
         ),
@@ -563,6 +565,18 @@ class _TrendingTagTile extends ConsumerWidget {
             novelFilters: ref.read(searchNovelFiltersProvider),
           ),
         ),
+        // Long-pressing opens the work behind the tag, as pixez and Shaft
+        // do. A tag without one offers no long press at all.
+        onLongPress: representative == null
+            ? null
+            : () {
+                AppHaptics.longPress();
+                openIllust(
+                  context,
+                  representative.id,
+                  initialEntity: representative,
+                );
+              },
         child: ClipRRect(
           borderRadius: FuncShape.card,
           child: ColoredBox(
@@ -821,7 +835,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
       // the strip above it; the suggestion list below gets a viewInsets
       // bottom pad so its tail can still scroll clear of the IME.
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(
+      appBar: AppTopBar(
         leading: IconButton(
           tooltip: context.l10n.searchCancel,
           onPressed: () => Navigator.of(context).pop(),

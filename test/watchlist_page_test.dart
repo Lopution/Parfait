@@ -11,6 +11,7 @@ import 'package:parfait/core/series/series_recent_open_store.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
+import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/app/widgets/watchlist_toggle.dart';
 import 'package:parfait/features/watchlist/watchlist_page.dart';
@@ -362,23 +363,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    Color appBarColor() => tester
-        .widget<mui.Material>(
-          find
-              .descendant(
-                of: find.byType(mui.AppBar),
-                matching: find.byType(mui.Material),
-              )
-              .first,
+    bool edgeLine() => tester
+        .widget<ScrollEdgeLine>(
+          find.descendant(
+            of: find.byType(AppTopBar),
+            matching: find.byType(ScrollEdgeLine),
+          ),
         )
-        .color!;
-    expect(appBarColor(), theme.scaffoldBackgroundColor);
+        .visible;
+    expect(edgeLine(), isFalse);
 
     // The feeds sit inside the TabBarView's PageView — their notifications
     // reach the bar at depth 1, which the page's predicate accepts.
     await tester.drag(find.byType(ListView), const Offset(0, -300));
     await tester.pumpAndSettle();
-    expect(appBarColor(), theme.colorScheme.surfaceContainer);
+    expect(edgeLine(), isTrue);
   });
 }
 

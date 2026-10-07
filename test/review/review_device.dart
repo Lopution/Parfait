@@ -26,8 +26,10 @@ final reviewOutDir =
 /// app's theme setting follows the system by default), and the engine's
 /// `accessibleNavigation` stuck on — the state GKD leaves it in on the
 /// user's phone — and Android as the platform, for the framework and for
-/// the widgets that read [PlatformCaps.system]. Whether touch exploration
-/// is on is a provider, set by `ReviewWorld.open`.
+/// the widgets that read [PlatformCaps.system]. Shadows render as on the
+/// device: flutter_test otherwise draws every elevation as a solid black
+/// outline. Whether touch exploration is on is a provider, set by
+/// `ReviewWorld.open`.
 void applyReviewDevice(
   WidgetTester tester, {
   required Locale locale,
@@ -53,6 +55,7 @@ void applyReviewDevice(
   );
   debugDefaultTargetPlatformOverride = TargetPlatform.android;
   PlatformCaps.debugSystemOverride = const PlatformCaps(isAndroid: true);
+  debugDisableShadows = false;
 }
 
 void resetReviewDevice(WidgetTester tester) {
@@ -70,4 +73,6 @@ void resetReviewDevice(WidgetTester tester) {
   dispatcher.clearAccessibilityFeaturesTestValue();
   debugDefaultTargetPlatformOverride = null;
   PlatformCaps.debugSystemOverride = null;
+  // The flutter_test default the end-of-test invariant check expects.
+  debugDisableShadows = true;
 }

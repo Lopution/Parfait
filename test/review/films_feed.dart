@@ -64,6 +64,35 @@ void main() {
     },
   );
 
+  for (final brightness in Brightness.values) {
+    testFilm(
+      brightness == Brightness.light
+          ? 'feed/app-bar-edge'
+          : 'feed/app-bar-edge-dark',
+      location: '/recommended',
+      brightness: brightness,
+      notes:
+          'Cards scroll up under the top bar, then back to the top. The bar '
+          'keeps the page colour throughout; a thin line along its bottom '
+          'edge fades in once content is under it and fades out at the top. '
+          'No tint, no snap.',
+      script: (film, router) async {
+        await film.swipe(
+          find.text('illust 1002'),
+          const Offset(0, -240),
+          count: 12,
+          hold: 14,
+        );
+        await film.swipe(
+          find.text('illust 1004'),
+          const Offset(0, 400),
+          count: 16,
+          hold: 14,
+        );
+      },
+    );
+  }
+
   testFilm(
     'feed/tab-switch',
     location: '/recommended',

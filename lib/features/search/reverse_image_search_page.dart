@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../app/widgets/app_top_bar.dart';
 import '../../core/format/byte_size.dart';
 import '../../core/platform/android_intent_channel.dart';
 import '../../core/platform/intent_router.dart';
@@ -209,7 +210,7 @@ class _ReverseImageSearchPageState
   Widget build(BuildContext context) {
     final state = ref.watch(reverseImageSearchControllerProvider(_session));
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppTopBar(
         title: Text(context.l10n.searchReverseImage),
         leading: IconButton(
           tooltip: MaterialLocalizations.of(context).backButtonTooltip,

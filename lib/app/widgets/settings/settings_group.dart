@@ -1,5 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
+import '../../motion/motion_tokens.dart';
+import '../../motion/removal.dart';
 import '../../theme/func_semantic_tokens.dart';
 
 /// Inset settings group: optional header, the rows, optional footnote below.
@@ -9,6 +13,11 @@ import '../../theme/func_semantic_tokens.dart';
 /// inner ones extra-small. A row that is one composite control (a segmented
 /// button) is one segment — the group never splits a child. The group's
 /// bottom padding (FuncSpacing.xl) separates groups.
+///
+/// Under a [RemovalScope], a [Removable] row whose exit is playing no
+/// longer counts: the other segments take their final corners and gaps as
+/// the exit starts, animated on the same spring as the row's collapse, so
+/// nothing jumps when the data drops the row.
 class SettingsGroup extends StatelessWidget {
   const SettingsGroup({
     super.key,
@@ -75,18 +84,7 @@ class SettingsGroup extends StatelessWidget {
                 child: Semantics(header: true, child: title),
               ),
             ),
-          for (final (index, child) in children.indexed) ...[
-            if (index > 0) const SizedBox(height: segmentGap),
-            Material(
-              color: colorScheme.surfaceContainer,
-              shape: RoundedRectangleBorder(
-                borderRadius: segmentRadius(index, children.length),
-              ),
-              // Ink stays inside its own segment.
-              clipBehavior: Clip.antiAlias,
-              child: child,
-            ),
-          ],
+          if (children.isNotEmpty) _segments(context),
           if (footer != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(
@@ -104,6 +102,99 @@ class SettingsGroup extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _segments(BuildContext context) {
+    final leaving = RemovalScope.maybeOf(context)?.leaving;
+    if (leaving == null) return _layoutSegments(context, const {});
+    return ValueListenableBuilder(
+      valueListenable: leaving,
+      builder: (context, ids, _) => _layoutSegments(context, ids),
+    );
+  }
+
+  Widget _layoutSegments(BuildContext context, Set<Object> leaving) {
+    bool isLeaving(Widget child) =>
+        child is Removable && leaving.contains(child.id);
+    final present = children.where((child) => !isLeaving(child)).length;
+    final motion = MotionTokens.springCurve(context, MotionSpring.spatialFast);
+    final segments = <Widget>[];
+    var position = 0;
+    for (final (index, child) in children.indexed) {
+      final key = child is Removable ? ValueKey(child.id) : null;
+      if (isLeaving(child)) {
+        // Keeps its corners while it collapses; its gap closes with it.
+        segments.add(
+          _Segment(
+            key: key,
+            gap: 0,
+            radius: segmentRadius(index, children.length),
+            motion: motion,
+            child: child,
+          ),
+        );
+        continue;
+      }
+      segments.add(
+        _Segment(
+          key: key,
+          gap: position > 0 ? segmentGap : 0,
+          radius: segmentRadius(position, present),
+          motion: motion,
+          child: child,
+        ),
+      );
+      position++;
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: segments,
+    );
+  }
+}
+
+/// One row of a [SettingsGroup] and the gap above it. Gap and corners
+/// animate on [motion] when the group reshapes.
+class _Segment extends StatelessWidget {
+  const _Segment({
+    super.key,
+    required this.gap,
+    required this.radius,
+    required this.motion,
+    required this.child,
+  });
+
+  final double gap;
+  final BorderRadius radius;
+  final (Duration, Curve) motion;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final (duration, curve) = motion;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TweenAnimationBuilder(
+          tween: Tween(end: gap),
+          duration: duration,
+          curve: curve,
+          // The spring curve can land a hair past its end: below zero here.
+          builder: (context, height, _) =>
+              SizedBox(height: math.max(height, 0)),
+        ),
+        Material(
+          color: Theme.of(context).colorScheme.surfaceContainer,
+          shape: RoundedRectangleBorder(borderRadius: radius),
+          // Material animates a shape change itself (with its own curve).
+          animationDuration: duration,
+          // Ink stays inside its own segment.
+          clipBehavior: Clip.antiAlias,
+          child: child,
+        ),
+      ],
     );
   }
 }

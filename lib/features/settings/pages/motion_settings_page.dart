@@ -6,6 +6,7 @@ import '../../../app/haptics/app_haptics.dart';
 import '../../../app/haptics/haptics_driver.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_menu_button.dart';
+import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/settings/settings_choice_tile.dart';
 import '../../../app/widgets/settings/settings_control.dart';
 import '../../../app/widgets/settings/settings_group.dart';
@@ -33,7 +34,7 @@ class MotionSettingsPage extends ConsumerWidget {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.motionSettings)),
+      appBar: AppTopBar(title: Text(context.l10n.motionSettings)),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/theme/system_colors.dart';
+import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/settings/settings_choice_tile.dart';
 import '../../../app/widgets/settings/settings_control.dart';
 import '../../../app/widgets/settings/settings_group.dart';
@@ -33,7 +34,7 @@ class ThemeSettingsPage extends ConsumerWidget {
       (AppSettings.darkTheme, context.l10n.dark),
     ];
     return Scaffold(
-      appBar: AppBar(title: Text(context.l10n.themeSettings)),
+      appBar: AppTopBar(title: Text(context.l10n.themeSettings)),
       body: settingsNarrowBody(
         ListView(
           padding: const EdgeInsets.only(

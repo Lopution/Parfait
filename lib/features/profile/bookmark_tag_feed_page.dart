@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/bookmark/bookmark_models.dart';
@@ -46,7 +47,7 @@ class _BookmarkTagFeedPageState extends ConsumerState<BookmarkTagFeedPage> {
       ),
     );
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppTopBar(
         title: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,

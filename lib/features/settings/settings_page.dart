@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../../app/navigation/routes.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -53,7 +54,7 @@ class SettingsPage extends ConsumerWidget {
       // every time the IME animates (e.g. the push that hides the search
       // keyboard) — a relayout storm across all five live branches.
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(title: Text(context.l10n.homeMe)),
+      appBar: AppTopBar(title: Text(context.l10n.homeMe)),
       body: settings.when(
         loading: () => const FeedLoading(),
         error: (error, _) => SettingsLoadError(

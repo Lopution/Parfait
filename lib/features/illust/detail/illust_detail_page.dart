@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import '../../../app/widgets/app_top_bar.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart'
     show DownloadEvent, DownloadGroupSubmission;
@@ -343,7 +344,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
         entity != null &&
         async.value is! IllustDetailRestricted &&
         async.value is! IllustDetailNotFound;
-    return AppBar(
+    return AppTopBar(
       // The work title lives in the body (official client layout): a
       // single-line AppBar slot ellipsises anything
       // beyond a handful of characters, so the bar keeps a generic label

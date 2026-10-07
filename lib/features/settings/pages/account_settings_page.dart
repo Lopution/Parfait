@@ -9,6 +9,7 @@ import '../../../app/navigation/routes.dart' show openLogin, openMe;
 import '../../../app/person_avatar.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/settings/settings_action_tile.dart';
 import '../../../app/widgets/settings/settings_control.dart';
@@ -113,7 +114,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
   Widget build(BuildContext context) {
     final accounts = ref.watch(accountStoreProvider);
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppTopBar(
         title: Text(context.l10n.accountManagement),
         actions: [
           IconButton(

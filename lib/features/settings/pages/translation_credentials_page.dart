@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/motion/app_overlays.dart';
+import '../../../app/widgets/app_top_bar.dart';
 import '../../../core/comments/comment_translation.dart';
 import '../../../core/comments/translation_credentials.dart';
 import '../../../l10n/context.dart';
@@ -250,7 +251,7 @@ class _TranslationCredentialsPageState
     return guardDraft(
       dirty: _dirty,
       child: Scaffold(
-        appBar: AppBar(
+        appBar: AppTopBar(
           title: Text(
             settingsText(
               context,

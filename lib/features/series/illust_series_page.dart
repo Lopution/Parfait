@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pull_to_refresh.dart';
+import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
@@ -39,7 +40,7 @@ class IllustSeriesPage extends ConsumerWidget {
     final async = ref.watch(illustSeriesFeedProvider(seriesId));
     final detail = ref.watch(illustSeriesStoreProvider)[seriesId];
     return Scaffold(
-      appBar: AppBar(
+      appBar: AppTopBar(
         title: Text(
           detail?.title ?? context.l10n.seriesTitle,
           maxLines: 1,

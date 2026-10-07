@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/settings/settings_choice_tile.dart';
 import '../../../app/widgets/settings/settings_control.dart';
 import '../../../app/widgets/settings/settings_group.dart';
@@ -111,7 +112,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     return guardDraft(
       dirty: _templateDirty,
       child: Scaffold(
-        appBar: AppBar(title: Text(context.l10n.downloadSettings)),
+        appBar: AppTopBar(title: Text(context.l10n.downloadSettings)),
         body: settingsNarrowBody(
           ListView(
             padding: const EdgeInsets.only(

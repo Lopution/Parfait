@@ -11,6 +11,7 @@ import 'package:parfait/app/theme/func_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/theme/system_colors.dart';
 import 'package:parfait/app/widgets/app_snack_bar.dart';
+import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
 import 'package:parfait/app/widgets/replica_switch_tile.dart';
 import 'support/contrast.dart';
@@ -215,19 +216,22 @@ void main() {
     }
   });
 
-  testWidgets('the app bar steps to surfaceContainer under scrolled content', (
-    tester,
-  ) async {
-    Color appBarColor() => tester
-        .widget<Material>(
-          find
-              .descendant(
-                of: find.byType(AppBar),
-                matching: find.byType(Material),
-              )
-              .first,
+  testWidgets('the top bar keeps its colour and shows an edge line under '
+      'scrolled content', (tester) async {
+    Material appBarMaterial() => tester.widget<Material>(
+      find
+          .descendant(of: find.byType(AppBar), matching: find.byType(Material))
+          .first,
+    );
+    final line = find.descendant(
+      of: find.byType(AppTopBar),
+      matching: find.byType(ScrollEdgeLine),
+    );
+    double lineOpacity() => tester
+        .widget<AnimatedOpacity>(
+          find.descendant(of: line, matching: find.byType(AnimatedOpacity)),
         )
-        .color!;
+        .opacity;
 
     for (final brightness in Brightness.values) {
       final theme = replicaTheme(brightness);
@@ -235,7 +239,7 @@ void main() {
         MaterialApp(
           theme: theme,
           home: Scaffold(
-            appBar: AppBar(title: const Text('App bar')),
+            appBar: AppTopBar(title: const Text('App bar')),
             body: ListView(
               children: [for (var i = 0; i < 40; i++) Text('row $i')],
             ),
@@ -243,19 +247,39 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(appBarColor(), theme.scaffoldBackgroundColor);
+      expect(appBarMaterial().color, theme.scaffoldBackgroundColor);
+      expect(appBarMaterial().elevation, 0);
+      expect(lineOpacity(), 0);
+      final bar = tester.widget<AppBar>(find.byType(AppBar));
 
-      // Content scrolled under the bar: the theme's backgroundColor is a
-      // WidgetStateColor, so the bar reads surfaceContainer — the M3
-      // scrolled-under step — with no elevation change.
+      // Content scrolled under the bar: no tint, no shadow — the hairline
+      // along the bottom edge marks it.
       await tester.drag(find.byType(ListView), const Offset(0, -200));
       await tester.pumpAndSettle();
-      expect(appBarColor(), theme.colorScheme.surfaceContainer);
-      expect(theme.appBarTheme.scrolledUnderElevation, 0);
+      expect(appBarMaterial().color, theme.scaffoldBackgroundColor);
+      expect(appBarMaterial().elevation, 0);
+      expect(lineOpacity(), 1);
+      final lineRect = tester.getRect(line);
+      final barRect = tester.getRect(find.byType(AppBar));
+      expect(lineRect.bottom, barRect.bottom);
+      expect(lineRect.height, ScrollEdgeLine.thickness);
+      expect(
+        tester
+            .widget<ColoredBox>(
+              find.descendant(of: line, matching: find.byType(ColoredBox)),
+            )
+            .color,
+        FuncSemanticTokens.of(tester.element(line)).divider,
+      );
+      // Only the line follows the scroll; the bar itself is not rebuilt.
+      expect(
+        identical(tester.widget<AppBar>(find.byType(AppBar)), bar),
+        isTrue,
+      );
 
       await tester.drag(find.byType(ListView), const Offset(0, 200));
       await tester.pumpAndSettle();
-      expect(appBarColor(), theme.scaffoldBackgroundColor);
+      expect(lineOpacity(), 0);
     }
   });
 
@@ -468,7 +492,7 @@ void main() {
       expect(theme.tabBarTheme.labelColor, system.primary);
       expect(theme.tabBarTheme.indicatorColor, system.primary);
       expect(theme.extension<FuncSemanticTokens>()!.brand, system.primary);
-      expect(theme.appBarTheme.backgroundColor, isA<WidgetStateColor>());
+      expect(theme.appBarTheme.backgroundColor, theme.scaffoldBackgroundColor);
     }
   });
 

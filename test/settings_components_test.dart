@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:parfait/app/motion/removal.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/settings/settings_action_tile.dart';
@@ -205,6 +208,120 @@ void main() {
         }
       }
     }
+  });
+
+  group('a group with leaving rows', () {
+    const outer = Radius.circular(12);
+    const inner = Radius.circular(4);
+
+    Widget removableGroup(RemovalController controller, List<String> ids) =>
+        _wrap(
+          RemovalScope(
+            controller: controller,
+            child: SettingsGroup(
+              children: [
+                for (final id in ids)
+                  Removable(
+                    id: id,
+                    child: SizedBox(height: 40, child: Text(id)),
+                  ),
+              ],
+            ),
+          ),
+        );
+
+    Finder segment(String id) =>
+        find.ancestor(of: find.text(id), matching: find.byType(Material)).first;
+
+    BorderRadiusGeometry radius(WidgetTester tester, String id) =>
+        (tester.widget<Material>(segment(id)).shape! as RoundedRectangleBorder)
+            .borderRadius;
+
+    testWidgets('the new last row takes the outer corners as the exit '
+        'starts, and the commit moves nothing', (tester) async {
+      final controller = RemovalController();
+      await tester.pumpWidget(removableGroup(controller, ['a', 'b', 'c']));
+      expect(radius(tester, 'b'), const BorderRadius.all(inner));
+
+      unawaited(controller.playExit(['c']));
+      await tester.pump();
+      expect(
+        radius(tester, 'b'),
+        const BorderRadius.vertical(top: inner, bottom: outer),
+      );
+      await tester.pumpAndSettle();
+      // Row and gap closed together: nothing below 'b' is left.
+      final groupBottom = tester.getBottomLeft(find.byType(SettingsGroup)).dy;
+      final bBottom = tester.getBottomLeft(segment('b')).dy;
+
+      await tester.pumpWidget(removableGroup(controller, ['a', 'b']));
+      await tester.pump();
+      expect(tester.getBottomLeft(segment('b')).dy, bBottom);
+      expect(tester.getBottomLeft(find.byType(SettingsGroup)).dy, groupBottom);
+      expect(
+        radius(tester, 'b'),
+        const BorderRadius.vertical(top: inner, bottom: outer),
+      );
+    });
+
+    testWidgets('the new first row closes its gap and takes the outer '
+        'corners', (tester) async {
+      final controller = RemovalController();
+      await tester.pumpWidget(removableGroup(controller, ['a', 'b', 'c']));
+      final aTop = tester.getTopLeft(segment('a')).dy;
+
+      unawaited(controller.playExit(['a']));
+      await tester.pump();
+      expect(
+        radius(tester, 'b'),
+        const BorderRadius.vertical(top: outer, bottom: inner),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(segment('b')).dy, aTop);
+
+      await tester.pumpWidget(removableGroup(controller, ['b', 'c']));
+      await tester.pump();
+      expect(tester.getTopLeft(segment('b')).dy, aTop);
+      final gap =
+          tester.getTopLeft(segment('c')).dy -
+          tester.getBottomLeft(segment('b')).dy;
+      expect(gap, SettingsGroup.segmentGap);
+    });
+
+    testWidgets('a middle row leaves one gap behind', (tester) async {
+      final controller = RemovalController();
+      await tester.pumpWidget(removableGroup(controller, ['a', 'b', 'c']));
+      unawaited(controller.playExit(['b']));
+      await tester.pumpAndSettle();
+      double gap() =>
+          tester.getTopLeft(segment('c')).dy -
+          tester.getBottomLeft(segment('a')).dy;
+      expect(gap(), SettingsGroup.segmentGap);
+
+      // The remaining rows keep their own gap and corners after the commit.
+      await tester.pumpWidget(removableGroup(controller, ['a', 'c']));
+      await tester.pump();
+      expect(gap(), SettingsGroup.segmentGap);
+      await tester.pumpAndSettle();
+      expect(gap(), SettingsGroup.segmentGap);
+    });
+
+    testWidgets('restore puts corners and gaps back', (tester) async {
+      final controller = RemovalController();
+      await tester.pumpWidget(removableGroup(controller, ['a', 'b']));
+      final bTop = tester.getTopLeft(segment('b')).dy;
+      unawaited(controller.playExit(['b']));
+      await tester.pumpAndSettle();
+      expect(radius(tester, 'a'), FuncShape.card);
+
+      controller.restore(['b']);
+      await tester.pumpAndSettle();
+      expect(
+        radius(tester, 'a'),
+        const BorderRadius.vertical(top: outer, bottom: inner),
+      );
+      expect(tester.getTopLeft(segment('b')).dy, bTop);
+    });
   });
 
   testWidgets('empty group renders no container', (tester) async {

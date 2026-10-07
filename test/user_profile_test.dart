@@ -27,6 +27,7 @@ import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/theme/func_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/app_menu_button.dart';
+import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/features/profile/profile_header_delegate.dart';
 import 'package:parfait/features/profile/profile_novel_feed.dart';
@@ -1908,6 +1909,70 @@ void main() {
       });
     },
   );
+
+  testWidgets('the tab strip shows the edge line over a scrolled feed', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = FakeUserRepository(
+      works: List.generate(30, (index) => _illust(index + 1)),
+    );
+    final container = await makeProfileWorld(users: repository);
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            builder: promptHostBuilder,
+            theme: replicaTheme(Brightness.light),
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            scrollBehavior: const FuncScrollBehavior(),
+            home: const UserPage(userId: 42),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      bool edgeLine() => tester
+          .widget<ScrollEdgeLine>(
+            find.descendant(
+              of: find.byKey(const ValueKey('profile-tabs')),
+              matching: find.byType(ScrollEdgeLine),
+            ),
+          )
+          .visible;
+      Material strip() =>
+          tester.widget<Material>(find.byKey(const ValueKey('profile-tabs')));
+      expect(edgeLine(), isFalse);
+      expect(
+        strip().color,
+        replicaTheme(Brightness.light).scaffoldBackgroundColor,
+      );
+
+      // Header collapsed but the feed at its top: nothing is under the strip.
+      final outer = outerPosition(tester);
+      outer.jumpTo(outer.maxScrollExtent);
+      await tester.pumpAndSettle();
+      expect(edgeLine(), isFalse);
+
+      final inner = activeFeedPosition(tester);
+      inner.jumpTo(120);
+      await tester.pumpAndSettle();
+      expect(edgeLine(), isTrue);
+      expect(
+        strip().color,
+        replicaTheme(Brightness.light).scaffoldBackgroundColor,
+      );
+
+      inner.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(edgeLine(), isFalse);
+    });
+  });
 
   testWidgets('a pull at the very top still pulls to refresh', (tester) async {
     tester.view.physicalSize = const Size(360, 640);
