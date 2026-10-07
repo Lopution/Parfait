@@ -27,6 +27,7 @@ import 'helpers/test_preferences.dart';
 
 const String _apiHost = 'app-api.pixiv.net';
 const String _api = 'https://$_apiHost/v1/illust/recommended?offset=0';
+const _avatar = 'https://i.pximg.net/170.jpg';
 
 class _SettingsRepository implements SettingsRepository {
   _SettingsRepository(this.value);
@@ -70,6 +71,10 @@ class _Fixture {
   /// When true the token endpoint is unreachable (connection-level failure).
   bool refreshUnreachable = false;
 
+  /// The avatar the token response's user carries, in pixiv's shape; null
+  /// leaves `profile_image_urls` out.
+  String? refreshAvatar = _avatar;
+
   final List<http.Request> apiRequests = [];
   var refreshCalls = 0;
 
@@ -108,7 +113,16 @@ class _Fixture {
         jsonEncode({
           'access_token': 'new-access',
           'refresh_token': 'new-refresh',
-          'user': {'id': '100', 'name': 'user100'},
+          'user': {
+            'id': '100',
+            'name': 'user100',
+            if (refreshAvatar case final avatar?)
+              'profile_image_urls': {
+                'px_16x16': 'https://i.pximg.net/16.jpg',
+                'px_50x50': 'https://i.pximg.net/50.jpg',
+                'px_170x170': avatar,
+              },
+          },
         }),
         200,
       );
@@ -347,6 +361,48 @@ void main() {
     expect(
       fixture.apiRequests.last.headers['Authorization'],
       'Bearer new-access',
+    );
+  });
+
+  test('a refresh fills in the account avatar', () async {
+    final fixture = _Fixture(rejectStaleSeed: true);
+    final (container, client, _, _) = await _makeWorld(fixture: fixture);
+    addTearDown(container.dispose);
+    Account current() =>
+        container.read(accountStoreProvider).requireValue.current!;
+    expect(current().profileImageUrl, isNull);
+
+    await client.getJson(Uri.parse(_api));
+
+    expect(fixture.refreshCalls, 1);
+    expect(current().profileImageUrl, _avatar);
+  });
+
+  test('a refresh without an avatar keeps the stored one', () async {
+    final fixture = _Fixture(rejectStaleSeed: true)..refreshAvatar = null;
+    final (container, client, _, _) = await _makeWorld(
+      fixture: fixture,
+      accounts: const [
+        Account(
+          id: '100',
+          userId: 100,
+          name: 'user100',
+          profileImageUrl: 'https://i.pximg.net/old.jpg',
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await client.getJson(Uri.parse(_api));
+
+    expect(fixture.refreshCalls, 1);
+    expect(
+      container
+          .read(accountStoreProvider)
+          .requireValue
+          .current!
+          .profileImageUrl,
+      'https://i.pximg.net/old.jpg',
     );
   });
 

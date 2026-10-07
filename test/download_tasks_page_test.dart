@@ -266,16 +266,52 @@ void main() {
       findsNothing,
       reason: 'a finished group shows no progress bar (R2)',
     );
-    // A finished group offers 查看 (opens the first succeeded work) and
-    // 移除 (dismisses every terminal child).
+    // A finished group of two works offers 移除 (dismisses every terminal
+    // child) and no 查看: there is no single work to open, and each row
+    // opens its own.
     expect(
       find.descendant(of: header, matching: find.byIcon(Icons.open_in_new)),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.descendant(
         of: header,
         matching: find.byIcon(Icons.remove_circle_outline),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a finished group of one work offers 查看 on its header', (
+    tester,
+  ) async {
+    final (container, manager, _) = await makeDownloadWorld(
+      responses: [
+        for (var i = 0; i < 2; i++)
+          ScriptedResponse(
+            contentLength: 1,
+            chunks: [
+              [i],
+            ],
+          ),
+      ],
+    );
+    final group = manager.submitGroup([
+      downloadRequest(1, totalPages: 2),
+      downloadRequest(1, pageIndex: 1, totalPages: 2),
+    ]);
+    await _pumpPage(tester, container);
+    await pumpUntil(
+      tester,
+      () => manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
+    );
+    await tester.pump();
+
+    // The header stands for the work, so it opens it without expanding.
+    expect(
+      find.descendant(
+        of: _groupHeader(group.id),
+        matching: find.byIcon(Icons.open_in_new),
       ),
       findsOneWidget,
     );
@@ -383,7 +419,7 @@ void main() {
     );
   });
 
-  testWidgets('succeeded row offers view and remove', (tester) async {
+  testWidgets('succeeded row offers remove only', (tester) async {
     final (container, manager, _) = await makeDownloadWorld(
       responses: [
         ScriptedResponse(
@@ -411,10 +447,11 @@ void main() {
       findsNothing,
       reason: 'a finished row has no progress bar (R2)',
     );
-    // 查看 + 移除 — no retry affordance on a finished task.
+    // 移除 only: the row itself opens the work ("a task row opens its
+    // work"), so there is no 查看 button, and no retry on a finished task.
     expect(
       find.descendant(of: row, matching: find.byIcon(Icons.open_in_new)),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.descendant(

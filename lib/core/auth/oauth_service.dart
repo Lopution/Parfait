@@ -353,8 +353,9 @@ class OAuthService {
         mailAddress: user['mail_address'] is String
             ? user['mail_address'] as String
             : null,
+        // The token response carries px_16x16, px_50x50 and px_170x170.
         profileImageUrl: profileImageUrls is Map<String, dynamic>
-            ? profileImageUrls['main'] as String?
+            ? profileImageUrls['px_170x170'] as String?
             : null,
         isPremium: user['is_premium'] == true,
       ),

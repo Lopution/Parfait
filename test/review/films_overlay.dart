@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/app/pixiv_image.dart';
 
 import 'review_support.dart';
 
@@ -30,6 +31,19 @@ void main() {
   );
 
   testFilm(
+    'overlay/card-sheet',
+    location: '/recommended',
+    notes:
+        'The card long-press sheet rising over the feed and dragged down to '
+        'close. It names the work and lists download, watch later, mute '
+        'and share, and no bookmark: the heart is on the card.',
+    script: (film, router) async {
+      await film.longPress(find.byType(PixivImage).at(1));
+      await film.swipe(find.text('下载').last, const Offset(0, 900), count: 12);
+    },
+  );
+
+  testFilm(
     'overlay/menu',
     location: '/recommended/illust/1000',
     notes:
@@ -38,6 +52,22 @@ void main() {
     script: (film, router) async {
       await film.tap(find.byIcon(Icons.more_vert));
       await film.tap(find.text('illust 1000'));
+    },
+  );
+
+  testFilm(
+    'overlay/profile-menu',
+    location: '/recommended/user/99',
+    notes:
+        'The profile overflow, expanded and collapsed. Expanded, share and '
+        'follow sit in the name row and the menu leaves them out; once the '
+        'header collapses the menu lists them too.',
+    script: (film, router) async {
+      await film.tap(find.byIcon(Icons.more_vert));
+      await film.tap(find.text('user 99'));
+      await film.swipe(find.text('50 关注'), const Offset(0, -500), hold: 6);
+      await film.tap(find.byIcon(Icons.more_vert));
+      await film.tap(find.text('user 99'));
     },
   );
 

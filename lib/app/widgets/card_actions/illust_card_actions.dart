@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/bookmark/bookmark_models.dart';
-import '../../../core/bookmark/bookmark_store.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/illust/illust_download_controller.dart';
 import '../../../core/mute/mute_models.dart';
@@ -16,7 +14,6 @@ import '../../../l10n/context.dart';
 import '../../haptics/app_haptics.dart';
 import '../../navigation/routes.dart';
 import '../app_snack_bar.dart';
-import '../bookmark_switch_button.dart';
 import '../errors/error_details.dart';
 import '../undo_snack_bar.dart';
 import '../unmute_undo.dart';
@@ -26,8 +23,8 @@ import 'card_action.dart';
 /// the mute-system child appends its block entries here without touching
 /// the card or sheet code (registered slot per parent design §2).
 final illustCardActionsProvider = Provider<List<CardAction>>((ref) {
+  // No bookmark entry: every card carries its heart, one tap away.
   return const [
-    _BookmarkAction(),
     _DownloadAction(),
     _WatchLaterAction(),
     _MuteWorkAction(),
@@ -35,41 +32,6 @@ final illustCardActionsProvider = Provider<List<CardAction>>((ref) {
     _ShareAction(),
   ];
 });
-
-BookmarkKey _illustKey(IllustEntity entity) =>
-    BookmarkKey(BookmarkEntityType.illust, entity.id);
-
-class _BookmarkAction extends CardAction {
-  const _BookmarkAction();
-
-  @override
-  String get id => 'bookmark';
-
-  @override
-  IconData iconFor(WidgetRef ref, IllustEntity entity) {
-    final bookmarked = ref.watch(
-      bookmarkStoreProvider.select(
-        (s) => s[_illustKey(entity)]?.bookmarked ?? false,
-      ),
-    );
-    return bookmarked ? Icons.favorite : Icons.favorite_border;
-  }
-
-  @override
-  String labelFor(WidgetRef ref, IllustEntity entity, AppLocalizations l10n) {
-    final bookmarked = ref.watch(
-      bookmarkStoreProvider.select(
-        (s) => s[_illustKey(entity)]?.bookmarked ?? false,
-      ),
-    );
-    return bookmarked ? l10n.cardActionUnbookmark : l10n.cardActionBookmark;
-  }
-
-  @override
-  Future<void> run(BuildContext context, WidgetRef ref, IllustEntity entity) {
-    return toggleBookmarkWithUndo(context, _illustKey(entity));
-  }
-}
 
 class _DownloadAction extends CardAction {
   const _DownloadAction();

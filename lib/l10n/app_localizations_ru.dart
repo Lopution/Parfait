@@ -2425,12 +2425,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aboutDisplayRefreshRate => 'Частота обновления';
 
   @override
-  String get cardActionBookmark => 'В закладки';
-
-  @override
-  String get cardActionUnbookmark => 'Убрать из закладок';
-
-  @override
   String get cardActionDownload => 'Скачать';
 
   @override

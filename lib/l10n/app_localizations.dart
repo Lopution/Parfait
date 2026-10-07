@@ -4517,18 +4517,6 @@ abstract class AppLocalizations {
   /// **'显示刷新率'**
   String get aboutDisplayRefreshRate;
 
-  /// No description provided for @cardActionBookmark.
-  ///
-  /// In zh, this message translates to:
-  /// **'收藏'**
-  String get cardActionBookmark;
-
-  /// No description provided for @cardActionUnbookmark.
-  ///
-  /// In zh, this message translates to:
-  /// **'取消收藏'**
-  String get cardActionUnbookmark;
-
   /// No description provided for @cardActionDownload.
   ///
   /// In zh, this message translates to:

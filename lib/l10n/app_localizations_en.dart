@@ -2433,12 +2433,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutDisplayRefreshRate => 'Display refresh rate';
 
   @override
-  String get cardActionBookmark => 'Bookmark';
-
-  @override
-  String get cardActionUnbookmark => 'Remove bookmark';
-
-  @override
   String get cardActionDownload => 'Download';
 
   @override

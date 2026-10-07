@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:parfait/app/pixiv_image.dart';
 
 import 'review_support.dart';
 
@@ -11,13 +10,11 @@ void main() {
     'edit/unbookmark-undo-home',
     location: '/recommended',
     notes:
-        'Long-press a bookmarked card, choose "remove bookmark" in the '
-        'sheet: the sheet closes, the heart empties, the prompt with Undo '
-        'slides in above the bottom bar; Undo fills the heart again and the '
-        'prompt leaves.',
+        'Tap the heart of a bookmarked card: the heart empties, the prompt '
+        'with Undo slides in above the bottom bar; Undo fills the heart '
+        'again and the prompt leaves.',
     script: (film, router) async {
-      await film.longPress(find.byType(PixivImage).at(1));
-      await film.tap(find.text('取消收藏'));
+      await film.tap(find.byIcon(Icons.favorite_sharp).first);
       await film.frames(20);
       await film.tap(find.text('撤销'));
     },
@@ -42,12 +39,11 @@ void main() {
     location: '/downloads',
     setup: const ReviewSetup(downloadSingles: 3),
     notes:
-        'Removing a finished download from its menu: the menu opens from '
-        'the button and closes, the row collapses and the rows below move '
-        'up with round corners kept.',
+        'Removing a finished download with its remove button (its only '
+        'action; the row itself opens the work): the row collapses and the '
+        'rows below move up.',
     script: (film, router) async {
-      await film.tap(find.byIcon(Icons.more_vert));
-      await film.tap(find.text('移除').last);
+      await film.tap(find.byIcon(Icons.remove_circle_outline).first);
     },
   );
 
@@ -61,8 +57,7 @@ void main() {
         'every frame (ux3 #8).',
     script: (film, router) async {
       await film.tap(find.textContaining('批量下载'));
-      await film.tap(find.byIcon(Icons.more_vert).last);
-      await film.tap(find.text('移除').last);
+      await film.tap(find.byIcon(Icons.remove_circle_outline).last);
     },
   );
 

@@ -2359,12 +2359,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aboutDisplayRefreshRate => '画面リフレッシュレート';
 
   @override
-  String get cardActionBookmark => 'ブックマーク';
-
-  @override
-  String get cardActionUnbookmark => 'ブックマークを解除';
-
-  @override
   String get cardActionDownload => 'ダウンロード';
 
   @override
