@@ -10,8 +10,6 @@ import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/widgets/card_actions/illust_card_actions.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/feed/muted_cover.dart';
-import 'package:parfait/core/bookmark/bookmark_models.dart';
-import 'package:parfait/core/bookmark/bookmark_store.dart';
 import 'package:parfait/core/mute/mute_models.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/share/share_service.dart';
@@ -81,15 +79,15 @@ void main() {
     });
 
     final actions = container.read(illustCardActionsProvider);
+    // Bookmarking stays with the card's heart.
     expect(actions.map((a) => a.id), [
-      'bookmark',
       'download',
       'watch-later',
       'mute-work',
       'mute-user',
       'share',
     ]);
-    for (final label in ['收藏', '下载', '稍后再看', '屏蔽此作品', '屏蔽作者', '分享']) {
+    for (final label in ['下载', '稍后再看', '屏蔽此作品', '屏蔽作者', '分享']) {
       expect(
         find.widgetWithText(ListTile, label),
         findsOneWidget,
@@ -97,6 +95,7 @@ void main() {
       );
       expect(find.bySemanticsLabel(label), findsWidgets);
     }
+    expect(find.widgetWithText(ListTile, '收藏'), findsNothing);
   });
 
   testWidgets('the sheet names the work it acts on', (tester) async {
@@ -126,7 +125,7 @@ void main() {
     expect(
       tester.getBottomLeft(inSheet(find.text('author'))).dy,
       lessThanOrEqualTo(
-        tester.getTopLeft(find.widgetWithText(ListTile, '收藏')).dy,
+        tester.getTopLeft(find.widgetWithText(ListTile, '下载')).dy,
       ),
     );
     expect(find.bySemanticsLabel('illust 7'), findsWidgets);
@@ -246,37 +245,6 @@ void main() {
     expect(restored.map((e) => e.entity.id), [9]);
     // Undo pins the original timestamp — the row keeps its old position.
     expect(restored.single.addedAt, originalAddedAt);
-  });
-
-  testWidgets('bookmark action sends a real add request', (tester) async {
-    final haptics = recordHaptics();
-    final (container, fixture, _) = await makeCardWorld();
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        _cardApp(container, IllustCard(entity: parseIllust(illustJson(11)))),
-      );
-      await _openSheet(tester);
-      await _tapEntry(tester, '收藏');
-    });
-
-    expect(fixture.posts, hasLength(1));
-    expect(fixture.posts.single.path, '/v2/illust/bookmark/add');
-    // The sheet opened on long-press; the landed add is the success role.
-    expect(haptics.roles, [HapticRole.longPress, HapticRole.success]);
-    expect(
-      container.read(
-        bookmarkStoreProvider.select(
-          (s) =>
-              s[const BookmarkKey(BookmarkEntityType.illust, 11)]?.bookmarked,
-        ),
-      ),
-      isTrue,
-    );
-
-    await mockNetworkImagesFor(() async {
-      await _openSheet(tester);
-    });
-    expect(find.widgetWithText(ListTile, '取消收藏'), findsOneWidget);
   });
 
   testWidgets(

@@ -2331,12 +2331,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aboutDisplayRefreshRate => '显示刷新率';
 
   @override
-  String get cardActionBookmark => '收藏';
-
-  @override
-  String get cardActionUnbookmark => '取消收藏';
-
-  @override
   String get cardActionDownload => '下载';
 
   @override

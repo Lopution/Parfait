@@ -66,7 +66,7 @@ void main() {
       // List-level undo idioms — the "cancel" is bound to its object, so
       // they read as removal-tier actions, not navigation.
       expect(zh.unfollow, '取消关注');
-      expect(zh.cardActionUnbookmark, '取消收藏');
+      expect(zh.bookmarkRemoved, '已取消收藏');
       expect(zh.watchlistRemove, '取消追更');
     });
 

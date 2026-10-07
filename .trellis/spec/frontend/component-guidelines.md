@@ -799,6 +799,19 @@ as one heading, and the whole sheet labelled with the title. A work the
 card shows blurred keeps its thumbnail hidden in the header. The sheet is
 `isScrollControlled` so every action fits without the default 9/16 cap.
 
+**Each action appears once at a time.** A menu or sheet lists only what is
+not already on screen; when a visible control and a menu entry would do
+the same thing, the visible one stays and the entry goes.
+
+- The profile header's ⋮ adds share and the main action (edit profile or
+  follow) only once the name row starts sliding under the toolbar
+  (`ReplicaProfileHeaderGeometry.nameRowUnderToolbar`). Until then they
+  are only the inline buttons.
+- The card long-press sheet has no bookmark entry: every `IllustCard`
+  carries its heart.
+- A download row opens its work on tap and has no View button. A group
+  header offers View only when every item is a page of one work.
+
 Owning tests: `app_menu_button_test.dart` (outside press closes, no
 scroll or tap passes through, back closes the menu first, checked and
 disabled rows, reduced motion, 320-wide ru truncation) and
@@ -1982,8 +1995,8 @@ task whose dedupe key was submitted again in the meantime, and
 persists. "Clear completed" (an icon with a tooltip, shown only when a
 task succeeded) passes the succeeded ids to `dismissAll`. Batch cancel
 keeps its confirmation — it stops work that cannot be undone. A
-download task row opens its work on tap (`downloadOpenWork` tap hint);
-while managing it selects. `WatchLaterStore.removeAll` returns a
+download task row opens its work on tap (`downloadOpenWork` tap hint),
+so it has no View button; while managing it selects. `WatchLaterStore.removeAll` returns a
 `WatchLaterRemoval` (account id and the entries with their original
 `addedAt`); `restoreAll` re-inserts them so they sort back into place,
 and restores nothing once another account is current. Owning tests:
