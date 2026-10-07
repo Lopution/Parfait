@@ -12,11 +12,14 @@ enum ReverseImageFormat { png, jpeg, gif, webp }
 
 /// Conservative limits for an untrusted image. Header parsing is bounded and
 /// never decodes the complete image on the UI isolate.
+///
+/// These bound what is accepted at all; anything above the upload size is
+/// scaled down before it leaves the device (`ReverseImageDownscale`).
 abstract final class ReverseImageInputLimits {
-  static const maxEncodedBytes = 10 * 1024 * 1024;
+  static const maxEncodedBytes = 32 * 1024 * 1024;
   static const maxHeaderBytes = 64 * 1024;
-  static const maxDimension = 8192;
-  static const maxDecodedPixels = 16 * 1024 * 1024;
+  static const maxDimension = 12288;
+  static const maxDecodedPixels = 64 * 1024 * 1024;
 }
 
 /// Metadata received from the Android picker or ACTION_SEND bridge. The

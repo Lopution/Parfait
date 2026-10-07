@@ -1708,21 +1708,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchInputEmpty => '请输入搜索内容';
 
   @override
-  String get searchReverseUnavailable => '反向搜图暂不可用';
-
-  @override
-  String get searchReverseUnavailableDetail =>
-      '当前没有通过凭据、服务条款和隐私审查的结构化服务；不会上传图片或执行网页抓取。';
-
-  @override
   String get searchReversePick => '选择图片';
-
-  @override
-  String get searchReversePrivacy => '隐私提示';
-
-  @override
-  String get searchReversePrivacyDetail =>
-      '图片只会在你确认搜索后发送给已批准的服务；取消或失败后会立即清理临时文件。';
 
   @override
   String get searchReversePreparing => '正在准备图片…';
@@ -1764,7 +1750,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String searchReverseChallenge(String engine) {
-    return '$engine 要求人机验证，本次搜索未完成，请稍后再试';
+    return '$engine 要求人机验证；可以在网页中完成验证后搜索';
   }
 
   @override
@@ -1793,6 +1779,54 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get searchReverseEngineSwitch => '切换引擎';
+
+  @override
+  String searchReverseEngineUnavailable(String engine) {
+    return '$engine 暂时无法使用';
+  }
+
+  @override
+  String get searchReverseNetwork => '网络连接失败，请检查网络后重试';
+
+  @override
+  String searchReverseBadResponse(String engine) {
+    return '$engine 返回了无法识别的页面';
+  }
+
+  @override
+  String get searchReverseStopped => '搜索已停止';
+
+  @override
+  String get searchReverseImageFormat => '不支持这种图片格式，请选择 PNG、JPEG、GIF 或 WebP';
+
+  @override
+  String get searchReverseImageTooLarge => '图片太大，无法处理';
+
+  @override
+  String get searchReverseImagePermission => '没有读取这张图片的权限，请重新选择';
+
+  @override
+  String get searchReverseImageUnreadable => '无法读取这张图片，请重新选择';
+
+  @override
+  String get searchReverseCleanupFailed => '临时图片清理失败';
+
+  @override
+  String get searchReversePickerUnavailable => '此设备无法选择图片';
+
+  @override
+  String get searchReversePrivacyNote => '图片只会上传到所选引擎，离开本页即删除';
+
+  @override
+  String get searchReverseOpenInBrowser => '在网页中搜索';
+
+  @override
+  String searchReverseTryEngine(String engine) {
+    return '换用 $engine 搜索';
+  }
+
+  @override
+  String get searchReverseAllEnginesTried => '所有引擎都没有找到匹配结果';
 
   @override
   String get searchFilters => '筛选';

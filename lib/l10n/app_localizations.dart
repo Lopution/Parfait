@@ -3323,35 +3323,11 @@ abstract class AppLocalizations {
   /// **'请输入搜索内容'**
   String get searchInputEmpty;
 
-  /// No description provided for @searchReverseUnavailable.
-  ///
-  /// In zh, this message translates to:
-  /// **'反向搜图暂不可用'**
-  String get searchReverseUnavailable;
-
-  /// No description provided for @searchReverseUnavailableDetail.
-  ///
-  /// In zh, this message translates to:
-  /// **'当前没有通过凭据、服务条款和隐私审查的结构化服务；不会上传图片或执行网页抓取。'**
-  String get searchReverseUnavailableDetail;
-
   /// No description provided for @searchReversePick.
   ///
   /// In zh, this message translates to:
   /// **'选择图片'**
   String get searchReversePick;
-
-  /// No description provided for @searchReversePrivacy.
-  ///
-  /// In zh, this message translates to:
-  /// **'隐私提示'**
-  String get searchReversePrivacy;
-
-  /// No description provided for @searchReversePrivacyDetail.
-  ///
-  /// In zh, this message translates to:
-  /// **'图片只会在你确认搜索后发送给已批准的服务；取消或失败后会立即清理临时文件。'**
-  String get searchReversePrivacyDetail;
 
   /// No description provided for @searchReversePreparing.
   ///
@@ -3428,7 +3404,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchReverseChallenge.
   ///
   /// In zh, this message translates to:
-  /// **'{engine} 要求人机验证，本次搜索未完成，请稍后再试'**
+  /// **'{engine} 要求人机验证；可以在网页中完成验证后搜索'**
   String searchReverseChallenge(String engine);
 
   /// No description provided for @searchReversePageLoadFailed.
@@ -3484,6 +3460,90 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'切换引擎'**
   String get searchReverseEngineSwitch;
+
+  /// No description provided for @searchReverseEngineUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'{engine} 暂时无法使用'**
+  String searchReverseEngineUnavailable(String engine);
+
+  /// No description provided for @searchReverseNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络连接失败，请检查网络后重试'**
+  String get searchReverseNetwork;
+
+  /// No description provided for @searchReverseBadResponse.
+  ///
+  /// In zh, this message translates to:
+  /// **'{engine} 返回了无法识别的页面'**
+  String searchReverseBadResponse(String engine);
+
+  /// No description provided for @searchReverseStopped.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索已停止'**
+  String get searchReverseStopped;
+
+  /// No description provided for @searchReverseImageFormat.
+  ///
+  /// In zh, this message translates to:
+  /// **'不支持这种图片格式，请选择 PNG、JPEG、GIF 或 WebP'**
+  String get searchReverseImageFormat;
+
+  /// No description provided for @searchReverseImageTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片太大，无法处理'**
+  String get searchReverseImageTooLarge;
+
+  /// No description provided for @searchReverseImagePermission.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有读取这张图片的权限，请重新选择'**
+  String get searchReverseImagePermission;
+
+  /// No description provided for @searchReverseImageUnreadable.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法读取这张图片，请重新选择'**
+  String get searchReverseImageUnreadable;
+
+  /// No description provided for @searchReverseCleanupFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'临时图片清理失败'**
+  String get searchReverseCleanupFailed;
+
+  /// No description provided for @searchReversePickerUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'此设备无法选择图片'**
+  String get searchReversePickerUnavailable;
+
+  /// No description provided for @searchReversePrivacyNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片只会上传到所选引擎，离开本页即删除'**
+  String get searchReversePrivacyNote;
+
+  /// No description provided for @searchReverseOpenInBrowser.
+  ///
+  /// In zh, this message translates to:
+  /// **'在网页中搜索'**
+  String get searchReverseOpenInBrowser;
+
+  /// No description provided for @searchReverseTryEngine.
+  ///
+  /// In zh, this message translates to:
+  /// **'换用 {engine} 搜索'**
+  String searchReverseTryEngine(String engine);
+
+  /// No description provided for @searchReverseAllEnginesTried.
+  ///
+  /// In zh, this message translates to:
+  /// **'所有引擎都没有找到匹配结果'**
+  String get searchReverseAllEnginesTried;
 
   /// No description provided for @searchFilters.
   ///

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import '../reverse_image/image_input.dart';
+
 /// Validated image payload received through `ACTION_SEND image/*`.
 class SharedImage {
   const SharedImage({
@@ -28,8 +30,8 @@ class SharedImageRejected implements Exception {
 /// this class enforces the accept/deny rules before anything consumes the
 /// image (parent PRD R4 / android-platform-parity R4).
 abstract final class SharedImageValidator {
-  /// Approximate upper bound for reverse-image-search inputs (10 MB).
-  static const int maxBytes = 10 * 1024 * 1024;
+  /// The reverse-image input ceiling; larger shares are refused here.
+  static const int maxBytes = ReverseImageInputLimits.maxEncodedBytes;
 
   /// Validates metadata obtained from an Android content resolver before a
   /// feature opens or copies the URI. Unknown lengths are rejected by the

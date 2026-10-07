@@ -1492,7 +1492,15 @@ provider credentials never cross into diagnostics, snapshots or ordinary
 settings. The controller validates the concrete MIME type, file signature,
 dimensions, pixel budget and encoded-size limit before exposing a preview, and
 owns exactly one temporary file until every terminal path has attempted
-cleanup.
+cleanup. Those limits bound what is accepted (32 MiB, 12288 px, 64 Mpx); an
+image over 2048 px on its long edge or 8 MiB is scaled to a 2048 px JPEG
+(`ReverseImageDownscale`) before the preview, never refused for its size.
+The held image outlives every search outcome — success, no match, failure —
+so another engine can run on it; only a new pick, cancel or leaving the page
+releases it. `ReverseImageFlowState.nextEngine` names the engine a "try
+another" action runs (skipping failed, empty and unfit ones), and a
+challenge falls back to the engine's own upload form in the controlled
+WebView (`searchInBrowser`). Every failure code has its own localized text.
 
 Provider implementations expose a typed capability (`structuredApi`,
 `interactiveWebView` or `unavailable`) and typed outcomes. A provider cannot

@@ -64,14 +64,6 @@ class _ReverseImageSearchPageState
     extends ConsumerState<ReverseImageSearchPage> {
   late final ReverseImageSearchSession _session;
   late final ReverseImageExternalLauncher _externalLauncher;
-  ProviderSubscription<ReverseImageFlowState>? _flowSubscription;
-
-  /// Last held input, kept only as the task-header's thumbnail source for
-  /// terminal states that already released the file (headless/webView
-  /// success). The controller still owns the temp file's lifecycle — this
-  /// reference never extends it; the cached decode survives deletion via
-  /// the image cache and falls back to a placeholder on eviction.
-  ReverseImageInputInfo? _lastInput;
 
   @override
   void initState() {
@@ -99,20 +91,6 @@ class _ReverseImageSearchPageState
         OutboundReverseImageExternalLauncher(
           ref.read(outboundUrlOpenerProvider),
         );
-    _flowSubscription = ref.listenManual(
-      reverseImageSearchControllerProvider(_session),
-      (_, next) {
-        if (next.input != null) {
-          _lastInput = next.input;
-        } else if (next.status == ReverseImageFlowStatus.idle ||
-            next.status == ReverseImageFlowStatus.canceled) {
-          // Flow reset — a stale thumbnail must not survive into the next
-          // pick's context strip.
-          _lastInput = null;
-        }
-        if (mounted) setState(() {});
-      },
-    );
     final reference = widget.initialReference;
     if (reference != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -129,12 +107,6 @@ class _ReverseImageSearchPageState
 
   ReverseImageSearchController get _controller =>
       ref.read(reverseImageSearchControllerProvider(_session).notifier);
-
-  @override
-  void dispose() {
-    _flowSubscription?.close();
-    super.dispose();
-  }
 
   Future<void> _cancelAndPop() async {
     await _controller.cancel();
@@ -196,10 +168,8 @@ class _ReverseImageSearchPageState
     ReverseImageFlowStatus.canceled => false,
   };
 
-  /// Engine switching is only meaningful while an image is still held —
-  /// ready/failure/webUpload success. A released input (headless or
-  /// WebView success) would only relabel the selection, so the chip turns
-  /// inert exactly when the controller's switch is a no-op for this image.
+  /// The header's engine menu is the one engine picker while an image is
+  /// held; it turns inert mid-step, where the controller ignores a switch.
   bool _engineSwitchable(ReverseImageFlowState state) =>
       state.input != null &&
       (state.status == ReverseImageFlowStatus.ready ||
@@ -225,7 +195,7 @@ class _ReverseImageSearchPageState
               _TaskHeader(
                 key: const ValueKey('reverseTaskHeader'),
                 state: state,
-                input: state.input ?? _lastInput,
+                input: state.input,
                 engineSwitchable: _engineSwitchable(state),
                 onSelectEngine: _selectEngine,
               ),
@@ -259,7 +229,7 @@ class _ReverseImageSearchPageState
             ? _uploadWebView(context, state)
             : state.webView != null
             ? _resultWebView(context, state)
-            : _noMatch(context),
+            : _noMatch(context, state),
     };
   }
 
@@ -292,52 +262,22 @@ class _ReverseImageSearchPageState
   }
 
   Widget _idle(BuildContext context, ReverseImageFlowState state) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(FuncSpacing.xl),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const SizedBox(height: FuncSpacing.xxl),
-          const Icon(Icons.image_search_outlined, size: 72),
-          const SizedBox(height: FuncSpacing.lg),
-          Text(context.l10n.searchReverseIntro, textAlign: TextAlign.center),
-          const SizedBox(height: FuncSpacing.lg),
-          _engineChips(context, state),
-          const SizedBox(height: FuncSpacing.xl),
-          _privacyCard(context),
-          const SizedBox(height: FuncSpacing.lg),
-          FilledButton.icon(
-            onPressed: _controller.pick,
-            icon: const Icon(Icons.photo_library_outlined),
-            label: Text(context.l10n.searchReversePick),
-          ),
-        ],
+    return _WithBottomAction(
+      action: FilledButton.icon(
+        onPressed: _controller.pick,
+        icon: const Icon(Icons.photo_library_outlined),
+        label: Text(context.l10n.searchReversePick),
       ),
-    );
-  }
-
-  Widget _privacyCard(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(FuncSpacing.lg),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(FuncSpacing.xl),
+        child: Column(
           children: [
-            const Icon(Icons.privacy_tip_outlined),
-            const SizedBox(width: FuncSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.l10n.searchReversePrivacy,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: FuncSpacing.xs),
-                  Text(context.l10n.searchReversePrivacyDetail),
-                ],
-              ),
-            ),
+            const SizedBox(height: FuncSpacing.xxl),
+            const Icon(Icons.image_search_outlined, size: 72),
+            const SizedBox(height: FuncSpacing.lg),
+            Text(context.l10n.searchReverseIntro, textAlign: TextAlign.center),
+            const SizedBox(height: FuncSpacing.lg),
+            _engineChips(context, state),
           ],
         ),
       ),
@@ -367,135 +307,114 @@ class _ReverseImageSearchPageState
     );
   }
 
+  /// The image and a way to pick another; its size and the engine are in
+  /// the header, and the search sits fixed at the bottom.
   Widget _ready(BuildContext context, ReverseImageFlowState state) {
     final input = state.input!;
-    final spec = ReverseImageEngineSpecs.all[state.engine]!;
-    final supported = spec.supportsInput(input);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(FuncSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _privacyCard(context),
-          const SizedBox(height: FuncSpacing.lg),
-          Text(
-            context.l10n.searchReverseReady,
-            style: Theme.of(context).textTheme.titleMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: FuncSpacing.md),
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: _AdaptiveImagePreview(path: input.path),
-          ),
-          const SizedBox(height: FuncSpacing.md),
-          Text(
-            '${input.width} × ${input.height} · ${formatByteSize(input.sizeBytes)}',
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: FuncSpacing.xs),
-          // Reselect/cancel sit right under the preview — below the engine
-          // chips and search button they fell off the first screen. They
-          // stack when long labels do not fit side by side.
-          Wrap(
-            alignment: WrapAlignment.center,
-            children: [
-              TextButton.icon(
+    final supported = ReverseImageEngineSpecs.all[state.engine]!.supportsInput(
+      input,
+    );
+    return _WithBottomAction(
+      action: FilledButton.icon(
+        onPressed: supported ? _search : null,
+        icon: const Icon(Icons.search),
+        label: Text(context.l10n.searchReverseUse),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(FuncSpacing.xl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Card(
+              clipBehavior: Clip.antiAlias,
+              child: _AdaptiveImagePreview(path: input.path),
+            ),
+            // Size and engine are in the header above.
+            const SizedBox(height: FuncSpacing.sm),
+            Center(
+              child: TextButton.icon(
                 onPressed: _controller.pick,
                 icon: const Icon(Icons.photo_library_outlined, size: 18),
                 label: Text(context.l10n.searchReverseRetry),
               ),
-              TextButton(
-                onPressed: _controller.cancel,
-                child: Text(context.l10n.searchReverseCancel),
+            ),
+            if (!supported)
+              Text(
+                context.l10n.searchReverseEngineUnsupported,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+                textAlign: TextAlign.center,
               ),
-            ],
-          ),
-          const SizedBox(height: FuncSpacing.md),
-          _engineChips(context, state),
-          if (!supported) ...[
-            const SizedBox(height: FuncSpacing.sm),
-            Text(
-              context.l10n.searchReverseEngineUnsupported,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-              textAlign: TextAlign.center,
-            ),
-          ],
-          const SizedBox(height: FuncSpacing.lg),
-          FilledButton.icon(
-            onPressed: supported ? _search : null,
-            icon: const Icon(Icons.search),
-            label: Text(context.l10n.searchReverseUse),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _failure(BuildContext context, ReverseImageFlowState state) {
-    final failure = state.failure!;
-    final seconds = failure.retryAfter?.inSeconds;
-    final engineName =
-        ReverseImageEngineSpecs.all[state.engine]?.displayName ??
-        state.engine.name;
-    final message = failure.code == ReverseImageProviderFailureCode.challenge
-        ? context.l10n.searchReverseChallenge(engineName)
-        : failure.code == ReverseImageProviderFailureCode.providerUnavailable
-        ? context.l10n.searchReverseUnavailableDetail
-        : failure.code == ReverseImageProviderFailureCode.dailyLimit
-        ? context.l10n.searchReverseDailyLimit
-        : failure.code == ReverseImageProviderFailureCode.rateLimited &&
-              seconds != null
-        ? context.l10n.searchReverseRateLimitedWait(seconds)
-        : failure.code == ReverseImageProviderFailureCode.rateLimited
-        ? context.l10n.searchReverseRateLimited
-        : failure.code == ReverseImageProviderFailureCode.unsupportedInput
-        ? context.l10n.searchReverseEngineUnsupported
-        : failure.message;
-    final canRetry = state.input != null;
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(FuncSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 56),
-            const SizedBox(height: FuncSpacing.lg),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              maxLines: 5,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (canRetry) ...[
-              const SizedBox(height: FuncSpacing.lg),
-              _engineChips(context, state),
-            ],
-            const SizedBox(height: FuncSpacing.lg),
-            if (canRetry)
-              FilledButton.icon(
-                onPressed: _search,
-                icon: const Icon(Icons.refresh),
-                label: Text(context.l10n.searchReverseRetrySameEngine),
-              ),
-            const SizedBox(height: FuncSpacing.md),
-            OutlinedButton.icon(
-              onPressed: _controller.pick,
-              icon: const Icon(Icons.photo_library_outlined),
-              label: Text(context.l10n.searchReverseRetry),
-            ),
           ],
         ),
       ),
     );
   }
 
-  /// A provider-detected "no match" page: terminal success with nothing to
-  /// list. The engine chips stay live in the task header so a different
-  /// engine can re-run the same image.
-  Widget _noMatch(BuildContext context) {
-    return Center(child: Text(context.l10n.searchReverseNoResults));
+  Widget _failure(BuildContext context, ReverseImageFlowState state) {
+    final failure = state.failure!;
+    final held = state.input != null;
+    final challenged =
+        held && failure.code == ReverseImageProviderFailureCode.challenge;
+    final next = state.nextEngine;
+    return _Outcome(
+      icon: Icons.error_outline,
+      message: _failureText(context, failure, state.engine),
+      primary: challenged
+          ? FilledButton.icon(
+              onPressed: _controller.searchInBrowser,
+              icon: const Icon(Icons.open_in_browser),
+              label: Text(context.l10n.searchReverseOpenInBrowser),
+            )
+          : held
+          ? FilledButton.icon(
+              onPressed: _search,
+              icon: const Icon(Icons.refresh),
+              label: Text(context.l10n.searchReverseRetrySameEngine),
+            )
+          : FilledButton.icon(
+              onPressed: _controller.pick,
+              icon: const Icon(Icons.photo_library_outlined),
+              label: Text(context.l10n.searchReverseRetry),
+            ),
+      secondary: [
+        if (next != null)
+          OutlinedButton(
+            onPressed: _controller.searchNextEngine,
+            child: Text(context.l10n.searchReverseTryEngine(_nameOf(next))),
+          ),
+        if (held)
+          TextButton(
+            onPressed: _controller.pick,
+            child: Text(context.l10n.searchReverseRetry),
+          ),
+      ],
+    );
   }
+
+  /// The engine found nothing for this image: the one way on is the next
+  /// engine that has not had its turn, or another image once all have.
+  Widget _noMatch(BuildContext context, ReverseImageFlowState state) {
+    final next = state.nextEngine;
+    return _Outcome(
+      icon: Icons.search_off,
+      message: next == null
+          ? context.l10n.searchReverseAllEnginesTried
+          : context.l10n.searchReverseNoResults,
+      primary: next == null
+          ? FilledButton.icon(
+              onPressed: _controller.pick,
+              icon: const Icon(Icons.photo_library_outlined),
+              label: Text(context.l10n.searchReverseRetry),
+            )
+          : FilledButton(
+              onPressed: _controller.searchNextEngine,
+              child: Text(context.l10n.searchReverseTryEngine(_nameOf(next))),
+            ),
+    );
+  }
+
+  static String _nameOf(ReverseImageEngine engine) =>
+      ReverseImageEngineSpecs.all[engine]!.displayName;
 
   Future<void> _openExternal(Uri uri) async {
     try {
@@ -504,6 +423,160 @@ class _ReverseImageSearchPageState
       if (!mounted) return;
       showAppSnackBar(context, context.l10n.searchReverseOpenFailed);
     }
+  }
+}
+
+/// What went wrong, in the user's language, for every failure the flow can
+/// end in — input, platform and engine alike.
+String _failureText(
+  BuildContext context,
+  ReverseImageFlowFailure failure,
+  ReverseImageEngine engine,
+) {
+  final l10n = context.l10n;
+  final name = ReverseImageEngineSpecs.all[engine]!.displayName;
+  return switch (failure.code) {
+    final ReverseImageProviderFailureCode code => switch (code) {
+      ReverseImageProviderFailureCode.challenge => l10n.searchReverseChallenge(
+        name,
+      ),
+      ReverseImageProviderFailureCode.providerUnavailable =>
+        l10n.searchReverseEngineUnavailable(name),
+      ReverseImageProviderFailureCode.dailyLimit =>
+        l10n.searchReverseDailyLimit,
+      ReverseImageProviderFailureCode.rateLimited =>
+        switch (failure.retryAfter?.inSeconds) {
+          final seconds? => l10n.searchReverseRateLimitedWait(seconds),
+          null => l10n.searchReverseRateLimited,
+        },
+      ReverseImageProviderFailureCode.unsupportedInput =>
+        l10n.searchReverseEngineUnsupported,
+      ReverseImageProviderFailureCode.network => l10n.searchReverseNetwork,
+      ReverseImageProviderFailureCode.malformedResponse =>
+        l10n.searchReverseBadResponse(name),
+      ReverseImageProviderFailureCode.cancelled => l10n.searchReverseStopped,
+    },
+    final ReverseImageInputFailureCode code => switch (code) {
+      ReverseImageInputFailureCode.invalidMimeType ||
+      ReverseImageInputFailureCode.unsupportedFormat ||
+      ReverseImageInputFailureCode.malformedFormat ||
+      ReverseImageInputFailureCode.mimeMismatch =>
+        l10n.searchReverseImageFormat,
+      ReverseImageInputFailureCode.oversized ||
+      ReverseImageInputFailureCode.dimensionsTooLarge ||
+      ReverseImageInputFailureCode.pixelBudgetExceeded =>
+        l10n.searchReverseImageTooLarge,
+      ReverseImageInputFailureCode.missingReadPermission =>
+        l10n.searchReverseImagePermission,
+      ReverseImageInputFailureCode.cleanupFailed =>
+        l10n.searchReverseCleanupFailed,
+      ReverseImageInputFailureCode.invalidReference ||
+      ReverseImageInputFailureCode.empty ||
+      ReverseImageInputFailureCode.unreadable ||
+      ReverseImageInputFailureCode.closed => l10n.searchReverseImageUnreadable,
+    },
+    final ReverseImagePlatformFailureCode code => switch (code) {
+      ReverseImagePlatformFailureCode.unavailable =>
+        l10n.searchReversePickerUnavailable,
+      ReverseImagePlatformFailureCode.permissionDenied =>
+        l10n.searchReverseImagePermission,
+      ReverseImagePlatformFailureCode.cleanupFailed =>
+        l10n.searchReverseCleanupFailed,
+      ReverseImagePlatformFailureCode.pickerFailed ||
+      ReverseImagePlatformFailureCode.malformedResponse ||
+      ReverseImagePlatformFailureCode.copyFailed =>
+        l10n.searchReverseImageUnreadable,
+    },
+    _ => l10n.searchReverseFailed,
+  };
+}
+
+/// A step's body above its one action, fixed at the bottom with the
+/// privacy note in a line above it.
+class _WithBottomAction extends StatelessWidget {
+  const _WithBottomAction({required this.action, required this.child});
+
+  final Widget action;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    return Column(
+      children: [
+        Expanded(child: child),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            FuncSpacing.xl,
+            FuncSpacing.sm,
+            FuncSpacing.xl,
+            FuncSpacing.lg,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.privacy_tip_outlined, size: 16, color: muted),
+                  const SizedBox(width: FuncSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      context.l10n.searchReversePrivacyNote,
+                      style: theme.textTheme.bodySmall?.copyWith(color: muted),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: FuncSpacing.sm),
+              action,
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// How a search ended when there is no page to show: what happened, the
+/// one thing to do next, and quieter alternatives under it.
+class _Outcome extends StatelessWidget {
+  const _Outcome({
+    required this.icon,
+    required this.message,
+    required this.primary,
+    this.secondary = const [],
+  });
+
+  final IconData icon;
+  final String message;
+  final Widget primary;
+  final List<Widget> secondary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(FuncSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 56),
+            const SizedBox(height: FuncSpacing.lg),
+            Semantics(
+              liveRegion: true,
+              child: Text(message, textAlign: TextAlign.center),
+            ),
+            const SizedBox(height: FuncSpacing.lg),
+            primary,
+            for (final action in secondary) ...[
+              const SizedBox(height: FuncSpacing.sm),
+              action,
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 

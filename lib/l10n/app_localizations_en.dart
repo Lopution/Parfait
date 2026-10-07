@@ -1791,21 +1791,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchInputEmpty => 'Enter a search term';
 
   @override
-  String get searchReverseUnavailable => 'Reverse image search unavailable';
-
-  @override
-  String get searchReverseUnavailableDetail =>
-      'No structured service has passed credential, terms and privacy review; the image is not uploaded or scraped through a web page.';
-
-  @override
   String get searchReversePick => 'Choose image';
-
-  @override
-  String get searchReversePrivacy => 'Privacy notice';
-
-  @override
-  String get searchReversePrivacyDetail =>
-      'The image is sent only after you confirm a search and temporary data is cleaned after cancellation or failure.';
 
   @override
   String get searchReversePreparing => 'Preparing image…';
@@ -1848,7 +1834,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String searchReverseChallenge(String engine) {
-    return '$engine requires human verification. This search did not finish. Try again later.';
+    return '$engine wants to check you are human. You can pass the check and search on its web page.';
   }
 
   @override
@@ -1881,6 +1867,61 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchReverseEngineSwitch => 'Switch engine';
+
+  @override
+  String searchReverseEngineUnavailable(String engine) {
+    return '$engine is unavailable right now';
+  }
+
+  @override
+  String get searchReverseNetwork =>
+      'Could not connect. Check your network and try again.';
+
+  @override
+  String searchReverseBadResponse(String engine) {
+    return '$engine returned a page the app can\'t read';
+  }
+
+  @override
+  String get searchReverseStopped => 'Search stopped';
+
+  @override
+  String get searchReverseImageFormat =>
+      'This image format is not supported. Pick a PNG, JPEG, GIF or WebP.';
+
+  @override
+  String get searchReverseImageTooLarge => 'This image is too large to handle';
+
+  @override
+  String get searchReverseImagePermission =>
+      'No permission to read this image. Pick it again.';
+
+  @override
+  String get searchReverseImageUnreadable =>
+      'This image can\'t be read. Pick another one.';
+
+  @override
+  String get searchReverseCleanupFailed =>
+      'Could not clean up the temporary image';
+
+  @override
+  String get searchReversePickerUnavailable =>
+      'Images can\'t be picked on this device';
+
+  @override
+  String get searchReversePrivacyNote =>
+      'The image goes only to the selected engine and is deleted when you leave';
+
+  @override
+  String get searchReverseOpenInBrowser => 'Search on the web page';
+
+  @override
+  String searchReverseTryEngine(String engine) {
+    return 'Search with $engine';
+  }
+
+  @override
+  String get searchReverseAllEnginesTried => 'No engine found a match';
 
   @override
   String get searchFilters => 'Filters';

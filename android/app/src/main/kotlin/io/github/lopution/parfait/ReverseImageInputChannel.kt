@@ -47,7 +47,9 @@ internal fun interface ReverseImageExternalOpener {
 object ReverseImageInputChannel {
     private const val CHANNEL = "parfait/reverse_image_input"
     private const val PICK_IMAGE_REQUEST = 5041
-    private const val MAX_BYTES = 10L * 1024L * 1024L
+    // Mirrors ReverseImageInputLimits.maxEncodedBytes; larger images are
+    // scaled down in Dart before upload.
+    private const val MAX_BYTES = 32L * 1024L * 1024L
     private const val CONTENT_SCHEME = "content"
 
     private val pickerLock = Any()

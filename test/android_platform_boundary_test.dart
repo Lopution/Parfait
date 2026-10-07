@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/platform/intent_router.dart';
+import 'package:parfait/core/reverse_image/image_input.dart';
 
 void main() {
   group('Android intent boundary', () {
@@ -73,7 +74,7 @@ void main() {
           action: AndroidIntentInput.sendAction,
           uri: Uri.parse('content://share/1'),
           mimeType: 'image/png',
-          sizeBytes: 10 * 1024 * 1024 + 1,
+          sizeBytes: ReverseImageInputLimits.maxEncodedBytes + 1,
           hasReadUriPermission: true,
           extraKeys: const {AndroidIntentInput.streamExtra},
         ),

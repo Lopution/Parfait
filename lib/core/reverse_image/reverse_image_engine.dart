@@ -55,8 +55,10 @@ class ReverseImageEngineSpec {
   /// headlessUpload: multipart POST endpoint.
   final String? uploadEndpoint;
 
-  /// webViewUpload: engine page opened in the controlled WebView; the owned
-  /// image is armed to the first file chooser.
+  /// The engine's own upload form, opened in the controlled WebView with
+  /// the owned image armed to its first file chooser: how webViewUpload
+  /// engines always search, and how headless ones search once a challenge
+  /// stops the direct upload.
   final String? uploadPageUrl;
 
   /// Hosts the controlled WebView may navigate to (result pages and their
@@ -96,6 +98,7 @@ abstract final class ReverseImageEngineSpecs {
     displayName: 'SauceNAO',
     transport: ReverseImageTransport.headlessUpload,
     uploadEndpoint: _sauceNaoEndpoint,
+    uploadPageUrl: _sauceNaoUploadPage,
     webViewHosts: {'saucenao.com', 'www.saucenao.com'},
     resultBaseUrl: _sauceNaoEndpoint,
   );
@@ -108,6 +111,7 @@ abstract final class ReverseImageEngineSpecs {
     displayName: 'IQDB',
     transport: ReverseImageTransport.headlessUpload,
     uploadEndpoint: _iqdbEndpoint,
+    uploadPageUrl: _iqdbEndpoint,
     webViewHosts: {'iqdb.org', 'www.iqdb.org'},
     resultBaseUrl: _iqdbEndpoint,
     maxBytes: 8 * 1024 * 1024,
@@ -145,6 +149,7 @@ abstract final class ReverseImageEngineSpecs {
   };
 
   static const _sauceNaoEndpoint = 'https://saucenao.com/search.php';
+  static const _sauceNaoUploadPage = 'https://saucenao.com/';
   static const _iqdbEndpoint = 'https://iqdb.org/';
   static const _ascii2dUploadPage = 'https://ascii2d.net/';
   static const _tinEyeUploadPage = 'https://tineye.com/';

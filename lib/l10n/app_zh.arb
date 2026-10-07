@@ -890,11 +890,7 @@
   "searchRetry": "重试",
   "searchRefreshFailed": "刷新失败",
   "searchInputEmpty": "请输入搜索内容",
-  "searchReverseUnavailable": "反向搜图暂不可用",
-  "searchReverseUnavailableDetail": "当前没有通过凭据、服务条款和隐私审查的结构化服务；不会上传图片或执行网页抓取。",
   "searchReversePick": "选择图片",
-  "searchReversePrivacy": "隐私提示",
-  "searchReversePrivacyDetail": "图片只会在你确认搜索后发送给已批准的服务；取消或失败后会立即清理临时文件。",
   "searchReversePreparing": "正在准备图片…",
   "searchReverseSearching": "正在搜索…",
   "searchReverseCancel": "取消",
@@ -914,7 +910,7 @@
     }
   },
   "searchReverseDailyLimit": "今日匿名搜索额度已用完，明天再试",
-  "searchReverseChallenge": "{engine} 要求人机验证，本次搜索未完成，请稍后再试",
+  "searchReverseChallenge": "{engine} 要求人机验证；可以在网页中完成验证后搜索",
   "searchReversePageLoadFailed": "结果页加载失败",
   "searchReverseUploadTapHint": "点按页面中的上传按钮开始搜索，已选图片会自动填入。",
   "searchReverseUploadPickHint": "请在页面的文件选择框中重新选择同一张图片。",
@@ -931,6 +927,41 @@
   "searchReverseFailed": "搜索失败",
   "searchReverseDone": "已完成",
   "searchReverseEngineSwitch": "切换引擎",
+  "searchReverseEngineUnavailable": "{engine} 暂时无法使用",
+  "@searchReverseEngineUnavailable": {
+    "placeholders": {
+      "engine": {
+        "type": "String"
+      }
+    }
+  },
+  "searchReverseNetwork": "网络连接失败，请检查网络后重试",
+  "searchReverseBadResponse": "{engine} 返回了无法识别的页面",
+  "@searchReverseBadResponse": {
+    "placeholders": {
+      "engine": {
+        "type": "String"
+      }
+    }
+  },
+  "searchReverseStopped": "搜索已停止",
+  "searchReverseImageFormat": "不支持这种图片格式，请选择 PNG、JPEG、GIF 或 WebP",
+  "searchReverseImageTooLarge": "图片太大，无法处理",
+  "searchReverseImagePermission": "没有读取这张图片的权限，请重新选择",
+  "searchReverseImageUnreadable": "无法读取这张图片，请重新选择",
+  "searchReverseCleanupFailed": "临时图片清理失败",
+  "searchReversePickerUnavailable": "此设备无法选择图片",
+  "searchReversePrivacyNote": "图片只会上传到所选引擎，离开本页即删除",
+  "searchReverseOpenInBrowser": "在网页中搜索",
+  "searchReverseTryEngine": "换用 {engine} 搜索",
+  "@searchReverseTryEngine": {
+    "placeholders": {
+      "engine": {
+        "type": "String"
+      }
+    }
+  },
+  "searchReverseAllEnginesTried": "所有引擎都没有找到匹配结果",
   "searchFilters": "筛选",
   "searchFiltersActive": "筛选（已启用 {count} 项）",
   "@searchFiltersActive": {
