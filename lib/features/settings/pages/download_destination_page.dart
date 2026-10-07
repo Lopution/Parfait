@@ -99,7 +99,7 @@ class _DownloadDestinationPageState
                   SettingsGroupContent(
                     child: Align(
                       alignment: Alignment.centerRight,
-                      child: FilledButton.tonal(
+                      child: FilledButton(
                         onPressed: () async {
                           final name = DownloadDestination.normalizeAlbumName(
                             _albumController.text,

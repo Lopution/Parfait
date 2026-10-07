@@ -68,6 +68,15 @@ Icon-only actions provide a localized `tooltip` or an equivalent semantic
 label. Interactive images expose the artwork/user meaning through their
 existing semantic label, and controls use their typed Material component so
 focus, keyboard, touch, and screen-reader states remain available.
+`PixivImage` keeps its decoded pixels out of semantics (only its failure
+view and retry stay): the surface around it names the work. A work card is
+one stop — its label carries rank, title and author, and the lines under
+the image are excluded rather than read a second time (H2).
+
+Text fields take the theme's one look (ST6): outlined with the control
+radius and a floating label; call sites do not set `border`. A filter over
+loaded content is a search, so it uses `SearchBar` like the search page.
+A form's save is a `FilledButton` at the end of its group.
 
 Navigation destinations and visible action labels come from generated l10n.
 Do not use color or an unlabeled icon as the only indication of the selected

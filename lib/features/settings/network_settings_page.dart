@@ -304,7 +304,6 @@ class _ImageSourceSectionState extends ConsumerState<_ImageSourceSection> {
                 labelText: context.l10n.imageSourceCustom,
                 helperText: context.l10n.imageSourceCustomHint,
                 helperMaxLines: 3,
-                border: const OutlineInputBorder(),
               ),
               onChanged: (_) => setState(() => _customDirty = true),
             ),
@@ -315,7 +314,7 @@ class _ImageSourceSectionState extends ConsumerState<_ImageSourceSection> {
               child: Wrap(
                 spacing: 8,
                 children: [
-                  FilledButton.tonal(
+                  FilledButton(
                     onPressed: _testingMirror ? null : _saveCustomSource,
                     child: Text(context.l10n.save),
                   ),
@@ -545,7 +544,6 @@ class _NetworkAdvancedSettingsPageState
                         labelText: context.l10n.networkDohEndpoints,
                         helperText: context.l10n.networkDohEndpointsHint,
                         helperMaxLines: 3,
-                        border: const OutlineInputBorder(),
                       ),
                       onChanged: (_) => setState(() => _dohDirty = true),
                     ),
@@ -562,7 +560,6 @@ class _NetworkAdvancedSettingsPageState
                         labelText: context.l10n.networkEchFrontHost,
                         helperText: context.l10n.networkEchFrontHostHint,
                         helperMaxLines: 5,
-                        border: const OutlineInputBorder(),
                       ),
                       onChanged: (_) => setState(() => _echHostDirty = true),
                     ),
@@ -570,7 +567,7 @@ class _NetworkAdvancedSettingsPageState
                   SettingsGroupContent(
                     child: Align(
                       alignment: Alignment.centerRight,
-                      child: FilledButton.tonal(
+                      child: FilledButton(
                         onPressed: _dirty ? _saveAll : null,
                         child: Text(context.l10n.save),
                       ),

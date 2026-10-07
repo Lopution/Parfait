@@ -424,6 +424,8 @@ class PixivImage extends ConsumerStatefulWidget {
       colorBlendMode: filterBlendMode,
       filterQuality: filterQuality,
       gaplessPlayback: true,
+      // Named by the surface around it, as in the loaded path.
+      excludeFromSemantics: true,
       errorBuilder: (_, _, _) => ColoredBox(
         color: const Color(0x00000000),
         child: SizedBox(width: width, height: height),
@@ -880,7 +882,11 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
           ),
           imageBuilder: (_, child) {
             PixivImage._recordFrame(current, widget.tierKey, effectiveTier);
-            return child;
+            // The pixels carry no meaning of their own: the surface around
+            // them names the work (the card, the viewer page). Left in, the
+            // decoded image added an unnamed "image" stop for screen
+            // readers (H2). The failure view, with its retry, stays.
+            return ExcludeSemantics(child: child);
           },
           placeholderBuilder: placeholder,
           errorBuilder: (_, error, _) => failed(error),

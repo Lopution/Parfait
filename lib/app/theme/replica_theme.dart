@@ -226,6 +226,11 @@ ThemeData replicaTheme(
       selectedIconTheme: IconThemeData(color: colorScheme.onPrimaryContainer),
       unselectedIconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
     ),
+    // One text field look (ST6): outlined, the control radius, label
+    // floating into the outline.
+    inputDecorationTheme: const InputDecorationThemeData(
+      border: OutlineInputBorder(borderRadius: FuncShape.control),
+    ),
     cardTheme: CardThemeData(
       color: colorScheme.surfaceContainer,
       surfaceTintColor: FuncTokens.transparent,

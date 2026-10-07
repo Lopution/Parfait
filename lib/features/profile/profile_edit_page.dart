@@ -523,7 +523,6 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
       errorText: state.fieldErrors[field],
       helperText: unsupported ? context.l10n.profileEditFieldUnsupported : null,
       alignLabelWithHint: field == ProfileField.comment,
-      border: const OutlineInputBorder(),
     );
   }
 }

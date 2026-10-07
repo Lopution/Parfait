@@ -420,8 +420,10 @@ void main() {
         'https://i.pximg.net/7/medium.jpg',
         reason: 'a 1:2 card keeps the user preview tier',
       );
-      expect(find.bySemanticsLabel('illust 7'), findsOneWidget);
-      expect(find.bySemanticsLabel('author'), findsOneWidget);
+      // One stop for the work (H2): the lines under the image are read
+      // through its label, and the decoded pixels add no unnamed node.
+      expect(find.bySemanticsLabel('illust 7'), findsNothing);
+      expect(find.bySemanticsLabel('author'), findsNothing);
       expect(find.bySemanticsLabel('illust 7, author'), findsOneWidget);
       expect(
         tester.getSemantics(find.bySemanticsLabel('illust 7, author')),

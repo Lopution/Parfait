@@ -243,12 +243,17 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                     // silently no-op'ing — the errorText already explains
                     // why.
                     SettingsGroupContent(
-                      child: FilledButton(
-                        onPressed:
-                            NamingRule.isValidTemplate(_templateController.text)
-                            ? _saveTemplate
-                            : null,
-                        child: Text(context.l10n.save),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton(
+                          onPressed:
+                              NamingRule.isValidTemplate(
+                                _templateController.text,
+                              )
+                              ? _saveTemplate
+                              : null,
+                          child: Text(context.l10n.save),
+                        ),
                       ),
                     ),
                   ],

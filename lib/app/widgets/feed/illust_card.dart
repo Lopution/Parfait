@@ -189,9 +189,16 @@ class _IllustCardBody extends ConsumerWidget {
         container: true,
         button: true,
         image: true,
+        // The one stop for the work: the title and author lines under the
+        // image are left out of semantics, so the label carries them (and
+        // the rank) instead of a screen reader reading them twice.
         label: muted
             ? '${context.l10n.mutedContent}: ${entity.title}, ${entity.user.name}'
-            : '${entity.title}, ${entity.user.name}',
+            : [
+                if (rank case final rank?) context.l10n.rankLabel(rank),
+                entity.title,
+                entity.user.name,
+              ].join(', '),
         onTap: muted ? reveal : openDetail,
         onLongPress: longPress,
         child: GestureDetector(
@@ -312,12 +319,20 @@ class _IllustCardBody extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildTitleLine(context),
-              Text(
-                entity.user.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: FuncSemanticTokens.of(context).caption,
+              // Read through the image's label (H2).
+              ExcludeSemantics(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTitleLine(context),
+                    Text(
+                      entity.user.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: FuncSemanticTokens.of(context).caption,
+                    ),
+                  ],
+                ),
               ),
               ?meta,
             ],
@@ -339,18 +354,14 @@ class _IllustCardBody extends ConsumerWidget {
     );
     final rank = this.rank;
     if (rank == null) return title;
-    return Semantics(
-      label: '${context.l10n.rankLabel(rank)}, ${entity.title}',
-      excludeSemantics: true,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        children: [
-          EntityRankLabel(rank),
-          const SizedBox(width: FuncSpacing.xs),
-          Expanded(child: title),
-        ],
-      ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        EntityRankLabel(rank),
+        const SizedBox(width: FuncSpacing.xs),
+        Expanded(child: title),
+      ],
     );
   }
 
