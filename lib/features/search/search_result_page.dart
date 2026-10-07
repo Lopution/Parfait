@@ -17,6 +17,7 @@ import '../../core/search/search_models.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_store.dart';
+import '../../app/motion/state_fade.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../app/widgets/follow_switch_button.dart';
@@ -25,6 +26,7 @@ import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
+import '../../app/widgets/skeleton/list_skeletons.dart';
 import '../../app/navigation/routes.dart';
 import 'search_filter_sheet.dart';
 import 'search_text.dart';
@@ -373,6 +375,11 @@ class _SearchTabBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final body = _body(context, ref);
+    return StateFade(kind: body is _SearchLoading, child: body);
+  }
+
+  Widget _body(BuildContext context, WidgetRef ref) {
     return ref
         .watch(searchFeedProvider(query))
         .when(
@@ -428,7 +435,8 @@ class _SearchLoading extends StatelessWidget {
       label: context.l10n.searchLoading,
       padding: _illustGridPadding,
     ),
-    _ => FeedLoading(label: context.l10n.searchLoading),
+    NovelSearchQuery() => NovelListSkeleton(label: context.l10n.searchLoading),
+    UserSearchQuery() => UserListSkeleton(label: context.l10n.searchLoading),
   };
 }
 

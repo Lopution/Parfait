@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/haptics/app_haptics.dart';
+import '../../app/motion/state_fade.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/app_tab_bar.dart';
@@ -11,6 +12,7 @@ import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/spotlight_article_card.dart';
+import '../../app/widgets/skeleton/func_skeleton.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/navigation/routes.dart';
@@ -291,32 +293,30 @@ class _TrendingTab extends ConsumerWidget {
           SliverToBoxAdapter(
             child: _SectionHeader(title: context.l10n.searchTrending),
           ),
-          trending.when(
-            loading: () => const SliverToBoxAdapter(
-              child: Center(
-                child: Padding(
-                  padding: EdgeInsets.all(FuncSpacing.xxl),
-                  child: CircularProgressIndicator(),
+          StateFade.sliver(
+            kind: trending.isLoading,
+            sliver: trending.when(
+              loading: () => const _TrendingGridSkeleton(),
+              error: (error, _) => SliverToBoxAdapter(
+                child: FeedError(
+                  title: context.l10n.searchTrendingFailed,
+                  error: error,
+                  retryLabel: context.l10n.searchRetry,
+                  onRetry: () => ref.invalidate(trendingTagsProvider(type)),
+                  scrollable: false,
                 ),
               ),
+              data: (tags) => tags.isEmpty
+                  ? SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.all(FuncSpacing.xxl),
+                        child: Center(
+                          child: Text(context.l10n.searchNoTrending),
+                        ),
+                      ),
+                    )
+                  : _TrendingGrid(tags: tags, type: type),
             ),
-            error: (error, _) => SliverToBoxAdapter(
-              child: FeedError(
-                title: context.l10n.searchTrendingFailed,
-                error: error,
-                retryLabel: context.l10n.searchRetry,
-                onRetry: () => ref.invalidate(trendingTagsProvider(type)),
-                scrollable: false,
-              ),
-            ),
-            data: (tags) => tags.isEmpty
-                ? SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(FuncSpacing.xxl),
-                      child: Center(child: Text(context.l10n.searchNoTrending)),
-                    ),
-                  )
-                : _TrendingGrid(tags: tags, type: type),
           ),
           const SliverToBoxAdapter(child: FuncNavBarSpacer()),
         ],
@@ -399,6 +399,10 @@ class _SpotlightSection extends ConsumerWidget {
         if (store[id] != null) store[id]!,
     ].take(maxArticles).toList();
     final failed = async.hasError || (feed?.showInitialError ?? false);
+    final loading =
+        articles.isEmpty &&
+        !failed &&
+        (feed == null || feed.showInitialSpinner);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -407,6 +411,26 @@ class _SpotlightSection extends ConsumerWidget {
           action: l10n.spotlightSeeAll,
           onTap: () => openSpotlight(context),
         ),
+        StateFade(
+          kind: loading,
+          child: _strip(context, ref, articles, failed, loading),
+        ),
+      ],
+    );
+  }
+
+  Widget _strip(
+    BuildContext context,
+    WidgetRef ref,
+    List<SpotlightArticle> articles,
+    bool failed,
+    bool loading,
+  ) {
+    final l10n = context.l10n;
+    if (loading) return const _SpotlightStripSkeleton();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         if (articles.isNotEmpty)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -446,13 +470,77 @@ class _SpotlightSection extends ConsumerWidget {
                 ),
               ],
             ),
-          )
-        else if (feed == null || feed.showInitialSpinner)
-          const Padding(
-            padding: EdgeInsets.all(FuncSpacing.lg),
-            child: Center(child: CircularProgressIndicator()),
           ),
       ],
+    );
+  }
+}
+
+/// [_SpotlightSection]'s strip while the first page loads: cards of the
+/// same width, 16:9 image and two title lines plus the date.
+class _SpotlightStripSkeleton extends StatelessWidget {
+  const _SpotlightStripSkeleton();
+
+  static const _cards = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return FuncSkeleton(
+      label: context.l10n.contentLoading,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < _cards; i++) ...[
+              if (i > 0) const SizedBox(width: FuncSpacing.sm),
+              SizedBox(
+                width: _SpotlightSection.cardWidth,
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const AspectRatio(
+                        aspectRatio: SpotlightArticleCard.imageAspectRatio,
+                        child: SkeletonBone(borderRadius: BorderRadius.zero),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(FuncSpacing.md),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SkeletonBone.text(
+                              style: theme.textTheme.titleSmall,
+                            ),
+                            FractionallySizedBox(
+                              widthFactor: 0.6,
+                              child: SkeletonBone.text(
+                                style: theme.textTheme.titleSmall,
+                              ),
+                            ),
+                            const SizedBox(height: FuncSpacing.xs),
+                            FractionallySizedBox(
+                              widthFactor: 0.4,
+                              child: SkeletonBone.text(
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -473,27 +561,28 @@ class _TrendingGrid extends StatelessWidget {
   static int shownCount(int count, int columns) =>
       count >= columns ? count - count % columns : count;
 
+  static const padding = EdgeInsets.fromLTRB(
+    FuncSpacing.lg,
+    FuncSpacing.xs,
+    FuncSpacing.lg,
+    FuncSpacing.xxl,
+  );
+
+  /// The SliverGridDelegateWithMaxCrossAxisExtent formula, floored at three
+  /// columns: narrow phones keep a readable three-column grid while wider
+  /// surfaces still add columns as the width allows.
+  static int columnsFor(double width) => math.max(
+    _minColumns,
+    ((width + _spacing) / (_maxTileWidth + _spacing)).ceil(),
+  );
+
   @override
   Widget build(BuildContext context) {
     return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(
-        FuncSpacing.lg,
-        FuncSpacing.xs,
-        FuncSpacing.lg,
-        FuncSpacing.xxl,
-      ),
+      padding: padding,
       sliver: SliverLayoutBuilder(
         builder: (context, constraints) {
-          // The SliverGridDelegateWithMaxCrossAxisExtent formula, floored
-          // at three columns: narrow phones keep a readable three-column
-          // grid while wider surfaces still add columns as the width
-          // allows.
-          final columns = math.max(
-            _minColumns,
-            ((constraints.crossAxisExtent + _spacing) /
-                    (_maxTileWidth + _spacing))
-                .ceil(),
-          );
+          final columns = columnsFor(constraints.crossAxisExtent);
           final tileWidth =
               (constraints.crossAxisExtent - _spacing * (columns - 1)) /
               columns;
@@ -514,6 +603,53 @@ class _TrendingGrid extends StatelessWidget {
       ),
     );
   }
+}
+
+/// [_TrendingGrid] while the tags load: three rows of square tiles on the
+/// same columns, spacing and padding.
+class _TrendingGridSkeleton extends StatelessWidget {
+  const _TrendingGridSkeleton();
+
+  static const _rows = 3;
+
+  @override
+  Widget build(BuildContext context) => SliverToBoxAdapter(
+    child: FuncSkeleton(
+      label: context.l10n.contentLoading,
+      child: Padding(
+        padding: _TrendingGrid.padding,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = _TrendingGrid.columnsFor(constraints.maxWidth);
+            final tile =
+                (constraints.maxWidth -
+                    _TrendingGrid._spacing * (columns - 1)) /
+                columns;
+            return Column(
+              children: [
+                for (var r = 0; r < _rows; r++) ...[
+                  if (r > 0) const SizedBox(height: _TrendingGrid._spacing),
+                  Row(
+                    children: [
+                      for (var c = 0; c < columns; c++) ...[
+                        if (c > 0)
+                          const SizedBox(width: _TrendingGrid._spacing),
+                        SkeletonBone(
+                          width: tile,
+                          height: tile,
+                          borderRadius: FuncShape.card,
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+    ),
+  );
 }
 
 class _TrendingTagTile extends ConsumerWidget {

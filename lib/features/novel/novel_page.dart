@@ -183,7 +183,7 @@ class NovelPage extends ConsumerWidget {
           ],
           if (novel.tags.isNotEmpty) ...[
             const SizedBox(height: FuncSpacing.md),
-            Wrap(
+            TagChips(
               children: [
                 for (final tag in novel.tags)
                   TagChip(

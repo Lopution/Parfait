@@ -15,6 +15,8 @@ import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/widgets/skeleton/illust_grid_skeleton.dart';
+import 'package:parfait/app/widgets/skeleton/func_skeleton.dart';
+import 'package:parfait/app/widgets/skeleton/list_skeletons.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/app/widgets/image_overlay_button.dart';
 import 'package:parfait/core/auth/account.dart';
@@ -1106,6 +1108,45 @@ void main() {
     expect(find.text('#标签4'), findsOneWidget);
   });
 
+  testWidgets('trending tags load under square bones on the grid columns', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final repository = FakeSearchRepository(trendingTagCount: 6)
+      ..trendingGate = Completer<void>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: SearchHomePage(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final tileBones = find.byWidgetPredicate(
+      (widget) =>
+          widget is SkeletonBone &&
+          widget.width != null &&
+          widget.width == widget.height,
+    );
+    // Three columns at 360dp, three rows.
+    expect(tileBones, findsNWidgets(9));
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    repository.trendingGate!.complete();
+    await tester.pump();
+    await tester.pump();
+    expect(tileBones, findsNothing);
+    expect(find.text('#风景'), findsOneWidget);
+  });
+
   testWidgets('trending grid adds columns on wide screens, never below 3', (
     tester,
   ) async {
@@ -1320,35 +1361,42 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('novel results show a spinner while pending, not an empty '
-      'state', (tester) async {
-    final repository = FakeSearchRepository()..pendingFetch = Completer<void>();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          searchRepositoryProvider.overrideWithValue(repository),
-          feedSnapshotStoreProvider.overrideWithValue(
-            MemoryFeedSnapshotStore(),
+  for (final (query, skeleton) in [
+    (const NovelSearchQuery(keyword: 'cat'), NovelListSkeleton),
+    (const UserSearchQuery(keyword: 'cat'), UserListSkeleton),
+  ]) {
+    testWidgets('${query.runtimeType} results show their row skeleton while '
+        'pending, not an empty state', (tester) async {
+      final repository = FakeSearchRepository()
+        ..pendingFetch = Completer<void>();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            searchRepositoryProvider.overrideWithValue(repository),
+            feedSnapshotStoreProvider.overrideWithValue(
+              MemoryFeedSnapshotStore(),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: SearchResultPage(query: query),
           ),
-        ],
-        child: const MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: SearchResultPage(query: NovelSearchQuery(keyword: 'cat')),
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+      );
+      await tester.pump();
+      await tester.pump();
 
-    expect(find.byType(FeedLoading), findsOneWidget);
-    expect(find.byType(IllustGridSkeleton), findsNothing);
-    expect(find.byType(FeedEmpty), findsNothing);
+      expect(find.byType(skeleton), findsOneWidget);
+      expect(find.byType(IllustGridSkeleton), findsNothing);
+      expect(find.byType(FeedEmpty), findsNothing);
 
-    repository.pendingFetch!.complete();
-    await tester.pumpAndSettle();
-  });
+      repository.pendingFetch!.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(skeleton), findsNothing);
+    });
+  }
 
   testWidgets('result route parameters round-trip every filter field', (
     tester,

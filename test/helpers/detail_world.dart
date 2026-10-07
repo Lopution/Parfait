@@ -34,6 +34,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   List<Override> extraOverrides = const [],
   Completer<void>? detailGate,
   List<int>? relatedLog,
+  Completer<void>? relatedGate,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final transport = FakeTransport();
@@ -112,6 +113,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
       if (request.url.path == '/v2/illust/related') {
         final id = int.parse(request.url.queryParameters['illust_id']!);
         relatedLog?.add(id);
+        await relatedGate?.future;
         return okJson({
           'illusts': relatedOverrides?[id] ?? [],
           'next_url': null,

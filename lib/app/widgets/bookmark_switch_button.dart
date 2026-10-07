@@ -61,9 +61,6 @@ Future<void> toggleBookmarkWithUndo(
 /// Peak overshoot of the heart pop above its rest scale of 1.
 const _heartPopPeak = 0.25;
 
-/// The particle burst around a heart that was just added.
-const _burstDuration = Duration(milliseconds: 450);
-
 /// Initial velocity that carries an underdamped spring released at rest
 /// position up to [_heartPopPeak]. For x(t) = v/ωd · e^(−ζωt) · sin(ωd t)
 /// the first peak is v/ω · e^(−ζθ/√(1−ζ²)) with θ = atan(√(1−ζ²)/ζ).
@@ -159,7 +156,7 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
         snapToEnd: true,
       ),
     );
-    _burst.duration = MotionTokens.resolve(context, _burstDuration);
+    _burst.duration = MotionTokens.resolve(context, MotionTokens.bookmarkBurst);
     _burst.forward(from: 0);
   }
 

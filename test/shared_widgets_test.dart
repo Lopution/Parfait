@@ -78,6 +78,48 @@ void main() {
     expect(tapped, 1);
   });
 
+  testWidgets('tag chips keep a 48dp target with no dead zone between them', (
+    tester,
+  ) async {
+    final tapped = <String>[];
+    await tester.pumpWidget(
+      _wrap(
+        Scaffold(
+          body: Center(
+            child: TagChips(
+              children: [
+                TagChip(label: 'cat', onTap: () => tapped.add('cat')),
+                TagChip(
+                  label: 'girl',
+                  translated: '女の子',
+                  onTap: () => tapped.add('girl'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    final cat = tester.getRect(find.byType(TagChip).first);
+    final girl = tester.getRect(find.byType(TagChip).last);
+    final pill = find.descendant(
+      of: find.byType(TagChip).first,
+      matching: find.byWidgetPredicate(
+        (w) => w is DecoratedBox && w.decoration is ShapeDecoration,
+      ),
+    );
+
+    expect(tester.getSize(pill).height, 32);
+    expect(cat.height, greaterThanOrEqualTo(kMinInteractiveDimension));
+    expect(girl.left, cat.right, reason: 'neighbouring targets touch');
+
+    // Above the pill, and on either side of the gap between two pills.
+    await tester.tapAt(Offset(cat.center.dx, cat.top + 2));
+    await tester.tapAt(Offset(cat.right - 1, cat.center.dy));
+    await tester.tapAt(Offset(girl.left + 1, girl.center.dy));
+    expect(tapped, ['cat', 'cat', 'girl']);
+  });
+
   testWidgets('AuthorSummary reports taps and ellipsizes long names', (
     tester,
   ) async {

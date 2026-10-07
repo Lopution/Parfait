@@ -107,9 +107,9 @@ state or action.
   2026-09-19 in `novel_page.dart`'s reader chrome; `FuncBottomNav` and
   `card_action_sheet` are the correct precedent).
 - A shared chip/action surface that sits on a `surfaceContainer`-equal
-  background needs a `divider`-token hairline border to stay legible —
-  same-value fills blend in both themes (`TagChip`, `_ActionPill` in
-  `comment_item.dart`).
+  background needs a hairline border to stay legible — same-value fills
+  blend in both themes (`TagChip`'s brand-tinted outline, `_ActionPill` in
+  `comment_item.dart` with the `divider` token).
 - Entry animations keyed by list index replay whenever a refresh re-seats
   positions; identity-based state (played sets, element keys via
   `findChildIndexCallback`, `ValueKey(entity.id)`) must use the entity id.
@@ -1790,12 +1790,26 @@ durations (debounce, throttles, frame scheduling) do not belong there.
 
 | Widget | Motion |
 |---|---|
-| `PressScale` | spring to `MotionTokens.pressScale` while pressed and back, interruptible; off with the press-feedback setting; frozen tickers set the value without playing. Wraps every tappable card. |
+| `PressScale` | spring to the rest scale while pressed and back, interruptible; off with the press-feedback setting; frozen tickers set the value without playing. Wraps every tappable card (`MotionTokens.pressScale`, 0.97) and pill (`MotionTokens.pillPressScale`, 0.96). |
 | `StateIconSwitcher(value:)` | effectsFast fade plus scale from 0.8 when `value` changes — selection checks, watchlist, download badges. Keyed by state, not by widget instance. |
 | `StateFade(kind:)` / `.onMount` | fades the new state in from 0 when `kind` changes (skeleton → content); replaces, never cross-fades. `onMount` for widgets that only appear as a change (`FeedEmpty`, `FeedError`). Keeps semantics during the fade. Frozen tickers and reduced motion show it at once. |
 | `SpringSize` | `AnimatedSize` on spatialFast for sections that open and close (`ErrorDetails`). |
 | `RemovalScope` / `Removable` | see §4. |
 | `DragToDismiss` | the return runs `SpringSimulation(spatialFast, offset, 0, release velocity)` in pixels. |
+
+**Press feedback rules (HCI 11).** Every tappable element shows a press,
+and only one kind of ink:
+
+- Ripple (Material ink) where the ink fits the visible shape: list rows,
+  tiles, menu items, buttons, icon buttons, the bottom bar.
+- Scale (`PressScale`) on cards and pills: feed cards at 0.97; tags and
+  chips (`TagChip`, `AppChoiceChip`) at 0.96. A chip keeps its own clipped
+  ripple; `TagChip` drops ink altogether, because its tap target (48dp tall,
+  touching its neighbours) is larger than the 32dp pill and ink would fill
+  the invisible margin.
+- A disabled element (no callback) gets no press scale.
+- Small targets extend their hit area to 48dp without growing the visible
+  shape; neighbouring targets touch, so the gap between them is never dead.
 
 Feed grids fade cards in through `StaggeredEntrance`; do not add a
 `StateFade` around grid content.

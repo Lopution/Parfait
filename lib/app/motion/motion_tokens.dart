@@ -41,6 +41,10 @@ abstract final class MotionTokens {
   /// [MotionSpring.spatialFast] spring).
   static const pressScale = 0.97;
 
+  /// Pill press feedback (tags, chips): tighter than a card's, they are
+  /// small targets.
+  static const pillPressScale = 0.96;
+
   /// Feed entrance: staggered fade, played on a card's first viewport
   /// exposure. Cards arriving mid-fling stay static — a pop-in during
   /// ballistic scroll reads as a layout bug, not motion.
@@ -89,6 +93,13 @@ abstract final class MotionTokens {
   /// half-transparent new frame over the page background for the rest of
   /// the fade — the white flash on a quality-tier swap.
   static const imageFadeOut = Duration(milliseconds: 1000);
+
+  /// Pull-to-refresh: the indicator shrinks away once the refresh
+  /// completes; the list retracts right after.
+  static const refreshIndicatorExit = Duration(milliseconds: 200);
+
+  /// The particle burst around a heart that was just added.
+  static const bookmarkBurst = Duration(milliseconds: 450);
 
   /// Whether motion should play. Three sources, one gate: the platform's
   /// `disableAnimations` (a11y) OR the platform's `reduceMotion`
