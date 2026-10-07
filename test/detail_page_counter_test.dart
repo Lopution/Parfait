@@ -92,6 +92,36 @@ void main() {
     expect(taps, 1);
   });
 
+  testWidgets('fades in and out rather than cutting', (tester) async {
+    double opacity() => tester
+        .widget<FadeTransition>(
+          find.descendant(
+            of: find.byType(DetailPageCounter),
+            matching: find.byType(FadeTransition),
+          ),
+        )
+        .opacity
+        .value;
+
+    await tester.pumpWidget(host(const DetailPageCounter(page: 0, count: 3)));
+    expect(opacity(), 0);
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(opacity(), inExclusiveRange(0, 1));
+    await tester.pumpAndSettle();
+    expect(opacity(), 1);
+
+    // No page on screen: the pill keeps its last page while it fades out,
+    // then leaves the tree.
+    await tester.pumpWidget(
+      host(const DetailPageCounter(page: null, count: 3)),
+    );
+    await tester.pump(const Duration(milliseconds: 90));
+    expect(find.text('1 / 3'), findsOneWidget);
+    expect(opacity(), inExclusiveRange(0, 1));
+    await tester.pumpAndSettle();
+    expect(find.byType(PageCountPill), findsNothing);
+  });
+
   testWidgets('stays hidden until the entry transition completes', (
     tester,
   ) async {

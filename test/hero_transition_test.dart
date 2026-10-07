@@ -8,6 +8,7 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
@@ -158,6 +159,187 @@ void main() {
         find.byWidgetPredicate((w) => w is Hero && w.tag == '$baseTag-1'),
         findsNothing,
         reason: 'other pages mount only inside the pager when visited',
+      );
+    });
+  });
+
+  testWidgets('only the entry page flies back; other pages slide away', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    VisibilityDetectorController.instance.updateInterval = Duration.zero;
+
+    final (container, _, _) = await makeWorld();
+    final entity = parseIllust(
+      illustJson(42, pageCount: 2, type: 'manga', withMetaPages: true),
+    );
+    container.read(illustStoreProvider).mergeAll([entity]);
+    final router = createPixivRouter(initialLocation: '/recommended');
+    addTearDown(router.dispose);
+
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final baseTag = illustHeroTag('feed', 42);
+      unawaited(
+        router.push<void>(
+          '/recommended/illust/42',
+          extra: IllustRouteExtra(entity: entity, heroScope: 'feed'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DetailPageImage).first);
+      await tester.pumpAndSettle();
+      final viewer = find.byType(ImageViewerPage);
+      expect(
+        find.descendant(
+          of: viewer,
+          matching: find.byWidgetPredicate(
+            (w) => w is Hero && w.tag == baseTag,
+          ),
+        ),
+        findsOneWidget,
+        reason: 'the viewer opened on page 1 carries its Hero',
+      );
+
+      // Page 2 is not where the viewer opened: it carries no Hero.
+      await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
+      await tester.pumpAndSettle();
+      expect(find.text('2 / 2'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: viewer,
+          matching: find.byWidgetPredicate(
+            (w) => w is Hero && '${w.tag}'.startsWith(baseTag),
+          ),
+        ),
+        findsNothing,
+      );
+
+      // Leaving from there slides the stage down instead of shrinking.
+      await tester.tap(find.byType(BackButton));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+      final slide = tester.widget<FractionalTranslation>(
+        find
+            .descendant(
+              of: viewer,
+              matching: find.byType(FractionalTranslation),
+            )
+            .first,
+      );
+      expect(slide.translation.dy, greaterThan(0));
+      await tester.pumpAndSettle();
+      expect(viewer, findsNothing);
+    });
+  });
+
+  testWidgets('mid-flight the detail endpoint paints no image of its own', (
+    tester,
+  ) async {
+    // Audit F2: a faint full-size image seemed to sit at the landing spot
+    // while the shuttle grew inside it. The landing Hero must stand in as an
+    // empty placeholder, and the page must draw no second copy around it.
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    VisibilityDetectorController.instance.updateInterval = Duration.zero;
+
+    // A stale snapshot: the card says one page, the detail payload that
+    // lands mid-flight says two. The image sliver must not change type
+    // under the Hero.
+    final (container, _, _) = await makeWorld();
+    final entity = parseIllust(illustJson(42));
+    container.read(illustStoreProvider).mergeAll([entity]);
+    final navigatorKey = GlobalKey<NavigatorState>();
+
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            navigatorKey: navigatorKey,
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 150,
+                  height: 200,
+                  child: Hero(
+                    tag: illustHeroTag('feed', 42),
+                    flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+                    child: const ColoredBox(color: Colors.red),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      unawaited(
+        navigatorKey.currentState!.push(
+          MaterialPageRoute<void>(
+            builder: (_) => IllustDetailPage(
+              illustId: 42,
+              initialEntity: entity,
+              heroImageUrl: entity.imageUrls.medium,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(HeroRectClip), findsOneWidget, reason: 'in flight');
+      final page = find.byType(DetailPageImage);
+      expect(page, findsOneWidget);
+      // The Hero keeps its child mounted but Offstage while it flies.
+      bool painted(Element element) {
+        var onstage = true;
+        element.visitAncestorElements((ancestor) {
+          final widget = ancestor.widget;
+          if (widget is Offstage && widget.offstage) onstage = false;
+          return onstage;
+        });
+        return onstage;
+      }
+
+      final artwork = find
+          .descendant(
+            of: find.byType(IllustDetailPage),
+            matching: find.byWidgetPredicate(
+              (w) => w is PixivImage && w.url == entity.imageUrls.medium,
+            ),
+          )
+          .evaluate();
+      expect(
+        artwork.where(painted).map((element) => element.widget),
+        isEmpty,
+        reason: 'the page draws no copy of the artwork under the flight',
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: page, matching: find.byType(PixivImage)),
+        findsOneWidget,
       );
     });
   });

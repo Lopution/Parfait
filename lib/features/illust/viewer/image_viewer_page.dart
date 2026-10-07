@@ -31,6 +31,7 @@ import '../../../app/widgets/entity_row.dart' show EntityBadge;
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../l10n/context.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
+import '../detail/widgets/detail_page_counter.dart' show PageCountPill;
 
 /// Whether the viewer chrome (top bar + bottom bar) is visible. This is
 /// session-level state (revision ①): it deliberately survives page turns,
@@ -482,63 +483,68 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
         bindings: _shortcuts(),
         child: Focus(
           autofocus: true,
-          child: DragToDismiss(
-            enabled: !_activeZoomed,
-            onDismissed: () => Navigator.of(context).pop<void>(),
-            // The stage is always black; pin light bar icons while the
-            // viewer is mounted so the clock stays readable after exiting
-            // immersive mode (the AnnotatedRegion restores the ambient
-            // style on pop).
-            child: FuncSystemBars(
-              background: Brightness.dark,
-              child: Scaffold(
-                // primary: false — the media fills the whole screen edge to
-                // edge; each chrome bar SafeAreas its own controls.
-                primary: false,
-                backgroundColor: Colors.black,
-                body: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        // Tap toggles chrome; double-tap runs the zoom cycle.
-                        // One detector registers both so the framework arena does
-                        // the ~kDoubleTapTimeout disambiguation (risks R1 — no
-                        // custom timer).
-                        onTap: _toggleChrome,
-                        onDoubleTapDown: (details) =>
-                            _doubleTapFocal = details.localPosition,
-                        onDoubleTap: _onDoubleTap,
-                        child: _pageCount == 0
-                            ? Center(
-                                child: Text(
-                                  text('viewerNoImages'),
-                                  style: TextStyle(
-                                    color: FuncTokens.lightBackground,
+          child: _ExitSlide(
+            // Only the entry page's image shrinks back into the detail
+            // page; from any other page the stage leaves downward.
+            enabled: widget.heroTagForPage?.call(_activePage) == null,
+            child: DragToDismiss(
+              enabled: !_activeZoomed,
+              onDismissed: () => Navigator.of(context).pop<void>(),
+              // The stage is always black; pin light bar icons while the
+              // viewer is mounted so the clock stays readable after exiting
+              // immersive mode (the AnnotatedRegion restores the ambient
+              // style on pop).
+              child: FuncSystemBars(
+                background: Brightness.dark,
+                child: Scaffold(
+                  // primary: false — the media fills the whole screen edge to
+                  // edge; each chrome bar SafeAreas its own controls.
+                  primary: false,
+                  backgroundColor: Colors.black,
+                  body: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          // Tap toggles chrome; double-tap runs the zoom cycle.
+                          // One detector registers both so the framework arena does
+                          // the ~kDoubleTapTimeout disambiguation (risks R1 — no
+                          // custom timer).
+                          onTap: _toggleChrome,
+                          onDoubleTapDown: (details) =>
+                              _doubleTapFocal = details.localPosition,
+                          onDoubleTap: _onDoubleTap,
+                          child: _pageCount == 0
+                              ? Center(
+                                  child: Text(
+                                    text('viewerNoImages'),
+                                    style: TextStyle(
+                                      color: FuncTokens.lightBackground,
+                                    ),
                                   ),
+                                )
+                              : PageView.builder(
+                                  controller: _pageController,
+                                  physics: _activeZoomed
+                                      ? const NeverScrollableScrollPhysics()
+                                      : const PageScrollPhysics(),
+                                  itemCount: _pageCount,
+                                  itemBuilder: _buildPage,
                                 ),
-                              )
-                            : PageView.builder(
-                                controller: _pageController,
-                                physics: _activeZoomed
-                                    ? const NeverScrollableScrollPhysics()
-                                    : const PageScrollPhysics(),
-                                itemCount: _pageCount,
-                                itemBuilder: _buildPage,
-                              ),
+                        ),
                       ),
-                    ),
-                    _ChromeEdgeBar(
-                      visible: _chromeVisible,
-                      edge: _ChromeEdge.top,
-                      child: _buildTopBar(context),
-                    ),
-                    _ChromeEdgeBar(
-                      visible: _chromeVisible,
-                      edge: _ChromeEdge.bottom,
-                      child: _buildBottomBar(context, saveState),
-                    ),
-                  ],
+                      _ChromeEdgeBar(
+                        visible: _chromeVisible,
+                        edge: _ChromeEdge.top,
+                        child: _buildTopBar(context),
+                      ),
+                      _ChromeEdgeBar(
+                        visible: _chromeVisible,
+                        edge: _ChromeEdge.bottom,
+                        child: _buildBottomBar(context, saveState),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -755,19 +761,18 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
               TextButton(
                 key: const Key('viewer-page-counter'),
                 style: TextButton.styleFrom(
-                  foregroundColor: color,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: FuncSpacing.lg,
+                    horizontal: FuncSpacing.sm,
                   ),
                   minimumSize: const Size.square(kMinInteractiveDimension),
-                  textStyle: Theme.of(context).textTheme.bodyMedium?.tabular,
                 ),
                 onPressed: _openPageSheet,
                 // Inside the button, so its one node carries both the
-                // count and what tapping it does.
+                // count and what tapping it does. The detail page's pill,
+                // so the position reads the same on both sides of the Hero.
                 child: Tooltip(
                   message: context.l10n.viewerJumpToPage,
-                  child: Text('${_activePage + 1} / $_pageCount'),
+                  child: PageCountPill(page: _activePage, count: _pageCount),
                 ),
               ),
           ],
@@ -844,6 +849,72 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   bool _isZoomed(int page) =>
       _transformationFor(page).value.getMaxScaleOnAxis() >
       1.0 + precisionErrorTolerance;
+}
+
+/// Slides the viewer down off the screen while its route pops, for exits
+/// without a Hero to carry the image back. The slide runs from wherever the
+/// pop starts (a committed back gesture may begin it mid-way), so it never
+/// jumps.
+class _ExitSlide extends StatefulWidget {
+  const _ExitSlide({required this.enabled, required this.child});
+
+  final bool enabled;
+  final Widget child;
+
+  @override
+  State<_ExitSlide> createState() => _ExitSlideState();
+}
+
+class _ExitSlideState extends State<_ExitSlide> {
+  Animation<double>? _route;
+
+  /// The route value when the pop began; null while not popping.
+  double? _popFrom;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context)?.animation;
+    if (identical(route, _route)) return;
+    _route?.removeStatusListener(_onStatus);
+    _route = route?..addStatusListener(_onStatus);
+  }
+
+  void _onStatus(AnimationStatus status) {
+    final route = _route;
+    if (route == null || !mounted) return;
+    final popFrom = status == AnimationStatus.reverse && widget.enabled
+        ? route.value
+        : null;
+    if (popFrom != _popFrom) setState(() => _popFrom = popFrom);
+  }
+
+  @override
+  void dispose() {
+    _route?.removeStatusListener(_onStatus);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final popFrom = _popFrom;
+    // One shape whether popping or not, so the start of a pop never
+    // rebuilds the viewer below.
+    return AnimatedBuilder(
+      animation: _route ?? kAlwaysCompleteAnimation,
+      builder: (context, child) {
+        final route = _route;
+        final progress = route == null || popFrom == null || popFrom <= 0
+            ? 0.0
+            : ((popFrom - route.value) / popFrom).clamp(0.0, 1.0);
+        return FractionalTranslation(
+          translation: Offset(0, MotionTokens.pageCurve.transform(progress)),
+          child: child,
+        );
+      },
+      child: widget.child,
+    );
+  }
 }
 
 enum _ChromeEdge { top, bottom }
@@ -925,10 +996,51 @@ class _ChromeEdgeBarState extends State<_ChromeEdgeBar>
               alwaysIncludeSemantics: true,
               child: child,
             ),
-            child: widget.child,
+            child: _ChromeScrim(edge: widget.edge, child: widget.child),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A dark gradient behind one chrome bar, fading toward the artwork, so the
+/// light controls stay readable over a white page. It reaches
+/// [_ChromeScrim.fadeExtent] past the controls; that run takes no taps, so
+/// a tap there still toggles the chrome.
+class _ChromeScrim extends StatelessWidget {
+  const _ChromeScrim({required this.edge, required this.child});
+
+  static const double fadeExtent = FuncSpacing.xxl;
+
+  final _ChromeEdge edge;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = edge == _ChromeEdge.top;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: top ? Alignment.topCenter : Alignment.bottomCenter,
+                  end: top ? Alignment.bottomCenter : Alignment.topCenter,
+                  colors: const [FuncTokens.imageControl, Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: top
+              ? const EdgeInsets.only(bottom: fadeExtent)
+              : const EdgeInsets.only(top: fadeExtent),
+          child: child,
+        ),
+      ],
     );
   }
 }

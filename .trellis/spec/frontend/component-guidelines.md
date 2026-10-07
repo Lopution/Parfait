@@ -1103,6 +1103,22 @@ threshold. A qualifying drag pops the current typed
 route so the existing `FuncPage`, scoped Hero tag, and
 `HeroRectClip` perform the reverse flight.
 
+Only the page the viewer opened on (`ImageViewerRouteExtra.entryPage`)
+carries the Hero. After a page turn the viewer has no Hero, and any pop
+(back button, system back, drag) slides the stage down from wherever the pop
+begins instead of shrinking an image into a spot that shows a different
+page.
+
+The detail page builds its image pages as one `SliverList` whatever the page
+count. A sliver whose type depends on the snapshot's page count rebuilds the
+landing Hero when the detail payload disagrees with the snapshot (a restored
+feed), and the orphaned endpoint then paints under the flight.
+
+Chrome over artwork stays readable over a white page: the viewer's bars sit on
+an `imageControl` → transparent gradient that takes no taps, and the page
+position is one `PageCountPill` on both the detail page and the viewer. The
+detail pill fades in and out and never hard-cuts.
+
 Horizontal page changes and zoomed `InteractiveViewer` pan remain with the
 viewer. The card does not await image preload before route navigation, and
 Hero scopes remain stable per mounted feed surface. Ugoira playback, tap,

@@ -106,11 +106,17 @@ class ImageViewerRouteExtra {
     required this.urls,
     this.entity,
     this.heroScope,
+    this.entryPage = 0,
   });
 
   final List<String> urls;
   final IllustEntity? entity;
   final String? heroScope;
+
+  /// The page the viewer opened on. Only that page carries the Hero back:
+  /// any other page's image is not where the detail page shows it, so the
+  /// viewer slides away instead of shrinking to the wrong place.
+  final int entryPage;
 }
 
 class _ImageViewerRoute extends ConsumerWidget {
@@ -139,12 +145,14 @@ class _ImageViewerRoute extends ConsumerWidget {
       entity: entity,
       urls: urls,
       initialPage: page,
-      heroTagForPage: extra?.heroScope == null
-          ? null
-          : (page) {
-              final base = illustHeroTag(extra!.heroScope!, illustId);
-              return page == 0 ? base : '$base-$page';
-            },
+      heroTagForPage: switch (extra) {
+        ImageViewerRouteExtra(:final heroScope?, :final entryPage) => (page) {
+          if (page != entryPage) return null;
+          final base = illustHeroTag(heroScope, illustId);
+          return page == 0 ? base : '$base-$page';
+        },
+        _ => null,
+      },
       tierKeyForPage: entity == null
           ? null
           : (page) => entity.imageTierKeyAt(page),
@@ -1695,6 +1703,7 @@ Future<void> openImageViewer(
       urls: entity.viewerUrls(quality),
       entity: entity,
       heroScope: heroScope,
+      entryPage: page,
     ),
   );
 }

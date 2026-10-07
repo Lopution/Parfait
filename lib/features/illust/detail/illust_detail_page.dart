@@ -75,8 +75,8 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   Set<int>? _selectedPages;
 
   /// Page-counter overlay data: the topmost image page currently in
-  /// view feeds the `n / m` pill (VisibilityDetector per page of a
-  /// multi-page work — the pill hides for a single page). Empty set
+  /// view feeds the `n / m` pill (VisibilityDetector per page — the pill
+  /// hides for a single page). Empty set
   /// means nothing artwork is on screen (scrolled into the meta tail).
   final Set<int> _visiblePages = <int>{};
 
@@ -518,24 +518,11 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
             tier: entity.imageTierOf(detailUrlFor(0) ?? entity.imageUrls.large),
           ),
         )
-      else if (entity.pageCount == 1)
-        SliverToBoxAdapter(
-          child: DetailPageImage(
-            key: ValueKey<Object?>('illust-page-${entity.id}-0'),
-            entity: entity,
-            index: 0,
-            heroTag: illustHeroTag(widget.heroScope, entity.id),
-            heroScope: widget.heroScope,
-            heroImageUrl: widget.heroImageUrl,
-            heroImageDecodeWidth: widget.heroImageDecodeWidth,
-            detailUrl: detailUrlFor(0),
-            downloadMode: _downloadMode,
-            selected: _selectedPages?.contains(0) ?? false,
-            onToggleSelect: () => _togglePageSelected(0),
-            onLongPress: _enterDownloadMode,
-          ),
-        )
       else
+        // Single and multi-page works share this one sliver: a snapshot
+        // whose page count differs from the detail payload (a restored
+        // feed, a work edited since) would otherwise swap the sliver type
+        // mid-flight and orphan the Hero's landing spot.
         SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) => Padding(
@@ -672,22 +659,20 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                   ),
                 ),
                 // The shared page counter floats over the top-end of the
-                // artwork while an image page is actually on screen —
-                // scrolled past the last page it leaves with them. The
+                // artwork while an image page is actually on screen and
+                // fades out once the last page scrolls away. The
                 // pill is IgnorePointer, so taps fall through to the
                 // artwork below. Selection mode hides it: each page's
-                // badge occupies the same top-end corner. Only multi-page
-                // works carry page trackers, so only they get the pill.
+                // badge occupies the same top-end corner. Single-page
+                // works get no pill.
                 if (!entity.isUgoira && entity.pageCount > 1 && !_downloadMode)
                   Positioned.fill(
                     child: ValueListenableBuilder<int?>(
                       valueListenable: _topVisiblePage,
-                      builder: (context, page, _) => page == null
-                          ? const SizedBox.shrink()
-                          : DetailPageCounter(
-                              page: page,
-                              count: entity.pageCount,
-                            ),
+                      builder: (context, page, _) => DetailPageCounter(
+                        page: page,
+                        count: entity.pageCount,
+                      ),
                     ),
                   ),
               ],
