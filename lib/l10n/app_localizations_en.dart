@@ -1886,6 +1886,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchFilters => 'Filters';
 
   @override
+  String searchFiltersActive(int count) {
+    return 'Filters, $count on';
+  }
+
+  @override
   String get searchReset => 'Reset';
 
   @override

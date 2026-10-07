@@ -795,6 +795,7 @@
   "searchReverseDone": "Готово",
   "searchReverseEngineSwitch": "Сменить сервис",
   "searchFilters": "Фильтры",
+  "searchFiltersActive": "Фильтры, включено: {count}",
   "searchReset": "Сбросить",
   "searchApply": "Применить",
   "searchTarget": "Область поиска",

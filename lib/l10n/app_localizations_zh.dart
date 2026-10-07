@@ -1798,6 +1798,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchFilters => '筛选';
 
   @override
+  String searchFiltersActive(int count) {
+    return '筛选（已启用 $count 项）';
+  }
+
+  @override
   String get searchReset => '重置';
 
   @override

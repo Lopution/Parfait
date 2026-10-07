@@ -795,6 +795,7 @@
   "searchReverseDone": "Done",
   "searchReverseEngineSwitch": "Switch engine",
   "searchFilters": "Filters",
+  "searchFiltersActive": "Filters, {count} on",
   "searchReset": "Reset",
   "searchApply": "Apply",
   "searchTarget": "Search target",

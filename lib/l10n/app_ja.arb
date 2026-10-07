@@ -795,6 +795,7 @@
   "searchReverseDone": "完了",
   "searchReverseEngineSwitch": "エンジンを切り替え",
   "searchFilters": "フィルター",
+  "searchFiltersActive": "フィルター（{count} 件適用中）",
   "searchReset": "リセット",
   "searchApply": "適用",
   "searchTarget": "検索対象",

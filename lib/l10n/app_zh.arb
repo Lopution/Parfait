@@ -932,6 +932,14 @@
   "searchReverseDone": "已完成",
   "searchReverseEngineSwitch": "切换引擎",
   "searchFilters": "筛选",
+  "searchFiltersActive": "筛选（已启用 {count} 项）",
+  "@searchFiltersActive": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "searchReset": "重置",
   "searchApply": "应用",
   "searchTarget": "搜索范围",

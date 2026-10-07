@@ -1885,6 +1885,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchFilters => 'Фильтры';
 
   @override
+  String searchFiltersActive(int count) {
+    return 'Фильтры, включено: $count';
+  }
+
+  @override
   String get searchReset => 'Сбросить';
 
   @override

@@ -3491,6 +3491,12 @@ abstract class AppLocalizations {
   /// **'筛选'**
   String get searchFilters;
 
+  /// No description provided for @searchFiltersActive.
+  ///
+  /// In zh, this message translates to:
+  /// **'筛选（已启用 {count} 项）'**
+  String searchFiltersActive(int count);
+
   /// No description provided for @searchReset.
   ///
   /// In zh, this message translates to:

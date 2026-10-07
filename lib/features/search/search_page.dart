@@ -28,6 +28,8 @@ import '../../core/settings/settings_controller.dart';
 import '../../core/spotlight/spotlight_feed_controller.dart';
 import '../../core/spotlight/spotlight_models.dart';
 import '../../core/spotlight/spotlight_store.dart';
+import 'search_field_button.dart';
+import 'search_filter_labels.dart';
 import 'search_filter_sheet.dart';
 import 'search_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
@@ -170,7 +172,10 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage>
       // keyboard) — a relayout storm across all five live branches.
       resizeToAvoidBottomInset: false,
       appBar: AppTopBar(
-        title: _SearchField(
+        title: SearchFieldButton(
+          // The input page body spells out what can be searched.
+          text: l10n.searchBarHint,
+          isHint: true,
           onTap: () => openSearchInput(context, type: _active),
         ),
         actions: [
@@ -219,56 +224,6 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage>
 /// the feature's root page.
 class SearchPage extends SearchHomePage {
   const SearchPage({super.key});
-}
-
-/// Looks like a search field, acts as a button: the input page owns typing.
-class _SearchField extends StatelessWidget {
-  const _SearchField({required this.onTap});
-
-  static const double height = 48;
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Semantics(
-      button: true,
-      child: Material(
-        color: colors.surfaceContainerHigh,
-        shape: const StadiumBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: height),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-              child: Row(
-                children: [
-                  Icon(Icons.search, color: colors.onSurfaceVariant),
-                  const SizedBox(width: FuncSpacing.md),
-                  Expanded(
-                    // One line only: the input page body spells out what
-                    // can be searched.
-                    child: Text(
-                      context.l10n.searchBarHint,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// One tab of the search guide: the Spotlight section (illust tab only),
@@ -898,13 +853,12 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   );
   late NovelSearchFilters _novelFilters = ref.read(searchNovelFiltersProvider);
 
+  SearchFilters get _filters => _types[_selectedIndex] == SearchResultType.novel
+      ? _novelFilters
+      : _illustFilters;
+
   Future<void> _editFilters() async {
-    final result = await showSearchFilterSheet(
-      context,
-      initial: _types[_selectedIndex] == SearchResultType.novel
-          ? _novelFilters
-          : _illustFilters,
-    );
+    final result = await showSearchFilterSheet(context, initial: _filters);
     if (!mounted || result == null) return;
     // The draft belongs to this input session only — persisting it is the
     // result page's "设为默认" job, not the apply button's.
@@ -965,7 +919,17 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
     return SearchBar(
       controller: _textController,
       focusNode: _focusNode,
-      constraints: const BoxConstraints(minHeight: 48),
+      // Flat, with the icon and text where [SearchFieldButton] draws them
+      // on the guide and the result page: the field reads as one across
+      // both pushes.
+      constraints: const BoxConstraints(minHeight: SearchFieldButton.height),
+      elevation: const WidgetStatePropertyAll(0),
+      backgroundColor: WidgetStatePropertyAll(
+        Theme.of(context).colorScheme.surfaceContainerHigh,
+      ),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+      ),
       hintText: context.l10n.searchBarHint,
       leading: const Icon(Icons.search),
       trailing: [
@@ -998,6 +962,15 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
         ),
         titleSpacing: 0,
         title: _buildSearchBar(context),
+        // The same slot as the result page's filter button, so the field
+        // keeps its place across the push.
+        actions: [
+          if (supportsFilters)
+            SearchFilterButton(filters: _filters, onPressed: _editFilters)
+          else
+            // Keeps the field off the screen edge.
+            const SizedBox(width: FuncSpacing.lg),
+        ],
         bottom: AppTabBar(
           controller: _tabController,
           labels: [
@@ -1005,31 +978,10 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
           ],
         ),
       ),
-      body: Column(
-        children: [
-          if (supportsFilters)
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  right: FuncSpacing.md,
-                  top: FuncSpacing.sm,
-                ),
-                child: OutlinedButton.icon(
-                  onPressed: _editFilters,
-                  icon: const Icon(Icons.tune, size: 18),
-                  label: Text(context.l10n.searchFilters),
-                ),
-              ),
-            ),
-          Expanded(
-            child: _SearchInputBody(
-              type: _types[_selectedIndex],
-              onSearch: _search,
-              onFill: _fill,
-            ),
-          ),
-        ],
+      body: _SearchInputBody(
+        type: _types[_selectedIndex],
+        onSearch: _search,
+        onFill: _fill,
       ),
     );
   }

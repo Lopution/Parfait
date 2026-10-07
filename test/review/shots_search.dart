@@ -42,6 +42,11 @@ void main() {
     variants: {...ShotVariant.values},
   );
   testShot(
+    'search/results-filtered',
+    location: '$illusts&sort=date_asc&ai=exclude&bmin=100',
+    variants: {ShotVariant.dark, ...overflowVariants},
+  );
+  testShot(
     'search/results-novel',
     location: '/search/results?q=cat&type=novel',
   );

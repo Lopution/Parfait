@@ -129,6 +129,52 @@ void main() {
     expect(find.text('宽 800 以上'), findsNothing);
   });
 
+  testWidgets('the filter button counts the active fields; the chip row '
+      'only shows while some are active', (tester) async {
+    await _pumpRouter(
+      tester,
+      initialLocation: '/search/results?q=cat&type=illust',
+    );
+    expect(find.byTooltip('筛选'), findsOneWidget);
+    expect(find.byType(ActionChip), findsNothing);
+
+    await tester.tap(find.byTooltip('筛选'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('最早发布'));
+    await tester.tap(find.text('排除 AI'));
+    await tester.pump();
+    await tester.tap(find.text('应用'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('筛选（已启用 2 项）'), findsOneWidget);
+    expect(find.widgetWithText(ActionChip, '最早发布'), findsOneWidget);
+    expect(find.widgetWithText(ActionChip, '排除 AI'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ActionChip, '重置'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('筛选'), findsOneWidget);
+    expect(find.byType(ActionChip), findsNothing);
+  });
+
+  testWidgets('the input page badges its own draft in the same slot', (
+    tester,
+  ) async {
+    await _pumpRouter(tester, initialLocation: '/search/input?type=illust');
+    await tester.tap(find.byTooltip('筛选'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('仅 AI'));
+    await tester.pump();
+    await tester.tap(find.text('应用'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('筛选（已启用 1 项）'), findsOneWidget);
+
+    // The user tab has no filters.
+    await tester.tap(_tab('用户'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('筛选'), findsNothing);
+    expect(find.byTooltip('筛选（已启用 1 项）'), findsNothing);
+  });
+
   const filtered =
       '/search/results?q=cat&type=illust&start=2026-08-01&end=2026-08-27'
       '&bmax=50000&wmin=1024&wmax=4096&hmin=768';

@@ -1825,6 +1825,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchFilters => 'フィルター';
 
   @override
+  String searchFiltersActive(int count) {
+    return 'フィルター（$count 件適用中）';
+  }
+
+  @override
   String get searchReset => 'リセット';
 
   @override
