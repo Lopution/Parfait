@@ -27,6 +27,7 @@ import '../../core/settings/settings_controller.dart';
 import '../../core/share/share_service.dart';
 import '../../l10n/context.dart';
 import 'novel_layout.dart';
+import 'novel_reader.dart';
 import 'novel_reader_stage.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 
@@ -38,7 +39,10 @@ final _novelDetailProvider = FutureProvider.autoDispose
       final entity = await repository.fetchDetail(novelId, cancelToken: token);
       ref.read(novelStoreProvider.notifier).mergeAll([entity]);
       return entity;
-    });
+      // No automatic retry: Riverpod's default retry keeps the provider
+      // loading through its backoff, so a failure never reached the error
+      // state and its retry button. The user retries from there.
+    }, retry: (_, _) => null);
 
 class NovelPage extends ConsumerWidget {
   const NovelPage({super.key, required this.novelId});
@@ -51,7 +55,7 @@ class NovelPage extends ConsumerWidget {
     return Scaffold(
       body: async.when(
         loading: () => NovelStatusScaffold(
-          child: FeedLoading(label: context.l10n.novelLoading),
+          child: NovelPageSkeleton(label: context.l10n.novelLoading),
         ),
         error: (error, _) {
           final isNotFound = error is ApiHttpError && error.statusCode == 404;

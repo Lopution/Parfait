@@ -39,6 +39,7 @@ Future<ProviderContainer> _apiContainer({
   Future<http.Response> Function(int request)? seriesHandler,
   List<Uri>? seriesRequests,
   Completer<void>? detailGate,
+  bool detailFails = false,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences(preferences);
   final credentials = FakeCredentialStore(
@@ -77,6 +78,7 @@ Future<ProviderContainer> _apiContainer({
     client: MockClient((request) async {
       if (request.url.path == '/v2/novel/detail') {
         await detailGate?.future;
+        if (detailFails) return http.Response('{}', 503);
         return http.Response.bytes(
           utf8.encode(
             jsonEncode({
@@ -604,7 +606,7 @@ void main() {
     );
   });
 
-  testWidgets('a pending detail shows a spinner, not an empty state', (
+  testWidgets('a pending detail shows the page skeleton, not an empty state', (
     tester,
   ) async {
     final gate = Completer<void>();
@@ -627,12 +629,39 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byType(FeedLoading), findsOneWidget);
+    expect(find.byType(NovelPageSkeleton), findsOneWidget);
+    expect(find.byType(FeedLoading), findsNothing);
     expect(find.byType(FeedEmpty), findsNothing);
+    expect(find.bySemanticsLabel('正在加载小说'), findsOneWidget);
 
     gate.complete();
     await tester.pumpAndSettle();
-    expect(find.byType(FeedLoading), findsNothing);
+    expect(find.byType(NovelPageSkeleton), findsNothing);
+  });
+
+  testWidgets('a failed detail reaches the error state at once', (
+    tester,
+  ) async {
+    final container = await _apiContainer(detailFails: true);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: NovelPage(novelId: 1),
+        ),
+      ),
+    );
+    // No retry backoff in between: the first failure is the error state.
+    // (Riverpod's default retry would first wait 200ms, then longer.)
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(FeedError), findsOneWidget);
+    expect(find.byType(NovelPageSkeleton), findsNothing);
   });
 
   testWidgets('the series bar keeps one height in every state', (tester) async {

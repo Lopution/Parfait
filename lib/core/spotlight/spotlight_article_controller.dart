@@ -15,4 +15,6 @@ final spotlightArticleBodyProvider = FutureProvider.autoDispose
           .read(spotlightRepositoryProvider)
           .fetchArticleHtml(key.url, languageTag: languageTag);
       return parseSpotlightArticle(html);
-    });
+      // The page shows the error with its own retry button; Riverpod's
+      // default retry would hold it in loading through the backoff.
+    }, retry: (_, _) => null);

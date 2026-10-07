@@ -3,16 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/app_top_bar.dart';
+import '../../app/format/app_format.dart';
+import '../../app/widgets/entity_row.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
-import '../../app/widgets/feed/illust_card.dart';
-import '../../app/widgets/skeleton/illust_grid_skeleton.dart';
+import '../../app/widgets/skeleton/list_skeletons.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/author_row.dart';
 import '../../app/widgets/expandable_text.dart';
 import '../../core/auth/account_store.dart';
+import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
 import '../../core/series/series_feed_controller.dart';
@@ -26,9 +28,9 @@ import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 
 /// One illust series: a header (cover/title/author/work count/caption) plus
-/// the paginated works grid (`/v1/illust/series`, newest first).
-/// Grid padding shared by the works sliver and its first-load skeleton.
-const _gridPadding = EdgeInsets.all(FuncSpacing.sm);
+/// the paginated episode list (`/v1/illust/series`, newest first). Episodes
+/// are rows, not a grid: a reader looks for "which episode", so the number
+/// and the title lead and the cover only identifies.
 
 class IllustSeriesPage extends ConsumerWidget {
   const IllustSeriesPage({super.key, required this.seriesId});
@@ -48,10 +50,7 @@ class IllustSeriesPage extends ConsumerWidget {
         ),
       ),
       body: async.when(
-        loading: () => IllustGridSkeleton(
-          label: context.l10n.contentLoading,
-          padding: _gridPadding,
-        ),
+        loading: () => EpisodeListSkeleton(label: context.l10n.contentLoading),
         error: (error, _) => FeedError(
           title: context.l10n.seriesLoadFailed,
           error: error,
@@ -72,10 +71,7 @@ class IllustSeriesPage extends ConsumerWidget {
             );
           }
           if (feed.showInitialSpinner) {
-            return IllustGridSkeleton(
-              label: context.l10n.contentLoading,
-              padding: _gridPadding,
-            );
+            return EpisodeListSkeleton(label: context.l10n.contentLoading);
           }
           final entities = ref.watch(illustStoreProvider).getAll(feed.ids);
           return PullToRefresh(
@@ -115,13 +111,11 @@ class IllustSeriesPage extends ConsumerWidget {
                         ),
                       )
                     else
-                      IllustFeedGrid(
-                        padding: _gridPadding,
-                        itemIds: [for (final e in entities) e.id],
+                      SliverList.builder(
                         itemCount: entities.length,
-                        itemBuilder: (context, index) => IllustCard(
+                        itemBuilder: (context, index) => _EpisodeRow(
                           entity: entities[index],
-                          heroScope: 'series:$seriesId',
+                          episode: _episodeNumber(index, entities, detail),
                         ),
                       ),
                     SliverToBoxAdapter(
@@ -141,6 +135,80 @@ class IllustSeriesPage extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+/// The 1-based episode number of the row at [index]. pixiv sends no
+/// per-work order here, so it is counted: from the series' work count down
+/// when the list runs newest first (the usual order), from one up when it
+/// starts at the first episode. Null when the count is unknown.
+int? _episodeNumber(
+  int index,
+  List<IllustEntity> entities,
+  IllustSeriesEntity? detail,
+) {
+  final first = detail?.firstContentId;
+  final ascending = first != null && entities.first.id == first;
+  if (ascending) return index + 1;
+  final total = detail?.workCount;
+  if (total == null || total - index < 1) return null;
+  return total - index;
+}
+
+class _EpisodeRow extends StatelessWidget {
+  const _EpisodeRow({required this.entity, required this.episode});
+
+  final IllustEntity entity;
+  final int? episode;
+
+  /// Inset of the page-count badge — a fraction of a feed card's 7dp, to
+  /// match the smaller cover.
+  static const double _badgeInset = 4;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final episode = this.episode;
+    final overline = episode == null ? null : l10n.seriesEpisode(episode);
+    final created = DateTime.tryParse(entity.createDate ?? '');
+    return EntityRow(
+      key: ValueKey('series-episode-${entity.id}'),
+      padding: episodeRowPadding,
+      leading: ClipRRect(
+        borderRadius: FuncShape.control,
+        child: SizedBox.fromSize(
+          size: episodeCoverSize,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              PixivImage.feed(
+                entity.imageUrls.medium,
+                layoutWidth: episodeCoverSize.width,
+              ),
+              if (entity.pageCount > 1)
+                Positioned(
+                  left: _badgeInset,
+                  bottom: _badgeInset,
+                  child: EntityBadge(
+                    icon: Icons.photo_library_outlined,
+                    label: AppFormat.count(context, entity.pageCount),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+      overline: overline,
+      title: entity.title,
+      titleStyle: Theme.of(context).textTheme.titleMedium,
+      meta: created == null ? null : AppFormat.date(context, created),
+      semanticLabel: [
+        ?overline,
+        entity.title,
+        if (entity.pageCount > 1) l10n.illustPagesTotal(entity.pageCount),
+      ].join(', '),
+      onTap: () => openIllust(context, entity.id, initialEntity: entity),
     );
   }
 }
@@ -208,7 +276,7 @@ class _SeriesHeader extends ConsumerWidget {
                   children: [
                     Text(
                       detail.title,
-                      style: theme.textTheme.titleMedium,
+                      style: theme.textTheme.titleLarge,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -223,18 +291,8 @@ class _SeriesHeader extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: FuncSpacing.sm),
-          WatchlistToggle(
-            seriesKey: WatchlistKey(WatchlistType.manga, detail.id),
-            detailAdded: detail.watchlistAdded,
-          ),
-          if (detail.firstContentId != null || recent != null) ...[
-            const SizedBox(height: FuncSpacing.sm),
-            _ReadingActions(
-              firstContentId: detail.firstContentId,
-              recent: recent,
-            ),
-          ],
+          const SizedBox(height: FuncSpacing.md),
+          _SeriesActions(detail: detail, recent: recent),
           if (detail.caption.isNotEmpty) ...[
             const SizedBox(height: FuncSpacing.sm),
             ExpandableText(
@@ -249,52 +307,69 @@ class _SeriesHeader extends ConsumerWidget {
   }
 }
 
-/// One primary way into the series. With a reading record (this session's
-/// last opened work) it continues there, and starting over from the first
-/// episode is the quieter second choice; without one it starts at the
-/// first episode.
-class _ReadingActions extends ConsumerWidget {
-  const _ReadingActions({required this.firstContentId, required this.recent});
+/// The header's actions on one line, one hierarchy: reading is the filled
+/// primary, following the series the outlined secondary beside it at the
+/// same height. With a reading record (this
+/// session's last opened work) the primary continues there and starting
+/// over from the first episode is a text button below; without one the
+/// primary starts at the first episode.
+class _SeriesActions extends ConsumerWidget {
+  const _SeriesActions({required this.detail, required this.recent});
 
-  /// Parsed from `illust_series_first_illust`; null when pixiv omits it.
-  final int? firstContentId;
+  final IllustSeriesEntity detail;
   final SeriesRecentOpenEntry? recent;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     void open(int illustId) => openIllust(
       context,
       illustId,
       initialEntity: ref.read(illustStoreProvider).get(illustId),
     );
     final recent = this.recent;
-    final first = firstContentId;
-    if (recent == null) {
-      if (first == null) return const SizedBox.shrink();
-      return FilledButton.icon(
-        onPressed: () => open(first),
-        icon: const Icon(Icons.play_arrow),
-        label: Text(context.l10n.seriesStartReading),
-      );
-    }
-    final order = recent.contentOrder;
-    return OverflowBar(
-      spacing: FuncSpacing.sm,
-      overflowSpacing: FuncSpacing.xs,
+    // Parsed from `illust_series_first_illust`; null when pixiv omits it.
+    final first = detail.firstContentId;
+    final order = recent?.contentOrder;
+    final Widget? primary = recent != null
+        ? FilledButton.icon(
+            key: const ValueKey('series-read'),
+            onPressed: () => open(recent.illustId),
+            icon: const Icon(Icons.play_arrow),
+            label: Text(
+              order == null
+                  ? l10n.seriesContinue
+                  : l10n.seriesContinueEpisode(order),
+            ),
+          )
+        : first != null
+        ? FilledButton.icon(
+            key: const ValueKey('series-read'),
+            onPressed: () => open(first),
+            icon: const Icon(Icons.play_arrow),
+            label: Text(l10n.seriesStartReading),
+          )
+        : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        FilledButton.icon(
-          onPressed: () => open(recent.illustId),
-          icon: const Icon(Icons.play_arrow),
-          label: Text(
-            order == null
-                ? context.l10n.seriesContinue
-                : context.l10n.seriesContinueEpisode(order),
-          ),
+        // Side by side while both fit whole; a narrow screen or large text
+        // stacks them, primary first, rather than cutting a label.
+        OverflowBar(
+          spacing: FuncSpacing.sm,
+          overflowSpacing: FuncSpacing.sm,
+          children: [
+            ?primary,
+            WatchlistToggle(
+              seriesKey: WatchlistKey(WatchlistType.manga, detail.id),
+              detailAdded: detail.watchlistAdded,
+            ),
+          ],
         ),
-        if (first != null)
+        if (recent != null && first != null)
           TextButton(
             onPressed: () => open(first),
-            child: Text(context.l10n.seriesStartFromFirst),
+            child: Text(l10n.seriesStartFromFirst),
           ),
       ],
     );

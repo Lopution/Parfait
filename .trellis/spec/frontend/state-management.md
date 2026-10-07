@@ -16,6 +16,13 @@ The app does not create a second global service locator. Durable preferences,
 secure credentials, history, and recovery records remain behind their core
 repositories; widgets do not read their storage APIs directly.
 
+A `FutureProvider` (or an `AsyncNotifier` whose `build` throws) behind a
+page with its own error state and retry button sets `retry: (_, _) => null`.
+Riverpod's default retry holds the value in loading through up to ten
+backoff steps (about 40s), so the page spins instead of reaching its error
+state. Controllers that catch into their state (feeds, illust and user
+detail) need nothing. Owning test: `novel_reader_chrome_test.dart`.
+
 ---
 
 ## State Categories

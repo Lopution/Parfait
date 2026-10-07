@@ -19,9 +19,10 @@ import 'entity_row.dart';
 /// - [NovelEntry.ranking]: ranked lists — compact density plus the rank
 ///   leading the title.
 ///
-/// Every variant shares the same identity line (title, author, word count
-/// meta), the work-id key, the [openNovel] primary action, and the
-/// `PressScale` + `Semantics` wrapper — pages never restyle a novel row.
+/// Every variant is a full-bleed list row sharing the same identity: title,
+/// author, series and word count, a tag footnote, the bookmark count on the
+/// cover, the work-id key and the [openNovel] primary action — pages never
+/// restyle a novel row.
 class NovelEntry extends StatelessWidget {
   NovelEntry._({
     Key? key,
@@ -144,49 +145,82 @@ class NovelEntry extends StatelessWidget {
   /// Accessibility label; defaults to `'$title, $author'`.
   final String? semanticLabel;
 
+  /// Tags shown on the footnote line; the rest would be cut anyway.
+  static const _maxTags = 4;
+
+  /// Inset of the cover's bookmark badge — tighter than a feed card's 7dp,
+  /// the cover is a fraction of its size.
+  static const double _badgeInset = 4;
+
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: const EdgeInsets.symmetric(
-        horizontal: FuncSpacing.md,
-        vertical: FuncSpacing.sm,
+    final l10n = context.l10n;
+    final bookmarks = entity.totalBookmarks > 0
+        ? AppFormat.count(context, entity.totalBookmarks)
+        : null;
+    final words =
+        '${AppFormat.count(context, entity.textLength)} '
+        '${l10n.novelWords}';
+    final series = entity.seriesTitle;
+    final identity = [
+      if (rank != null) l10n.rankLabel(rank!),
+      entity.title,
+      entity.user.name,
+      if (bookmarks != null) l10n.novelEntryBookmarks(bookmarks),
+    ].join(', ');
+    // Full-bleed row with list-row ink (HCI 11): no card chrome, so a
+    // column of novels reads as one list rather than a stack of tiles.
+    return EntityRow(
+      padding: const EdgeInsets.symmetric(
+        horizontal: FuncSpacing.lg,
+        vertical: FuncSpacing.md,
       ),
-      child: EntityRow(
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(_coverRadius),
-          child: SizedBox(
-            width: _coverWidth,
-            height: _coverHeight,
-            // The placeholder takes the same clip — the old NovelRow let
-            // it fall outside ClipRRect and painted square corners.
-            child: entity.coverImageUrl == null
-                ? ColoredBox(
-                    color: colorScheme.surfaceContainer,
-                    child: const Icon(Icons.menu_book_outlined),
-                  )
-                : PixivImage.feed(
-                    entity.coverImageUrl!,
-                    layoutWidth: _coverWidth,
-                  ),
-          ),
+      leading: _cover(context, bookmarks),
+      title: entity.title,
+      titleLeading: rank == null ? null : EntityRankLabel(rank!),
+      subtitle: entity.user.name,
+      meta: series == null || series.isEmpty ? words : '$series · $words',
+      footnote: entity.tags.isEmpty
+          ? null
+          : entity.tags.take(_maxTags).map((tag) => '#${tag.name}').join(' '),
+      progress: progress,
+      trailing: trailing,
+      onTap: onTap ?? () => openNovel(context, entity.id),
+      onLongPress: onLongPress,
+      selected: selected,
+      semanticLabel: semanticLabel ?? identity,
+    );
+  }
+
+  /// The cover with its bookmark count laid over the bottom edge, in the
+  /// same scrim badge the illust cards use.
+  Widget _cover(BuildContext context, String? bookmarks) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(_coverRadius),
+      child: SizedBox(
+        width: _coverWidth,
+        height: _coverHeight,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // The placeholder takes the same clip — the old NovelRow let it
+            // fall outside ClipRRect and painted square corners.
+            if (entity.coverImageUrl == null)
+              ColoredBox(
+                color: colorScheme.surfaceContainer,
+                child: const Icon(Icons.menu_book_outlined),
+              )
+            else
+              PixivImage.feed(entity.coverImageUrl!, layoutWidth: _coverWidth),
+            if (bookmarks != null)
+              Positioned(
+                left: _badgeInset,
+                bottom: _badgeInset,
+                child: EntityBadge(icon: Icons.favorite, label: bookmarks),
+              ),
+          ],
         ),
-        title: entity.title,
-        titleLeading: rank == null ? null : EntityRankLabel(rank!),
-        subtitle: entity.user.name,
-        meta:
-            '${AppFormat.count(context, entity.textLength)} ${context.l10n.novelWords}',
-        progress: progress,
-        trailing: trailing,
-        onTap: onTap ?? () => openNovel(context, entity.id),
-        onLongPress: onLongPress,
-        selected: selected,
-        semanticLabel:
-            semanticLabel ??
-            (rank == null
-                ? null
-                : '${context.l10n.rankLabel(rank!)}, ${entity.title}, '
-                      '${entity.user.name}'),
       ),
     );
   }

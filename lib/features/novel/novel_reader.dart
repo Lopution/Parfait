@@ -6,6 +6,8 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/network/api_error.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/skeleton/func_skeleton.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../core/novel/reader_settings.dart';
@@ -419,7 +421,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         }
         final layout = _layout;
         if (layout == null) {
-          return const FeedLoading();
+          return NovelPageSkeleton(style: _style);
         }
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -655,6 +657,84 @@ class _NovelPage extends StatelessWidget {
             if (line.isParagraphEnd) SizedBox(height: style.paragraphSpacing),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// First-load stand-in for a reader page: paragraphs of text-line bones on
+/// the page's own margins and line box, so the text arrives where its
+/// placeholder was instead of after a centred spinner.
+class NovelPageSkeleton extends StatelessWidget {
+  const NovelPageSkeleton({super.key, this.label, this.style});
+
+  /// Spoken while loading; defaults to the generic loading label.
+  final String? label;
+
+  /// The page's text settings; null takes the defaults.
+  final NovelLayoutStyle? style;
+
+  /// Lines per placeholder paragraph, repeated down the page.
+  static const _paragraphLines = [4, 3, 5, 2];
+
+  /// A paragraph's last line stops short, as real text does.
+  static const _lastLineWidth = 0.6;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = this.style ?? const NovelLayoutStyle();
+    final lineExtent = style.fontSize * style.lineHeight;
+    // A bone covers the glyphs, not the whole line box, so the leading
+    // stays open between lines as it does in the text.
+    final leading = (lineExtent - style.fontSize) / 2;
+    return FuncSkeleton(
+      label: label ?? context.l10n.contentLoading,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final lines = constraints.hasBoundedHeight
+              ? (constraints.maxHeight / lineExtent).ceil()
+              : _paragraphLines.first;
+          final children = <Widget>[];
+          var placed = 0;
+          for (var p = 0; placed < lines; p++) {
+            final count = _paragraphLines[p % _paragraphLines.length];
+            if (p > 0) {
+              children.add(SizedBox(height: style.paragraphSpacing));
+            }
+            for (var i = 0; i < count; i++, placed++) {
+              children.add(
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: leading),
+                  child: FractionallySizedBox(
+                    alignment: AlignmentDirectional.centerStart,
+                    widthFactor: i == count - 1 ? _lastLineWidth : 1,
+                    child: SkeletonBone(
+                      height: style.fontSize,
+                      borderRadius: FuncShape.badge,
+                    ),
+                  ),
+                ),
+              );
+            }
+          }
+          return ClipRect(
+            child: OverflowBox(
+              alignment: Alignment.topCenter,
+              maxHeight: double.infinity,
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: style.horizontalPadding,
+                  vertical: style.verticalPadding,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: children,
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

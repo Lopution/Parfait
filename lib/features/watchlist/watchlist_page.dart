@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/format/app_format.dart';
 import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/navigation/routes.dart';
@@ -172,6 +173,11 @@ class _WatchlistEntryTile extends ConsumerWidget {
 
   final WatchlistSeriesEntry entry;
 
+  static const _coverSize = Size(84, 112);
+
+  /// Inset of the work-count badge on the cover.
+  static const double _badgeInset = 4;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final seenAsync = ref.watch(_watchlistSeenProvider(entry.key));
@@ -184,30 +190,55 @@ class _WatchlistEntryTile extends ConsumerWidget {
         );
     final canOpen = entry.type == WatchlistType.manga || latest != null;
     final published = entry.lastPublishedContentDatetime;
+    final count = entry.publishedContentCount;
+    // A large portrait cover, as on a bookshelf: the series is recognised
+    // by its cover first, its title second.
     return EntityRow(
+      padding: const EdgeInsets.symmetric(
+        horizontal: FuncSpacing.lg,
+        vertical: FuncSpacing.sm,
+      ),
       leading: ClipRRect(
         borderRadius: FuncShape.control,
-        child: entry.coverUrl != null
-            ? PixivImage(
-                url: entry.coverUrl!,
-                width: 48,
-                height: 48,
-                memCacheWidth: PixivImage.decodeWidthFor(48),
-              )
-            : const SizedBox(width: 48, height: 48),
+        child: SizedBox.fromSize(
+          size: _coverSize,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (entry.coverUrl != null)
+                PixivImage.feed(entry.coverUrl!, layoutWidth: _coverSize.width)
+              else
+                ColoredBox(
+                  color: Theme.of(context).colorScheme.surfaceContainer,
+                ),
+              if (count != null)
+                Positioned(
+                  left: _badgeInset,
+                  bottom: _badgeInset,
+                  child: EntityBadge(
+                    icon: Icons.collections_bookmark_outlined,
+                    label: AppFormat.count(context, count),
+                    semanticsLabel: context.l10n.seriesWorksCount(count),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
       title: entry.title,
-      meta: [
-        entry.userName,
-        if (published != null && published.length >= 10)
-          published.substring(0, 10),
-        if (entry.publishedContentCount != null)
-          context.l10n.seriesWorksCount(entry.publishedContentCount!),
-      ].join(' · '),
+      titleStyle: Theme.of(context).textTheme.titleMedium,
+      subtitle: entry.userName,
+      meta: published != null && published.length >= 10
+          ? published.substring(0, 10)
+          : null,
       badge: hasNew
           ? EntityBadge(label: context.l10n.watchlistNewContent)
           : null,
-      semanticLabel: '${entry.title}, ${entry.userName}',
+      semanticLabel: [
+        entry.title,
+        entry.userName,
+        if (count != null) context.l10n.seriesWorksCount(count),
+      ].join(', '),
       onTap: canOpen ? () => unawaited(_viewLatest(context, ref)) : null,
       trailing: IconButton(
         icon: const Icon(Icons.more_vert),

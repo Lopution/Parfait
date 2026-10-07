@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/app/widgets/novel_entry.dart';
@@ -16,16 +17,24 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 
-NovelEntity _novel(int id, {String? coverUrl}) => NovelEntity(
+NovelEntity _novel(
+  int id, {
+  String? coverUrl,
+  List<NovelTag> tags = const [],
+  String? seriesTitle,
+  int totalBookmarks = 0,
+}) => NovelEntity(
   id: id,
   title: 'novel $id',
   caption: '',
   user: const UserEntity(id: 8, name: 'author', account: 'author'),
-  tags: const [],
+  tags: tags,
   textLength: 4321,
   contentVersion: 'v$id',
   paragraphs: const [],
   coverImageUrl: coverUrl,
+  seriesTitle: seriesTitle,
+  totalBookmarks: totalBookmarks,
 );
 
 Widget _host(Widget child) => MaterialApp(
@@ -99,6 +108,73 @@ void main() {
     expect(coverOf('novel-2').radius, BorderRadius.circular(6));
     expect(coverOf('novel-3').size, const Size(56, 72));
     expect(coverOf('novel-3').radius, BorderRadius.circular(4));
+  });
+
+  testWidgets('a full-bleed row: no card, ink only, no press scale', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(NovelEntry.regular(entity: _novel(1))));
+    final entry = find.byType(NovelEntry);
+    expect(
+      find.descendant(of: entry, matching: find.byType(Card)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: entry, matching: find.byType(PressScale)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: entry, matching: find.byType(InkWell)),
+      findsOneWidget,
+    );
+    // Edge to edge: the row spans the whole list width.
+    expect(tester.getSize(find.byType(EntityRow)).width, 800);
+  });
+
+  testWidgets('series, tags and the bookmark count join the identity', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      _host(
+        NovelEntry.regular(
+          entity: _novel(
+            6,
+            seriesTitle: 'saga',
+            totalBookmarks: 1234,
+            tags: [for (var i = 1; i <= 6; i++) NovelTag(name: 't$i')],
+          ),
+        ),
+      ),
+    );
+    expect(find.textContaining('saga · '), findsOneWidget);
+    // Four tags at most on the footnote line.
+    expect(find.text('#t1 #t2 #t3 #t4'), findsOneWidget);
+    // The count sits on the cover, in the scrim badge.
+    final badge = find.byType(EntityBadge);
+    expect(
+      find.descendant(of: find.byType(ClipRRect), matching: badge),
+      findsOneWidget,
+    );
+    expect(
+      tester.getBottomLeft(badge).dy,
+      lessThanOrEqualTo(tester.getBottomLeft(find.byType(ClipRRect)).dy),
+    );
+    expect(find.byIcon(Icons.favorite), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp(r'^novel 6, author, .+ 次收藏$')),
+      findsOneWidget,
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('no bookmarks, tags or series leaves those lines out', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(NovelEntry.regular(entity: _novel(7))));
+    expect(find.byType(EntityBadge), findsNothing);
+    expect(find.textContaining('#'), findsNothing);
+    expect(find.textContaining(' · '), findsNothing);
   });
 
   testWidgets('work id lands in the default key', (tester) async {
