@@ -2049,14 +2049,24 @@ Management-style lists (Settings → Download Tasks and any future
 batch-manageable list) render **rows**, not stacked cards, and follow
 these rules:
 
-- **Lazy construction.** The list is a `ListView.builder` over a
-  flattened entry model — group header, expanded group children, and
-  ungrouped items. Large item sets and large expanded groups must not
-  build every row eagerly; row keys (`download-task-*`/`download-group-*`)
-  follow the task or group identity.
-- **One container per group.** A group's children paint their share of the
-  same rounded `surfaceContainer` block as the header — the header rounds
-  the top corners, the last child the bottom — and groups start
+- **Lazy construction.** The list is a `CustomScrollView` of two flat,
+  lazily built lists: the groups (each header, plus its children while
+  expanded) and the ungrouped items. Large item sets and large expanded
+  groups must not build every row eagerly; row keys
+  (`download-task-*`/`download-group-*`) follow the task or group
+  identity, and the two lists are keyed so one leaving does not rebuild
+  the other's rows.
+- **One container per group.** The group list is a `SliverSurfaceList`
+  (`lib/app/widgets/sliver_surface_list.dart`): at paint time it draws one
+  rounded `surfaceContainer` rectangle over each group's built rows and
+  clips their content and ink to it. Rows never pick corners by position
+  and never change parent when a group opens or closes, so the outline
+  follows rows growing in, folding away and leaving (no frame shows a
+  square corner) and a header keeps its element and the ripple of the tap
+  that opened it. Do not split a group into its own slivers or reparent
+  rows with `GlobalKey`s: a deactivated element drops its ink. Each group
+  header carries the gap above its group as top padding (`leadingGap`),
+  so the gap leaves with the header. Groups start
   collapsed. Hierarchy is expressed by the shared surface, a smaller
   child thumbnail, and text-column alignment, not by indentation alone.
 - **Status color is icon-only.** Status text stays on the secondary text

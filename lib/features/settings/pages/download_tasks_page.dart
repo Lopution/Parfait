@@ -16,6 +16,7 @@ import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/selection_app_bar.dart';
+import '../../../app/widgets/sliver_surface_list.dart';
 import '../../../app/widgets/undo_snack_bar.dart';
 import '../../../core/download/download_manager.dart';
 import '../../../core/download/download_providers.dart';
@@ -236,31 +237,19 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     return confirmed == true;
   }
 
-  /// Flatten groups and ungrouped tasks into the list's entries (§3.1): a
-  /// group contributes one header row plus its children only while expanded
-  /// (D1), so expanding a several-hundred-item group still builds lazily.
-  List<_DownloadEntry> _entries(
-    List<DownloadGroupSnapshot> groups,
-    Set<String> groupedJobIds,
-  ) {
+  /// Flatten the groups into the group list's entries (§3.1): a group
+  /// contributes one header row plus its children only while expanded (D1),
+  /// so expanding a several-hundred-item group still builds lazily.
+  List<_DownloadEntry> _groupEntries(List<DownloadGroupSnapshot> groups) {
     final entries = <_DownloadEntry>[];
     for (final group in groups) {
       final children = [for (final id in group.jobIds) ?_manager.taskById(id)];
       final expanded = _expandedGroups.contains(group.id);
       entries.add(_GroupHeaderEntry(group, children, expanded: expanded));
       if (expanded) {
-        for (var i = 0; i < children.length; i++) {
-          entries.add(
-            _GroupChildEntry(children[i], last: i == children.length - 1),
-          );
+        for (final child in children) {
+          entries.add(_GroupChildEntry(child, group.id));
         }
-      }
-    }
-    for (final task in _manager.tasks) {
-      // Grouped children render inside their group container; a child must
-      // not appear at both levels.
-      if (!groupedJobIds.contains(task.id)) {
-        entries.add(_TaskEntry(task));
       }
     }
     return entries;
@@ -271,7 +260,13 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     final tasks = _manager.tasks;
     final groups = _manager.groups;
     final groupedJobIds = {for (final group in groups) ...group.jobIds};
-    final entries = _entries(groups, groupedJobIds);
+    final groupEntries = _groupEntries(groups);
+    // Grouped children render inside their group; a child must not appear
+    // at both levels.
+    final ungrouped = [
+      for (final task in tasks)
+        if (!groupedJobIds.contains(task.id)) _TaskEntry(task),
+    ];
     final selectedNonTerminal = [
       for (final task in tasks)
         if (_selected.contains(task.id) && !isTerminal(task.status)) task,
@@ -345,29 +340,63 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
                   ),
                   child: RemovalScope(
                     controller: _removals,
-                    child: ListView.builder(
+                    child: CustomScrollView(
                       restorationId: 'download-tasks',
-                      padding: const EdgeInsets.symmetric(
-                        vertical: FuncSpacing.sm,
-                      ),
-                      itemCount: entries.length,
-                      // Row keys follow the task/group identity so a reordered
-                      // or re-grouped entry keeps its element state.
-                      findChildIndexCallback: (key) {
-                        if (key is ValueKey<String>) {
-                          final index = entries.indexWhere(
-                            (entry) => entry.key == key.value,
-                          );
-                          return index < 0 ? null : index;
-                        }
-                        return null;
-                      },
-                      itemBuilder: (context, index) => Removable(
-                        key: ValueKey(entries[index].key),
-                        id: entries[index].key,
-                        animateIn: _growingRows.contains(entries[index].key),
-                        child: _buildEntry(entries[index]),
-                      ),
+                      // Keyed: the ungrouped rows keep their state when the
+                      // last group leaves.
+                      slivers: [
+                        if (groupEntries.isNotEmpty)
+                          SliverPadding(
+                            key: const ValueKey('groups'),
+                            // Each header brings _groupGap above it; the
+                            // surfaces keep the old cards' spacing.
+                            padding: EdgeInsets.fromLTRB(
+                              FuncSpacing.md,
+                              FuncSpacing.sm + FuncSpacing.xs - _groupGap,
+                              FuncSpacing.md,
+                              ungrouped.isEmpty
+                                  ? FuncSpacing.sm + FuncSpacing.xs
+                                  : 0,
+                            ),
+                            // One surface per group, drawn around its rows as
+                            // they are laid out: the outline follows rows
+                            // growing in, folding away and leaving.
+                            sliver: SliverSurfaceList.builder(
+                              groups: [
+                                for (final entry in groupEntries)
+                                  (entry as _GroupedEntry).groupId,
+                              ],
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainer,
+                              borderRadius: FuncShape.card,
+                              leadingGap: _groupGap,
+                              findChildIndexCallback: (key) =>
+                                  _indexOfKey(groupEntries, key),
+                              itemBuilder: (context, index) =>
+                                  _row(groupEntries[index]),
+                            ),
+                          ),
+                        if (ungrouped.isNotEmpty)
+                          SliverPadding(
+                            key: const ValueKey('ungrouped'),
+                            padding: EdgeInsets.fromLTRB(
+                              FuncSpacing.md,
+                              groupEntries.isEmpty
+                                  ? FuncSpacing.sm
+                                  : FuncSpacing.xs,
+                              FuncSpacing.md,
+                              FuncSpacing.sm,
+                            ),
+                            sliver: SliverList.builder(
+                              itemCount: ungrouped.length,
+                              findChildIndexCallback: (key) =>
+                                  _indexOfKey(ungrouped, key),
+                              itemBuilder: (context, index) =>
+                                  _row(ungrouped[index]),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -376,24 +405,15 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     );
   }
 
-  Widget _buildEntry(_DownloadEntry entry) {
-    switch (entry) {
-      case _GroupHeaderEntry(:final group, :final children, :final expanded):
-        return _GroupRowSegment(
-          radius: expanded
-              ? BorderRadius.vertical(top: FuncShape.card.topLeft)
-              : FuncShape.card,
-          padding: expanded
-              ? const EdgeInsets.fromLTRB(
-                  FuncSpacing.md,
-                  FuncSpacing.xs,
-                  FuncSpacing.md,
-                  0,
-                )
-              : const EdgeInsets.symmetric(
-                  horizontal: FuncSpacing.md,
-                  vertical: FuncSpacing.xs,
-                ),
+  Widget _row(_DownloadEntry entry) => Removable(
+    key: ValueKey(entry.key),
+    id: entry.key,
+    animateIn: _growingRows.contains(entry.key),
+    child: switch (entry) {
+      _GroupHeaderEntry(:final group, :final children, :final expanded) =>
+        Padding(
+          // The gap leaves with the header when the group is removed.
+          padding: const EdgeInsets.only(top: _groupGap),
           child: _DownloadGroupHeader(
             group: group,
             children: children,
@@ -402,29 +422,11 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
             onToggleExpanded: () => _toggleGroupExpanded(group.id),
             onRemove: _removeTasks,
           ),
-        );
-      case _GroupChildEntry(:final task, :final last):
-        return _GroupRowSegment(
-          radius: last
-              ? BorderRadius.vertical(bottom: FuncShape.card.bottomLeft)
-              : BorderRadius.zero,
-          padding: last
-              ? const EdgeInsets.fromLTRB(
-                  FuncSpacing.md,
-                  0,
-                  FuncSpacing.md,
-                  FuncSpacing.xs,
-                )
-              : const EdgeInsets.symmetric(horizontal: FuncSpacing.md),
-          child: _taskRow(task, dense: true),
-        );
-      case _TaskEntry(:final task):
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.md),
-          child: _taskRow(task),
-        );
-    }
-  }
+        ),
+      _GroupChildEntry(:final task) => _taskRow(task, dense: true),
+      _TaskEntry(:final task) => _taskRow(task),
+    },
+  );
 
   Widget _taskRow(DownloadTaskSnapshot task, {bool dense = false}) {
     return _DownloadTaskRow(
@@ -442,6 +444,15 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
 
 String _taskRowKey(String taskId) => 'download-task-$taskId';
 
+/// Space above each group's surface: two groups sit this far apart.
+const _groupGap = FuncSpacing.sm;
+
+int? _indexOfKey(List<_DownloadEntry> entries, Key key) {
+  if (key is! ValueKey<String>) return null;
+  final index = entries.indexWhere((entry) => entry.key == key.value);
+  return index < 0 ? null : index;
+}
+
 /// Children of an expanding group that grow in: about one screen of rows.
 /// Every growing row starts at zero height, so the lazy list would build
 /// all of them at once; the rest appear at full size below the fold.
@@ -452,7 +463,7 @@ String _groupRowKey(String groupId) => 'download-group-$groupId';
 /// owned by the page so the Undo prompt outlives the removed rows.
 typedef _RemoveTasks = Future<void> Function(List<String> taskIds);
 
-/// The lazy list's flat entries (§3.1): a group header, one child of an
+/// The lazy lists' entries (§3.1): a group header, one child of an
 /// expanded group, or an ungrouped task.
 sealed class _DownloadEntry {
   const _DownloadEntry();
@@ -462,7 +473,14 @@ sealed class _DownloadEntry {
   String get key;
 }
 
-final class _GroupHeaderEntry extends _DownloadEntry {
+/// A row of a group: drawn on that group's surface.
+sealed class _GroupedEntry extends _DownloadEntry {
+  const _GroupedEntry();
+
+  String get groupId;
+}
+
+final class _GroupHeaderEntry extends _GroupedEntry {
   const _GroupHeaderEntry(this.group, this.children, {required this.expanded});
 
   final DownloadGroupSnapshot group;
@@ -470,16 +488,19 @@ final class _GroupHeaderEntry extends _DownloadEntry {
   final bool expanded;
 
   @override
+  String get groupId => group.id;
+
+  @override
   String get key => _groupRowKey(group.id);
 }
 
-final class _GroupChildEntry extends _DownloadEntry {
-  const _GroupChildEntry(this.task, {required this.last});
+final class _GroupChildEntry extends _GroupedEntry {
+  const _GroupChildEntry(this.task, this.groupId);
 
   final DownloadTaskSnapshot task;
 
-  /// The last child rounds the container's bottom corners.
-  final bool last;
+  @override
+  final String groupId;
 
   @override
   String get key => _taskRowKey(task.id);
@@ -492,39 +513,6 @@ final class _TaskEntry extends _DownloadEntry {
 
   @override
   String get key => _taskRowKey(task.id);
-}
-
-/// One slice of a group's rounded container (§3.3): every row of an
-/// expanded group paints its share of the same `surfaceContainer` block —
-/// the (collapsed) header rounds all corners, an expanded header only the
-/// top, the last child the bottom — so lazily-built rows still read as one
-/// surface.
-class _GroupRowSegment extends StatelessWidget {
-  const _GroupRowSegment({
-    required this.radius,
-    required this.padding,
-    required this.child,
-  });
-
-  final BorderRadius radius;
-  final EdgeInsetsGeometry padding;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: padding,
-      child: ClipRRect(
-        borderRadius: radius,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainer,
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
 }
 
 /// One download row's chrome (§5.1): thumbnail, title, status line, and the

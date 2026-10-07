@@ -52,6 +52,21 @@ void main() {
   );
 
   testFilm(
+    'edit/download-group-remove',
+    location: '/downloads',
+    setup: const ReviewSetup(downloadGroups: 1),
+    notes:
+        'Removing the last item of an expanded download group: the group '
+        'surface shrinks with the leaving row, its bottom corners round on '
+        'every frame (ux3 #8).',
+    script: (film, router) async {
+      await film.tap(find.textContaining('批量下载'));
+      await film.tap(find.byIcon(Icons.more_vert).last);
+      await film.tap(find.text('移除').last);
+    },
+  );
+
+  testFilm(
     'edit/account-remove',
     location: '/settings/account',
     setup: const ReviewSetup(accounts: 2),
