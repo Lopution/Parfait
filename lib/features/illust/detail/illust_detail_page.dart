@@ -122,6 +122,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   /// from the first image's height.
   double _immersionStart = 0;
 
+  /// Status bar plus toolbar over the narrow layout's artwork; 0 in the
+  /// two-pane layout, whose pages sit below an opaque bar.
+  double _topChromeExtent = 0;
+
   /// The top bar's arrival. The Hero image flying in from a card is drawn
   /// over the see-through bar, so the bar waits for the route to land and
   /// then fades in (see [AppTopBar.entrance]); without a card it is there
@@ -177,6 +181,17 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     _immersion.value = drawn.clamp(0.0, 1.0).toDouble();
   }
 
+  /// Folds an expanded set back to page 1. A reader already past page 1
+  /// lands where the shorter list now ends — page 1's bottom under the top
+  /// bar, the expand button and info right below — instead of wherever
+  /// the list happens to clamp.
+  void _collapsePages(double firstPageEnd) {
+    if (_narrowScroll.hasClients && _narrowScroll.offset > firstPageEnd) {
+      _narrowScroll.jumpTo(firstPageEnd);
+    }
+    setState(() => _pagesExpanded = false);
+  }
+
   bool _onBarScroll(ScrollNotification notification) {
     if (_touchExploration) return false;
     final slop = MediaQuery.maybeGestureSettingsOf(context)?.touchSlop ?? 8.0;
@@ -188,7 +203,12 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   void _onPageVisibility(int index, VisibilityInfo info) {
     // A detector torn down with the page still reports once more.
     if (!mounted) return;
-    if (info.visibleFraction > 0) {
+    // The narrow layout runs under the see-through top bar: a page leaving
+    // the top whose last strip sits behind the bar is not on screen to the
+    // reader, and the count must not hang over the info below it.
+    final bounds = info.visibleBounds;
+    final behindTopChrome = bounds.top > 0 && bounds.height <= _topChromeExtent;
+    if (info.visibleFraction > 0 && !behindTopChrome) {
       _visiblePages.add(index);
     } else {
       _visiblePages.remove(index);
@@ -579,22 +599,25 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     // The media column and the metadata column are the same slivers in both
     // layouts; only their arrangement differs (single scroll vs two panes).
     // An illustration set opens on its first image; manga reads in full.
-    final shownPages =
-        entity.type == IllustType.illust &&
-            entity.pageCount > 1 &&
-            !_pagesExpanded
-        ? 1
-        : entity.pageCount;
+    final collapsible =
+        entity.type == IllustType.illust && entity.pageCount > 1;
+    final shownPages = collapsible && !_pagesExpanded ? 1 : entity.pageCount;
     // Narrow layout: the artwork runs under the status bar and the
     // see-through top bar, so overlays on it start below them, and the
     // bar draws in as the first image leaves.
     final topChrome = MediaQuery.paddingOf(context).top + kToolbarHeight;
+    _topChromeExtent =
+        AppBreakpoints.useTwoPaneDetail(MediaQuery.sizeOf(context).width)
+        ? 0
+        : topChrome;
     final firstImageExtent =
         MediaQuery.sizeOf(context).width / entity.pageAspectRatioAt(0);
     _immersionStart = math.max(
       0,
       firstImageExtent - topChrome - kToolbarHeight,
     );
+    // Where a collapsed set ends: page 1's bottom just under the top bar.
+    final firstPageEnd = math.max(0.0, firstImageExtent - topChrome);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _updateImmersion();
     });
@@ -671,11 +694,15 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
             childCount: shownPages,
           ),
         ),
-      if (shownPages < entity.pageCount)
+      // Selecting keeps every page on screen: no folding mid-selection.
+      if (collapsible && !(_pagesExpanded && _downloadMode))
         SliverToBoxAdapter(
-          child: _ExpandPagesButton(
+          child: _PagesToggleButton(
             count: entity.pageCount,
-            onPressed: () => setState(() => _pagesExpanded = true),
+            expanded: _pagesExpanded,
+            onPressed: _pagesExpanded
+                ? () => _collapsePages(firstPageEnd)
+                : () => setState(() => _pagesExpanded = true),
           ),
         ),
     ];
@@ -789,6 +816,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
                       builder: (context, page, _) => DetailPageCounter(
                         page: page,
                         count: entity.pageCount,
+                        onCollapse: collapsible && _pagesExpanded
+                            ? () => _collapsePages(firstPageEnd)
+                            : null,
                       ),
                     ),
                   ),
@@ -836,29 +866,37 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
 }
 
 /// Under the first image of a collapsed illustration set: shows the rest.
-/// There is no collapse back — that would jump the scroll position, and
-/// the reader can simply scroll past the pages.
-class _ExpandPagesButton extends StatelessWidget {
-  const _ExpandPagesButton({required this.count, required this.onPressed});
+/// Once expanded it follows the last page and folds the set back.
+class _PagesToggleButton extends StatelessWidget {
+  const _PagesToggleButton({
+    required this.count,
+    required this.expanded,
+    required this.onPressed,
+  });
 
   final int count;
+  final bool expanded;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    // One node: the button announces that it expands the set.
+    // One node: the button announces whether the set is expanded.
     return MergeSemantics(
       child: Semantics(
-        expanded: false,
+        expanded: expanded,
         child: TextButton.icon(
-          key: const Key('illust-expand-pages'),
+          key: Key(expanded ? 'illust-collapse-pages' : 'illust-expand-pages'),
           style: TextButton.styleFrom(
             minimumSize: const Size.fromHeight(kMinInteractiveDimension),
           ),
           onPressed: onPressed,
-          icon: const Icon(Icons.expand_more),
+          icon: Icon(expanded ? Icons.expand_less : Icons.expand_more),
           iconAlignment: IconAlignment.end,
-          label: Text(context.l10n.detailExpandPages(count)),
+          label: Text(
+            expanded
+                ? context.l10n.detailCollapsePages
+                : context.l10n.detailExpandPages(count),
+          ),
         ),
       ),
     );

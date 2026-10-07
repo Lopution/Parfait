@@ -215,10 +215,19 @@ final _fixtureCreateDate = DateTime.parse(
 ).toLocal();
 
 /// The info block's metadata line without its icons.
-String _metaText(WidgetTester tester) => tester
-    .widget<Text>(find.byKey(const Key('illust-detail-meta')))
-    .textSpan!
-    .toPlainText(includePlaceholders: false);
+String _dateText(WidgetTester tester) =>
+    tester.widget<Text>(find.byKey(const Key('illust-detail-date'))).data!;
+
+/// The stats block's figures, left to right.
+List<String> _statFigures(WidgetTester tester) => [
+  for (final text in tester.widgetList<Text>(
+    find.descendant(
+      of: find.byKey(const Key('illust-detail-stats')),
+      matching: find.byType(Text),
+    ),
+  ))
+    text.data!,
+];
 
 void main() {
   installMemoryPreferences();
@@ -1949,14 +1958,12 @@ void main() {
           await tester.pump();
         });
 
-        // The metadata line carries the locale's date and its sentence.
+        // The date line and the stats sentence follow the locale.
         final date = DateFormat.yMMMd(tag).format(_fixtureCreateDate);
-        expect(_metaText(tester), startsWith('$date · '), reason: tag);
+        expect(_dateText(tester), date, reason: tag);
         expect(
           find.bySemanticsLabel(
-            tag == 'ja-JP'
-                ? '$date投稿、閲覧 10、ブックマーク 5'
-                : 'Posted $date, 10 views, 5 bookmarks',
+            tag == 'ja-JP' ? '閲覧 10、ブックマーク 5' : '10 views, 5 bookmarks',
           ),
           findsOneWidget,
         );
@@ -1972,31 +1979,36 @@ void main() {
       addTearDown(tester.view.reset);
     }
 
-    testWidgets('title, author, metadata, caption, tags, footer, comments', (
-      tester,
-    ) async {
+    testWidgets('title, date, stats, author, then titled caption and tag '
+        'sections, then the footer', (tester) async {
       useTallSurface(tester);
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
       await tester.pumpAndSettle();
 
+      Finder inInfo(Finder finder) =>
+          find.descendant(of: find.byType(InfoBlock), matching: finder);
       final tops = [
-        find.descendant(
-          of: find.byType(InfoBlock),
-          matching: find.text('illust 42'),
-        ),
+        inInfo(find.text('illust 42')),
+        find.byKey(const Key('illust-detail-date')),
+        find.byKey(const Key('illust-detail-stats')),
         find.byKey(const Key('illust-author-row')),
-        find.byKey(const Key('illust-detail-meta')),
+        inInfo(find.text('简介')),
         find.text('作品说明文字'),
+        inInfo(find.text('标签')),
         find.text('#original'),
         find.byKey(const Key('illust-detail-footer')),
-        find.text('评论'),
       ].map((finder) => tester.getTopLeft(finder).dy).toList();
       for (var i = 1; i < tops.length; i++) {
         expect(tops[i], greaterThan(tops[i - 1]), reason: 'item $i');
       }
-      // One metadata line in the theme's scale: no separate numeric row.
-      expect(find.byIcon(Icons.remove_red_eye_outlined), findsOneWidget);
+      // Section titles are headings for screen readers.
+      expect(
+        tester.getSemantics(inInfo(find.text('标签'))),
+        isSemantics(label: '标签', isHeader: true),
+      );
+      // Comments live in the action bar, not at the end of the info.
+      expect(inInfo(find.text('评论')), findsNothing);
       expect(find.text('ID: 42'), findsNothing);
     });
 
@@ -2033,26 +2045,24 @@ void main() {
       expect(find.byType(FollowSwitchButton), findsNothing);
     });
 
-    testWidgets('the metadata line reads the local date and compact counts', (
-      tester,
-    ) async {
+    testWidgets('the date is local; the stats show compact figures and read '
+        'as one sentence', (tester) async {
       useTallSurface(tester);
       final json = illustJson(42, pageCount: 2, withMetaPages: true)
         ..['total_view'] = 12345
-        ..['total_bookmarks'] = 1200;
+        ..['total_bookmarks'] = 1200
+        ..['total_comments'] = 37;
       final (container, _, _) = await makeWorld(detailOverrides: {42: json});
       await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
       await tester.pumpAndSettle();
 
       final date = DateFormat.yMMMd('zh-CN').format(_fixtureCreateDate);
-      expect(_metaText(tester), '$date ·  1.2万 ·  1200');
-      expect(
-        find.bySemanticsLabel('投稿于 $date，1.2万 次浏览，1200 次收藏'),
-        findsOneWidget,
-      );
+      expect(_dateText(tester), date);
+      expect(_statFigures(tester), ['1.2万', '浏览', '1200', '收藏', '37', '评论']);
+      expect(find.bySemanticsLabel('1.2万 次浏览，1200 次收藏，37 条评论'), findsOneWidget);
     });
 
-    testWidgets('an unknown posting date leaves only the counts', (
+    testWidgets('an unknown posting date and comment count drop out', (
       tester,
     ) async {
       useTallSurface(tester);
@@ -2068,7 +2078,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(_metaText(tester), ' 10 ·  5');
+      // No date line; without a comment count the stats keep two figures.
+      expect(find.byKey(const Key('illust-detail-date')), findsNothing);
+      expect(_statFigures(tester), ['10', '浏览', '5', '收藏']);
       expect(find.bySemanticsLabel('10 次浏览，5 次收藏'), findsOneWidget);
     });
 
@@ -2110,8 +2122,9 @@ void main() {
     Future<ProviderContainer> pumpWork(
       WidgetTester tester, {
       required String type,
+      Size surface = const Size(800, 4000),
     }) async {
-      tester.view.physicalSize = const Size(800, 4000);
+      tester.view.physicalSize = surface;
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final json = illustJson(
@@ -2157,8 +2170,53 @@ void main() {
       await tester.pumpAndSettle();
       expect(page(1), findsOneWidget);
       expect(page(2), findsOneWidget);
-      // No collapse back: the button is gone.
+      // The button follows the last page and now folds the set back.
       expect(expand, findsNothing);
+      final collapse = find.byKey(const Key('illust-collapse-pages'));
+      expect(
+        tester.getSemantics(collapse),
+        isSemantics(label: 'Collapse', isButton: true, isExpanded: true),
+      );
+      expect(
+        tester.getTopLeft(collapse).dy,
+        greaterThan(tester.getBottomLeft(page(2)).dy - 1),
+      );
+      await tester.tap(collapse);
+      await tester.pumpAndSettle();
+      expect(page(1), findsNothing);
+      expect(expand, findsOneWidget);
+    });
+
+    testWidgets('the pill over the pages folds the set back; a reader past '
+        'page 1 lands where the set ends', (tester) async {
+      // Short enough that the folded list can still scroll page 1 away.
+      await pumpWork(tester, type: 'illust', surface: const Size(400, 500));
+      // Collapsed: the count has no fold pill.
+      final pill = find.byKey(const Key('illust-collapse-pages-floating'));
+      expect(pill, findsNothing);
+      await tester.tap(find.byKey(const Key('illust-expand-pages')));
+      await tester.pumpAndSettle();
+      expect(pill, findsOneWidget);
+      expect(tester.getSize(pill).height, greaterThanOrEqualTo(48));
+
+      // Read on into page 3, then fold from the pill.
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      position.jumpTo(position.maxScrollExtent / 2);
+      await tester.pumpAndSettle();
+      expect(page(2), findsOneWidget);
+      await tester.tap(pill);
+      await tester.pumpAndSettle();
+
+      expect(page(1), findsNothing);
+      expect(pill, findsNothing);
+      // Page 1 ends right under the top bar, the expand button right
+      // after it — as far as the shorter list can scroll.
+      final topChrome = tester.getBottomLeft(find.byType(AppTopBar)).dy;
+      final firstPageEnd = tester.getSize(page(0)).height - topChrome;
+      expect(position.maxScrollExtent, greaterThan(firstPageEnd));
+      expect(position.pixels, closeTo(firstPageEnd, 0.5));
     });
 
     testWidgets('manga shows every page', (tester) async {
@@ -2176,6 +2234,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(page(2), findsOneWidget);
       expect(find.byKey(const Key('illust-expand-pages')), findsNothing);
+      // No folding mid-selection.
+      expect(find.byKey(const Key('illust-collapse-pages')), findsNothing);
     });
   });
 
@@ -2624,6 +2684,34 @@ void main() {
       expect(toolbarRect(tester), rest);
     });
 
+    testWidgets('a page whose last strip sits behind the top bar no longer '
+        'shows the count', (tester) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+      final pageHeight = tester
+          .getSize(find.byType(DetailPageImage).first)
+          .height;
+      final topChrome = tester.getBottomLeft(find.byType(AppTopBar)).dy;
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      Future<void> scrollTo(double offset) async {
+        position.jumpTo(offset);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+
+      // Its end still below the bar: on screen, counted.
+      await scrollTo(pageHeight - topChrome - 40);
+      expect(find.byType(PageCountPill), findsOneWidget);
+      // Only a strip behind the bar is left: gone, not hanging over the
+      // info below.
+      await scrollTo(pageHeight - topChrome + 20);
+      expect(find.byType(PageCountPill), findsNothing);
+    });
+
     testWidgets('the first image runs under a see-through bar that draws in '
         'once the image scrolls away', (tester) async {
       final (container, _, _) = await makeWorld();
@@ -2726,7 +2814,7 @@ void main() {
       );
     });
 
-    testWidgets('the metadata line and footer survive 320dp at 1.3x text', (
+    testWidgets('the stats and footer survive 320dp at 1.3x text', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(320, 640);
@@ -2745,8 +2833,8 @@ void main() {
       await tester.tap(find.text('跳到作品信息区'));
       await tester.pumpAndSettle();
 
-      // The metadata line wraps instead of overflowing; the footer fits.
-      expect(_metaText(tester), contains('10 · '));
+      // The stats labels wrap instead of overflowing; the footer fits.
+      expect(_statFigures(tester), contains('10'));
       expect(find.text('800×600 · ID 42'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });

@@ -2065,14 +2065,32 @@ class AppLocalizationsZh extends AppLocalizations {
   String get illustDetailTitle => '作品详情';
 
   @override
-  String detailMetaSemantics(String date, String views, String bookmarks) {
-    return '投稿于 $date，$views 次浏览，$bookmarks 次收藏';
-  }
-
-  @override
   String detailMetaCountsSemantics(String views, String bookmarks) {
     return '$views 次浏览，$bookmarks 次收藏';
   }
+
+  @override
+  String get detailCollapsePages => '收起';
+
+  @override
+  String get detailStatViews => '浏览';
+
+  @override
+  String get detailStatBookmarks => '收藏';
+
+  @override
+  String get detailStatComments => '评论';
+
+  @override
+  String detailStatsSemantics(String views, String bookmarks, String comments) {
+    return '$views 次浏览，$bookmarks 次收藏，$comments 条评论';
+  }
+
+  @override
+  String get detailSectionCaption => '简介';
+
+  @override
+  String get detailSectionTags => '标签';
 
   @override
   String detailExpandPages(int count) {
