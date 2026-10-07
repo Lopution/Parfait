@@ -1984,6 +1984,36 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchSuggestionSearch => '立即搜索';
 
   @override
+  String get searchHistoryTitle => '搜索历史';
+
+  @override
+  String get searchHistoryClear => '清除全部';
+
+  @override
+  String get searchHistoryClearConfirm => '清除全部搜索历史？';
+
+  @override
+  String get searchHistoryRemoved => '已从搜索历史中删除';
+
+  @override
+  String get searchHistoryRemove => '从搜索历史中删除';
+
+  @override
+  String searchOpenIllust(int id) {
+    return '打开插画/漫画 ID $id';
+  }
+
+  @override
+  String searchOpenNovel(int id) {
+    return '打开小说 ID $id';
+  }
+
+  @override
+  String searchOpenUser(int id) {
+    return '打开用户 ID $id';
+  }
+
+  @override
   String get searchModifyQuery => '修改搜索';
 
   @override

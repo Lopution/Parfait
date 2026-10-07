@@ -1053,6 +1053,35 @@
   "searchNoSuggestions": "没有匹配建议",
   "searchSuggestionFill": "填入搜索框",
   "searchSuggestionSearch": "立即搜索",
+  "searchHistoryTitle": "搜索历史",
+  "searchHistoryClear": "清除全部",
+  "searchHistoryClearConfirm": "清除全部搜索历史？",
+  "searchHistoryRemoved": "已从搜索历史中删除",
+  "searchHistoryRemove": "从搜索历史中删除",
+  "searchOpenIllust": "打开插画/漫画 ID {id}",
+  "@searchOpenIllust": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
+  "searchOpenNovel": "打开小说 ID {id}",
+  "@searchOpenNovel": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
+  "searchOpenUser": "打开用户 ID {id}",
+  "@searchOpenUser": {
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
   "searchModifyQuery": "修改搜索",
   "searchUserAccount": "账号",
   "illustDetailTitle": "作品详情",

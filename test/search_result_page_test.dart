@@ -12,12 +12,15 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/search_world.dart';
+import 'helpers/test_preferences.dart';
 
 Future<GoRouter> _pumpRouter(
   WidgetTester tester, {
   required String initialLocation,
   Locale locale = const Locale('zh', 'CN'),
 }) async {
+  // The input page reads the search history from preferences.
+  installMemoryPreferences();
   final router = createPixivRouter(initialLocation: initialLocation);
   addTearDown(router.dispose);
   // Wide surface: the whole chip row fits, so every chip is on screen.

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/core/search/search_autocomplete_controller.dart';
 
 import 'review_support.dart';
 
@@ -8,10 +9,32 @@ import 'review_support.dart';
 void main() {
   const illusts = '/search/results?q=cat&type=illust';
 
+  const history = ReviewSetup(
+    searchHistory: ['初音ミク', 'landscape', '猫', 'オリジナル', 'scenery'],
+  );
   testShot(
     'search/input',
     location: '/search/input',
-    variants: {ShotVariant.dark, ShotVariant.talkBack},
+    setup: history,
+    variants: {ShotVariant.dark, ShotVariant.talkBack, ...overflowVariants},
+  );
+  testShot(
+    'search/input-suggestions',
+    location: '/search/input',
+    state: 'typed keyword',
+    before: (tester, router) async {
+      await tester.enterText(find.byType(TextField).last, 'cat');
+      // Past the debounce, so the settle's IO turns deliver the request.
+      await tester.pump(SearchAutocompleteController.debounceDuration);
+    },
+  );
+  testShot(
+    'search/input-id',
+    location: '/search/input',
+    state: 'typed id',
+    before: (tester, router) async {
+      await tester.enterText(find.byType(TextField).last, '12345678');
+    },
   );
   testShot(
     'search/results-illust',

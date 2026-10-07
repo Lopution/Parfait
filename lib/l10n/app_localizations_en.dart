@@ -2074,6 +2074,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchSuggestionSearch => 'Search now';
 
   @override
+  String get searchHistoryTitle => 'Recent searches';
+
+  @override
+  String get searchHistoryClear => 'Clear all';
+
+  @override
+  String get searchHistoryClearConfirm => 'Clear all recent searches?';
+
+  @override
+  String get searchHistoryRemoved => 'Removed from recent searches';
+
+  @override
+  String get searchHistoryRemove => 'Remove from recent searches';
+
+  @override
+  String searchOpenIllust(int id) {
+    return 'Open illustration/manga ID $id';
+  }
+
+  @override
+  String searchOpenNovel(int id) {
+    return 'Open novel ID $id';
+  }
+
+  @override
+  String searchOpenUser(int id) {
+    return 'Open user ID $id';
+  }
+
+  @override
   String get searchModifyQuery => 'Edit search';
 
   @override

@@ -22,6 +22,7 @@ import '../../core/platform/intent_router.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/reverse_image/image_input.dart';
 import '../../core/search/search_models.dart';
+import '../../core/search/search_shortcut.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/user/user_repository.dart';
 import '../../features/bookmark/bookmark_tags_page.dart';
@@ -1617,16 +1618,10 @@ Future<void> openSearchResults(BuildContext context, SearchQuery query) async {
     showAppSnackBar(context, context.l10n.searchInputEmpty);
     return;
   }
-  final id = _positiveNumericId(keyword);
-  if (id != null) {
-    switch (query.type) {
-      case SearchResultType.illust:
-        await openIllust(context, id);
-      case SearchResultType.novel:
-        await openNovel(context, id);
-      case SearchResultType.user:
-        await openUser(context, id);
-    }
+  // An id or a pixiv link opens what it names instead of searching.
+  final shortcut = searchShortcutFor(keyword, query.type);
+  if (shortcut != null) {
+    await openSearchShortcut(context, shortcut);
     return;
   }
   final location = Uri(
@@ -1649,11 +1644,14 @@ void replaceSearchResults(BuildContext context, SearchQuery query) {
   context.replace(location);
 }
 
-int? _positiveNumericId(String value) {
-  if (!RegExp(r'^\d+$').hasMatch(value)) return null;
-  final parsed = int.tryParse(value);
-  return parsed != null && parsed > 0 ? parsed : null;
-}
+Future<void> openSearchShortcut(
+  BuildContext context,
+  SearchShortcut shortcut,
+) => switch (shortcut.kind) {
+  SearchShortcutKind.illust => openIllust(context, shortcut.id),
+  SearchShortcutKind.novel => openNovel(context, shortcut.id),
+  SearchShortcutKind.user => openUser(context, shortcut.id),
+};
 
 Future<void> openReverseImageSearch(
   BuildContext context, {

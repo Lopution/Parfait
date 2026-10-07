@@ -3839,6 +3839,54 @@ abstract class AppLocalizations {
   /// **'立即搜索'**
   String get searchSuggestionSearch;
 
+  /// No description provided for @searchHistoryTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索历史'**
+  String get searchHistoryTitle;
+
+  /// No description provided for @searchHistoryClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除全部'**
+  String get searchHistoryClear;
+
+  /// No description provided for @searchHistoryClearConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'清除全部搜索历史？'**
+  String get searchHistoryClearConfirm;
+
+  /// No description provided for @searchHistoryRemoved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已从搜索历史中删除'**
+  String get searchHistoryRemoved;
+
+  /// No description provided for @searchHistoryRemove.
+  ///
+  /// In zh, this message translates to:
+  /// **'从搜索历史中删除'**
+  String get searchHistoryRemove;
+
+  /// No description provided for @searchOpenIllust.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开插画/漫画 ID {id}'**
+  String searchOpenIllust(int id);
+
+  /// No description provided for @searchOpenNovel.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开小说 ID {id}'**
+  String searchOpenNovel(int id);
+
+  /// No description provided for @searchOpenUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开用户 ID {id}'**
+  String searchOpenUser(int id);
+
   /// No description provided for @searchModifyQuery.
   ///
   /// In zh, this message translates to:

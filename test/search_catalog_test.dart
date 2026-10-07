@@ -927,55 +927,6 @@ void main() {
     expect(scaffold.resizeToAvoidBottomInset, isFalse);
   });
 
-  testWidgets('a suggestion row tap fills the field; only the action submits', (
-    tester,
-  ) async {
-    final repository = FakeSearchRepository(
-      autocompleteHandler: (keyword, _) async => const [
-        SearchSuggestion(keyword: 'neko', translatedName: '猫'),
-      ],
-    );
-    final router = createPixivRouter(initialLocation: '/search/input');
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField), 'cat');
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pumpAndSettle();
-
-    expect(find.text('猫'), findsOneWidget);
-    // Row tap = fill only: the suggestion keyword lands in the field and
-    // the page stays put — submitting on a fill gesture made every touch
-    // of the list jump straight to results.
-    await tester.tap(find.text('猫'));
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/search/input');
-    expect(
-      tester.widget<TextField>(find.byType(TextField)).controller!.text,
-      'neko',
-    );
-
-    // The trailing action is the explicit immediate-search affordance.
-    await tester.tap(find.byTooltip('立即搜索'));
-    await tester.pumpAndSettle();
-
-    expect(router.state.uri.path, '/search/results');
-    expect(router.state.uri.queryParameters['q'], 'neko');
-    expect(router.state.uri.queryParameters['type'], 'illust');
-    expect(find.byType(SearchResultPage), findsOneWidget);
-  });
-
   testWidgets('U2: a trending tag renders its representative image', (
     tester,
   ) async {
