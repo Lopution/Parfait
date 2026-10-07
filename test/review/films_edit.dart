@@ -42,12 +42,11 @@ void main() {
     location: '/downloads',
     setup: const ReviewSetup(downloadSingles: 3),
     notes:
-        'Removing a finished download from its menu: the menu opens from '
-        'the button and closes, the row collapses and the rows below move '
-        'up with round corners kept.',
+        'Removing a finished download with its remove button (its only '
+        'action; the row itself opens the work): the row collapses and the '
+        'rows below move up.',
     script: (film, router) async {
-      await film.tap(find.byIcon(Icons.more_vert));
-      await film.tap(find.text('移除').last);
+      await film.tap(find.byIcon(Icons.remove_circle_outline).first);
     },
   );
 
@@ -61,8 +60,7 @@ void main() {
         'every frame (ux3 #8).',
     script: (film, router) async {
       await film.tap(find.textContaining('批量下载'));
-      await film.tap(find.byIcon(Icons.more_vert).last);
-      await film.tap(find.text('移除').last);
+      await film.tap(find.byIcon(Icons.remove_circle_outline).last);
     },
   );
 

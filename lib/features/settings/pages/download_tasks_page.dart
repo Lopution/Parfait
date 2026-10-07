@@ -848,7 +848,8 @@ class _DownloadTaskRow extends StatelessWidget {
 
   /// §5.7/§8.2 action mapping: 取消 only terminates in-flight work, 移除
   /// drops a terminal record, 继续 resumes a paused anchor (not the retry
-  /// icon), 重试 re-attempts a real failure, 查看 opens the finished work.
+  /// icon), 重试 re-attempts a real failure. The row itself opens the work,
+  /// so a finished task has no 查看 of its own.
   List<_DownloadAction> _taskActions(BuildContext context) {
     final l10n = context.l10n;
     final pausedRetryable =
@@ -903,19 +904,7 @@ class _DownloadTaskRow extends StatelessWidget {
           onPressed: onRemove,
         ),
       ],
-      DownloadStatus.succeeded => [
-        _DownloadAction(
-          label: l10n.downloadViewResult,
-          icon: Icons.open_in_new,
-          onPressed: () => unawaited(openIllust(context, task.illustId)),
-        ),
-        _DownloadAction(
-          label: l10n.downloadRemoveRecord,
-          icon: Icons.remove_circle_outline,
-          onPressed: onRemove,
-        ),
-      ],
-      DownloadStatus.orphaned => [
+      DownloadStatus.succeeded || DownloadStatus.orphaned => [
         _DownloadAction(
           label: l10n.downloadRemoveRecord,
           icon: Icons.remove_circle_outline,
@@ -1009,8 +998,10 @@ class _DownloadGroupHeader extends StatelessWidget {
 
   /// Group-level mapping mirrors the per-task table: queued/running
   /// pause+cancel, retryable/failed/canceled resume+cancel, succeeded
-  /// offers 查看 (first succeeded work) + 移除; a fully-terminal orphaned
-  /// group can only be removed.
+  /// 移除, plus 查看 when every child is a page of one work — the header
+  /// then stands for that work. A group of several works has no single
+  /// work to open; each row opens its own. A fully-terminal orphaned group
+  /// can only be removed.
   List<_DownloadAction> _groupActions(
     BuildContext context,
     List<DownloadTaskSnapshot> children,
@@ -1018,6 +1009,7 @@ class _DownloadGroupHeader extends StatelessWidget {
     final l10n = context.l10n;
     void dismissChildren() =>
         unawaited(onRemove([for (final child in children) child.id]));
+    final works = {for (final child in children) child.illustId};
 
     return switch (group.status) {
       DownloadGroupStatus.queued || DownloadGroupStatus.running => [
@@ -1054,16 +1046,12 @@ class _DownloadGroupHeader extends StatelessWidget {
         ),
       ],
       DownloadGroupStatus.succeeded => [
-        _DownloadAction(
-          label: l10n.downloadViewResult,
-          icon: Icons.open_in_new,
-          onPressed: () {
-            final first = children.firstWhere(
-              (child) => child.status == DownloadStatus.succeeded,
-            );
-            unawaited(openIllust(context, first.illustId));
-          },
-        ),
+        if (works.length == 1)
+          _DownloadAction(
+            label: l10n.downloadViewResult,
+            icon: Icons.open_in_new,
+            onPressed: () => unawaited(openIllust(context, works.single)),
+          ),
         _DownloadAction(
           label: l10n.downloadRemoveRecord,
           icon: Icons.remove_circle_outline,
