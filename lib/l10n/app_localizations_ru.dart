@@ -36,7 +36,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get system => 'Как в системе';
 
   @override
-  String get loginTitle => 'Вход или Регистрация';
+  String get loginTitle => 'Вход или регистрация';
 
   @override
   String get loginProxyNoticeTitle => 'Внимание';
@@ -155,7 +155,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get loginAgree => 'Входя в систему, вы принимаете';
 
   @override
-  String get userAgreement => '《Пользовательское соглашение Parfait》';
+  String get userAgreement => '«Пользовательское соглашение Parfait»';
 
   @override
   String get agreementTitle => 'Соглашение Parfait';
@@ -226,6 +226,19 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get agreementUpdates =>
       'Соглашение может меняться вслед за функциями приложения или законодательством; продолжая пользоваться приложением после изменений, вы принимаете обновлённое соглашение.';
+
+  @override
+  String get settingsTitle => 'Настройки';
+
+  @override
+  String get settingsSearchHint => 'Поиск настроек';
+
+  @override
+  String get settingsSearchEmpty => 'Ничего не найдено';
+
+  @override
+  String get settingsEntrySummary =>
+      'Оформление, просмотр, сеть, загрузки, резервные копии';
 
   @override
   String get settingsGroupAppearance => 'Внешний вид';
@@ -1589,6 +1602,11 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String labelValue(String label, String value) {
+    return '$label: $value';
+  }
+
+  @override
   String get rankingDay => 'Ежедневно';
 
   @override
@@ -1703,7 +1721,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get profileManga => 'Манга';
 
   @override
-  String get profileNovel => 'Романы';
+  String get profileNovel => 'Новеллы';
 
   @override
   String get searchTitle => 'Поиск';
@@ -1730,7 +1748,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchIllustManga => 'Иллюстрации и манга';
 
   @override
-  String get searchNovel => 'Романы';
+  String get searchNovel => 'Новеллы';
 
   @override
   String get searchUser => 'Пользователи';
@@ -2297,7 +2315,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileNovelPending =>
-      'Списки романов подключит модуль Novel Reader';
+      'Списки новелл подключит модуль Novel Reader';
 
   @override
   String get profileShare => 'Поделиться пользователем';
@@ -2475,7 +2493,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get bookmarkTags => 'Теги закладок';
 
   @override
-  String get bookmarkTagNewHint => 'Введите тег и нажмите Enter';
+  String get bookmarkTagNewHint => 'Новый тег, затем Enter';
 
   @override
   String get bookmarkTagFilterEmpty => 'Среди загруженных работ нет совпадений';
@@ -2538,7 +2556,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get seriesNext => 'Следующая';
 
   @override
-  String get watchlistTitle => 'Отслеживаемое';
+  String get watchlistTitle => 'Мои серии';
 
   @override
   String get watchlistManga => 'Манга';
@@ -2547,7 +2565,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchlistNovel => 'Новелла';
 
   @override
-  String get watchlistEmpty => 'В отслеживаемом пока нет серий';
+  String get watchlistEmpty => 'Вы пока не отслеживаете ни одной серии';
 
   @override
   String get watchlistLoadFailed => 'Не удалось загрузить список';
@@ -2560,6 +2578,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get watchlistRemove => 'Не следить';
+
+  @override
+  String get watchlistFailed => 'Не удалось изменить отслеживание серии';
 
   @override
   String get watchlistNewContent => 'Новое';

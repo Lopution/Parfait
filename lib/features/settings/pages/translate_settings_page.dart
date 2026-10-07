@@ -12,6 +12,7 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../settings_catalog.dart';
 
 class TranslateSettingsPage extends ConsumerStatefulWidget {
   const TranslateSettingsPage({super.key});
@@ -92,6 +93,7 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
           ),
           children: [
             SettingsGroup(
+              setting: Setting.translationProvider,
               footer: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

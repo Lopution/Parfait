@@ -72,6 +72,27 @@ void main() {
       expect(rows.single.status, ActionStatus.pending);
     });
 
+    test('a dropped pending row never replays, even if already read', () async {
+      final h = _Harness()..register('bookmark.add');
+      final id = await h.add('acc', 'bookmark.add', 'bookmark:1', 1);
+      await h.add('acc', 'bookmark.add', 'bookmark:2', 2);
+
+      final stale = await h.store.nextReady('acc', 0);
+      expect(stale!.id, id);
+      expect(
+        await h.queue.dropPending(owner: 'acc', dedupeKey: 'bookmark:1'),
+        isTrue,
+      );
+      expect(await h.store.markRunning(id), isFalse, reason: 'claim fails');
+      expect(
+        await h.queue.dropPending(owner: 'acc', dedupeKey: 'bookmark:1'),
+        isFalse,
+      );
+
+      await h.queue.drain('acc');
+      expect(h.handled, ['bookmark.add:2']);
+    });
+
     test('drain replays ready rows serially in insertion order', () async {
       final h = _Harness()..register('t');
       await h.add('acc', 't', 'k:1', 1);
@@ -263,8 +284,14 @@ void main() {
       expect(ready.status, ActionStatus.pending);
       expect(ready.decodePayload()['user'], 7);
 
-      await store.markRunning(id);
+      expect(await store.markRunning(id), isTrue);
+      expect(await store.markRunning(id), isFalse, reason: 'already claimed');
       expect(await store.nextReady('acc', 1 << 62), isNull);
+      expect(
+        await store.deletePending('acc', 'follow:7'),
+        isFalse,
+        reason: 'a running row stays for its replay to finish',
+      );
 
       final farFuture = DateTime.utc(2100).millisecondsSinceEpoch;
       await store.markPending(id, attempt: 2, nextAttemptAtMs: farFuture);
@@ -283,6 +310,9 @@ void main() {
       expect(rows, hasLength(1));
       expect(rows.single.type, 'follow.delete');
       expect(rows.single.attempt, 0);
+
+      expect(await store.deletePending('acc', 'follow:7'), isTrue);
+      expect(await store.listFor('acc'), isEmpty);
     });
   });
 }

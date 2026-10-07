@@ -14,6 +14,7 @@ import '../../../core/backup/backup_envelope.dart';
 import '../../../core/backup/backup_service.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../settings_catalog.dart';
 
 /// Platform file open for backup import. Behind a provider so widget tests
 /// can inject bytes without a platform file picker.
@@ -70,7 +71,10 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     } on BackupImportException catch (error) {
       // `publicMessage` is crafted user-facing copy, not raw error text.
       final message = error.publicMessage;
-      showAppSnackBar(context, '${context.l10n.backupImportInvalid}: $message');
+      showAppSnackBar(
+        context,
+        context.l10n.errorWithReason(context.l10n.backupImportInvalid, message),
+      );
       return;
     }
     final strategy = await _pickStrategy(envelope);
@@ -183,20 +187,20 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
             bottom: FuncSpacing.xl,
           ),
           children: [
+            // The page title already names the only group.
             SettingsGroup(
-              title: Text(l10n.backupSettings),
               footer: Text(l10n.backupHint),
               children: [
                 SettingsActionTile(
                   icon: Icons.file_upload_outlined,
-                  title: Text(l10n.backupExport),
+                  setting: Setting.backupExport,
                   subtitle: Text(l10n.backupExportHint),
                   enabled: !_busy,
                   onTap: _export,
                 ),
                 SettingsActionTile(
                   icon: Icons.file_open_outlined,
-                  title: Text(l10n.backupImport),
+                  setting: Setting.backupImport,
                   subtitle: Text(l10n.backupImportHint),
                   enabled: !_busy,
                   onTap: _import,

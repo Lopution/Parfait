@@ -108,7 +108,7 @@ void main() {
 
     // The reply context is one announcement unit ("回复给 alice") with its
     // own named cancel affordance.
-    expect(find.bySemanticsLabel('回复给: alice'), findsOneWidget);
+    expect(find.bySemanticsLabel('回复给：alice'), findsOneWidget);
     expect(
       tester.getSemantics(find.byTooltip('取消回复')),
       isSemantics(isButton: true, hasTapAction: true),

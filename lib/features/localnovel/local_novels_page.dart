@@ -66,8 +66,9 @@ class _LocalNovelsPageState extends ConsumerState<LocalNovelsPage> {
                 return FeedEmpty(
                   icon: Icons.menu_book_outlined,
                   title: context.l10n.localNovelsEmpty,
-                  retryLabel: context.l10n.localNovelsImport,
-                  onRefresh: () => _import(context, ref),
+                  actionLabel: context.l10n.localNovelsImport,
+                  actionIcon: Icons.file_open_outlined,
+                  onAction: () => unawaited(_import(context, ref)),
                 );
               }
               return PullToRefresh(

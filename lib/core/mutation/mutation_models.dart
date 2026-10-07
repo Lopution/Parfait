@@ -2,12 +2,42 @@ import 'package:flutter/foundation.dart';
 
 import '../network/pixiv_http_client.dart';
 
-/// Terminal state of an account-owned write operation.
+/// Lifecycle state of an account-owned write operation.
 ///
-/// A pending value is never treated as server truth. The terminal states are
-/// kept in the feature stores long enough for the UI and diagnostics to
-/// observe whether the server confirmed, failed, or invalidated the write.
-enum MutationStatus { idle, pending, confirmed, failed, cancelled, superseded }
+/// A pending or queued value is never treated as server truth. The terminal
+/// states are kept in the feature stores long enough for the UI and
+/// diagnostics to observe whether the server confirmed, failed, or
+/// invalidated the write. [queued] is a pending write whose request failed
+/// on connectivity and now waits in the offline action queue.
+enum MutationStatus {
+  idle,
+  pending,
+  queued,
+  confirmed,
+  failed,
+  cancelled,
+  superseded,
+}
+
+/// Drives an on/off toggle to the user's latest wish, one request at a time.
+///
+/// Sends [first]; whenever a request confirms, [nextWish] reports a wish the
+/// user made since (null once the confirmed value matches it), and
+/// [request] follows it. Rapid taps therefore cost at most one extra
+/// request, never race on the server, and never make the shown value jump
+/// back. Returns whether the last request confirmed — false when one failed,
+/// was queued offline or was suppressed.
+Future<bool> settleToggle({
+  required Future<bool> Function() first,
+  required Future<bool> Function(bool target) request,
+  required bool? Function() nextWish,
+}) async {
+  if (!await first()) return false;
+  for (var target = nextWish(); target != null; target = nextWish()) {
+    if (!await request(target)) return false;
+  }
+  return true;
+}
 
 /// The boundary that owns a write operation at the moment it is created.
 ///

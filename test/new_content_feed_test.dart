@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/material.dart' as legacy_material;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -335,6 +336,61 @@ void main() {
       expect(controller.offset, 0);
       expect(repository.requests.length, requestsBefore);
       expect(find.text('关注'), findsOneWidget);
+    });
+  });
+
+  testWidgets('a re-tap on a feed already at the top refreshes it', (
+    tester,
+  ) async {
+    final (container, repository) = await _makeWorld(illustCount: 24);
+    addTearDown(container.dispose);
+    final router = createPixivRouter(initialLocation: '/new');
+    addTearDown(router.dispose);
+    _phone(tester);
+
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(_routerApp(container, router));
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+      final controller = tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView))
+          .controller!;
+      expect(controller.offset, 0);
+
+      final requestsBefore = repository.requests.length;
+      repository.pendingFetch = Completer<void>();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(FuncShellBottomNav),
+          matching: find.byIcon(AppIcons.n),
+        ),
+      );
+      // As after a release: the overscroll springs onto the trigger, then
+      // the refresh starts.
+      for (var frame = 0; frame < 60; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      // The pull's own indicator shows the refresh in flight.
+      expect(
+        find.byType(legacy_material.RefreshProgressIndicator),
+        findsOneWidget,
+      );
+      expect(repository.requests.length, requestsBefore + 1);
+
+      repository.pendingFetch!.complete();
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(legacy_material.RefreshProgressIndicator),
+        findsNothing,
+      );
+      expect(controller.offset, 0);
+
+      // The in-page scope re-tap follows the same rule.
+      repository.pendingFetch = null;
+      await tester.tap(find.text('关注'));
+      await tester.pumpAndSettle();
+      expect(repository.requests.length, requestsBefore + 2);
     });
   });
 

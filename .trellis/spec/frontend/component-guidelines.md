@@ -68,6 +68,15 @@ Icon-only actions provide a localized `tooltip` or an equivalent semantic
 label. Interactive images expose the artwork/user meaning through their
 existing semantic label, and controls use their typed Material component so
 focus, keyboard, touch, and screen-reader states remain available.
+`PixivImage` keeps its decoded pixels out of semantics (only its failure
+view and retry stay): the surface around it names the work. A work card is
+one stop — its label carries rank, title and author, and the lines under
+the image are excluded rather than read a second time (H2).
+
+Text fields take the theme's one look (ST6): outlined with the control
+radius and a floating label; call sites do not set `border`. A filter over
+loaded content is a search, so it uses `SearchBar` like the search page.
+A form's save is a `FilledButton` at the end of its group.
 
 Navigation destinations and visible action labels come from generated l10n.
 Do not use color or an unlabeled icon as the only indication of the selected
@@ -89,6 +98,18 @@ state or action.
   and restoration state.
 - A route facade hard-codes a branch path for a page that can be opened from
   another stack; use the current stack root and the `_push` integrity assertion.
+- An error state with a retry button that is not `FeedError`, `FeedTail` or
+  wrapped in `RetryOnNetworkRestore`. Those retry once by themselves when the
+  network comes back (HCI 9, `networkRestoreSignalProvider` counts the
+  no-network → network transitions); only network and timeout failures, or
+  an unknown error, retry — a 404 or a parse error would fail the same way.
+- A status view (empty, error, restricted) draws its own button.
+  `StateActionButton` (tonal, leading icon) is the one button of
+  `FeedEmpty` and `FeedError` and of any custom status (H1). An empty view
+  offers `refresh` only where content can still arrive (a live feed);
+  content that is simply not there — a user without works, an empty
+  history, no search results — offers no refresh and no retry (U4), at most
+  another action (modify the search, import). `retry` belongs to failures.
 - A shared state widget (`FeedEmpty`/`FeedError`/`FeedTail` family) carries an
   English fallback label. User-visible strings are `required` parameters so a
   call site that forgets `context.l10n.*` fails to compile instead of shipping
@@ -107,9 +128,9 @@ state or action.
   2026-09-19 in `novel_page.dart`'s reader chrome; `FuncBottomNav` and
   `card_action_sheet` are the correct precedent).
 - A shared chip/action surface that sits on a `surfaceContainer`-equal
-  background needs a `divider`-token hairline border to stay legible —
-  same-value fills blend in both themes (`TagChip`, `_ActionPill` in
-  `comment_item.dart`).
+  background needs a hairline border to stay legible — same-value fills
+  blend in both themes (`TagChip`'s brand-tinted outline, `_ActionPill` in
+  `comment_item.dart` with the `divider` token).
 - Entry animations keyed by list index replay whenever a refresh re-seats
   positions; identity-based state (played sets, element keys via
   `findChildIndexCallback`, `ValueKey(entity.id)`) must use the entity id.
@@ -420,7 +441,10 @@ the width evenly (`TabAlignment.fill`); otherwise the row switches to
 `isScrollable` and aligns from the start edge. Labels render at the themed
 14sp (`replicaTheme` sets the `TabBarTheme` label styles) and are never
 shrunk to fit — overflow always resolves through scrolling, not smaller
-text. `onTap` is passed through to `TabBar.onTap` unchanged; per the Tab
+text. A scrolling row sits in `ScrollEdgeFade`, which masks out
+`FuncSpacing.xl` at each end that has tabs past it (H3); it listens to the
+row's own scroll and metrics notifications, so it needs no controller.
+`onTap` is passed through to `TabBar.onTap` unchanged; per the Tab
 Navigation Animation Contract a re-tap handler must not `animateTo` the
 already-selected index.
 
@@ -528,6 +552,11 @@ a row of controls, or a page.
   tooltip.
 - **User content** — titles, user names, tags, captions, comments — may
   ellipsize as before.
+- A label followed by its value goes through `l10n.labelValue(label,
+  value)` (an error through `errorWithReason`), never `'$label: $value'`:
+  Chinese and Japanese take a full-width colon with no space. Chinese copy
+  uses full-width punctuation throughout and a space between Chinese and
+  Latin words ("感谢使用 Parfait").
 - No layout errors (overflow) in any locale or profile.
 - A widget that measures its own text (the bottom bar, `AppTabBar`)
   measures with the exact style and text scaler it paints with, so the
@@ -958,6 +987,11 @@ The image viewer may open only overlay destinations. A viewer action that
 returns to the work detail closes the viewer rather than pushing a second
 detail page. Feedback actions that outlive their page bind the router while
 the message is shown, instead of reading a disposed page context later.
+
+A page that can be the only route on the stack (a direct link, a gate
+redirect) passes `ReplicaScaffold(upLocation:)`: with nothing to pop it
+still shows the back button, and back — button or system — goes there
+instead of leaving the app. The user agreement leads to `/login`.
 
 ## Predictive Back Contract
 
@@ -1515,8 +1549,12 @@ fires the `ReTapChannel`. Consumers read it through
   landing on a covered page (`isCurrent`/`hasClients`/`mounted` guards).
 - The scroll itself goes through the shared `reTapScrollToTop(context,
   controller)` helper: `MotionTokens`-gated `animateTo(0)`, `jumpTo(0)`
-  under reduced motion. Re-tap is pure scroll-to-top — never a refresh,
-  a selector toggle, or a selection change.
+  under reduced motion. A list already at the top refreshes instead
+  (HCI 10): the helper calls `PullToRefresh.trigger(controller)`, which
+  runs the same indicator and `onRefresh` a released pull would. That
+  needs the feed's `PullToRefresh` to be given the list's
+  `scrollController`; without one the re-tap at the top does nothing.
+  Re-tap is never a selector toggle or a selection change.
 - In-page re-taps follow the same rule locally, calling
   `reTapScrollToTop` on that slot's own `ScrollController`: a `TabBar`
   `onTap` on the selected index while `!controller.indexIsChanging`.
@@ -1542,7 +1580,12 @@ const PullToRefresh({
   required RefreshCallback onRefresh,
   required Widget child,
   bool isNested = false,
+  ScrollController? scrollController,
 });
+
+/// Refreshes the list [controller] scrolls as a released pull would;
+/// false when no mounted wrapper was given [controller].
+static bool PullToRefresh.trigger(ScrollController controller);
 ```
 
 ### 3. Contracts
@@ -1598,6 +1641,10 @@ const PullToRefresh({
   - Every pull ends with the indicator hidden — whether it refreshed or cancelled.
   - Once `onRefresh` starts, no scroll activity resets the refreshing state
     until that Future completes. Exactly one `onRefresh` per qualifying pull.
+  - `trigger` springs the list onto the trigger offset (`MotionTokens.fast`,
+    a jump under reduced motion) and refreshes once it settles, exactly as
+    after a release; the indicator shows from the first frame. Only the
+    branch re-tap calls it.
 - The refresh threshold is decided in exactly one place. The wrapper must not
   maintain a drag-distance judgement in parallel with the framework's, and must
   not veto a refresh the framework has already triggered.
@@ -1790,12 +1837,26 @@ durations (debounce, throttles, frame scheduling) do not belong there.
 
 | Widget | Motion |
 |---|---|
-| `PressScale` | spring to `MotionTokens.pressScale` while pressed and back, interruptible; off with the press-feedback setting; frozen tickers set the value without playing. Wraps every tappable card. |
+| `PressScale` | spring to the rest scale while pressed and back, interruptible; off with the press-feedback setting; frozen tickers set the value without playing. Wraps every tappable card (`MotionTokens.pressScale`, 0.97) and pill (`MotionTokens.pillPressScale`, 0.96). |
 | `StateIconSwitcher(value:)` | effectsFast fade plus scale from 0.8 when `value` changes — selection checks, watchlist, download badges. Keyed by state, not by widget instance. |
 | `StateFade(kind:)` / `.onMount` | fades the new state in from 0 when `kind` changes (skeleton → content); replaces, never cross-fades. `onMount` for widgets that only appear as a change (`FeedEmpty`, `FeedError`). Keeps semantics during the fade. Frozen tickers and reduced motion show it at once. |
 | `SpringSize` | `AnimatedSize` on spatialFast for sections that open and close (`ErrorDetails`). |
 | `RemovalScope` / `Removable` | see §4. |
 | `DragToDismiss` | the return runs `SpringSimulation(spatialFast, offset, 0, release velocity)` in pixels. |
+
+**Press feedback rules (HCI 11).** Every tappable element shows a press,
+and only one kind of ink:
+
+- Ripple (Material ink) where the ink fits the visible shape: list rows,
+  tiles, menu items, buttons, icon buttons, the bottom bar.
+- Scale (`PressScale`) on cards and pills: feed cards at 0.97; tags and
+  chips (`TagChip`, `AppChoiceChip`) at 0.96. A chip keeps its own clipped
+  ripple; `TagChip` drops ink altogether, because its tap target (48dp tall,
+  touching its neighbours) is larger than the 32dp pill and ink would fill
+  the invisible margin.
+- A disabled element (no callback) gets no press scale.
+- Small targets extend their hit area to 48dp without growing the visible
+  shape; neighbouring targets touch, so the gap between them is never dead.
 
 Feed grids fade cards in through `StaggeredEntrance`; do not add a
 `StateFade` around grid content.
@@ -2153,8 +2214,9 @@ reintroduce it or hand-build group containers.
   horizontal margins.
 - Row types — all built on `ListTile`/`SwitchListTile`, so existing
   `find.widgetWithText(ListTile, …)` tests keep working:
-  - `SettingsTile` navigates to a subpage: optional `icon`, chevron
-    trailing.
+  - `SettingsTile` navigates to a subpage: optional `icon`, drawn
+    `onSecondaryContainer` in a 40dp `secondaryContainer` circle (the
+    settings index's category rows), chevron trailing.
   - `SettingsControl` is the `SwitchListTile` toggle; it plays the
     toggle haptic (see Haptics Contract). `onChanged: null` disables the
     row (a setting the platform cannot honour yet, e.g. system colors
@@ -2191,31 +2253,78 @@ reintroduce it or hand-build group containers.
     `horizontal: lg, vertical: sm` padding.
 - Hand-written `ListTile`s are allowed only for content rows — entries
   that are data rather than settings (muted items, the account list,
-  diagnostic results, the read-only download path, the
-  `AccountSummaryTile` identity block).
+  diagnostic results, the read-only download path, the dashboard's
+  account row).
   `test/architecture/settings_rows_test.dart` pins the exact per-file
   `ListTile(` count; adding a hand-written row means extending that
   whitelist with a stated reason.
 
-**Me tab layout.** The fifth shell destination is `homeMe` (`SettingsPage`
-still owns the `/settings` route; the label and icon change, the path
-does not). Its group order is fixed: (1) the untitled account card —
-signed-in subtitle shows the account ID and taps through to `openMe`,
-signed-out shows `login` and taps through to `openLogin`; (2) my content
-(`settingsGroupLibrary`): history (`openHistory` — stays on the current
-stack), watch-later, watchlist, local novels, download tasks
-(`openDownloadTasks`, a root overlay); (3) account (`accountSettings`):
-account management only; (4) appearance: theme, language, translation,
-motion & haptics (`/settings/motion`); (5) browse (`/settings/browse`,
-static `settingsBrowseHint` summary — blocking and image quality live
-there) plus the muted list; (6) network & downloads: network (which also
-owns the image-source controls), download settings; (7) data: backup;
-(8) untitled about; (9) the conditional developer group. Page ownership:
-`/settings/motion` holds transition style, animation speed, reduced
-motion, press feedback, and haptic strength; credential export lives in
-account management; the history record/Pixiv switches and delete-all
-live in the history page's overflow menu — there is no history settings
-page and no `/settings/history/view` route.
+**Settings search and anchors.** `lib/features/settings/settings_catalog.dart`
+is the whole search index: `enum SettingsPageRef` (path, title key,
+`parent` page, `indexed`) and `enum Setting` (page, title key or null for
+an untitled choice group, `optionKeys`, `extraKeys`, `available`). A new
+setting is added there and nowhere else.
+
+- Every row type, `SettingsGroupContent` and `SettingsGroup` take an
+  optional `setting:` (`SettingsEntry`, the interface in
+  `app/widgets/settings/settings_anchor.dart` that keeps `app/` free of
+  `features/`). Given one, a row takes its title from it and wraps
+  itself in a `SettingAnchor`. A row that opens a subpage passes the
+  subpage's `SettingsPageRef`. A choice group, a block whose rows depend
+  on state (credential rows, server settings) or a composite block is
+  anchored on the group; its conditional rows' titles go in `extraKeys`.
+- `searchSettings(l10n, query)` matches the current locale's titles,
+  options, extras and page names, case- and whitespace-insensitive.
+  Title prefix hits rank first, then title substrings, then
+  option/extra hits; catalog order breaks ties. A result row is the
+  matched text over its page path (`›`-joined), and opens
+  `Setting.location` (`<page path>?focus=<id>`).
+- Every settings route is wrapped in `SettingsFocusScope(target: focus)`.
+  After the first frame it `ensureVisible`s the target anchor (alignment
+  0.2, `medium` / `fastCurve`). If a lazy list has not built the target,
+  it pages down by the viewport, at most 20 times. The anchor then shows
+  a `primary` wash at 12% that holds for `settingHighlightHold` and fades
+  over `settingHighlightFade`. Reduced motion keeps the hold and drops
+  the fade. A group anchor leaves the wash to its segments
+  (`SettingHighlight`), so the wash follows the segment corners.
+- `test/settings_search_test.dart` renders every settings page and
+  requires its anchors to equal its catalog entries, each showing its
+  title and options, with no settings row left unanchored. It also
+  searches every entry by every term in all four locales and covers
+  result → reveal → mark and back-to-results through the router.
+
+**Me tab layout.** The fifth shell destination is `homeMe`; its root
+`/settings` is `MeDashboardPage`, and every `/settings/*` sub-route is
+unchanged. Top to bottom:
+
+1. The account row: a 58dp avatar, the name, and `labelValue(accountId,
+   id)`. Tapping it calls `openMe`; signed out it shows `login` and calls
+   `openLogin`. Its trailing `switch_account_outlined` button opens
+   `/settings/account`.
+2. My content (`settingsGroupLibrary`): a grid of entries, each a 48dp
+   `primaryContainer` circle over a `bodyMedium` label, four per row on
+   a phone and all in one row from 560dp. The entries are:
+   - bookmarks and following: `openMe(tab: MeTab.…)`, which pushes
+     `/me?tab=`;
+   - watchlist, history and watch later;
+   - download tasks, with a `Badge` counting active tasks;
+   - local novels.
+3. One `SettingsTile` to the settings index `/settings/all`.
+
+`SettingsPage` is the settings index with a `SearchBar` in the app bar's
+`bottom`. Typing swaps the groups for the results; an empty result shows
+`FeedEmpty`. The index's groups are: account; appearance (theme,
+language, translation, motion & haptics); browse (browse settings and
+the muted list); network & downloads; data (backup); the untitled about;
+and the conditional developer group.
+
+Page ownership:
+- `/settings/motion` holds transition style, animation speed, reduced
+  motion, press feedback and haptic strength.
+- Credential export lives in account management.
+- The history record/Pixiv switches and delete-all live in the history
+  page's overflow menu. There is no history settings page and no
+  `/settings/history/view` route.
 
 ## First-Load Skeletons
 

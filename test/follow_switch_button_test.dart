@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,10 +26,12 @@ import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 
-/// Network boundary stand-in; [error] makes the next mutation fail.
+/// Network boundary stand-in; [error] makes the next mutation fail and
+/// [gate] holds mutations in flight.
 class _FakeFollowRepository implements FollowRepository {
   final calls = <String>[];
   Object? error;
+  Completer<void>? gate;
 
   @override
   Future<void> add(
@@ -35,12 +39,14 @@ class _FakeFollowRepository implements FollowRepository {
     FollowRestrict restrict = FollowRestrict.public,
     CancelToken? cancelToken,
   }) async {
+    await gate?.future;
     if (error case final error?) throw error;
     calls.add('add $userId ${restrict.name}');
   }
 
   @override
   Future<void> delete(int userId, {CancelToken? cancelToken}) async {
+    await gate?.future;
     if (error case final error?) throw error;
     calls.add('delete $userId');
   }
@@ -170,7 +176,9 @@ class _MeasuredHeaderState extends State<_MeasuredHeader> {
 }
 
 void main() {
-  testWidgets('haptics follow the settled outcome', (tester) async {
+  testWidgets('haptics play on the tap; a failure adds an error', (
+    tester,
+  ) async {
     final haptics = recordHaptics();
     final follows = _FakeFollowRepository();
     final container = await _world(follows: follows);
@@ -194,14 +202,47 @@ void main() {
     expect(follows.calls, ['add 7 public', 'delete 7']);
     expect(haptics.roles, [HapticRole.select, HapticRole.select]);
 
+    await tester.runAsync(() => Future<void>.delayed(AppHaptics.lightInterval));
     follows.error = StateError('boom');
     await tester.tap(find.byType(FollowSwitchButton));
     await tester.pumpAndSettle();
     expect(haptics.roles, [
       HapticRole.select,
       HapticRole.select,
+      HapticRole.select,
       HapticRole.error,
     ]);
+  });
+
+  testWidgets('the button flips before the server answers and rolls back on '
+      'failure', (tester) async {
+    final follows = _FakeFollowRepository();
+    final container = await _world(follows: follows);
+    await _pump(
+      tester,
+      container,
+      home: const Scaffold(
+        body: Center(child: FollowSwitchButton(userId: 7, userName: 'u')),
+      ),
+    );
+    final gate = follows.gate = Completer<void>();
+    follows.error = StateError('boom');
+
+    await tester.tap(find.byType(FollowSwitchButton));
+    await tester.pump();
+    expect(find.text('已关注'), findsOneWidget);
+    expect(find.byType(CupertinoActivityIndicator), findsNothing);
+    expect(
+      tester.getSize(find.byType(FollowSwitchButton)),
+      const Size(116, 42),
+    );
+
+    gate.complete();
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('关注'), findsOneWidget);
+    expect(find.textContaining('关注操作失败'), findsOneWidget);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('long press opens the follow sheet once', (tester) async {
@@ -391,28 +432,6 @@ void main() {
       ),
     );
     expect(tester.getSize(find.byType(FollowSwitchButton)), const Size(96, 36));
-  });
-
-  testWidgets('the pending spinner keeps the minimum size', (tester) async {
-    final container = await _world();
-    await _pump(
-      tester,
-      container,
-      home: const Scaffold(
-        body: Center(
-          child: FollowSwitchButton(userId: 42, userName: 'sample user'),
-        ),
-      ),
-    );
-
-    container.read(followStoreProvider.notifier).beginAdd(42);
-    await tester.pump();
-
-    expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
-    expect(
-      tester.getSize(find.byType(FollowSwitchButton)),
-      const Size(116, 42),
-    );
   });
 
   testWidgets('call sites lay out without overflow at ru + 2x text', (

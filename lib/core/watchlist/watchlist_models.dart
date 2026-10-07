@@ -134,17 +134,49 @@ class WatchlistEntry {
   const WatchlistEntry({
     required this.added,
     this.pending,
+    this.wish,
     this.error,
     this.confirmedRevision,
     this.status = MutationStatus.idle,
   });
 
-  /// Last confirmed value; never flipped before the operation commits.
+  /// Last confirmed value; never flipped before the operation commits. The
+  /// UI shows [shown] instead.
   final bool added;
+
+  /// Operation in flight or queued offline, if any.
   final WatchlistOp? pending;
+
+  /// The value the user last chose while it is unconfirmed — the
+  /// BookmarkEntry.wish rule.
+  final bool? wish;
   final Object? error;
   final int? confirmedRevision;
   final MutationStatus status;
 
-  bool get isPending => status == MutationStatus.pending && pending != null;
+  /// What the UI shows: the user's wish at once, the confirmed value after.
+  bool get shown => wish ?? added;
+
+  /// In flight or queued offline.
+  bool get isPending =>
+      pending != null &&
+      (status == MutationStatus.pending || status == MutationStatus.queued);
+
+  bool get isQueued => status == MutationStatus.queued && pending != null;
+
+  /// A request is pending or a wish still awaits its follow-up request.
+  bool get isUnsettled => isPending || wish != null;
+
+  WatchlistEntry copyWith({
+    bool? wish,
+    MutationStatus? status,
+    bool clearWish = false,
+  }) => WatchlistEntry(
+    added: added,
+    pending: pending,
+    wish: clearWish ? null : (wish ?? this.wish),
+    error: error,
+    confirmedRevision: confirmedRevision,
+    status: status ?? this.status,
+  );
 }

@@ -19,6 +19,7 @@ import '../../../core/mute/mute_models.dart';
 import '../../../core/mute/mute_store.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../settings_catalog.dart';
 
 /// Muted items management: tags and users mirror the official client's
 /// `/v1/mute` list; works are local-only (no official endpoint). Removing
@@ -144,6 +145,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
             ),
             children: [
               SettingsGroup(
+                setting: Setting.mutedTags,
                 title: Text(l10n.mutedTagsSection),
                 children: [
                   SettingsGroupContent(
@@ -182,6 +184,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
                 ],
               ),
               SettingsGroup(
+                setting: Setting.mutedUsers,
                 title: Text(l10n.mutedUsersSection),
                 children: [
                   if (users.isEmpty)
@@ -217,6 +220,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
                 ],
               ),
               SettingsGroup(
+                setting: Setting.mutedWorks,
                 title: Text(l10n.mutedWorksSection),
                 children: [
                   if (works.isEmpty)

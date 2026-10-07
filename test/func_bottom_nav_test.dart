@@ -11,7 +11,7 @@ import 'package:parfait/app/widgets/fit_label.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/features/settings/settings_page.dart';
+import 'package:parfait/features/settings/me_dashboard_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -22,6 +22,11 @@ import 'helpers/prompt_host.dart';
 
 const _account = Account(id: '100', userId: 100, name: 'tester');
 
+/// A split-screen phone height: the "me" dashboard at the root of the
+/// settings branch fits a full phone screen and only scrolls on a short
+/// one.
+const _screenHeight = 480.0;
+
 /// Pumps the real home shell — the bottom bar now lives one layer up in
 /// [HomeBranchStack] (a sibling of the branch stack), so scroll-hide
 /// behaviour can only be exercised through a real branch Navigator.
@@ -30,7 +35,7 @@ Future<GoRouter> _pumpHome(
   String location = '/settings',
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  tester.view.physicalSize = const Size(390, 844);
+  tester.view.physicalSize = const Size(390, _screenHeight);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final router = createPixivRouter(initialLocation: location);
@@ -72,7 +77,7 @@ Future<GoRouter> _pumpHome(
 }
 
 Finder get _settingsList => find.descendant(
-  of: find.byType(SettingsPage),
+  of: find.byType(MeDashboardPage),
   matching: find.byType(ListView),
 );
 
@@ -343,14 +348,14 @@ void main() {
     await _pumpHome(tester);
     final nav = find.byType(FuncBottomNav);
     final shownTop = tester.getTopLeft(nav).dy;
-    expect(shownTop, lessThan(844));
+    expect(shownTop, lessThan(_screenHeight));
 
     // Scroll down past the touch-slop threshold: the bar slides fully below
     // the screen edge — the layout never changes, the body was already
     // painted underneath.
     await tester.drag(_settingsList, const Offset(0, -200));
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
+    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_screenHeight));
 
     // Scrolling back up restores it.
     await tester.drag(_settingsList, const Offset(0, 120));
@@ -377,7 +382,7 @@ void main() {
     expect(tester.getTopLeft(nav).dy, greaterThan(shownTop));
     await gesture.up();
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
+    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_screenHeight));
   });
 
   testWidgets('a continuous drag slides the bar out under the finger', (
@@ -395,7 +400,7 @@ void main() {
       await gesture.moveBy(const Offset(0, -12));
       await tester.pump(const Duration(milliseconds: 16));
     }
-    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
+    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_screenHeight));
     await gesture.up();
     await tester.pumpAndSettle();
   });
@@ -418,7 +423,7 @@ void main() {
     // Hide the bar with a real scroll, land at the bottom edge.
     await tester.drag(list, const Offset(0, -4000));
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
+    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_screenHeight));
 
     // Bottom edge: pull past the end and release. The spring-back deltas
     // must not resurrect the bar.
@@ -427,7 +432,7 @@ void main() {
     await tester.pump();
     await gesture.up();
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(844));
+    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_screenHeight));
   });
 
   testWidgets('the shell bar publishes its live visible extent', (
@@ -435,7 +440,7 @@ void main() {
   ) async {
     await _pumpHome(tester);
     final chrome = HomeShellChrome.of(
-      tester.element(find.byType(SettingsPage)),
+      tester.element(find.byType(MeDashboardPage)),
     );
     final extent = chrome.bottomBarExtent;
     expect(extent, greaterThan(0));

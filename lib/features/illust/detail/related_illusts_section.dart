@@ -1,12 +1,15 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/widgets/feed/feed_grid.dart';
+import '../../../app/widgets/feed/feed_states.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../core/entity/illust_store.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/illust_card.dart';
+import '../../../app/widgets/skeleton/illust_grid_skeleton.dart';
+import '../../../app/motion/state_fade.dart';
 import '../../../core/errors/error_category.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../../core/illust/related_illust_controller.dart';
@@ -27,6 +30,8 @@ export '../../../core/illust/related_illust_repository.dart';
 /// Swiping through the detail pager (which prebuilds neighbours) therefore
 /// sends no related requests. A work whose related list already exists
 /// renders it straight away.
+const _gridMainAxisSpacing = FuncSpacing.sm;
+
 class RelatedIllustsSlivers extends ConsumerStatefulWidget {
   const RelatedIllustsSlivers({super.key, required this.illustId});
 
@@ -92,48 +97,36 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
     child: Center(child: SizedBox(width: 22, height: 22, child: indicator)),
   );
 
-  static final Widget _loadingIndicator = _indicatorBox(
-    const CircularProgressIndicator(strokeWidth: 2.5),
-  );
-
   Widget _buildSection(BuildContext context) {
-    final illustId = widget.illustId;
-    final async = ref.watch(relatedIllustControllerProvider(illustId));
+    final async = ref.watch(relatedIllustControllerProvider(widget.illustId));
     final state = async.asData?.value;
+    // A retry after a failed first page is loading too, with no ids yet.
+    final loading = state == null
+        ? !async.hasError
+        : state.showInitialSpinner && state.ids.isEmpty;
+    return StateFade.sliver(
+      kind: loading,
+      sliver: loading
+          ? const _RelatedSkeleton()
+          : _buildLoaded(context, async, state),
+    );
+  }
+
+  Widget _buildLoaded(
+    BuildContext context,
+    AsyncValue<PagedFeedState> async,
+    PagedFeedState? state,
+  ) {
+    final illustId = widget.illustId;
     final controller = ref.read(
       relatedIllustControllerProvider(illustId).notifier,
     );
-    if (state == null) {
-      if (async.hasError) {
-        // Defensive branch: the controller normally folds errors into
-        // state.initialError, but a provider-level failure must still show
-        // a visible error instead of an endless spinner.
-        final error = async.error;
-        return SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              FuncSpacing.lg,
-              FuncSpacing.lg,
-              FuncSpacing.lg,
-              FuncSpacing.xl,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.relatedWorks,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: FuncSpacing.md),
-                _errorRow(context, error, controller.refresh),
-              ],
-            ),
-          ),
-        );
-      }
-      return SliverToBoxAdapter(child: _loadingIndicator);
-    }
-    if (state.showInitialError) {
+    if (state == null || state.showInitialError) {
+      // A null state that is not loading means the provider itself failed.
+      // Defensive: the controller normally folds errors into
+      // state.initialError, but that failure must still show a visible
+      // error instead of an endless skeleton.
+      final error = state == null ? async.error : state.initialError;
       return SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
@@ -150,7 +143,7 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: FuncSpacing.md),
-              _errorRow(context, state.initialError, controller.refresh),
+              _errorRow(context, error, controller.refresh),
             ],
           ),
         ),
@@ -164,26 +157,13 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
     }
     return SliverMainAxisGroup(
       slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              FuncSpacing.lg,
-              FuncSpacing.lg,
-              FuncSpacing.lg,
-              FuncSpacing.sm,
-            ),
-            child: Text(
-              context.l10n.relatedWorks,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-        ),
+        const SliverToBoxAdapter(child: _RelatedHeader()),
         const SliverPadding(
           padding: EdgeInsets.symmetric(horizontal: FuncSpacing.md),
           sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
         ),
         IllustFeedGrid(
-          mainAxisSpacing: FuncSpacing.sm,
+          mainAxisSpacing: _gridMainAxisSpacing,
           itemIds: [for (final e in illusts) e.id],
           itemCount: illusts.length,
           itemBuilder: (context, index) => IllustCard(
@@ -206,26 +186,69 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
   /// line plus the raw text behind [ErrorDetails], with retry beside it.
   /// A null error (defensive branch) still gets the localized headline.
   Widget _errorRow(BuildContext context, Object? error, VoidCallback onRetry) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: error == null
-              ? Text(context.l10n.relatedLoadFailed)
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(errorCategoryText(context, categorizeError(error))),
-                    ErrorDetails(error: error),
-                  ],
-                ),
-        ),
-        const SizedBox(width: FuncSpacing.md),
-        TextButton(onPressed: onRetry, child: Text(context.l10n.retry)),
-      ],
+    return RetryOnNetworkRestore(
+      error: error,
+      onRetry: onRetry,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: error == null
+                ? Text(context.l10n.relatedLoadFailed)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(errorCategoryText(context, categorizeError(error))),
+                      ErrorDetails(error: error),
+                    ],
+                  ),
+          ),
+          const SizedBox(width: FuncSpacing.md),
+          TextButton(onPressed: onRetry, child: Text(context.l10n.retry)),
+        ],
+      ),
     );
   }
+}
+
+/// The section title above the grid.
+class _RelatedHeader extends StatelessWidget {
+  const _RelatedHeader();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(
+      FuncSpacing.lg,
+      FuncSpacing.lg,
+      FuncSpacing.lg,
+      FuncSpacing.sm,
+    ),
+    child: Text(
+      context.l10n.relatedWorks,
+      style: Theme.of(context).textTheme.titleMedium,
+    ),
+  );
+}
+
+/// The first page loading: the real title over a grid skeleton with the
+/// grid's spacing, so the first cards land where their bones were.
+class _RelatedSkeleton extends StatelessWidget {
+  const _RelatedSkeleton();
+
+  @override
+  Widget build(BuildContext context) => SliverToBoxAdapter(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _RelatedHeader(),
+        IllustGridSkeleton(
+          label: context.l10n.contentLoading,
+          mainAxisSpacing: _gridMainAxisSpacing,
+        ),
+      ],
+    ),
+  );
 }
 
 class _LoadMoreFooter extends ConsumerWidget {
@@ -249,12 +272,16 @@ class _LoadMoreFooter extends ConsumerWidget {
       );
     }
     if (state.loadMorePhase == FeedPhase.error) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
-        child: Center(
-          child: TextButton(
-            onPressed: () => onLoadMore(),
-            child: Text(context.l10n.retry),
+      return RetryOnNetworkRestore(
+        error: state.loadMoreError,
+        onRetry: onLoadMore,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
+          child: Center(
+            child: TextButton(
+              onPressed: onLoadMore,
+              child: Text(context.l10n.retry),
+            ),
           ),
         ),
       );

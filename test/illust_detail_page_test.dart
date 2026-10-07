@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:parfait/app/widgets/skeleton/illust_grid_skeleton.dart';
 
 import 'package:http/testing.dart';
 import 'package:intl/intl.dart';
@@ -2191,6 +2192,30 @@ void main() {
         await scrollToRelated(tester);
       });
       expect(log, [42]);
+    });
+
+    testWidgets('the first related page loads under a grid skeleton', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final (container, _, _) = await makeWorld(
+        relatedGate: gate,
+        relatedOverrides: {
+          42: [illustJson(901, pageCount: 1)],
+        },
+      );
+      await pumpDetail(tester, container);
+      await mockNetworkImagesFor(() => scrollToRelated(tester));
+      expect(find.byType(IllustGridSkeleton), findsOneWidget);
+      expect(find.text('Related works'), findsOneWidget);
+
+      gate.complete();
+      await mockNetworkImagesFor(() async {
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+      });
+      expect(find.byType(IllustGridSkeleton), findsNothing);
+      expect(find.text('illust 901'), findsOneWidget);
     });
 
     testWidgets('an already loaded related list shows without waiting', (

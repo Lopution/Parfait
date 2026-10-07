@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../haptics/app_haptics.dart';
 import '../app_menu_button.dart';
+import 'settings_anchor.dart';
 
 /// Widest the current value at the end of the row gets before it
 /// ellipsizes; the title keeps the rest of the row.
@@ -18,7 +19,8 @@ const double _valueMaxWidth = 160;
 class SettingsMenuTile<T> extends StatelessWidget {
   const SettingsMenuTile({
     super.key,
-    required this.title,
+    this.title,
+    this.setting,
     required this.value,
     required this.options,
     required this.onChanged,
@@ -26,7 +28,11 @@ class SettingsMenuTile<T> extends StatelessWidget {
     this.haptics = true,
   });
 
-  final String title;
+  /// The title; defaults to the title of [setting].
+  final String? title;
+
+  /// The catalog entry this row is the place of (settings search).
+  final SettingsEntry? setting;
   final T value;
 
   /// The choices. Their `checked` is ignored: the tile checks the option
@@ -52,48 +58,51 @@ class SettingsMenuTile<T> extends StatelessWidget {
     final icon = this.icon;
     final current = options.where((option) => option.value == value);
     final theme = Theme.of(context);
-    return AppMenuButton<T>(
-      entries: [
-        for (final option in options)
-          AppMenuEntry<T>(
-            value: option.value,
-            label: option.label,
-            icon: option.icon,
-            enabled: option.enabled,
-            checked: option.value == value,
+    return anchorSettingsRow(
+      setting,
+      AppMenuButton<T>(
+        entries: [
+          for (final option in options)
+            AppMenuEntry<T>(
+              value: option.value,
+              label: option.label,
+              icon: option.icon,
+              enabled: option.enabled,
+              checked: option.value == value,
+            ),
+        ],
+        onSelected: (_, picked) {
+          if (onChanged == null || picked == value) return;
+          if (haptics) AppHaptics.select();
+          onChanged(picked);
+        },
+        anchorBuilder: (context, toggle) => ListTile(
+          enabled: onChanged != null,
+          leading: icon == null ? null : Icon(icon),
+          title: Text(settingsRowTitle(context, title, setting)),
+          // The subtitle's look; ListTile greys it out with the row.
+          leadingAndTrailingTextStyle: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
           ),
-      ],
-      onSelected: (_, picked) {
-        if (onChanged == null || picked == value) return;
-        if (haptics) AppHaptics.select();
-        onChanged(picked);
-      },
-      anchorBuilder: (context, toggle) => ListTile(
-        enabled: onChanged != null,
-        leading: icon == null ? null : Icon(icon),
-        title: Text(title),
-        // The subtitle's look; ListTile greys it out with the row.
-        leadingAndTrailingTextStyle: theme.textTheme.bodyMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-        trailing: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _valueMaxWidth),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (current.isNotEmpty)
-                Flexible(
-                  child: Text(
-                    current.first.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+          trailing: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _valueMaxWidth),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (current.isNotEmpty)
+                  Flexible(
+                    child: Text(
+                      current.first.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-              const Icon(Icons.arrow_drop_down),
-            ],
+                const Icon(Icons.arrow_drop_down),
+              ],
+            ),
           ),
+          onTap: toggle,
         ),
-        onTap: toggle,
       ),
     );
   }

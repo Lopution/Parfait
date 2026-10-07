@@ -269,6 +269,44 @@ void main() {
     expect(indicator, findsNothing);
   });
 
+  testWidgets('the list retracts as soon as the indicator has shrunk away', (
+    tester,
+  ) async {
+    var refreshed = false;
+    await tester.pumpWidget(
+      buildSubject(
+        onRefresh: () async {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+          refreshed = true;
+        },
+      ),
+    );
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('item 2')),
+    );
+    await pullBy(tester, gesture, 20, 20);
+    await gesture.up();
+
+    // The indicator's own exit takes 200ms after the refresh completes;
+    // the list must not then sit pulled down over an empty gap.
+    Duration? sinceRefreshed;
+    var elapsed = Duration.zero;
+    const step = Duration(milliseconds: 20);
+    while (elapsed < const Duration(seconds: 4)) {
+      await tester.pump(step);
+      if (!refreshed) continue;
+      elapsed += step;
+      if (scrollOffset(tester) > -90) {
+        sinceRefreshed = elapsed;
+        break;
+      }
+    }
+
+    expect(sinceRefreshed, isNotNull);
+    expect(sinceRefreshed, lessThan(const Duration(milliseconds: 400)));
+  });
+
   testWidgets('ballistic overscroll after the pointer lifts starts no pull', (
     tester,
   ) async {

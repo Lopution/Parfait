@@ -371,7 +371,7 @@ class _RecommendedFeedView extends ConsumerWidget {
         if (feed.isEmptyAndReady) {
           return FeedEmpty(
             title: context.l10n.recommendedEmpty,
-            retryLabel: context.l10n.retry,
+            retryLabel: context.l10n.refresh,
             onRefresh: () =>
                 ref.read(recommendedFeedProvider(key).notifier).refresh(),
           );
@@ -434,6 +434,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
     };
 
     return PullToRefresh(
+      scrollController: scrollController,
       onRefresh: onRefresh,
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {

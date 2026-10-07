@@ -31,6 +31,7 @@ import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/features/profile/profile_header_delegate.dart';
 import 'package:parfait/features/profile/profile_novel_feed.dart';
+import 'package:parfait/app/navigation/routes.dart' show MeTab;
 import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/profile/profile_skeleton.dart';
 import 'package:parfait/features/profile/user_series_feed.dart';
@@ -778,7 +779,7 @@ void main() {
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
+    expect(find.byType(BackButtonIcon), findsOneWidget);
 
     // pop() removes the route from history immediately — canPop flips false
     // while the pop animation still runs. The header button must not
@@ -786,9 +787,9 @@ void main() {
     tester.state<NavigatorState>(find.byType(Navigator)).pop();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
+    expect(find.byType(BackButtonIcon), findsOneWidget);
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.arrow_back_ios_new), findsNothing);
+    expect(find.byType(BackButtonIcon), findsNothing);
   });
 
   testWidgets(
@@ -855,7 +856,7 @@ void main() {
         copyCount = 0;
 
         // Back actually pops the pushed route.
-        await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+        await tester.tap(find.byType(BackButtonIcon));
         await tester.pumpAndSettle();
         expect(find.text('open'), findsOneWidget);
       }
@@ -926,7 +927,7 @@ void main() {
         // button and the overflow carries the same imageControl fill (R4).
         expect(
           find.ancestor(
-            of: find.byIcon(Icons.arrow_back_ios_new),
+            of: find.byType(BackButtonIcon),
             matching: find.byType(ImageOverlayButton),
           ),
           findsOneWidget,
@@ -943,7 +944,7 @@ void main() {
         expect(find.byType(ImageOverlayButton), findsNothing);
         expect(overflowStyle(), isNull);
         expect(find.byIcon(Icons.more_vert), findsOneWidget);
-        expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
+        expect(find.byType(BackButtonIcon), findsOneWidget);
 
         await tester.pumpWidget(const SizedBox.shrink());
       });
@@ -1008,7 +1009,7 @@ void main() {
           .style,
       isNull,
     );
-    expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
+    expect(find.byType(BackButtonIcon), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     controller.dispose();
@@ -1266,6 +1267,32 @@ void main() {
       findsOneWidget,
     );
     expect(tagFilter.hitTestable(), findsNothing);
+  });
+
+  testWidgets('the me dashboard can open the profile on its follows', (
+    tester,
+  ) async {
+    final users = FakeUserRepository(
+      detail: sampleUser(100).copyWith(hasDetail: true),
+    );
+    final container = await makeProfileWorld(users: users);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          builder: promptHostBuilder,
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: MePage(onEditProfile: () {}, initialTab: MeTab.following),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+    expect(tabBar.controller!.index, 1, reason: '收藏, 关注, …');
+    expect(users.requests, contains(startsWith('relation:100:following')));
   });
 
   testWidgets('a long tag list sends the rest to the tag page', (tester) async {

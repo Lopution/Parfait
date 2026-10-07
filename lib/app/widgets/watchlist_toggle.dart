@@ -7,6 +7,7 @@ import '../../core/watchlist/watchlist_store.dart';
 import '../../l10n/context.dart';
 import '../haptics/app_haptics.dart';
 import '../motion/state_icon_switcher.dart';
+import 'errors/error_details.dart';
 
 /// Shared 追更/取消追更 toggle for series surfaces (illust series header and
 /// the novel series bar). The watchlist store shadows the series payload's
@@ -42,72 +43,50 @@ class WatchlistToggle extends ConsumerWidget {
             .observeRemote(key, added: detailAdded);
       });
     }
-    final added = entry?.added ?? detailAdded ?? false;
-    final pending = entry?.isPending == true;
-    final failed = entry?.error != null;
-    // Spinner, added or not added: the icon swaps only between these.
-    final Object iconState = pending ? #pending : added;
+    final added = entry?.shown ?? detailAdded ?? false;
+    ref.listen<Object?>(
+      watchlistStoreProvider.select((state) => state[key]?.error),
+      (previous, next) {
+        if (next != null && previous != next) {
+          showErrorSnackBar(
+            context,
+            action: context.l10n.watchlistFailed,
+            error: next,
+          );
+        }
+      },
+    );
+    final icon = Icon(
+      added ? Icons.bookmark_added : Icons.bookmark_add_outlined,
+      size: iconOnly ? null : 18,
+    );
 
     if (iconOnly) {
       return IconButton(
         tooltip: added
             ? context.l10n.watchlistRemove
             : context.l10n.watchlistAdd,
-        onPressed: pending ? null : () => _toggle(ref, key),
-        icon: StateIconSwitcher(
-          value: iconState,
-          child: pending
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Icon(
-                  added ? Icons.bookmark_added : Icons.bookmark_add_outlined,
-                  color: failed ? Theme.of(context).colorScheme.error : null,
-                ),
-        ),
+        onPressed: () => _toggle(ref, key),
+        icon: StateIconSwitcher(value: added, child: icon),
       );
     }
     return OutlinedButton.icon(
-      onPressed: pending ? null : () => _toggle(ref, key),
-      icon: StateIconSwitcher(
-        value: iconState,
-        child: pending
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : Icon(
-                added ? Icons.bookmark_added : Icons.bookmark_add_outlined,
-                size: 18,
-              ),
-      ),
+      onPressed: () => _toggle(ref, key),
+      icon: StateIconSwitcher(value: added, child: icon),
       label: Text(
-        failed
-            ? '${context.l10n.watchlistAdd} · ${context.l10n.retry}'
-            : added
-            ? context.l10n.watchlistRemove
-            : context.l10n.watchlistAdd,
+        added ? context.l10n.watchlistRemove : context.l10n.watchlistAdd,
       ),
     );
   }
 
-  /// Haptics follow the settled outcome: the store never flips `added`
-  /// before the server confirms, so a queued (offline) or cancelled toggle
-  /// stays silent and only a landed change or a failure is felt.
+  /// The toggle flips on this frame (optimistic), so its haptic plays now;
+  /// a failure rolls it back with an error haptic and a prompt.
   Future<void> _toggle(WidgetRef ref, WatchlistKey key) async {
     // Read the notifier up front: the toggle may outlive this widget.
     final store = ref.read(watchlistStoreProvider.notifier);
-    final before = store.entryOf(key)?.added ?? detailAdded ?? false;
+    final shown = store.entryOf(key)?.shown ?? detailAdded ?? false;
+    shown ? AppHaptics.toggleOff() : AppHaptics.toggleOn();
     await ref.read(watchlistActionsProvider).toggle(key);
-    final after = store.entryOf(key);
-    if (after == null || after.isPending) return;
-    if (after.error != null) {
-      AppHaptics.error();
-    } else if (after.added != before) {
-      after.added ? AppHaptics.toggleOn() : AppHaptics.toggleOff();
-    }
+    if (store.entryOf(key)?.error != null) AppHaptics.error();
   }
 }

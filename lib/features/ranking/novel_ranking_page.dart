@@ -9,7 +9,6 @@ import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/novel_entry.dart';
-import '../../app/widgets/replica_empty_state.dart';
 import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/i18n/replica_language.dart';
@@ -304,10 +303,10 @@ class _NovelRankingModeBody extends ConsumerWidget {
           return const FeedLoading();
         }
         if (feed.isEmptyAndReady) {
-          return ReplicaEmptyState(
-            message: context.l10n.rankingEmpty,
-            retryLabel: context.l10n.retry,
-            onRetry: () =>
+          return FeedEmpty(
+            title: context.l10n.rankingEmpty,
+            retryLabel: context.l10n.refresh,
+            onRefresh: () =>
                 ref.read(novelRankingFeedProvider(feedKey).notifier).refresh(),
           );
         }

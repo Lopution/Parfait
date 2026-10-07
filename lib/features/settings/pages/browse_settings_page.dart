@@ -11,6 +11,7 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../settings_catalog.dart';
 
 class BrowseSettingsPage extends ConsumerWidget {
   const BrowseSettingsPage({super.key});
@@ -39,7 +40,7 @@ class BrowseSettingsPage extends ConsumerWidget {
             SettingsGroup(
               children: [
                 SettingsControl(
-                  title: Text(context.l10n.blockR18),
+                  setting: Setting.blockR18,
                   value: settings.enableLocalBlockR18,
                   onChanged: (value) => persistSettings(
                     context,
@@ -49,7 +50,7 @@ class BrowseSettingsPage extends ConsumerWidget {
                   ),
                 ),
                 SettingsControl(
-                  title: Text(context.l10n.blockAI),
+                  setting: Setting.blockAI,
                   value: settings.enableLocalBlockAI,
                   onChanged: (value) => persistSettings(
                     context,
@@ -59,7 +60,7 @@ class BrowseSettingsPage extends ConsumerWidget {
                   ),
                 ),
                 SettingsControl(
-                  title: Text(context.l10n.hideMuted),
+                  setting: Setting.hideMuted,
                   subtitle: Text(context.l10n.hideMutedHint),
                   value: settings.hideMuted,
                   onChanged: (value) => persistSettings(
@@ -73,7 +74,7 @@ class BrowseSettingsPage extends ConsumerWidget {
             SettingsGroup(
               children: [
                 SettingsMenuTile<PreviewQuality>(
-                  title: context.l10n.previewQuality,
+                  setting: Setting.previewQuality,
                   value: settings.previewQuality,
                   options: _qualityOptions(context, PreviewQuality.values),
                   onChanged: (quality) => persistSettings(
@@ -84,7 +85,7 @@ class BrowseSettingsPage extends ConsumerWidget {
                   ),
                 ),
                 SettingsMenuTile<DetailQuality>(
-                  title: context.l10n.detailQuality,
+                  setting: Setting.detailQuality,
                   value: settings.detailQuality,
                   options: _qualityOptions(context, const [
                     DetailQuality.large,
@@ -98,7 +99,7 @@ class BrowseSettingsPage extends ConsumerWidget {
                   ),
                 ),
                 SettingsMenuTile<ViewQuality>(
-                  title: context.l10n.viewQuality,
+                  setting: Setting.viewQuality,
                   value: settings.viewQuality,
                   options: _qualityOptions(context, const [
                     ViewQuality.large,

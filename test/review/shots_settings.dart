@@ -1,9 +1,13 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+
 import 'review_support.dart';
 
 /// Every settings subpage. Settings are the densest text in the app, so
 /// each page runs in the overflow languages and at 1.3x text too.
 void main() {
   const pages = {
+    'index': '/settings/all',
     'account': '/settings/account',
     'theme': '/settings/theme',
     'language': '/settings/language',
@@ -30,4 +34,13 @@ void main() {
       variants: {ShotVariant.dark, ...overflowVariants, ShotVariant.largeText},
     );
   }
+  // A query that matches a page, settings by title and one by an option.
+  testShot(
+    'settings/index-search',
+    location: '/settings/all',
+    variants: {ShotVariant.dark, ShotVariant.largeText},
+    before: (tester, router) async {
+      await tester.enterText(find.byType(SearchBar), '图');
+    },
+  );
 }

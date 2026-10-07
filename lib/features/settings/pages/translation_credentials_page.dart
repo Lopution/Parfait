@@ -364,11 +364,7 @@ class _TranslationCredentialsPageState
         obscureText: obscure,
         autocorrect: false,
         enableSuggestions: false,
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          border: const OutlineInputBorder(),
-        ),
+        decoration: InputDecoration(labelText: label, hintText: hint),
       ),
     );
   }

@@ -202,7 +202,7 @@ class _SpotlightCategoryFeed extends ConsumerWidget {
                       child: FeedEmpty(
                         icon: Icons.newspaper_outlined,
                         title: context.l10n.spotlightEmpty,
-                        retryLabel: context.l10n.retry,
+                        retryLabel: context.l10n.refresh,
                         onRefresh: () => ref.read(provider.notifier).refresh(),
                       ),
                     )

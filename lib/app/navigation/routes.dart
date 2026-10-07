@@ -59,7 +59,10 @@ import '../../features/spotlight/spotlight_feed_page.dart';
 import '../../features/settings/network_probe_page.dart';
 import '../../features/settings/pages/frame_probe_page.dart';
 import '../../features/settings/network_settings_page.dart';
+import '../../features/settings/me_dashboard_page.dart';
+import '../../features/settings/settings_catalog.dart' show focusQuery;
 import '../../features/settings/settings_page.dart';
+import '../widgets/settings/settings_anchor.dart';
 import '../../features/settings/pages/translation_credentials_page.dart';
 import '../../l10n/context.dart';
 import '../motion/hero_transition.dart';
@@ -833,28 +836,37 @@ List<RouteBase> _settingsSubRoutes(
 ) {
   return [
     GoRoute(
+      path: 'all',
+      pageBuilder: (context, state) =>
+          _settingsPage(context, state, observer, const SettingsPage()),
+    ),
+    GoRoute(
       path: 'account',
       pageBuilder: (context, state) =>
-          _page(context, state, observer, const AccountSettingsPage()),
+          _settingsPage(context, state, observer, const AccountSettingsPage()),
     ),
     GoRoute(
       path: 'theme',
       pageBuilder: (context, state) =>
-          _page(context, state, observer, const ThemeSettingsPage()),
+          _settingsPage(context, state, observer, const ThemeSettingsPage()),
     ),
     GoRoute(
       path: 'language',
       pageBuilder: (context, state) =>
-          _page(context, state, observer, const LanguageSettingsPage()),
+          _settingsPage(context, state, observer, const LanguageSettingsPage()),
     ),
     GoRoute(
       path: 'translate',
-      pageBuilder: (context, state) =>
-          _page(context, state, observer, const TranslateSettingsPage()),
+      pageBuilder: (context, state) => _settingsPage(
+        context,
+        state,
+        observer,
+        const TranslateSettingsPage(),
+      ),
       routes: [
         GoRoute(
           path: 'credentials/:provider',
-          pageBuilder: (context, state) => _page(
+          pageBuilder: (context, state) => _settingsPage(
             context,
             state,
             observer,
@@ -868,16 +880,16 @@ List<RouteBase> _settingsSubRoutes(
     GoRoute(
       path: 'network',
       pageBuilder: (context, state) =>
-          _page(context, state, observer, const NetworkSettingsPage()),
+          _settingsPage(context, state, observer, const NetworkSettingsPage()),
       routes: [
         GoRoute(
           path: 'probe',
           pageBuilder: (context, state) =>
-              _page(context, state, observer, const NetworkProbePage()),
+              _settingsPage(context, state, observer, const NetworkProbePage()),
         ),
         GoRoute(
           path: 'advanced',
-          pageBuilder: (context, state) => _page(
+          pageBuilder: (context, state) => _settingsPage(
             context,
             state,
             observer,
@@ -891,53 +903,57 @@ List<RouteBase> _settingsSubRoutes(
     GoRoute(
       path: 'frame-probe',
       pageBuilder: (context, state) =>
-          _page(context, state, observer, const FrameProbePage()),
+          _settingsPage(context, state, observer, const FrameProbePage()),
     ),
     GoRoute(
       path: 'browse',
       pageBuilder: (context, state) =>
-          _page(context, state, observer, const BrowseSettingsPage()),
+          _settingsPage(context, state, observer, const BrowseSettingsPage()),
     ),
     GoRoute(
       path: 'motion',
       pageBuilder: (context, state) =>
-          _page(context, state, observer, const MotionSettingsPage()),
+          _settingsPage(context, state, observer, const MotionSettingsPage()),
     ),
     GoRoute(
       path: 'download',
       pageBuilder: (context, state) =>
-          _page(context, state, observer, const DownloadSettingsPage()),
+          _settingsPage(context, state, observer, const DownloadSettingsPage()),
       routes: [
         GoRoute(
           path: 'destination',
-          pageBuilder: (context, state) =>
-              _page(context, state, observer, const DownloadDestinationPage()),
+          pageBuilder: (context, state) => _settingsPage(
+            context,
+            state,
+            observer,
+            const DownloadDestinationPage(),
+          ),
         ),
       ],
     ),
     GoRoute(
       path: 'muted',
       pageBuilder: (context, state) =>
-          _page(context, state, observer, const MutedItemsPage()),
+          _settingsPage(context, state, observer, const MutedItemsPage()),
     ),
     GoRoute(
       path: 'backup',
       pageBuilder: (context, state) =>
-          _page(context, state, observer, const BackupSettingsPage()),
+          _settingsPage(context, state, observer, const BackupSettingsPage()),
     ),
     GoRoute(
       path: 'tasks',
       pageBuilder: (context, state) =>
-          _page(context, state, observer, const DownloadTasksPage()),
+          _settingsPage(context, state, observer, const DownloadTasksPage()),
     ),
     GoRoute(
       path: 'about',
       pageBuilder: (context, state) =>
-          _page(context, state, observer, const AboutSettingsPage()),
+          _settingsPage(context, state, observer, const AboutSettingsPage()),
       routes: [
         GoRoute(
           path: 'licenses',
-          pageBuilder: (context, state) => _page(
+          pageBuilder: (context, state) => _settingsPage(
             context,
             state,
             observer,
@@ -951,6 +967,23 @@ List<RouteBase> _settingsSubRoutes(
     ),
   ];
 }
+
+/// A settings page that reveals the entry its `focus` query names (the
+/// settings search links there).
+Page<dynamic> _settingsPage(
+  BuildContext context,
+  GoRouterState state,
+  RouteObserver<ModalRoute<dynamic>> observer,
+  Widget page,
+) => _page(
+  context,
+  state,
+  observer,
+  SettingsFocusScope(
+    target: state.uri.queryParameters[focusQuery],
+    child: page,
+  ),
+);
 
 StatefulShellBranch _branch({
   required String path,
@@ -1120,8 +1153,15 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
         '/me',
         rootNavigatorKey: appRootNavigatorKey,
         rootObserver: appRootRouteObserver,
-        pageBuilder: (context, state) =>
-            _page(context, state, appRootRouteObserver, const MePage()),
+        pageBuilder: (context, state) => _page(
+          context,
+          state,
+          appRootRouteObserver,
+          MePage(
+            initialTab: MeTab.values
+                .asNameMap()[state.uri.queryParameters['tab']],
+          ),
+        ),
       ),
       _overlayRoute(
         '/downloads',
@@ -1212,7 +1252,7 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
           _branch(
             path: '/settings',
             branchIndex: 4,
-            home: const SettingsPage(),
+            home: const MeDashboardPage(),
             navigatorKey: settingsNavigatorKey,
             observer: settingsRouteObserver,
             rootNavigatorKey: appRootNavigatorKey,
@@ -1380,10 +1420,19 @@ Future<void> openSpotlightArticle(
   await _push(context, location);
 }
 
-Future<void> openMe(BuildContext context) async {
+/// Own-profile tabs another page can open the profile on (the "me"
+/// dashboard's bookmarks and following entries).
+enum MeTab { bookmarks, following }
+
+Future<void> openMe(BuildContext context, {MeTab? tab}) async {
   // The profile is an app-level page now: it pushes over whatever stack is
   // showing (the settings branch included) instead of switching branches.
-  await context.push<void>('/me');
+  await context.push<void>(
+    Uri(
+      path: '/me',
+      queryParameters: tab == null ? null : {'tab': tab.name},
+    ).toString(),
+  );
 }
 
 /// App settings are the fifth home destination: opening them switches the

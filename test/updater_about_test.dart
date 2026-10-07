@@ -204,7 +204,7 @@ void main() {
 
     // The auto-check ran at startup; the section renders its remembered
     // result without a manual 检查更新 tap.
-    expect(find.text('发现新版本: 9.9.9'), findsOneWidget);
+    expect(find.text('发现新版本：9.9.9'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, '下载并安装'), findsOneWidget);
   });
 

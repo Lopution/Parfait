@@ -64,21 +64,29 @@ class NetworkProbePage extends ConsumerStatefulWidget {
 class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
   /// Recomputed each build/run so a freshly selected image mirror appears
   /// immediately — the active mirror's hosts are allowlisted on the
-  /// policy registry, so the probe can measure them directly.
-  List<({String host, PixivDestinationPurpose purpose})> get _targets => [
-    (
-      host: PixivClientIdentity.appApiBase.host,
-      purpose: PixivDestinationPurpose.appApi,
-    ),
-    (
-      host: PixivClientIdentity.oauthHost,
-      purpose: PixivDestinationPurpose.oauth,
-    ),
-    for (final imageHost in PixivClientIdentity.downloadHosts)
-      (host: imageHost, purpose: PixivDestinationPurpose.image),
-    for (final mirrorHost in ref.read(imageMirrorProvider).extraHosts)
-      (host: mirrorHost, purpose: PixivDestinationPurpose.image),
-  ];
+  /// policy registry, so the probe can measure them directly. A mirror can
+  /// list an origin host again (the default one does): each host is probed
+  /// once.
+  List<({String host, PixivDestinationPurpose purpose})> get _targets {
+    final seen = <String>{};
+    return [
+      for (final target in [
+        (
+          host: PixivClientIdentity.appApiBase.host,
+          purpose: PixivDestinationPurpose.appApi,
+        ),
+        (
+          host: PixivClientIdentity.oauthHost,
+          purpose: PixivDestinationPurpose.oauth,
+        ),
+        for (final imageHost in PixivClientIdentity.downloadHosts)
+          (host: imageHost, purpose: PixivDestinationPurpose.image),
+        for (final mirrorHost in ref.read(imageMirrorProvider).extraHosts)
+          (host: mirrorHost, purpose: PixivDestinationPurpose.image),
+      ])
+        if (seen.add(target.host)) target,
+    ];
+  }
 
   final Map<String, NetworkProbeReport?> _finished = {};
   final Map<String, Object> _errors = {};
@@ -395,7 +403,10 @@ class NetworkProbeOverview extends StatelessWidget {
                 children: [
                   Flexible(
                     child: Text(
-                      '${context.l10n.networkProbeWorst}: ${worst.host}',
+                      context.l10n.labelValue(
+                        context.l10n.networkProbeWorst,
+                        worst.host,
+                      ),
                       style: theme.textTheme.bodySmall,
                     ),
                   ),
@@ -461,7 +472,10 @@ class NetworkProbeHostPanel extends StatelessWidget {
             const SizedBox(height: FuncSpacing.sm),
             if (error != null)
               Text(
-                '${context.l10n.networkProbeHostFailed}: $error',
+                context.l10n.labelValue(
+                  context.l10n.networkProbeHostFailed,
+                  '$error',
+                ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.error,
                 ),

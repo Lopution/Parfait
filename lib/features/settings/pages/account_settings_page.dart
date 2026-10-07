@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/motion/app_overlays.dart';
 import '../../../app/motion/removal.dart';
-import '../../../app/navigation/routes.dart' show openLogin, openMe;
+import '../../../app/navigation/routes.dart' show openLogin;
 import '../../../app/person_avatar.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
@@ -26,40 +26,10 @@ import '../../../core/errors/error_category.dart';
 import '../../../core/settings/server_display_settings.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
+import '../settings_catalog.dart';
 
 String _accountSubtitle(BuildContext context, Account account) =>
-    '${context.l10n.accountId}: ${account.id}';
-
-/// Signed-in account summary on the settings hub: 58dp avatar and display
-/// type, not a settings row — it lives inside the first [SettingsGroup] and
-/// opens the profile page.
-class AccountSummaryTile extends StatelessWidget {
-  const AccountSummaryTile({super.key, required this.account});
-
-  final Account? account;
-
-  @override
-  Widget build(BuildContext context) {
-    final value = account;
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: FuncSpacing.lg,
-        vertical: FuncSpacing.sm,
-      ),
-      leading: _AccountAvatar(account: value),
-      title: Text(
-        value?.name ?? context.l10n.signedOut,
-        style: FuncSemanticTokens.of(context).display,
-      ),
-      subtitle: Text(
-        value == null ? context.l10n.login : _accountSubtitle(context, value),
-      ),
-      trailing: const Icon(Icons.chevron_right),
-      // A signed-out card used to be a dead end; it opens the login page.
-      onTap: value == null ? () => openLogin(context) : () => openMe(context),
-    );
-  }
-}
+    context.l10n.labelValue(context.l10n.accountId, account.id);
 
 class _AccountAvatar extends StatelessWidget {
   const _AccountAvatar({required this.account});
@@ -192,6 +162,11 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                                       ),
                                     IconButton(
                                       tooltip: context.l10n.removeAccount,
+                                      // Destructive, so it does not take
+                                      // the selected row's primary tint.
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
                                       icon: const Icon(Icons.delete_outline),
                                       onPressed: _switchingTo == null
                                           ? () => _confirmRemove(account)
@@ -213,7 +188,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                           if (state.current != null)
                             SettingsTile(
                               icon: Icons.send_to_mobile,
-                              title: context.l10n.accountTransferExportTitle,
+                              setting: Setting.accountTransferExport,
                               onTap: _confirmCopyAccount,
                             ),
                         ],
@@ -361,6 +336,7 @@ class _ServerDisplaySection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(serverDisplaySettingsProvider);
     return SettingsGroup(
+      setting: Setting.serverDisplay,
       title: Text(context.l10n.serverDisplaySettings),
       footer: Text(context.l10n.serverDisplayHint),
       children: settings.when(

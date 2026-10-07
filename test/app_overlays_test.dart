@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart' show SemanticsAction;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/motion/app_overlays.dart';
+import 'package:parfait/app/scroll_behavior.dart';
 
 const _page = Size(400, 800);
 
@@ -174,6 +175,55 @@ void main() {
       expect(find.text('overlay'), findsOneWidget);
       navigatorKey.currentState!.pop();
       await tester.pumpAndSettle();
+    }
+  });
+
+  group('sheet content that fits drags the sheet closed', () {
+    // Under the app's bouncing, always-scrollable behaviour the content
+    // used to take the drag and rubber-band inside a still panel.
+    final contents = <String, Widget>{
+      'list': ListView(
+        shrinkWrap: true,
+        primary: false,
+        children: [for (var i = 0; i < 4; i++) ListTile(title: Text('row $i'))],
+      ),
+      'scroll view': SingleChildScrollView(
+        child: Column(
+          children: [
+            for (var i = 0; i < 4; i++) ListTile(title: Text('row $i')),
+          ],
+        ),
+      ),
+    };
+    for (final MapEntry(key: kind, value: content) in contents.entries) {
+      testWidgets(kind, (tester) async {
+        tester.view.physicalSize = _page;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            scrollBehavior: const FuncScrollBehavior(),
+            home: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showAppBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) => content,
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('open'));
+        await tester.pumpAndSettle();
+        expect(find.text('row 1'), findsOneWidget);
+
+        await tester.drag(find.text('row 1'), const Offset(0, 300));
+        await tester.pumpAndSettle();
+
+        expect(find.text('row 1'), findsNothing);
+      });
     }
   });
 }

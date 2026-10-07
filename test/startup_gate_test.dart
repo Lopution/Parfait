@@ -130,7 +130,7 @@ void main() {
     );
 
     expect(find.byType(WelcomePage), findsOneWidget);
-    expect(find.text('感谢使用Parfait'), findsOneWidget);
+    expect(find.text('感谢使用 Parfait'), findsOneWidget);
     expect(find.text('开始'), findsOneWidget);
   });
 

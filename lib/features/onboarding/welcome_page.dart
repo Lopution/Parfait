@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/scrollable_form_shell.dart';
 import '../../l10n/lookup.dart';
@@ -52,8 +51,6 @@ class WelcomePage extends StatelessWidget {
       content: const SizedBox.shrink(),
       primaryAction: ReplicaButton(
         label: text('start'),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: FuncTokens.lightBackground,
         onPressed: () => context.push<void>('/welcome/language'),
       ),
     );

@@ -12,6 +12,13 @@ import 'motion_tokens.dart';
 ///
 /// The scrim closes the sheet when a touch outside it is released there —
 /// a drag counts, not just a tap (see [_ReleaseDismissBarrier]).
+///
+/// Content scrolls clamped, and only when it overflows. The app-wide
+/// bouncing, always-scrollable physics took every vertical drag: the
+/// content rubber-banded inside a panel that never moved, and the sheet
+/// could not be dragged closed. With nothing to scroll, the drag reaches
+/// the sheet. A vertical `ListView` forces always-scrollable physics on
+/// its own — sheet content passes `primary: false` to it.
 Future<T?> showAppBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -25,7 +32,12 @@ Future<T?> showAppBottomSheet<T>({
   final localizations = MaterialLocalizations.of(context);
   return navigator.push(
     _AppBottomSheetRoute<T>(
-      builder: builder,
+      builder: (context) => ScrollConfiguration(
+        behavior: ScrollConfiguration.of(
+          context,
+        ).copyWith(physics: const ClampingScrollPhysics()),
+        child: builder(context),
+      ),
       capturedThemes: InheritedTheme.capture(
         from: context,
         to: navigator.context,

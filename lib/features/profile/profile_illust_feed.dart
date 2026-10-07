@@ -100,10 +100,6 @@ class ProfileIllustFeed extends ConsumerWidget {
                       title: query.isEmpty
                           ? context.l10n.profileItemsEmpty
                           : context.l10n.bookmarkTagFilterEmpty,
-                      retryLabel: context.l10n.profileRetry,
-                      onRefresh: () => ref
-                          .read(profileIllustFeedProvider(feedKey).notifier)
-                          .refresh(),
                     ),
                   )
                 else

@@ -1,4 +1,3 @@
-import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,18 +16,20 @@ import '../../l10n/context.dart';
 import 'fit_label.dart';
 import 'undo_snack_bar.dart';
 
-/// Toggles the follow of [userId] and plays the haptic of the settled
-/// outcome: select when the change lands either way, error on failure. A
-/// queued (offline) or cancelled toggle stays silent — its replay lands
-/// out of context. An unfollow offers Undo, which follows again with the
-/// old visibility.
+/// Toggles the follow of [userId]. The button flips on this frame
+/// (optimistic) with a select haptic; a failure rolls it back with an error
+/// haptic and the button reports the cause. A confirmed unfollow offers
+/// Undo, which follows again with the old visibility.
 Future<void> toggleFollowWithUndo(BuildContext context, int userId) async {
   // Read up front: the toggle may outlive the widget that started it.
   final container = ProviderScope.containerOf(context, listen: false);
   final store = container.read(followStoreProvider.notifier);
-  final before = store.entryOf(userId)?.followed ?? false;
+  AppHaptics.select();
   final removed = await container.read(followActionsProvider).toggle(userId);
-  _playFollowOutcome(store.entryOf(userId), before: before);
+  if (store.entryOf(userId)?.error != null) {
+    AppHaptics.error();
+    return;
+  }
   if (removed != null && context.mounted) {
     showUndoSnackBar(
       context,
@@ -40,22 +41,13 @@ Future<void> toggleFollowWithUndo(BuildContext context, int userId) async {
   }
 }
 
-void _playFollowOutcome(FollowEntry? after, {required bool? before}) {
-  if (after == null || after.isPending) return;
-  if (after.error != null) {
-    AppHaptics.error();
-  } else if (before == null || after.followed != before) {
-    AppHaptics.select();
-  }
-}
-
-/// Shared beta56-style follow button for profile/user-preview surfaces.
-///
-/// The confirmed icon/text is deliberately unchanged while the request is in
-/// flight. The canonical [FollowStore] owns rollback and cross-page updates.
 /// Horizontal padding around the follow button's label.
 const _labelPadding = FuncSpacing.md;
 
+/// Shared beta56-style follow button for profile/user-preview surfaces.
+///
+/// It shows the user's wish at once ([FollowEntry.shown]); the canonical
+/// [FollowStore] owns rollback and cross-page updates.
 class FollowSwitchButton extends ConsumerWidget {
   const FollowSwitchButton({
     super.key,
@@ -89,8 +81,8 @@ class FollowSwitchButton extends ConsumerWidget {
     final entry = ref.watch(
       followStoreProvider.select((state) => state[userId]),
     );
-    final followed = entry?.followed ?? false;
-    final pending = entry?.isPending ?? false;
+    final followed = entry?.shown ?? false;
+    final unsettled = entry?.isUnsettled ?? false;
     final colors = Theme.of(context).colorScheme;
     final semanticLabel = _text(context, followed ? 'followed' : 'follow');
     ref.listen<Object?>(
@@ -112,21 +104,10 @@ class FollowSwitchButton extends ConsumerWidget {
     // capped at half the row); only then does the label scale down, to
     // LabelFit.minScale, and past that ellipsize.
     final minSize = compact ? const Size(96, 36) : const Size(116, 42);
-    if (pending) {
-      // The spinner stays at the minimum size instead of tracking the
-      // label's width, so entering the pending state never wobbles.
-      return SizedBox.fromSize(
-        size: minSize,
-        child: Semantics(
-          container: true,
-          button: true,
-          enabled: false,
-          label: semanticLabel,
-          liveRegion: true,
-          child: const Center(child: CupertinoActivityIndicator()),
-        ),
-      );
-    }
+    // The sheet acts on a settled state only.
+    final onLongPress = unsettled
+        ? null
+        : () => _showActionsSheet(context, ref);
     final labelStyle = Theme.of(
       context,
     ).textTheme.labelLarge!.copyWith(fontWeight: FontWeight.w600);
@@ -143,7 +124,7 @@ class FollowSwitchButton extends ConsumerWidget {
             toggled: followed,
             label: semanticLabel,
             onTap: () => toggleFollowWithUndo(context, userId),
-            onLongPress: () => _showActionsSheet(context, ref),
+            onLongPress: onLongPress,
             child: ExcludeSemantics(
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
@@ -166,7 +147,7 @@ class FollowSwitchButton extends ConsumerWidget {
                   enableFeedback: false,
                 ),
                 onPressed: () => toggleFollowWithUndo(context, userId),
-                onLongPress: () => _showActionsSheet(context, ref),
+                onLongPress: onLongPress,
                 // Drawn in the button's text style, measured in the same.
                 child: FitLabel(
                   semanticLabel,
@@ -214,10 +195,11 @@ Future<void> showFollowActionsSheet(
     case _FollowSheetAction.unfollow:
       // The entry may have changed while the sheet was open; a toggle on
       // an unfollowed user would follow instead.
-      if (store.entryOf(userId)?.followed ?? false) {
+      if (store.entryOf(userId)?.shown ?? false) {
         await toggleFollowWithUndo(context, userId);
       }
     case _FollowSheetAction.followPublic || _FollowSheetAction.followPrivate:
+      AppHaptics.select();
       await ref
           .read(followActionsProvider)
           .addWithRestrict(
@@ -226,9 +208,7 @@ Future<void> showFollowActionsSheet(
                 ? FollowRestrict.private
                 : FollowRestrict.public,
           );
-      // A visibility change on an existing follow lands without flipping
-      // it, so any settled success counts.
-      _playFollowOutcome(store.entryOf(userId), before: null);
+      if (store.entryOf(userId)?.error != null) AppHaptics.error();
   }
 }
 
@@ -250,7 +230,7 @@ class _FollowActionsSheet extends ConsumerWidget {
     final entry = ref.watch(
       followStoreProvider.select((state) => state[userId]),
     );
-    final followed = entry?.followed ?? false;
+    final followed = entry?.shown ?? false;
     final restrict = entry?.restrict;
     final colors = Theme.of(context).colorScheme;
     final tokens = FuncSemanticTokens.of(context);

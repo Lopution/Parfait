@@ -15,7 +15,9 @@ import 'package:parfait/core/profile/profile_edit_store_bridge.dart';
 import 'package:parfait/core/profile/profile_image.dart';
 import 'package:parfait/core/reverse_image/image_input.dart';
 import 'package:parfait/core/reverse_image/reverse_image_platform.dart';
+import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/user/user_entity.dart';
+import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/core/user/user_store.dart';
 import 'package:parfait/app/layout/content_widths.dart';
 import 'package:parfait/app/person_avatar.dart';
@@ -873,6 +875,57 @@ void main() {
     expect(find.text('Display name'), findsOneWidget);
     expect(find.byType(TextFormField), findsWidgets);
   });
+
+  testWidgets('a failed load offers a retry that loads the form', (
+    tester,
+  ) async {
+    final users = _FlakyUserRepository(_user());
+    final container = ProviderContainer(
+      overrides: [
+        ...accountProviderOverrides(
+          credentialStore: FakeCredentialStore(
+            values: const {
+              '42': Credential(accessToken: 'a', refreshToken: 'r'),
+            },
+          ),
+          metadataRepository: FakeAccountMetadataRepository(
+            accounts: const [Account(id: '42', userId: 42, name: 'tester')],
+            currentId: '42',
+          ),
+        ),
+        userRepositoryProvider.overrideWithValue(users),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en', 'US'),
+          home: ProfileEditPage(
+            userId: 42,
+            repository: _FakeRepository(
+              capabilities: ProfileCapabilities(
+                editableFields: ProfileField.values,
+                channel: ProfileEditChannel.appApi,
+              ),
+              outcome: ProfileEditConfirmed(_user()),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Failed to load profile'), findsOneWidget);
+
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(users.calls, 2);
+    expect(find.text('Display name'), findsOneWidget);
+  });
 }
 
 /// Host page that pushes [ProfileEditPage], so the back affordance has a
@@ -1011,3 +1064,21 @@ List<int> _pngHeader(int width, int height) => [
   (height >> 8) & 0xff,
   height & 0xff,
 ];
+
+/// Fails the first detail fetch like a dropped connection, then answers.
+class _FlakyUserRepository implements UserRepository {
+  _FlakyUserRepository(this.user);
+
+  final UserEntity user;
+  var calls = 0;
+
+  @override
+  Future<UserEntity> fetchDetail(int userId, {CancelToken? cancelToken}) async {
+    calls++;
+    if (calls == 1) throw const ApiNetworkError('connection reset');
+    return user;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}

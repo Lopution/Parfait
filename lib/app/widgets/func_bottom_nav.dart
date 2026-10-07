@@ -627,6 +627,12 @@ class _BranchRootScaffoldState extends ConsumerState<BranchRootScaffold>
     if (observer != null && route != null) observer.unsubscribe(this);
   }
 
+  /// Fires once on subscribe. A branch stack built in one go — a deep-link
+  /// cold start, state restoration — already has routes above the root
+  /// then, and no didPushNext ever follows.
+  @override
+  void didPush() => _recheckCovered();
+
   @override
   void didPushNext() => _recheckCovered();
 

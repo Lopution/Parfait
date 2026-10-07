@@ -127,7 +127,9 @@ void main() {
 
       final entry = world.container.read(bookmarkStoreProvider)[_illustKey]!;
       expect(entry.isPending, isTrue);
+      expect(entry.isQueued, isTrue);
       expect(entry.bookmarked, isFalse, reason: 'confirmed value unchanged');
+      expect(entry.shown, isTrue, reason: 'the wish stays shown');
       expect(entry.error, isNull);
 
       final rows = await world.store.listFor('100');
@@ -136,6 +138,26 @@ void main() {
       expect(rows.single.dedupeKey, 'bookmark:illust:42');
     },
   );
+
+  test('a tap on a queued bookmark takes the intent back', () async {
+    final world = await _makeWorld();
+    addTearDown(world.container.dispose);
+    world.fixture.failures['illust'] = http.ClientException('offline');
+    final actions = world.container.read(bookmarkActionsProvider);
+
+    await actions.toggle(_illustKey);
+    await actions.toggle(_illustKey);
+
+    final entry = world.container.read(bookmarkStoreProvider)[_illustKey]!;
+    expect(entry.shown, isFalse);
+    expect(entry.isPending, isFalse);
+    expect(entry.error, isNull);
+    expect(await world.store.listFor('100'), isEmpty);
+
+    world.fixture.failures.remove('illust');
+    await world.container.read(actionQueueProvider).drain('100');
+    expect(world.fixture.requests, hasLength(1), reason: 'nothing replays');
+  });
 
   test('business rejection fails visibly without queueing', () async {
     final world = await _makeWorld();

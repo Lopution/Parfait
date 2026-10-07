@@ -217,7 +217,13 @@ void main() {
     expect(rank.top, greaterThanOrEqualTo(image.bottom));
     expect(rank.right, lessThan(title.left));
     expect(rank.bottom, moreOrLessEquals(title.bottom, epsilon: 2));
-    expect(find.bySemanticsLabel('第 7 名, illust 2'), findsOneWidget);
+    // The rank opens the card's one label; the title line is not read
+    // again on its own.
+    expect(
+      find.bySemanticsLabel(RegExp(r'^第 7 名, illust 2, ')),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel('illust 2'), findsNothing);
   });
 
   testWidgets('the loading placeholder reads the container surface tier', (

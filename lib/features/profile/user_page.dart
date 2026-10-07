@@ -45,13 +45,21 @@ class UserPage extends ConsumerStatefulWidget {
   const UserPage({super.key, int? id, int? userId, this.onEditProfile})
     : userId = userId ?? id ?? 0,
       isMe = false,
+      initialTab = null,
       assert(userId != null || id != null);
 
-  const UserPage._me({required this.userId, this.onEditProfile}) : isMe = true;
+  const UserPage._me({
+    required this.userId,
+    this.onEditProfile,
+    this.initialTab,
+  }) : isMe = true;
 
   final int userId;
   final bool isMe;
   final VoidCallback? onEditProfile;
+
+  /// Own profile only: the tab to open on instead of the first.
+  final MeTab? initialTab;
 
   @override
   ConsumerState<UserPage> createState() => _UserPageState();
@@ -60,9 +68,12 @@ class UserPage extends ConsumerStatefulWidget {
 /// Current-account profile. The account id is resolved at build time so an
 /// account switch cannot leave a stale UserPage mounted for the old account.
 class MePage extends ConsumerWidget {
-  const MePage({super.key, this.onEditProfile});
+  const MePage({super.key, this.onEditProfile, this.initialTab});
 
   final VoidCallback? onEditProfile;
+
+  /// The tab to open on; null opens the first (bookmarks).
+  final MeTab? initialTab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -94,6 +105,7 @@ class MePage extends ConsumerWidget {
         }
         return UserPage._me(
           userId: account.userId,
+          initialTab: initialTab,
           onEditProfile:
               onEditProfile ?? () => openProfileEdit(context, account.userId),
         );
@@ -191,7 +203,13 @@ class _UserPageState extends ConsumerState<UserPage>
   TabController _syncTabs(List<_ProfileTab> tabs) {
     final current = _tabController;
     if (current != null && listEquals(tabs, _tabs)) return current;
-    final kept = _selectedTab;
+    final kept =
+        _selectedTab ??
+        switch (widget.initialTab) {
+          MeTab.bookmarks => _ProfileTab.bookmarks,
+          MeTab.following => _ProfileTab.following,
+          null => null,
+        };
     final index = kept == null ? 0 : math.max(0, tabs.indexOf(kept));
     if (current != null) {
       current.removeListener(_onTabChanged);
@@ -539,7 +557,7 @@ class _UserPageState extends ConsumerState<UserPage>
     final followed = widget.isMe
         ? user.isFollowed ?? false
         : ref.watch(
-                followStoreProvider.select((state) => state[user.id]?.followed),
+                followStoreProvider.select((state) => state[user.id]?.shown),
               ) ??
               user.isFollowed ??
               false;

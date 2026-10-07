@@ -140,6 +140,10 @@ void main() {
             path: '/login',
             builder: (_, _) => const Scaffold(body: Text('LOGIN-MARKER')),
           ),
+          GoRoute(
+            path: '/user-agreement',
+            builder: (_, _) => const UserAgreementPage(),
+          ),
         ],
       );
     }
@@ -174,6 +178,25 @@ void main() {
       await tester.pumpAndSettle();
       return r;
     }
+
+    testWidgets('an agreement opened on its own still leads back to login', (
+      tester,
+    ) async {
+      for (final viaSystemBack in [false, true]) {
+        final r = await pumpFlow(tester, initialLocation: '/user-agreement');
+        expect(find.byType(BackButtonIcon), findsOneWidget);
+
+        if (viaSystemBack) {
+          await tester.binding.handlePopRoute();
+        } else {
+          await tester.tap(find.byType(BackButtonIcon));
+        }
+        await tester.pumpAndSettle();
+
+        expect(find.text('LOGIN-MARKER'), findsOneWidget);
+        expect(r.state.uri.path, '/login');
+      }
+    });
 
     testWidgets('welcome start pushes the language page', (tester) async {
       final r = await pumpFlow(tester);
@@ -279,9 +302,9 @@ void main() {
       // Shrinking long translations below 0.8 is not allowed; the full-size
       // lines wrap (real-width coverage lives in the locale layout matrix).
       expect(find.byType(FittedBox), findsNothing);
-      final line = tester.widget<Text>(find.text('感谢使用Parfait'));
+      final line = tester.widget<Text>(find.text('感谢使用 Parfait'));
       expect(line.maxLines, isNull);
-      final theme = Theme.of(tester.element(find.text('感谢使用Parfait')));
+      final theme = Theme.of(tester.element(find.text('感谢使用 Parfait')));
       expect(line.style, theme.textTheme.headlineMedium);
     });
 

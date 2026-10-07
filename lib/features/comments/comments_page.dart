@@ -10,7 +10,6 @@ import '../../app/navigation/routes.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/pull_to_refresh.dart';
-import '../../app/widgets/replica_empty_state.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../core/comments/comment_actions.dart';
 import '../../core/comments/comment_feed_controller.dart';
@@ -385,10 +384,10 @@ class _CommentFeedView extends ConsumerWidget {
         }
         if (comments.isEmpty && feed.isEmptyAndReady) {
           return _withHeader(
-            ReplicaEmptyState(
-              message: context.l10n.commentNoResults,
-              retryLabel: context.l10n.retry,
-              onRetry: () =>
+            FeedEmpty(
+              title: context.l10n.commentNoResults,
+              retryLabel: context.l10n.refresh,
+              onRefresh: () =>
                   ref.read(commentFeedProvider(query).notifier).refresh(),
               icon: Icons.comment_outlined,
             ),

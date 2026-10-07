@@ -33,10 +33,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get light => 'Light';
 
   @override
-  String get system => 'Follow the System';
+  String get system => 'System default';
 
   @override
-  String get loginTitle => 'Register or Login';
+  String get loginTitle => 'Register or log in';
 
   @override
   String get loginProxyNoticeTitle => 'Notice';
@@ -95,7 +95,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'When on, official Pixiv domains are reached through whichever works of direct connections and compatibility connections (encrypted DNS, ECH, no SNI), and the method that succeeded is remembered. The last compatibility tier does not verify certificates; turn this off to use direct connections only. Other traffic is never proxied.';
 
   @override
-  String get useLoginWithClipboard => 'Login with clipboard data';
+  String get useLoginWithClipboard => 'Log in with clipboard data';
 
   @override
   String get accountTransferExportTitle => 'Export account credential';
@@ -152,10 +152,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'The account-transfer record could not be stored safely';
 
   @override
-  String get loginAgree => 'By logging in you agree';
+  String get loginAgree => 'By logging in, you agree to the';
 
   @override
-  String get userAgreement => '《Parfait User Agreement》';
+  String get userAgreement => 'Parfait User Agreement';
 
   @override
   String get agreementTitle => 'Parfait User Agreement';
@@ -226,6 +226,19 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get agreementUpdates =>
       'This agreement may change as features or laws change; continuing to use the app after a change means you accept the updated agreement.';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsSearchHint => 'Search settings';
+
+  @override
+  String get settingsSearchEmpty => 'No matching settings';
+
+  @override
+  String get settingsEntrySummary =>
+      'Appearance, browsing, network, downloads, backup';
 
   @override
   String get settingsGroupAppearance => 'Appearance';
@@ -1593,6 +1606,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String labelValue(String label, String value) {
+    return '$label: $value';
+  }
+
+  @override
   String get rankingDay => 'Daily';
 
   @override
@@ -2568,6 +2586,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get watchlistRemove => 'Unfollow series';
+
+  @override
+  String get watchlistFailed => 'Series follow action failed';
 
   @override
   String get watchlistNewContent => 'New';

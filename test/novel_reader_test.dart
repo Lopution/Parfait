@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/widgets/feed/feed_states.dart';
@@ -272,15 +273,17 @@ void main() {
   ) async {
     final engine = _CountingLayoutEngine();
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-        home: Scaffold(
-          body: NovelReader(
-            novel: _novel('reader ' * 400),
-            layoutEngine: engine,
-            budget: const NovelLayoutBudget(maxTextUnits: 2),
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: Scaffold(
+            body: NovelReader(
+              novel: _novel('reader ' * 400),
+              layoutEngine: engine,
+              budget: const NovelLayoutBudget(maxTextUnits: 2),
+            ),
           ),
         ),
       ),
@@ -294,7 +297,7 @@ void main() {
     expect(find.byType(PageView), findsNothing);
     expect(engine.calls, 1);
 
-    await tester.tap(find.byType(FilledButton));
+    await tester.tap(find.text('重试'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -309,15 +312,17 @@ void main() {
   ) async {
     final handle = NovelReaderHandle();
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-        home: Scaffold(
-          body: NovelReader(
-            novel: _novel('reader ' * 400),
-            handle: handle,
-            budget: const NovelLayoutBudget(maxTextUnits: 2),
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: Scaffold(
+            body: NovelReader(
+              novel: _novel('reader ' * 400),
+              handle: handle,
+              budget: const NovelLayoutBudget(maxTextUnits: 2),
+            ),
           ),
         ),
       ),

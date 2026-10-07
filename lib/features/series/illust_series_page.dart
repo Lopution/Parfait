@@ -112,10 +112,6 @@ class IllustSeriesPage extends ConsumerWidget {
                         child: FeedEmpty(
                           icon: Icons.collections_bookmark_outlined,
                           title: context.l10n.seriesEmpty,
-                          retryLabel: context.l10n.retry,
-                          onRefresh: () => ref
-                              .read(illustSeriesFeedProvider(seriesId).notifier)
-                              .refresh(),
                         ),
                       )
                     else

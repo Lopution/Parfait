@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'haptics/app_haptics.dart';
+import 'motion/motion_tokens.dart';
 
 /// The shared pull-to-refresh wrapper used by feed pages.
 ///
@@ -11,21 +14,99 @@ import 'haptics/app_haptics.dart';
 /// the list scrolls; without clamping the indicator retracts with the
 /// reverse gesture first, then the list starts moving — the expected
 /// pull-to-refresh behaviour.
-class PullToRefresh extends StatelessWidget {
+class PullToRefresh extends StatefulWidget {
   const PullToRefresh({
     super.key,
     required this.onRefresh,
     required this.child,
     this.isNested = false,
+    this.scrollController,
   });
 
   final RefreshCallback onRefresh;
   final Widget child;
   final bool isNested;
 
+  /// The controller of the list this wraps. Given, [PullToRefresh.trigger]
+  /// can refresh that list as if the user had pulled it.
+  final ScrollController? scrollController;
+
+  /// Shows the indicator and refreshes the list [controller] scrolls, as a
+  /// release past the trigger would — the bottom-bar re-tap on a list
+  /// already at the top (HCI 10). False when no mounted [PullToRefresh]
+  /// was given [controller].
+  static bool trigger(ScrollController controller) {
+    final state = _mounted[controller];
+    if (state == null) return false;
+    final duration = MotionTokens.resolve(state.context, MotionTokens.fast);
+    unawaited(
+      state._controller.callRefresh(
+        // The overscroll a release would leave: just past the trigger.
+        overOffset: _callRefreshOverOffset,
+        // Null jumps there: reduced motion.
+        duration: duration == Duration.zero ? null : duration,
+        curve: MotionTokens.fastCurve,
+      ),
+    );
+    return true;
+  }
+
+  /// Mounted wrappers by the controller of the list they wrap.
+  static final _mounted = Expando<_PullToRefreshState>();
+
+  @override
+  State<PullToRefresh> createState() => _PullToRefreshState();
+}
+
+const _triggerOffset = 100.0;
+const _callRefreshOverOffset = 20.0;
+
+class _PullToRefreshState extends State<PullToRefresh> {
+  final _controller = EasyRefreshController();
+
+  @override
+  void initState() {
+    super.initState();
+    _register(widget.scrollController);
+  }
+
+  @override
+  void didUpdateWidget(PullToRefresh oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollController != widget.scrollController) {
+      _unregister(oldWidget.scrollController);
+      _register(widget.scrollController);
+    }
+  }
+
+  @override
+  void dispose() {
+    _unregister(widget.scrollController);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _register(ScrollController? scrollController) {
+    if (scrollController != null) {
+      PullToRefresh._mounted[scrollController] = this;
+    }
+  }
+
+  void _unregister(ScrollController? scrollController) {
+    if (scrollController != null &&
+        identical(PullToRefresh._mounted[scrollController], this)) {
+      PullToRefresh._mounted[scrollController] = null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isNested = widget.isNested;
     final colors = Theme.of(context).colorScheme;
+    final indicatorExit = MotionTokens.resolve(
+      context,
+      MotionTokens.refreshIndicatorExit,
+    );
     return EasyRefresh(
       header: BuilderHeader(
         // Keep EasyRefresh's 100dp arm threshold, but do not expose the
@@ -34,12 +115,16 @@ class PullToRefresh extends StatelessWidget {
         // tiny finger adjustment look like a refresh affordance. The icon
         // now fades in only after a deliberate pull while the underlying
         // trigger/retract state remains owned by EasyRefresh.
-        triggerOffset: 100,
+        triggerOffset: _triggerOffset,
         clamping: false,
         position: isNested
             ? IndicatorPosition.locator
             : IndicatorPosition.above,
         safeArea: !isNested,
+        // This header owns the lifecycle; MaterialHeader below only paints.
+        // Its default 1s hold would keep the list pulled down over an empty
+        // gap long after the 200ms indicator exit — match the painter.
+        processedDuration: indicatorExit,
         builder: (context, state) {
           final revealStart = 36.0;
           final revealRange = 20.0;
@@ -58,7 +143,8 @@ class PullToRefresh extends StatelessWidget {
             child: Opacity(
               opacity: terminal,
               child: MaterialHeader(
-                triggerOffset: 100,
+                processedDuration: indicatorExit,
+                triggerOffset: _triggerOffset,
                 clamping: false,
                 position: isNested
                     ? IndicatorPosition.locator
@@ -71,9 +157,11 @@ class PullToRefresh extends StatelessWidget {
           );
         },
       ),
-      onRefresh: onRefresh,
+      controller: _controller,
+      scrollController: widget.scrollController,
+      onRefresh: widget.onRefresh,
       isNested: isNested,
-      child: child,
+      child: widget.child,
     );
   }
 }

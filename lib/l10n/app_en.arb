@@ -8,8 +8,8 @@
   "next": "Next",
   "dark": "Dark",
   "light": "Light",
-  "system": "Follow the System",
-  "loginTitle": "Register or Login",
+  "system": "System default",
+  "loginTitle": "Register or log in",
   "loginProxyNoticeTitle": "Notice",
   "loginProxyNoticeBody": "Because of network restrictions, turn on a system or external proxy before logging in or registering. Parfait does not include a built-in proxy.",
   "loginProxyNoticeCancel": "Cancel",
@@ -34,7 +34,7 @@
   "loginFailed": "Login failed",
   "networkCompatibility": "Pixiv official network compatibility",
   "networkCompatibilityHint": "When on, official Pixiv domains are reached through whichever works of direct connections and compatibility connections (encrypted DNS, ECH, no SNI), and the method that succeeded is remembered. The last compatibility tier does not verify certificates; turn this off to use direct connections only. Other traffic is never proxied.",
-  "useLoginWithClipboard": "Login with clipboard data",
+  "useLoginWithClipboard": "Log in with clipboard data",
   "accountTransferExportTitle": "Export account credential",
   "accountTransferWarning": "The clipboard is kept briefly and may be read by other apps; this format provides neither encryption nor sender authentication.",
   "loginClipboardHint": "On a signed-in device, open Me → Accounts → Export account credential to copy it, then come back here to import.",
@@ -49,8 +49,8 @@
   "accountTransferCredentialUnavailable": "The current credential is unavailable; log in again",
   "accountTransferClipboardUnavailable": "The clipboard is unavailable",
   "accountTransferStorageFailure": "The account-transfer record could not be stored safely",
-  "loginAgree": "By logging in you agree",
-  "userAgreement": "《Parfait User Agreement》",
+  "loginAgree": "By logging in, you agree to the",
+  "userAgreement": "Parfait User Agreement",
   "agreementTitle": "Parfait User Agreement",
   "agreementIntro": "Thank you for using Parfait. By using this app, you confirm that you have read and agree to these terms. Stop using the app if you do not agree.",
   "agreementServiceTitle": "About the service",
@@ -71,6 +71,10 @@
   "agreementDisclaimerBody": "The app is provided as is, without any guarantee that it is error-free or will stay available. To the extent permitted by law, the author is not liable for lost content, failed access or other losses caused by the network, accounts, third-party services or force majeure.",
   "agreementUpdatesTitle": "Changes to this agreement",
   "agreementUpdates": "This agreement may change as features or laws change; continuing to use the app after a change means you accept the updated agreement.",
+  "settingsTitle": "Settings",
+  "settingsSearchHint": "Search settings",
+  "settingsSearchEmpty": "No matching settings",
+  "settingsEntrySummary": "Appearance, browsing, network, downloads, backup",
   "settingsGroupAppearance": "Appearance",
   "settingsGroupNetwork": "Network & downloads",
   "settingsGroupBrowse": "Browsing",
@@ -674,6 +678,18 @@
       }
     }
   },
+  "labelValue": "{label}: {value}",
+  "@labelValue": {
+    "description": "A labelled value in running text, e.g. a setting and its current value.",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      }
+    }
+  },
   "rankingDay": "Daily",
   "rankingDayR18": "Daily (R-18)",
   "rankingDayMale": "Daily (Male favorite)",
@@ -1029,6 +1045,7 @@
   "watchlistLoadMoreFailed": "Failed to load more",
   "watchlistAdd": "Follow series",
   "watchlistRemove": "Unfollow series",
+  "watchlistFailed": "Series follow action failed",
   "watchlistNewContent": "New",
   "localNovelsTitle": "Local novels",
   "localNovelsEmpty": "No imported local novels yet",

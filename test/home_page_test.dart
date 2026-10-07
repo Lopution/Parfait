@@ -116,7 +116,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      const message = '发现新版本: 9.9.9';
+      const message = '发现新版本：9.9.9';
       expect(find.text(message), findsOneWidget);
       // The bar anchors the prompt: the card rests fully above it.
       final card = tester.getRect(promptCard(message));

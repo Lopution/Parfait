@@ -30,6 +30,9 @@ import 'package:parfait/core/network/compat/pixiv_network_factory.dart'
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/naming_rule.dart';
+import 'package:parfait/core/download/download_manager.dart';
+import 'package:parfait/core/download/download_providers.dart';
+import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/settings/app_settings.dart';
@@ -43,6 +46,7 @@ import 'package:parfait/features/login/login_page.dart';
 import 'package:parfait/features/settings/network_settings_page.dart';
 import 'package:parfait/features/settings/saf_tree_name.dart';
 import 'package:parfait/features/settings/settings_page.dart';
+import 'package:parfait/features/settings/me_dashboard_page.dart';
 import 'package:parfait/features/profile/user_page.dart' as profile;
 import 'package:parfait/app/widgets/settings/settings_choice_tile.dart';
 import 'package:parfait/app/widgets/settings/settings_control.dart';
@@ -57,6 +61,7 @@ import 'package:parfait/l10n/lookup.dart';
 import 'package:parfait/l10n/app_localizations_zh.dart';
 import 'package:parfait/app/motion/removal.dart';
 
+import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/image_network.dart';
 import 'helpers/settings_world.dart';
@@ -1094,7 +1099,7 @@ void main() {
         ))
           (tile.title as Text).data,
       ];
-      expect(titles, ['跟随系统', '明亮', '黑暗']);
+      expect(titles, ['跟随系统', '浅色', '深色']);
     });
 
     testWidgets('a system palette enables the switch and it persists', (
@@ -1177,44 +1182,42 @@ void main() {
       name: 'tester',
       mailAddress: 'private@example.invalid',
     );
-    await tester.pumpWidget(
-      const MaterialApp(
-        builder: promptHostBuilder,
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
-        home: Scaffold(body: AccountSummaryTile(account: account)),
-      ),
-    );
-    expect(find.text('账号 ID: 42'), findsOneWidget);
-    expect(find.text('private@example.invalid'), findsNothing);
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          settingsRepositoryProvider.overrideWithValue(
-            FakeSettingsRepository(baseTestSettings()),
-          ),
-          accountMetadataRepositoryProvider.overrideWithValue(
-            FakeAccountMetadataRepository(
-              accounts: const [account],
-              currentId: account.id,
+    for (final page in const [MeDashboardPage(), AccountSettingsPage()]) {
+      await tester.pumpWidget(
+        ProviderScope(
+          // A fresh scope per page.
+          key: ValueKey(page),
+          overrides: [
+            settingsRepositoryProvider.overrideWithValue(
+              FakeSettingsRepository(baseTestSettings()),
             ),
+            accountMetadataRepositoryProvider.overrideWithValue(
+              FakeAccountMetadataRepository(
+                accounts: const [account],
+                currentId: account.id,
+              ),
+            ),
+            credentialStoreProvider.overrideWithValue(
+              FakeCredentialStore(
+                values: const {
+                  '42': Credential(accessToken: 'a', refreshToken: 'r'),
+                },
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            builder: promptHostBuilder,
+            localizationsDelegates: appLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('zh', 'CN'),
+            home: page,
           ),
-          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
-        ],
-        child: const MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: AccountSettingsPage(),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('账号 ID: 42'), findsOneWidget);
-    expect(find.text('private@example.invalid'), findsNothing);
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('账号 ID：42'), findsOneWidget, reason: '$page');
+      expect(find.text('private@example.invalid'), findsNothing);
+    }
   });
 
   testWidgets(
@@ -1306,62 +1309,11 @@ void main() {
     },
   );
 
-  testWidgets('settings home shows the Me tab groups and order', (
+  testWidgets('the settings page lists the preference groups in order', (
     tester,
   ) async {
-    final repository = FakeSettingsRepository(baseTestSettings());
     // Tall surface so every lazily-built row exists for the text asserts.
     tester.view.physicalSize = const Size(800, 6400);
-    addTearDown(tester.view.resetPhysicalSize);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          settingsRepositoryProvider.overrideWithValue(repository),
-          accountMetadataRepositoryProvider.overrideWithValue(
-            FakeAccountMetadataRepository(),
-          ),
-          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
-        ],
-        child: const MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-
-          home: SettingsPage(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('我的'), findsOneWidget);
-    expect(find.text('账号管理'), findsOneWidget);
-    expect(find.text('主题'), findsOneWidget);
-    expect(find.text('浏览设置'), findsOneWidget);
-    // Hub layout: intent groups carry labeled section headers.
-    expect(find.text('账号'), findsOneWidget);
-    expect(find.text('外观'), findsOneWidget);
-    expect(find.text('浏览'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('数据'),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pump();
-    expect(find.text('我的内容', skipOffstage: false), findsOneWidget);
-    expect(find.text('历史记录', skipOffstage: false), findsOneWidget);
-    expect(find.text('网络与下载'), findsOneWidget);
-    expect(find.text('数据'), findsOneWidget);
-    expect(find.text('下载任务'), findsOneWidget);
-    expect(find.text('动效与触感', skipOffstage: false), findsOneWidget);
-    expect(find.text('关于'), findsOneWidget);
-    expect(find.text('新作'), findsNothing);
-  });
-
-  testWidgets('settings home opens with the account card alone', (
-    tester,
-  ) async {
-    // Tall surface so every lazily-built row exists for position asserts.
-    tester.view.physicalSize = const Size(800, 4800);
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(
       ProviderScope(
@@ -1385,43 +1337,137 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final groups = tester
-        .widgetList<SettingsGroup>(find.byType(SettingsGroup))
-        .toList();
-    final first = find.byWidget(groups.first);
-    // The account card is the whole first (untitled) group; account
-    // management got its own 账号 group further down.
-    expect(
-      find.descendant(of: first, matching: find.byType(AccountSummaryTile)),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: first, matching: find.byType(SettingsTile)),
-      findsNothing,
-    );
-
-    // Content destinations lead the page, then account, then preferences.
+    expect(find.text('设置'), findsOneWidget);
+    expect(find.text('搜索设置'), findsOneWidget);
+    for (final row in ['账号管理', '主题', '浏览设置', '动效与触感', '关于']) {
+      expect(find.text(row), findsOneWidget, reason: row);
+    }
+    // The content entries moved to the dashboard.
+    for (final gone in ['我的内容', '历史记录', '下载任务']) {
+      expect(find.text(gone), findsNothing, reason: gone);
+    }
     double dyOf(String text) => tester.getCenter(find.text(text)).dy;
-    expect(dyOf('我的内容'), lessThan(dyOf('账号')));
-    expect(dyOf('账号'), lessThan(dyOf('外观')));
-    expect(dyOf('外观'), lessThan(dyOf('浏览')));
-    expect(dyOf('浏览'), lessThan(dyOf('网络与下载')));
-    expect(dyOf('网络与下载'), lessThan(dyOf('数据')));
-
-    // Every group heading is a semantics header — the labelled groups use
-    // SettingsGroup titles now, not styled plain text.
-    for (final title in ['我的内容', '账号', '外观', '浏览', '网络与下载', '数据']) {
-      await tester.scrollUntilVisible(
-        find.text(title),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pump();
+    const order = ['账号', '外观', '浏览', '网络与下载', '数据'];
+    for (var i = 1; i < order.length; i++) {
+      expect(dyOf(order[i - 1]), lessThan(dyOf(order[i])));
+    }
+    // Every group heading is a semantics header.
+    for (final title in order) {
       expect(
         tester.getSemantics(find.text(title)),
         isSemantics(isHeader: true),
       );
     }
+  });
+
+  testWidgets('the me dashboard: account, then content, then settings', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(
+            FakeSettingsRepository(baseTestSettings()),
+          ),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            FakeAccountMetadataRepository(),
+          ),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+        ],
+        child: const MaterialApp(
+          builder: promptHostBuilder,
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: MeDashboardPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    double dyOf(String text) => tester.getCenter(find.text(text)).dy;
+    expect(find.text('我的'), findsOneWidget);
+    expect(dyOf('未登录'), lessThan(dyOf('我的内容')));
+    expect(dyOf('我的内容'), lessThan(dyOf('设置')));
+    // Bookmarks and following are one tap from here, with the rest of
+    // the user's own content.
+    for (final entry in ['收藏', '关注', '追更', '下载任务', '历史记录', '稍后再看', '本地小说']) {
+      expect(find.text(entry), findsOneWidget, reason: entry);
+    }
+    // Four to a row on a phone.
+    expect(dyOf('收藏'), dyOf('下载任务'));
+    expect(dyOf('历史记录'), greaterThan(dyOf('收藏')));
+    expect(find.byTooltip('切换账号'), findsOneWidget);
+  });
+
+  testWidgets('the dashboard badge counts downloads as they start and end', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final gate = Completer<void>();
+    final manager = DownloadManager(
+      transport: FakeTransport()
+        ..responses.add(
+          ScriptedResponse(
+            contentLength: 1,
+            chunks: [
+              [1],
+            ],
+            completers: [gate],
+          ),
+        ),
+      sinkFactory: MemorySinkFactory(),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(
+            FakeSettingsRepository(baseTestSettings()),
+          ),
+          accountMetadataRepositoryProvider.overrideWithValue(
+            FakeAccountMetadataRepository(),
+          ),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+          downloadManagerProvider.overrideWithValue(manager),
+        ],
+        child: const MaterialApp(
+          builder: promptHostBuilder,
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('zh', 'CN'),
+          home: MeDashboardPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+    Badge downloadsBadge() => tester.widget<Badge>(
+      find.ancestor(
+        of: find.byIcon(Icons.downloading_outlined),
+        matching: find.byType(Badge),
+      ),
+    );
+    expect(downloadsBadge().isLabelVisible, isFalse);
+
+    manager.submit(downloadRequest(1));
+    await pumpUntil(tester, () => downloadsBadge().isLabelVisible);
+    expect(downloadsBadge().isLabelVisible, isTrue);
+    expect(
+      find.descendant(
+        of: find.byWidget(downloadsBadge()),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
+
+    gate.complete();
+    await pumpUntil(tester, () => !downloadsBadge().isLabelVisible);
+    expect(downloadsBadge().isLabelVisible, isFalse);
+    await manager.dispose();
   });
 
   testWidgets('backup page renders its hint below the action rows', (
@@ -1457,15 +1503,8 @@ void main() {
         ),
       );
     }
-    expect(
-      tester.getSemantics(
-        find.descendant(
-          of: find.byType(SettingsGroup),
-          matching: find.text('备份与导入'),
-        ),
-      ),
-      isSemantics(isHeader: true),
-    );
+    // The page title names the only group; it is not repeated above it.
+    expect(find.text('备份与导入'), findsOneWidget);
   });
 
   testWidgets('settings home shows current-value summaries', (tester) async {
@@ -1501,20 +1540,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Every configuration entry shows its current value (D- summaries):
-    // the signed-out state appears on the card and the account tile.
-    expect(find.text('未登录'), findsNWidgets(2));
+    // Every configuration entry shows its current value (D- summaries).
+    expect(find.text('未登录'), findsOneWidget);
     // translateIndex=1 → disabled; credential-less providers show the
     // provider label alone ('关闭').
     for (final summary in [
-      '明亮',
+      '浅色',
       'English',
       '关闭',
       '本地屏蔽、图片画质',
       '暂无屏蔽条目',
       '自动',
       '作品 ID（默认） · Parfait 相册（默认）',
-      '0 个活动任务',
       '导出当前设置、屏蔽列表和浏览历史；凭据不会写入文件。',
       '9.9.9+99',
     ]) {
@@ -1638,7 +1675,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     final store = FakeTranslationStore()
       ..baidu = const BaiduTranslationCredentials(appId: 'id', secret: 'sec');
-    final router = createPixivRouter(initialLocation: '/settings');
+    final router = createPixivRouter(initialLocation: '/settings/all');
     addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
@@ -2000,7 +2037,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpAndSettle();
 
-    // The single 历史记录 tile under 我的内容 opens the history view.
+    // The 历史记录 entry under 我的内容 opens the history view.
     await tester.scrollUntilVisible(
       find.text('历史记录'),
       200,
@@ -2048,9 +2085,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpAndSettle();
 
-    // The account name also renders as the account-tile summary — tap the
-    // summary tile itself, not the ambiguous text.
-    await tester.tap(find.byType(AccountSummaryTile));
+    await tester.tap(find.text('tester'));
     await tester.pumpAndSettle();
 
     expect(find.byType(profile.MePage), findsOneWidget);
@@ -2085,7 +2120,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Signed out the card used to ignore taps — it is the login entry.
-    await tester.tap(find.byType(AccountSummaryTile));
+    await tester.tap(find.text('未登录'));
     await tester.pumpAndSettle();
     expect(find.byType(LoginPage), findsOneWidget);
   });
@@ -2803,11 +2838,11 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(
-      tester.getSemantics(find.widgetWithText(ListTile, '明亮')),
+      tester.getSemantics(find.widgetWithText(ListTile, '浅色')),
       isSemantics(isSelected: true),
     );
     expect(
-      tester.getSemantics(find.widgetWithText(ListTile, '黑暗')),
+      tester.getSemantics(find.widgetWithText(ListTile, '深色')),
       isSemantics(isSelected: false),
     );
 

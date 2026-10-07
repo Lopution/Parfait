@@ -70,14 +70,14 @@ class _BookmarkTagFeedPageState extends ConsumerState<BookmarkTagFeedPage> {
               FuncSpacing.lg,
               FuncSpacing.sm,
             ),
-            child: TextField(
+            // The search page's field (L3): a filter is a search too.
+            child: SearchBar(
               controller: _filterController,
+              constraints: const BoxConstraints(minHeight: 48),
+              hintText: l10n.bookmarkTagFilterHint,
+              leading: const Icon(Icons.search),
               onChanged: (value) => setState(() => _filter = value),
               textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: l10n.bookmarkTagFilterHint,
-                prefixIcon: const Icon(Icons.search),
-              ),
             ),
           ),
         ),

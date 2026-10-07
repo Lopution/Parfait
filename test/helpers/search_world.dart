@@ -76,6 +76,9 @@ class FakeSearchRepository implements SearchRepository {
   SearchResultType? trendingTagsLastType;
   final int trendingTagCount;
 
+  /// Holds every trendingTags call until completed.
+  Completer<void>? trendingGate;
+
   @override
   Future<List<TrendingTag>> trendingTags({
     SearchResultType type = SearchResultType.illust,
@@ -83,6 +86,7 @@ class FakeSearchRepository implements SearchRepository {
   }) async {
     trendingTagsCallCount++;
     trendingTagsLastType = type;
+    await trendingGate?.future;
     final tags = <TrendingTag>[
       TrendingTag(name: '风景', representative: parseIllust(illustJson(901))),
       const TrendingTag(name: '猫'),

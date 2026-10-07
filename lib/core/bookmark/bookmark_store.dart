@@ -102,17 +102,43 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
         restrict: previous?.restrict,
         tags: previous?.tags ?? const [],
         pending: operation,
+        wish: kind == BookmarkOpKind.add,
+        confirmedRevision: previous?.confirmedRevision,
         status: MutationStatus.pending,
       ),
     };
     return operation;
   }
 
+  /// Records a tap on an unsettled [key]: the shown value follows [wish] at
+  /// once while the request in flight carries on; the actions follow up once
+  /// it settles. Between requests, a wish back to the confirmed value ends
+  /// the follow-up.
+  void want(BookmarkKey key, bool wish) {
+    final entry = state[key];
+    if (entry == null || !entry.isUnsettled) return;
+    final settled = !entry.isPending && wish == entry.bookmarked;
+    state = {...state, key: entry.copyWith(wish: wish, clearWish: settled)};
+  }
+
+  /// [operation] failed on connectivity and now waits in the offline queue.
+  void markQueued(BookmarkOp operation) {
+    final entry = state[operation.key];
+    if (entry?.pending?.envelope != operation.envelope) return;
+    state = {
+      ...state,
+      operation.key: entry!.copyWith(status: MutationStatus.queued),
+    };
+  }
+
   /// Confirms only the still-owned operation. A late result from a
   /// superseded, switched, refreshed or disposed owner cannot update state.
+  /// A wish the user made meanwhile survives when it differs from the
+  /// committed value, for the follow-up request.
   void commit(BookmarkOp operation) {
     if (!_owns(operation)) return;
     final added = operation.kind == BookmarkOpKind.add;
+    final wish = state[operation.key]?.wish;
     _ledger.finish(operation.envelope);
     state = {
       ...state,
@@ -120,6 +146,7 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
         bookmarked: added,
         restrict: added ? operation.restrict : null,
         tags: added ? operation.tags : const [],
+        wish: wish == added ? null : wish,
         confirmedRevision: operation.revision,
         status: MutationStatus.confirmed,
       ),
@@ -127,17 +154,21 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
     onConfirmed?.call(operation.key, added);
   }
 
-  /// Ends the operation with a visible failure/cancellation while retaining
-  /// the last confirmed bookmark value.
+  /// Ends the operation and rolls the shown value back to the last
+  /// confirmed one, with a visible failure — unless the user had already
+  /// tapped away from the operation's target, which makes the failure moot.
   void fail(BookmarkOp operation, Object error) {
     if (!_owns(operation)) return;
-    final cancelled = error is ApiCancelled || operation.isCancelled;
+    final previous = state[operation.key];
+    final cancelled =
+        error is ApiCancelled ||
+        operation.isCancelled ||
+        previous?.wish != (operation.kind == BookmarkOpKind.add);
     if (cancelled) {
       _ledger.discard(operation.envelope, MutationDiscardReason.cancelled);
     } else {
       _ledger.finish(operation.envelope);
     }
-    final previous = state[operation.key];
     if (previous == null || previous.pending?.envelope != operation.envelope) {
       return;
     }
@@ -234,7 +265,7 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
     final (key: _, :bookmarked, :restrict) = snapshot;
     if (bookmarked == null && restrict == null) return null;
     if (entry != null) {
-      if (entry.isPending) return null;
+      if (entry.isUnsettled) return null;
       final confirmed = entry.confirmedRevision;
       if (snapshotRevision != null &&
           confirmed != null &&
@@ -304,7 +335,7 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
     if (!settleState) return;
     final next = <BookmarkKey, BookmarkEntry>{...state};
     for (final item in next.entries) {
-      if (!item.value.isPending) continue;
+      if (!item.value.isUnsettled) continue;
       next[item.key] = BookmarkEntry(
         bookmarked: item.value.bookmarked,
         restrict: item.value.restrict,

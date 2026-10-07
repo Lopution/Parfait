@@ -569,11 +569,7 @@ class _NumberField extends StatelessWidget {
         FilteringTextInputFormatter.digitsOnly,
         LengthLimitingTextInputFormatter(_maxBoundDigits),
       ],
-      decoration: InputDecoration(
-        hintText: hint,
-        isDense: true,
-        border: const OutlineInputBorder(),
-      ),
+      decoration: InputDecoration(hintText: hint, isDense: true),
       onChanged: onChanged,
     );
   }

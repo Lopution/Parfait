@@ -163,6 +163,12 @@ void main() {
     expect(find.text('work 1'), findsNothing);
     expect(find.text('暂无浏览历史'), findsOneWidget);
     expect(find.text('历史记录'), findsOneWidget);
+    // An empty history has nothing to manage, and nothing to retry (L1).
+    expect(
+      tester.widget<TextButton>(find.widgetWithText(TextButton, '管理')).enabled,
+      isFalse,
+    );
+    expect(find.text('重试'), findsNothing);
   });
 
   testWidgets('entries use shared object contracts', (tester) async {

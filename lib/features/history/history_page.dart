@@ -78,6 +78,12 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     });
   }
 
+  bool _hasRecords(String accountId) => ref.watch(
+    historyFeedControllerProvider(
+      accountId,
+    ).select((async) => async.value?.ids.isNotEmpty ?? false),
+  );
+
   void _selectAll(String accountId) {
     AppHaptics.select();
     final ids = ref.read(historyFeedControllerProvider(accountId)).value?.ids;
@@ -126,7 +132,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   // alone did not read as "manage".
                   if (accountId != null)
                     TextButton(
-                      onPressed: _enterManaging,
+                      // Nothing to manage in an empty history (L1).
+                      onPressed: _hasRecords(accountId) ? _enterManaging : null,
                       child: Text(context.l10n.manage),
                     ),
                   // The overflow stays visible signed out: the record
@@ -348,10 +355,6 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
           return FeedEmpty(
             icon: Icons.history,
             title: context.l10n.historyEmpty,
-            retryLabel: context.l10n.retry,
-            onRefresh: () => ref
-                .read(historyFeedControllerProvider(widget.accountId).notifier)
-                .refresh(),
           );
         }
         final entries = [

@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/navigation/routes.dart';
-import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
@@ -77,12 +76,7 @@ class LanguagePage extends ConsumerWidget {
             ),
         ],
       ),
-      primaryAction: ReplicaButton(
-        label: text('next'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: FuncTokens.lightBackground,
-        onPressed: next,
-      ),
+      primaryAction: ReplicaButton(label: text('next'), onPressed: next),
     );
   }
 }

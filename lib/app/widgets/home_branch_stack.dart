@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/debug/frame_probe.dart';
 import '../layout/app_breakpoints.dart';
 import '../motion/motion_tokens.dart';
+import '../pull_to_refresh.dart';
 import '../navigation/home_shell_metrics.dart';
 import 'func_bottom_nav.dart';
 
@@ -23,8 +24,11 @@ class ReTapChannel extends ChangeNotifier {
 }
 
 /// Scrolls an explicit page controller to the top using the app motion gate.
+/// A list already at the top refreshes instead (HCI 10), when its
+/// [PullToRefresh] was given [controller].
 void reTapScrollToTop(BuildContext context, ScrollController controller) {
   if (!controller.hasClients) return;
+  if (controller.offset <= 0 && PullToRefresh.trigger(controller)) return;
   final duration = MotionTokens.resolve(context, MotionTokens.fast);
   if (duration == Duration.zero) {
     controller.jumpTo(0);

@@ -24,6 +24,10 @@ class RemovedBookmark {
   final List<String> tags;
 }
 
+/// The offline queue's coalescing key for [key]: a queued add and a later
+/// delete replace each other.
+String _dedupeKey(BookmarkKey key) => 'bookmark:${key.type.name}:${key.id}';
+
 /// UI-facing bookmark actions: store begin → repository call → commit/fail.
 ///
 /// Widgets never call the repository or mutate the store directly (design
@@ -33,26 +37,93 @@ class _BookmarkActions {
 
   final Ref _ref;
 
-  /// Short-press behaviour (beta56 changeBookmarkState): not bookmarked →
-  /// public add; bookmarked → delete. Pending entries suppress the request.
+  /// Short-press behaviour (beta56 changeBookmarkState): flips the shown
+  /// value at once — not bookmarked → public add, bookmarked → delete — and
+  /// settles on the server one request at a time ([settleToggle]).
   ///
   /// Returns what a delete removed, for Undo. Null when nothing was removed
-  /// (an add, a suppressed request, a failure or a queued delete) or when
-  /// the original state could not be read — then there is no Undo: guessing
-  /// "public" would expose a private bookmark.
+  /// (an add, a failure, a queued delete, or a tap that only redirected a
+  /// request already under way) or when the original state could not be
+  /// read — then there is no Undo: guessing "public" would expose a private
+  /// bookmark.
   Future<RemovedBookmark?> toggle(BookmarkKey key) async {
     final store = _ref.read(bookmarkStoreProvider.notifier);
     final entry = store.entryOf(key);
-    if (entry == null || !entry.bookmarked) {
-      final op = store.beginAdd(key, BookmarkRestrict.public);
-      if (op != null) await _run(store, op);
+    final wish = !(entry?.shown ?? false);
+    if (entry != null && entry.isUnsettled) {
+      await _redirect(store, entry, key, wish);
       return null;
     }
+    return _settle(store, key, wish: wish);
+  }
+
+  /// Requests [wish], then follows the user's later taps ([settleToggle]).
+  /// An add puts back [restore] — or what the delete before it removed, so
+  /// tapping back mid-delete keeps a private bookmark private — and adds
+  /// public otherwise. Returns what the last request removed when it was a
+  /// confirmed delete.
+  Future<RemovedBookmark?> _settle(
+    BookmarkStore store,
+    BookmarkKey key, {
+    required bool wish,
+    RemovedBookmark? restore,
+  }) async {
+    var removed = restore;
+    Future<bool> request(bool target) async {
+      if (!target) return _delete(store, key, (value) => removed = value);
+      final restored = removed;
+      removed = null;
+      final op = store.beginAdd(
+        key,
+        restored?.restrict ?? BookmarkRestrict.public,
+        tags: restored?.tags ?? const [],
+      );
+      return op != null && await _run(store, op);
+    }
+
+    final settled = await settleToggle(
+      first: () => request(wish),
+      request: request,
+      nextWish: () => store.entryOf(key)?.wish,
+    );
+    return settled ? removed : null;
+  }
+
+  /// A tap while [entry] is unsettled. In flight, it only records the wish;
+  /// the running [settleToggle] follows it. Queued offline, the tap can
+  /// only mean "back to the confirmed value": the queued intent is dropped
+  /// and its operation cancelled. A replay already running ignores the tap
+  /// — it settles in a moment.
+  Future<void> _redirect(
+    BookmarkStore store,
+    BookmarkEntry entry,
+    BookmarkKey key,
+    bool wish,
+  ) async {
+    final op = entry.pending;
+    if (op == null || !entry.isQueued) {
+      store.want(key, wish);
+      return;
+    }
+    final dropped = await _ref
+        .read(actionQueueProvider)
+        .dropPending(owner: op.accountId, dedupeKey: _dedupeKey(key));
+    if (dropped) store.cancel(op);
+  }
+
+  /// Deletes [key], reporting what it removes to [onRemoved] before the
+  /// request so Undo can restore it.
+  Future<bool> _delete(
+    BookmarkStore store,
+    BookmarkKey key,
+    void Function(RemovedBookmark? removed) onRemoved,
+  ) async {
+    final entry = store.entryOf(key);
     final op = store.beginDelete(key);
-    if (op == null) return null;
-    final removed =
-        _confirmedLocally(key, entry) ?? await _fetchRemoved(key, op);
-    return await _run(store, op) ? removed : null;
+    if (op == null) return false;
+    final local = entry == null ? null : _confirmedLocally(key, entry);
+    onRemoved(local ?? await _fetchRemoved(key, op));
+    return _run(store, op);
   }
 
   /// The local entry is exact only right after an add confirmed in this
@@ -92,18 +163,23 @@ class _BookmarkActions {
     }
   }
 
-  /// Sheet confirm: add (or overwrite an existing bookmark — the server treats
-  /// add as replace) with the chosen restrict and full tag set. Pending
-  /// entries suppress the request.
+  /// Sheet confirm and Undo: add (or overwrite an existing bookmark — the
+  /// server treats add as replace) with the chosen restrict and full tag
+  /// set. Taps on the heart meanwhile are followed up like [toggle]'s. An
+  /// unsettled entry suppresses the request.
   Future<void> addWithRestrict(
     BookmarkKey key,
     BookmarkRestrict restrict, {
     List<String> tags = const [],
   }) async {
     final store = _ref.read(bookmarkStoreProvider.notifier);
-    final op = store.beginAdd(key, restrict, tags: tags);
-    if (op == null) return;
-    await _run(store, op);
+    if (store.entryOf(key)?.isUnsettled ?? false) return;
+    await _settle(
+      store,
+      key,
+      wish: true,
+      restore: RemovedBookmark(key: key, restrict: restrict, tags: tags),
+    );
   }
 
   /// True when the server confirmed [op].
@@ -139,7 +215,11 @@ class _BookmarkActions {
       // Cancellation restores the confirmed view without an error banner.
       store.fail(op, const ApiCancelled());
     } on ApiError catch (error) {
-      if (!await _enqueueOffline(op, error)) store.fail(op, error);
+      if (await _enqueueOffline(op, error)) {
+        store.markQueued(op);
+      } else {
+        store.fail(op, error);
+      }
     } on Object catch (error) {
       // Unexpected failures must never leave a pending entry stuck; the
       // error stays observable in the store entry and the UI.
@@ -163,9 +243,7 @@ class _BookmarkActions {
             type: op.kind == BookmarkOpKind.add
                 ? ActionTypes.bookmarkAdd
                 : ActionTypes.bookmarkDelete,
-            // Target-scoped key: a pending add and a later delete coalesce
-            // to the last intent.
-            dedupeKey: 'bookmark:${op.key.type.name}:${op.key.id}',
+            dedupeKey: _dedupeKey(op.key),
             payload: {
               'entity': op.key.type.name,
               'id': op.key.id,

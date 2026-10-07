@@ -7,7 +7,6 @@ import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/feed/illust_card.dart';
 import '../../../app/widgets/skeleton/illust_grid_skeleton.dart';
 import '../../../app/pull_to_refresh.dart';
-import '../../../app/widgets/replica_empty_state.dart';
 import '../../../core/entity/illust_store.dart';
 
 import '../../../core/illust/recommended_illust_controller.dart';
@@ -75,10 +74,10 @@ class RecommendedIllustPage extends ConsumerWidget {
         }
         if (feed.isEmptyAndReady) {
           return Scaffold(
-            body: ReplicaEmptyState(
-              message: context.l10n.recommendedEmpty,
-              retryLabel: context.l10n.retry,
-              onRetry: () => ref
+            body: FeedEmpty(
+              title: context.l10n.recommendedEmpty,
+              retryLabel: context.l10n.refresh,
+              onRefresh: () => ref
                   .read(recommendedIllustControllerProvider.notifier)
                   .refresh(),
             ),

@@ -25,6 +25,7 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
+import 'package:parfait/features/settings/me_dashboard_page.dart';
 
 void main() {
   setUp(() {
@@ -243,6 +244,40 @@ void main() {
     expect(tester.getTopLeft(bar).dy, lessThan(844));
   });
 
+  testWidgets('bottom bar stays hidden when a deep link builds the stack', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    // A cold start from a link builds root + pushed page in one go: no
+    // didPushNext ever reaches the branch root.
+    final router = createPixivRouter(initialLocation: '/recommended/history');
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final bar = find.byType(FuncBottomNav);
+    expect(bar, findsOneWidget);
+    expect(tester.getTopLeft(bar).dy, greaterThanOrEqualTo(844));
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/recommended');
+    expect(tester.getTopLeft(bar).dy, lessThan(844));
+  });
+
   testWidgets('settings pushes over the shell and returns to the tab', (
     tester,
   ) async {
@@ -258,7 +293,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(router.state.uri.path, '/settings');
-    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(MeDashboardPage), findsOneWidget);
     expect(find.byType(FuncBottomNav), findsOneWidget);
 
     // Branch switch back restores the recommended tab.
@@ -333,11 +368,11 @@ void main() {
     tester,
   ) async {
     final router = await pumpRouter(tester, '/settings');
-    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(MeDashboardPage), findsOneWidget);
 
     // The shared history route is mounted on every stack — the settings
     // branch gets /settings/history, returning to the Me tab on pop.
-    unawaited(openHistory(tester.element(find.byType(SettingsPage))));
+    unawaited(openHistory(tester.element(find.byType(MeDashboardPage))));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(router.state.uri.path, '/settings/history');
@@ -346,7 +381,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(router.state.uri.path, '/settings');
-    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(MeDashboardPage), findsOneWidget);
 
     // From the /me overlay the same facade pushes the overlay-level
     // /me/history instead of bouncing to a branch.
@@ -388,7 +423,7 @@ void main() {
 
   testWidgets('every settings subroute returns to the Me root', (tester) async {
     final router = await pumpRouter(tester, '/settings');
-    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(MeDashboardPage), findsOneWidget);
 
     for (final sub in [
       'account',
@@ -451,7 +486,7 @@ void main() {
   ) async {
     final router = await pumpRouter(tester, '/settings/theme');
     expect(router.state.uri.path, '/settings/theme');
-    expect(find.byType(SettingsPage), findsNothing);
+    expect(find.byType(MeDashboardPage), findsNothing);
   });
 
   testWidgets('bookmark tag route restores and writes its restrict query', (
@@ -506,7 +541,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(router.state.uri.path, '/settings');
-    expect(find.byType(SettingsPage), findsOneWidget);
+    expect(find.byType(MeDashboardPage), findsOneWidget);
   });
 
   testWidgets('detail pushed from the reverse-image page does not stack a '

@@ -1,6 +1,10 @@
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/errors/error_category.dart';
+import '../../../core/network/network_restore_signal.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../motion/state_fade.dart';
 import '../errors/error_details.dart';
@@ -43,7 +47,8 @@ class FeedTail extends StatelessWidget {
     }
     final loadMoreError = feed.loadMoreError;
     if (feed.showLoadMoreError) {
-      return Center(
+      final retry = onRetry;
+      final tail = Center(
         child: Padding(
           padding: const EdgeInsets.all(FuncSpacing.lg),
           child: Column(
@@ -63,6 +68,13 @@ class FeedTail extends StatelessWidget {
           ),
         ),
       );
+      return retry == null
+          ? tail
+          : RetryOnNetworkRestore(
+              error: loadMoreError,
+              onRetry: retry,
+              child: tail,
+            );
     }
     if (feed.exhausted && endMessage != null) {
       return Padding(
@@ -120,6 +132,7 @@ class FeedEmpty extends StatelessWidget {
     this.retryLabel,
     this.actionLabel,
     this.onAction,
+    this.actionIcon = Icons.edit_outlined,
   }) : assert(
          onRefresh == null || retryLabel != null,
          'retryLabel is required when onRefresh is provided',
@@ -140,23 +153,28 @@ class FeedEmpty extends StatelessWidget {
   /// When set, the detail line is the localized category of this error and
   /// the raw text moves behind an expandable [ErrorDetails] disclosure.
   final Object? error;
+
+  /// Offered only where content can still arrive: a live feed that is empty
+  /// for now, or a failure ([error] set). Content that is simply not there
+  /// — a user without works, an empty history — gets no button (U4).
   final Future<void> Function()? onRefresh;
 
-  /// Translated label for the refresh button. Required whenever [onRefresh]
-  /// is provided — a hardcoded default is how English 'Refresh' leaked into
-  /// every locale.
+  /// Translated label for the refresh button: `refresh` for an empty live
+  /// feed, `retry` for a failure. Required whenever [onRefresh] is provided
+  /// — a hardcoded default is how English 'Refresh' leaked into every
+  /// locale.
   final String? retryLabel;
 
-  /// Optional secondary action rendered under the refresh button (e.g.
-  /// "modify search" on an empty result page).
+  /// Optional other action (e.g. "modify search" on an empty result page).
   final String? actionLabel;
   final VoidCallback? onAction;
+  final IconData actionIcon;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     // Always the result of a state change (loading → empty): fade in.
-    return StateFade.onMount(
+    final content = StateFade.onMount(
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -188,16 +206,12 @@ class FeedEmpty extends StatelessWidget {
                 alignment: WrapAlignment.center,
                 children: [
                   if (onRefresh != null)
-                    OutlinedButton.icon(
-                      onPressed: onRefresh,
-                      icon: const Icon(Icons.refresh),
-                      label: Text(retryLabel!),
-                    ),
+                    StateActionButton(label: retryLabel!, onPressed: onRefresh),
                   if (onAction != null)
-                    OutlinedButton.icon(
+                    StateActionButton(
+                      label: actionLabel!,
+                      icon: actionIcon,
                       onPressed: onAction,
-                      icon: const Icon(Icons.edit_outlined),
-                      label: Text(actionLabel!),
                     ),
                 ],
               ),
@@ -206,6 +220,16 @@ class FeedEmpty extends StatelessWidget {
         ),
       ),
     );
+    final refresh = onRefresh;
+    // A failure shown as a status (a profile that failed to load) retries
+    // like FeedError does.
+    return error == null || refresh == null
+        ? content
+        : RetryOnNetworkRestore(
+            error: error,
+            onRetry: () => unawaited(refresh()),
+            child: content,
+          );
   }
 }
 
@@ -234,7 +258,11 @@ class FeedError extends StatelessWidget {
     final column = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.cloud_off, size: 48),
+        Icon(
+          Icons.cloud_off,
+          size: 48,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(height: FuncSpacing.md),
         Text(title),
         if (error != null) ...[
@@ -247,22 +275,82 @@ class FeedError extends StatelessWidget {
           ErrorDetails(error: error!),
         ],
         const SizedBox(height: FuncSpacing.md),
-        FilledButton(onPressed: onRetry, child: Text(retryLabel)),
+        StateActionButton(label: retryLabel, onPressed: onRetry),
       ],
     );
     // Always the result of a state change (loading → error): fade in.
-    return StateFade.onMount(
-      child: Center(
-        child: scrollable
-            ? SingleChildScrollView(
-                padding: const EdgeInsets.all(FuncSpacing.xl),
-                child: column,
-              )
-            : Padding(
-                padding: const EdgeInsets.all(FuncSpacing.xl),
-                child: column,
-              ),
+    return RetryOnNetworkRestore(
+      error: error,
+      onRetry: onRetry,
+      child: StateFade.onMount(
+        child: Center(
+          child: scrollable
+              ? SingleChildScrollView(
+                  padding: const EdgeInsets.all(FuncSpacing.xl),
+                  child: column,
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(FuncSpacing.xl),
+                  child: column,
+                ),
+        ),
       ),
     );
+  }
+}
+
+/// The button of the empty, error and status states (H1): one tonal button
+/// with a leading icon, the same for a retry, a refresh and any other
+/// action they offer.
+class StateActionButton extends StatelessWidget {
+  const StateActionButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.icon = Icons.refresh,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => FilledButton.tonalIcon(
+    onPressed: onPressed,
+    icon: Icon(icon),
+    label: Text(label),
+  );
+}
+
+/// Runs [onRetry] once each time the network comes back while [child] — an
+/// error state — is on screen (HCI 9). Only failures a missing connection
+/// explains retry: a 404 or a parse error would fail the same way again.
+/// A retry that fails again just shows the error, until the next restore.
+class RetryOnNetworkRestore extends ConsumerWidget {
+  const RetryOnNetworkRestore({
+    super.key,
+    required this.error,
+    required this.onRetry,
+    required this.child,
+  });
+
+  /// The failure on screen; null when the caller does not know it.
+  final Object? error;
+  final VoidCallback onRetry;
+  final Widget child;
+
+  static bool _connectionFailure(Object? error) =>
+      error == null ||
+      switch (categorizeError(error)) {
+        ErrorCategory.network || ErrorCategory.timeout => true,
+        _ => false,
+      };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(networkRestoreSignalProvider, (_, _) {
+      if (_connectionFailure(error)) onRetry();
+    });
+    return child;
   }
 }
