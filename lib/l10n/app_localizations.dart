@@ -4025,6 +4025,30 @@ abstract class AppLocalizations {
   /// **'标签'**
   String get detailSectionTags;
 
+  /// Action beside a detail-page section heading; opens the full list.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看全部'**
+  String get detailViewAll;
+
+  /// Section heading over a strip of the author's other works.
+  ///
+  /// In zh, this message translates to:
+  /// **'作者的其他作品'**
+  String get detailSectionAuthorWorks;
+
+  /// The author's other-works strip when the author has no other work.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无其他作品'**
+  String get detailAuthorNoOtherWorks;
+
+  /// The author's other-works strip failed to load.
+  ///
+  /// In zh, this message translates to:
+  /// **'作者作品加载失败'**
+  String get detailAuthorWorksLoadFailed;
+
   /// Under the first image of a multi-image illustration; shows the rest.
   ///
   /// In zh, this message translates to:

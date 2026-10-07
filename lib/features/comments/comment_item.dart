@@ -10,7 +10,7 @@ import '../../core/auth/account_store.dart';
 import '../../core/comments/comment_translation.dart';
 import '../../core/entity/comment_entity.dart';
 import '../../app/navigation/routes.dart';
-import 'comment_text.dart';
+import '../../app/widgets/comment_text.dart';
 import '../../l10n/context.dart';
 
 /// One comment row. Reply and the replies link are text buttons under the

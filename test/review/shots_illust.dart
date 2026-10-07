@@ -44,6 +44,17 @@ void main() {
           .jumpTo(240);
     },
   );
+  // Below the info: the comment preview and the author's other works.
+  testShot(
+    'illust/detail-more',
+    location: detail,
+    before: (tester, router) async {
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(900);
+    },
+  );
   // An expanded set read into page 2: the fold pill hangs under the count.
   testShot(
     'illust/detail-expanded',

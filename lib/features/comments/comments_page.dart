@@ -19,7 +19,7 @@ import '../../core/entity/comment_entity.dart';
 import '../../core/network/api_error.dart';
 import 'comment_input.dart';
 import 'comment_item.dart';
-import 'comment_text.dart';
+import '../../app/widgets/comment_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';

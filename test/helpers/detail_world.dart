@@ -36,6 +36,9 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   List<int>? relatedLog,
   Completer<void>? relatedGate,
   Duration? progressThrottle,
+  Map<int, List<Map<String, dynamic>>>? commentOverrides,
+  Map<int, List<Map<String, dynamic>>>? authorWorksOverrides,
+  List<String>? requestLog,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final transport = FakeTransport();
@@ -102,6 +105,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   );
   final client = PixivHttpClient(
     client: MockClient((request) async {
+      requestLog?.add(request.url.path);
       if (request.url.path == '/v1/illust/detail') {
         await detailGate?.future;
         final id = int.parse(request.url.queryParameters['illust_id']!);
@@ -123,6 +127,21 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
         await relatedGate?.future;
         return okJson({
           'illusts': relatedOverrides?[id] ?? [],
+          'next_url': null,
+        });
+      }
+      // The detail page's comment preview and author strip.
+      if (request.url.path == '/v3/illust/comments') {
+        final id = int.parse(request.url.queryParameters['illust_id']!);
+        return okJson({
+          'comments': commentOverrides?[id] ?? [],
+          'next_url': null,
+        });
+      }
+      if (request.url.path == '/v1/user/illusts') {
+        final id = int.parse(request.url.queryParameters['user_id']!);
+        return okJson({
+          'illusts': authorWorksOverrides?[id] ?? [],
           'next_url': null,
         });
       }

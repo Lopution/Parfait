@@ -2121,6 +2121,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get detailSectionTags => 'タグ';
 
   @override
+  String get detailViewAll => 'すべて見る';
+
+  @override
+  String get detailSectionAuthorWorks => 'この作者の他の作品';
+
+  @override
+  String get detailAuthorNoOtherWorks => '他の作品はまだありません';
+
+  @override
+  String get detailAuthorWorksLoadFailed => '作者の作品を読み込めませんでした';
+
+  @override
   String detailExpandPages(int count) {
     return '全$count枚を表示';
   }

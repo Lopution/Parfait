@@ -1,17 +1,26 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/comments/comment_assets.dart';
-import '../../l10n/lookup.dart';
 import '../../l10n/context.dart';
+import '../../l10n/lookup.dart';
 
 /// Renders beta56 `(emoji_name)` markers inline while leaving unknown markers
 /// as ordinary text. Raw comment content remains the source of truth.
 class CommentText extends StatelessWidget {
-  const CommentText(this.text, {super.key, this.style, this.emojiScale = 1.3});
+  const CommentText(
+    this.text, {
+    super.key,
+    this.style,
+    this.emojiScale = 1.3,
+    this.maxLines,
+  });
 
   final String text;
   final TextStyle? style;
   final double emojiScale;
+
+  /// Null shows the whole comment; a preview caps it with an ellipsis.
+  final int? maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +52,11 @@ class CommentText extends StatelessWidget {
     }
     if (cursor < text.length) spans.add(TextSpan(text: text.substring(cursor)));
     if (spans.isEmpty) spans.add(TextSpan(text: text));
-    return Text.rich(TextSpan(style: baseStyle, children: spans));
+    return Text.rich(
+      TextSpan(style: baseStyle, children: spans),
+      maxLines: maxLines,
+      overflow: maxLines == null ? null : TextOverflow.ellipsis,
+    );
   }
 }
 

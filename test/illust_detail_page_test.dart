@@ -41,7 +41,9 @@ import 'package:parfait/features/illust/detail/widgets/detail_image_pager.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/bookmark_switch_button.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_action_bar.dart';
+import 'package:parfait/features/comments/comments_page.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart';
+import 'package:parfait/features/illust/detail/widgets/detail_section_header.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_detail_skeleton.dart';
 import 'package:parfait/features/illust/detail/widgets/info_block.dart';
 import 'package:parfait/features/illust/detail/widgets/page_image.dart';
@@ -1906,6 +1908,11 @@ void main() {
           300,
           scrollable: find.byType(Scrollable).first,
         );
+        // Mid-screen, clear of the floating action bar.
+        await Scrollable.ensureVisible(
+          tester.element(find.byKey(const Key('illust-author-row'))),
+          alignment: 0.5,
+        );
         await tester.pump();
       });
 
@@ -1929,6 +1936,11 @@ void main() {
           find.byKey(const Key('illust-author-row')),
           300,
           scrollable: find.byType(Scrollable).first,
+        );
+        // Mid-screen, clear of the floating action bar.
+        await Scrollable.ensureVisible(
+          tester.element(find.byKey(const Key('illust-author-row'))),
+          alignment: 0.5,
         );
         await tester.pump();
       });
@@ -2379,7 +2391,7 @@ void main() {
         await tester.pump();
       });
       expect(find.text('Related works'), findsOneWidget);
-      expect(find.byKey(const ValueKey('related-trigger-42')), findsNothing);
+      expect(find.byKey(const ValueKey('related-42-trigger')), findsNothing);
       expect(log, [42]);
     });
 
@@ -2749,6 +2761,154 @@ void main() {
         find.ancestor(of: title, matching: find.byType(Opacity)),
         findsNothing,
       );
+    });
+  });
+
+  group('comment preview and author works (§2-E)', () {
+    /// Brings a section header mid-screen and lets its request land.
+    Future<void> showSection(WidgetTester tester, String title) async {
+      await mockNetworkImagesFor(() async {
+        await tester.scrollUntilVisible(
+          find.text(title),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await Scrollable.ensureVisible(
+          tester.element(find.text(title)),
+          alignment: 0.3,
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 300));
+      });
+    }
+
+    Map<String, dynamic> comment(int id) => {
+      'id': id,
+      'comment': 'comment $id',
+      'date': '2026-08-27T10:00:00+09:00',
+      'user': {
+        'id': 10 + id,
+        'name': 'user $id',
+        'account': 'user_$id',
+        'profile_image_urls': <String, String>{},
+      },
+      'has_replies': false,
+    };
+
+    testWidgets('neither asks for data before it is on screen', (tester) async {
+      final log = <String>[];
+      final (container, _, _) = await makeWorld(requestLog: log);
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+      expect(log, isNot(contains('/v3/illust/comments')));
+      expect(log, isNot(contains('/v1/user/illusts')));
+
+      await showSection(tester, '作者的其他作品');
+      expect(log.where((path) => path == '/v3/illust/comments'), hasLength(1));
+      expect(log.where((path) => path == '/v1/user/illusts'), hasLength(1));
+    });
+
+    testWidgets('the preview shows the first three comments under a heading; '
+        'See all opens the comments page', (tester) async {
+      final (container, _, _) = await makeWorld(
+        commentOverrides: {
+          42: [for (var i = 1; i <= 5; i++) comment(i)],
+        },
+      );
+      await pumpDetail(
+        tester,
+        container,
+        locale: const Locale('zh', 'CN'),
+        useRouter: true,
+      );
+      await tester.pumpAndSettle();
+      await showSection(tester, '查看全部');
+
+      final preview = find.byKey(const Key('illust-comments-preview'));
+      for (var i = 1; i <= 3; i++) {
+        expect(
+          find.descendant(of: preview, matching: find.text('comment $i')),
+          findsOneWidget,
+        );
+      }
+      expect(find.text('comment 4'), findsNothing);
+      final heading = find.ancestor(
+        of: find.text('评论'),
+        matching: find.byType(DetailSectionHeader),
+      );
+      expect(
+        tester.getSemantics(
+          find.descendant(of: heading, matching: find.text('评论')),
+        ),
+        isSemantics(label: '评论', isHeader: true),
+      );
+
+      await mockNetworkImagesFor(() async {
+        await tester.tap(
+          find.descendant(of: heading, matching: find.text('查看全部')),
+        );
+        await tester.pumpAndSettle();
+      });
+      expect(find.byType(CommentsPage), findsOneWidget);
+    });
+
+    testWidgets('no comments yet offers to write one', (tester) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+      await showSection(tester, '评论');
+      expect(find.text('暂无评论'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, '添加评论'), findsOneWidget);
+    });
+
+    testWidgets('the author strip leaves this work out and opens the others', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld(
+        authorWorksOverrides: {
+          99: [illustJson(42), illustJson(501), illustJson(502)],
+        },
+      );
+      await pumpDetail(
+        tester,
+        container,
+        locale: const Locale('zh', 'CN'),
+        useRouter: true,
+      );
+      await tester.pumpAndSettle();
+      await showSection(tester, '作者的其他作品');
+
+      final strip = find.byKey(const Key('illust-author-works'));
+      Finder tile(String title) =>
+          find.descendant(of: strip, matching: find.bySemanticsLabel(title));
+      expect(tile('illust 501'), findsOneWidget);
+      expect(tile('illust 502'), findsOneWidget);
+      expect(tile('illust 42'), findsNothing);
+
+      await mockNetworkImagesFor(() async {
+        await tester.tap(tile('illust 501'));
+        await tester.pumpAndSettle();
+      });
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is IllustDetailPage && w.illustId == 501,
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('an author without other works says so', (tester) async {
+      final (container, _, _) = await makeWorld(
+        authorWorksOverrides: {
+          99: [illustJson(42)],
+        },
+      );
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+      await showSection(tester, '作者的其他作品');
+      expect(find.text('暂无其他作品'), findsOneWidget);
+      expect(find.byKey(const Key('illust-author-works')), findsNothing);
     });
   });
 

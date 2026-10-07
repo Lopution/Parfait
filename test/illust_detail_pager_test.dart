@@ -22,8 +22,9 @@ Future<void> _pumpPager(
   ProviderContainer container, {
   required IllustPagerSource source,
   required int initialId,
+  Size surface = const Size(390, 844),
 }) async {
-  tester.view.physicalSize = const Size(390, 844);
+  tester.view.physicalSize = surface;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await mockNetworkImagesFor(() async {
@@ -471,6 +472,10 @@ void main() {
     /// Short single-page landscape works: the related section sits inside
     /// the first screen of every page, so only the activity gate keeps a
     /// neighbour from requesting.
+    // Tall enough that the related section, below the info, comment
+    // preview and author strip, is on screen without scrolling.
+    const tall = Size(390, 2400);
+
     Future<(ProviderContainer, List<int>)> shortWorld() async {
       final log = <int>[];
       final (container, _, _) = await makeWorld(
@@ -493,7 +498,13 @@ void main() {
     ) async {
       final (container, log) = await shortWorld();
       final source = IllustPagerSource()..update(ids);
-      await _pumpPager(tester, container, source: source, initialId: 43);
+      await _pumpPager(
+        tester,
+        container,
+        source: source,
+        initialId: 43,
+        surface: tall,
+      );
       expect(_detail(42), findsOneWidget);
       expect(_detail(44), findsOneWidget);
       expect(log, [43], reason: 'prebuilt neighbours stay quiet');
@@ -504,7 +515,13 @@ void main() {
     ) async {
       final (container, log) = await shortWorld();
       final source = IllustPagerSource()..update(ids);
-      await _pumpPager(tester, container, source: source, initialId: 42);
+      await _pumpPager(
+        tester,
+        container,
+        source: source,
+        initialId: 42,
+        surface: tall,
+      );
       expect(log, [42]);
 
       await mockNetworkImagesFor(() async {
