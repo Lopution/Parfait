@@ -888,6 +888,7 @@
   "detailSectionAuthorWorks": "More by this artist",
   "detailAuthorNoOtherWorks": "No other works yet",
   "detailAuthorWorksLoadFailed": "Couldn't load the artist's works",
+  "feedContinueLoading": "Continue loading",
   "detailExpandPages": "Show all {count} images",
   "illustDetailOpenLinkFailed": "Could not open the link",
   "illustDetailRestricted": "This artwork has been deleted or restricted (ID: {id})",

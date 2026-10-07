@@ -193,11 +193,11 @@ class _PixivNovelRepository implements _NovelRepository {
       identity: {'user_id': '$userId'},
       cursor: cursor,
     );
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _parseNovelPage,
       cancelToken: cancelToken,
     );
-    return _parseNovelPage(json);
   }
 
   @override
@@ -226,11 +226,11 @@ class _PixivNovelRepository implements _NovelRepository {
       identity: const {},
       cursor: cursor,
     );
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _parseNovelPage,
       cancelToken: cancelToken,
     );
-    return _parseNovelPage(json);
   }
 
   @override
@@ -259,11 +259,11 @@ class _PixivNovelRepository implements _NovelRepository {
       identity: identity,
       cursor: cursor,
     );
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _parseNovelPage,
       cancelToken: cancelToken,
     );
-    return _parseNovelPage(json);
   }
 
   @override
@@ -302,11 +302,11 @@ class _PixivNovelRepository implements _NovelRepository {
       identity: {'series_id': '$seriesId'},
       cursor: cursor,
     );
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _seriesPageParser(seriesId),
       cancelToken: cancelToken,
     );
-    return _parseSeriesPage(json, seriesId);
   }
 
   @override
@@ -391,7 +391,7 @@ class _PixivNovelRepository implements _NovelRepository {
     );
   }
 
-  NovelPage _parseNovelPage(Map<String, dynamic> json) {
+  static NovelPage _parseNovelPage(Map<String, dynamic> json) {
     final raw = json['novels'];
     if (raw is! List) {
       throw const ApiParseError('novels list is missing or malformed');
@@ -412,7 +412,13 @@ class _PixivNovelRepository implements _NovelRepository {
     }
   }
 
-  NovelSeriesPage _parseSeriesPage(
+  /// A closure over [seriesId] alone, so it can run on the data worker.
+  static NovelSeriesPage Function(Map<String, dynamic>) _seriesPageParser(
+    int seriesId,
+  ) =>
+      (json) => _parseSeriesPage(json, seriesId);
+
+  static NovelSeriesPage _parseSeriesPage(
     Map<String, dynamic> json,
     int requestedSeriesId,
   ) {
@@ -438,7 +444,7 @@ class _PixivNovelRepository implements _NovelRepository {
     }
   }
 
-  NovelSeriesEntry _parseSeriesEntry(Object? value) {
+  static NovelSeriesEntry _parseSeriesEntry(Object? value) {
     if (value is! Map<String, dynamic>) {
       throw const FormatException('series novels contains a non-object');
     }

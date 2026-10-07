@@ -2204,6 +2204,9 @@ class AppLocalizationsRu extends AppLocalizations {
       'Не удалось загрузить работы автора';
 
   @override
+  String get feedContinueLoading => 'Загрузить ещё';
+
+  @override
   String detailExpandPages(int count) {
     return 'Показать все ($count)';
   }

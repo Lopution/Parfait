@@ -4049,6 +4049,12 @@ abstract class AppLocalizations {
   /// **'作者作品加载失败'**
   String get detailAuthorWorksLoadFailed;
 
+  /// Feed tail button after automatic paging paused: loads the next pages.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续加载'**
+  String get feedContinueLoading;
+
   /// Under the first image of a multi-image illustration; shows the rest.
   ///
   /// In zh, this message translates to:

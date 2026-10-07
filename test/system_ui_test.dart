@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/app/app.dart';
 import 'package:parfait/app/system_ui.dart';
 import 'package:parfait/app/theme/func_tokens.dart';
@@ -377,6 +378,8 @@ Future<void> _pumpApp(WidgetTester tester, AppSettings settings) async {
       settingsRepositoryProvider.overrideWithValue(
         _MemorySettingsRepository(settings),
       ),
+      // The app's isolate worker answers outside fake time.
+      dataWorkerProvider.overrideWithValue(const InlineDataWorker()),
       pixivNetworkFactoryProvider.overrideWithValue(
         PixivNetworkFactory(
           NetworkAccessPolicy(

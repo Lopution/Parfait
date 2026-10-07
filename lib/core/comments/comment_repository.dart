@@ -176,37 +176,40 @@ class _PixivCommentRepository implements CommentRepository {
     CancelToken? cancelToken,
   }) async {
     final request = _pageRequest(query, cursor: cursor);
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _pageParser(query),
       cancelToken: cancelToken,
     );
-    try {
-      final rawComments = json['comments'];
-      if (rawComments is! List) {
-        throw const FormatException('comments list is missing');
-      }
-      final comments = <CommentEntity>[];
-      for (final item in rawComments) {
-        if (item is! Map<String, dynamic>) {
-          throw const FormatException('comments contains a non-object');
-        }
-        comments.add(
-          CommentEntity.fromJson(
-            item,
-            workId: query.workId,
-            kind: query.kind,
-            rootCommentId: query.rootCommentId,
-          ),
-        );
-      }
-      return CommentPage(
-        comments: comments,
-        nextUrl: requireNextUrl(json['next_url']),
-      );
-    } on FormatException catch (error) {
-      throw ApiParseError(error);
-    }
   }
+
+  /// A closure over [query] alone, so it can run on the data worker.
+  static CommentPage Function(Map<String, dynamic>) _pageParser(
+    CommentFeedQuery query,
+  ) => (json) {
+    final rawComments = json['comments'];
+    if (rawComments is! List) {
+      throw const FormatException('comments list is missing');
+    }
+    final comments = <CommentEntity>[];
+    for (final item in rawComments) {
+      if (item is! Map<String, dynamic>) {
+        throw const FormatException('comments contains a non-object');
+      }
+      comments.add(
+        CommentEntity.fromJson(
+          item,
+          workId: query.workId,
+          kind: query.kind,
+          rootCommentId: query.rootCommentId,
+        ),
+      );
+    }
+    return CommentPage(
+      comments: comments,
+      nextUrl: requireNextUrl(json['next_url']),
+    );
+  };
 
   NextPageRequest _pageRequest(
     CommentFeedQuery query, {

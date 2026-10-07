@@ -28,6 +28,9 @@ class _HistoryFeedController extends PagedFeedController {
   @override
   String get feedKey => 'history:$accountId';
 
+  @override
+  FeedPagingPolicy get pagingPolicy => FeedPagingPolicy.unlimited;
+
   /// Stable state id for a record: content type in the high bits, so an
   /// illust and a novel may share a numeric id without colliding.
   static int keyOf(HistoryRecord record) =>

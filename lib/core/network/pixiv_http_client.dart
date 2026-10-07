@@ -6,7 +6,6 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,11 +17,11 @@ import '../auth/credential.dart';
 import '../auth/credential_store.dart';
 import '../auth/oauth_service.dart';
 import '../auth/token_refresh_gate.dart';
-import '../debug/frame_probe.dart';
 import '../settings/settings_controller.dart';
 import 'api_error.dart';
 import 'compat/network_contracts.dart';
 import 'compat/network_providers.dart';
+import 'data_worker.dart';
 import 'pixiv_headers.dart';
 
 /// Cooperative cancellation signal for Pixiv requests.
@@ -46,30 +45,20 @@ class CancelToken implements NetworkCancelSignal {
   }
 }
 
-/// Response bodies from this size up decode off the UI isolate. On device a
-/// 97KB feed page held the UI thread 4.3ms and a 290KB related-works page
-/// 9.5ms — landing mid-swipe or mid-fling, that is one or two dropped
-/// 120Hz frames. Dio's default `BackgroundTransformer` splits at 50KB;
-/// measured 66KB already costs 1.9ms here.
-const backgroundJsonThreshold = 32 * 1024;
-
-/// Decodes a UTF-8 JSON response body: inline below
-/// [backgroundJsonThreshold], on a short-lived isolate above it. The decoded
-/// graph moves back without a copy.
-///
-/// Deliberately not `async`: a closure created inside an async body can
-/// capture its suspend state, which the isolate message cannot carry.
-Future<Object?> decodeJsonBody(Uint8List bytes) {
-  final label = 'json ${bytes.length ~/ 1024}KB';
-  if (bytes.length < backgroundJsonThreshold) {
-    return Future.sync(
-      () => FrameProbe.instance.measure(label, () => _decodeJson(bytes)),
-    );
+/// Decodes a UTF-8 JSON object body and maps it with [parse]: the unit of
+/// work a [DataWorker] runs for [PixivHttpClient.getParsed]. Top-level so
+/// the closure built from it captures nothing but its arguments.
+T Function(Uint8List bytes) _decodeThen<T>(
+  T Function(Map<String, dynamic> json) parse,
+) => (bytes) {
+  final decoded = jsonDecode(utf8.decode(bytes));
+  if (decoded is! Map<String, dynamic>) {
+    throw const FormatException('response is not a JSON object');
   }
-  return Isolate.run(() => _decodeJson(bytes), debugName: label);
-}
+  return parse(decoded);
+};
 
-Object? _decodeJson(Uint8List bytes) => jsonDecode(utf8.decode(bytes));
+Map<String, dynamic> _asIs(Map<String, dynamic> json) => json;
 
 /// Strict, cancellable Pixiv App API client shared by all features.
 ///
@@ -91,7 +80,9 @@ class PixivHttpClient {
     TokenRefreshGate? refreshGate,
     this.languageTag = 'zh-CN',
     this.requestTimeout = defaultRequestTimeout,
+    DataWorker dataWorker = const InlineDataWorker(),
   }) : _client = client ?? http.Client(),
+       _dataWorker = dataWorker,
        _accountStore = accountStore,
        _credentialStore = credentialStore,
        _oauthService = oauthService,
@@ -105,21 +96,36 @@ class PixivHttpClient {
   final CredentialStore _credentialStore;
   final OAuthService _oauthService;
   final TokenRefreshGate _refreshGate;
+
+  /// Decodes and maps response bodies. The app passes the background
+  /// worker ([dataWorkerProvider]); the inline default keeps tests and
+  /// tools on one isolate.
+  final DataWorker _dataWorker;
   final String languageTag;
   final Duration requestTimeout;
   final Map<_GetRequestFlightKey, Future<http.Response>> _getFlights = {};
 
-  Future<Map<String, dynamic>> getJson(
-    Uri uri, {
+  Future<Map<String, dynamic>> getJson(Uri uri, {CancelToken? cancelToken}) =>
+      getParsed(uri, _asIs, cancelToken: cancelToken);
+
+  /// GETs [uri] and maps the JSON object body with [parse]. Decoding and
+  /// mapping both run on the data worker, so [parse] must be a top-level or
+  /// static function (e.g. `IllustEntity.parsePage`) and its result must be
+  /// sendable — plain entities are. A [FormatException] from either step
+  /// surfaces as [ApiParseError].
+  Future<T> getParsed<T>(
+    Uri uri,
+    T Function(Map<String, dynamic> json) parse, {
     CancelToken? cancelToken,
   }) async {
     final response = await get(uri, cancelToken: cancelToken);
+    final bytes = response.bodyBytes;
     try {
-      final decoded = await decodeJsonBody(response.bodyBytes);
-      if (decoded is! Map<String, dynamic>) {
-        throw const FormatException('response is not a JSON object');
-      }
-      return decoded;
+      return await _dataWorker.run(
+        _decodeThen(parse),
+        bytes,
+        label: 'parse ${bytes.length ~/ 1024}KB',
+      );
     } on FormatException catch (error) {
       throw ApiParseError(error);
     }
@@ -589,6 +595,7 @@ final pixivHttpClientProvider = Provider<PixivHttpClient>((ref) {
     credentialStore: ref.watch(credentialStoreProvider),
     oauthService: ref.watch(oauthServiceProvider),
     languageTag: languageTag,
+    dataWorker: ref.watch(dataWorkerProvider),
   );
 });
 

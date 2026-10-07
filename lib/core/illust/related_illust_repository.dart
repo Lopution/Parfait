@@ -53,7 +53,10 @@ class PixivRelatedIllustRepository {
             path: request.uri.path,
             query: request.uri.query,
           );
-    final json = await _client.getJson(target, cancelToken: cancelToken);
+    return _client.getParsed(target, _parsePage, cancelToken: cancelToken);
+  }
+
+  static RelatedIllustPage _parsePage(Map<String, dynamic> json) {
     final rawIllusts = json['illusts'];
     if (rawIllusts is! List) {
       throw const ApiParseError('related illusts envelope is malformed');

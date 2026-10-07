@@ -23,13 +23,13 @@ final class NovelSnapshotCodec extends FeedSnapshotCodec {
   String get entityType => 'novel';
 
   @override
-  Map<String, Object?> encodeEntities(Ref ref, List<int> ids) {
+  Map<int, Object> lookupEntities(Ref ref, List<int> ids) {
     final novels = ref.read(novelStoreProvider);
-    return {
-      for (final id in ids)
-        if (novels[id] case final entity?) '$id': _encode(entity),
-    };
+    return {for (final id in ids) id: ?novels[id]};
   }
+
+  @override
+  Object? encodeEntity(Object entity) => _encode(entity as NovelEntity);
 
   @override
   List<int> restoreEntities(

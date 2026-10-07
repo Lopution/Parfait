@@ -28,11 +28,11 @@ class PixivWatchlistRepository {
     CancelToken? cancelToken,
   }) async {
     final request = _pageRequest(type: type, cursor: cursor);
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _pageParser(type),
       cancelToken: cancelToken,
     );
-    return _parsePage(json, type);
   }
 
   Future<void> add(WatchlistKey key, {CancelToken? cancelToken}) =>
@@ -97,7 +97,13 @@ class PixivWatchlistRepository {
     );
   }
 
-  WatchlistSeriesPage _parsePage(
+  /// A closure over [type] alone, so it can run on the data worker.
+  static WatchlistSeriesPage Function(Map<String, dynamic>) _pageParser(
+    WatchlistType type,
+  ) =>
+      (json) => _parsePage(json, type);
+
+  static WatchlistSeriesPage _parsePage(
     Map<String, dynamic> json,
     WatchlistType type,
   ) {
@@ -121,7 +127,7 @@ class PixivWatchlistRepository {
     }
   }
 
-  WatchlistSeriesEntry _parseEntry(
+  static WatchlistSeriesEntry _parseEntry(
     Map<String, dynamic> json,
     WatchlistType type,
   ) {

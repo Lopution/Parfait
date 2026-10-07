@@ -229,6 +229,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'errorUnauthorized' => l10n.errorUnauthorized,
   'errorUnknown' => l10n.errorUnknown,
   'expandText' => l10n.expandText,
+  'feedContinueLoading' => l10n.feedContinueLoading,
   'follow' => l10n.follow,
   'followFailed' => l10n.followFailed,
   'followPrivately' => l10n.followPrivately,

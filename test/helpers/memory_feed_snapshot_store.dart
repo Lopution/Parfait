@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:parfait/core/paging/feed_snapshot_codec.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 
 /// In-memory stand-in for [FeedSnapshotStore]: each world gets a fresh
@@ -37,6 +40,22 @@ class MemoryFeedSnapshotStore implements FeedSnapshotStore {
       snapshotVersion: snapshotVersion,
     );
   }
+
+  @override
+  Future<void> writeEncoded(
+    String accountId,
+    String feedKey,
+    EncodedFeedSnapshot snapshot, {
+    String? cursor,
+    int snapshotVersion = 1,
+  }) => write(
+    accountId,
+    feedKey,
+    ids: [for (final id in jsonDecode(snapshot.ids) as List) id as int],
+    entities: jsonDecode(snapshot.entities) as Map<String, Object?>,
+    cursor: cursor,
+    snapshotVersion: snapshotVersion,
+  );
 
   @override
   Future<void> clearAccount(String accountId) async {

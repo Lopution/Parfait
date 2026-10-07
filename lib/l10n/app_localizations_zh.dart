@@ -2105,6 +2105,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get detailAuthorWorksLoadFailed => '作者作品加载失败';
 
   @override
+  String get feedContinueLoading => '继续加载';
+
+  @override
   String detailExpandPages(int count) {
     return '展开全部 $count 张';
   }

@@ -5,6 +5,7 @@ library;
 
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
@@ -12,6 +13,7 @@ import '../debug/frame_probe.dart';
 import '../entity/illust_entity.dart';
 import '../entity/illust_store.dart';
 import '../network/api_error.dart';
+import '../network/data_worker.dart';
 import '../network/pixiv_http_client.dart';
 import '../mute/mute_models.dart';
 import '../mute/mute_predicate.dart';
@@ -20,10 +22,12 @@ import '../novel/novel_entity.dart';
 import '../settings/app_settings.dart';
 import '../settings/local_block_filter.dart';
 import '../settings/settings_controller.dart';
+import 'feed_paging_policy.dart';
 import 'feed_request_context.dart';
 import 'feed_snapshot_codec.dart';
 import 'feed_snapshot_store.dart';
 
+export 'feed_paging_policy.dart';
 export 'feed_request_context.dart';
 export 'feed_snapshot_codec.dart';
 
@@ -43,6 +47,7 @@ class PagedFeedState {
     this.initialError,
     this.loadMoreError,
     this.exhausted = false,
+    this.loadMorePaused = false,
   });
 
   final List<int> ids;
@@ -58,6 +63,10 @@ class PagedFeedState {
 
   /// True when the server has no further pages.
   final bool exhausted;
+
+  /// Automatic paging spent its budget ([FeedPagingPolicy.maxAutoPages]);
+  /// the tail offers "continue" and scrolling alone no longer pages.
+  final bool loadMorePaused;
 
   bool get showInitialSpinner => initialPhase == FeedPhase.loading;
 
@@ -82,6 +91,7 @@ class PagedFeedState {
     Object? initialError = _unset,
     Object? loadMoreError = _unset,
     bool? exhausted,
+    bool? loadMorePaused,
   }) {
     return PagedFeedState(
       ids: ids ?? this.ids,
@@ -95,6 +105,7 @@ class PagedFeedState {
           ? this.loadMoreError
           : loadMoreError as ApiError?,
       exhausted: exhausted ?? this.exhausted,
+      loadMorePaused: loadMorePaused ?? this.loadMorePaused,
     );
   }
 }
@@ -176,6 +187,10 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     return muteState != null && muteHitFor(entity, muteState) != null;
   }
 
+  /// Pace and budget of automatic paging. Feeds read from local storage
+  /// return [FeedPagingPolicy.unlimited].
+  FeedPagingPolicy get pagingPolicy => FeedPagingPolicy.standard;
+
   /// Feeds that support snapshot cold-start override this with their entity
   /// codec. With a codec, [build] first renders the persisted page-one view
   /// (ids + entities from `feed_snapshots`) and schedules a background
@@ -199,7 +214,13 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   /// exhausted. Refill pages share the parent request's cancellation token
   /// and generation but never flip the commit gate's active context: the
   /// caller still commits through the original [context].
-  Future<FeedPage> fetchRelevantPage(FeedRequestContext context) async {
+  ///
+  /// A [paced] fetch (load-more) holds each refill hop to the paging
+  /// interval and counts it against the paging budget.
+  Future<FeedPage> fetchRelevantPage(
+    FeedRequestContext context, {
+    bool paced = false,
+  }) async {
     final page = await fetchPageForContext(context);
     if (!localFilterEnabled || filterMinVisible <= 0) return page;
     var visible = filterPageIds(
@@ -237,6 +258,11 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
         cursor: nextCursor,
         cancelToken: context.cancelToken,
       );
+      if (paced) {
+        _notePage();
+        await _awaitPageSlot();
+        if (!_isContextActive(context) || context.isCancelled) break;
+      }
       try {
         final nextPage = await fetchPageForContext(refillContext);
         if (!_isContextActive(context) || context.isCancelled) break;
@@ -297,6 +323,11 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
 
   String? _nextCursor;
   int _page = 0;
+
+  /// Automatic pages fetched in the current burst, and when the last one
+  /// returned (null: none since the first load or refresh).
+  int _autoPages = 0;
+  DateTime? _lastPageAt;
   static const _maxCommittedCursors = 128;
   final List<String> _committedCursors = <String>[];
   bool _disposed = false;
@@ -348,6 +379,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     _cancelRequested = false;
     _nextCursor = null;
     _page = 0;
+    _resetPaging();
     _committedCursors.clear();
     if (!_disposeCallbackRegistered) {
       _disposeCallbackRegistered = true;
@@ -424,6 +456,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     );
     final generation = _commitGate.beginGeneration();
     _page = 0;
+    _resetPaging();
     _committedCursors.clear();
     final context = _beginRequest(
       generation: generation,
@@ -492,9 +525,15 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     return error;
   }
 
-  /// Loads the next page; no-op while loading or exhausted.
-  Future<void> loadMore() async {
-    final current = state.requireValue;
+  /// Loads the next page; no-op while loading or exhausted. Paging is held
+  /// to [pagingPolicy]: the tail spins out the interval since the previous
+  /// page, and once the budget is spent the feed pauses
+  /// ([PagedFeedState.loadMorePaused]) until a pause in reading or
+  /// [retryLoadMore].
+  Future<void> loadMore() => _loadMore(userInitiated: false);
+
+  Future<void> _loadMore({required bool userInitiated}) async {
+    var current = state.requireValue;
     if (current.exhausted ||
         current.showLoadMoreSpinner ||
         current.showRefreshSpinner ||
@@ -506,17 +545,40 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
       state = AsyncData(current.copyWith(exhausted: true));
       return;
     }
+    final policy = pagingPolicy;
+    final lastPageAt = _lastPageAt;
+    if (userInitiated ||
+        (lastPageAt != null &&
+            clock.now().difference(lastPageAt) >= policy.burstIdleReset)) {
+      _autoPages = 0;
+    }
+    if (_autoPages >= policy.maxAutoPages) {
+      if (!current.loadMorePaused) {
+        state = AsyncData(current.copyWith(loadMorePaused: true));
+      }
+      return;
+    }
+    current = current.copyWith(loadMorePaused: false);
     state = AsyncData(
       current.copyWith(loadMorePhase: FeedPhase.loading, loadMoreError: null),
     );
+    final generation = _commitGate.generation;
+    await _awaitPageSlot();
+    // A refresh, cancel or teardown during the wait owns the feed now.
+    if (_disposed ||
+        _commitGate.generation != generation ||
+        !(state.asData?.value.showLoadMoreSpinner ?? false)) {
+      return;
+    }
     final cursor = _nextCursor;
     final context = _beginRequest(
-      generation: _commitGate.generation,
+      generation: generation,
       page: _page + 1,
       cursor: cursor,
     );
     try {
-      final page = await fetchRelevantPage(context);
+      final page = await fetchRelevantPage(context, paced: true);
+      _notePage();
       final nextCursor = _validateCursor(page.nextCursor, context);
       final committed = FrameProbe.instance.measure(
         'feed commit ${page.ids.length}',
@@ -536,6 +598,7 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
         _restoreLoadMorePhaseIfCurrent(context);
       }
     } on ApiError catch (error) {
+      _notePage();
       if (!_isContextActive(context)) {
         _discardContext(context);
         _restoreLoadMorePhaseIfCurrent(context);
@@ -549,14 +612,37 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     }
   }
 
+  void _resetPaging() {
+    _autoPages = 0;
+    _lastPageAt = null;
+  }
+
+  /// Counts one automatic page against the budget, returned now.
+  void _notePage() {
+    _autoPages++;
+    _lastPageAt = clock.now();
+  }
+
+  /// Waits out the rest of [FeedPagingPolicy.minPageInterval] since the
+  /// previous automatic page; the first page after a load or refresh
+  /// goes at once.
+  Future<void> _awaitPageSlot() async {
+    final lastPageAt = _lastPageAt;
+    if (lastPageAt == null) return;
+    final wait =
+        pagingPolicy.minPageInterval - clock.now().difference(lastPageAt);
+    if (wait > Duration.zero) await Future<void>.delayed(wait);
+  }
+
   /// Retry the initial load.
   Future<void> retryInitial() async {
     state = const AsyncLoading<PagedFeedState>();
     state = await AsyncValue.guard(() => build());
   }
 
-  /// Retry the failed load-more.
-  Future<void> retryLoadMore() => loadMore();
+  /// The user asked for the next page: retry a failed load-more, or
+  /// continue after the paging budget ran out. Grants a fresh budget.
+  Future<void> retryLoadMore() => _loadMore(userInitiated: true);
 
   /// Cancels the active request and returns a loading phase to idle without
   /// discarding already loaded IDs or the last valid cursor.
@@ -739,7 +825,8 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   }
 
   /// Persists the committed page-one view after a successful initial load or
-  /// refresh. Failures are swallowed — a snapshot that fails to write only
+  /// refresh. Only the store lookup runs here; encoding runs on the data
+  /// worker. Failures are swallowed — a snapshot that fails to write only
   /// means the next cold start takes the network path again.
   void _persistSnapshot(List<int> ids) {
     final codec = snapshotCodec;
@@ -748,18 +835,27 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     final capped = ids.length > _snapshotIdCap
         ? ids.sublist(0, _snapshotIdCap)
         : ids;
-    final entities = codec.encodeEntities(ref, capped);
+    final entities = codec.lookupEntities(ref, capped);
     if (entities.isEmpty) return;
+    final store = ref.read(feedSnapshotStoreProvider);
+    final key = feedKey;
+    final cursor = _nextCursor;
     unawaited(
       ref
-          .read(feedSnapshotStoreProvider)
-          .write(
-            accountId,
-            feedKey,
+          .read(dataWorkerProvider)
+          .run(encodeFeedSnapshot, (
+            codec: codec,
             ids: capped,
-            entities: {codec.entityType: entities},
-            cursor: _nextCursor,
-            snapshotVersion: codec.snapshotVersion,
+            entities: entities,
+          ), label: 'snapshot encode ${capped.length}')
+          .then(
+            (encoded) => store.writeEncoded(
+              accountId,
+              key,
+              encoded,
+              cursor: cursor,
+              snapshotVersion: codec.snapshotVersion,
+            ),
           )
           .onError((_, _) {}),
     );

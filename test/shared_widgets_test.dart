@@ -370,4 +370,33 @@ void main() {
     );
     expect(resolved, Duration.zero);
   });
+  testWidgets('a paused feed tail offers continue, which pages on', (
+    tester,
+  ) async {
+    var continued = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: replicaTheme(Brightness.light),
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('en'),
+        home: Scaffold(
+          body: FeedTail(
+            feed: const PagedFeedState(
+              initialPhase: FeedPhase.idle,
+              loadMorePaused: true,
+            ),
+            onRetry: () => continued++,
+            retryLabel: 'Retry',
+          ),
+        ),
+      ),
+    );
+    final button = find.byKey(const Key('feed-continue-loading'));
+    expect(button, findsOneWidget);
+    expect(find.text('Continue loading'), findsOneWidget);
+    expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+    await tester.tap(button);
+    expect(continued, 1);
+  });
 }

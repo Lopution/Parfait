@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:go_router/go_router.dart';
+import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/app/app.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -62,6 +63,8 @@ void main() {
           settingsRepositoryProvider.overrideWithValue(
             _MemRepo(AppSettings.defaults().copyWith(guideCompleted: true)),
           ),
+          // The app's isolate worker answers outside fake time.
+          dataWorkerProvider.overrideWithValue(const InlineDataWorker()),
           pixivNetworkFactoryProvider.overrideWithValue(
             PixivNetworkFactory(
               NetworkAccessPolicy(

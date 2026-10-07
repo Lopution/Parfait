@@ -140,6 +140,47 @@ contract (C12). Cancellation lives on `context.cancelToken`.
   before it is stored. A rejected cursor is an observable `ApiParseError` and
   must never be requested.
 
+**Paging pace** (`FeedPagingPolicy`, `feed_paging_policy.dart`): load-more
+is automatic (scroll proximity, the detail pager's near-end), so it is held
+to a reader's pace:
+
+- Two automatic page requests are at least `minPageInterval` (1 s) apart,
+  counted from the previous page's return; each filter-refill hop of a
+  load-more is paced and counted the same way. The tail keeps spinning
+  during the wait. The first load, a refresh, and the first page after
+  either are never held. A refresh, cancel or teardown during the wait
+  drops the held request.
+- At most `maxAutoPages` (30) pages back to back. A gap of
+  `burstIdleReset` (5 s) between pages starts a new budget. A spent budget
+  sets `PagedFeedState.loadMorePaused`: `loadMore()` is a no-op until the
+  idle gap passes, and `FeedTail` shows "continue"
+  (`Key('feed-continue-loading')`) wired to `retryLoadMore()`, which is the
+  user's request and grants a fresh budget.
+- Feeds read from local storage (history) return
+  `FeedPagingPolicy.unlimited`.
+
+**Data off the UI isolate** (`DataWorker`, `lib/core/network/data_worker.dart`):
+
+- `PixivHttpClient.getParsed(uri, parse)` decodes the body and runs
+  `parse` on the data worker; `getJson` is `getParsed` with no mapping.
+  Feed repositories map pages through `getParsed`, so the UI isolate only
+  receives entities; the commit (store merge, one state update per page)
+  stays on the UI isolate.
+- `parse` must be a top-level or static function, or a closure built in a
+  non-async static factory over sendable values (e.g. a comment query, a
+  series id). Never a closure over `this` or created inside an async body.
+- The app wires `IsolateDataWorker` (one long-lived isolate, spawned on
+  first use; if it dies, in-flight requests fail with `DataWorkerExited`
+  and the next request respawns). Tests and tools default to
+  `InlineDataWorker`, which in debug builds sends task and result to a
+  throwaway port, so unsendable work fails in ordinary tests too. Widget
+  tests that render through the real `pixivHttpClientProvider` override
+  `dataWorkerProvider` with `InlineDataWorker`: fake time never delivers an
+  isolate's reply.
+- Snapshot writes: `FeedSnapshotCodec.lookupEntities` reads the store on
+  the UI isolate; `encodeEntity` and `jsonEncode` run on the worker
+  (`encodeFeedSnapshot`), then `FeedSnapshotStore.writeEncoded`.
+
 **Account boundary**: a feed family keyed by a mode/filter must watch the
 current account ID and reset on account change. Shared entity providers
 must likewise be recreated or cleared at that boundary so account A's
@@ -147,7 +188,10 @@ entities cannot be rendered during account B's load.
 
 **Tests**: each cancellable feed covers cancellation without an error,
 late-result suppression, cursor rejection, per-filter independence, and
-account-switch reset.
+account-switch reset. `feed_paging_policy_test.dart` covers the interval,
+the budget and its continue, the idle reset, refresh during a held page
+and paced refill hops (fake time); `data_worker_test.dart` covers the
+isolate round trip, errors, a dead isolate and close.
 
 ### Generation-Scoped Feed Commit Contract (`FeedRequestContext`, `FeedCommitGate`)
 

@@ -137,11 +137,11 @@ class _PixivUserRepository implements UserRepository {
       query: {'filter': 'for_ios'},
       cursor: cursor,
     );
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _parseUserPageWithPreviews,
       cancelToken: cancelToken,
     );
-    return _parseUserPage(json, withPreviews: true);
   }
 
   @override
@@ -172,11 +172,11 @@ class _PixivUserRepository implements UserRepository {
       'type': _userWorkTypeWire(type),
     };
     final request = _pageRequest(path: path, query: query, cursor: cursor);
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _parseIllustPage,
       cancelToken: cancelToken,
     );
-    return _parseIllustPage(json);
   }
 
   @override
@@ -194,11 +194,11 @@ class _PixivUserRepository implements UserRepository {
       if (tag != null && tag.isNotEmpty) 'tag': tag,
     };
     final request = _pageRequest(path: path, query: query, cursor: cursor);
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _parseIllustPage,
       cancelToken: cancelToken,
     );
-    return _parseIllustPage(json);
   }
 
   @override
@@ -256,11 +256,11 @@ class _PixivUserRepository implements UserRepository {
       if (relation == UserRelation.following) 'restrict': restrict.wireValue,
     };
     final request = _pageRequest(path: path, query: query, cursor: cursor);
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _parseUserPage,
       cancelToken: cancelToken,
     );
-    return _parseUserPage(json);
   }
 
   @override
@@ -345,7 +345,7 @@ class _PixivUserRepository implements UserRepository {
     );
   }
 
-  UserIllustPage _parseIllustPage(Map<String, dynamic> json) {
+  static UserIllustPage _parseIllustPage(Map<String, dynamic> json) {
     try {
       final page = IllustEntity.parsePage(json);
       return UserIllustPage(illusts: page.illusts, nextUrl: page.nextUrl);
@@ -354,9 +354,13 @@ class _PixivUserRepository implements UserRepository {
     }
   }
 
+  static UserRelationPage _parseUserPageWithPreviews(
+    Map<String, dynamic> json,
+  ) => _parseUserPage(json, withPreviews: true);
+
   /// [withPreviews] also parses each user's preview works; only pages that
   /// show them ask, so a malformed preview never breaks a plain user list.
-  UserRelationPage _parseUserPage(
+  static UserRelationPage _parseUserPage(
     Map<String, dynamic> json, {
     bool withPreviews = false,
   }) {

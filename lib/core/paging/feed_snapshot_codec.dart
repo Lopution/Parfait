@@ -4,6 +4,8 @@
 /// `feed_snapshot_store.dart` and `paged_feed_controller.dart`.
 library;
 
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Encodes/decodes one entity type for `feed_snapshots.entities`.
@@ -23,9 +25,13 @@ abstract class FeedSnapshotCodec {
   /// payload becomes unreadable by older decoders.
   int get snapshotVersion => 1;
 
-  /// `{idString: payload}` for ids that still resolve to a live entity in
-  /// the shared store. Missing entities are skipped.
-  Map<String, Object?> encodeEntities(Ref ref, List<int> ids);
+  /// The entities of [ids] still in the shared store, by id; missing ones
+  /// are skipped. Read on the UI isolate.
+  Map<int, Object> lookupEntities(Ref ref, List<int> ids);
+
+  /// One entity's persisted payload. Pure: it runs on the data worker, so
+  /// codecs stay stateless (`const`).
+  Object? encodeEntity(Object entity);
 
   /// Decodes the persisted `{idString: payload}` map, merges the entities
   /// into the shared store and returns the subset of [ids] that decoded
@@ -34,5 +40,25 @@ abstract class FeedSnapshotCodec {
     Ref ref,
     List<int> ids,
     Map<String, Object?> entitiesJson,
+  );
+}
+
+/// One snapshot write ready for storage: ids and
+/// `{entityType: {idString: payload}}`, both as JSON text.
+typedef EncodedFeedSnapshot = ({String ids, String entities});
+
+/// Encodes one snapshot write; the data worker's task, so it is top-level.
+EncodedFeedSnapshot encodeFeedSnapshot(
+  ({FeedSnapshotCodec codec, List<int> ids, Map<int, Object> entities}) input,
+) {
+  final codec = input.codec;
+  return (
+    ids: jsonEncode(input.ids),
+    entities: jsonEncode({
+      codec.entityType: {
+        for (final MapEntry(:key, :value) in input.entities.entries)
+          '$key': codec.encodeEntity(value),
+      },
+    }),
   );
 }

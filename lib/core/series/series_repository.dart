@@ -73,11 +73,11 @@ class PixivSeriesRepository {
       expected: {'filter': 'for_android', 'illust_series_id': '$seriesId'},
       cursor: cursor,
     );
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _parseSeriesWorksPage,
       cancelToken: cancelToken,
     );
-    return _parseSeriesWorksPage(json);
   }
 
   /// Detail-page context: the series this illust belongs to plus its
@@ -119,11 +119,11 @@ class PixivSeriesRepository {
       expected: {'filter': 'for_android', 'user_id': '$userId'},
       cursor: cursor,
     );
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _parseUserSeriesPage,
       cancelToken: cancelToken,
     );
-    return _parseUserSeriesPage(json);
   }
 
   bool validateSeriesCursor(int seriesId, {required String cursor}) {
@@ -203,7 +203,7 @@ class PixivSeriesRepository {
     );
   }
 
-  SeriesWorksPage _parseSeriesWorksPage(Map<String, dynamic> json) {
+  static SeriesWorksPage _parseSeriesWorksPage(Map<String, dynamic> json) {
     final rawIllusts = json['illusts'];
     if (rawIllusts is! List) {
       throw const ApiParseError('illust series works envelope is malformed');
@@ -284,7 +284,7 @@ class PixivSeriesRepository {
     }
   }
 
-  UserSeriesPage _parseUserSeriesPage(Map<String, dynamic> json) {
+  static UserSeriesPage _parseUserSeriesPage(Map<String, dynamic> json) {
     final raw = json['illust_series_details'];
     if (raw is! List) {
       throw const ApiParseError(

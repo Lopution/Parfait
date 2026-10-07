@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'feed_database.dart';
+import 'feed_snapshot_codec.dart';
 
 /// One decoded `feed_snapshots` row.
 class FeedSnapshot {
@@ -119,11 +120,27 @@ class FeedSnapshotStore {
   }
 
   /// Upserts one feed's snapshot and evicts rows beyond the per-account cap.
+  /// Encodes on the calling isolate; feeds write through [writeEncoded].
   Future<void> write(
     String accountId,
     String feedKey, {
     required List<int> ids,
     required Map<String, Object?> entities,
+    String? cursor,
+    int snapshotVersion = 1,
+  }) => writeEncoded(
+    accountId,
+    feedKey,
+    (ids: jsonEncode(ids), entities: jsonEncode(entities)),
+    cursor: cursor,
+    snapshotVersion: snapshotVersion,
+  );
+
+  /// [write] for a snapshot already encoded (on the data worker).
+  Future<void> writeEncoded(
+    String accountId,
+    String feedKey,
+    EncodedFeedSnapshot snapshot, {
     String? cursor,
     int snapshotVersion = 1,
   }) async {
@@ -132,8 +149,8 @@ class FeedSnapshotStore {
       await txn.insert(FeedDatabase.snapshotTable, {
         'account_id': accountId,
         'feed_key': feedKey,
-        'ids': jsonEncode(ids),
-        'entities': jsonEncode(entities),
+        'ids': snapshot.ids,
+        'entities': snapshot.entities,
         'cursor': cursor,
         'saved_at': _now().millisecondsSinceEpoch,
         'snapshot_version': snapshotVersion,

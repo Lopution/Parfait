@@ -54,11 +54,11 @@ class PixivSpotlightRepository {
     } on NextPageParseError catch (error) {
       throw ApiParseError(error);
     }
-    final json = await _client.getJson(
+    return _client.getParsed(
       _target(request),
+      _parseArticlesPage,
       cancelToken: cancelToken,
     );
-    return _parseArticlesPage(json);
   }
 
   /// Fetches one article page for in-app rendering. The URL comes from
@@ -139,7 +139,7 @@ class PixivSpotlightRepository {
     );
   }
 
-  SpotlightArticlesPage _parseArticlesPage(Map<String, dynamic> json) {
+  static SpotlightArticlesPage _parseArticlesPage(Map<String, dynamic> json) {
     final raw = json['spotlight_articles'];
     if (raw is! List) {
       throw const ApiParseError(

@@ -1192,6 +1192,10 @@
   "@detailAuthorWorksLoadFailed": {
     "description": "The author's other-works strip failed to load."
   },
+  "feedContinueLoading": "继续加载",
+  "@feedContinueLoading": {
+    "description": "Feed tail button after automatic paging paused: loads the next pages."
+  },
   "detailExpandPages": "展开全部 {count} 张",
   "@detailExpandPages": {
     "description": "Under the first image of a multi-image illustration; shows the rest.",
