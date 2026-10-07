@@ -17,10 +17,8 @@ import 'image_worker_protocol.dart';
 import 'lane_permit_gate.dart';
 import 'worker_route_memory.dart';
 
-/// A non-200 image response. `package:http`'s `HttpException` variants live
-/// in flutter_cache_manager (which the worker must not depend on), so the
-/// worker reports the status with its own type and the client maps it back
-/// onto `FetchFailure.statusCode`.
+/// A non-200 image response. The worker reports the status with its own
+/// type and the client maps it onto `FetchFailure.statusCode`.
 class ImageHttpStatus implements Exception {
   const ImageHttpStatus(this.statusCode, this.url);
 
@@ -157,8 +155,8 @@ class ImageWorkerHost {
       _scheduler = ImageFetchScheduler<(File, int)>(execute: _fetch);
       _send(ReadyEvent(_inbox.sendPort));
     } on Object catch (error) {
-      // Explicit failure per the rewrite contract: the main isolate must
-      // see init fail, not silently continue on the legacy stack.
+      // Explicit failure: the main isolate must see init fail, not wait
+      // for a worker that never answers.
       _send(InitErrorEvent('$error'));
     }
   }

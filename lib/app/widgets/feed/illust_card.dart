@@ -7,7 +7,6 @@ import '../../../core/entity/illust_entity.dart';
 import '../../format/app_format.dart';
 import '../../../core/mute/mute_predicate.dart';
 import '../../../core/mute/mute_store.dart';
-import '../../../core/network/compat/network_providers.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
@@ -361,8 +360,6 @@ class _IllustCardBody extends ConsumerWidget {
     IllustCardPreview preview,
     int decodeWidth,
   ) {
-    final network = ref.read(pixivNetworkFactoryProvider);
-    final cacheManager = network.imageCacheManager;
     final previewUrl = preview.url;
     final previewTier = preview.tier;
     // Warm the exact decoded entry the feed card displays AND the detail
@@ -372,7 +369,6 @@ class _IllustCardBody extends ConsumerWidget {
       PixivImage.preload(
         context,
         previewUrl,
-        cacheManager: cacheManager,
         tierKey: previewTier == null ? null : entity.imageTierKeyAt(0),
         tier: previewTier,
         memCacheWidth: decodeWidth,
@@ -380,9 +376,7 @@ class _IllustCardBody extends ConsumerWidget {
     );
     final avatarUrl = entity.user.profileImageUrl;
     if (avatarUrl != null) {
-      unawaited(
-        PixivImage.preload(context, avatarUrl, cacheManager: cacheManager),
-      );
+      unawaited(PixivImage.preload(context, avatarUrl));
     }
     // Warm the detail-tier page-0 image too: the detail page swaps off the
     // preview URL as soon as its payload lands, and without this the bigger
@@ -398,10 +392,8 @@ class _IllustCardBody extends ConsumerWidget {
           PixivImage.preload(
             context,
             detailUrl,
-            cacheManager: cacheManager,
             tierKey: entity.imageTierKeyAt(0),
             tier: detailQuality.tier,
-            demand: network.imageDemand,
             priority: ImageFetchPriority.foreground,
           ),
         );

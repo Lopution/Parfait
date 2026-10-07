@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' show log;
 
 import 'package:flutter/rendering.dart' show PipelineOwner;
 import 'package:flutter/scheduler.dart';
@@ -9,6 +10,7 @@ import 'package:rhttp/rhttp.dart' as rhttp;
 
 import 'app/app.dart';
 import 'core/debug/frame_probe.dart';
+import 'core/image/legacy_image_cache.dart';
 import 'core/logging/crash_log.dart';
 import 'core/network/rhttp_gate.dart';
 import 'core/widget/widget_background.dart';
@@ -118,6 +120,19 @@ Future<void> _run() async {
   // the probe page cannot be opened in time for. Stop it there.
   if (kPixivFrameProbe) FrameProbe.instance.start();
   runApp(const ProviderScope(child: ParfaitApp()));
+  unawaited(_deleteLegacyImageCache());
+}
+
+/// The image cache the worker replaced can hold hundreds of MB. It goes
+/// once the first frame is on screen, off the startup path; every launch
+/// checks again, which costs a few stats.
+Future<void> _deleteLegacyImageCache() async {
+  await WidgetsBinding.instance.waitUntilFirstFrameRasterized;
+  final deleted = await deleteLegacyImageCache(
+    temp: await getTemporaryDirectory(),
+    support: await getApplicationSupportDirectory(),
+  );
+  if (deleted.isNotEmpty) log('deleted the legacy image cache: $deleted');
 }
 
 /// Headless entrypoint for the Android widget worker.

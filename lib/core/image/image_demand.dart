@@ -1,6 +1,6 @@
 import 'package:meta/meta.dart';
 
-export '../../image/lane_permit_gate.dart' show ImageFetchDropped;
+export 'lane_permit_gate.dart' show ImageFetchDropped;
 
 /// How long a released URL still counts as wanted. Absorbs the brief
 /// unmount/remount of a Hero flight or a list re-layout.
@@ -9,19 +9,20 @@ const releaseGrace = Duration(milliseconds: 500);
 /// Bookkeeping entries kept before expired ones are pruned.
 const _kPruneThreshold = 256;
 
-/// Who is still waiting for an image URL. The file service consults it
-/// when a queued fetch reaches its turn: nobody waiting means the fetch is
-/// dropped before it costs a connection.
+/// Who is still waiting for an image URL: image widgets hold what they
+/// show, preloads hold what a page is about to show, prefetch windows name
+/// what may be shown next. The image worker's client cancels a queued
+/// fetch nobody waits for any more, before it costs a connection.
 ///
 /// Keys are the request URLs as the widgets see them; mirror rewriting
-/// happens later, inside the HTTP client.
+/// happens later, inside the worker.
 class ImageDemand {
   ImageDemand({DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
 
   final DateTime Function() _clock;
 
   /// Called when [url] gains an on-screen holder: its first [hold], or any
-  /// [holdFor]. Wired to the file service's promotion.
+  /// [holdFor]. Wired to the worker's promotion of a queued fetch.
   void Function(String url)? onHeld;
 
   /// Fired when a mutation may have left [url] unwanted — after a [release]

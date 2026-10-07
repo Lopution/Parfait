@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io' show File;
 
 import '../logging/crash_log.dart';
-import '../network/compat/image_demand.dart';
+import 'image_demand.dart';
 import '../network/compat/network_contracts.dart';
 import 'image_worker_client.dart';
 import 'image_worker_protocol.dart';
@@ -23,8 +23,7 @@ typedef ImageWorkerStarter =
 /// worker that dies is replaced on the next request, up to [maxStarts]
 /// starts per session; past that every request fails with
 /// [ImageWorkerUnavailable]. Every death and failed start lands in the
-/// crash log — a replacement restarts the same pipeline, it never falls
-/// back to the legacy one.
+/// crash log; there is no other pipeline to fall back to.
 class ImageWorker implements ImageFetcher {
   ImageWorker({
     required ImageWorkerStarter start,

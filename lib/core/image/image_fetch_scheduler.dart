@@ -26,10 +26,13 @@ import 'lane_permit_gate.dart';
 class ImageFetchScheduler<T> {
   ImageFetchScheduler({
     required this.execute,
-    this.foregroundSlots = 8,
-    this.backgroundSlots = 2,
+    this.foregroundSlots = defaultForegroundSlots,
+    this.backgroundSlots = defaultBackgroundSlots,
     this.cancelGrace = const Duration(milliseconds: 500),
   });
+
+  static const defaultForegroundSlots = 8;
+  static const defaultBackgroundSlots = 2;
 
   /// Runs one admitted fetch to completion (transport + disk write lives
   /// in the caller). Its result/error is fanned out to every interest.
@@ -117,8 +120,7 @@ class ImageFetchScheduler<T> {
   }
 
   /// A foreground interest on a queued background fetch moves the waiter
-  /// to the foreground lane — the same promotion the demand-driven
-  /// `promote()` performed on the legacy service.
+  /// to the foreground lane.
   void _promote(_Fetch<T> fetch) {
     if (fetch.streaming || fetch.foreground) return;
     final waiter = _background.take(fetch.url);

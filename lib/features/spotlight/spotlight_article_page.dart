@@ -1,18 +1,23 @@
 import 'dart:async';
+import 'dart:ui' show Codec, ImmutableBuffer;
 
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:octo_image/octo_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/layout/content_widths.dart';
+import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/author_row.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../core/network/http_client_providers.dart';
 import '../../core/share/share_service.dart';
 import '../../core/spotlight/spotlight_article_controller.dart';
 import '../../core/spotlight/spotlight_models.dart';
@@ -234,9 +239,9 @@ class _SpotlightBlockViewState extends State<_SpotlightBlockView> {
 }
 
 /// Article body images: pximg hosts need the Pixiv referer chain
-/// (PixivImage); pixivision's own CDN does not, so it goes through
-/// CachedNetworkImage.
-class _ArticleImage extends StatelessWidget {
+/// (PixivImage); pixivision's own CDN does not, so it is plain third-party
+/// traffic.
+class _ArticleImage extends ConsumerWidget {
   const _ArticleImage({required this.url, this.placeholder});
 
   final String url;
@@ -245,7 +250,7 @@ class _ArticleImage extends StatelessWidget {
   final Widget? placeholder;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final placeholder = this.placeholder;
     final host = Uri.tryParse(url)?.host ?? '';
     if (host.endsWith('pximg.net')) {
@@ -255,12 +260,62 @@ class _ArticleImage extends StatelessWidget {
         placeholderWidget: placeholder,
       );
     }
-    return CachedNetworkImage(
-      imageUrl: url,
+    return OctoImage(
+      image: _ThirdPartyImage(ref.watch(thirdPartyHttpClientProvider), url),
       fit: BoxFit.contain,
-      placeholder: placeholder == null ? null : (_, _) => placeholder,
+      placeholderBuilder: placeholder == null ? null : (_) => placeholder,
+      errorBuilder: (_, _, _) => const Icon(Icons.broken_image),
+      fadeInDuration: MotionTokens.resolve(context, MotionTokens.imageFade),
+      fadeOutDuration: MotionTokens.resolve(context, MotionTokens.imageFadeOut),
     );
   }
+}
+
+/// An image fetched through the third-party client: system routing, no
+/// Pixiv network policy and no disk cache. Flutter's image cache keeps the
+/// decode by client and URL.
+@immutable
+class _ThirdPartyImage extends ImageProvider<_ThirdPartyImage> {
+  const _ThirdPartyImage(this.client, this.url);
+
+  final http.Client client;
+  final String url;
+
+  @override
+  Future<_ThirdPartyImage> obtainKey(ImageConfiguration configuration) =>
+      SynchronousFuture(this);
+
+  @override
+  ImageStreamCompleter loadImage(
+    _ThirdPartyImage key,
+    ImageDecoderCallback decode,
+  ) => MultiFrameImageStreamCompleter(
+    codec: _load(decode),
+    scale: 1,
+    debugLabel: url,
+    informationCollector: () => [DiagnosticsProperty('URL', url)],
+  );
+
+  Future<Codec> _load(ImageDecoderCallback decode) async {
+    final uri = Uri.parse(url);
+    final response = await client.get(uri);
+    if (response.statusCode != 200) {
+      throw NetworkImageLoadException(
+        statusCode: response.statusCode,
+        uri: uri,
+      );
+    }
+    return decode(await ImmutableBuffer.fromUint8List(response.bodyBytes));
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ThirdPartyImage &&
+      identical(other.client, client) &&
+      other.url == url;
+
+  @override
+  int get hashCode => Object.hash(identityHashCode(client), url);
 }
 
 /// A work from the article, the way pixivision shows it: the image at

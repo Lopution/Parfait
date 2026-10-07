@@ -1104,10 +1104,13 @@ const IllustDetailPage({
 
 String illustHeroTag(String scope, int illustId);
 
-Future<void> PixivImage.preload(
+Future<ImagePreloadResult> PixivImage.preload(
   BuildContext context,
   String url, {
-  BaseCacheManager? cacheManager,
+  String? tierKey,
+  IllustImageTier? tier,
+  int? memCacheWidth,
+  ImageFetchPriority priority = ImageFetchPriority.background,
 });
 ```
 
@@ -1122,12 +1125,12 @@ Future<void> PixivImage.preload(
 - A detail route without a matching source Hero uses the normal page route; it
   must not create a synthetic source or wait for the request before navigating.
 - The source card passes its selected preview URL to the detail route. Both
-  sides use the same `PixivImage` headers and cache manager, including the
-  first page of a multi-page work.
+  sides load it through the same image worker, including the first page of
+  a multi-page work.
 - All artwork URL/quality hand-offs go through `PixivImage`; callers must not
   add a second per-page "ready" flag or replace the old image with a blank
-  loading state. `PixivImage` keeps `useOldImageOnUrlChange` enabled and uses a
-  bounded `transitionKey` URL history for Hero endpoints that are rebuilt
+  loading state. `PixivImage` keeps OctoImage's `gaplessPlayback` enabled and
+  uses a bounded `transitionKey` URL history for Hero endpoints that are rebuilt
   while flying. The previous decoded frame remains visible while the new
   quality resolves, including preview/detail/original changes, every page of
   a multi-page work, and Ugoira covers.
@@ -1139,7 +1142,7 @@ Future<void> PixivImage.preload(
 - A feed slot being reused for a different work is a **slot hand-off**, not a
   cold load: `PixivImage` tracks the URL each element last committed to, and
   a changed URL on a live element drops the fade to zero — OctoImage's
-  `useOldImageOnUrlChange` retains the old frame and the new one replaces it
+  `gaplessPlayback` retains the old frame and the new one replaces it
   instantly (Glide semantics). Fading work B in over retained work A reads as
   a cross-work dissolve across the whole refreshed grid. Feed cards therefore
   carry a `ValueKey` scoped by feed + work id (`illust-<scope>-<id>`,

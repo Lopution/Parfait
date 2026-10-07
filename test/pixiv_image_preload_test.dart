@@ -1,25 +1,33 @@
 import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/image_tier_cache.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
-import 'package:parfait/core/network/compat/image_cache.dart';
-import 'package:parfait/core/network/compat/image_demand.dart';
+import 'package:parfait/core/image/image_fetch_scheduler.dart';
+import 'package:parfait/core/image/image_worker.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
 
 import 'helpers/image_network.dart';
 
-/// Pumps a bare host and returns a context [PixivImage.preload] can use.
-Future<BuildContext> _context(WidgetTester tester) async {
+const _backgroundSlots = ImageFetchScheduler.defaultBackgroundSlots;
+
+/// Pumps a bare host on [worker] and returns a context
+/// [PixivImage.preload] can use.
+Future<BuildContext> _context(WidgetTester tester, ImageWorker worker) async {
   late BuildContext context;
   await tester.pumpWidget(
-    Builder(
-      builder: (c) {
-        context = c;
-        return const SizedBox();
-      },
+    ProviderScope(
+      overrides: [imageWorkerProvider.overrideWithValue(worker)],
+      child: Builder(
+        builder: (c) {
+          context = c;
+          return const SizedBox();
+        },
+      ),
     ),
   );
   return context;
@@ -35,21 +43,19 @@ void main() {
         request: request,
       ),
     );
-    final context = await _context(tester);
+    final context = await _context(tester, inProcessImageWorker(() => client));
     const url = 'https://i.pximg.net/img-master/missing.jpg';
 
     final reported = <FlutterErrorDetails>[];
     final previous = FlutterError.onError;
     FlutterError.onError = reported.add;
+    ImagePreloadResult? result;
     try {
-      // The cache manager does real disk IO, so it lives in real async.
-      await tester.runAsync(
+      // The worker does real IO, so the preload lives in real async.
+      result = await tester.runAsync(
         () => PixivImage.preload(
           context,
           url,
-          cacheManager: testImageCacheManager(
-            PriorityFileService(httpClient: client),
-          ),
           tierKey: '1:0',
           tier: IllustImageTier.large,
         ),
@@ -58,6 +64,7 @@ void main() {
       FlutterError.onError = previous;
     }
 
+    expect(result, ImagePreloadResult.failed);
     expect(client.urls, [url]);
     expect(reported, isEmpty);
     expect(
@@ -70,47 +77,33 @@ void main() {
     tester,
   ) async {
     final client = HeldBodyClient();
-    final context = await _context(tester);
+    final worker = inProcessImageWorker(() => client);
+    final context = await _context(tester, worker);
     const asked = 'https://i.pximg.net/img-master/asked.jpg';
 
-    var now = DateTime(2026, 10, 3);
-    final demand = ImageDemand(clock: () => now);
-
     await tester.runAsync(() async {
-      final manager = testImageCacheManager(
-        PriorityFileService(httpClient: client),
-      );
       final preloads = [
-        for (var i = 0; i <= PriorityFileService.backgroundSlots; i++)
+        for (var i = 0; i <= _backgroundSlots; i++)
           PixivImage.preload(
             context,
             'https://i.pximg.net/img-master/warm$i.jpg',
-            cacheManager: manager,
           ),
         PixivImage.preload(
           context,
           asked,
-          cacheManager: manager,
-          demand: demand,
           priority: ImageFetchPriority.foreground,
         ),
       ];
       // Wanted until the page it was preloaded for mounts and takes over.
-      now = now.add(const Duration(seconds: 9));
-      expect(demand.wants(asked), isTrue);
-      now = now.add(const Duration(seconds: 2));
-      expect(demand.wants(asked), isFalse);
+      expect(worker.demand.wants(asked), isTrue);
       await pollUntil(() => client.urls.contains(asked));
       await Future<void>.delayed(const Duration(milliseconds: 100));
       // Both background slots are busy and the third warm-up still waits.
-      expect(client.urls, hasLength(PriorityFileService.backgroundSlots + 1));
+      expect(client.urls, hasLength(_backgroundSlots + 1));
       await client.closeAll();
       // Freeing the background lane admits the warm-up still queued.
-      await pollUntil(
-        () => client.urls.length == PriorityFileService.backgroundSlots + 2,
-      );
+      await pollUntil(() => client.urls.length == _backgroundSlots + 2);
       await client.closeAll();
-      // No cache write may outlive the test's temp directory.
       await Future.wait(preloads);
     });
   });
@@ -118,12 +111,12 @@ void main() {
   testWidgets('a warm-up nobody wants any more ends as dropped, without a '
       'log line or a request', (tester) async {
     final client = HeldBodyClient();
-    final context = await _context(tester);
-    final demand = ImageDemand();
+    final worker = inProcessImageWorker(() => client);
+    final context = await _context(tester, worker);
     final window = Object();
     const stale = 'https://i.pximg.net/img-master/stale.jpg';
     final warm = [
-      for (var i = 0; i < PriorityFileService.backgroundSlots; i++)
+      for (var i = 0; i < _backgroundSlots; i++)
         'https://i.pximg.net/img-master/busy$i.jpg',
       stale,
     ];
@@ -132,25 +125,14 @@ void main() {
     debugPrint = (message, {wrapWidth}) => logs.add(message);
     try {
       await tester.runAsync(() async {
-        final manager = testImageCacheManager(
-          PriorityFileService(httpClient: client, demand: demand),
-        );
-        demand.setPrefetchWindow(window, warm.toSet());
+        worker.demand.setPrefetchWindow(window, warm.toSet());
         final results = [
-          for (final url in warm)
-            PixivImage.preload(
-              context,
-              url,
-              cacheManager: manager,
-              demand: demand,
-            ),
+          for (final url in warm) PixivImage.preload(context, url),
         ];
-        await pollUntil(
-          () => client.urls.length == PriorityFileService.backgroundSlots,
-        );
-        demand.clearPrefetchWindow(window);
-        await client.closeAll();
+        await pollUntil(() => client.urls.length == _backgroundSlots);
+        worker.demand.clearPrefetchWindow(window);
         expect(await results.last, ImagePreloadResult.dropped);
+        await client.closeAll();
         await Future.wait(results);
       });
     } finally {

@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -238,8 +237,6 @@ void main() {
         theme: theme,
       );
       await tester.pumpAndSettle();
-      // Card previews load through the image worker.
-      expect(find.byType(CachedNetworkImage), findsNothing);
       final image = find.byType(OctoImage).first;
       final placeholder =
           tester.widget<OctoImage>(image).placeholderBuilder!(

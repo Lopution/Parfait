@@ -6,22 +6,19 @@ import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:parfait/core/image/image_worker.dart';
 import 'package:parfait/core/image/image_worker_client.dart';
 import 'package:parfait/core/image/image_worker_host.dart';
 import 'package:parfait/core/image/image_worker_protocol.dart';
-import 'package:parfait/core/network/compat/image_demand.dart';
-import 'package:parfait/core/network/compat/network_policy.dart';
-import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
+import 'package:parfait/core/image/image_demand.dart';
 
-/// Fake image transport for the real `PriorityFileService` → `CacheManager`
-/// chain. Every send is recorded. Unless [respond] returns a canned
-/// response, the body stays open until the test closes it, so a lane
-/// permit is observably held for the whole transfer.
+/// Fake image transport. Every send is recorded. Unless [respond] returns
+/// a canned response, the body stays open until the test closes it, so a
+/// lane permit is observably held for the whole transfer.
 class HeldBodyClient extends http.BaseClient {
   HeldBodyClient({this.respond});
 
@@ -127,38 +124,6 @@ class RangeServingClient extends http.BaseClient {
 Uint8List patternBytes(int size) =>
     Uint8List.fromList([for (var i = 0; i < size; i++) i * 31 % 251]);
 
-var _managerSerial = 0;
-
-/// Answers the path_provider channel (an external boundary) with a fresh
-/// temp directory, removed after the test.
-Directory mockPathProvider() {
-  final dir = Directory.systemTemp.createTempSync('parfait-img-');
-  const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
-  final messenger =
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-  messenger.setMockMethodCallHandler(pathChannel, (_) async => dir.path);
-  addTearDown(() async {
-    messenger.setMockMethodCallHandler(pathChannel, null);
-    await dir.delete(recursive: true);
-  });
-  return dir;
-}
-
-/// A real [CacheManager] over [fileService], storing files under a fresh
-/// temp directory with no persisted index.
-CacheManager testImageCacheManager(FileService fileService) {
-  mockPathProvider();
-  final manager = CacheManager(
-    Config(
-      'parfait_images_test_${_managerSerial++}',
-      repo: NonStoringObjectProvider(),
-      fileService: fileService,
-    ),
-  );
-  addTearDown(manager.dispose);
-  return manager;
-}
-
 /// Lets queued microtasks and immediate timers run (real async only).
 Future<void> settleIo([int rounds = 20]) async {
   for (var i = 0; i < rounds; i++) {
@@ -205,51 +170,6 @@ Future<void> unmountPastReleaseGrace(WidgetTester tester) async {
 final onePixelPng = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
 );
-
-class _NoFileSystem implements FileSystem {
-  @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnsupportedError('scripted cache has no disk');
-}
-
-/// The image cache's network and disk boundary, scripted per attempt.
-class ScriptedCacheManager extends CacheManager {
-  ScriptedCacheManager(this.script)
-    : super(
-        Config(
-          'parfait_scripted',
-          repo: NonStoringObjectProvider(),
-          fileSystem: _NoFileSystem(),
-        ),
-      );
-
-  final Stream<FileResponse> Function(int attempt) script;
-  var requests = 0;
-
-  @override
-  Stream<FileResponse> getFileStream(
-    String url, {
-    String? key,
-    Map<String, String>? headers,
-    bool withProgress = false,
-  }) => script(++requests);
-}
-
-/// A network factory whose image cache is [manager]; API calls fail.
-class ScriptedImageNetwork extends PixivNetworkFactory {
-  ScriptedImageNetwork(this.manager)
-    : super(
-        NetworkAccessPolicy(
-          clientFactory: (_, _, _) =>
-              MockClient((_) async => http.Response('', 500)),
-        ),
-      );
-
-  final CacheManager manager;
-
-  @override
-  CacheManager get imageCacheManager => manager;
-}
 
 /// The config in-process test workers run with: direct `i.pximg.net`, no
 /// DoH.
@@ -329,4 +249,11 @@ Future<ImageWorkerClient> scriptedImageWorkerClient(
 ImageWorker stalledImageWorker() => ImageWorker(
   start: (_, _) => Completer<ImageWorkerClient>().future,
   config: () async => testImageWorkerConfig,
+);
+
+/// [child] under a scope whose images never load, for tests about
+/// something else: every `PixivImage` needs a [ProviderScope].
+Widget withStalledImages(Widget child) => ProviderScope(
+  overrides: [imageWorkerProvider.overrideWithValue(stalledImageWorker())],
+  child: child,
 );

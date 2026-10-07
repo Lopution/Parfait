@@ -72,7 +72,6 @@ void main() {
             clients.putIfAbsent('${purpose.name}|$host', _RecordingClient.new),
       );
       final factory = PixivNetworkFactory(policy);
-      addTearDown(factory.dispose);
 
       await factory.apiClient.get(
         Uri.parse('https://app-api.pixiv.net/v1/illust/recommended'),

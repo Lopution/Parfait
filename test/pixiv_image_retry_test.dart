@@ -8,7 +8,6 @@ import 'package:http/testing.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
-import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
@@ -45,14 +44,7 @@ class _Pipeline {
         };
       }),
     );
-    return [
-      pixivNetworkFactoryProvider.overrideWithValue(
-        ScriptedImageNetwork(
-          ScriptedCacheManager((_) => fail('an image reached legacy')),
-        ),
-      ),
-      imageWorkerProvider.overrideWithValue(worker),
-    ];
+    return [imageWorkerProvider.overrideWithValue(worker)];
   }
 }
 

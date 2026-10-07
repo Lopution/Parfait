@@ -32,6 +32,7 @@ import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/context.dart';
 import 'package:parfait/app/motion/removal.dart';
 
+import 'helpers/image_network.dart';
 import 'helpers/comment_world.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/fake_account.dart';
@@ -493,20 +494,22 @@ void main() {
     Future<void> openPanelAt(double width, String tooltip) async {
       tester.view.physicalSize = Size(width, 600);
       await tester.pumpWidget(
-        MaterialApp(
-          builder: promptHostBuilder,
-          locale: const Locale('zh', 'CN'),
-          supportedLocales: const [Locale('zh', 'CN')],
-          localizationsDelegates: appLocalizationsDelegates,
-          home: Scaffold(
-            // A fresh subtree per width — otherwise the composer's State
-            // survives pumpWidget and the tap toggles the still-open panel
-            // back to none.
-            key: ValueKey(width),
-            resizeToAvoidBottomInset: false,
-            body: CommentComposer(
-              onSend: (_) async {},
-              onStampSend: (_) async {},
+        withStalledImages(
+          MaterialApp(
+            builder: promptHostBuilder,
+            locale: const Locale('zh', 'CN'),
+            supportedLocales: const [Locale('zh', 'CN')],
+            localizationsDelegates: appLocalizationsDelegates,
+            home: Scaffold(
+              // A fresh subtree per width — otherwise the composer's State
+              // survives pumpWidget and the tap toggles the still-open panel
+              // back to none.
+              key: ValueKey(width),
+              resizeToAvoidBottomInset: false,
+              body: CommentComposer(
+                onSend: (_) async {},
+                onStampSend: (_) async {},
+              ),
             ),
           ),
         ),
@@ -550,16 +553,18 @@ void main() {
   ) async {
     final sent = <int>[];
     await tester.pumpWidget(
-      MaterialApp(
-        builder: promptHostBuilder,
-        locale: const Locale('zh', 'CN'),
-        supportedLocales: const [Locale('zh', 'CN')],
-        localizationsDelegates: appLocalizationsDelegates,
-        home: Scaffold(
-          resizeToAvoidBottomInset: false,
-          body: CommentComposer(
-            onSend: (_) async {},
-            onStampSend: (id) async => sent.add(id),
+      withStalledImages(
+        MaterialApp(
+          builder: promptHostBuilder,
+          locale: const Locale('zh', 'CN'),
+          supportedLocales: const [Locale('zh', 'CN')],
+          localizationsDelegates: appLocalizationsDelegates,
+          home: Scaffold(
+            resizeToAvoidBottomInset: false,
+            body: CommentComposer(
+              onSend: (_) async {},
+              onStampSend: (id) async => sent.add(id),
+            ),
           ),
         ),
       ),
@@ -774,12 +779,14 @@ void main() {
     },
   );
 
-  Widget composerApp(Widget home) => MaterialApp(
-    builder: promptHostBuilder,
-    locale: const Locale('zh', 'CN'),
-    supportedLocales: const [Locale('zh', 'CN')],
-    localizationsDelegates: appLocalizationsDelegates,
-    home: home,
+  Widget composerApp(Widget home) => withStalledImages(
+    MaterialApp(
+      builder: promptHostBuilder,
+      locale: const Locale('zh', 'CN'),
+      supportedLocales: const [Locale('zh', 'CN')],
+      localizationsDelegates: appLocalizationsDelegates,
+      home: home,
+    ),
   );
 
   Widget bareComposer() => Scaffold(

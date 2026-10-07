@@ -879,7 +879,7 @@ void main() {
   );
 
   test(
-    'API, OAuth and image cache use one app-scoped policy factory',
+    'API, OAuth and image clients use one app-scoped policy factory',
     () async {
       final policy = NetworkAccessPolicy(
         clientFactory: (_, _, _) => _FakeClient(),
@@ -891,7 +891,6 @@ void main() {
         factory.client(PixivDestinationPurpose.image).policy,
         same(policy),
       );
-      await factory.dispose();
     },
   );
 
@@ -1283,7 +1282,6 @@ void main() {
         policy,
         imageUrlRewriter: mirror.rewrite,
       );
-      addTearDown(factory.dispose);
 
       await factory.apiClient.get(
         Uri.parse('https://app-api.pixiv.net/v1/illust/recommended'),

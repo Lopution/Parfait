@@ -40,6 +40,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
+import 'helpers/image_network.dart';
 import 'helpers/bookmark_world.dart';
 import 'helpers/profile_world.dart';
 import 'helpers/test_preferences.dart';
@@ -463,29 +464,31 @@ void main() {
       for (final user in users) {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
-            MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
+            withStalledImages(
+              MaterialApp(
+                builder: promptHostBuilder,
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: const Locale('zh', 'CN'),
 
-              home: Scaffold(
-                body: CustomScrollView(
-                  key: ValueKey(user.profileImageUrl ?? 'placeholder'),
-                  slivers: [
-                    _MeasuredProfileHeader(
-                      delegateFor: (extent, onMeasured) =>
-                          ReplicaProfileHeaderDelegate(
-                            user: user,
-                            isMe: true,
-                            selectedTabIndex: 0,
-                            onShare: (_) {},
-                            expandedExtent: extent,
-                            onExpandedExtentMeasured: onMeasured,
-                          ),
-                    ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 2000)),
-                  ],
+                home: Scaffold(
+                  body: CustomScrollView(
+                    key: ValueKey(user.profileImageUrl ?? 'placeholder'),
+                    slivers: [
+                      _MeasuredProfileHeader(
+                        delegateFor: (extent, onMeasured) =>
+                            ReplicaProfileHeaderDelegate(
+                              user: user,
+                              isMe: true,
+                              selectedTabIndex: 0,
+                              onShare: (_) {},
+                              expandedExtent: extent,
+                              onExpandedExtentMeasured: onMeasured,
+                            ),
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 2000)),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -889,19 +892,21 @@ void main() {
       );
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: Builder(
-              builder: (context) => Scaffold(
-                body: Center(
-                  child: TextButton(
-                    onPressed: () => Navigator.of(
-                      context,
-                    ).push(MaterialPageRoute<void>(builder: (_) => header())),
-                    child: const Text('open'),
+          withStalledImages(
+            MaterialApp(
+              builder: promptHostBuilder,
+              localizationsDelegates: appLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              locale: const Locale('zh', 'CN'),
+              home: Builder(
+                builder: (context) => Scaffold(
+                  body: Center(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(
+                        context,
+                      ).push(MaterialPageRoute<void>(builder: (_) => header())),
+                      child: const Text('open'),
+                    ),
                   ),
                 ),
               ),
@@ -1013,29 +1018,31 @@ void main() {
     'the status bar asks for light icons only over a live cover banner',
     (tester) async {
       final controller = ScrollController();
-      Widget app(UserEntity user) => MaterialApp(
-        builder: promptHostBuilder,
-        theme: replicaTheme(Brightness.light),
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-        home: Scaffold(
-          body: CustomScrollView(
-            controller: controller,
-            slivers: [
-              _MeasuredProfileHeader(
-                delegateFor: (extent, onMeasured) =>
-                    ReplicaProfileHeaderDelegate(
-                      user: user,
-                      isMe: true,
-                      selectedTabIndex: 0,
-                      onShare: (_) {},
-                      expandedExtent: extent,
-                      onExpandedExtentMeasured: onMeasured,
-                    ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 2000)),
-            ],
+      Widget app(UserEntity user) => withStalledImages(
+        MaterialApp(
+          builder: promptHostBuilder,
+          theme: replicaTheme(Brightness.light),
+          localizationsDelegates: appLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('zh', 'CN'),
+          home: Scaffold(
+            body: CustomScrollView(
+              controller: controller,
+              slivers: [
+                _MeasuredProfileHeader(
+                  delegateFor: (extent, onMeasured) =>
+                      ReplicaProfileHeaderDelegate(
+                        user: user,
+                        isMe: true,
+                        selectedTabIndex: 0,
+                        onShare: (_) {},
+                        expandedExtent: extent,
+                        onExpandedExtentMeasured: onMeasured,
+                      ),
+                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 2000)),
+              ],
+            ),
           ),
         ),
       );

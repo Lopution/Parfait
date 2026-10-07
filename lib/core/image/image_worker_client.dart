@@ -5,7 +5,7 @@ import 'dart:isolate';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../logging/crash_log.dart';
-import '../network/compat/image_demand.dart';
+import 'image_demand.dart';
 import '../network/compat/network_contracts.dart';
 import 'image_worker_host.dart';
 import 'image_worker_protocol.dart';
@@ -18,14 +18,12 @@ import 'lane_permit_gate.dart';
 /// client-allocated; several requests for one URL coalesce inside the
 /// worker, so [cancelUrl] drops every in-flight id of that URL.
 ///
-/// Cancellation follows the same contract the legacy `ImageDemand`-gated
-/// file service kept: the shared [ImageDemand] is the single truth for
-/// "does anyone still want this URL", and its [ImageDemand.onMaybeUnwanted]
-/// hook drives this client's cancels — a URL that drops out of every
-/// window and holder set has its queued worker request dropped (after the
-/// release grace, which the demand itself defines). An isolate that dies
-/// mid-flight fails every pending request explicitly; there is no silent
-/// fallback to the legacy chain.
+/// The shared [ImageDemand] is the single truth for "does anyone still
+/// want this URL", and its [ImageDemand.onMaybeUnwanted] hook drives this
+/// client's cancels — a URL that drops out of every window and holder set
+/// has its queued worker request dropped (after the release grace, which
+/// the demand itself defines). An isolate that dies mid-flight fails every
+/// pending request explicitly.
 class ImageWorkerClient implements ImageFetcher {
   ImageWorkerClient._(
     this._worker,
@@ -35,9 +33,7 @@ class ImageWorkerClient implements ImageFetcher {
     this._events,
   );
 
-  /// The demand bookkeeping the call sites already use. This is the shared
-  /// instance the legacy image cache consults — one truth for both
-  /// pipelines during the staged migration.
+  /// The demand bookkeeping image widgets and preloads register with.
   final ImageDemand demand;
 
   final SendPort _worker;
@@ -220,7 +216,7 @@ class ImageWorkerClient implements ImageFetcher {
   }
 
   /// Foreground-promotes the queued fetch for [url] — the demand layer's
-  /// on-screen signal, mirroring `PriorityFileService.promote`. Only a URL
+  /// on-screen signal. Only a URL
   /// with a request in flight can have a queued fetch, so a widget's first
   /// hold costs no message.
   void promoteUrl(String url) {
@@ -273,9 +269,8 @@ class ImageWorkerClient implements ImageFetcher {
 
   /// The demand hook: [url] may have become unwanted. A window eviction
   /// counts at once (windows carry no release grace); a release gets its
-  /// [releaseGrace] re-check, mirroring the legacy admit-time `wants`
-  /// evaluation. A URL with nothing in flight has nothing to cancel — most
-  /// releases, since an image on screen has usually loaded.
+  /// [releaseGrace] re-check. A URL with nothing in flight has nothing to
+  /// cancel — most releases, since an image on screen has usually loaded.
   void _onMaybeUnwanted(String url) {
     if (!_idsByUrl.containsKey(url)) return;
     if (!demand.wants(url)) {

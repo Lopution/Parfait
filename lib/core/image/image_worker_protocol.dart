@@ -115,8 +115,7 @@ class FetchResult {
 }
 
 /// The worker cannot serve requests: it failed to start, died, or was
-/// disposed. Requests fail with this instead of falling back to the legacy
-/// pipeline.
+/// disposed. Requests fail with this; there is no other pipeline.
 class ImageWorkerUnavailable implements Exception {
   const ImageWorkerUnavailable(this.reason);
 
@@ -155,8 +154,7 @@ class ImageWorkerStatus {
 }
 
 /// Worker→main failure. [statusCode] is set for plain HTTP failures so
-/// the UI can keep 403/404-no-retry and error-widget behavior identical
-/// to the legacy path.
+/// the UI can tell a permanent 403/404 from a retryable failure.
 class FetchFailure implements Exception {
   const FetchFailure(this.id, this.message, {this.statusCode});
 
@@ -369,7 +367,7 @@ class RouteKindLearnedEvent extends WorkerEvent {
 
 /// Every ladder tier on [host] was exhausted — forwarded from
 /// `NetworkAccessPolicy.onImageHostExhausted` so the main isolate can drop
-/// the auto-source winner and re-race, exactly like the legacy path.
+/// the auto-source winner and re-race, as it does for API traffic.
 class RouteExhaustedEvent extends WorkerEvent {
   const RouteExhaustedEvent(this.host);
   final String host;

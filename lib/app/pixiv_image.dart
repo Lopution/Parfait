@@ -2,28 +2,24 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:octo_image/octo_image.dart';
 
 import 'motion/motion_tokens.dart';
 import 'image_tier_cache.dart';
 import '../core/debug/frame_probe.dart';
 import '../core/entity/illust_entity.dart';
+import '../core/image/image_demand.dart';
 import '../core/image/image_worker.dart';
 import '../core/image/image_worker_protocol.dart';
 import '../core/image/image_worker_providers.dart';
+import '../core/image/lane_permit_gate.dart';
 import '../core/image/worker_image_provider.dart';
-import '../core/network/pixiv_headers.dart';
-import '../core/network/compat/image_cache.dart';
-import '../core/network/compat/image_demand.dart';
-import '../core/network/compat/network_providers.dart';
 import '../l10n/app_localizations.dart';
 import 'widgets/image_load_progress.dart';
 
-export '../core/network/compat/image_cache.dart' show ImageFetchPriority;
+export '../core/image/lane_permit_gate.dart' show ImageFetchPriority;
 export 'widgets/image_load_progress.dart';
 
 /// Decode policy of a [PixivImage] variant (R8 performance boundary).
@@ -50,20 +46,12 @@ enum ImagePreloadResult {
   failed,
 }
 
-/// Which pipeline loaded an image. The two keep separate decoded entries
-/// for the same URL, so every record of a decode names its pipeline.
-enum _ImageSource {
-  /// `CachedNetworkImage` over the cache-manager store.
-  legacy,
+/// A decoded entry: the URL and the width it was decoded at.
+typedef _HistoryEntry = (String url, int? decodeWidth);
 
-  /// The background image worker.
-  worker,
-}
-
-/// Shared Pixiv CDN image widget: every i.pximg.net request must carry the
-/// app-API Referer or the CDN answers 403 (beta56 PixivImage semantics).
-typedef _HistoryEntry = (String url, int? decodeWidth, _ImageSource source);
-
+/// Shared Pixiv CDN image widget. Every image loads through the background
+/// image worker (which sends the Referer the CDN requires), so it must sit
+/// under a [ProviderScope].
 class PixivImage extends ConsumerStatefulWidget {
   const PixivImage({
     super.key,
@@ -261,16 +249,15 @@ class PixivImage extends ConsumerStatefulWidget {
   /// Hero temporarily removes the endpoint child from the tree while it
   /// flies. Keeping a small URL history by this key lets a newly rebuilt
   /// endpoint use the last displayed quality as its placeholder, even when
-  /// the `CachedNetworkImage` element itself was disposed during the flight.
+  /// the image element itself was disposed during the flight.
   /// Ordinary images can leave this null.
   final Object? transitionKey;
   final Color? filterColor;
   final BlendMode? filterBlendMode;
 
-  /// Sampling quality for the decoded image. `low` matches the
-  /// CachedNetworkImage default, and image-grid apps commonly render at
-  /// `low`/`none`; `medium` costs real raster time
-  /// per image during scroll.
+  /// Sampling quality for the decoded image. Image-grid apps commonly
+  /// render at `low`/`none`; `medium` costs real raster time per image
+  /// during scroll.
   final FilterQuality filterQuality;
 
   /// Decode-width cap in pixels for this image, or null for unlimited
@@ -308,51 +295,15 @@ class PixivImage extends ConsumerStatefulWidget {
   static const _maxTransitionKeys = 256;
   static const _maxUrlsPerKey = 4;
 
-  static Map<String, String> get headers => PixivHeaders.image();
-
-  static CachedNetworkImageProvider provider(
-    String url, {
-    BaseCacheManager? cacheManager,
-    bool prefetch = false,
-  }) => CachedNetworkImageProvider(
-    url,
-    headers: {
-      ...headers,
-      // Scheduling hint for PriorityFileService — stripped before the
-      // request hits the wire, so it never reaches the CDN.
-      if (prefetch) PriorityFileService.prefetchMarker: '1',
-    },
-    cacheManager: cacheManager,
-  );
-
-  /// Whether a decode goes through the background worker: every image
-  /// does. Only without a [ProviderScope] is there no worker, and the
-  /// legacy pipeline loads it.
-  static _ImageSource _sourceFor({required bool hasWorker}) =>
-      hasWorker ? _ImageSource.worker : _ImageSource.legacy;
-
-  /// The provider the widget resolves for [url] on [source], wrapped the
-  /// way OctoImage wraps it — the same key is the same decoded entry.
+  /// The provider the widget resolves for [url], wrapped the way the
+  /// widget wraps it — the same key is the same decoded entry.
   static ImageProvider _imageProvider(
     String url,
-    int? decodeWidth,
-    _ImageSource source, {
-    required BaseCacheManager? cacheManager,
-    required ImageWorker? worker,
+    int? decodeWidth, {
+    required ImageWorker worker,
     ImageFetchPriority priority = ImageFetchPriority.foreground,
   }) {
-    final ImageProvider base = switch (source) {
-      _ImageSource.worker => WorkerImageProvider(
-        worker!,
-        url,
-        priority: priority,
-      ),
-      _ImageSource.legacy => provider(
-        url,
-        cacheManager: cacheManager,
-        prefetch: priority == ImageFetchPriority.background,
-      ),
-    };
+    final base = WorkerImageProvider(worker, url, priority: priority);
     return decodeWidth == null
         ? base
         : ResizeImage.resizeIfNeeded(decodeWidth, null, base);
@@ -363,7 +314,7 @@ class PixivImage extends ConsumerStatefulWidget {
   /// raw provider never matched — every capped image reported "not complete"
   /// and crossfaded in from transparent on every first frame (the flash).
   /// We therefore track completion ourselves, keyed by the exact decode
-  /// width and pipeline the widget resolves.
+  /// width the widget resolves.
   ///
   /// The log records "decoded at least once" while the real imageCache
   /// evicts on LRU pressure — so it is bounded FIFO and only ever used for
@@ -394,7 +345,7 @@ class PixivImage extends ConsumerStatefulWidget {
   }
 
   static String _decodeKey(_HistoryEntry entry) =>
-      '${entry.$3.name}|${entry.$2 ?? 0}|${entry.$1}';
+      '${entry.$2 ?? 0}|${entry.$1}';
 
   /// True when [entry]'s decode already completed — meaning the first
   /// frame can render instantly with no crossfade.
@@ -419,19 +370,18 @@ class PixivImage extends ConsumerStatefulWidget {
     // non-transition.
     _HistoryEntry? previous;
     for (final candidate in history.reversed) {
-      // URL, decode width and pipeline together identify the painted cache
-      // entry. A detail Hero commonly keeps the same URL but changes from
-      // the feed's card width to the screen width; treating that as a no-op
-      // loses the old frame and exposes the placeholder during the second
-      // decode.
+      // URL and decode width together identify the painted cache entry. A
+      // detail Hero commonly keeps the same URL but changes from the feed's
+      // card width to the screen width; treating that as a no-op loses the
+      // old frame and exposes the placeholder during the second decode.
       if (candidate == current) continue;
       if (_imageCompleted(candidate)) {
         previous = candidate;
         break;
       }
     }
-    // (url, width, pipeline) is the decode identity — a rebuild with any
-    // of them changed is a different cache entry and belongs in history.
+    // (url, width) is the decode identity — a rebuild with either changed
+    // is a different cache entry and belongs in history.
     if (history.isEmpty || history.last != current) {
       history.add(current);
       if (history.length > _maxUrlsPerKey) {
@@ -451,8 +401,7 @@ class PixivImage extends ConsumerStatefulWidget {
   /// flat colour during URL or decode-width changes.
   static Widget _lastDecodedFrame(
     _HistoryEntry entry, {
-    required BaseCacheManager? cacheManager,
-    required ImageWorker? worker,
+    required ImageWorker worker,
     required BoxFit fit,
     required double? width,
     required double? height,
@@ -461,22 +410,12 @@ class PixivImage extends ConsumerStatefulWidget {
     required BlendMode? filterBlendMode,
     required FilterQuality filterQuality,
   }) {
-    // entry.$2 is the exact width the completed decode used and entry.$3
-    // its pipeline; substituting either resolves a key that was never
-    // decoded — the "placeholder" then stays empty until that decode
-    // finishes. A worker entry with no worker (scope gone) cannot repaint.
-    final (url, decodeWidth, source) = entry;
-    if (source == _ImageSource.worker && worker == null) {
-      return SizedBox(width: width, height: height);
-    }
+    // entry.$2 is the exact width the completed decode used; substituting
+    // another resolves a key that was never decoded — the "placeholder"
+    // then stays empty until that decode finishes.
+    final (url, decodeWidth) = entry;
     return Image(
-      image: _imageProvider(
-        url,
-        decodeWidth,
-        source,
-        cacheManager: cacheManager,
-        worker: worker,
-      ),
+      image: _imageProvider(url, decodeWidth, worker: worker),
       width: width,
       height: height,
       fit: fit,
@@ -492,10 +431,10 @@ class PixivImage extends ConsumerStatefulWidget {
     );
   }
 
-  /// Records a worker decode on its first frame: OctoImage only builds the
-  /// image once a frame exists, so no second listener has to follow the
-  /// stream. Later builds of a recorded decode return at the first check.
-  static void _recordWorkerFrame(
+  /// Records a decode on its first frame: OctoImage only builds the image
+  /// once a frame exists, so no second listener has to follow the stream.
+  /// Later builds of a recorded decode return at the first check.
+  static void _recordFrame(
     _HistoryEntry entry,
     String? tierKey,
     IllustImageTier? tier,
@@ -505,54 +444,6 @@ class PixivImage extends ConsumerStatefulWidget {
     if (tierKey != null && tier != null) {
       IllustTierCache.record(tierKey, tier, entry.$1);
     }
-  }
-
-  // Pending decode listeners so one URL accumulates at most one listener
-  // across rebuilds; entries are removed once the stream resolves.
-  static final Set<String> _pendingTierRecords = <String>{};
-
-  /// Records (key,tier,url) once a legacy byte stream actually resolves —
-  /// the point where the image is guaranteed to be in the cache. Upgrades
-  /// then serve it for later lower-tier requests of the same page.
-  static void _recordWhenDecoded(
-    String url,
-    String? tierKey,
-    IllustImageTier? tier,
-    BaseCacheManager? cacheManager,
-    int? memCacheWidth,
-  ) {
-    final entry = (url, memCacheWidth, _ImageSource.legacy);
-    final decodeKey = _decodeKey(entry);
-    // A tier record does not imply this decode: the worker may have made
-    // it, at another width, into its own caches.
-    if (_completedDecodes.contains(decodeKey)) return;
-    final pending = '$decodeKey|${tierKey ?? ''}';
-    if (!_pendingTierRecords.add(pending)) return;
-    // Attach to the SAME stream the visible widget resolves — the
-    // ResizeImage-wrapped key — so recording shares the pending decode
-    // instead of triggering a second, full-size decode per image.
-    final stream = _imageProvider(
-      url,
-      memCacheWidth,
-      _ImageSource.legacy,
-      cacheManager: cacheManager,
-      worker: null,
-    ).resolve(const ImageConfiguration());
-    late final ImageStreamListener listener;
-    void done() {
-      stream.removeListener(listener);
-      _pendingTierRecords.remove(pending);
-    }
-
-    listener = ImageStreamListener((info, _) {
-      FrameProbe.instance.mark('img ${info.image.width}x${info.image.height}');
-      _markCompleted(entry);
-      if (tierKey != null && tier != null) {
-        IllustTierCache.record(tierKey, tier, url);
-      }
-      done();
-    }, onError: (_, _) => done());
-    stream.addListener(listener);
   }
 
   /// Starts decoding through the same provider/cache identity as [build].
@@ -565,17 +456,14 @@ class PixivImage extends ConsumerStatefulWidget {
   /// foreground so they never queue behind other warm-up, and hold the URL
   /// until the target page has had time to mount.
   ///
-  /// The pipeline is the one the widget showing the image picks, so the
-  /// warm-up lands on the decoded entry that widget resolves. A legacy
-  /// background preload is only kept while something wants its URL — a
-  /// widget showing it or the caller's prefetch window in [demand].
+  /// The warm-up lands on the decoded entry the widget showing the image
+  /// resolves. A background preload is only kept while something wants its
+  /// URL — a widget showing it or a prefetch window on the worker's demand.
   ///
   /// Completes with the outcome; never with an image error.
   static Future<ImagePreloadResult> preload(
     BuildContext context,
     String url, {
-    BaseCacheManager? cacheManager,
-    ImageDemand? demand,
     String? tierKey,
     IllustImageTier? tier,
     int? memCacheWidth,
@@ -584,20 +472,19 @@ class PixivImage extends ConsumerStatefulWidget {
     final resolved = tierKey != null && tier != null
         ? IllustTierCache.resolve(tierKey, tier, url)
         : (url, tier);
-    final worker = _workerOf(context);
-    final source = _sourceFor(hasWorker: worker != null);
-    final holder = source == _ImageSource.worker ? worker!.demand : demand;
+    final worker = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(imageWorkerProvider);
     if (priority == ImageFetchPriority.foreground) {
-      holder?.holdFor(resolved.$1, _userPreloadHold);
+      worker.demand.holdFor(resolved.$1, _userPreloadHold);
     }
-    // Match OctoImage's ResizeImage.wrap so the warmed entry is the exact
-    // cache key the visible widget resolves — a different decode width is a
-    // different decoded entry and the hand-off still shows a placeholder.
+    // The visible widget's ResizeImage wrapping, so the warmed entry is the
+    // exact cache key it resolves — a different decode width is a different
+    // decoded entry and the hand-off still shows a placeholder.
     final imageProvider = _imageProvider(
       resolved.$1,
       memCacheWidth,
-      source,
-      cacheManager: cacheManager,
       worker: worker,
       priority: priority,
     );
@@ -622,23 +509,11 @@ class PixivImage extends ConsumerStatefulWidget {
     // then upgrade later requests to a URL that never loaded.
     if (failure case final failure?) return failure;
     FrameProbe.instance.mark('img preload');
-    _markCompleted((resolved.$1, memCacheWidth, source));
+    _markCompleted((resolved.$1, memCacheWidth));
     if (tierKey != null && resolved.$2 != null) {
       IllustTierCache.record(tierKey, resolved.$2!, resolved.$1);
     }
     return ImagePreloadResult.decoded;
-  }
-
-  /// The app's image worker, or null outside a [ProviderScope].
-  static ImageWorker? _workerOf(BuildContext context) {
-    try {
-      return ProviderScope.containerOf(
-        context,
-        listen: false,
-      ).read(imageWorkerProvider);
-    } on StateError {
-      return null;
-    }
   }
 
   /// How long a user-requested preload stays wanted without a widget; the
@@ -674,12 +549,12 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
 
   /// Holds the new URL before releasing the old one, so a rebuild with the
   /// same URL never drops to zero holders.
-  void _hold(ImageDemand? demand, String url) {
+  void _hold(ImageDemand demand, String url) {
     if (identical(demand, _demand) && url == _heldUrl) return;
-    demand?.hold(url);
+    demand.hold(url);
     _release();
     _demand = demand;
-    _heldUrl = demand == null ? null : url;
+    _heldUrl = url;
   }
 
   void _release() {
@@ -731,26 +606,22 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
     super.dispose();
   }
 
-  /// What [_trackProgress] last attached for: notifier, decode, cache
-  /// manager, worker and load generation.
+  /// What [_trackProgress] last attached for: notifier, decode, worker and
+  /// load generation.
   Object? _progressKey;
   ValueNotifier<ImageLoadProgress>? _progressNotifier;
   ImageStream? _progressStream;
   ImageStreamListener? _progressListener;
 
-  /// Ends the worker progress subscription; null on the legacy pipeline.
+  /// Ends the worker progress subscription.
   void Function()? _unwatchProgress;
 
   /// Follows the stream the visible image resolves — the same key, so no
   /// second decode. Attaches after the frame: a cache hit reports at once,
   /// and notifying the overlay (a sibling) mid-build is not allowed.
-  void _trackProgress(
-    _HistoryEntry entry,
-    BaseCacheManager? cacheManager,
-    ImageWorker? worker,
-  ) {
+  void _trackProgress(_HistoryEntry entry, ImageWorker worker) {
     final notifier = widget.progress;
-    final key = (notifier, entry, cacheManager, worker, _load);
+    final key = (notifier, entry, worker, _load);
     if (key == _progressKey) return;
     _progressKey = key;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -758,51 +629,36 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
       // The old stream's last report must not linger on the new image.
       _progressNotifier?.value = const ImageLoadProgress.idle();
       _detachProgress();
-      if (notifier != null) {
-        _attachProgress(notifier, entry, cacheManager, worker);
-      }
+      if (notifier != null) _attachProgress(notifier, entry, worker);
     });
   }
 
   /// Loading starts with the first bytes, not with the request: a fetch
-  /// still connecting or queued reports nothing. The legacy stream carries
-  /// its bytes as chunk events; the worker reports them by URL to whoever
-  /// watches it, so a ring attached to a decode another caller started
-  /// still sees them.
+  /// still connecting or queued reports nothing. The worker reports bytes
+  /// by URL to whoever watches it, so a ring attached to a decode another
+  /// caller started still sees them; the stream only says when it is done.
   void _attachProgress(
     ValueNotifier<ImageLoadProgress> notifier,
     _HistoryEntry entry,
-    BaseCacheManager? cacheManager,
-    ImageWorker? worker,
+    ImageWorker worker,
   ) {
-    final (url, decodeWidth, source) = entry;
+    final (url, decodeWidth) = entry;
     final stream = PixivImage._imageProvider(
       url,
       decodeWidth,
-      source,
-      cacheManager: cacheManager,
       worker: worker,
     ).resolve(ImageConfiguration.empty);
     void idle() => notifier.value = const ImageLoadProgress.idle();
-    final onWorker = source == _ImageSource.worker;
     final listener = ImageStreamListener(
       (_, _) => idle(),
-      onChunk: onWorker
-          ? null
-          : (event) => notifier.value = ImageLoadProgress.ofBytes(
-              event.cumulativeBytesLoaded,
-              event.expectedTotalBytes,
-            ),
       onError: (_, _) => idle(),
     );
     stream.addListener(listener);
-    if (onWorker) {
-      _unwatchProgress = worker!.watchProgress(
-        url,
-        (received, total) =>
-            notifier.value = ImageLoadProgress.ofBytes(received, total),
-      );
-    }
+    _unwatchProgress = worker.watchProgress(
+      url,
+      (received, total) =>
+          notifier.value = ImageLoadProgress.ofBytes(received, total),
+    );
     _progressNotifier = notifier;
     _progressStream = stream;
     _progressListener = listener;
@@ -821,18 +677,9 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
   /// A transient failure retries on its own up to [_retryBackoff].length
   /// times; a permanent or exhausted one offers a manual retry when the box
   /// is large enough for a button.
-  Widget _errorView(
-    Object error,
-    _HistoryEntry entry,
-    BaseCacheManager? cacheManager,
-    ImageWorker? worker,
-  ) {
+  Widget _errorView(Object error, _HistoryEntry entry, ImageWorker worker) {
     const broken = Icon(Icons.broken_image);
-    final status = switch (error) {
-      HttpExceptionWithStatus(:final statusCode) => statusCode,
-      FetchFailure(:final statusCode) => statusCode,
-      _ => null,
-    };
+    final status = error is FetchFailure ? error.statusCode : null;
     final permanent = _permanentStatuses.contains(status);
     if (!permanent && _attempt < _retryBackoff.length) {
       if (!_retryScheduled) {
@@ -843,7 +690,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
           if (!mounted || !_retryScheduled) return;
           _retryTimer = Timer(delay, () {
             _retryTimer = null;
-            _reload(entry, cacheManager, worker, automatic: true);
+            _reload(entry, worker, automatic: true);
           });
         });
       }
@@ -862,8 +709,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
               context,
               AppLocalizations,
             )?.imageRetry,
-            onPressed: () =>
-                _reload(entry, cacheManager, worker, automatic: false),
+            onPressed: () => _reload(entry, worker, automatic: false),
           ),
         );
       },
@@ -875,16 +721,13 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
   /// loader's own eviction does not reach — then resolves again.
   void _reload(
     _HistoryEntry entry,
-    BaseCacheManager? cacheManager,
-    ImageWorker? worker, {
+    ImageWorker worker, {
     required bool automatic,
   }) {
-    final (url, decodeWidth, source) = entry;
+    final (url, decodeWidth) = entry;
     final provider = PixivImage._imageProvider(
       url,
       decodeWidth,
-      source,
-      cacheManager: cacheManager,
       worker: worker,
     );
     unawaited(
@@ -902,9 +745,6 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
   @override
   Widget build(BuildContext context) {
     final widget = this.widget;
-    // PixivImage is also used by the standalone viewer tests and by embedders
-    // that do not install Riverpod. Keep the original URL in that context;
-    // the application shell always provides the settings scope.
     var imageUrl = widget.url;
     var effectiveTier = widget.tier;
     if (widget.tierKey != null && widget.tier != null && widget.tierUpgrade) {
@@ -917,23 +757,8 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
         widget.url,
       );
     }
-    BaseCacheManager? cacheManager;
-    ImageDemand? legacyDemand;
-    ImageWorker? worker;
-    var hasProviderScope = true;
-    try {
-      ProviderScope.containerOf(context, listen: false);
-    } on StateError {
-      hasProviderScope = false;
-    }
-    if (hasProviderScope) {
-      final network = ref.watch(pixivNetworkFactoryProvider);
-      cacheManager = network.imageCacheManager;
-      legacyDemand = network.imageDemand;
-      worker = ref.watch(imageWorkerProvider);
-    }
-    final pipeline = PixivImage._sourceFor(hasWorker: worker != null);
-    _HistoryEntry entryAt(int? width) => (imageUrl, width, pipeline);
+    final worker = ref.watch(imageWorkerProvider);
+    _HistoryEntry entryAt(int? width) => (imageUrl, width);
     // A URL's only decoded entry can be the viewer's uncapped frame (the
     // viewer decodes without a memCacheWidth cap). Requesting a fresh
     // capped decode of it leaves a placeholder/swap window — the flash
@@ -946,19 +771,9 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
         PixivImage._imageCompleted(entryAt(null))) {
       current = entryAt(null);
     }
-    final (_, effectiveWidth, source) = current;
-    final onWorker = source == _ImageSource.worker;
-    _hold(onWorker ? worker!.demand : legacyDemand, imageUrl);
-    _trackProgress(current, cacheManager, worker);
-    if (!onWorker) {
-      PixivImage._recordWhenDecoded(
-        imageUrl,
-        widget.tierKey,
-        effectiveTier,
-        cacheManager,
-        effectiveWidth,
-      );
-    }
+    final (_, effectiveWidth) = current;
+    _hold(worker.demand, imageUrl);
+    _trackProgress(current, worker);
     final previousTransition = PixivImage._rememberTransitionUrl(
       widget.transitionKey,
       current,
@@ -974,8 +789,8 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
             !PixivImage._imageCompleted(current)
         ? IllustTierCache.bestBelow(widget.tierKey!, effectiveTier)
         : null;
-    // The tier record does not say which pipeline or width decoded it;
-    // paint the decode that actually happened — anything else would fetch.
+    // The tier record does not say which width decoded it; paint the
+    // decode that actually happened — anything else would fetch.
     final underlayEntry = underlayUrl == null
         ? null
         : PixivImage._lastDecodeOfUrl[underlayUrl];
@@ -988,7 +803,6 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
         ? widget.placeholderWidget
         : PixivImage._lastDecodedFrame(
             previousTransition ?? underlayEntry!,
-            cacheManager: cacheManager,
             worker: worker,
             fit: widget.fit,
             width: widget.width,
@@ -1042,7 +856,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
         transitionPlaceholder ?? ColoredBox(color: placeholderColor);
     Widget failed(Object error) => ColoredBox(
       color: placeholderColor,
-      child: _errorView(error, current, cacheManager, worker),
+      child: _errorView(error, current, worker),
     );
     final image = LayoutBuilder(
       builder: (context, constraints) {
@@ -1056,68 +870,32 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
         final width =
             widget.width ??
             (constraints.hasBoundedWidth ? constraints.maxWidth : null);
-        if (onWorker) {
-          // The same OctoImage CachedNetworkImage builds, over the worker's
-          // provider: fades, placeholder and gapless hand-off are unchanged.
-          return OctoImage(
-            // A new key is a fresh resolve: how a retry reloads.
-            key: ValueKey(_load),
-            image: PixivImage._imageProvider(
-              imageUrl,
-              effectiveWidth,
-              source,
-              cacheManager: cacheManager,
-              worker: worker,
-            ),
-            imageBuilder: (_, child) {
-              PixivImage._recordWorkerFrame(
-                current,
-                widget.tierKey,
-                effectiveTier,
-              );
-              return child;
-            },
-            placeholderBuilder: placeholder,
-            errorBuilder: (_, error, _) => failed(error),
-            gaplessPlayback: true,
-            width: width,
-            height: widget.height,
-            fit: widget.fit,
-            alignment: widget.alignment,
-            color: widget.filterColor,
-            colorBlendMode: widget.filterBlendMode,
-            filterQuality: widget.filterQuality,
-            fadeInDuration: fadeInDuration,
-            fadeOutDuration: fadeOutDuration,
-          );
-        }
-        return CachedNetworkImage(
+        return OctoImage(
           // A new key is a fresh resolve: how a retry reloads.
           key: ValueKey(_load),
-          imageUrl: imageUrl,
-          httpHeaders: PixivImage.headers,
-          cacheManager: cacheManager,
-          // Keep the last decoded frame as the placeholder while a different
-          // quality tier is resolving.  This is the important distinction
-          // between a cold load (where the loading fade is useful) and a URL
-          // hand-off (where replacing the frame with a placeholder produces a
-          // white/grey flash).  CachedNetworkImage delegates this to
-          // OctoImage's gapless playback and applies it consistently to every
-          // caller: cards, detail pages, multi-page items, GIF covers and the
-          // viewer.
-          useOldImageOnUrlChange: true,
+          image: PixivImage._imageProvider(
+            imageUrl,
+            effectiveWidth,
+            worker: worker,
+          ),
+          imageBuilder: (_, child) {
+            PixivImage._recordFrame(current, widget.tierKey, effectiveTier);
+            return child;
+          },
+          placeholderBuilder: placeholder,
+          errorBuilder: (_, error, _) => failed(error),
+          // Keeps the last frame while a different URL or tier resolves: a
+          // hand-off never flashes the placeholder.
+          gaplessPlayback: true,
           width: width,
           height: widget.height,
           fit: widget.fit,
           alignment: widget.alignment,
-          memCacheWidth: effectiveWidth,
           color: widget.filterColor,
           colorBlendMode: widget.filterBlendMode,
           filterQuality: widget.filterQuality,
           fadeInDuration: fadeInDuration,
           fadeOutDuration: fadeOutDuration,
-          placeholder: (context, _) => placeholder(context),
-          errorWidget: (_, _, error) => failed(error),
         );
       },
     );

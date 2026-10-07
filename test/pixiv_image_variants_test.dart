@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,7 +10,6 @@ import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/image/image_worker.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/core/image/worker_image_provider.dart';
-import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
@@ -33,7 +31,6 @@ Widget _host(Widget child) => ProviderScope(
 /// provider. The width is the memory contract, and nothing paints it before
 /// a frame loads.
 int? _workerDecodeWidthOf(WidgetTester tester) {
-  expect(find.byType(CachedNetworkImage), findsNothing);
   return switch (tester.widget<OctoImage>(find.byType(OctoImage)).image) {
     ResizeImage(:final width) => width,
     WorkerImageProvider() => null,
@@ -349,13 +346,7 @@ void main() {
       ),
     );
     await tester.pumpWidget(images(2));
-    // The worker's demand drives its cancels; the legacy one never sees
-    // the URL.
-    final legacy = ProviderScope.containerOf(
-      tester.element(find.byType(PixivImage).first),
-    ).read(pixivNetworkFactoryProvider).imageDemand;
     expect(_worker.demand.debugHolds(url), 2);
-    expect(legacy.debugHolds(url), 0);
 
     await tester.pumpWidget(images(0));
     expect(_worker.demand.debugHolds(url), 0);

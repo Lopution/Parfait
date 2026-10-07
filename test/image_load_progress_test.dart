@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
@@ -8,7 +7,6 @@ import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
-import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/features/illust/detail/widgets/page_image.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -60,11 +58,6 @@ class _Transfer {
   bool get requested => client.urls.contains(_url);
 
   List<Override> get overrides => [
-    pixivNetworkFactoryProvider.overrideWithValue(
-      ScriptedImageNetwork(
-        ScriptedCacheManager((_) => StreamController<FileResponse>().stream),
-      ),
-    ),
     imageWorkerProvider.overrideWithValue(worker),
   ];
 }
