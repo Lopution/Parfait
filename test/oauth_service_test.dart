@@ -202,7 +202,12 @@ void main() {
           'id': '100',
           'name': 'tester',
           'mail_address': 'tester@example.com',
-          'profile_image_urls': {'main': 'https://img.example/main.jpg'},
+          // The shape pixiv returns: three sizes, no 'main'.
+          'profile_image_urls': {
+            'px_16x16': 'https://img.example/16.jpg',
+            'px_50x50': 'https://img.example/50.jpg',
+            'px_170x170': 'https://img.example/170.jpg',
+          },
         },
       };
       server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -239,6 +244,7 @@ void main() {
           expect(result.credential.refreshToken, 'test-refresh');
           expect(result.profile.userId, 100);
           expect(result.profile.name, 'tester');
+          expect(result.profile.profileImageUrl, 'https://img.example/170.jpg');
 
           expect(receivedBodies, hasLength(1));
           final body = receivedBodies.single;
