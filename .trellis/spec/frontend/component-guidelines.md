@@ -710,18 +710,25 @@ its own text link, at least 48dp tall, one semantics node labelled with
 its text; following opens the following tab, My Pixiv opens its tab on
 your own page and is plain text elsewhere (another user's My Pixiv list
 has no tab). A preview snapshot without detail counters shows no line
-rather than zeros. On a narrow screen the line wraps. Work counts live on
-the tabs; the about tab lists every count (`ProfileStatistic` rows).
+rather than zeros. On a narrow screen the line wraps. Work totals sit
+above their lists (see Tabs); the about tab lists every count
+(`ProfileStatistic` rows).
 
 **Tabs.** `UserPage` builds one tab per work type the user has — illust,
 manga, novel, series, each only when its count is above zero — labelled
-"name count" (`AppFormat.count`; `AppTabBar` draws labels with tabular
-figures). Series counts illust series only: the series tab lists
+with the name alone. A count would widen the labels past an equal share
+of the row (five zh tabs fit 360dp only without them) and flip the row
+to scrolling once the detail loads; each work list instead starts with
+its total ("共 N 件", `profileWorksTotal`, `AppFormat.count`), fixed
+above the list in the slot your own bookmarks and follows use for their
+filters, and absent from a preview snapshot. In ja, en and ru the labels
+are wider than an equal share at 360dp, so the row scrolls there (the
+`AppTabBar` rule). Series counts illust series only: the series tab lists
 `/v1/user/illust-series`, and no endpoint lists a user's novel series.
 Another user's page puts the work tabs first, then bookmarks, following,
 about; your own keeps bookmarks, following, fans, My Pixiv first and the
 work tabs last. A preview snapshot without counters keeps all four work
-tabs, without counts. The tab controller is rebuilt when the set of tabs
+tabs. The tab controller is rebuilt when the set of tabs
 changes on refresh; the selected tab stays selected if it survives,
 otherwise the first tab is selected. `ReplicaProfileTabsDelegate` takes
 the labels and is a constant 56dp `AppTabBar`.
@@ -745,8 +752,10 @@ only share, edit, bulk download and copy link.
   height monotonically with no jumps.
 - Name row at 320dp / 1.3x for both pages: the long name ellipsizes, share
   and the main action stay on its row, the statistics line sits below.
-- Tabs: only types with works, with counts; no works opens on the first
-  other tab; a tab that disappears on refresh falls back to the first.
+- Tabs: only types with works, labelled without counts, each work list
+  showing its total and the other lists none; five zh tabs (yours and
+  another user's) share 360dp evenly; no works opens on the first other
+  tab; a tab that disappears on refresh falls back to the first.
 - Stats: following opens its tab with a 48dp target; another user's My
   Pixiv is no button. `profile_statistics_test.dart` covers the line on
   its own (one line, semantics, wrapping).

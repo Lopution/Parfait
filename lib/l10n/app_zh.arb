@@ -796,7 +796,6 @@
     }
   },
   "rankingLoadMoreFailed": "加载更多失败",
-  "profileWork": "作品",
   "profileBookmarked": "收藏",
   "profileFollowing": "关注",
   "profileFans": "粉丝",
@@ -813,6 +812,15 @@
   "profileMyPixivCount": "{count} 好P友",
   "@profileMyPixivCount": {
     "description": "Profile header: My Pixiv count. count is already formatted.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "profileWorksTotal": "共 {count} 件",
+  "@profileWorksTotal": {
+    "description": "Profile work tab: the total number of works (or series) above the list. count is already formatted.",
     "placeholders": {
       "count": {
         "type": "String"

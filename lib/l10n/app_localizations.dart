@@ -3071,12 +3071,6 @@ abstract class AppLocalizations {
   /// **'加载更多失败'**
   String get rankingLoadMoreFailed;
 
-  /// No description provided for @profileWork.
-  ///
-  /// In zh, this message translates to:
-  /// **'作品'**
-  String get profileWork;
-
   /// No description provided for @profileBookmarked.
   ///
   /// In zh, this message translates to:
@@ -3112,6 +3106,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{count} 好P友'**
   String profileMyPixivCount(String count);
+
+  /// Profile work tab: the total number of works (or series) above the list. count is already formatted.
+  ///
+  /// In zh, this message translates to:
+  /// **'共 {count} 件'**
+  String profileWorksTotal(String count);
 
   /// Own bookmarks filter button when no tag is picked.
   ///

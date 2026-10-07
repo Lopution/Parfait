@@ -53,6 +53,7 @@ const _textPlaceholderKeys = <String, String>{
   'localNovelFileImportedAt': 'formatted date',
   'profileFollowingCount': 'compact count (AppFormat.count)',
   'profileMyPixivCount': 'compact count (AppFormat.count)',
+  'profileWorksTotal': 'compact count (AppFormat.count)',
   'profileTagFilter': 'bookmark tag name',
   'searchRangeAtLeast': 'filter label and formatted bound',
   'searchRangeAtMost': 'filter label and formatted bound',

@@ -221,15 +221,16 @@ class _UserPageState extends ConsumerState<UserPage>
     }
   }
 
-  String _tabLabel(_ProfileTab tab, UserEntity user) {
+  /// Names only: a count would widen the labels past an equal share of
+  /// the row, and the row would switch to scrolling once the counts load.
+  /// Work totals sit above their lists instead ([_worksTotalFor]).
+  String _tabLabel(_ProfileTab tab) {
     final l10n = context.l10n;
-    String work(String name, int count) =>
-        user.hasDetail ? '$name ${AppFormat.count(context, count)}' : name;
     return switch (tab) {
-      _ProfileTab.illust => work(l10n.profileIllust, user.totalIllusts),
-      _ProfileTab.manga => work(l10n.profileManga, user.totalManga),
-      _ProfileTab.novel => work(l10n.profileNovel, user.totalNovels),
-      _ProfileTab.series => work(l10n.profileSeries, user.totalIllustSeries),
+      _ProfileTab.illust => l10n.profileIllust,
+      _ProfileTab.manga => l10n.profileManga,
+      _ProfileTab.novel => l10n.profileNovel,
+      _ProfileTab.series => l10n.profileSeries,
       _ProfileTab.bookmarks => l10n.profileBookmarked,
       _ProfileTab.following => l10n.profileFollowing,
       _ProfileTab.fans => l10n.profileFans,
@@ -362,6 +363,20 @@ class _UserPageState extends ConsumerState<UserPage>
       ),
       _ => null,
     };
+  }
+
+  /// A work tab's total, above its list. A preview snapshot has no
+  /// counters, so it shows none rather than zero.
+  Widget? _worksTotalFor(_ProfileTab tab, UserEntity user) {
+    if (!user.hasDetail) return null;
+    final count = switch (tab) {
+      _ProfileTab.illust => user.totalIllusts,
+      _ProfileTab.manga => user.totalManga,
+      _ProfileTab.novel => user.totalNovels,
+      _ProfileTab.series => user.totalIllustSeries,
+      _ => null,
+    };
+    return count == null ? null : _WorksTotal(count: count);
   }
 
   /// Opens [tab] — or, when it is already open, scrolls it to the top. Null
@@ -609,7 +624,7 @@ class _UserPageState extends ConsumerState<UserPage>
                 pinned: true,
                 delegate: ReplicaProfileTabsDelegate(
                   controller: tabController,
-                  labels: [for (final tab in _tabs) _tabLabel(tab, user)],
+                  labels: [for (final tab in _tabs) _tabLabel(tab)],
                   onTabTap: _onTabTap,
                   scrolled: innerBoxIsScrolled,
                 ),
@@ -625,7 +640,7 @@ class _UserPageState extends ConsumerState<UserPage>
                     userId: widget.userId,
                     isSeries: tab == _ProfileTab.series,
                     feedKey: _feedKeyFor(tab),
-                    filterBar: _filterBarFor(tab),
+                    header: _filterBarFor(tab) ?? _worksTotalFor(tab, user),
                     statistics: statistics,
                   ),
               ],
@@ -644,7 +659,7 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
     required this.userId,
     required this.isSeries,
     required this.feedKey,
-    this.filterBar,
+    this.header,
     required this.statistics,
   });
 
@@ -656,8 +671,9 @@ class _ProfileTabBody extends ConsumerStatefulWidget {
   final bool isSeries;
   final ProfileFeedKey? feedKey;
 
-  /// Fixed above the feed: the own profile's list filters.
-  final Widget? filterBar;
+  /// Fixed above the feed: the own profile's list filters, or a work
+  /// list's total.
+  final Widget? header;
   final List<ProfileStatisticData> statistics;
 
   @override
@@ -712,11 +728,11 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
   Widget build(BuildContext context) {
     super.build(context);
     final feed = _buildFeed();
-    final filterBar = widget.filterBar;
-    if (filterBar == null) return feed;
+    final header = widget.header;
+    if (header == null) return feed;
     return Column(
       children: [
-        filterBar,
+        header,
         Expanded(child: feed),
       ],
     );
@@ -740,6 +756,36 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
       return ProfileUserFeed(feedKey: feedKey);
     }
     return ProfileIllustFeed(feedKey: feedKey);
+  }
+}
+
+/// A work list's total, fixed above the list like the filters on your
+/// own bookmarks.
+class _WorksTotal extends StatelessWidget {
+  const _WorksTotal({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        FuncSpacing.lg,
+        FuncSpacing.sm,
+        FuncSpacing.lg,
+        0,
+      ),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Text(
+          context.l10n.profileWorksTotal(AppFormat.count(context, count)),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
   }
 }
 

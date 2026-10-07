@@ -1572,9 +1572,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get rankingLoadMoreFailed => '加载更多失败';
 
   @override
-  String get profileWork => '作品';
-
-  @override
   String get profileBookmarked => '收藏';
 
   @override
@@ -1594,6 +1591,11 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String profileMyPixivCount(String count) {
     return '$count 好P友';
+  }
+
+  @override
+  String profileWorksTotal(String count) {
+    return '共 $count 件';
   }
 
   @override

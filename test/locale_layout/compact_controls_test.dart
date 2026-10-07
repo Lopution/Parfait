@@ -40,15 +40,17 @@ final _tabGroups = <String, List<String>>{
     'recommendedNovel',
     'recommendedUser',
   ],
+  // Five tabs: the common case. The work tabs carry no counts.
   'profile (mine)': [
     'profileBookmarked',
     'profileFollowing',
     'profileFans',
     'profileMyPixiv',
-    'profileWork',
+    'profileIllust',
   ],
   'profile (others)': [
-    'profileWork',
+    'profileIllust',
+    'profileManga',
     'profileBookmarked',
     'profileFollowing',
     'profileAbout',
