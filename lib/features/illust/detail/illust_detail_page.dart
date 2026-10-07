@@ -18,17 +18,18 @@ import '../../../core/history/history_visibility.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/share/share_service.dart';
 import '../../../app/widgets/app_menu_button.dart';
-import '../../../app/widgets/bookmark_switch_button.dart';
 import '../../../app/widgets/selection_app_bar.dart';
 import '../../../core/illust/illust_detail_controller.dart';
 import '../../../core/illust/illust_download_controller.dart';
 import '../../../app/haptics/app_haptics.dart';
 import '../../../app/motion/motion_tokens.dart';
+import '../../../app/motion/scroll_hide.dart';
 import '../../../app/motion/state_fade.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import 'related_illusts_section.dart';
+import 'widgets/detail_action_bar.dart';
 import 'widgets/detail_image_pager.dart';
 import 'widgets/illust_detail_skeleton.dart';
 import 'widgets/detail_page_counter.dart';
@@ -68,7 +69,8 @@ class IllustDetailPage extends ConsumerStatefulWidget {
   ConsumerState<IllustDetailPage> createState() => _IllustDetailPageState();
 }
 
-class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
+class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
+    with TickerProviderStateMixin {
   /// Page indexes selected in the explicit download-selection mode;
   /// `null` means the mode is off. A non-null empty set means the mode is
   /// on with nothing selected yet — "Done" stays disabled until n > 0.
@@ -93,6 +95,95 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
   /// as its scroll controller — it only builds an internal one when none
   /// is passed — so we never touch a controller the component owns (R9).
   final ScrollController _narrowScroll = ScrollController();
+
+  /// The floating action bar's presence (1 shown): it slides away while
+  /// reading down and returns on the way back up, like the shell's bar.
+  late final AnimationController _barVisibility = AnimationController(
+    vsync: this,
+    value: 1,
+  );
+  late final CurvedAnimation _barCurve = CurvedAnimation(
+    parent: _barVisibility,
+    curve: MotionTokens.navBarShowCurve,
+    reverseCurve: MotionTokens.navBarHideCurve,
+  );
+  final _scrollHide = ScrollHideTracker();
+
+  /// TalkBack is exploring: chrome that slides away cannot be found, so
+  /// the bar stays.
+  bool _touchExploration = false;
+
+  /// How drawn the top bar is over the narrow layout's first image: 0
+  /// while the image is under it, 1 once the image has scrolled away
+  /// (see [AppTopBar.immersion]).
+  final _immersion = ValueNotifier<double>(0);
+
+  /// Scroll offset where the top bar starts drawing; set by each build
+  /// from the first image's height.
+  double _immersionStart = 0;
+
+  /// The top bar's arrival. The Hero image flying in from a card is drawn
+  /// over the see-through bar, so the bar waits for the route to land and
+  /// then fades in (see [AppTopBar.entrance]); without a card it is there
+  /// at once.
+  late final AnimationController _topBarEntrance = AnimationController(
+    vsync: this,
+    value: widget.heroImageUrl == null ? 1 : 0,
+  );
+  Animation<double>? _routeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _narrowScroll.addListener(_updateImmersion);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _barVisibility
+      ..duration = MotionTokens.resolve(context, MotionTokens.navBarShow)
+      ..reverseDuration = MotionTokens.resolve(
+        context,
+        MotionTokens.navBarHide,
+      );
+    _touchExploration = MediaQuery.accessibleNavigationOf(context);
+    if (_touchExploration) _barVisibility.value = 1;
+    _topBarEntrance.duration = MotionTokens.resolve(context, MotionTokens.fast);
+    final route = ModalRoute.of(context)?.animation;
+    if (!identical(route, _routeAnimation)) {
+      _routeAnimation?.removeStatusListener(_onRouteStatus);
+      _routeAnimation = route?..addStatusListener(_onRouteStatus);
+      // Read after the first frame: before the push starts, the route's
+      // proxy still reports a completed placeholder.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _onRouteStatus(_routeAnimation?.status ?? AnimationStatus.completed);
+        }
+      });
+    }
+  }
+
+  void _onRouteStatus(AnimationStatus status) {
+    if (status.isCompleted) _topBarEntrance.forward();
+  }
+
+  /// The bar draws over the last toolbar height before the first image
+  /// leaves the screen top, so it is solid by the time content would
+  /// scroll under it.
+  void _updateImmersion() {
+    if (!_narrowScroll.hasClients) return;
+    final drawn = (_narrowScroll.offset - _immersionStart) / kToolbarHeight;
+    _immersion.value = drawn.clamp(0.0, 1.0).toDouble();
+  }
+
+  bool _onBarScroll(ScrollNotification notification) {
+    if (_touchExploration) return false;
+    final slop = MediaQuery.maybeGestureSettingsOf(context)?.touchSlop ?? 8.0;
+    final hide = _scrollHide.update(notification, slop: slop);
+    if (hide != null) slideChrome(context, _barVisibility, hidden: hide);
+    return false;
+  }
 
   void _onPageVisibility(int index, VisibilityInfo info) {
     // A detector torn down with the page still reports once more.
@@ -147,6 +238,11 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     _downloadEvents?.cancel();
     _narrowScroll.dispose();
     _topVisiblePage.dispose();
+    _barCurve.dispose();
+    _barVisibility.dispose();
+    _immersion.dispose();
+    _routeAnimation?.removeStatusListener(_onRouteStatus);
+    _topBarEntrance.dispose();
     super.dispose();
   }
 
@@ -228,6 +324,11 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     _ensureDownloadListener();
     final async = ref.watch(illustDetailControllerProvider(widget.illustId));
     final entity = _entityOf(async);
+    // The narrow layout opens on the artwork under a see-through bar —
+    // the skeleton too, so content arriving never shifts it.
+    final immersive =
+        !AppBreakpoints.useTwoPaneDetail(MediaQuery.sizeOf(context).width) &&
+        (entity == null ? async.isLoading : _rendersContent(async, entity));
     return PopScope(
       // While the selection mode is on, system back exits the mode instead
       // of leaving the page, like the selection bar's close button.
@@ -238,9 +339,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
         if (!didPop) _exitDownloadMode();
       },
       child: Scaffold(
+        extendBodyBehindAppBar: immersive,
         appBar: _downloadMode && entity != null
             ? _buildSelectionAppBar(context, entity)
-            : _buildAppBar(context, ref, async),
+            : _buildAppBar(context, async, immersive: immersive),
         body: _fadeStates(
           async.when(
             // U5 (R7): AsyncNotifier.build() returns a Future, so the first
@@ -330,71 +432,40 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
     );
   }
 
+  bool _rendersContent(
+    AsyncValue<IllustDetailState> async,
+    IllustEntity? entity,
+  ) =>
+      entity != null &&
+      async.value is! IllustDetailRestricted &&
+      async.value is! IllustDetailNotFound;
+
   PreferredSizeWidget _buildAppBar(
     BuildContext context,
-    WidgetRef ref,
-    AsyncValue<IllustDetailState> async,
-  ) {
+    AsyncValue<IllustDetailState> async, {
+    required bool immersive,
+  }) {
     final entity = _entityOf(async);
-    final download = ref.watch(illustDownloadControllerProvider);
     // Restricted and not-found states render a FeedEmpty body without an
     // InfoBlock — the menu's artwork-info item only exists while the
     // content actually renders.
-    final rendersContent =
-        entity != null &&
-        async.value is! IllustDetailRestricted &&
-        async.value is! IllustDetailNotFound;
+    final rendersContent = _rendersContent(async, entity);
     return AppTopBar(
-      // The work title lives in the body (official client layout): a
-      // single-line AppBar slot ellipsises anything
-      // beyond a handful of characters, so the bar keeps a generic label
-      // and the real title wraps freely in InfoBlock.
-      title: Text(context.l10n.illustDetailTitle),
+      // Over the artwork the bar shows nothing but controls; the work's
+      // title fades in with the surface once the image scrolls away. The
+      // opaque layouts keep a generic label: the real title wraps freely
+      // in InfoBlock.
+      title: Text(
+        immersive && entity != null
+            ? entity.title
+            : context.l10n.illustDetailTitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      immersion: immersive ? _immersion : null,
+      entrance: immersive ? _topBarEntrance : null,
+      // Download and bookmark live in the floating action bar.
       actions: [
-        // "Download all" is the always-visible plain download entry — it
-        // is no longer gated behind the selection mode.
-        if (entity != null)
-          IconButton(
-            tooltip: context.l10n.downloadAll,
-            onPressed: () async {
-              late final DownloadGroupSubmission submission;
-              try {
-                submission = await download.downloadAll(entity);
-              } catch (error) {
-                // Any submission failure must be visible on device: the
-                // manager/ownership/channel errors that are not
-                // FormatException otherwise vanish with no UI feedback.
-                if (!context.mounted) return;
-                AppHaptics.error();
-                showErrorSnackBar(
-                  context,
-                  action: context.l10n.downloadSubmissionFailed,
-                  error: error,
-                );
-                return;
-              }
-              if (!context.mounted) return;
-              showDownloadSubmittedSnackBar(
-                context,
-                alreadyQueued: submission.group == null,
-              );
-            },
-            icon: const Icon(Icons.file_download_outlined),
-          ),
-        // Beta56 keeps the bookmark heart in the app bar actions at all
-        // times (isButton: false variant, tap toggles / long-press sheet
-        // only while unbookmarked).
-        if (entity != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.sm),
-            child: Center(
-              child: BookmarkSwitchButton(
-                illustId: entity.id,
-                title: entity.title,
-                isButton: false,
-              ),
-            ),
-          ),
         if (entity != null)
           _DetailMoreMenu(
             actions: [
@@ -412,6 +483,31 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
             },
           ),
       ],
+    );
+  }
+
+  /// Every page, deduplicated by the manager. Any submission failure is
+  /// shown: manager, ownership and channel errors would otherwise vanish.
+  Future<void> _downloadAll(IllustEntity entity) async {
+    final DownloadGroupSubmission submission;
+    try {
+      submission = await ref
+          .read(illustDownloadControllerProvider)
+          .downloadAll(entity);
+    } catch (error) {
+      if (!mounted) return;
+      AppHaptics.error();
+      showErrorSnackBar(
+        context,
+        action: context.l10n.downloadSubmissionFailed,
+        error: error,
+      );
+      return;
+    }
+    if (!mounted) return;
+    showDownloadSubmittedSnackBar(
+      context,
+      alreadyQueued: submission.group == null,
     );
   }
 
@@ -489,6 +585,20 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
             !_pagesExpanded
         ? 1
         : entity.pageCount;
+    // Narrow layout: the artwork runs under the status bar and the
+    // see-through top bar, so overlays on it start below them, and the
+    // bar draws in as the first image leaves.
+    final topChrome = MediaQuery.paddingOf(context).top + kToolbarHeight;
+    final firstImageExtent =
+        MediaQuery.sizeOf(context).width / entity.pageAspectRatioAt(0);
+    _immersionStart = math.max(
+      0,
+      firstImageExtent - topChrome - kToolbarHeight,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _updateImmersion();
+    });
+
     final imageSlivers = <Widget>[
       if (entity.isUgoira)
         SliverToBoxAdapter(
@@ -550,6 +660,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                   onToggleSelect: () => _togglePageSelected(index),
                   onLongPress: _enterDownloadMode,
                   placeholderOnly: !detailReady && index > 0,
+                  overlayTopInset: index == 0 ? topChrome : 0,
                 ),
               ),
             ),
@@ -588,12 +699,17 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
       // Official client behaviour: "関連作品" below the caption/tags,
       // paginated as the user scrolls to the bottom of the page.
       RelatedIllustsSlivers(illustId: widget.illustId),
+      // The page's end clears the floating action bar.
+      SliverToBoxAdapter(
+        child: SizedBox(height: DetailActionBar.restingExtent(context)),
+      ),
     ];
 
     // Related works paginate as the user reaches the bottom of the page
     // (official client behaviour). loadMore is internally guarded against
     // re-entry / exhausted state.
     bool onScrollNotification(ScrollNotification notification) {
+      _onBarScroll(notification);
       final metrics = notification.metrics;
       if (metrics.maxScrollExtent > 0 &&
           metrics.pixels >= metrics.maxScrollExtent - 500) {
@@ -667,6 +783,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
                 // works get no pill.
                 if (!entity.isUgoira && entity.pageCount > 1 && !_downloadMode)
                   Positioned.fill(
+                    top: topChrome,
                     child: ValueListenableBuilder<int?>(
                       valueListenable: _topVisiblePage,
                       builder: (context, page, _) => DetailPageCounter(
@@ -678,9 +795,29 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
               ],
             ),
     );
+    final page = Stack(
+      fit: StackFit.expand,
+      children: [
+        content,
+        // The selection mode brings its own download; the bar steps aside.
+        if (!_downloadMode)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: DetailActionBar(
+              entity: entity,
+              visibility: _barCurve,
+              onDownload: () => unawaited(_downloadAll(entity)),
+              onComments: () =>
+                  unawaited(openIllustComments(context, entity.id)),
+            ),
+          ),
+      ],
+    );
     final container = ProviderScope.containerOf(context, listen: false);
     final accountId = ref.watch(historyAccountIdProvider);
-    if (accountId == null) return content;
+    if (accountId == null) return page;
     final pixivEnabled = ref.watch(pixivHistoryEnabledProvider);
     return HistoryVisibility(
       accountId: accountId,
@@ -693,7 +830,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage> {
       remote: pixivEnabled ? ref.watch(pixivHistoryRemoteProvider) : null,
       isAccountCurrent: () =>
           container.read(historyAccountIdProvider) == accountId,
-      child: content,
+      child: page,
     );
   }
 }

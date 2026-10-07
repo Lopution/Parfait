@@ -171,6 +171,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'copyLink' => l10n.copyLink,
   'currentAccount' => l10n.currentAccount,
   'dark' => l10n.dark,
+  'detailDownloaded' => l10n.detailDownloaded,
   'detailQuality' => l10n.detailQuality,
   'developerOptionsUnlocked' => l10n.developerOptionsUnlocked,
   'dismiss' => l10n.dismiss,

@@ -624,6 +624,7 @@
   "settingsCredentialNotConfigured": "Не настроено",
   "add": "Добавить",
   "viewerNoImages": "Нет изображений для отображения",
+  "detailDownloaded": "Скачано",
   "downloadAll": "Скачать всё",
   "downloadQueuedMessage": "Добавлено в очередь загрузки",
   "downloadAlreadyQueued": "Уже в очереди загрузки",

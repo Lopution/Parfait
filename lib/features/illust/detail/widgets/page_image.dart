@@ -28,6 +28,7 @@ class DetailPageImage extends ConsumerStatefulWidget {
     required this.onToggleSelect,
     required this.onLongPress,
     this.placeholderOnly = false,
+    this.overlayTopInset = 0,
   });
 
   final IllustEntity entity;
@@ -45,6 +46,10 @@ class DetailPageImage extends ConsumerStatefulWidget {
   /// the page renders a neutral placeholder instead of an image whose URL
   /// does not exist in the feed snapshot yet.
   final bool placeholderOnly;
+
+  /// How far the page's top runs under the detail page's see-through bar;
+  /// the selection badge sits below it.
+  final double overlayTopInset;
 
   /// Detail-quality URL once the detail payload is merged. Preferring it
   /// over [heroImageUrl] means the detail hero upgrades from the feed
@@ -224,7 +229,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
             ),
           if (downloadMode && !isPagePlaceholder)
             Positioned(
-              top: 20,
+              top: 20 + widget.overlayTopInset,
               right: 20,
               child: _DownloadBadge(
                 state: state,

@@ -1415,6 +1415,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get viewerNoImages => '表示できる画像がありません';
 
   @override
+  String get detailDownloaded => 'ダウンロード済み';
+
+  @override
   String get downloadAll => 'すべてダウンロード';
 
   @override

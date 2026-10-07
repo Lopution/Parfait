@@ -27,6 +27,7 @@ import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/illust/related_illust_controller.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/theme/func_tokens.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
@@ -37,9 +38,13 @@ import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_image_pager.dart';
+import 'package:parfait/app/widgets/app_top_bar.dart';
+import 'package:parfait/app/widgets/bookmark_switch_button.dart';
+import 'package:parfait/features/illust/detail/widgets/detail_action_bar.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_detail_skeleton.dart';
 import 'package:parfait/features/illust/detail/widgets/info_block.dart';
+import 'package:parfait/features/illust/detail/widgets/page_image.dart';
 import 'package:parfait/features/illust/detail/ugoira_viewer.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:parfait/features/settings/pages/download_tasks_page.dart';
@@ -1540,10 +1545,16 @@ void main() {
       // Tapping it selects the page again; Done re-submits and the manager
       // replaces the failed task on the same dedupe key.
       await longPressImage(tester);
-      expect(find.byIcon(Icons.error_outline), findsOneWidget);
+      final pageError = find.descendant(
+        of: find.byType(DetailPageImage),
+        matching: find.byIcon(Icons.error_outline),
+      );
+      expect(pageError, findsOneWidget);
+      // The selection mode brings its own download; the bar steps aside.
+      expect(find.byType(DetailActionBar), findsNothing);
 
       await mockNetworkImagesFor(() async {
-        await tester.tap(find.byIcon(Icons.error_outline));
+        await tester.tap(pageError);
         await tester.pump();
       });
       expect(find.byIcon(Icons.check_circle), findsOneWidget);
@@ -1721,7 +1732,13 @@ void main() {
           );
           // The snapshot proves out through the InfoBlock title — the
           // detail page keeps no separate title copy anymore.
-          expect(find.text('illust 42'), findsOneWidget);
+          expect(
+            find.descendant(
+              of: find.byType(InfoBlock),
+              matching: find.text('illust 42'),
+            ),
+            findsOneWidget,
+          );
           expect(find.text('author'), findsWidgets);
           expect(
             tester.widget<PixivImage>(find.byType(PixivImage).first).url,
@@ -1964,7 +1981,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final tops = [
-        find.text('illust 42'),
+        find.descendant(
+          of: find.byType(InfoBlock),
+          matching: find.text('illust 42'),
+        ),
         find.byKey(const Key('illust-author-row')),
         find.byKey(const Key('illust-detail-meta')),
         find.text('作品说明文字'),
@@ -2377,7 +2397,11 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('1 / 3'), findsOneWidget);
-        final appBar = tester.widget<AppBar>(find.byType(AppBar));
+        // The top bar redraws as it scrolls (immersion); the page body is
+        // what must stay put.
+        CustomScrollView body() =>
+            tester.widget<CustomScrollView>(find.byType(CustomScrollView));
+        final scrollView = body();
 
         // Jump past page 2's bottom edge so page 3 is the only visible
         // artwork — deterministic, no fling physics involved.
@@ -2389,10 +2413,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
         expect(find.text('3 / 3'), findsOneWidget);
         // Only the pill followed: the page itself did not rebuild.
-        expect(
-          identical(tester.widget<AppBar>(find.byType(AppBar)), appBar),
-          isTrue,
-        );
+        expect(identical(body(), scrollView), isTrue);
 
         // Scrolling past the artwork to the bottom leaves no page
         // visible — the pill fades out with it. The first jump brings the
@@ -2485,9 +2506,167 @@ void main() {
     });
   });
 
+  group('floating action bar (E2)', () {
+    Finder inBar(Finder finder) =>
+        find.descendant(of: find.byType(DetailActionBar), matching: finder);
+
+    Rect toolbarRect(WidgetTester tester) =>
+        tester.getRect(inBar(find.byType(Material)).first);
+
+    testWidgets('carries download, comments and bookmark; the top bar keeps '
+        'only its menu', (tester) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      expect(inBar(find.byTooltip('下载全部')), findsOneWidget);
+      expect(inBar(find.byTooltip('评论')), findsOneWidget);
+      expect(inBar(find.byType(BookmarkSwitchButton)), findsOneWidget);
+      final topBar = find.byType(AppTopBar);
+      expect(
+        find.descendant(of: topBar, matching: find.byTooltip('下载全部')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: topBar,
+          matching: find.byType(BookmarkSwitchButton),
+        ),
+        findsNothing,
+      );
+      // In thumb reach: centred near the bottom edge.
+      final rect = toolbarRect(tester);
+      final screen = tester.getSize(find.byType(IllustDetailPage));
+      expect(rect.center.dx, closeTo(screen.width / 2, 1));
+      expect(rect.bottom, greaterThan(screen.height - 120));
+    });
+
+    testWidgets('download shows the ring, then the saved state; its prompt '
+        'rests above the bar', (tester) async {
+      final (container, transport, _) = await makeWorld(
+        scriptedResponses: 0,
+        // Every chunk reports, so the ring is checkable mid-download.
+        progressThrottle: Duration.zero,
+      );
+      final gates = [Completer<void>(), Completer<void>()];
+      for (var i = 0; i < 2; i++) {
+        transport.responses.add(
+          ScriptedResponse(
+            contentLength: 2,
+            chunks: const [
+              [1],
+              [2],
+            ],
+            completers: [gates[0], gates[1]],
+          ),
+        );
+      }
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(inBar(find.byTooltip('下载全部')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(inBar(find.byTooltip('下载中')), findsOneWidget);
+      expect(inBar(find.byType(CircularProgressIndicator)), findsOneWidget);
+      // The prompt sits above the bar, not over it.
+      final prompt = find.text('已加入下载队列');
+      expect(prompt, findsOneWidget);
+      expect(
+        tester.getRect(prompt).bottom,
+        lessThanOrEqualTo(toolbarRect(tester).top),
+      );
+
+      // Half of each page's bytes: half the work.
+      gates[0].complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      final ring = tester.widget<CircularProgressIndicator>(
+        inBar(find.byType(CircularProgressIndicator)),
+      );
+      expect(ring.value, closeTo(0.5, 0.01));
+
+      gates[1].complete();
+      await tester.pumpAndSettle();
+      expect(inBar(find.byIcon(Icons.download_done)), findsOneWidget);
+      expect(inBar(find.byTooltip('已下载')), findsOneWidget);
+    });
+
+    testWidgets('slides away reading down, returns reading up, and stays '
+        'while TalkBack explores', (tester) async {
+      // A touch device: the desktop host starts the list in wheel mode,
+      // where a drag does not scroll.
+      PlatformCaps.debugSystemOverride = const PlatformCaps(isAndroid: true);
+      addTearDown(() => PlatformCaps.debugSystemOverride = null);
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+      final screen = tester.getSize(find.byType(IllustDetailPage));
+      final rest = toolbarRect(tester);
+      final scroll = find.byType(CustomScrollView);
+
+      await tester.drag(scroll, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(toolbarRect(tester).top, greaterThanOrEqualTo(screen.height));
+
+      await tester.drag(scroll, const Offset(0, 100));
+      await tester.pumpAndSettle();
+      expect(toolbarRect(tester), rest);
+
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(accessibleNavigation: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(scroll, const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(toolbarRect(tester), rest);
+    });
+
+    testWidgets('the first image runs under a see-through bar that draws in '
+        'once the image scrolls away', (tester) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<Scaffold>(find.byType(Scaffold)).extendBodyBehindAppBar,
+        isTrue,
+      );
+      expect(tester.getTopLeft(find.byType(DetailPageImage).first).dy, 0);
+      final bar = tester.widget<AppTopBar>(find.byType(AppTopBar));
+      expect(bar.immersion!.value, 0);
+      expect(bar.occludesContent, isFalse);
+      // The work's title waits, invisible, for the surface.
+      final title = find.descendant(
+        of: find.byType(AppTopBar),
+        matching: find.text('illust 42'),
+      );
+      double titleOpacity() => tester
+          .widget<Opacity>(
+            find.ancestor(of: title, matching: find.byType(Opacity)).first,
+          )
+          .opacity;
+      expect(titleOpacity(), 0);
+
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(1000);
+      await tester.pump();
+      expect(bar.immersion!.value, 1);
+      expect(bar.occludesContent, isTrue);
+      expect(
+        find.ancestor(of: title, matching: find.byType(Opacity)),
+        findsNothing,
+      );
+    });
+  });
+
   group('detail overflow menu (R3)', () {
-    testWidgets('the app bar keeps download-all and the heart while share and '
-        'selection move into the ⋮ menu', (tester) async {
+    testWidgets('download-all and the heart stay one tap away while share '
+        'and selection move into the ⋮ menu', (tester) async {
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container);
 

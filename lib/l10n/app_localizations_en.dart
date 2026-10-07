@@ -1469,6 +1469,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get viewerNoImages => 'No images to display';
 
   @override
+  String get detailDownloaded => 'Downloaded';
+
+  @override
   String get downloadAll => 'Download All';
 
   @override

@@ -35,6 +35,7 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   Completer<void>? detailGate,
   List<int>? relatedLog,
   Completer<void>? relatedGate,
+  Duration? progressThrottle,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final transport = FakeTransport();
@@ -49,7 +50,13 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
     );
   }
   final sinks = MemorySinkFactory();
-  final manager = DownloadManager(transport: transport, sinkFactory: sinks);
+  final manager = progressThrottle == null
+      ? DownloadManager(transport: transport, sinkFactory: sinks)
+      : DownloadManager(
+          transport: transport,
+          sinkFactory: sinks,
+          progressThrottle: progressThrottle,
+        );
   final credentials = FakeCredentialStore()
     ..seed(
       '100',

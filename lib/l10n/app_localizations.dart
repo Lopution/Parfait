@@ -2717,6 +2717,12 @@ abstract class AppLocalizations {
   /// **'没有可显示的图片'**
   String get viewerNoImages;
 
+  /// No description provided for @detailDownloaded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已下载'**
+  String get detailDownloaded;
+
   /// No description provided for @downloadAll.
   ///
   /// In zh, this message translates to:

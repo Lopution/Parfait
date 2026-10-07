@@ -165,6 +165,9 @@ Future<bool> settleReview(
   }
   for (var waited = Duration.zero; waited < limit; waited += frame) {
     if (!tester.binding.hasScheduledFrame) return true;
+    // A request started by a frame (a section scrolled into view) needs
+    // real IO turns of its own to land.
+    await _ioTurns(tester, 1);
     await tester.pump(frame, EnginePhase.sendSemanticsUpdate);
   }
   return !tester.binding.hasScheduledFrame;
