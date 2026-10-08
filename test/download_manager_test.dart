@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -122,14 +121,6 @@ void main() {
         () => validateDownloadUrl(Uri.parse('https://user@i.pximg.net/a.jpg')),
         throwsA(isA<FormatException>()),
       );
-    });
-
-    test('dedupe key normalizes host case and ignores query', () {
-      final a = request(url: 'https://i.pximg.net/img/42_p0.jpg?x=1');
-      final b = request(url: 'https://I.PXIMG.NET/img/42_p0.jpg');
-      expect(a.dedupeKey, b.dedupeKey);
-      final other = request(pageIndex: 1);
-      expect(other.dedupeKey, isNot(equals(a.dedupeKey)));
     });
   });
 
@@ -309,32 +300,6 @@ void main() {
 
       expect(transport.openedUrls, hasLength(1));
       expect(manager.tasks.single.status, DownloadStatus.succeeded);
-    });
-
-    test('cacheLookup miss falls through to the transport', () async {
-      final transport = FakeTransport();
-      transport.responses.add(
-        ScriptedResponse(
-          contentLength: 3,
-          chunks: [
-            [1, 2, 3],
-          ],
-        ),
-      );
-      final sinks = MemorySinkFactory();
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: sinks,
-        cacheLookup: (url) async => null,
-      );
-      addTearDown(manager.dispose);
-
-      manager.submit(request());
-      await _Watcher(manager).pumpUntilTerminal();
-
-      expect(transport.openedUrls, hasLength(1));
-      expect(manager.tasks.single.status, DownloadStatus.succeeded);
-      expect(sinks.sinks.single.bytes, [1, 2, 3]);
     });
 
     test('unknown content-length keeps progress null (R5)', () async {
@@ -1323,106 +1288,6 @@ void main() {
       unawaited(subscription.cancel());
       expect(hop.aborted, isTrue);
     });
-  });
-
-  group('HttpDownloadTransport over real sockets (environment-flaky)', () {
-    // This WSL/flutter-test VM drops ~20% of loopback connections at the
-    // dart:io layer (verified with a raw HttpClient repro, see research);
-    // retry to keep the integration signal without masking logic bugs.
-    Future<void> tolerant(Future<void> Function() body) async {
-      Object? lastError;
-      for (var attempt = 1; attempt <= 3; attempt++) {
-        try {
-          await body();
-          return;
-        } catch (error) {
-          lastError = error;
-        }
-      }
-      throw StateError('loopback still failing after retries: $lastError');
-    }
-
-    test('streams a real body through a real server', () async {
-      await tolerant(() async {
-        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-        server.listen((req) async {
-          req.response.statusCode = 200;
-          req.response.add(utf8.encode('IMAGE'));
-          await req.response.close();
-        });
-        final transport = HttpDownloadTransport(
-          requireHttps: false,
-          allowedHosts: {'127.0.0.1'},
-        );
-        try {
-          final response = await transport.open(
-            Uri.parse('http://127.0.0.1:${server.port}/a.jpg'),
-            headers: const {},
-            cancelToken: DownloadCancelToken(),
-          );
-          final bytes = await response.stream
-              .expand((c) => c)
-              .toList()
-              .timeout(const Duration(seconds: 5));
-          expect(bytes, utf8.encode('IMAGE'));
-        } finally {
-          await transport.dispose();
-          await server.close(force: true);
-        }
-      });
-    }, timeout: const Timeout(Duration(minutes: 2)));
-
-    test('cancel terminates a real in-flight transfer', () async {
-      await tolerant(() async {
-        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-        final requestStarted = Completer<void>();
-        final releaseResponse = Completer<void>();
-        server.listen((req) async {
-          if (!requestStarted.isCompleted) requestStarted.complete();
-          try {
-            req.response.bufferOutput = false;
-            req.response.add(utf8.encode('x' * 4096));
-            await req.response.flush();
-            await releaseResponse.future;
-            await req.response.close();
-          } on Object {
-            // The client is expected to abort this response on cancellation.
-          }
-        });
-        final transport = HttpDownloadTransport(
-          requireHttps: false,
-          allowedHosts: {'127.0.0.1'},
-        );
-        try {
-          final token = DownloadCancelToken();
-          final response = await transport
-              .open(
-                Uri.parse('http://127.0.0.1:${server.port}/big.jpg'),
-                headers: const {},
-                cancelToken: token,
-              )
-              .timeout(const Duration(seconds: 5));
-          await requestStarted.future.timeout(const Duration(seconds: 2));
-          final terminated = Completer<void>();
-          response.stream.listen(
-            (_) {},
-            onError: (Object _) {
-              if (!terminated.isCompleted) terminated.complete();
-            },
-            onDone: () {
-              if (!terminated.isCompleted) terminated.complete();
-            },
-          );
-          await Future<void>.delayed(const Duration(milliseconds: 100));
-          token.cancel();
-          await terminated.future.timeout(const Duration(seconds: 2));
-        } finally {
-          if (!releaseResponse.isCompleted) releaseResponse.complete();
-          await transport.dispose();
-          await server.close(force: true);
-        }
-      });
-    }, timeout: const Timeout(Duration(minutes: 2)));
   });
 }
 

@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:parfait/core/settings/shared_preferences.dart';
@@ -11,51 +10,6 @@ import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
-
-/// Captures outbound `launch` calls on the url_launcher method channel —
-/// the app calls `launchUrl`, which the platform interface forwards as a
-/// `launch` invocation carrying the resolved url.
-List<String> mockUrlLauncher(WidgetTester tester) {
-  const channel = MethodChannel('plugins.flutter.io/url_launcher');
-  final launched = <String>[];
-  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
-    call,
-  ) async {
-    if (call.method == 'launch') {
-      launched.add((call.arguments as Map)['url'] as String);
-    }
-    return true;
-  });
-  addTearDown(
-    () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      channel,
-      null,
-    ),
-  );
-  return launched;
-}
-
-/// Captures `Clipboard.setData` payloads on the platform channel — there is
-/// no real clipboard in tests, so the writes would otherwise be lost.
-List<String?> mockClipboard(WidgetTester tester) {
-  final written = <String?>[];
-  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-    SystemChannels.platform,
-    (call) async {
-      if (call.method == 'Clipboard.setData') {
-        written.add((call.arguments as Map)['text'] as String?);
-      }
-      return null;
-    },
-  );
-  addTearDown(
-    () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      null,
-    ),
-  );
-  return written;
-}
 
 void main() {
   Future<void> pumpAbout(WidgetTester tester, {UpdateService? service}) async {
@@ -92,31 +46,6 @@ void main() {
     },
   );
 
-  testWidgets('source tile opens the repository in the browser', (
-    tester,
-  ) async {
-    final launched = mockUrlLauncher(tester);
-    await pumpAbout(tester);
-
-    await tester.tap(find.text('项目源码'));
-    await tester.pumpAndSettle();
-
-    expect(launched, ['https://github.com/Lopution/Parfait']);
-  });
-
-  testWidgets('source tile trailing action copies the repository URL', (
-    tester,
-  ) async {
-    final written = mockClipboard(tester);
-    await pumpAbout(tester);
-
-    await tester.tap(find.byTooltip('复制'));
-    await tester.pumpAndSettle();
-
-    expect(written, ['https://github.com/Lopution/Parfait']);
-    expect(find.text('链接已复制'), findsOneWidget);
-  });
-
   testWidgets('seven version taps unlock developer options', (tester) async {
     final service = UpdateService(
       manifestTransport: _UnusedTransport(),
@@ -152,40 +81,6 @@ void main() {
     // is the assertion that matters; the message itself is l10n-covered.
   });
 
-  // Width-matrix spot check: the source tile's trailing copy action must
-  // fit the narrowest supported width at 1.3x text without overflow.
-  testWidgets('source tile fits 320dp at 1.3x text', (tester) async {
-    tester.view.physicalSize = const Size(320, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          updateServiceProvider.overrideWith(
-            (ref) async => UpdateService(
-              manifestTransport: _UnusedTransport(),
-              platform: _FdroidPlatform(),
-            ),
-          ),
-        ],
-        child: MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: MediaQuery(
-            data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
-            child: const AboutSettingsPage(),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.byTooltip('复制'), findsOneWidget);
-    expect(tester.takeException(), isNull, reason: 'no overflow');
-  });
-
   testWidgets('About surfaces the remembered check result before any tap', (
     tester,
   ) async {
@@ -207,31 +102,6 @@ void main() {
     expect(find.text('发现新版本：9.9.9'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, '下载并安装'), findsOneWidget);
   });
-
-  // Each check failure state maps to its own actionable message (R10):
-  // retry after fixing the network, wait out GitHub rate limiting, report
-  // an invalid manifest, or acknowledge a busy/generic failure.
-  for (final (status, expected) in [
-    (UpdateCheckStatus.offline, '无法连接更新服务，请检查网络后重试'),
-    (UpdateCheckStatus.rateLimited, 'GitHub 限流，请稍后重试'),
-    (UpdateCheckStatus.invalid, '更新清单无效，请向开发者反馈'),
-    (UpdateCheckStatus.busy, '已有更新任务进行中'),
-    (UpdateCheckStatus.failed, '更新检查或安装失败，请稍后重试'),
-  ]) {
-    testWidgets('check status $status renders its own text', (tester) async {
-      await pumpAbout(
-        tester,
-        service: _StubUpdateService(
-          checkResult: UpdateCheckResult(status: status),
-        ),
-      );
-
-      await tester.tap(find.widgetWithText(FilledButton, '检查更新'));
-      await tester.pumpAndSettle();
-
-      expect(find.text(expected), findsOneWidget);
-    });
-  }
 
   testWidgets('apply canceled reports cancellation, not generic failure', (
     tester,

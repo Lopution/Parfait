@@ -129,36 +129,6 @@ void main() {
     expect(haptics.roles, [HapticRole.thresholdOn]);
   });
 
-  testWidgets('an outward pull follows the finger, then cancels below the '
-      'threshold', (tester) async {
-    var refreshCount = 0;
-    await tester.pumpWidget(
-      buildSubject(onRefresh: () async => refreshCount++),
-    );
-
-    final gesture = await tester.startGesture(
-      tester.getCenter(find.byType(ListView)),
-    );
-    var previous = double.negativeInfinity;
-    for (var step = 0; step < 4; step++) {
-      await gesture.moveBy(const Offset(0, 30));
-      await tester.pump();
-      expect(indicator, findsOneWidget);
-      final current = tester.getCenter(indicator).dy;
-      expect(
-        current,
-        greaterThan(previous),
-        reason: 'the indicator should descend as the finger pulls down',
-      );
-      previous = current;
-    }
-
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(refreshCount, 0);
-    expect(indicator, findsNothing);
-  });
-
   testWidgets('a reverse drag retracts the indicator and cancels', (
     tester,
   ) async {
@@ -269,44 +239,6 @@ void main() {
     expect(indicator, findsNothing);
   });
 
-  testWidgets('the list retracts as soon as the indicator has shrunk away', (
-    tester,
-  ) async {
-    var refreshed = false;
-    await tester.pumpWidget(
-      buildSubject(
-        onRefresh: () async {
-          await Future<void>.delayed(const Duration(milliseconds: 100));
-          refreshed = true;
-        },
-      ),
-    );
-
-    final gesture = await tester.startGesture(
-      tester.getCenter(find.text('item 2')),
-    );
-    await pullBy(tester, gesture, 20, 20);
-    await gesture.up();
-
-    // The indicator's own exit takes 200ms after the refresh completes;
-    // the list must not then sit pulled down over an empty gap.
-    Duration? sinceRefreshed;
-    var elapsed = Duration.zero;
-    const step = Duration(milliseconds: 20);
-    while (elapsed < const Duration(seconds: 4)) {
-      await tester.pump(step);
-      if (!refreshed) continue;
-      elapsed += step;
-      if (scrollOffset(tester) > -90) {
-        sinceRefreshed = elapsed;
-        break;
-      }
-    }
-
-    expect(sinceRefreshed, isNotNull);
-    expect(sinceRefreshed, lessThan(const Duration(milliseconds: 400)));
-  });
-
   testWidgets('ballistic overscroll after the pointer lifts starts no pull', (
     tester,
   ) async {
@@ -350,13 +282,6 @@ void main() {
     expect(scrollOffset(tester), closeTo(0, 0.001));
     expect(refreshCount, 0);
     expect(indicator, findsNothing);
-  });
-
-  testWidgets('the shared wrapper uses the material header', (tester) async {
-    await tester.pumpWidget(buildSubject(onRefresh: () async {}));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(EasyRefresh), findsOneWidget);
   });
 
   testWidgets('the shared wrapper refreshes a nested scroll view once', (

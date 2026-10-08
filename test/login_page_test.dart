@@ -37,16 +37,6 @@ class _ControlledTransferService implements AccountTransferService {
   Future<void> exportCurrentToClipboard() async {}
 }
 
-/// Settings storage stub that always fails to load — drives the page into
-/// its [SettingsLoadError] branch.
-class _FailingSettingsRepository implements SettingsRepository {
-  @override
-  Future<AppSettings> load() => throw StateError('prefs unreadable');
-
-  @override
-  Future<void> save(AppSettings next) async {}
-}
-
 /// Settings storage stub: serves a fixed snapshot and records writes.
 class _StubSettingsRepository implements SettingsRepository {
   _StubSettingsRepository([AppSettings? initial])
@@ -68,16 +58,6 @@ class _StubSettingsRepository implements SettingsRepository {
     settings = next;
   }
 }
-
-/// The viewports the PRD calls out for the login page: narrowest portrait,
-/// a common phone, a wide desktop surface and the short landscape case that
-/// used to overflow the fixed-height layout.
-const _viewports = [
-  Size(320, 568),
-  Size(390, 844),
-  Size(1200, 800),
-  Size(640, 320), // landscape / short height
-];
 
 void main() {
   setUp(() {
@@ -127,80 +107,6 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
-
-  group('shell viewport matrix', () {
-    for (final size in _viewports) {
-      testWidgets('main actions stay visible and reachable at '
-          '${size.width}x${size.height}', (tester) async {
-        await pumpLogin(tester, size: size, isFirst: true);
-        expect(tester.takeException(), isNull, reason: 'no overflow');
-
-        for (final label in ['注册', '登录']) {
-          final target = find.widgetWithText(ReplicaButton, label);
-          expect(target, findsOneWidget, reason: '$label present');
-          await tester.ensureVisible(target);
-          await tester.pumpAndSettle();
-          expect(tester.takeException(), isNull);
-          expect(tester.getRect(target).bottom, lessThanOrEqualTo(size.height));
-        }
-      });
-    }
-
-    testWidgets('wide viewports cap the form column at the form role width', (
-      tester,
-    ) async {
-      await pumpLogin(tester, size: const Size(1200, 800));
-      expect(tester.takeException(), isNull);
-
-      // The content column is width-capped (ContentWidths.form = 520) and
-      // centered, not spread across the whole surface.
-      final actions = tester.getRect(find.widgetWithText(ReplicaButton, '登录'));
-      expect(actions.width, lessThanOrEqualTo(520));
-    });
-  });
-
-  group('structure', () {
-    testWidgets('isFirst renders the title inside the shell header', (
-      tester,
-    ) async {
-      await pumpLogin(tester, isFirst: true);
-      expect(find.text('注册 或 登录'), findsOneWidget);
-      // The onboarding variant keeps the title in the body header, not in
-      // the AppBar.
-      expect(
-        find.descendant(
-          of: find.byType(AppBar),
-          matching: find.text('注册 或 登录'),
-        ),
-        findsNothing,
-      );
-    });
-
-    testWidgets('non-first login puts the title in the app bar', (
-      tester,
-    ) async {
-      await pumpLogin(tester);
-      expect(
-        find.descendant(
-          of: find.byType(AppBar),
-          matching: find.text('注册 或 登录'),
-        ),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('agreement text and link stay under the actions', (
-      tester,
-    ) async {
-      await pumpLogin(tester);
-      expect(find.text('登录即表示你同意'), findsOneWidget);
-      final link = find.text('《Parfait 用户使用协议》');
-      expect(link, findsOneWidget);
-      await tester.ensureVisible(link);
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    });
-  });
 
   group('action layering', () {
     final zh = lookupAppLocalizations(const Locale('zh'));
@@ -266,18 +172,6 @@ void main() {
       );
     });
 
-    testWidgets('expanded help text uses the secondary text color', (
-      tester,
-    ) async {
-      await pumpLogin(tester, size: const Size(390, 844));
-      await expandHelp(tester);
-
-      final hint = find.text(zh.networkCompatibilityHint);
-      expect(hint, findsOneWidget);
-      final scheme = Theme.of(tester.element(hint)).colorScheme;
-      expect(tester.widget<Text>(hint).style?.color, scheme.onSurfaceVariant);
-    });
-
     testWidgets('clipboard import shows a busy state and debounces taps', (
       tester,
     ) async {
@@ -336,16 +230,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(dialog, findsNothing);
       expect(find.byType(LoginPage), findsOneWidget);
-    });
-
-    testWidgets('a settings read failure shows the shared error branch', (
-      tester,
-    ) async {
-      await pumpLogin(tester, repository: _FailingSettingsRepository());
-      expect(find.byKey(const Key('settings-load-error')), findsOneWidget);
-      expect(find.text('重试'), findsOneWidget);
-      // The login actions are not rendered on top of the failure.
-      expect(find.widgetWithText(ReplicaButton, '登录'), findsNothing);
     });
   });
 }

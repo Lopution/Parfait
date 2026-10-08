@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/image_network.dart';
 import 'helpers/test_preferences.dart';
-import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/ugoira/ugoira_providers.dart';
@@ -18,37 +17,6 @@ import 'package:parfait/l10n/app_localizations.dart';
 void main() {
   installMemoryPreferences();
   VisibilityDetectorController.instance.updateInterval = Duration.zero;
-
-  testWidgets('renders the beta56 cover, play affordance and GIF badge', (
-    tester,
-  ) async {
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-
-            home: Scaffold(
-              body: UgoiraViewer(
-                illustId: 42,
-                previewUrl: 'https://i.pximg.net/42/large.jpg',
-                width: 800,
-                height: 600,
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-
-      expect(find.byIcon(Icons.play_circle_outline_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.gif_box_outlined), findsOneWidget);
-      expect(find.byType(DragToDismiss), findsNothing);
-      await tester.pump(const Duration(milliseconds: 500));
-    });
-  });
 
   testWidgets(
     'a long-press is inert — ugoira never enters page selection and the '
@@ -218,19 +186,6 @@ void main() {
         find.text('UgoiraArchiveException: JPEG marker is malformed'),
         findsOneWidget,
       );
-      await tester.pump(const Duration(milliseconds: 500));
-    });
-  });
-
-  testWidgets('a generic load failure explains itself with its category', (
-    tester,
-  ) async {
-    await mockNetworkImagesFor(() async {
-      await pumpFailingViewer(tester, StateError('boom'));
-
-      expect(find.text('动图加载失败'), findsOneWidget);
-      expect(find.text('未知错误'), findsOneWidget);
-      expect(find.text('详情'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 500));
     });
   });

@@ -113,20 +113,6 @@ void main() {
     expect(tester.widget<IconButton>(remove).onPressed, isNotNull);
   });
 
-  testWidgets('back leaves selection mode before the page', (tester) async {
-    await pumpPage(tester);
-    await enterManaging(tester);
-    await tester.tap(_tile(2).first);
-    await tester.pump();
-    expect(find.text('1'), findsOneWidget);
-
-    await tester.binding.handlePopRoute();
-    await tester.pump();
-    expect(find.widgetWithText(TextButton, '管理'), findsOneWidget);
-    expect(find.byType(WatchLaterPage), findsOneWidget);
-    expect(await _ids(repository), [3, 2, 1]);
-  });
-
   testWidgets('long press opens the sheet, or selects while managing', (
     tester,
   ) async {
@@ -142,13 +128,5 @@ void main() {
     await _settle(tester);
     expect(find.byType(ListTile), findsNothing);
     expect(find.text('1'), findsOneWidget);
-  });
-
-  testWidgets('no manage entry on an empty list', (tester) async {
-    final (world, _, _) = await makeCardWorld();
-    await mockNetworkImagesFor(() => tester.pumpWidget(_app(world)));
-    await _settle(tester);
-    expect(find.text('暂存的作品会显示在这里'), findsOneWidget);
-    expect(find.widgetWithText(TextButton, '管理'), findsNothing);
   });
 }

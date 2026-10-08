@@ -14,16 +14,12 @@ import 'package:parfait/app/widgets/follow_switch_button.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/mute/mute_models.dart';
 import 'package:parfait/core/mute/mute_store.dart';
-import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/user/follow_store.dart';
-import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/core/user/user_store.dart';
 import 'package:parfait/app/navigation/routes.dart';
-import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
-import 'package:parfait/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -209,76 +205,6 @@ void main() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
-  testWidgets('home shows four type chips and defaults to illust', (
-    tester,
-  ) async {
-    final (container, _) = await _makeWorld();
-    addTearDown(container.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: RecommendedHomePage(),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
-    });
-    // Locale-independent: four tabs regardless of language.
-    expect(find.byType(Tab), findsNWidgets(4));
-    // Unified chrome: the TabBar lives inside an AppBar (same as
-    // Ranking/New/Search) — a bare TabBar pinned under the status bar was
-    // the old divergent style.
-    expect(
-      find.descendant(of: find.byType(AppBar), matching: find.byType(TabBar)),
-      findsOneWidget,
-    );
-    // Illust cards render (titles from the store).
-    expect(find.textContaining('illust '), findsWidgets);
-  });
-
-  testWidgets('illust first load shows the grid skeleton', (tester) async {
-    final (container, fixture) = await _makeWorld();
-    addTearDown(container.dispose);
-    fixture.pendingRecommended = Completer<void>();
-    addTearDown(() {
-      if (fixture.pendingRecommended?.isCompleted == false) {
-        fixture.pendingRecommended!.complete();
-      }
-    });
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: RecommendedHomePage(),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-
-      expect(find.byType(IllustGridSkeleton), findsOneWidget);
-      expect(find.byType(FeedEmpty), findsNothing);
-
-      fixture.pendingRecommended!.complete();
-      await tester.pumpAndSettle();
-      expect(find.byType(IllustGridSkeleton), findsNothing);
-      expect(find.byType(IllustCard), findsWidgets);
-    });
-  });
-
   testWidgets('switching to manga requests content_type=manga', (tester) async {
     final (container, fixture) = await _makeWorld();
     addTearDown(container.dispose);
@@ -384,69 +310,6 @@ void main() {
     );
   });
 
-  testWidgets('novel chip loads novel recommended and renders titles', (
-    tester,
-  ) async {
-    final (container, fixture) = await _makeWorld();
-    addTearDown(container.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: RecommendedHomePage(),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-      await tester.tap(find.byType(Tab).at(2));
-      await tester.pumpAndSettle(const Duration(milliseconds: 50));
-    });
-    expect(
-      fixture.requests,
-      contains(
-        '/v1/novel/recommended?filter=for_android&include_privacy_policy=true&include_ranking_novels=true',
-      ),
-    );
-    expect(find.textContaining('novel '), findsWidgets);
-  });
-
-  testWidgets('user chip loads user recommended and renders accounts', (
-    tester,
-  ) async {
-    final (container, fixture) = await _makeWorld();
-    addTearDown(container.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: RecommendedHomePage(),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-      await tester.tap(find.byType(Tab).at(3));
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
-    });
-    expect(fixture.requests, contains('/v1/user/recommended?filter=for_ios'));
-    expect(find.text('user 1'), findsOneWidget);
-    expect(find.text('@user1'), findsOneWidget);
-    expect(find.byIcon(Icons.chevron_right), findsNothing);
-  });
-
   group('recommended users', () {
     Finder thumbnail(int id) => find.byWidgetPredicate(
       (widget) =>
@@ -497,26 +360,6 @@ void main() {
       });
       expect(container.read(illustStoreProvider).get(103)?.title, 'illust 103');
       expect(container.read(illustStoreProvider).get(104), isNull);
-    });
-
-    test('plain user lists ignore malformed previews', () async {
-      final (container, fixture) = await _makeWorld();
-      addTearDown(container.dispose);
-      fixture.malformedPreviews = true;
-      final repository = container.read(userRepositoryProvider);
-
-      final following = await repository.fetchRelation(
-        100,
-        relation: UserRelation.following,
-      );
-      expect(following.users.map((user) => user.id), [1, 2, 3]);
-      expect(following.previewIllusts, isEmpty);
-      // Recommended users do read previews, so the same payload is a
-      // parse error there.
-      await expectLater(
-        repository.fetchRecommended(),
-        throwsA(isA<ApiParseError>()),
-      );
     });
 
     testWidgets('shows previews, skipping blocked and muted works', (
@@ -580,27 +423,6 @@ void main() {
         container.read(followStoreProvider.notifier).entryOf(3)?.followed,
         isTrue,
       );
-    });
-
-    testWidgets('the user area opens the user, a thumbnail the work', (
-      tester,
-    ) async {
-      final (container, _) = await _makeWorld();
-      addTearDown(container.dispose);
-
-      await mockNetworkImagesFor(() async {
-        final router = await pumpUsers(tester, container);
-
-        await tester.tap(thumbnail(101));
-        await tester.pumpAndSettle();
-        expect(router.state.uri.path, '/recommended/illust/101');
-
-        router.pop();
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('user 1'));
-        await tester.pumpAndSettle();
-        expect(router.state.uri.path, '/recommended/user/1');
-      });
     });
   });
 

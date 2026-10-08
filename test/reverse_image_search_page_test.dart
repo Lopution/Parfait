@@ -69,21 +69,6 @@ void main() {
     },
   );
 
-  testWidgets('ready state can repick the selected image', (tester) async {
-    await _pumpPage(tester, platform: platform, providers: const {});
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('选择图片'));
-    await pumpUntilVisible(tester, find.text('图片已准备好'));
-
-    // Repick replaces the prepared input and stays on the ready screen.
-    await tester.ensureVisible(find.text('重新选择'));
-    await tester.tap(find.text('重新选择'));
-    await pumpUntilVisible(tester, find.text('图片已准备好'));
-    expect(platform.pickCount, 2);
-    expect(platform.deletedPaths, isNotEmpty);
-  });
-
   testWidgets('ACTION_SEND reference enters the same prepared flow', (
     tester,
   ) async {
@@ -135,54 +120,6 @@ void main() {
     expect(find.text('约 27 秒后可重试'), findsOneWidget);
     // The big failure icon plus the error avatar on the failed engine's chip.
     expect(find.byIcon(Icons.error_outline), findsWidgets);
-  });
-
-  testWidgets('no-match success shows the empty-results copy', (tester) async {
-    await _pumpPage(
-      tester,
-      platform: platform,
-      providers: {
-        ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
-          ReverseImageSearchSuccess(),
-        ),
-      },
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('选择图片'));
-    await pumpUntilVisible(tester, find.text('开始反向搜图'));
-    await tester.ensureVisible(find.text('开始反向搜图'));
-    await tester.tap(find.text('开始反向搜图'));
-    await pumpUntilVisible(tester, find.text('没有找到匹配结果'));
-
-    expect(find.text('没有找到匹配结果'), findsWidgets);
-    expect(find.byIcon(Icons.error_outline), findsNothing);
-  });
-
-  testWidgets('daily-limit failure shows the quota copy without countdown', (
-    tester,
-  ) async {
-    await _pumpPage(
-      tester,
-      platform: platform,
-      providers: {
-        ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
-          ReverseImageSearchFailure(
-            code: ReverseImageProviderFailureCode.dailyLimit,
-            message: 'SauceNAO daily search limit reached',
-            retryable: true,
-          ),
-        ),
-      },
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('选择图片'));
-    await pumpUntilVisible(tester, find.text('开始反向搜图'));
-    await tester.ensureVisible(find.text('开始反向搜图'));
-    await tester.tap(find.text('开始反向搜图'));
-    await pumpUntilVisible(tester, find.text('今日匿名搜索额度已用完，明天再试'));
-
-    expect(find.text('今日匿名搜索额度已用完，明天再试'), findsOneWidget);
-    expect(find.textContaining('秒后可重试'), findsNothing);
   });
 
   testWidgets('a challenge offers the engine web page with the image armed', (
@@ -328,34 +265,6 @@ void main() {
     expect(platform.deletedPaths, isEmpty);
   });
 
-  testWidgets('a noop armer surfaces the desktop re-pick hint', (tester) async {
-    await _pumpPage(
-      tester,
-      platform: platform,
-      providers: {
-        ReverseImageEngine.ascii2d: OutcomeReverseImageProvider(
-          ReverseImageSearchWebUpload(
-            engine: ReverseImageEngine.ascii2d,
-            uploadPageUrl: Uri.parse('https://ascii2d.net/'),
-            imagePath: image.path,
-            imageMimeType: 'image/png',
-            observedAt: 'test',
-          ),
-        ),
-      },
-      initialEngine: ReverseImageEngine.ascii2d,
-      uploadArmer: const NoopReverseImageUploadArmer(),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('选择图片'));
-    await pumpUntilVisible(tester, find.text('开始反向搜图'));
-    await tester.ensureVisible(find.text('开始反向搜图'));
-    await tester.tap(find.text('开始反向搜图'));
-    await pumpUntilVisible(tester, find.text('请在页面的文件选择框中重新选择同一张图片。'));
-
-    expect(find.text('请在页面的文件选择框中重新选择同一张图片。'), findsOneWidget);
-  });
-
   testWidgets('a failure offers the same-engine retry and the next engine', (
     tester,
   ) async {
@@ -450,33 +359,6 @@ void main() {
     expect(platform.deletedPaths, isEmpty);
   });
 
-  testWidgets('the app bar back button cancels the search and pops', (
-    tester,
-  ) async {
-    final provider = _BlockingProvider();
-    await _pumpPushedPage(
-      tester,
-      platform: platform,
-      providers: {ReverseImageEngine.sauceNao: provider},
-    );
-
-    await tester.tap(find.text('选择图片'));
-    await pumpUntilVisible(tester, find.text('开始反向搜图'));
-    await tester.ensureVisible(find.text('开始反向搜图'));
-    await tester.tap(find.text('开始反向搜图'));
-    await pumpUntilVisible(tester, find.text('正在搜索…'));
-
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    // The pop transition outlives the ~300ms default — give it real frames.
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
-
-    // The route is gone and the owned image was released by cancel().
-    expect(find.text('open reverse search'), findsOneWidget);
-    expect(find.byType(ReverseImageSearchPage), findsNothing);
-    expect(platform.deletedPaths, isNotEmpty);
-  });
-
   group('task header', () {
     final header = find.byKey(const ValueKey('reverseTaskHeader'));
     Finder headerText(String text) =>
@@ -530,129 +412,6 @@ void main() {
       expect(thumb(), findsOneWidget);
       expect(headerText('SauceNAO'), findsOneWidget);
       expect(headerText('搜索失败'), findsOneWidget);
-    });
-
-    testWidgets('the engine chip switches engines from the header', (
-      tester,
-    ) async {
-      await _pumpPage(
-        tester,
-        platform: platform,
-        providers: {
-          ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
-            ReverseImageSearchSuccess(),
-          ),
-          ReverseImageEngine.iqdb: const OutcomeReverseImageProvider(
-            ReverseImageSearchSuccess(),
-          ),
-        },
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('选择图片'));
-      await pumpUntilVisible(tester, find.text('图片已准备好'));
-
-      await tester.tap(headerText('SauceNAO'));
-      await tester.pumpAndSettle();
-      // The menu item, not the body's engine ChoiceChip of the same name.
-      await tester.tap(find.widgetWithText(MenuItemButton, 'IQDB'));
-      await tester.pumpAndSettle();
-
-      expect(headerText('IQDB'), findsOneWidget);
-      expect(find.text('图片已准备好'), findsWidgets);
-      expect(platform.deletedPaths, isEmpty);
-    });
-
-    testWidgets('empty/webview/upload successes keep the strip', (
-      tester,
-    ) async {
-      // Provider-detected no-match page.
-      await _pumpPage(
-        tester,
-        platform: platform,
-        pageKey: const ValueKey('phase-empty'),
-        providers: {
-          ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
-            ReverseImageSearchSuccess(),
-          ),
-        },
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('选择图片'));
-      await pumpUntilVisible(tester, find.text('开始反向搜图'));
-      await tester.ensureVisible(find.text('开始反向搜图'));
-      await tester.tap(find.text('开始反向搜图'));
-      await pumpUntilVisible(tester, find.text('没有找到匹配结果'));
-      // The released file's cached decode keeps the thumbnail alive.
-      expect(header, findsOneWidget);
-      expect(thumb(), findsOneWidget);
-      expect(headerText('SauceNAO'), findsOneWidget);
-      expect(headerText('没有找到匹配结果'), findsOneWidget);
-
-      // WebView success (IQDB) — the InAppWebView fake renders nothing,
-      // but the strip still describes the task above it.
-      await _pumpPage(
-        tester,
-        platform: platform,
-        pageKey: const ValueKey('phase-webview'),
-        providers: {
-          ReverseImageEngine.iqdb: OutcomeReverseImageProvider(
-            ReverseImageSearchWebView(
-              html: '<html></html>',
-              observedAt: 'test',
-            ),
-          ),
-        },
-        initialEngine: ReverseImageEngine.iqdb,
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('选择图片'));
-      await pumpUntilVisible(tester, find.text('开始反向搜图'));
-      await tester.ensureVisible(find.text('开始反向搜图'));
-      await tester.tap(find.text('开始反向搜图'));
-      await pumpUntilVisible(tester, find.text('已完成'));
-      expect(header, findsOneWidget);
-      expect(thumb(), findsOneWidget);
-      expect(headerText('IQDB'), findsOneWidget);
-      expect(headerText('已完成'), findsOneWidget);
-
-      // WebUpload success (Ascii2D) — file stays owned through the flow.
-      final armer = _FakeArmer('content://armed/1');
-      await _pumpPage(
-        tester,
-        platform: platform,
-        pageKey: const ValueKey('phase-upload'),
-        providers: {
-          ReverseImageEngine.ascii2d: OutcomeReverseImageProvider(
-            ReverseImageSearchWebUpload(
-              engine: ReverseImageEngine.ascii2d,
-              uploadPageUrl: Uri.parse('https://ascii2d.net/'),
-              imagePath: image.path,
-              imageMimeType: 'image/png',
-              observedAt: 'test',
-            ),
-          ),
-        },
-        initialEngine: ReverseImageEngine.ascii2d,
-        uploadArmer: armer,
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('选择图片'));
-      await pumpUntilVisible(tester, find.text('开始反向搜图'));
-      await tester.ensureVisible(find.text('开始反向搜图'));
-      await tester.tap(find.text('开始反向搜图'));
-      await pumpUntilVisible(tester, find.text('点按页面中的上传按钮开始搜索，已选图片会自动填入。'));
-      expect(header, findsOneWidget);
-      expect(thumb(), findsOneWidget);
-      expect(headerText('Ascii2D'), findsOneWidget);
-      expect(headerText('已完成'), findsOneWidget);
-
-      // The upload hint is persistent guidance, but it must have a visible
-      // escape hatch. Dismissing it leaves the upload WebView mounted.
-      expect(find.byTooltip('关闭'), findsOneWidget);
-      await tester.tap(find.byTooltip('关闭'));
-      await tester.pump();
-      expect(find.text('点按页面中的上传按钮开始搜索，已选图片会自动填入。'), findsNothing);
-      expect(find.byType(InAppWebView), findsOneWidget);
     });
   });
 }

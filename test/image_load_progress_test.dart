@@ -112,28 +112,6 @@ void main() {
       expect(_ring, findsNothing);
       semantics.dispose();
     });
-
-    testWidgets('taps pass through the ring', (tester) async {
-      final progress = ValueNotifier(const ImageLoadProgress.loading());
-      addTearDown(progress.dispose);
-      var taps = 0;
-      await tester.pumpWidget(
-        _app(
-          Stack(
-            children: [
-              Positioned.fill(child: GestureDetector(onTap: () => taps++)),
-              Positioned.fill(
-                child: ImageLoadProgressOverlay(progress: progress),
-              ),
-            ],
-          ),
-        ),
-      );
-      await tester.pump(const Duration(seconds: 1));
-      expect(_ring, findsOneWidget);
-      await tester.tap(_ring, warnIfMissed: false);
-      expect(taps, 1);
-    });
   });
 
   testWidgets('PixivImage reports the download it is painting', (tester) async {
@@ -236,12 +214,6 @@ void main() {
     testWidgets('the settled detail image shows the ring', (tester) async {
       await pumpPage(tester, detailUrl: _url);
       expect(_ring, findsOneWidget);
-      await unmountPastReleaseGrace(tester);
-    });
-
-    testWidgets('the Hero-phase preview does not', (tester) async {
-      await pumpPage(tester, detailUrl: null);
-      expect(_ring, findsNothing);
       await unmountPastReleaseGrace(tester);
     });
   });

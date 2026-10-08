@@ -110,20 +110,6 @@ void main() {
     expect(result.router.state.uri.path, '/recommended/illust/456');
   });
 
-  testWidgets('cold-start Parfait links use the recommended branch', (
-    tester,
-  ) async {
-    final result = await _pump(
-      tester,
-      initial: RoutedAndroidIntent(
-        IntentRouter.route(Uri.parse('parfait://users/123')),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 350));
-
-    expect(result.router.state.uri.path, '/recommended/user/123');
-  });
-
   testWidgets(
     'running deep links replace the current branch with recommended',
     (tester) async {

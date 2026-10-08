@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -11,6 +12,14 @@ import 'review_device.dart';
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
   await loadReviewFonts();
+  // The test bundle has no package licenses, so the license page would
+  // render empty; two stand-in entries give its list something to lay out.
+  LicenseRegistry.addLicense(
+    () => Stream.fromIterable([
+      LicenseEntryWithLineBreaks(const ['review-package-a'], 'Stand-in A.'),
+      LicenseEntryWithLineBreaks(const ['review-package-b'], 'Stand-in B.'),
+    ]),
+  );
   await testMain();
 }
 
@@ -42,7 +51,9 @@ Future<void> loadReviewFonts() async {
   Future<ByteData> bytes(String name) async =>
       ByteData.sublistView(File('${dir.path}/$name').readAsBytesSync());
   final loaders = [
-    for (final family in const ['Roboto', 'Noto Sans SC'])
+    // `monospace` (the frame probe's figures) has no test font of its own;
+    // proportional digits beat tofu for a layout review.
+    for (final family in const ['Roboto', 'Noto Sans SC', 'monospace'])
       FontLoader(family)
         ..addFont(bytes('NotoSansSC-Regular.otf'))
         ..addFont(bytes('NotoSansSC-Medium.otf'))

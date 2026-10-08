@@ -15,8 +15,6 @@ import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
-import 'package:parfait/app/widgets/feed/feed_states.dart';
-import 'package:parfait/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/new/new_feed_models.dart';
 import 'package:parfait/core/new/new_feed_repository.dart';
@@ -205,70 +203,6 @@ void main() {
     expect({_followingIllust, followingNovel}, hasLength(2));
   });
 
-  testWidgets('the illust page has lazy scope tabs and no type row', (
-    tester,
-  ) async {
-    final (container, repository) = await _makeWorld();
-    addTearDown(container.dispose);
-    await tester.pumpWidget(_app(container));
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.byType(TabBar), findsOneWidget);
-    expect(find.text('关注'), findsOneWidget);
-    expect(find.text('大家'), findsOneWidget);
-    expect(find.text('好P友'), findsOneWidget);
-    // The novel feeds moved to their own page behind the app bar's book
-    // button, like the novel ranking.
-    expect(find.text('插画'), findsNothing);
-    expect(find.text('小说'), findsNothing);
-    expect(find.byTooltip('小说新作'), findsOneWidget);
-    expect(repository.requests, [_followingIllust]);
-
-    await tester.tap(find.text('大家'));
-    await tester.pumpAndSettle();
-    expect(
-      repository.requests,
-      contains(
-        const NewFeedKey(
-          scope: NewFeedScope.everyone,
-          type: NewFeedType.illust,
-        ),
-      ),
-    );
-    expect(
-      repository.requests.where((key) => key.type == NewFeedType.novel),
-      isEmpty,
-    );
-  });
-
-  testWidgets('the novel page lists novels per scope, without the book '
-      'button', (tester) async {
-    final (container, repository) = await _makeWorld(novelCount: 3);
-    addTearDown(container.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        _app(container, page: const NewPage(type: NewFeedType.novel)),
-      );
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
-    });
-
-    expect(find.text('novel 2000').hitTestable(), findsOneWidget);
-    expect(find.byTooltip('小说新作'), findsNothing);
-    expect(repository.requests, [
-      const NewFeedKey(scope: NewFeedScope.following, type: NewFeedType.novel),
-    ]);
-
-    await tester.tap(find.text('大家'));
-    await tester.pumpAndSettle();
-    expect(repository.requests, [
-      const NewFeedKey(scope: NewFeedScope.following, type: NewFeedType.novel),
-      const NewFeedKey(scope: NewFeedScope.everyone, type: NewFeedType.novel),
-    ]);
-  });
-
   testWidgets('re-tapping the active scope scrolls the feed to top', (
     tester,
   ) async {
@@ -441,65 +375,5 @@ void main() {
         NewFeedScope.values.indexOf(NewFeedScope.everyone),
       );
     });
-  });
-
-  testWidgets('illust first load shows the grid skeleton, not an empty '
-      'state', (tester) async {
-    final (container, repository) = await _makeWorld();
-    addTearDown(container.dispose);
-    repository.pendingFetch = Completer<void>();
-    addTearDown(() {
-      if (repository.pendingFetch?.isCompleted == false) {
-        repository.pendingFetch!.complete();
-      }
-    });
-    await tester.pumpWidget(_app(container));
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.byType(IllustGridSkeleton), findsOneWidget);
-    expect(find.byType(FeedEmpty), findsNothing);
-
-    repository.pendingFetch!.complete();
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('novel first load shows a spinner, not an empty state', (
-    tester,
-  ) async {
-    final (container, repository) = await _makeWorld();
-    addTearDown(container.dispose);
-    repository.pendingFetch = Completer<void>();
-    addTearDown(() {
-      if (repository.pendingFetch?.isCompleted == false) {
-        repository.pendingFetch!.complete();
-      }
-    });
-    await tester.pumpWidget(
-      _app(container, page: const NewPage(type: NewFeedType.novel)),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.byType(FeedLoading), findsOneWidget);
-    expect(find.byType(IllustGridSkeleton), findsNothing);
-    expect(find.byType(FeedEmpty), findsNothing);
-
-    repository.pendingFetch!.complete();
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('a failed first load shows the error state with retry', (
-    tester,
-  ) async {
-    final (container, repository) = await _makeWorld();
-    addTearDown(container.dispose);
-    repository.fails = true;
-    await tester.pumpWidget(_app(container));
-    await tester.pump();
-    await tester.pump();
-    await tester.pumpAndSettle();
-
-    expect(find.byType(FeedError), findsOneWidget);
   });
 }

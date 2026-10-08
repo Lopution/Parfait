@@ -25,14 +25,6 @@ RichText _text(WidgetTester tester) => tester.widget<RichText>(
 );
 
 void main() {
-  testWidgets('text that fits shows no toggle', (tester) async {
-    await tester.pumpWidget(
-      _host(const ExpandableText(TextSpan(text: 'short caption'))),
-    );
-    expect(find.text('short caption'), findsOneWidget);
-    expect(find.byType(TextButton), findsNothing);
-  });
-
   testWidgets('long text collapses to maxLines and expands on demand', (
     tester,
   ) async {

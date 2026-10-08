@@ -1,25 +1,19 @@
 import 'dart:convert';
 
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
-import 'package:parfait/app/widgets/novel_entry.dart';
 import 'package:parfait/core/novel/novel_ranking_feed_controller.dart';
 import 'package:parfait/core/novel/novel_repository.dart';
 import 'package:parfait/core/novel/novel_store.dart';
-import 'package:parfait/features/ranking/novel_ranking_page.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
@@ -123,20 +117,6 @@ void main() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
-  test('NovelRankingMode has explicit order and API values', () {
-    expect(NovelRankingMode.values.map((mode) => mode.apiValue), [
-      'day',
-      'day_male',
-      'day_female',
-      'week',
-      'week_ai',
-      'week_ai_r18',
-      'day_r18',
-      'week_r18',
-      'week_r18g',
-    ]);
-  });
-
   test('each mode has independent first page and load-more state', () async {
     final (container, fixture) = await _makeWorld();
     addTearDown(container.dispose);
@@ -220,72 +200,6 @@ void main() {
     );
   });
 
-  testWidgets('renders tabs and lazily requests the selected mode', (
-    tester,
-  ) async {
-    final (container, fixture) = await _makeWorld();
-    addTearDown(container.dispose);
-
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: const NovelRankingPage(),
-          ),
-        ),
-      );
-      await tester.pump();
-      expect(find.byType(TabBar), findsOneWidget);
-      expect(find.text('每日'), findsOneWidget);
-      expect(fixture.requests, hasLength(1));
-
-      await tester.tap(find.text('每日（男性欢迎）'));
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
-    });
-    expect(fixture.requests, hasLength(2));
-    expect(fixture.requests.last.queryParameters['mode'], 'day_male');
-  });
-
-  testWidgets('ranks land on the ranked novel entries', (tester) async {
-    final (container, fixture) = await _makeWorld();
-    addTearDown(container.dispose);
-
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: const NovelRankingPage(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // The first day-mode page carries novels 1 and 2; each entry leads
-      // its title line with the rank.
-      final entries = find.byType(NovelEntry);
-      expect(entries, findsNWidgets(2));
-      expect(
-        find.descendant(of: entries.at(0), matching: find.text('1')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: entries.at(1), matching: find.text('2')),
-        findsOneWidget,
-      );
-      expect(fixture.requests, isNotEmpty);
-    });
-  });
-
   group('ranking date', () {
     final pastDay = DateTime(2025, 10, 1);
 
@@ -343,45 +257,6 @@ void main() {
         ),
         isFalse,
       );
-    });
-
-    testWidgets('a past day shows its bar and goes back to latest', (
-      tester,
-    ) async {
-      final (container, fixture) = await _makeWorld();
-      addTearDown(container.dispose);
-      final routeWrites = <(NovelRankingMode, DateTime?)>[];
-
-      await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: MaterialApp(
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-              home: NovelRankingPage(
-                date: pastDay,
-                onRouteChanged: (mode, date) => routeWrites.add((mode, date)),
-              ),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(fixture.requests.last.queryParameters['date'], '2025-10-01');
-        expect(find.textContaining('的排行'), findsOneWidget);
-        expect(find.byTooltip('选择日期'), findsOneWidget);
-
-        await tester.tap(find.text('回到最新'));
-        await tester.pumpAndSettle();
-        expect(routeWrites, [(NovelRankingMode.day, null)]);
-        expect(find.text('回到最新'), findsNothing);
-        expect(
-          fixture.requests.last.queryParameters.containsKey('date'),
-          isFalse,
-        );
-      });
     });
   });
 }

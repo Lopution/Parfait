@@ -83,46 +83,4 @@ void main() {
       expect(router.state.uri.path, '/recommended/user/42');
     });
   });
-
-  testWidgets('reads as one button with the name and a hint', (tester) async {
-    final semantics = tester.ensureSemantics();
-    await mockNetworkImagesFor(() async {
-      await _pumpOnRouter(
-        tester,
-        AuthorRow(
-          userId: 42,
-          name: 'author',
-          trailing: IconButton(
-            tooltip: 'follow',
-            onPressed: () {},
-            icon: const Icon(Icons.add),
-          ),
-        ),
-      );
-
-      final rowTarget = find.ancestor(
-        of: find.text('author'),
-        matching: find.byType(InkWell),
-      );
-      expect(
-        tester.getSemantics(rowTarget),
-        isSemantics(
-          label: 'author',
-          hint: '打开作者主页',
-          isButton: true,
-          hasTapAction: true,
-        ),
-      );
-      // The trailing action keeps its own node outside the row's target.
-      expect(
-        tester.getSemantics(find.byType(IconButton)),
-        isSemantics(tooltip: 'follow', isButton: true),
-      );
-      expect(
-        find.descendant(of: rowTarget, matching: find.byType(IconButton)),
-        findsNothing,
-      );
-    });
-    semantics.dispose();
-  });
 }

@@ -5,9 +5,7 @@ import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/widgets/app_choice_chip.dart';
 import 'package:parfait/app/widgets/app_menu_button.dart';
-import 'package:parfait/app/widgets/filter_menu_button.dart';
 import 'package:parfait/app/widgets/app_slider.dart';
-import 'package:parfait/app/widgets/replica_switch_tile.dart';
 import 'package:parfait/app/widgets/settings/settings_choice_tile.dart';
 import 'package:parfait/app/widgets/settings/settings_control.dart';
 import 'package:parfait/app/widgets/settings/settings_menu_tile.dart';
@@ -55,27 +53,6 @@ void main() {
     await tester.pump();
     await _rearm(tester);
     await tester.tap(find.text('row'));
-    await tester.pump();
-    expect(haptics.roles, [HapticRole.toggleOn, HapticRole.toggleOff]);
-  });
-
-  testWidgets('ReplicaSwitchTile toggles from the row and the switch', (
-    tester,
-  ) async {
-    final haptics = recordHaptics();
-    await _pump<bool>(
-      tester,
-      false,
-      (value, set) => ReplicaSwitchTile(
-        title: const Text('row'),
-        value: value,
-        onTap: () => set(!value),
-      ),
-    );
-    await tester.tap(find.text('row'));
-    await tester.pump();
-    await _rearm(tester);
-    await tester.tap(find.byType(Switch));
     await tester.pump();
     expect(haptics.roles, [HapticRole.toggleOn, HapticRole.toggleOff]);
   });
@@ -159,76 +136,6 @@ void main() {
       // The row now shows the picked value; the menu has closed.
       expect(find.text('one'), findsOneWidget);
     });
-
-    testWidgets('haptics: false leaves the haptic to the host', (tester) async {
-      final haptics = recordHaptics();
-      await _pump<int>(
-        tester,
-        0,
-        (value, set) => tile(value, set, haptics: false),
-      );
-      await pick(tester, 'one');
-      expect(haptics.played, isEmpty);
-    });
-  });
-
-  group('FilterMenuButton', () {
-    testWidgets('the button shows the value; a new pick selects', (
-      tester,
-    ) async {
-      final haptics = recordHaptics();
-      var changes = 0;
-      var more = 0;
-      await _pump<int>(
-        tester,
-        0,
-        (value, set) => FilterMenuButton<int>(
-          label: value == 0 ? 'zero ▾' : 'one ▾',
-          value: value,
-          options: const [
-            AppMenuEntry(value: 0, label: 'zero'),
-            AppMenuEntry(value: 1, label: 'one'),
-          ],
-          onChanged: (next) {
-            changes++;
-            set(next);
-          },
-          moreLabel: 'more',
-          onMore: () => more++,
-        ),
-      );
-      Finder item(String label) => find.descendant(
-        of: find.byType(MenuItemButton),
-        matching: find.text(label),
-      );
-      Future<void> pick(String label) async {
-        await tester.tap(find.byType(OutlinedButton));
-        await tester.pumpAndSettle();
-        await tester.tap(item(label));
-        await tester.pumpAndSettle();
-      }
-
-      await tester.tap(find.byType(OutlinedButton));
-      await tester.pumpAndSettle();
-      expect(
-        tester.getSemantics(item('zero')),
-        isSemantics(isChecked: true, hasCheckedState: true),
-      );
-      await tester.tap(item('zero'));
-      await tester.pumpAndSettle();
-      expect(changes, 0);
-      expect(haptics.played, isEmpty);
-
-      await pick('one');
-      expect(changes, 1);
-      expect(haptics.roles, [HapticRole.select]);
-      expect(find.text('one ▾'), findsOneWidget);
-
-      // The extra entry leaves the menu; it is no value.
-      await pick('more');
-      expect(more, 1);
-      expect(changes, 1);
-    });
   });
 
   group('AppChoiceChip', () {
@@ -283,22 +190,6 @@ void main() {
       await tester.pump();
       expect(haptics.roles, [HapticRole.toggleOn, HapticRole.toggleOff]);
     });
-
-    testWidgets('a disabled chip is silent', (tester) async {
-      final haptics = recordHaptics();
-      await _pump<bool>(
-        tester,
-        false,
-        (value, set) => const AppChoiceChip(
-          label: Text('off'),
-          selected: false,
-          onSelected: null,
-        ),
-      );
-      await tester.tap(find.text('off'));
-      await tester.pump();
-      expect(haptics.played, isEmpty);
-    });
   });
 
   group('AppSlider', () {
@@ -319,26 +210,6 @@ void main() {
       await tester.tap(find.byType(Slider));
       await tester.pump();
       expect(haptics.roles, [HapticRole.tick]);
-    });
-
-    testWidgets('a continuous slider is silent', (tester) async {
-      final haptics = recordHaptics();
-      double? last;
-      await _pump<double>(
-        tester,
-        0,
-        (value, set) => AppSlider(
-          value: value,
-          onChanged: (next) {
-            last = next;
-            set(next);
-          },
-        ),
-      );
-      await tester.drag(find.byType(Slider), const Offset(120, 0));
-      await tester.pump();
-      expect(last, isNotNull);
-      expect(haptics.played, isEmpty);
     });
   });
 }

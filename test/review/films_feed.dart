@@ -27,15 +27,19 @@ void main() {
     'feed/load-more',
     location: '/recommended',
     notes:
-        'Flinging to the end of page one: the load-more footer shows, page '
-        'two appends below without the list jumping, and images of the new '
-        'cards fade in.',
+        'Scrolling page by page to the end of the feed: the next page '
+        'appends ahead of the viewport (prefetch), so the list never jumps '
+        'or waits on a footer; at the end the tail shows the end marker. '
+        'Images of the new cards fade in.',
     script: (film, router) async {
-      for (var i = 0; i < 3; i++) {
+      // Slow drags of about a screen each, held before release: a fling
+      // appended every page mid-flight in one blur.
+      for (var i = 0; i < 5; i++) {
         await film.swipe(
           find.byType(CustomScrollView),
-          const Offset(0, -1500),
-          count: 8,
+          const Offset(0, -900),
+          count: 15,
+          hold: 4,
         );
       }
     },

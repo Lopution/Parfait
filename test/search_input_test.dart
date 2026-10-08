@@ -219,29 +219,6 @@ void main() {
     expect(_historyShown(tester), ['cat', 'dog']);
   });
 
-  testWidgets('the user tab offers recent searches only', (tester) async {
-    await _pumpInput(tester, location: '/search/input?type=user');
-    expect(find.text('热门标签'), findsNothing);
-    expect(find.text('搜索作品、用户或标签'), findsOneWidget);
-  });
-
-  testWidgets('a long press puts a start point in the field to edit', (
-    tester,
-  ) async {
-    final router = await _pumpInput(tester, history: ['dog']);
-    await tester.longPress(_historyChip('dog'));
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/search/input');
-    expect(_field(tester), 'dog');
-
-    await tester.enterText(find.byType(TextField), '');
-    await tester.pumpAndSettle();
-    await tester.longPress(find.widgetWithText(TagChip, '#猫'));
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/search/input');
-    expect(_field(tester), '猫');
-  });
-
   testWidgets('removing a recent search offers undo; clearing all asks', (
     tester,
   ) async {

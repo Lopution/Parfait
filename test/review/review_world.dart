@@ -362,13 +362,17 @@ final _reviewImagePath = RegExp(r'\.(jpe?g|png|gif|webp)$');
 /// Content payloads for every API path the routes call. Scenes swap single
 /// entries for empty/error/gated states.
 Map<String, ReviewResponder> _defaultResponders() {
+  // Feeds and the detail endpoint describe a work the same way: its page
+  // count and bookmark derive from the id. A detail that disagreed with
+  // the card (pages, bookmark) rewrote the card when it was prefetched.
+  Map<String, dynamic> work(int id, {String caption = ''}) => reviewIllustJson(
+    id,
+    bookmarked: (id - 1000) % 12 == 1,
+    pageCount: id.isEven ? 3 : 1,
+    caption: caption,
+  );
   List<Map<String, dynamic>> illusts(int first, int count) => [
-    for (var i = 0; i < count; i++)
-      reviewIllustJson(
-        first + i,
-        bookmarked: i == 1,
-        pageCount: i.isEven ? 1 : 3,
-      ),
+    for (var i = 0; i < count; i++) work(first + i),
   ];
   List<Map<String, dynamic>> novels(int first, int count) => [
     for (var i = 0; i < count; i++) reviewNovelJson(first + i),
@@ -402,9 +406,8 @@ Map<String, ReviewResponder> _defaultResponders() {
     '/v1/novel/follow': reviewJson(novelFeed),
     '/v1/novel/mypixiv': reviewJson(novelFeed),
     '/v1/illust/detail': (url) async => reviewJson({
-      'illust': reviewIllustJson(
+      'illust': work(
         int.parse(url.queryParameters['illust_id'] ?? '1000'),
-        pageCount: 3,
         caption: [
           '作品说明文字，第一段较长，用来展示简介在收起状态下的截断效果，'
               '以及展开以后完整显示的样子。',

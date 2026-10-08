@@ -9,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
-import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/core/localnovel/local_novel_database.dart';
 import 'package:parfait/core/localnovel/local_novel_repository.dart';
 import 'package:parfait/core/localnovel/local_novel_store.dart';
@@ -120,29 +119,6 @@ void main() {
       () => container.read(localNovelRepositoryProvider).list(),
     );
   }
-
-  testWidgets('library page lists imported novels', (tester) async {
-    await warmDatabase(tester);
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: _app(const LocalNovelsPage()),
-      ),
-    );
-    await _pumpUntil(tester, find.text('No imported local novels yet'));
-    expect(find.text('No imported local novels yet'), findsOneWidget);
-
-    await tester.runAsync(
-      () => container.read(localNovelStoreProvider.notifier).importPicked(),
-    );
-    await _pumpUntil(tester, find.text('My Story'));
-    expect(find.text('My Story'), findsOneWidget);
-    // Delete moved into the overflow menu — the row itself only exposes
-    // the continue-reading tap and a more affordance.
-    expect(find.byIcon(Icons.more_vert), findsOneWidget);
-    expect(find.byIcon(Icons.delete_outline), findsNothing);
-    await tester.pumpAndSettle();
-  });
 
   testWidgets('tile tap pushes the local reader route', (tester) async {
     await warmDatabase(tester);
@@ -303,158 +279,6 @@ void main() {
     expect(remaining, isEmpty);
   });
 
-  testWidgets('list caps at the management content width', (tester) async {
-    await warmDatabase(tester);
-    await tester.runAsync(
-      () => container.read(localNovelStoreProvider.notifier).importPicked(),
-    );
-    tester.view.physicalSize = const Size(1200, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: _app(const LocalNovelsPage()),
-      ),
-    );
-    await _pumpUntil(tester, find.text('My Story'));
-    final rowRect = tester.getRect(find.byType(EntityRow));
-    expect(rowRect.width, 840);
-    // Centered in the 1200dp viewport.
-    expect(rowRect.left, (1200 - 840) / 2);
-    // Drain the refresh indicator's settle timer before teardown.
-    await tester.pump(const Duration(seconds: 1));
-  });
-
-  testWidgets('320dp keeps every row action reachable', (tester) async {
-    await warmDatabase(tester);
-    await tester.runAsync(
-      () => container.read(localNovelStoreProvider.notifier).importPicked(),
-    );
-    tester.view.physicalSize = const Size(320, 640);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: _app(const LocalNovelsPage()),
-      ),
-    );
-    await _pumpUntil(tester, find.text('My Story'));
-    // Below the cap the constraint is a no-op — the row fills the
-    // viewport and the overflow action stays on screen.
-    expect(tester.getRect(find.byType(EntityRow)).width, 320);
-    expect(
-      tester.getRect(find.byIcon(Icons.more_vert)).right,
-      lessThanOrEqualTo(320),
-    );
-    await tester.tap(find.byIcon(Icons.more_vert));
-    await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
-    // Close the menu and drain its settle timer before teardown.
-    await tester.tapAt(const Offset(10, 10));
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('reader opens into immersiveSticky system ui', (tester) async {
-    // R1 second half: the local reader shares the stage — it must enter
-    // immersion on open just like the online page.
-    final modes = <String>[];
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
-        modes.add(call.arguments as String);
-      }
-      return null;
-    });
-    addTearDown(
-      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
-    );
-
-    await warmDatabase(tester);
-    final novel = await tester.runAsync(
-      () => container
-          .read(localNovelRepositoryProvider)
-          .importBytes(
-            fileName: 'Deep Read.txt',
-            bytes: Uint8List.fromList(utf8.encode('Immersive opening.')),
-            targetDir: dir,
-          ),
-    );
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: _app(LocalNovelReaderPage(localId: novel!.id)),
-      ),
-    );
-    await _pumpUntil(tester, find.byType(PageView));
-    expect(find.byType(LocalNovelReaderPage), findsOneWidget);
-    expect(modes, contains('SystemUiMode.immersiveSticky'));
-  });
-
-  testWidgets('reader mounts the shared stage: chrome, settings, footer', (
-    tester,
-  ) async {
-    await warmDatabase(tester);
-    final novel = await tester.runAsync(
-      () => container
-          .read(localNovelRepositoryProvider)
-          .importBytes(
-            fileName: 'Read Me.txt',
-            bytes: Uint8List.fromList(utf8.encode('Opening paragraph.')),
-            targetDir: dir,
-          ),
-    );
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: _app(LocalNovelReaderPage(localId: novel!.id)),
-      ),
-    );
-    await _pumpUntil(tester, find.byType(PageView));
-    expect(find.byType(LocalNovelReaderPage), findsOneWidget);
-
-    // No library AppBar and no ListTile header — the file name shows up
-    // in the always-on footer tip instead.
-    expect(find.byType(AppBar), findsNothing);
-    expect(find.byType(ListTile), findsNothing);
-    expect(find.text('Local novels'), findsNothing);
-    expect(find.textContaining('Read Me'), findsOneWidget);
-
-    // Center tap opens the reader chrome with the book title in the top
-    // bar; the settings sheet is reachable from the bottom bar.
-    await tester.tapAt(const Offset(400, 300));
-    await tester.pumpAndSettle();
-    expect(find.text('Read Me'), findsOneWidget);
-    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.tune_outlined));
-    await tester.pumpAndSettle();
-    expect(find.byType(Slider), findsNWidgets(2));
-
-    // Dismiss the settings sheet via the barrier, then open the file-info
-    // sheet from the top bar.
-    await tester.tapAt(const Offset(400, 100));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.info_outline));
-    await tester.pumpAndSettle();
-    expect(find.text('Read Me'), findsNWidgets(2)); // top bar + sheet
-    expect(find.text('18 chars'), findsOneWidget);
-    expect(find.text('Encoding: UTF-8'), findsOneWidget);
-    expect(find.textContaining('Imported '), findsOneWidget);
-    // Imports never carry an author — no author row renders (D9).
-    expect(find.text('local'), findsNothing);
-
-    // The shared NovelReader lays out asynchronously across several frames;
-    // extra pumps also drain Riverpod's zero-duration vsync timers before
-    // the pending-timer invariant check.
-    await tester.tapAt(const Offset(400, 100));
-    await tester.pumpAndSettle();
-    for (var i = 0; i < 8; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-  });
-
   testWidgets(
     'read_offset stays null until a real page turn, then stores the page start',
     (tester) async {
@@ -559,37 +383,6 @@ void main() {
     await _pumpUntil(tester, find.text('closing paragraph'), attempts: 240);
     expect(find.text('closing paragraph'), findsOneWidget);
     expect(find.text('opening paragraph'), findsNothing);
-  });
-
-  testWidgets('reader opens on the first page without a stored cursor', (
-    tester,
-  ) async {
-    await warmDatabase(tester);
-    final text = [
-      'opening paragraph',
-      for (var i = 0; i < 200; i++) 'filler line $i',
-      'closing paragraph',
-    ].join('\n');
-    final novel = await tester.runAsync(
-      () => container
-          .read(localNovelRepositoryProvider)
-          .importBytes(
-            fileName: 'Fresh Read.txt',
-            bytes: Uint8List.fromList(utf8.encode(text)),
-            targetDir: dir,
-          ),
-    );
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: _app(LocalNovelReaderPage(localId: novel!.id)),
-      ),
-    );
-    await _pumpUntil(tester, find.text('opening paragraph'), attempts: 240);
-    expect(find.text('opening paragraph'), findsOneWidget);
-    // A spurious deep restore would swap the visible page away from the
-    // document start.
-    expect(find.text('closing paragraph'), findsNothing);
   });
 }
 

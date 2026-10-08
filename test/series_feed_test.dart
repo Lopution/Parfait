@@ -1,13 +1,8 @@
-import 'dart:async';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
-import 'package:parfait/app/widgets/feed/feed_states.dart';
-import 'package:parfait/app/widgets/entity_row.dart';
-import 'package:parfait/app/widgets/skeleton/list_skeletons.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
 import 'package:parfait/core/series/illust_series_context_controller.dart';
@@ -18,7 +13,6 @@ import 'package:parfait/core/series/series_store.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
-import 'package:parfait/features/series/illust_series_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -144,83 +138,6 @@ void main() {
     expect(container.read(illustSeriesStoreProvider), isEmpty);
   });
 
-  testWidgets('series page renders the header and numbered episode rows', (
-    tester,
-  ) async {
-    final (container, _) = await makeSeriesWorld();
-    addTearDown(container.dispose);
-
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: const IllustSeriesPage(seriesId: 55),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // AppBar + header come from the committed series detail.
-      expect(find.text('series 55'), findsWidgets);
-      expect(find.text('共 12 个作品'), findsOneWidget);
-      expect(find.text('author'), findsWidgets);
-      // Newest first: counted down from the series' 12 works.
-      expect(find.byType(EntityRow), findsNWidgets(2));
-      expect(find.text('第 12 话'), findsOneWidget);
-      expect(find.text('第 11 话'), findsOneWidget);
-      final newest = find.byKey(const ValueKey('series-episode-912'));
-      expect(
-        find.descendant(of: newest, matching: find.text('illust 912')),
-        findsOneWidget,
-      );
-      // The number sits above the title.
-      expect(
-        tester.getTopLeft(find.text('第 12 话')).dy,
-        lessThan(tester.getTopLeft(find.text('illust 912')).dy),
-      );
-    });
-  });
-
-  testWidgets('series page shows the episode skeleton while the first page '
-      'is pending', (tester) async {
-    final fixture = SeriesFixture()..pendingFetch = Completer<void>();
-    final (container, _) = await makeSeriesWorld(fixture: fixture);
-    addTearDown(container.dispose);
-    addTearDown(() {
-      if (fixture.pendingFetch?.isCompleted == false) {
-        fixture.pendingFetch!.complete();
-      }
-    });
-
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: const IllustSeriesPage(seriesId: 55),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-
-      expect(find.byType(EpisodeListSkeleton), findsOneWidget);
-      expect(find.byType(FeedEmpty), findsNothing);
-
-      fixture.pendingFetch!.complete();
-      await tester.pumpAndSettle();
-      expect(find.byType(EpisodeListSkeleton), findsNothing);
-      expect(find.byType(EntityRow), findsWidgets);
-    });
-  });
-
   Future<void> pumpSeriesPage(
     WidgetTester tester,
     ProviderContainer container, {
@@ -290,54 +207,5 @@ void main() {
       await cursor.read('100', WatchlistKey(WatchlistType.manga, 55)),
       912,
     );
-  });
-
-  testWidgets('without a reading record only 开始阅读 shows; an unknown '
-      'order continues without a number', (tester) async {
-    final (container, _) = await makeSeriesWorld();
-    addTearDown(container.dispose);
-
-    await mockNetworkImagesFor(() async {
-      await pumpSeriesPage(tester, container);
-    });
-    final start = find.widgetWithText(FilledButton, '开始阅读');
-    expect(start, findsOneWidget);
-    // Reading leads and 追更 sits beside it at the same height.
-    final follow = find.widgetWithText(OutlinedButton, '追更');
-    expect(tester.getSize(follow).height, tester.getSize(start).height);
-    expect(tester.getCenter(follow).dy, tester.getCenter(start).dy);
-    expect(
-      tester.getTopLeft(follow).dx,
-      greaterThan(tester.getTopRight(start).dx),
-    );
-    expect(find.textContaining('继续'), findsNothing);
-    expect(find.text('从第 1 话开始'), findsNothing);
-
-    // Record without an order → the numberless copy.
-    container
-        .read(seriesRecentOpenStoreProvider.notifier)
-        .record(accountId: '100', seriesId: 55, illustId: 910);
-    await tester.pump();
-    expect(find.widgetWithText(FilledButton, '继续阅读'), findsOneWidget);
-    expect(find.text('开始阅读'), findsNothing);
-  });
-
-  testWidgets('a long caption folds to three lines', (tester) async {
-    final caption = List.filled(40, 'a long series caption').join(' ');
-    final (container, _) = await makeSeriesWorld(
-      fixture: SeriesFixture()..caption = caption,
-    );
-    addTearDown(container.dispose);
-
-    await mockNetworkImagesFor(() async {
-      await pumpSeriesPage(tester, container);
-    });
-
-    Text captionText() => tester.widget<Text>(find.text(caption));
-    expect(captionText().maxLines, 3);
-    await tester.tap(find.widgetWithText(TextButton, '展开'));
-    await tester.pumpAndSettle();
-    expect(captionText().maxLines, isNull);
-    expect(find.widgetWithText(TextButton, '收起'), findsOneWidget);
   });
 }

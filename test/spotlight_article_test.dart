@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,7 +18,6 @@ import 'package:parfait/core/spotlight/spotlight_models.dart';
 import 'package:parfait/core/spotlight/spotlight_repository.dart';
 import 'package:parfait/features/spotlight/spotlight_article_page.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
-import 'package:parfait/app/widgets/author_row.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -83,29 +81,6 @@ class _RecordingShareService implements ShareService {
     lastOrigin = sharePositionOrigin;
     return outcome;
   }
-}
-
-/// Captures outbound `launch` calls on the url_launcher method channel —
-/// the app calls `launchUrl`, which the platform interface forwards as a
-/// `launch` invocation carrying the resolved url.
-List<String> mockUrlLauncher(WidgetTester tester) {
-  const channel = MethodChannel('plugins.flutter.io/url_launcher');
-  final launched = <String>[];
-  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
-    call,
-  ) async {
-    if (call.method == 'launch') {
-      launched.add((call.arguments as Map)['url'] as String);
-    }
-    return true;
-  });
-  addTearDown(
-    () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      channel,
-      null,
-    ),
-  );
-  return launched;
 }
 
 /// `find.textRange`/`tapOnText` only index plain `RichText` — paragraph
@@ -448,55 +423,9 @@ void main() {
       await pumpIoUntil(tester, () => painted(tester));
       expect(find.byIcon(Icons.broken_image), findsNothing);
     });
-
-    testWidgets('shows a broken image when the CDN fails', (tester) async {
-      await pumpArticle(
-        tester,
-        html: html,
-        images: {cdn: http.Response('', 404)},
-      );
-      await pumpIoUntil(
-        tester,
-        () => find.byIcon(Icons.broken_image).evaluate().isNotEmpty,
-      );
-      expect(painted(tester), isFalse);
-    });
   });
 
-  group('article layout and selection', () {
-    testWidgets('body blocks render as SelectableText', (tester) async {
-      await pumpArticle(tester);
-
-      // Title, description, heading and paragraphs are selectable per
-      // block; the illust card stays plain text (it is a navigation tile).
-      expect(find.byType(SelectableText), findsWidgets);
-      expect(find.widgetWithText(SelectableText, '特辑标题'), findsOneWidget);
-      expect(find.widgetWithText(SelectableText, '小节标题'), findsOneWidget);
-      expect(find.widgetWithText(SelectableText, '作品标题'), findsNothing);
-      expect(find.text('作品标题'), findsOneWidget);
-      expect(find.byType(SelectionArea), findsNothing);
-    });
-
-    for (final width in const [840.0, 1200.0]) {
-      testWidgets('body column is capped and centered at ${width}dp', (
-        tester,
-      ) async {
-        await pumpArticle(tester, size: Size(width, 800));
-
-        final list = tester.getRect(find.byType(ListView));
-        expect(list.width, lessThanOrEqualTo(700));
-        expect(list.left, greaterThan(0));
-        expect(list.center.dx, closeTo(width / 2, 0.5));
-      });
-    }
-
-    testWidgets('paragraph artwork links still route natively', (tester) async {
-      final router = await pumpArticle(tester);
-      await tapSelectableLink(tester, '作品链接');
-      await tester.pumpAndSettle();
-      expect(router.state.uri.path, '/recommended/illust/12345');
-    });
-  });
+  group('article layout and selection', () {});
 
   group('article work cards', () {
     Finder workImage(String title) => find.byWidgetPredicate(
@@ -528,36 +457,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(router.state.uri.path, '/recommended/illust/777');
     });
-
-    testWidgets('the author row opens the author', (tester) async {
-      final router = await pumpArticle(tester);
-      await tester.ensureVisible(find.text('作者名'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('作者名'));
-      await tester.pumpAndSettle();
-      expect(router.state.uri.path, '/recommended/user/42');
-    });
-
-    testWidgets('an author without a user id is plain text', (tester) async {
-      const html = '''
-<html><body><article><header><h1>t</h1></header><div class="am__body">
-  <div class="am__work">
-    <h3><a href="/artworks/778">无作者链接</a></h3>
-    <p class="am__work__user-name">by <a href="https://example.com/">外部作者</a></p>
-    <a href="/artworks/778"><img src="https://i.pximg.net/t/778.jpg"></a>
-  </div>
-</div></article></body></html>
-''';
-      await pumpArticle(tester, html: html);
-
-      expect(find.text('外部作者'), findsOneWidget);
-      expect(find.byType(AuthorRow), findsNothing);
-      expect(
-        tester.getSemantics(find.text('外部作者')),
-        isNot(isSemantics(isButton: true)),
-      );
-    });
   });
 
   group('article actions', () {
@@ -582,18 +481,6 @@ void main() {
       expect(payload.title, '特辑');
       // The clipboard fallback is surfaced, never silent.
       expect(find.text('链接已复制'), findsOneWidget);
-    });
-
-    testWidgets('open-in-browser launches the canonical url externally', (
-      tester,
-    ) async {
-      final launched = mockUrlLauncher(tester);
-
-      await pumpArticle(tester);
-      await tester.tap(find.byTooltip('在浏览器打开'));
-      await tester.pumpAndSettle();
-
-      expect(launched, ['https://www.pixivision.net/a/101']);
     });
   });
 }

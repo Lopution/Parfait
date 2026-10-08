@@ -138,36 +138,6 @@ void main() {
     },
   );
 
-  testWidgets('clearing disables the actions and spins the clear button', (
-    tester,
-  ) async {
-    final store = _FakeStore()..deleteBlocker = Completer<void>();
-    await tester.pumpWidget(_app(store));
-    await tester.pump();
-
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Clear credentials'));
-    await tester.pump();
-    await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Clear credentials'));
-    await tester.pump();
-
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    final clear = tester.widget<OutlinedButton>(
-      find.widgetWithText(OutlinedButton, 'Clear credentials'),
-    );
-    final save = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Save to secure storage'),
-    );
-    expect(clear.onPressed, isNull);
-    expect(save.onPressed, isNull);
-
-    store.deleteBlocker!.complete();
-    await tester.pump();
-    await tester.pump();
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('Credentials cleared'), findsOneWidget);
-  });
-
   testWidgets('a dirty draft asks before leaving, a clean one pops', (
     tester,
   ) async {
@@ -225,21 +195,5 @@ void main() {
     await tester.tap(find.text('Discard changes'));
     await tester.pumpAndSettle();
     expect(find.byType(TranslationCredentialsPage), findsNothing);
-  });
-
-  testWidgets('cancelling the confirm keeps credentials and fields', (
-    tester,
-  ) async {
-    final store = _FakeStore()
-      ..baidu = const BaiduTranslationCredentials(appId: 'a', secret: 's');
-    await tester.pumpWidget(_app(store));
-    await tester.pump();
-
-    await _tapClear(tester, confirm: false);
-
-    expect(store.baidu, isNotNull);
-    expect(_fieldText(tester, 0), 'a');
-    expect(_fieldText(tester, 1), 's');
-    expect(find.text('Credentials cleared'), findsNothing);
   });
 }

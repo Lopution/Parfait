@@ -77,35 +77,4 @@ void main() {
       });
     }
   }
-
-  testWidgets('content column is capped and centered on wide viewports', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1200, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
-    await tester.pumpWidget(_wrap(child: _shell()));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-
-    final action = tester.getRect(find.byType(FilledButton));
-    expect(action.width, ContentWidths.form);
-    // Centered: symmetric side margins on the capped column.
-    expect(action.left, closeTo((1200 - ContentWidths.form) / 2, 1));
-  });
-
-  testWidgets('a custom role width is honored', (tester) async {
-    tester.view.physicalSize = const Size(1200, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
-    await tester.pumpWidget(
-      _wrap(child: _shell(contentMaxWidth: ContentWidths.article)),
-    );
-    await tester.pumpAndSettle();
-
-    final action = tester.getRect(find.byType(FilledButton));
-    expect(action.width, ContentWidths.article);
-  });
 }

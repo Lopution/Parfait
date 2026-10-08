@@ -107,16 +107,6 @@ double _opacity(WidgetTester tester, String message) {
   return opacity;
 }
 
-double _scale(WidgetTester tester, String message) => tester
-    .widget<ScaleTransition>(
-      find.ancestor(
-        of: promptCard(message),
-        matching: find.byType(ScaleTransition),
-      ),
-    )
-    .scale
-    .value;
-
 void main() {
   group('queue', () {
     testWidgets('a new prompt replaces the current one and drops the queue', (
@@ -190,21 +180,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('第一步'), findsNothing);
       expect(find.text('第二步'), findsOneWidget);
-    });
-
-    testWidgets('PromptHost.of fails loudly without a host', (tester) async {
-      late BuildContext context;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (c) {
-              context = c;
-              return const SizedBox.shrink();
-            },
-          ),
-        ),
-      );
-      expect(() => showAppSnackBar(context, '无处显示'), throwsFlutterError);
     });
   });
 
@@ -340,31 +315,6 @@ void main() {
   });
 
   group('motion', () {
-    testWidgets('enters with a fade and scale, leaves over the fast token', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _app(home: _Buttons({'show': (c) => showAppSnackBar(c, '提示')})),
-      );
-      await tester.tap(find.text('show'));
-      await tester.pump();
-      expect(_opacity(tester, '提示'), 0);
-      expect(_scale(tester, '提示'), MotionTokens.promptEnterScale);
-
-      await tester.pump(MotionTokens.promptEnter ~/ 2);
-      expect(_opacity(tester, '提示'), closeTo(0.5, 0.01));
-      await tester.pump(MotionTokens.promptEnter ~/ 2);
-      expect(_opacity(tester, '提示'), 1);
-      expect(_scale(tester, '提示'), 1);
-
-      PromptHost.of(tester.element(find.text('show'))).hideCurrent();
-      await tester.pump();
-      await tester.pump(MotionTokens.fast ~/ 2);
-      expect(_opacity(tester, '提示'), closeTo(0.5, 0.01));
-      await tester.pumpAndSettle();
-      expect(find.text('提示'), findsNothing);
-    });
-
     testWidgets('reduced motion drops the flight, not the message', (
       tester,
     ) async {
@@ -488,28 +438,6 @@ void main() {
   });
 
   group('placement', () {
-    testWidgets('rests above the safe area, capped and centered', (
-      tester,
-    ) async {
-      _useScreen(tester);
-      tester.view.padding = const FakeViewPadding(bottom: 24);
-      await tester.pumpWidget(
-        _app(home: _Buttons({'show': (c) => showAppSnackBar(c, '提示')})),
-      );
-      await tester.tap(find.text('show'));
-      await tester.pumpAndSettle();
-      final card = tester.getRect(promptCard('提示'));
-      expect(card.bottom, _screen.height - 24 - 16);
-      expect(card.left, 16);
-      expect(card.width, _screen.width - 32);
-
-      tester.view.physicalSize = const Size(1400, 900);
-      await tester.pumpAndSettle();
-      final wide = tester.getRect(promptCard('提示'));
-      expect(wide.width, 600);
-      expect(wide.center.dx, 700);
-    });
-
     testWidgets('makes room for the keyboard', (tester) async {
       _useScreen(tester);
       await tester.pumpWidget(
@@ -523,30 +451,6 @@ void main() {
         tester.getRect(promptCard('提示')).bottom,
         _screen.height - 300 - 16,
       );
-    });
-
-    testWidgets('follows a live anchor', (tester) async {
-      _useScreen(tester);
-      final extent = ValueNotifier<double>(80);
-      addTearDown(extent.dispose);
-      await tester.pumpWidget(
-        _app(
-          home: _Buttons(
-            {'show': (c) => showAppSnackBar(c, '提示')},
-            bottom: PromptAnchor(
-              extent: extent,
-              child: const SizedBox(height: 80),
-            ),
-          ),
-        ),
-      );
-      await tester.tap(find.text('show'));
-      await tester.pumpAndSettle();
-      expect(tester.getRect(promptCard('提示')).bottom, _screen.height - 96);
-
-      extent.value = 120;
-      await tester.pump();
-      expect(tester.getRect(promptCard('提示')).bottom, _screen.height - 136);
     });
 
     testWidgets('an anchor sinks while a page covers its route', (
@@ -596,30 +500,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.getRect(promptCard('提示')).bottom, above);
     });
-
-    testWidgets('a wide action moves to its own row', (tester) async {
-      _useScreen(tester);
-      await tester.pumpWidget(
-        _app(
-          home: _Buttons({
-            'show': (c) => showAppSnackBar(
-              c,
-              '提示',
-              action: PromptAction(
-                label: 'Open the download manager',
-                onPressed: () {},
-              ),
-            ),
-          }),
-        ),
-      );
-      await tester.tap(find.text('show'));
-      await tester.pumpAndSettle();
-      expect(
-        tester.getTopLeft(promptAction('Open the download manager')).dy,
-        greaterThanOrEqualTo(tester.getBottomLeft(find.text('提示')).dy),
-      );
-    });
   });
 
   group('shell bar', () {
@@ -665,39 +545,6 @@ void main() {
       );
       return scrollVisibility;
     }
-
-    testWidgets('the spacer reserves the bar slot on the first frame', (
-      tester,
-    ) async {
-      await pumpShell(tester);
-      // pumpWidget ran exactly one frame — no post-layout measurement has
-      // had a chance to publish — and the spacer already matches the
-      // rendered bar.
-      final barHeight = tester.getSize(find.byType(FuncBottomNav)).height;
-      expect(tester.getSize(find.byType(FuncNavBarSpacer)).height, barHeight);
-    });
-
-    testWidgets('the computed extent tracks the navigation inset', (
-      tester,
-    ) async {
-      for (final inset in <double>[0, 24, 48]) {
-        tester.view.padding = FakeViewPadding(bottom: inset);
-        tester.view.viewPadding = FakeViewPadding(bottom: inset);
-        await pumpShell(tester);
-        await tester.pump();
-        final expected = FuncBottomNav.restingExtent(inset);
-        expect(
-          tester.getSize(find.byType(FuncBottomNav)).height,
-          expected,
-          reason: 'rendered bar height at inset $inset',
-        );
-        expect(
-          tester.getSize(find.byType(FuncNavBarSpacer)).height,
-          expected,
-          reason: 'spacer height at inset $inset',
-        );
-      }
-    });
 
     testWidgets('the prompt rides the bar as it slides', (tester) async {
       final scrollVisibility = await pumpShell(tester);

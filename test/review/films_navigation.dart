@@ -9,7 +9,8 @@ void main() {
 
   testFilm(
     'nav/page-push-pop',
-    location: '/settings',
+    // The full settings list; `/settings` itself is the "me" dashboard.
+    location: '/settings/all',
     notes:
         'A plain page: the theme settings slide in over the settings hub and '
         'slide back out. The entering page stays live — its switches are '
@@ -74,6 +75,14 @@ void main() {
         'again scrolls back to the top.',
     script: (film, router) async {
       await film.swipe(find.text('illust 1004'), const Offset(0, -1400));
+      // Scrolling down hid the bottom bar; a short scroll back up returns
+      // it before the tap, as a thumb would.
+      await film.swipe(
+        find.byType(PixivImage).hitTestable().first,
+        const Offset(0, 300),
+        count: 15,
+        hold: 2,
+      );
       await film.tap(find.text('推荐'));
     },
   );

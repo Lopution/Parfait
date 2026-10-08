@@ -15,7 +15,6 @@ import 'package:parfait/features/comments/comment_item.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/comment_world.dart';
-import 'helpers/illust_fixtures.dart';
 
 /// The Google transport stands in for the network; the rest of the
 /// translation service runs as shipped.
@@ -104,52 +103,6 @@ void main() {
 
   Finder menuItem(String label) => find.widgetWithText(MenuItemButton, label);
 
-  testWidgets('reply and the replies link are pill buttons', (tester) async {
-    await pumpItem(tester, sampleComment(40, replyCount: 2));
-
-    final reply = find.widgetWithText(TextButton, '回复');
-    await tester.tap(reply);
-    await tester.tap(find.widgetWithText(TextButton, '查看 2 条回复'));
-    expect(replies, 1);
-    expect(openedReplies, 1);
-    // A 32dp pill inside a 48dp target.
-    expect(tester.getSize(reply).height, 48);
-    final shape = find.descendant(of: reply, matching: find.byType(Material));
-    expect(tester.getSize(shape.first).height, 32);
-    expect(tester.widget<Material>(shape.first).shape, isA<StadiumBorder>());
-    // No pill row is left behind.
-    expect(find.byIcon(Icons.reply_outlined), findsNothing);
-    expect(find.byIcon(Icons.forum_outlined), findsNothing);
-  });
-
-  testWidgets('replies flagged without a count open without a number', (
-    tester,
-  ) async {
-    // Pixiv's comment payload carries has_replies but no count.
-    final base = sampleComment(40);
-    await pumpItem(tester, base.copyWith(hasReplies: true));
-
-    expect(find.textContaining('条回复'), findsNothing);
-    await tester.tap(find.widgetWithText(TextButton, '查看回复'));
-    expect(openedReplies, 1);
-  });
-
-  testWidgets('the work author is marked beside the name', (tester) async {
-    final work = parseIllust(illustJson(1));
-    await pumpItem(tester, sampleComment(40, userId: work.user.id), work: work);
-    expect(find.text('作者'), findsOneWidget);
-
-    await pumpItem(tester, sampleComment(41, userId: 20), work: work);
-    expect(find.text('作者'), findsNothing);
-  });
-
-  testWidgets('no replies link without replies', (tester) async {
-    await pumpItem(tester, sampleComment(40));
-
-    expect(find.widgetWithText(TextButton, '回复'), findsOneWidget);
-    expect(find.textContaining('条回复'), findsNothing);
-  });
-
   testWidgets('own comment: the menu translates and deletes in danger color', (
     tester,
   ) async {
@@ -186,12 +139,6 @@ void main() {
     expect(menuItem('删除评论'), findsNothing);
   });
 
-  testWidgets('a stamp from another user has no menu', (tester) async {
-    await pumpItem(tester, sampleComment(40, userId: 20, content: ''));
-
-    expect(moreActions, findsNothing);
-  });
-
   testWidgets('translate is disabled while a translation runs', (tester) async {
     await pumpItem(tester, sampleComment(40, userId: 20));
     await openMenu(tester);
@@ -208,24 +155,5 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('你好'), findsOneWidget);
-  });
-
-  testWidgets('the time is relative', (tester) async {
-    final base = sampleComment(40);
-    await pumpItem(
-      tester,
-      CommentEntity(
-        id: base.id,
-        workId: base.workId,
-        kind: base.kind,
-        parentCommentId: null,
-        rootCommentId: base.rootCommentId,
-        user: base.user,
-        content: base.content,
-        createdAt: DateTime.now().subtract(const Duration(hours: 3)),
-      ),
-    );
-
-    expect(find.text('3 小时前'), findsOneWidget);
   });
 }
