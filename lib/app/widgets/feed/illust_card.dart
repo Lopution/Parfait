@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/entity/illust_entity.dart';
 import '../../format/app_format.dart';
+import '../../format/content_locale.dart';
 import '../../../core/mute/mute_predicate.dart';
 import '../../../core/mute/mute_store.dart';
 import '../../../core/settings/app_settings.dart';
@@ -330,6 +331,7 @@ class _IllustCardBody extends ConsumerWidget {
                     _buildTitleLine(context),
                     Text(
                       entity.user.name,
+                      locale: contentLocale(context, entity.user.name),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: FuncSemanticTokens.of(context).caption,
@@ -349,6 +351,7 @@ class _IllustCardBody extends ConsumerWidget {
   Widget _buildTitleLine(BuildContext context) {
     final title = Text(
       entity.title,
+      locale: contentLocale(context, entity.title),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: FuncSemanticTokens.of(

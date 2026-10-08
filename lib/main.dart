@@ -13,6 +13,8 @@ import 'core/debug/frame_probe.dart';
 import 'core/image/legacy_image_cache.dart';
 import 'core/logging/crash_log.dart';
 import 'core/network/rhttp_gate.dart';
+import 'core/platform/native_warmup.dart';
+import 'core/platform/platform_caps.dart';
 import 'core/widget/widget_background.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -121,6 +123,15 @@ Future<void> _run() async {
   if (kPixivFrameProbe) FrameProbe.instance.start();
   runApp(const ProviderScope(child: ParfaitApp()));
   unawaited(_deleteLegacyImageCache());
+  unawaited(_warmUpNativeChannels());
+}
+
+/// Pays the slow first calls of a few platform channels on a still screen
+/// after startup, not inside the first detail page transition.
+Future<void> _warmUpNativeChannels() async {
+  if (!PlatformCaps.system().isAndroid) return;
+  await WidgetsBinding.instance.waitUntilFirstFrameRasterized;
+  await warmUpWhenQuiet(androidChannelWarmupSteps());
 }
 
 /// The image cache the worker replaced can hold hundreds of MB. It goes

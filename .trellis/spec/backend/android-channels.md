@@ -79,6 +79,7 @@
 | 11 | `parfait/haptics` | Method | `HapticsChannel.kt` (+ `HapticPlanner.kt`) | `lib/app/haptics/haptics_driver.dart` | main |
 | 12 | `parfait/accessibility` | Method | `AccessibilityChannel.kt` | `lib/core/platform/accessibility.dart` | main |
 | 13 | `parfait/accessibility/events` | Event | `AccessibilityChannel.kt` (`TouchExplorationStreamHandler`) | `accessibility.dart` (`touchExplorationChanges`) | main |
+| 14 | `parfait/fonts` | Method | `ContentFontPrefetcher.kt` | `lib/core/platform/content_font_prefetch.dart` | background TaskQueue; reads on its own executor |
 
 Unknown method on every MethodChannel: `result.notImplemented()`.
 
@@ -482,6 +483,30 @@ is reachable **only** on the fdroid flavor, and only for methods other than
 - **Emission:** the current `isTouchExplorationEnabled` value on
   `onListen`, then each `TouchExplorationStateChangeListener` change. The
   stream is Boolean-only; unknown platform errors surface as stream errors.
+
+---
+
+## 14. `parfait/fonts`
+
+- **Handler:** `ContentFontPrefetcher.kt` (`contentFontFiles` is the pure,
+  JVM-tested selection).
+- **Dart:** `requestContentFontPrefetch()` in
+  `lib/core/platform/content_font_prefetch.dart`; `IllustFeedGrid` calls it
+  on mount and whenever its item count grows. No-op off Android.
+- **Thread:** background TaskQueue; the handler only enqueues on a
+  single-thread `THREAD_PRIORITY_BACKGROUND` executor.
+
+| Method | Arguments | Return |
+|--------|-----------|--------|
+| `prefetch` | _(none)_ | `null`, before the read runs |
+
+- Reads into the page cache the files in `/system/etc/fonts.xml` (the file
+  Skia parses) that Flutter lays user content out with: unnamed fallback
+  families of `zh` / `ja` / `ko` / `und-Zsye` in full, other unnamed
+  fallback fonts of at most 2 MB; `fallbackFor` (serif) fonts skipped.
+- `MainActivity.onStart` also triggers it. At most one read per 10 s.
+- Fire-and-forget: Dart logs a failed call with `debugPrint`; Kotlin logs
+  unreadable files with `Log.w` and each read with `Log.i`.
 
 ---
 

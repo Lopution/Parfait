@@ -46,6 +46,14 @@ Future<void> _pumpPager(
   });
 }
 
+/// Pumps single frames until [finder] matches, failing after a second.
+Future<void> _pumpUntil(WidgetTester tester, Finder finder) async {
+  for (var i = 0; i < 120 && finder.evaluate().isEmpty; i++) {
+    await tester.pump(const Duration(milliseconds: 8));
+  }
+  expect(finder, findsOneWidget);
+}
+
 double _page(WidgetTester tester) =>
     tester.widget<PageView>(find.byType(PageView)).controller!.page!;
 
@@ -309,7 +317,7 @@ void main() {
     expect(_detail(44), findsOneWidget);
   });
 
-  testWidgets('neighbours build after the push transition, not inside it', (
+  testWidgets('neighbours build after the push transition, one per frame', (
     tester,
   ) async {
     final (container, _, _) = await makeWorld();
@@ -344,10 +352,11 @@ void main() {
       expect(_detail(41), findsNothing);
       expect(_detail(43), findsNothing);
 
+      // The page ahead joins first, in a frame of its own.
       await tester.pump(const Duration(milliseconds: 400));
-      await tester.pump();
-      expect(_detail(41), findsOneWidget);
-      expect(_detail(43), findsOneWidget);
+      await _pumpUntil(tester, _detail(43));
+      expect(_detail(41), findsNothing);
+      await _pumpUntil(tester, _detail(41));
     });
   });
 

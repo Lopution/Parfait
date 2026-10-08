@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
+import '../../../core/platform/content_font_prefetch.dart';
 import '../../motion/feed_entrance.dart';
 import '../../theme/func_semantic_tokens.dart';
 
@@ -166,6 +167,7 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
     _pagerSource
       ..onNearEnd = widget.pagerLoadMore
       ..update(widget.itemIds ?? const []);
+    if (widget.itemCount > 0) requestContentFontPrefetch();
   }
 
   @override
@@ -174,6 +176,8 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
     _pagerSource
       ..onNearEnd = widget.pagerLoadMore
       ..update(widget.itemIds ?? const []);
+    // A page of new titles is about to be laid out.
+    if (widget.itemCount > oldWidget.itemCount) requestContentFontPrefetch();
   }
 
   @override

@@ -70,8 +70,18 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
   /// the page after next in on the first frame of a swipe; building a
   /// whole detail page there was a 40ms+ swipe hitch on device, so a page
   /// outside this window stays a bare surface until the scroll settles.
-  /// Neighbours join once the push transition is over, off its frames.
+  ///
+  /// Neighbours join one per frame once nothing animates: a detail page
+  /// costs ~11ms of layout on device, and admitting both at the end of the
+  /// push transition laid out two of them in one 23ms frame. Waiting for
+  /// a still screen keeps that frame off any running animation.
   late final ValueNotifier<_ReadyWindow> _ready;
+
+  /// Neighbours wait for the push transition to finish.
+  var _routeSettled = false;
+  var _admitScheduled = false;
+  var _framesWaited = 0;
+  static const _maxStillWaitFrames = 60;
 
   @override
   void initState() {
@@ -79,7 +89,7 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
     final ids = widget.source.ids;
     _initialIndex = math.max(0, ids.indexOf(widget.initialIllustId));
     _index = ValueNotifier(_initialIndex);
-    _ready = ValueNotifier((center: _initialIndex, radius: 0));
+    _ready = ValueNotifier((center: _initialIndex, neighbours: const {}));
     _currentId = ids.isEmpty ? widget.initialIllustId : ids[_initialIndex];
     _initialId = _currentId;
     _controller = PageController(initialPage: _initialIndex);
@@ -95,12 +105,63 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
     super.dispose();
   }
 
+  /// Re-centres the window on a new page. Same centre is a no-op: the
+  /// window's neighbour set compares by identity, so re-assigning it would
+  /// notify every slot and restart admission — a feed rewrite reseats on
+  /// every update, and an admitted neighbour can trigger one.
   void _readyAround(int center) {
-    _ready.value = (center: center, radius: _ready.value.radius);
+    if (center == _ready.value.center) return;
+    _ready.value = (center: center, neighbours: const {});
+    _scheduleAdmit();
   }
 
-  void _readyNeighbours() {
-    _ready.value = (center: _ready.value.center, radius: 1);
+  void _onRouteSettled() {
+    _routeSettled = true;
+    _scheduleAdmit();
+  }
+
+  /// The next neighbour to build: the page ahead first, then the one
+  /// behind. Null once both are in.
+  int? _nextNeighbour() {
+    final window = _ready.value;
+    for (final index in [window.center + 1, window.center - 1]) {
+      if (index < 0 || index >= widget.source.ids.length) continue;
+      if (!window.neighbours.contains(index)) return index;
+    }
+    return null;
+  }
+
+  void _scheduleAdmit() {
+    if (!_routeSettled || _admitScheduled || _nextNeighbour() == null) return;
+    _admitScheduled = true;
+    _framesWaited = 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _admitWhenStill());
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  /// Admits one neighbour once no animation is running, checking again
+  /// after every frame until then — a running animation keeps frames
+  /// coming. Not a [Priority.idle] scheduler task: while an animation runs
+  /// the scheduler re-queues such a task in a tight event-loop spin.
+  /// A looping indicator never stops, so the wait is capped.
+  void _admitWhenStill() {
+    if (!mounted) return;
+    final scheduler = SchedulerBinding.instance;
+    if (scheduler.transientCallbackCount > 0 &&
+        _framesWaited++ < _maxStillWaitFrames) {
+      scheduler.addPostFrameCallback((_) => _admitWhenStill());
+      return;
+    }
+    _admitScheduled = false;
+    final next = _nextNeighbour();
+    if (next == null) return;
+    final window = _ready.value;
+    _ready.value = (
+      center: window.center,
+      neighbours: {...window.neighbours, next},
+    );
+    // The next one waits until this one has had its frame.
+    _scheduleAdmit();
   }
 
   bool _onScrollEnd(ScrollEndNotification notification) {
@@ -169,7 +230,7 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
   Widget build(BuildContext context) {
     final ids = widget.source.ids;
     return _AfterRouteTransition(
-      onSettled: _readyNeighbours,
+      onSettled: _onRouteSettled,
       child: NotificationListener<ScrollEndNotification>(
         onNotification: _onScrollEnd,
         child: PageView.builder(
@@ -202,8 +263,8 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
   }
 }
 
-/// Center page index and how many pages on each side of it may build.
-typedef _ReadyWindow = ({int center, int radius});
+/// The page in view and the neighbours admitted around it so far.
+typedef _ReadyWindow = ({int center, Set<int> neighbours});
 
 /// One pager page: a bare surface until the page has been inside the
 /// ready window, the real detail from then on. Latched — a page that has
@@ -253,7 +314,8 @@ class _PagerSlotState extends State<_PagerSlot> {
 
   bool get _inWindow {
     final window = widget.ready.value;
-    return (widget.index - window.center).abs() <= window.radius;
+    return widget.index == window.center ||
+        window.neighbours.contains(widget.index);
   }
 
   @override
