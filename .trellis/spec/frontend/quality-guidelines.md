@@ -197,6 +197,24 @@ Cover one behaviour at one layer; do not repeat the same outcome at both the
 widget and the page level. Every fixed bug keeps a regression test — see
 "Regression tests must be proven against the defect" for how to validate it.
 
+### Keep the test volume in proportion
+
+Widget tests are expensive to keep: every redesign rewrites them. The suite
+was cut from 89k to 72k lines in 10-06; keep it from growing back.
+
+- A UI change ships with one or two tests of its key behaviour (what a tap,
+  gesture or state change does). Layout, spacing, colour, order of sections
+  and copy are checked with the review screenshots (`tool/review.sh`), not
+  with tests.
+- Do not add a per-platform, per-locale or per-variant copy of a test when
+  one case exercises the same code path. The locale layout matrix
+  (`test/locale_layout/`) already covers text fitting in every language.
+- Core logic — network policy and ECH, credentials, download recovery,
+  paging, parsing, persistence — keeps thorough coverage, and so does every
+  fixed bug.
+- A test file over 1500 lines is split by feature area, with shared fakes in
+  `test/helpers/`.
+
 ### A test that cannot fail proves nothing
 
 When a case depends on a condition being reached (an overscroll actually
