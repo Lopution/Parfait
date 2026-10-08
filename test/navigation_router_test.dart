@@ -27,6 +27,18 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
 
+/// The shell's own bar, while it is on stage.
+final _shellBar = find.descendant(
+  of: find.byType(FuncShellBottomNav),
+  matching: find.byType(FuncBottomNav),
+);
+
+/// The copy a covered branch root draws under the routes above it.
+final _rootCopy = find.descendant(
+  of: find.byType(BranchRootScaffold),
+  matching: find.byType(FuncBottomNav),
+);
+
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -181,7 +193,7 @@ void main() {
     expect(pushStaysInStack(router, '/recommended/illust/2'), isFalse);
   });
 
-  testWidgets('bottom bar hides on pushed branch routes and returns at root', (
+  testWidgets('a pushed branch route covers the bar and hands it back', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -203,32 +215,35 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.byType(FuncBottomNav), findsOneWidget);
-    final bar = find.byType(FuncBottomNav);
-    expect(tester.getTopLeft(bar).dy, lessThan(844));
+    expect(_shellBar, findsOneWidget);
+    expect(_rootCopy, findsNothing);
+    final resting = tester.getRect(_shellBar);
+    expect(resting.bottom, 844);
 
+    // From the push on, the root page draws the bar where the shell bar
+    // was, under the incoming page; the shell bar steps aside.
     unawaited(router.push('/recommended/history'));
     await tester.pump();
-    // The covered report lands through the provider, which notifies on the
-    // next frame — settle so the recheck frame and the slide both run.
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(_shellBar, findsNothing);
+    expect(tester.getRect(_rootCopy).top, resting.top);
     await tester.pumpAndSettle();
-
-    // The bar is the shell-level sibling of the branch strip — a pushed
-    // route slides it below the screen edge (covered provider), it does
-    // not leave the tree.
-    expect(bar, findsOneWidget);
-    expect(tester.getTopLeft(bar).dy, greaterThanOrEqualTo(844));
 
     await tester.binding.handlePopRoute();
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    // Mid-pop the page uncovering the root uncovers its copy of the bar,
+    // which moves along with the root page.
+    expect(_shellBar, findsNothing);
+    expect(tester.getRect(_rootCopy).top, resting.top);
     await tester.pumpAndSettle();
 
     expect(router.state.uri.path, '/recommended');
-    expect(bar, findsOneWidget);
-    expect(tester.getTopLeft(bar).dy, lessThan(844));
+    expect(_rootCopy, findsNothing);
+    expect(tester.getRect(_shellBar), resting);
   });
 
-  testWidgets('bottom bar stays hidden when a deep link builds the stack', (
+  testWidgets('a deep link that builds the stack covers the bar', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -250,16 +265,13 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-
-    final bar = find.byType(FuncBottomNav);
-    expect(bar, findsOneWidget);
-    expect(tester.getTopLeft(bar).dy, greaterThanOrEqualTo(844));
+    expect(_shellBar, findsNothing);
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
     expect(router.state.uri.path, '/recommended');
-    expect(tester.getTopLeft(bar).dy, lessThan(844));
+    expect(tester.getTopLeft(_shellBar).dy, lessThan(844));
   });
 
   testWidgets('settings pushes over the shell and returns to the tab', (

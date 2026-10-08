@@ -520,6 +520,8 @@ void main() {
                 MediaQuery.paddingOf(context).bottom,
               ),
               bottomBarVisibleExtent: visibleExtent,
+              bottomBarVisibility: scrollVisibility,
+              onBranchRootScroll: (_) => false,
               child: Stack(
                 children: [
                   BranchRootScaffold(
@@ -562,7 +564,7 @@ void main() {
       // Slide out under scroll, then back in — sampled mid-flight both ways.
       final hidden = scrollVisibility.animateTo(
         0,
-        duration: MotionTokens.navBarHide,
+        duration: MotionTokens.chromeScrollHide,
       );
       while (scrollVisibility.isAnimating) {
         await tester.pump(const Duration(milliseconds: 40));
@@ -572,7 +574,7 @@ void main() {
       expect(tester.getRect(promptCard('提示')).bottom, _screen.height - 16);
       final shown = scrollVisibility.animateTo(
         1,
-        duration: MotionTokens.navBarShow,
+        duration: MotionTokens.chromeScrollHide,
       );
       while (scrollVisibility.isAnimating) {
         await tester.pump(const Duration(milliseconds: 40));

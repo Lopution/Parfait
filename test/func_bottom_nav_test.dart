@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -87,9 +89,9 @@ void main() {
     final shownTop = tester.getTopLeft(nav).dy;
     expect(shownTop, lessThan(_screenHeight));
 
-    // Scroll down past the touch-slop threshold: the bar slides fully below
-    // the screen edge — the layout never changes, the body was already
-    // painted underneath.
+    // A frame scrolling past 8 px down: the bar slides fully below the
+    // screen edge — the layout never changes, the body was already painted
+    // underneath.
     await tester.drag(_settingsList, const Offset(0, -200));
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_screenHeight));
@@ -105,8 +107,8 @@ void main() {
     final nav = find.byType(FuncBottomNav);
     final shownTop = tester.getTopLeft(nav).dy;
 
-    // Finger still down: crossing the slop mid-drag must already slide the
-    // bar out — waiting for release would mean only the ballistic phase
+    // Finger still down: a fast frame mid-drag must already slide the bar
+    // out — waiting for release would mean only the ballistic phase
     // counts. Time is advanced in frames: a single large pump step does
     // not tick controllers while a pointer is held.
     final gesture = await tester.startGesture(tester.getCenter(_settingsList));
@@ -128,9 +130,9 @@ void main() {
     await _pumpHome(tester);
     final nav = find.byType(FuncBottomNav);
 
-    // Every frame's move crosses the slop and asks for the hide again; the
+    // Every frame's move crosses 8 px and asks for the hide again; the
     // slide must keep its own clock instead of restarting on each ask, so
-    // it finishes within a drag that outlasts MotionTokens.navBarHide.
+    // it finishes within a drag that outlasts MotionTokens.chromeScrollHide.
     final gesture = await tester.startGesture(tester.getCenter(_settingsList));
     await gesture.moveBy(const Offset(0, -20));
     for (var i = 0; i < 30; i++) {
@@ -202,19 +204,18 @@ void main() {
     expect(chrome.bottomBarVisibleExtent.value, closeTo(extent, 0.001));
   });
 
-  testWidgets('short scrolls below the slop keep the bar expanded', (
+  testWidgets('slow frames and scrolls the user did not make keep the bar', (
     tester,
   ) async {
     await _pumpHome(tester);
     final nav = find.byType(FuncBottomNav);
     final shownTop = tester.getTopLeft(nav).dy;
 
-    // Alternating sub-slop deltas never cross the accumulated threshold.
-    // They must arrive as wheel ticks: a touch drag small enough to stay
-    // under the bar's ~8px slop can never claim the Scrollable's own 18px
-    // slop, and a release inside slop lands as a *tap* on whatever tile
-    // sits under the pointer — pushing a route and legitimately hiding
-    // the bar. PointerScrollEvent applies its delta directly, no arena.
+    // Frames under 8 px never move the bar, however long the scroll. They
+    // arrive as wheel ticks: a touch drag that slow can never claim the
+    // Scrollable's own 18px slop, and a release inside slop lands as a
+    // *tap* on whatever tile sits under the pointer.
+    // PointerScrollEvent applies its delta directly, no arena.
     final center = tester.getCenter(_settingsList);
     for (var i = 0; i < 3; i++) {
       await tester.sendEventToBinding(
@@ -227,6 +228,24 @@ void main() {
       await tester.pump(const Duration(milliseconds: 60));
     }
     await tester.pumpAndSettle();
+    expect(tester.getTopLeft(nav).dy, closeTo(shownTop, 0.5));
+
+    // A programmatic scroll (scroll-to-top, a restored offset) is not
+    // the user reading on.
+    final position = tester
+        .state<ScrollableState>(
+          find.descendant(of: _settingsList, matching: find.byType(Scrollable)),
+        )
+        .position;
+    unawaited(
+      position.animateTo(
+        position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.linear,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(position.pixels, greaterThan(0));
     expect(tester.getTopLeft(nav).dy, closeTo(shownTop, 0.5));
   });
 }

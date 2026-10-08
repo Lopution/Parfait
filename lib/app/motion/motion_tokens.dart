@@ -69,8 +69,11 @@ abstract final class MotionTokens {
   /// Alert/confirm dialog presentation.
   static const dialog = Duration(milliseconds: 220);
 
-  /// Fade-through transition between home branches.
+  /// Home branch switch: the pages slide side by side toward the chosen
+  /// destination. The emphasized curve starts gently, so the frame that
+  /// builds a first-visited branch hardly moves.
   static const branchSwitch = Duration(milliseconds: 300);
+  static const branchSwitchCurve = Curves.easeInOutCubicEmphasized;
 
   /// Selected navigation destination animation.
   static const navDestination = Duration(milliseconds: 500);
@@ -78,15 +81,11 @@ abstract final class MotionTokens {
   /// In-page tab switch, matching the app bar's kTabScrollDuration.
   static const tabSwitch = Duration(milliseconds: 300);
 
-  /// Bottom-nav scroll hide/show — M3 `HideViewOnScrollBehavior` values:
-  /// the bar is an entering element when it slides back (long2 500ms,
-  /// emphasizedDecelerate) and an exiting one when it slides away
-  /// (medium4 400ms, emphasizedAccelerate). The M2 fallback pair
-  /// (225/175) made the hide read as a jump on device.
-  static const navBarShow = Duration(milliseconds: 500);
-  static const navBarShowCurve = Cubic(0.05, 0.7, 0.1, 1);
-  static const navBarHide = Duration(milliseconds: 400);
-  static const navBarHideCurve = Cubic(0.3, 0, 0.8, 0.15);
+  /// Scroll hide/show of floating chrome — the shell's bottom bar and the
+  /// detail action bar: Shaft's capsule, a 200 ms slide plus fade both
+  /// ways on Android's default AccelerateDecelerate interpolator.
+  static const chromeScrollHide = Duration(milliseconds: 200);
+  static const chromeScrollCurve = Curves.easeInOutSine;
 
   /// SmoothWheelScroll's per-wheel animated scroll duration.
   static const wheelScroll = Duration(milliseconds: 240);

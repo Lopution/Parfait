@@ -29,7 +29,9 @@ void main() {
         'Hero into the detail page from a feed card and back. The finger '
         'rests 250ms, past the press delay, so the card is scaled down when '
         'it lifts: the card springs back under the transition, not frozen '
-        'pressed in it (ux3 #7). The image flies from the card to the '
+        'pressed in it (ux3 #7). The detail page covers the bottom bar, '
+        'which leaves and returns with the feed. The image flies from the '
+        'card to the '
         'pager; detail content (title, author, follow button) is live while '
         'it arrives; on the way back the card takes the image without a '
         'gap, a square-cornered frame or a late pop to full size.',
@@ -58,9 +60,10 @@ void main() {
     'nav/branch-switch',
     location: '/recommended',
     notes:
-        'Bottom bar: home → ranking → home. The entering branch is live, '
-        'the leaving one fades out as one texture; the indicator pill moves '
-        'with the selection.',
+        'Bottom bar: home → ranking → home. The branches slide side by '
+        'side toward the chosen destination under a still bar; the entering '
+        'branch is live, the leaving one slides as one texture; the '
+        'indicator pill moves with the selection.',
     script: (film, router) async {
       await film.tap(find.text('排行'));
       await film.tap(find.text('推荐'));

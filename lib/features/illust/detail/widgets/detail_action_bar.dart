@@ -17,8 +17,8 @@ import '../../../../l10n/context.dart';
 /// which wears a tonal circle as the page's main action.
 ///
 /// One themed surface with separate buttons — no dividers, no segments.
-/// [visibility] (1 shown, 0 hidden) slides it below the screen edge; the
-/// page drives it from scrolling. It is the page's prompt anchor, so a
+/// [visibility] (1 shown, 0 hidden) slides it below the screen edge and
+/// fades it; the page drives it from scrolling. It is the page's prompt anchor, so a
 /// snackbar rests above it and moves with it.
 class DetailActionBar extends StatefulWidget {
   const DetailActionBar({
@@ -123,26 +123,29 @@ class _DetailActionBarState extends State<DetailActionBar> {
     );
     return PromptAnchor(
       extent: _visibleExtent,
-      child: AnimatedBuilder(
-        animation: widget.visibility,
-        builder: (context, child) {
-          final shown = widget.visibility.value;
-          // Hidden means gone for touch and screen readers too.
-          return ExcludeSemantics(
-            excluding: shown == 0,
-            child: IgnorePointer(
-              ignoring: shown == 0,
-              child: Transform.translate(
-                offset: Offset(0, (1 - shown) * _restingExtent),
-                child: child,
+      child: FadeTransition(
+        opacity: widget.visibility,
+        child: AnimatedBuilder(
+          animation: widget.visibility,
+          builder: (context, child) {
+            final shown = widget.visibility.value;
+            // Hidden means gone for touch and screen readers too.
+            return ExcludeSemantics(
+              excluding: shown == 0,
+              child: IgnorePointer(
+                ignoring: shown == 0,
+                child: Transform.translate(
+                  offset: Offset(0, (1 - shown) * _restingExtent),
+                  child: child,
+                ),
               ),
-            ),
-          );
-        },
-        child: SafeArea(
-          top: false,
-          minimum: const EdgeInsets.only(bottom: DetailActionBar.margin),
-          child: Center(heightFactor: 1, child: toolbar),
+            );
+          },
+          child: SafeArea(
+            top: false,
+            minimum: const EdgeInsets.only(bottom: DetailActionBar.margin),
+            child: Center(heightFactor: 1, child: toolbar),
+          ),
         ),
       ),
     );

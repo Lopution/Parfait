@@ -392,20 +392,58 @@ height on the very first frame. `FuncNavBarSpacer` and the Hero landing
 clip read the same extent — no consumer measures or copies the bar
 geometry.
 
-The bar also slides out (covered by a pushed route, or scroll auto-hide), so
+The bar hides on scroll (below), so
 `HomeShellChrome.bottomBarVisibleExtent` publishes the height it covers *right
-now*: `FuncShellBottomNav` computes it from the same two `CurvedAnimation`s
-that drive its `SlideTransition`s. The Hero landing clip caps the home-side
-edge with it per frame, so a returning image is not cut at a bar that is not
-there yet. The bar writes it from its own `build`, so consumers read
-`.value` and never rebuild on it; the only listener is the prompt layout,
-which relayouts — the bar registers it as its `PromptAnchor` (see the
-Prompt Feedback Contract). Everything else keeps the resting extent. On
-NavigationRail layouts the extent is 0 and no `FuncShellBottomNav` exists.
+now*: `FuncShellBottomNav` computes it from the scroll visibility through
+`ScrollHiddenChrome.shownOf`, the same curve that drives the slide. The Hero
+landing clip caps the home-side edge with it per frame, so a returning image
+is not cut at a bar that is not there yet. The bar writes it from its own
+`build`, so consumers read `.value` and never rebuild on it; the only
+listener is the prompt layout, which relayouts — the bar registers it as its
+`PromptAnchor` (see the Prompt Feedback Contract). Everything else keeps the
+resting extent. On NavigationRail layouts the extent is 0 and no
+`FuncShellBottomNav` exists.
+
+Scroll hide follows Shaft's capsule (`ScrollHideTracker`,
+`lib/app/motion/scroll_hide.dart`): a frame whose scroll adds up to more
+than 8 physical px (`framePhysicalPixels`, divided by the device pixel
+ratio) down hides, up shows. Only the user's own scrolling counts — the
+position reports a `UserScrollNotification` direction from a drag's first
+move or a wheel tick until it rests, through the fling a drag releases
+into; `animateTo`/`jumpTo` (scroll-to-top, restored offsets) never move the
+bar. Only depth-0 vertical updates count and overscroll is clamped, so
+bounces, stretches and nested horizontal strips are not reading direction.
+The bar slides down by its height and fades together
+(`ScrollHiddenChrome`, `MotionTokens.chromeScrollHide` 200 ms on
+`chromeScrollCurve`, `Curves.easeInOutSine` — Android's default
+AccelerateDecelerate) both ways; `slideChrome` is idempotent, so a drag
+asking every frame does not restart it. A branch switch brings a hidden bar
+back.
+
+Only the current branch's root page drives it: `BranchRootScaffold` hands
+its page's scroll notifications to `HomeShellChrome.onBranchRootScroll`;
+routes pushed inside the branch are its siblings, so their scrolling never
+reaches the bar.
+
+Pushed pages cover the bar. `BranchRootScaffold` reports its route as
+covered — `!route.isCurrent` (a page, sheet or menu on it) or its
+`secondaryAnimation` not dismissed (a page transition over it still
+running) — into `branchStackCoveredProvider`; RouteObserver callbacks and
+secondary-animation status changes re-evaluate it, and those arriving while
+the tree builds (`Navigator._updatePages`, synthetic replays) wait for the
+frame's end. While the current branch is covered, `FuncShellBottomNav` is
+`Offstage` and its anchor reports 0, and the root page draws an inert copy
+(`IgnorePointer` + `ExcludeSemantics`, same scroll visibility, its own
+`PromptAnchor` on the root route) at the same place in a stable `Stack`.
+The routes above cover the copy like any other part of the page, and it
+leaves and returns with the page under every transition and the predictive
+back gesture. The swap happens where both overlap exactly: as a push
+starts and once a pop has fully revealed the root. The provider tracks
+owners, so a root page being replaced cannot clear its successor's report.
 
 Scroll auto-hide yields to touch exploration: while
 `MediaQuery.accessibleNavigationOf(context)` is true,
-`HomeBranchStack._onScrollNotification` returns early — a TalkBack user
+`HomeBranchStack._onBranchRootScroll` returns early — a TalkBack user
 cannot find a bar that scrolled away. If the flag flips while the bar is
 hidden, `_navVisibility` is driven back to 1. The engine sets
 `accessibleNavigation` whenever any assistive service queries a node (GKD
@@ -415,11 +453,7 @@ the native touch-exploration flag from `touchExplorationProvider`; the
 engine value passes through until Android reports. Below the scope the
 flag means TalkBack-style exploration only: services that merely open the
 semantics tree or read nodes do not set it, and the bar keeps hiding on
-scroll for them. Widgets read the MediaQuery flag, never the provider. A
-pushed route covering the shell still slides the bar away — that is not
-auto-hide. The slide uses the M3 `HideViewOnScrollBehavior` values in
-`MotionTokens.navBarShow`/`navBarHide` (500ms emphasized-decelerate in,
-400ms emphasized-accelerate out).
+scroll for them. Widgets read the MediaQuery flag, never the provider.
 
 The five labels share one `LabelFit` (see the Multi-Locale Layout
 Contract): the widest translation sets one scale for all of them against
@@ -1017,8 +1051,6 @@ and `_FuncPageRoute.buildTransitions` switches on it:
 | Style | Android | Other platforms |
 |---|---|---|
 | `system` (default) | `PredictiveBackPageTransitionsBuilder` (FadeForwards for button pops, the shared-element predictive transition while `popGestureInProgress`) | `FuncRouteTransition` trailing-edge slide |
-| `sharedAxis` | `animations` `SharedAxisPageTransitionsBuilder` (horizontal, `fillColor` = `colorScheme.surface`) + back-gesture driver | same, no driver |
-| `zoom` | `ZoomPageTransitionsBuilder` + back-gesture driver | same, no driver |
 | `slide` | `CupertinoPageTransition` (`linearTransition: popGestureInProgress`) + back-gesture driver | same, no driver |
 
 Every style uses an official transition; none is hand-written. The slide
@@ -1027,13 +1059,15 @@ uses the `CupertinoPageTransition` widget, never
 detector that steals horizontal drags from in-page pagers (the detail
 pager). Under the slide the route's `barrierColor` is `CupertinoPageRoute`'s
 `0x18000000`, dimming the page below; other styles keep the page's own
-(null). Fade-through is not offered: it is the transition between unrelated
-destinations, not for pushing a page.
+(null). Only these two are offered (user decision 2026-10-08): shared axis
+and zoom were dropped, and a stored `sharedAxis`/`zoom` reads as unknown
+and falls back to `system`. Fade-through is not offered: it is the
+transition between unrelated destinations, not for pushing a page.
 
 The back-gesture driver (`_BackGestureDriver`) is a
 `WidgetsBindingObserver` that forwards the Android predictive back events
 to the route's `handleStartBackGesture(progress: 1 - event.progress)` /
-update / cancel / commit, so the non-system styles follow the finger. It
+update / cancel / commit, so the slide follows the finger. It
 claims the gesture only for a non-button event while `route.isCurrent &&
 route.popGestureEnabled`; the binding then sends the rest of that gesture
 to it alone. It mirrors Material's private predictive-back detector
@@ -1044,13 +1078,15 @@ The route's commit path is guarded: if a pop throws after the route has
 already reported `didPop`, the guard ends any lingering user gesture before
 rethrowing. This keeps the Navigator from absorbing later pointers while
 leaving the original error observable.
-`transitionDuration` is `MotionTokens.pageTransitionAndroid` (350 ms — the
-builder's own 800 ms dragged) on Android and `MotionTokens.pageTransition`
-elsewhere, both through `MotionTokens.resolve`, so the animation speed
-setting scales them and reduced motion collapses them to zero (see the
-Motion Contract). FadeForwards scales its phases to whatever duration the
-route carries; every style shares the route duration and brings its own
-curve, and Hero flights follow the route duration. Every path is wrapped by
+`transitionDuration` is each style's own spec duration,
+`MotionTokens.pageTransitionOf(style, android:)`: FadeForwards' 450 ms
+(`FadeForwardsPageTransitionsBuilder.kTransitionMilliseconds`) for the
+Android system style, `CupertinoPageRoute`'s 500 ms for the slide, and
+`MotionTokens.pageTransition` (300 ms) for `FuncRouteTransition` elsewhere —
+all through `MotionTokens.resolve`, so the animation speed setting scales
+them and reduced motion collapses them to zero (see the Motion Contract).
+Each style brings its own curve, and Hero flights follow the route
+duration. Every path is wrapped by
 `FuncTransitionGuard` — the shared `RoutePopSnapshot` mount that snapshots
 by transition role: entering and covered pages paint live (their tickers
 are never paused by the transition; a fully covered route is offstaged by
@@ -1523,13 +1559,14 @@ On the narrow layout, once content renders:
   alert after a failure. It listens to `DownloadManager.changes` itself —
   `events` carries terminal events only — so progress ticks rebuild the
   button, not the page.
-- **Scroll hide.** The bar slides below the screen edge reading down and
-  returns reading up, on `MotionTokens.navBarShow`/`navBarHide`, through
-  the same `ScrollHideTracker` + `slideChrome`
-  (`lib/app/motion/scroll_hide.dart`) the shell bar uses: depth-0 vertical
-  updates only, a run past the touch slop decides, overscroll is clamped
-  out. Under touch exploration it does not hide, and is driven back if
-  hidden. Hidden, it is excluded from semantics and ignores pointers.
+- **Scroll hide.** The bar slides below the screen edge and fades reading
+  down and returns reading up, through the same `ScrollHideTracker` +
+  `slideChrome` (`lib/app/motion/scroll_hide.dart`) on the same 200 ms
+  `chromeScrollHide` as the shell bar (see the NavigationBar Contract:
+  user scrolling only, more than 8 physical px in a frame decides,
+  depth-0 vertical, overscroll clamped). Under touch exploration it does
+  not hide, and is driven back if hidden. Hidden, it is excluded from
+  semantics and ignores pointers.
 - **Prompts.** The bar is the page's `PromptAnchor` with its live visible
   extent, so prompts rest above it and ride its slide. `PromptAnchors`
   notifications raised during build or layout are deferred to one
@@ -1576,7 +1613,7 @@ On the narrow layout, once content renders:
   and a long work's sheet opens on the current page; the action bar holds
   download, comments and bookmark while the top bar keeps only the menu;
   the ring follows half-downloaded pages, then the saved state, with the
-  prompt above the bar; the bar slides away and back and stays under
+  prompt above the bar; the bar hides and returns and stays under
   touch exploration; page 1 runs under a see-through bar that draws in.
 - `hero_transition_test.dart`: mid-flight the top bar's `entrance` is 0,
   after landing 1.
@@ -1620,10 +1657,16 @@ if (mounted) _pageController.jumpToPage(page);
 
 ## Tab Navigation Animation Contract
 
-Between home-shell branches there is no swipe: `HomeBranchStack` cross-fades
-the outgoing and incoming branch through `FadeThroughTransition` over
-`MotionTokens.branchSwitch` (a straight swap at zero duration under reduced
-motion). Only the current branch is hit-testable, semantic, and
+Between home-shell branches there is no swipe: on a destination tap
+`HomeBranchStack` slides the outgoing and incoming branch side by side
+(user decision 2026-10-08), the incoming one in from the side its
+destination sits on the bar — right for a higher index, mirrored for
+right-to-left, along the rail on wide layouts — over
+`MotionTokens.branchSwitch` (300 ms, `branchSwitchCurve` =
+`Curves.easeInOutCubicEmphasized`, whose gentle start keeps the frame that
+builds a first-visited branch nearly still; a straight swap at zero
+duration under reduced motion). The bar stays put above the strip. Only
+the current branch is hit-testable, semantic, and
 `BranchActivityScope.active` during the flight; `Offstage` keeps unvisited
 branches unbuilt.
 
@@ -1632,10 +1675,9 @@ stays live: `TickerMode` keeps its tickers running so entrances, image
 fades and press feedback animate through the switch instead of jumping at
 the end. The outgoing branch's `TickerMode` is off and it alone hands its
 subtree to an armed `SnapshotController` (`SnapshotMode.permissive`, so a
-branch showing a platform view paints live): the fade composites one
-texture instead of re-rendering that page into an offscreen layer each
-frame. Every branch sits in a `SnapshotWidget`; branches that are not
-fading out share a second controller that is never armed, so the widget
+branch showing a platform view paints live): the slide moves one texture
+instead of re-rendering that page each frame. Every branch sits in a
+`SnapshotWidget`; branches that are not sliding out share a second controller that is never armed, so the widget
 stays in the tree and starting a switch never remounts a branch. The
 snapshot is released when the switch lands; a per-switch generation number
 keeps an interrupted switch's completion from releasing the newer one, and
