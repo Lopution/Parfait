@@ -86,6 +86,11 @@ rule with `// ignore:` without a one-line reason on the same line.
   `sources.length <= 1`) may stay as a field but must not be shown. Origin:
   09-01 settings-productization (C9 content filter and D6 file naming had no
   consumer; `imageSourceProvider` was deleted in `e6ec619`).
+- **A `Priority.idle` scheduler task that waits for animations to end.**
+  While transient callbacks exist the scheduler re-queues it in a tight
+  event-loop spin; under fake async in tests that grew `flutter_tester` by
+  ~160 MB/s until the host ran out of memory. Re-check from post-frame
+  callbacks with a frame cap instead (`IllustDetailPagerPage`).
 
 ---
 
@@ -113,6 +118,14 @@ rule with `// ignore:` without a one-line reason on the same line.
   Accumulating your own copy of it, deciding a threshold from it, or overriding
   the framework's decision does. Conflating the two blocks the only workable
   solutions.
+- **Text in a fling path costs font IO, not just layout.** Flutter lays text
+  out on the UI thread from mmap-ed system font files; a glyph page nobody
+  touched lately (Japanese on a zh device, emoji, rare-script cmaps) is a
+  synchronous storage read of 2–8 ms per paragraph under memory pressure.
+  Content text on feed cards sets `locale: contentLocale(context, text)`,
+  and a new feed surface that lays out content text while scrolling must
+  trigger `requestContentFontPrefetch()` (as `IllustFeedGrid` does) or reuse
+  that grid.
 
 ## User-facing Errors
 

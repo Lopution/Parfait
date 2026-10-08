@@ -24,6 +24,14 @@ class MainActivity : FlutterActivity() {
         WebProfileChannel.configure(this, flutterEngine)
         HapticsChannel.configure(this, flutterEngine)
         AccessibilityChannel.configure(this, flutterEngine)
+        ContentFontPrefetcher.configure(flutterEngine)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Cold start and every return to the foreground: reclaim may have
+        // dropped the font pages while the app was away.
+        ContentFontPrefetcher.prefetch()
     }
 
     // On this device class, vsync delivery to the app drops to ~60Hz a few
