@@ -18,12 +18,23 @@ import '../../../../app/theme/func_semantic_tokens.dart';
 /// Non-series works and fetch errors render nothing — the context probe is
 /// best-effort and must never block or break the detail page.
 class IllustSeriesSection extends ConsumerWidget {
-  const IllustSeriesSection({super.key, required this.illustId});
+  const IllustSeriesSection({
+    super.key,
+    required this.illustId,
+    this.outsideSeries = false,
+  });
 
   final int illustId;
 
+  /// The work's payload says it is in no series
+  /// (`IllustEntity.outsideSeries`): no request, nothing to draw.
+  final bool outsideSeries;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (outsideSeries) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
     final contextData = ref.watch(illustSeriesContextProvider(illustId)).value;
     if (contextData == null) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());

@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:clock/clock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:rhttp/rhttp.dart' as rhttp;
@@ -71,6 +72,11 @@ Map<String, dynamic> _asIs(Map<String, dynamic> json) => json;
 ///   production fast tier is an internal compatibility route; strict
 ///   routes remain available as the policy fallback. Transport errors surface
 ///   as [ApiNetworkError] and are never hidden.
+/// - After a 429 the account is rate limited for a while, and every read
+///   sent meanwhile only prolongs it: GETs fail fast with [ApiRateLimited]
+///   until the Retry-After wait (or [rateLimitCooldown]) is over. POSTs
+///   still go — they are the user's own actions, and the action queue
+///   paces its retries by the same hint.
 class PixivHttpClient {
   PixivHttpClient({
     http.Client? client,
@@ -91,6 +97,13 @@ class PixivHttpClient {
   static const Duration defaultRequestTimeout = Duration(seconds: 20);
   static const int maxRetries = 1;
 
+  /// The read cooldown after a 429 that names no Retry-After.
+  static const rateLimitCooldown = Duration(seconds: 10);
+
+  /// Upper bound on a server-named wait, so one odd header cannot stall
+  /// every read for long.
+  static const maxRateLimitCooldown = Duration(minutes: 2);
+
   final http.Client _client;
   final AccountStore _accountStore;
   final CredentialStore _credentialStore;
@@ -104,6 +117,9 @@ class PixivHttpClient {
   final String languageTag;
   final Duration requestTimeout;
   final Map<_GetRequestFlightKey, Future<http.Response>> _getFlights = {};
+
+  /// When reads may go out again after a 429; null when not limited.
+  DateTime? _readsResumeAt;
 
   Future<Map<String, dynamic>> getJson(Uri uri, {CancelToken? cancelToken}) =>
       getParsed(uri, _asIs, cancelToken: cancelToken);
@@ -255,6 +271,7 @@ class PixivHttpClient {
     bool allowAuthReplay = true,
   }) async {
     if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
+    if (method == 'GET') _throwIfReadsCoolingDown();
     var usedToken = await _requireAccessToken();
     http.Response response = await _issue(
       uri,
@@ -316,12 +333,33 @@ class PixivHttpClient {
       throw const ApiUnauthorized('oauth invalid_grant after retry');
     }
     if (response.statusCode == 429) {
-      throw ApiRateLimited(_parseRetryAfter(response.headers));
+      final retryAfter = _parseRetryAfter(response.headers);
+      _coolDownReads(retryAfter);
+      throw ApiRateLimited(retryAfter);
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiHttpError(response.statusCode, _errorBodyDetail(response));
     }
     return response;
+  }
+
+  void _throwIfReadsCoolingDown() {
+    final resumeAt = _readsResumeAt;
+    if (resumeAt == null) return;
+    final remaining = resumeAt.difference(clock.now());
+    if (remaining > Duration.zero) throw ApiRateLimited(remaining);
+    _readsResumeAt = null;
+  }
+
+  void _coolDownReads(Duration? retryAfter) {
+    final wait = retryAfter == null
+        ? rateLimitCooldown
+        : retryAfter > maxRateLimitCooldown
+        ? maxRateLimitCooldown
+        : retryAfter;
+    final resumeAt = clock.now().add(wait);
+    final current = _readsResumeAt;
+    if (current == null || resumeAt.isAfter(current)) _readsResumeAt = resumeAt;
   }
 
   /// Short response-body snippet for non-2xx diagnostics. The API error body

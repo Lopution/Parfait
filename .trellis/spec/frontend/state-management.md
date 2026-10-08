@@ -69,6 +69,15 @@ an in-memory route `extra` is only a first-frame snapshot.
 | `caption` / `tags` | keep old non-empty when incoming empty | incoming may be empty and overwrite | feed is sparse; detail empty values are real server state (C3) |
 | `visible` | `new && old` (AND; `false` sticks) | incoming may set `visible=false` | shipped feed still ANDs; a feed `visible=false` hides a previously visible work. Detail `false` is the authoritative overwrite (C3) |
 | `pageCount` | `max(new, old)` | incoming may shrink | a feed `page_count=1` must not erase a detail multi-page count; detail may reduce it |
+| `seriesId` / `seriesKnown` | incoming when it carries `series`, else old | same | a restored snapshot without the key must not forget the series; `series: null` is a real "no series" |
+
+`mergeAll` also records when each work's payload arrived (`receivedAt`; not
+for `fromLocalCache` restores) and whether a detail payload was ever merged
+(`hasDetail`). The detail controller reads both: a snapshot with every page
+URL (`hasEveryPageUrl`) is Ready with no request, and refetches in the
+background only past `illustDetailFreshness` or for an empty caption no
+detail payload confirmed. `applyPageDimensions` is the one other write: it
+seeds the web pages call's sizes and touches neither record.
 
 **Rule for new `IllustEntity` fields**: every field added to `IllustEntity` MUST get an explicit merge decision in `mergeAll` (for both sources) plus a merge test in `test/illust_store_test.dart`. Fields defaulting to "newer wins" are acceptable only when a real endpoint always re-sends them.
 

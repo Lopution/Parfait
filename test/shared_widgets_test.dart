@@ -116,6 +116,38 @@ void main() {
     });
   });
 
+  testWidgets('a section retries twice on its own, then waits for the user', (
+    tester,
+  ) async {
+    var retries = 0;
+    Future<void> show({required bool failed, Object? error}) =>
+        tester.pumpWidget(
+          AutoRetry(
+            failed: failed,
+            error: error,
+            onRetry: () => retries++,
+            child: const SizedBox(),
+          ),
+        );
+    const rateLimited = ApiRateLimited(Duration(seconds: 5));
+    final [first, second] = AutoRetry.delays;
+
+    await show(failed: true, error: const ApiTimeout());
+    await tester.pump(first);
+    expect(retries, 1);
+    await show(failed: false);
+    // A rate limit waits at least as long as the server asked.
+    await show(failed: true, error: rateLimited);
+    await tester.pump(second);
+    expect(retries, 1);
+    await tester.pump(rateLimited.retryAfter! - second);
+    expect(retries, 2);
+    await show(failed: false);
+    await show(failed: true, error: const ApiTimeout());
+    await tester.pump(const Duration(minutes: 1));
+    expect(retries, 2);
+  });
+
   testWidgets('a paused feed tail offers continue, which pages on', (
     tester,
   ) async {

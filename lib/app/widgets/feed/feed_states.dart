@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/errors/error_category.dart';
+import '../../../core/network/api_error.dart';
 import '../../../core/network/network_restore_signal.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../../l10n/context.dart';
@@ -336,6 +337,84 @@ class StateActionButton extends StatelessWidget {
     icon: Icon(icon),
     label: Text(label),
   );
+}
+
+/// Retries a section's failed first load on its own, Shaft's
+/// SectionLoader rule: twice, [delays] apart, before the failure stays on
+/// screen for the user's retry. A rate limit waits at least as long as the
+/// server asked. Only failures that can pass are retried: a 404 or a parse
+/// error would fail the same way again.
+///
+/// Mount it where it outlives the section's loading/error swaps; [failed]
+/// turning true is one failure.
+class AutoRetry extends StatefulWidget {
+  const AutoRetry({
+    super.key,
+    required this.failed,
+    required this.error,
+    required this.onRetry,
+    required this.child,
+  });
+
+  /// Waits before each automatic retry: 1.5 s, then 3 s.
+  static const delays = [Duration(milliseconds: 1500), Duration(seconds: 3)];
+
+  final bool failed;
+  final Object? error;
+  final VoidCallback onRetry;
+  final Widget child;
+
+  @override
+  State<AutoRetry> createState() => _AutoRetryState();
+}
+
+class _AutoRetryState extends State<AutoRetry> {
+  var _attempts = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.failed) _onFailure();
+  }
+
+  @override
+  void didUpdateWidget(AutoRetry oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.failed && !oldWidget.failed) _onFailure();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _onFailure() {
+    final error = widget.error;
+    if (_attempts >= AutoRetry.delays.length || !_transient(error)) return;
+    var delay = AutoRetry.delays[_attempts++];
+    if (error case ApiRateLimited(:final retryAfter?) when retryAfter > delay) {
+      delay = retryAfter;
+    }
+    _timer?.cancel();
+    _timer = Timer(delay, () {
+      if (mounted && widget.failed) widget.onRetry();
+    });
+  }
+
+  static bool _transient(Object? error) =>
+      error != null &&
+      switch (categorizeError(error)) {
+        ErrorCategory.network ||
+        ErrorCategory.timeout ||
+        ErrorCategory.rateLimited ||
+        ErrorCategory.server => true,
+        _ => false,
+      };
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// Runs [onRetry] once each time the network comes back while [child] — an

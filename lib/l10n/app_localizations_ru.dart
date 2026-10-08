@@ -2153,14 +2153,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get detailStatBookmarks => 'Закладки';
 
   @override
-  String get detailStatComments => 'Комментарии';
-
-  @override
-  String detailStatsSemantics(String views, String bookmarks, String comments) {
-    return 'Просмотров: $views, закладок: $bookmarks, комментариев: $comments';
-  }
-
-  @override
   String get detailSectionCaption => 'Описание';
 
   @override

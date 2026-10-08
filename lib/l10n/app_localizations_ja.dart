@@ -2084,14 +2084,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get detailStatBookmarks => 'ブックマーク';
 
   @override
-  String get detailStatComments => 'コメント';
-
-  @override
-  String detailStatsSemantics(String views, String bookmarks, String comments) {
-    return '閲覧 $views、ブックマーク $bookmarks、コメント $comments';
-  }
-
-  @override
   String get detailSectionCaption => 'キャプション';
 
   @override

@@ -874,8 +874,6 @@
   "detailCollapsePages": "Свернуть",
   "detailStatViews": "Просмотры",
   "detailStatBookmarks": "Закладки",
-  "detailStatComments": "Комментарии",
-  "detailStatsSemantics": "Просмотров: {views}, закладок: {bookmarks}, комментариев: {comments}",
   "detailSectionCaption": "Описание",
   "detailSectionTags": "Теги",
   "detailViewAll": "Все",

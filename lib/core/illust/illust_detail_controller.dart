@@ -5,11 +5,13 @@ library;
 
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../entity/illust_entity.dart';
 import '../entity/illust_store.dart';
+import '../log.dart';
 import '../network/api_error.dart';
 import '../network/compat/network_providers.dart';
 import '../network/pixiv_http_client.dart';
@@ -51,6 +53,10 @@ class IllustDetailError extends IllustDetailState {
   bool get hasSnapshot => snapshot != null;
 }
 
+/// How long a list payload stands in for the detail one. Past it the counts
+/// are worth refreshing — in the background, behind the snapshot.
+const illustDetailFreshness = Duration(minutes: 10);
+
 class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
   _IllustDetailController(this.illustId);
 
@@ -59,13 +65,64 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
   @override
   Future<IllustDetailState> build() => _load(illustId);
 
+  /// Shaft's rule: a snapshot that carries every page URL draws the whole
+  /// page, so it is Ready at once and costs no request — swiping through
+  /// a feed's works sends no detail call for them. Only a stale snapshot,
+  /// or an empty caption no detail payload has confirmed (some list
+  /// endpoints trim captions), refetches, in the background.
   Future<IllustDetailState> _load(int id) async {
+    // This build's ref: a rebuild (account switch) unmounts it, so work
+    // started here never writes into the next build's state.
+    final buildRef = ref;
     final store = ref.watch(illustStoreProvider);
     final snapshot = store.get(id);
-    // Snapshot-first (R1): stale data renders immediately while refreshing.
     if (snapshot != null && !snapshot.visible) {
       return IllustDetailRestricted(snapshot);
     }
+    if (snapshot == null || !snapshot.hasEveryPageUrl) {
+      return _fetch(id, snapshot);
+    }
+    if (_wantsDetail(store, snapshot)) {
+      // After build's Ready has landed: the refresh replaces it.
+      unawaited(Future(() => _refreshInBackground(buildRef)));
+    }
+    if (snapshot.pageCount > 1 && !snapshot.hasPageDimensions) {
+      unawaited(
+        _seedPageDimensions(
+          id,
+          ref.read(_illustDetailRepositoryProvider).fetchPageDimensions(id),
+          buildRef,
+        ),
+      );
+    }
+    return IllustDetailReady(snapshot);
+  }
+
+  static bool _wantsDetail(IllustStore store, IllustEntity snapshot) {
+    if (snapshot.caption.isEmpty && !store.hasDetail(snapshot.id)) return true;
+    final receivedAt = store.receivedAt(snapshot.id);
+    return receivedAt == null ||
+        clock.now().difference(receivedAt) > illustDetailFreshness;
+  }
+
+  Future<void> _refreshInBackground(Ref buildRef) async {
+    if (!buildRef.mounted) return;
+    final store = ref.read(illustStoreProvider);
+    final result = await _fetch(illustId, store.get(illustId));
+    if (!buildRef.mounted) return;
+    if (result is IllustDetailError) {
+      // The snapshot on screen stays; the next visit tries again.
+      log(
+        'illust $illustId: background detail refresh failed: ${result.error}',
+      );
+      return;
+    }
+    state = AsyncData(result);
+  }
+
+  Future<IllustDetailState> _fetch(int id, IllustEntity? snapshot) async {
+    final buildRef = ref;
+    final store = ref.read(illustStoreProvider);
     try {
       // Snapshot revision captured before the fetch gates stale bookmark
       // payloads against locally confirmed changes (R2).
@@ -74,9 +131,9 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
       // When the snapshot already proves the work is multi-page (the
       // feed→detail path), the pages call races the app detail instead of
       // queueing behind it.
-      final dimsFuture = (snapshot?.pageCount ?? 0) > 1
-          ? repository.fetchPageDimensions(id)
-          : null;
+      final wantsDims =
+          (snapshot?.pageCount ?? 0) > 1 && !snapshot!.hasPageDimensions;
+      final dimsFuture = wantsDims ? repository.fetchPageDimensions(id) : null;
       final fresh = await repository.fetch(id);
       store.mergeAll(
         [fresh],
@@ -87,13 +144,16 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
       if (!merged.visible) {
         return IllustDetailRestricted(merged);
       }
-      if (merged.pageCount > 1 && merged.metaPages.isNotEmpty) {
+      if (merged.pageCount > 1 &&
+          merged.metaPages.isNotEmpty &&
+          !merged.hasPageDimensions) {
         // Never block Ready on the dims: the slots re-layout to true ratios
         // whenever the web call lands.
         unawaited(
           _seedPageDimensions(
             id,
             dimsFuture ?? repository.fetchPageDimensions(id),
+            buildRef,
           ),
         );
       }
@@ -111,10 +171,13 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
     }
   }
 
-  /// Re-runs the fetch (pull-to-refresh / error retry).
+  /// Re-runs the fetch (pull-to-refresh / error retry): always asks the
+  /// server, however fresh the snapshot.
   Future<void> reload() async {
     state = const AsyncLoading<IllustDetailState>();
-    state = await AsyncValue.guard(() => _load(illustId));
+    state = await AsyncValue.guard(
+      () => _fetch(illustId, ref.read(illustStoreProvider).get(illustId)),
+    );
   }
 
   /// Enriches the merged entity with true per-page dimensions once the web
@@ -123,21 +186,14 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
   Future<void> _seedPageDimensions(
     int id,
     Future<List<({int width, int height})>?> dimsFuture,
+    Ref buildRef,
   ) async {
-    try {
-      final dims = await dimsFuture;
-      if (dims == null) return;
-      final store = ref.read(illustStoreProvider);
-      final current = store.get(id);
-      if (current == null) return;
-      final enriched = current.withPageDimensions(dims);
-      if (identical(enriched, current)) return;
-      store.mergeAll([enriched], source: EntityMergeSource.detail);
-      if (state.asData?.value is IllustDetailReady) {
-        state = AsyncData(IllustDetailReady(store.get(id)!));
-      }
-    } on StateError {
-      // The controller was disposed while the web call was in flight.
+    final dims = await dimsFuture;
+    if (dims == null || !buildRef.mounted) return;
+    final store = ref.read(illustStoreProvider);
+    if (!store.applyPageDimensions(id, dims)) return;
+    if (state.asData?.value is IllustDetailReady) {
+      state = AsyncData(IllustDetailReady(store.get(id)!));
     }
   }
 }

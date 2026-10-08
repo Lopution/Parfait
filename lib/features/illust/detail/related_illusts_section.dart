@@ -59,17 +59,24 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
   );
 
   Widget _buildSection(BuildContext context) {
-    final async = ref.watch(relatedIllustControllerProvider(widget.illustId));
+    final provider = relatedIllustControllerProvider(widget.illustId);
+    final async = ref.watch(provider);
     final state = async.asData?.value;
     // A retry after a failed first page is loading too, with no ids yet.
     final loading = state == null
         ? !async.hasError
         : state.showInitialSpinner && state.ids.isEmpty;
-    return StateFade.sliver(
-      kind: loading,
-      sliver: loading
-          ? const _RelatedSkeleton()
-          : _buildLoaded(context, async, state),
+    final failed = !loading && (state == null || state.showInitialError);
+    return AutoRetry(
+      failed: failed,
+      error: state == null ? async.error : state.initialError,
+      onRetry: () => ref.read(provider.notifier).retryInitial(),
+      child: StateFade.sliver(
+        kind: loading,
+        sliver: loading
+            ? const _RelatedSkeleton()
+            : _buildLoaded(context, async, state),
+      ),
     );
   }
 

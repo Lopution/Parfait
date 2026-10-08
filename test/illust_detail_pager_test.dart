@@ -445,7 +445,7 @@ void main() {
       expect(log, [43], reason: 'prebuilt neighbours stay quiet');
     });
 
-    testWidgets('a neighbour requests once the swipe commits to it', (
+    testWidgets('a neighbour requests once it has stayed settled', (
       tester,
     ) async {
       final (container, log) = await shortWorld();
@@ -472,8 +472,12 @@ void main() {
         await gesture.moveBy(const Offset(-200, 0));
         await gesture.up();
         await tester.pumpAndSettle();
+        expect(_page(tester), 1);
+        expect(log, [42], reason: 'a page swiped through sends nothing');
+
+        await tester.pump(IllustDetailPagerPage.activeDwell);
+        await tester.pump();
       });
-      expect(_page(tester), 1);
       expect(log, [42, 43]);
     });
   });

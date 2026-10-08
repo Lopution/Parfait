@@ -258,9 +258,11 @@ TextStyle _metaStyle(BuildContext context) {
       .tabular;
 }
 
-/// The work's reception at a glance: views, bookmarks and (when the
-/// payload carries it) comments as large tabular figures over small
-/// labels. Screen readers hear one sentence.
+/// The work's reception at a glance: views and bookmarks as large tabular
+/// figures over small labels. Every list payload carries both, so the row
+/// is complete on a neighbour page before it is swiped in; the comment
+/// count only the detail API has sits on the comments section instead.
+/// Screen readers hear one sentence.
 class _StatsBlock extends StatelessWidget {
   const _StatsBlock({required this.entity});
 
@@ -271,16 +273,10 @@ class _StatsBlock extends StatelessWidget {
     final l10n = context.l10n;
     final views = AppFormat.count(context, entity.totalView);
     final bookmarks = AppFormat.count(context, entity.totalBookmarks);
-    final comments = switch (entity.totalComments) {
-      final count? => AppFormat.count(context, count),
-      null => null,
-    };
     return Semantics(
       key: const Key('illust-detail-stats'),
       container: true,
-      label: comments == null
-          ? l10n.detailMetaCountsSemantics(views, bookmarks)
-          : l10n.detailStatsSemantics(views, bookmarks, comments),
+      label: l10n.detailMetaCountsSemantics(views, bookmarks),
       child: ExcludeSemantics(
         child: _BlockSurface(
           padding: const EdgeInsets.symmetric(
@@ -291,8 +287,6 @@ class _StatsBlock extends StatelessWidget {
             children: [
               _Stat(value: views, label: l10n.detailStatViews),
               _Stat(value: bookmarks, label: l10n.detailStatBookmarks),
-              if (comments != null)
-                _Stat(value: comments, label: l10n.detailStatComments),
             ],
           ),
         ),

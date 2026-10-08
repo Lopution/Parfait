@@ -182,7 +182,6 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'detailSectionCaption' => l10n.detailSectionCaption,
   'detailSectionTags' => l10n.detailSectionTags,
   'detailStatBookmarks' => l10n.detailStatBookmarks,
-  'detailStatComments' => l10n.detailStatComments,
   'detailStatViews' => l10n.detailStatViews,
   'detailViewAll' => l10n.detailViewAll,
   'developerOptionsUnlocked' => l10n.developerOptionsUnlocked,

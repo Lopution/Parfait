@@ -109,6 +109,8 @@ class IllustEntity {
     this.visible = true,
     this.createDate,
     this.totalComments,
+    this.seriesId,
+    this.seriesKnown = false,
   });
 
   final int id;
@@ -146,6 +148,32 @@ class IllustEntity {
   /// `total_comments`; null when the payload did not carry it (feed items
   /// often omit it), so an unknown count is never shown as 0.
   final int? totalComments;
+
+  /// `series.id`: the illust series the work belongs to. Null when it is in
+  /// none — or when the payload did not say, see [seriesKnown].
+  final int? seriesId;
+
+  /// Whether the payload carried `series` (null for a work in no series).
+  /// List and detail payloads always do; an entity restored from an older
+  /// local snapshot may not.
+  final bool seriesKnown;
+
+  /// Known to belong to no series: nothing to ask the series endpoint.
+  bool get outsideSeries => seriesKnown && seriesId == null;
+
+  /// Carries the image URL of every page — the detail page draws in full
+  /// from this payload. List payloads normally do; a trimmed or restored
+  /// one may not.
+  bool get hasEveryPageUrl => pageCount > 1
+      ? metaPages.length >= pageCount
+      : metaSinglePageOriginalUrl?.isNotEmpty ?? false;
+
+  /// Every page carries its true size (seeded from the web pages call).
+  bool get hasPageDimensions =>
+      metaPages.isNotEmpty &&
+      metaPages.every(
+        (page) => (page.width ?? 0) > 0 && (page.height ?? 0) > 0,
+      );
 
   bool get isR18 => xRestrict == 1;
 
@@ -343,6 +371,8 @@ class IllustEntity {
     int? pageCount,
     Object? createDate = _sentinel,
     Object? totalComments = _sentinel,
+    Object? seriesId = _sentinel,
+    bool? seriesKnown,
   }) {
     return IllustEntity(
       id: id,
@@ -378,6 +408,10 @@ class IllustEntity {
       totalComments: identical(totalComments, _sentinel)
           ? this.totalComments
           : totalComments as int?,
+      seriesId: identical(seriesId, _sentinel)
+          ? this.seriesId
+          : seriesId as int?,
+      seriesKnown: seriesKnown ?? this.seriesKnown,
     );
   }
 
@@ -414,6 +448,7 @@ class IllustEntity {
     'visible': visible,
     'create_date': createDate,
     'total_comments': totalComments,
+    if (seriesKnown) 'series': seriesId == null ? null : {'id': seriesId},
   };
 
   /// Parses one illust object. Unknown/optional fields degrade gracefully;
@@ -461,6 +496,15 @@ class IllustEntity {
               translatedName: readOptionalString(tag['translated_name']),
             ),
     ];
+    // `series: null` says the work is in no series; a series without an id
+    // says nothing usable.
+    final seriesJson = json['series'];
+    final seriesId =
+        seriesJson is Map<String, dynamic> && seriesJson['id'] is int
+        ? seriesJson['id'] as int
+        : null;
+    final seriesKnown =
+        json.containsKey('series') && (seriesJson == null || seriesId != null);
     final typeValue = switch (json['type']) {
       'manga' => IllustType.manga,
       'ugoira' => IllustType.ugoira,
@@ -509,6 +553,8 @@ class IllustEntity {
       totalComments: json['total_comments'] is int
           ? json['total_comments'] as int
           : null,
+      seriesId: seriesId,
+      seriesKnown: seriesKnown,
     );
   }
 

@@ -420,6 +420,7 @@ Map<String, ReviewResponder> _defaultResponders() {
     })(url),
     '/v2/illust/related': reviewJson(illustFeed),
     '/v3/illust/comments': reviewJson({
+      'total_comments': 4,
       'comments': [for (var i = 1; i <= 4; i++) reviewCommentJson(i, 1)],
       'next_url': null,
     }),

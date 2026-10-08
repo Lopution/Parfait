@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
@@ -5,7 +6,10 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/layout/app_breakpoints.dart';
+import '../../../app/pixiv_image.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
+import '../../../core/entity/illust_store.dart';
 import 'detail_page_activity.dart';
 import 'illust_detail_page.dart';
 
@@ -43,6 +47,11 @@ class IllustDetailPagerPage extends ConsumerStatefulWidget {
   /// feed for its next page.
   static const loadAhead = 4;
 
+  /// How long a page has to stay settled before it counts as the one the
+  /// user is reading ([DetailPageActivity]) and its on-screen sections may
+  /// send their requests: swiping on through it sends nothing.
+  static const activeDwell = Duration(milliseconds: 300);
+
   @override
   ConsumerState<IllustDetailPagerPage> createState() =>
       _IllustDetailPagerPageState();
@@ -65,6 +74,12 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
   /// [IllustDetailPage] subtrees must survive the index change untouched.
   late final ValueNotifier<int> _index;
   late int _currentId;
+
+  /// The work the user is reading: the committed page once it has stayed
+  /// settled for [IllustDetailPagerPage.activeDwell]. By id, so a list
+  /// shift keeps it on the same work.
+  late final ValueNotifier<int> _activeId;
+  Timer? _dwell;
 
   /// Pages allowed to build their detail subtree. The cache extent pulls
   /// the page after next in on the first frame of a swipe; building a
@@ -92,6 +107,7 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
     _ready = ValueNotifier((center: _initialIndex, neighbours: const {}));
     _currentId = ids.isEmpty ? widget.initialIllustId : ids[_initialIndex];
     _initialId = _currentId;
+    _activeId = ValueNotifier(_currentId);
     _controller = PageController(initialPage: _initialIndex);
     widget.source.addListener(_onSourceChanged);
   }
@@ -99,8 +115,10 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
   @override
   void dispose() {
     widget.source.removeListener(_onSourceChanged);
+    _dwell?.cancel();
     _controller.dispose();
     _index.dispose();
+    _activeId.dispose();
     _ready.dispose();
     super.dispose();
   }
@@ -164,12 +182,31 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
     _scheduleAdmit();
   }
 
-  bool _onScrollEnd(ScrollEndNotification notification) {
-    if (notification.depth == 0 && _controller.hasClients) {
-      final page = _controller.page;
-      if (page != null) _readyAround(page.round());
+  bool _onScroll(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+    switch (notification) {
+      case ScrollStartNotification():
+        _dwell?.cancel();
+      case ScrollEndNotification() when _controller.hasClients:
+        final page = _controller.page;
+        if (page != null) {
+          _readyAround(page.round());
+          _activateAfterDwell(page.round());
+        }
+      default:
     }
     return false;
+  }
+
+  void _activateAfterDwell(int index) {
+    final ids = widget.source.ids;
+    if (index < 0 || index >= ids.length) return;
+    final id = ids[index];
+    _dwell?.cancel();
+    if (id == _activeId.value) return;
+    _dwell = Timer(IllustDetailPagerPage.activeDwell, () {
+      if (mounted) _activeId.value = id;
+    });
   }
 
   void _onPageChanged(int index) {
@@ -217,6 +254,8 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
     if (newIndex < 0) {
       newIndex = _index.value.clamp(0, ids.length - 1);
       _currentId = ids[newIndex];
+      _dwell?.cancel();
+      _activeId.value = _currentId;
     }
     setState(() {});
     if (newIndex != _index.value && _controller.hasClients) {
@@ -231,8 +270,8 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
     final ids = widget.source.ids;
     return _AfterRouteTransition(
       onSettled: _onRouteSettled,
-      child: NotificationListener<ScrollEndNotification>(
-        onNotification: _onScrollEnd,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _onScroll,
         child: PageView.builder(
           controller: _controller,
           // Keep adjacent pages built ahead of the swipe — their entities
@@ -242,6 +281,13 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
           allowImplicitScrolling: true,
           itemCount: ids.length,
           onPageChanged: _onPageChanged,
+          // A feed page landing mid-paging can shift the list: built pages
+          // move with their work instead of rebuilding as another one.
+          findChildIndexCallback: (key) {
+            if (key is! ValueKey<int>) return null;
+            final index = widget.source.ids.indexOf(key.value);
+            return index < 0 ? null : index;
+          },
           itemBuilder: (context, index) {
             final landing = ids[index] == _initialId;
             return _PagerSlot(
@@ -249,6 +295,7 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
               index: index,
               ready: _ready,
               current: _index,
+              activeId: _activeId,
               illustId: ids[index],
               heroScope: widget.heroScope,
               heroImageUrl: landing ? widget.heroImageUrl : null,
@@ -266,15 +313,16 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
 /// The page in view and the neighbours admitted around it so far.
 typedef _ReadyWindow = ({int center, Set<int> neighbours});
 
-/// One pager page: a bare surface until the page has been inside the
-/// ready window, the real detail from then on. Latched — a page that has
-/// built its detail keeps it for as long as the pager keeps the page.
+/// One pager page: a stand-in until the page has been inside the ready
+/// window, the real detail from then on. Latched — a page that has built
+/// its detail keeps it for as long as the pager keeps the page.
 class _PagerSlot extends StatefulWidget {
   const _PagerSlot({
     super.key,
     required this.index,
     required this.ready,
     required this.current,
+    required this.activeId,
     required this.illustId,
     required this.heroScope,
     this.heroImageUrl,
@@ -286,6 +334,9 @@ class _PagerSlot extends StatefulWidget {
 
   /// The committed page — only its hero is live.
   final ValueListenable<int> current;
+
+  /// The work the user is reading — only its sections request.
+  final ValueListenable<int> activeId;
 
   /// [IllustDetailPage] inputs.
   final int illustId;
@@ -299,6 +350,10 @@ class _PagerSlot extends StatefulWidget {
 
 class _PagerSlotState extends State<_PagerSlot> {
   var _built = false;
+  late final Listenable _gates = Listenable.merge([
+    widget.current,
+    widget.activeId,
+  ]);
 
   /// Kept across slot updates while the inputs hold: a pager rebuild (a
   /// feed page landing mid-paging) hands every slot a new widget, and a
@@ -355,31 +410,63 @@ class _PagerSlotState extends State<_PagerSlot> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_built) {
-      return ColoredBox(color: Theme.of(context).scaffoldBackgroundColor);
-    }
+    if (!_built) return _SlotStandIn(illustId: widget.illustId);
     // Adjacent pages build heroes with the same feed tag the grid cards
     // carry — left enabled, all three would pair with feed cards and fly
     // together on push/pop. Only the page under the finger owns a live
     // hero; the rest ride HeroMode-disabled.
     //
-    // The same flag tells the page whether it is current, so deferred
-    // network work (related works) never starts on a prebuilt neighbour.
+    // Activity follows the work the user settled on, so deferred network
+    // work (comments, related works) never starts on a prebuilt neighbour
+    // or a page swiped through.
     //
     // The detail page is the builder's stable [child]: a page change only
     // re-wraps it in a new HeroMode/DetailPageActivity instead of running
     // the whole detail build again; only dependents of the activity scope
     // rebuild.
-    return ValueListenableBuilder<int>(
-      valueListenable: widget.current,
+    return ListenableBuilder(
+      listenable: _gates,
       child: _detail,
-      builder: (context, current, child) {
-        final active = widget.index == current;
-        return HeroMode(
-          enabled: active,
-          child: DetailPageActivity(active: active, child: child!),
-        );
-      },
+      builder: (context, child) => HeroMode(
+        enabled: widget.index == widget.current.value,
+        child: DetailPageActivity(
+          active: widget.illustId == widget.activeId.value,
+          child: child!,
+        ),
+      ),
+    );
+  }
+}
+
+/// A page not built yet: the work's image where the detail page will draw
+/// it — full width at the top — from a decode the feed already made, so a
+/// fast swipe shows the artwork instead of an empty surface. Bare surface
+/// when nothing of it was decoded, and in the two-pane layout.
+class _SlotStandIn extends ConsumerWidget {
+  const _SlotStandIn({required this.illustId});
+
+  final int illustId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final background = Theme.of(context).scaffoldBackgroundColor;
+    final entity = ref.read(illustStoreProvider).get(illustId);
+    final image =
+        entity == null ||
+            AppBreakpoints.useTwoPaneDetail(MediaQuery.sizeOf(context).width)
+        ? null
+        : PixivImage.decodedStandIn(context, entity.imageTierKeyAt(0));
+    return ColoredBox(
+      color: background,
+      child: image == null
+          ? null
+          : Align(
+              alignment: Alignment.topCenter,
+              child: AspectRatio(
+                aspectRatio: entity!.pageAspectRatioAt(0),
+                child: image,
+              ),
+            ),
     );
   }
 }

@@ -54,10 +54,17 @@ class CommentFeedQuery {
 
 @immutable
 class CommentPage {
-  const CommentPage({required this.comments, required this.nextUrl});
+  const CommentPage({
+    required this.comments,
+    required this.nextUrl,
+    this.totalComments,
+  });
 
   final List<CommentEntity> comments;
   final String? nextUrl;
+
+  /// The work's comment count (`total_comments`), when the response says.
+  final int? totalComments;
 }
 
 /// Input to the single comment-add endpoint. [rootCommentId] is local thread

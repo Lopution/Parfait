@@ -3965,18 +3965,6 @@ abstract class AppLocalizations {
   /// **'收藏'**
   String get detailStatBookmarks;
 
-  /// Label under the comment count in the artwork stats card.
-  ///
-  /// In zh, this message translates to:
-  /// **'评论'**
-  String get detailStatComments;
-
-  /// Screen-reader text for the artwork stats card. All three are compact counts.
-  ///
-  /// In zh, this message translates to:
-  /// **'{views} 次浏览，{bookmarks} 次收藏，{comments} 条评论'**
-  String detailStatsSemantics(String views, String bookmarks, String comments);
-
   /// Section heading over the artwork caption.
   ///
   /// In zh, this message translates to:

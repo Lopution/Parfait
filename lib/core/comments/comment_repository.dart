@@ -205,9 +205,11 @@ class _PixivCommentRepository implements CommentRepository {
         ),
       );
     }
+    final total = json['total_comments'];
     return CommentPage(
       comments: comments,
       nextUrl: requireNextUrl(json['next_url']),
+      totalComments: total is int && total >= 0 ? total : null,
     );
   };
 

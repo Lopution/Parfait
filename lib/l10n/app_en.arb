@@ -874,8 +874,6 @@
   "detailCollapsePages": "Collapse",
   "detailStatViews": "Views",
   "detailStatBookmarks": "Bookmarks",
-  "detailStatComments": "Comments",
-  "detailStatsSemantics": "{views} views, {bookmarks} bookmarks, {comments} comments",
   "detailSectionCaption": "Description",
   "detailSectionTags": "Tags",
   "detailViewAll": "See all",

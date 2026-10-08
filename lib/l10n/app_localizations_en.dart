@@ -2153,14 +2153,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get detailStatBookmarks => 'Bookmarks';
 
   @override
-  String get detailStatComments => 'Comments';
-
-  @override
-  String detailStatsSemantics(String views, String bookmarks, String comments) {
-    return '$views views, $bookmarks bookmarks, $comments comments';
-  }
-
-  @override
   String get detailSectionCaption => 'Description';
 
   @override

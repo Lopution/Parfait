@@ -874,8 +874,6 @@
   "detailCollapsePages": "折りたたむ",
   "detailStatViews": "閲覧",
   "detailStatBookmarks": "ブックマーク",
-  "detailStatComments": "コメント",
-  "detailStatsSemantics": "閲覧 {views}、ブックマーク {bookmarks}、コメント {comments}",
   "detailSectionCaption": "キャプション",
   "detailSectionTags": "タグ",
   "detailViewAll": "すべて見る",

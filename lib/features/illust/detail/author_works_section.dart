@@ -5,6 +5,7 @@ import '../../../app/motion/state_fade.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/skeleton/func_skeleton.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
@@ -103,33 +104,38 @@ class _StripBody extends ConsumerWidget {
         ],
       ),
     );
-    return StateFade(
-      kind: kind,
-      child: switch (kind) {
-        _StripKind.loading => FuncSkeleton(
-          label: l10n.contentLoading,
-          child: const _StripBones(),
-        ),
-        _StripKind.error => note(
-          l10n.detailAuthorWorksLoadFailed,
-          action: TextButton(
-            onPressed: () => ref.read(feed.notifier).retryInitial(),
-            child: Text(l10n.retry),
+    return AutoRetry(
+      failed: kind == _StripKind.error,
+      error: state == null ? async.error : state.initialError,
+      onRetry: () => ref.read(feed.notifier).retryInitial(),
+      child: StateFade(
+        kind: kind,
+        child: switch (kind) {
+          _StripKind.loading => FuncSkeleton(
+            label: l10n.contentLoading,
+            child: const _StripBones(),
           ),
-        ),
-        _StripKind.empty => note(l10n.detailAuthorNoOtherWorks),
-        _StripKind.works => SizedBox(
-          key: const Key('illust-author-works'),
-          height: AuthorWorksSlivers.tileExtent,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
-            itemCount: works.length,
-            separatorBuilder: (_, _) => const SizedBox(width: FuncSpacing.sm),
-            itemBuilder: (context, index) => _WorkTile(work: works[index]),
+          _StripKind.error => note(
+            l10n.detailAuthorWorksLoadFailed,
+            action: TextButton(
+              onPressed: () => ref.read(feed.notifier).retryInitial(),
+              child: Text(l10n.retry),
+            ),
           ),
-        ),
-      },
+          _StripKind.empty => note(l10n.detailAuthorNoOtherWorks),
+          _StripKind.works => SizedBox(
+            key: const Key('illust-author-works'),
+            height: AuthorWorksSlivers.tileExtent,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
+              itemCount: works.length,
+              separatorBuilder: (_, _) => const SizedBox(width: FuncSpacing.sm),
+              itemBuilder: (context, index) => _WorkTile(work: works[index]),
+            ),
+          ),
+        },
+      ),
     );
   }
 }

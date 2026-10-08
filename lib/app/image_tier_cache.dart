@@ -41,6 +41,16 @@ class IllustTierCache {
     return (url, requested);
   }
 
+  /// The highest tier recorded for [key], or null when none was decoded.
+  static String? best(String key) {
+    final tiers = _entries[key];
+    if (tiers == null) return null;
+    for (var i = tiers.length - 1; i >= 0; i--) {
+      if (tiers[i] != null) return tiers[i];
+    }
+    return null;
+  }
+
   /// The best cached URL strictly *below* [requested] for [key], or null —
   /// the progressive underlay: a decoded medium paints under a loading
   /// original instead of a flat colour box. Only recorded (i.e. decoded)
