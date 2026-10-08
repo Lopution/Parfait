@@ -1220,6 +1220,13 @@ Future<ImagePreloadResult> PixivImage.preload(
   while flying. The previous decoded frame remains visible while the new
   quality resolves, including preview/detail/original changes, every page of
   a multi-page work, and Ugoira covers.
+- The load transition is Glide's default crossfade as Shaft uses it:
+  300 ms, linear (`MotionTokens.imageFade` / `imageFadeCurve`). OctoImage
+  stacks the placeholder over the image, so the image paints at once
+  (`fadeInDuration: zero`) and the placeholder dissolves off it — over an
+  opaque image the same composite as Glide's placeholder kept under an
+  incoming image. Fading both layers at once let the page show through
+  mid-fade (the grey dip).
 - The normal loading fade is still required for a cold URL. It is disabled
   only when the target provider is already decoded; a cached Hero target must
   appear immediately rather than fading a translucent frame over the route

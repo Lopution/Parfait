@@ -63,7 +63,6 @@ class PixivImage extends ConsumerStatefulWidget {
     this.placeholderColor,
     this.placeholderWidget,
     this.fade = true,
-    this.fadeDuration = MotionTokens.imageFade,
     this.transitionKey,
     this.filterColor,
     this.filterBlendMode,
@@ -106,10 +105,6 @@ class PixivImage extends ConsumerStatefulWidget {
          tierKey: tierKey,
          tier: tier,
          tierUpgrade: tierUpgrade,
-         // Feed cards keep a short load transition even during a fling. The
-         // completion log below still skips it for decoded cache entries,
-         // while newly revealed cards retain the requested visual continuity.
-         fadeDuration: MotionTokens.imageFadeFeed,
        );
 
   /// Avatar variant: decode width derives from the avatar box [size].
@@ -235,14 +230,10 @@ class PixivImage extends ConsumerStatefulWidget {
   /// When true (default) the crossfade applies **only while the image is not
   /// yet completed in the Flutter image cache**: newly loaded artwork
   /// crossfades from the grey placeholder (smooth loading animation), while
-  /// an already-decoded image (Hero flight hand-off target) appears
-  /// instantly — never a translucent frame over the page background.
+  /// an already-decoded image (Hero flight hand-off target, a card scrolled
+  /// back in) appears instantly — Glide skips memory-cache hits the same
+  /// way.
   final bool fade;
-
-  /// Duration of the cold-load fade. Feed cards use a shorter duration than
-  /// detail artwork so a settled grid gets a visible transition without
-  /// leaving a long trail of animated placeholders behind a scroll.
-  final Duration fadeDuration;
 
   /// Stable identity for an image that participates in a Hero hand-off.
   ///
@@ -876,11 +867,13 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
     final placeholderColor =
         widget.placeholderColor ??
         Theme.of(context).colorScheme.surfaceContainer;
-    final fadeInDuration = crossfade
-        ? MotionTokens.resolve(context, widget.fadeDuration)
-        : Duration.zero;
+    // OctoImage stacks the placeholder over the image. Glide keeps the
+    // placeholder under an image fading in; over an opaque image, the image
+    // painted at once beneath a placeholder dissolving off it is the same
+    // composite. Fading both layers at once let the page show through the
+    // middle of the fade — the grey dip, held for a second.
     final fadeOutDuration = crossfade
-        ? MotionTokens.resolve(context, MotionTokens.imageFadeOut)
+        ? MotionTokens.resolve(context, MotionTokens.imageFade)
         : Duration.zero;
     Widget placeholder(BuildContext _) =>
         transitionPlaceholder ?? ColoredBox(color: placeholderColor);
@@ -928,8 +921,9 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
           color: widget.filterColor,
           colorBlendMode: widget.filterBlendMode,
           filterQuality: widget.filterQuality,
-          fadeInDuration: fadeInDuration,
+          fadeInDuration: Duration.zero,
           fadeOutDuration: fadeOutDuration,
+          fadeOutCurve: MotionTokens.imageFadeCurve,
         );
       },
     );

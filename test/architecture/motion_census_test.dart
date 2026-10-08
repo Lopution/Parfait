@@ -28,9 +28,6 @@ const _census = <String, int>{
   // FuncPage constructor defaults; `_page` always passes the resolved
   // duration.
   'lib/app/navigation/func_page.dart': 2,
-  // The fadeDuration parameter default and the feed-card value; both are
-  // resolved where OctoImage receives them.
-  'lib/app/pixiv_image.dart': 2,
   // Skeleton shimmer: a loop period, not a transition.
   'lib/app/widgets/skeleton/func_skeleton.dart': 1,
   // Wheel scrolling is scroll physics for mouse input; scaling it changes
