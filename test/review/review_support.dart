@@ -509,6 +509,12 @@ class FilmRecorder {
       );
       tiles.add(thumb);
     }
+    if (tiles.isEmpty) {
+      // A script that failed before its first frame: keep the notes, which
+      // carry the error, rather than fail on an empty contact sheet.
+      File('${dir.path}/notes.md').writeAsStringSync('# $name\n\n$notes\n');
+      return;
+    }
     const columns = 6;
     const rows = 5;
     const gap = 6;

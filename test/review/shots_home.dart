@@ -11,7 +11,7 @@ void main() {
   testShot('home/recommended-novel', location: '/recommended?type=novel');
   testShot('home/ranking', location: '/ranking');
   testShot('home/ranking-week', location: '/ranking?mode=week');
-  testShot('home/ranking-manga', location: '/ranking?mode=day_manga');
+  testShot('home/ranking-male', location: '/ranking?mode=dayMale');
   testShot('home/new', location: '/new');
   testShot('home/new-all', location: '/new?scope=all');
   testShot('home/new-mypixiv', location: '/new?scope=mypixiv');
