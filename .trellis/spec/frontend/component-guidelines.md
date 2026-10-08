@@ -1344,13 +1344,22 @@ Future<ImagePreloadResult> PixivImage.preload(
   page only once its section is on screen (`VisibilityDetector`) **and**
   the page is current (`DetailPageActivity`). The detail pager prebuilds
   its neighbours and sets that scope to inactive on every page except the
-  committed one. A route outside the pager has no scope and counts as
-  active. Before the request, the section shows a **static** box the size
+  one the user is reading: the committed page once it has stayed settled
+  for `IllustDetailPagerPage.activeDwell` (300 ms), tracked by work id —
+  a page swiped through sends nothing. `HeroMode` still follows the
+  committed page at once. A route outside the pager has no scope and
+  counts as active. Before the request, the section shows a **static** box the size
   of the loading spinner: a spinner below the fold keeps producing frames.
   A related list whose provider already exists (`ref.exists`) renders
   straight away. The detail page's scroll-to-bottom paging check may call
   `loadMore` only on an existing, loaded provider. It must never send the
   first request.
+- A pager page outside the build window paints the work's image where the
+  detail draws it (full width, top) from a decode the feed already made
+  (`PixivImage.decodedStandIn`), never a load; a bare surface when none
+  exists and in the two-pane layout. `findChildIndexCallback` maps pages by
+  work id, so a list shift moves built pages instead of rebuilding them as
+  other works.
 
 ### 4. Validation & Error Matrix
 
@@ -1436,14 +1445,16 @@ top to bottom:
 1. Title: selectable `titleLarge`, no line cap.
 2. Posting date (`illust-detail-date`), `AppFormat.date` in the metadata
    style; absent when the payload has no date.
-3. Stats block (`illust-detail-stats`): views, bookmarks and — only when
-   the payload carries `total_comments` — comments, as `headlineSmall`
-   w600 tabular figures (scaled down, never wrapped, in a narrow column)
-   over `labelMedium` / `onSurfaceVariant` labels. Screen readers hear one
-   sentence: `detailStatsSemantics`, or `detailMetaCountsSemantics`
-   without a comment count. An unknown comment count is null on
-   `IllustEntity.totalComments`, never 0, and a payload without it does
-   not erase a known one in `IllustStore` merges.
+3. Stats block (`illust-detail-stats`): views and bookmarks, as
+   `headlineSmall` w600 tabular figures (scaled down, never wrapped, in a
+   narrow column) over `labelMedium` / `onSurfaceVariant` labels. Screen
+   readers hear one sentence: `detailMetaCountsSemantics`. Every list
+   payload carries both, so a neighbour page's row is complete before it
+   is swiped in. The comment count is not here: only the detail API and
+   the comments response carry it (see the comment preview below). An
+   unknown comment count is null on `IllustEntity.totalComments`, never 0,
+   and a payload without it does not erase a known one in `IllustStore`
+   merges.
 4. Author block: `AuthorRow` (`illust-author-row`, 24 avatar radius) with
    a compact `FollowSwitchButton` as `trailing`. Your own work
    (`usableCurrent.userId` is the author) has no follow button.
@@ -1466,7 +1477,10 @@ under a `DetailSectionHeader` (header semantics, "See all" as
 - **Comment preview** (`CommentsPreviewSlivers`): the first
   `CommentsPreviewSlivers.shown` (3) root comments — avatar, name, two
   lines of `CommentText` or the stamp — on one `surfaceContainerLow`
-  surface that opens the comments page. It reads
+  surface that opens the comments page. Its header reads
+  `commentTitle (n)` once the count is known — from the comments
+  response's `total_comments` (`commentTotalsProvider`) or a detail
+  payload — and plain `commentTitle` before. It reads
   `commentFeedProvider(CommentFeedQuery.root(...))`, the comments page's
   own feed, so that page opens on them. No comments: `commentNoResults`
   with a `commentInput` action; a failure: `commentLoadFailed` with retry.
@@ -1480,7 +1494,10 @@ Both, like related works, go through `OnDemandSliver`: nothing is
 requested until the section is on screen on the current pager page, and
 until then it holds a static placeholder (header plus a blank of the
 body's usual height, no spinner). The loading skeleton, the states and
-the content swap through `StateFade`. `CommentText` lives in
+the content swap through `StateFade`. All three sections wrap their body
+in `AutoRetry`: a network, timeout, rate-limit or 5xx failure of the
+first page retries by itself twice (1.5 s, then 3 s; at least the
+server's Retry-After) before the error row waits for the user. `CommentText` lives in
 `lib/app/widgets/` so the detail feature can use it without importing the
 comments feature.
 

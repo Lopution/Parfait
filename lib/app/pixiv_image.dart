@@ -433,6 +433,34 @@ class PixivImage extends ConsumerStatefulWidget {
     );
   }
 
+  /// The best image of [tierKey] (an [IllustTierCache] key) that has
+  /// already been decoded, at the width it was decoded at: a stand-in that
+  /// paints a decode which already happened instead of starting a load.
+  /// Null when no tier of it has been decoded.
+  static Widget? decodedStandIn(
+    BuildContext context,
+    String tierKey, {
+    BoxFit fit = BoxFit.contain,
+  }) {
+    final url = IllustTierCache.best(tierKey);
+    final entry = url == null ? null : _lastDecodeOfUrl[url];
+    if (entry == null) return null;
+    return _lastDecodedFrame(
+      entry,
+      worker: ProviderScope.containerOf(
+        context,
+        listen: false,
+      ).read(imageWorkerProvider),
+      fit: fit,
+      width: null,
+      height: null,
+      alignment: Alignment.center,
+      filterColor: null,
+      filterBlendMode: null,
+      filterQuality: FilterQuality.low,
+    );
+  }
+
   /// Records a decode on its first frame: OctoImage only builds the image
   /// once a frame exists, so no second listener has to follow the stream.
   /// Later builds of a recorded decode return at the first check.
