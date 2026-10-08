@@ -504,6 +504,8 @@ is reachable **only** on the fdroid flavor, and only for methods other than
   Skia parses) that Flutter lays user content out with: unnamed fallback
   families of `zh` / `ja` / `ko` / `und-Zsye` in full, other unnamed
   fallback fonts of at most 2 MB; `fallbackFor` (serif) fonts skipped.
+  Files the XML lists but the build does not ship are dropped silently, as
+  Skia drops them.
 - `MainActivity.onStart` also triggers it. At most one read per 10 s.
 - Fire-and-forget: Dart logs a failed call with `debugPrint`; Kotlin logs
   unreadable files with `Log.w` and each read with `Log.i`.

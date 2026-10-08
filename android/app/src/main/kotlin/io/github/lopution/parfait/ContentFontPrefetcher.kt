@@ -79,6 +79,8 @@ object ContentFontPrefetcher {
             File(FONTS_XML).inputStream().use { config ->
                 contentFontFiles(config) { File(FONTS_DIR, it).length() }
             }.map { File(FONTS_DIR, it) }
+                // OEM builds list fonts they do not ship; Skia skips them too.
+                .filter { it.isFile }
         } catch (error: Exception) {
             Log.w(TAG, "cannot read $FONTS_XML", error)
             emptyList()
