@@ -1167,8 +1167,7 @@ void main() {
   );
 
   testWidgets(
-    're-tap scrolls only the active tab; keep-alive siblings keep their '
-    'offset',
+    'each tab scrolls on its own; re-tap rewinds only the selected one',
     (tester) async {
       final repository = FakeUserRepository(
         works: List.generate(36, (index) => _illust(index + 1)),
@@ -1190,15 +1189,18 @@ void main() {
         );
         await tester.pumpAndSettle();
 
+        // A tab switched away from is kept alive offstage.
         ScrollPosition innerOf(ProfileFeedKey key) {
           final scrollable = find
               .descendant(
-                of: find.byKey(PageStorageKey(key)),
+                of: find.byKey(PageStorageKey(key), skipOffstage: false),
                 matching: find.byWidgetPredicate(
                   (widget) =>
                       widget is Scrollable &&
                       widget.axisDirection == AxisDirection.down,
+                  skipOffstage: false,
                 ),
+                skipOffstage: false,
               )
               .first;
           return tester.state<ScrollableState>(scrollable).position;
@@ -1214,36 +1216,33 @@ void main() {
           kind: ProfileFeedKind.bookmarks,
           restrict: UserRestrict.public,
         );
-        final workPosition = innerOf(workKey);
-        expect(workPosition.maxScrollExtent, greaterThan(0));
+        expect(innerOf(workKey).maxScrollExtent, greaterThan(0));
 
         // Scroll tab A (插画), then switch to tab B (收藏) — the TabBarView
         // builds a page on first visit, so B's position only exists after
-        // the switch — and scroll it.
-        workPosition.jumpTo(150);
+        // the switch — and drag it. Positions are re-read: handing the
+        // nested controller from tab to tab replaces them.
+        innerOf(workKey).jumpTo(150);
         await tester.pump();
         await tester.tap(
           find.descendant(of: find.byType(TabBar), matching: find.text('收藏')),
         );
         await tester.pumpAndSettle();
-        final bookmarkPosition = innerOf(bookmarkKey);
-        expect(bookmarkPosition.maxScrollExtent, greaterThan(0));
-        bookmarkPosition.jumpTo(140);
+        expect(innerOf(bookmarkKey).maxScrollExtent, greaterThan(0));
+        innerOf(bookmarkKey).jumpTo(140);
         await tester.pump();
-        expect(bookmarkPosition.pixels, 140);
-        // NestedScrollView semantics: inner positions are coordinated —
-        // user-scroll deltas and position jumps broadcast to every
-        // attached keep-alive tab, so A follows B's offset once both are
-        // mounted. What must NOT happen is a re-tap rewinding A *again*:
-        // the old controller-level animateTo zeroed every position.
-        expect(workPosition.pixels, 140);
+        expect(innerOf(bookmarkKey).pixels, 140);
+        // Only the selected tab is on the nested controller: A no longer
+        // follows B, so a fling on one tab is never computed against
+        // another's offset.
+        expect(innerOf(workKey).pixels, 150);
 
         await tester.tap(
           find.descendant(of: find.byType(TabBar), matching: find.text('收藏')),
         );
         await tester.pumpAndSettle();
-        expect(bookmarkPosition.pixels, 0);
-        expect(workPosition.pixels, 140);
+        expect(innerOf(bookmarkKey).pixels, 0);
+        expect(innerOf(workKey).pixels, 150);
       });
     },
   );

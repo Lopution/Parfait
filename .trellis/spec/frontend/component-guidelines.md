@@ -1811,6 +1811,16 @@ static bool PullToRefresh.trigger(ScrollController controller);
   tab body owns one nested `PullToRefresh` wrapper (the `EasyRefresh`
   locator pattern). Do not add another wrapper around the whole
   `NestedScrollView`. Ordinary lists use the default `isNested: false` path.
+- Only the selected tab of a `NestedScrollView` sits on its inner
+  controller (`_SelectedTabScroll` in `user_page.dart`). Kept-alive tabs
+  otherwise all attach to it, and the coordinator drives every attached
+  position as one: it picks an arbitrary one for a fling's metrics (a
+  fling on About died at the header) and drags the hidden tabs along. An
+  unselected tab parks on a controller whose positions the inner controller
+  still makes — Scrollable attaches its old position to a new controller
+  before replacing it, and the nested controller accepts only its own kind.
+  Its `PrimaryScrollController` is never `.none`: a feed that does not
+  inherit registers no dependency and misses the hand-back.
 - Touch scroll physics are unified app-wide through `FuncScrollBehavior`:
   `BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())` plus no
   platform overscroll indicator — the same scheme `_ERScrollPhysics` installs
