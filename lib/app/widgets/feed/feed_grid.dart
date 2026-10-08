@@ -6,7 +6,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../core/platform/content_font_prefetch.dart';
-import '../../motion/feed_entrance.dart';
 import '../../theme/func_semantic_tokens.dart';
 
 /// Minimum card width used to derive the masonry column count.
@@ -151,11 +150,6 @@ class IllustFeedGrid extends StatefulWidget {
 }
 
 class _IllustFeedGridState extends State<IllustFeedGrid> {
-  /// Staggered-entrance entity ids already shown by this grid instance; the
-  /// grid drops keep-alives, so without it a card scrolling back into view
-  /// replays its entrance and reads as a reload.
-  final _entrancePlayed = <int>{};
-
   /// Work ids + next-page hook for the detail pager. Never disposed by the
   /// grid: a pushed detail route still holds it — its lifetime is the
   /// route's, not the widget's.
@@ -220,17 +214,13 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
                 final id = ids != null && index < ids.length
                     ? ids[index]
                     : index;
+                // Keyed by work: a slot taking a different work mounts
+                // afresh. Cards land in place, as in Shaft; only their
+                // images fade in.
                 return FeedItemExtent(
+                  key: ValueKey(id),
                   width: columnWidth,
-                  // Keyed by work: a slot taking a different work mounts
-                  // afresh.
-                  child: StaggeredEntrance(
-                    key: ValueKey(id),
-                    index: index,
-                    id: id,
-                    played: _entrancePlayed,
-                    child: widget.itemBuilder(context, index),
-                  ),
+                  child: widget.itemBuilder(context, index),
                 );
               },
               childCount: widget.itemCount,

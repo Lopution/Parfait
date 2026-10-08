@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../../app/motion/state_fade.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
@@ -108,34 +107,31 @@ class _StripBody extends ConsumerWidget {
       failed: kind == _StripKind.error,
       error: state == null ? async.error : state.initialError,
       onRetry: () => ref.read(feed.notifier).retryInitial(),
-      child: StateFade(
-        kind: kind,
-        child: switch (kind) {
-          _StripKind.loading => FuncSkeleton(
-            label: l10n.contentLoading,
-            child: const _StripBones(),
+      child: switch (kind) {
+        _StripKind.loading => FuncSkeleton(
+          label: l10n.contentLoading,
+          child: const _StripBones(),
+        ),
+        _StripKind.error => note(
+          l10n.detailAuthorWorksLoadFailed,
+          action: TextButton(
+            onPressed: () => ref.read(feed.notifier).retryInitial(),
+            child: Text(l10n.retry),
           ),
-          _StripKind.error => note(
-            l10n.detailAuthorWorksLoadFailed,
-            action: TextButton(
-              onPressed: () => ref.read(feed.notifier).retryInitial(),
-              child: Text(l10n.retry),
-            ),
+        ),
+        _StripKind.empty => note(l10n.detailAuthorNoOtherWorks),
+        _StripKind.works => SizedBox(
+          key: const Key('illust-author-works'),
+          height: AuthorWorksSlivers.tileExtent,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
+            itemCount: works.length,
+            separatorBuilder: (_, _) => const SizedBox(width: FuncSpacing.sm),
+            itemBuilder: (context, index) => _WorkTile(work: works[index]),
           ),
-          _StripKind.empty => note(l10n.detailAuthorNoOtherWorks),
-          _StripKind.works => SizedBox(
-            key: const Key('illust-author-works'),
-            height: AuthorWorksSlivers.tileExtent,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
-              itemCount: works.length,
-              separatorBuilder: (_, _) => const SizedBox(width: FuncSpacing.sm),
-              itemBuilder: (context, index) => _WorkTile(work: works[index]),
-            ),
-          ),
-        },
-      ),
+        ),
+      },
     );
   }
 }

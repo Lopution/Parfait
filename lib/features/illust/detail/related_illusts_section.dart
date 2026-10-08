@@ -8,7 +8,6 @@ import '../../../core/entity/illust_store.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/illust_card.dart';
 import '../../../app/widgets/skeleton/illust_grid_skeleton.dart';
-import '../../../app/motion/state_fade.dart';
 import '../../../core/errors/error_category.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../../core/illust/related_illust_controller.dart';
@@ -71,12 +70,11 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
       failed: failed,
       error: state == null ? async.error : state.initialError,
       onRetry: () => ref.read(provider.notifier).retryInitial(),
-      child: StateFade.sliver(
-        kind: loading,
-        sliver: loading
-            ? const _RelatedSkeleton()
-            : _buildLoaded(context, async, state),
-      ),
+      // The skeleton gives way in place, as in Shaft: a section fading in
+      // around images that fade in on their own stacks two fades.
+      child: loading
+          ? const _RelatedSkeleton()
+          : _buildLoaded(context, async, state),
     );
   }
 

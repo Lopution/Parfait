@@ -59,13 +59,6 @@ abstract final class MotionTokens {
   /// small targets.
   static const pillPressScale = 0.96;
 
-  /// Feed entrance: staggered fade, played on a card's first viewport
-  /// exposure. Cards arriving mid-fling stay static — a pop-in during
-  /// ballistic scroll reads as a layout bug, not motion.
-  static const listEntrance = Duration(milliseconds: 220);
-  static const listEntranceCurve = Curves.easeOutCubic;
-  static const listStaggerStep = Duration(milliseconds: 30);
-
   /// Alert/confirm dialog presentation.
   static const dialog = Duration(milliseconds: 220);
 

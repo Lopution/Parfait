@@ -1331,8 +1331,9 @@ Future<ImagePreloadResult> PixivImage.preload(
   width/height) to its frame, and the shuttle lerps the child from the
   card's cover-top rect to the whole contained image, both directions.
   There is no feed prefetch: the grid's cache extent builds cards ahead and
-  each card's image loads as it mounts. The feed entrance is a staggered
-  fade only — cards never move.
+  each card's image loads as it mounts. Cards have no entrance of their
+  own: they land in place, as in Shaft (its lists run without an item
+  animator), and only the image fades in.
 - Detail page page numbers use only `DetailPageCounter`. Narrow and wide
   layouts both place it at the top-right of the artwork region; single-page
   and ugoira works never show it; selection mode hides it because each
@@ -1501,7 +1502,9 @@ Both, like related works, go through `OnDemandSliver`: nothing is
 requested until the section is on screen on the current pager page, and
 until then it holds a static placeholder (header plus a blank of the
 body's usual height, no spinner). The loading skeleton, the states and
-the content swap through `StateFade`. All three sections wrap their body
+the content replace each other in place, without `StateFade`: a section
+fading in around images that fade in on their own stacks two fades. All
+three sections wrap their body
 in `AutoRetry`: a network, timeout, rate-limit or 5xx failure of the
 first page retries by itself twice (1.5 s, then 3 s; at least the
 server's Retry-After) before the error row waits for the user. `CommentText` lives in
@@ -2060,8 +2063,8 @@ and only one kind of ink:
 - Small targets extend their hit area to 48dp without growing the visible
   shape; neighbouring targets touch, so the gap between them is never dead.
 
-Feed grids fade cards in through `StaggeredEntrance`; do not add a
-`StateFade` around grid content.
+Feed cards land in place; only their images fade. Do not add an entrance
+or a `StateFade` around grid content or detail sections.
 
 ### 4. Removal: exit first, then commit
 
@@ -2117,12 +2120,12 @@ card or per image keep their dependencies narrow:
     and override `didChangeTickerMode`. Rebuild there only when the output
     actually changes. Examples:
     - `PressScale` drives only a card that is off its rest scale;
-    - `StaggeredEntrance` lands a frozen entrance on its end state;
     - `PixivImage` rebuilds only a cold load still in flight.
   - A one-shot read at an animation's start uses
     `TickerMode.getValuesNotifier(context).value` (`StateFade`).
-- Opacity-driven entrances pass `alwaysIncludeSemantics: true`. The card
-  then joins the semantics tree with its batch, not once per stagger step.
+- Opacity-driven entrances pass `alwaysIncludeSemantics: true`
+  (`StateFade`). The content then joins the semantics tree when it mounts,
+  not when the fade crosses zero.
 - Progress semantics values move in 10 % steps
   (`ImageLoadProgressOverlay`); the drawn indicator stays continuous.
 - Measurement builds count the scenes in progress for the frame probe:

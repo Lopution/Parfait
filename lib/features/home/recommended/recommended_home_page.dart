@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/motion/press_scale.dart';
-import '../../../app/motion/feed_entrance.dart';
 import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/app_snack_bar.dart';
@@ -75,7 +74,6 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
   late RecommendedContentType _type;
   final _loaded = <RecommendedContentType>{};
   final _scrollControllers = <RecommendedContentType, ScrollController>{};
-  final _entrancePlayed = <RecommendedContentType, Set<int>>{};
 
   /// One body instance per type, reused across page builds: an identical
   /// widget short-circuits the element update, so the tab hop, route echo
@@ -248,10 +246,6 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
                         key: ValueKey(type),
                         type: type,
                         scrollController: _scrollControllerFor(type),
-                        entrancePlayed: _entrancePlayed.putIfAbsent(
-                          type,
-                          () => {},
-                        ),
                       ),
                     )
                   else
@@ -304,12 +298,10 @@ class _RecommendedFeedView extends ConsumerWidget {
     super.key,
     required this.type,
     required this.scrollController,
-    required this.entrancePlayed,
   });
 
   final RecommendedContentType type;
   final ScrollController scrollController;
-  final Set<int> entrancePlayed;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -380,7 +372,6 @@ class _RecommendedFeedView extends ConsumerWidget {
           type: type,
           feed: feed,
           scrollController: scrollController,
-          entrancePlayed: entrancePlayed,
           onRefresh: () =>
               ref.read(recommendedFeedProvider(key).notifier).refresh(),
           onLoadMore: () =>
@@ -398,7 +389,6 @@ class _RecommendedFeedBody extends ConsumerWidget {
     required this.type,
     required this.feed,
     required this.scrollController,
-    required this.entrancePlayed,
     required this.onRefresh,
     required this.onLoadMore,
     required this.onRetryLoadMore,
@@ -407,7 +397,6 @@ class _RecommendedFeedBody extends ConsumerWidget {
   final RecommendedContentType type;
   final PagedFeedState feed;
   final ScrollController scrollController;
-  final Set<int> entrancePlayed;
   final Future<void> Function() onRefresh;
   final VoidCallback onLoadMore;
   final VoidCallback onRetryLoadMore;
@@ -501,11 +490,8 @@ class _RecommendedFeedBody extends ConsumerWidget {
         padding: const EdgeInsets.only(top: FuncSpacing.sm),
         sliver: SliverList.builder(
           itemCount: novels.length,
-          itemBuilder: (context, index) => StaggeredEntrance(
+          itemBuilder: (context, index) => KeyedSubtree(
             key: ValueKey(novels[index].id),
-            index: index,
-            id: novels[index].id,
-            played: entrancePlayed,
             child: NovelEntry.compact(entity: novels[index]),
           ),
         ),
@@ -529,11 +515,8 @@ class _RecommendedFeedBody extends ConsumerWidget {
         padding: const EdgeInsets.only(top: FuncSpacing.sm),
         sliver: SliverList.builder(
           itemCount: users.length,
-          itemBuilder: (context, index) => StaggeredEntrance(
+          itemBuilder: (context, index) => KeyedSubtree(
             key: ValueKey(users[index].id),
-            index: index,
-            id: users[index].id,
-            played: entrancePlayed,
             child: _UserRow(entity: users[index]),
           ),
         ),

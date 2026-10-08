@@ -162,9 +162,6 @@ class _WatchLaterPageState extends ConsumerState<WatchLaterPage> {
                                 mainAxisSpacing: FuncSpacing.sm,
                                 itemIds: [for (final e in list) e.entity.id],
                                 itemCount: list.length,
-                                // IllustFeedGrid already wraps each item in a
-                                // StaggeredEntrance — nesting a second one
-                                // doubled the opacity/offset on every card.
                                 itemBuilder: (context, index) {
                                   final id = list[index].entity.id;
                                   return Removable(
