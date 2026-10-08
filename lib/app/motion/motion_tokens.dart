@@ -59,13 +59,6 @@ abstract final class MotionTokens {
   /// small targets.
   static const pillPressScale = 0.96;
 
-  /// Feed entrance: staggered fade, played on a card's first viewport
-  /// exposure. Cards arriving mid-fling stay static — a pop-in during
-  /// ballistic scroll reads as a layout bug, not motion.
-  static const listEntrance = Duration(milliseconds: 220);
-  static const listEntranceCurve = Curves.easeOutCubic;
-  static const listStaggerStep = Duration(milliseconds: 30);
-
   /// Alert/confirm dialog presentation.
   static const dialog = Duration(milliseconds: 220);
 
@@ -93,19 +86,12 @@ abstract final class MotionTokens {
   /// First-load skeleton shimmer: one shared sweep per skeleton tree.
   static const shimmer = Duration(milliseconds: 1400);
 
-  /// Image fade-in inside PixivImage (OctoImage's default); Glide's
-  /// crossfade is 300ms.
-  static const imageFade = Duration(milliseconds: 500);
-
-  /// Feed-card fade-in — shorter than [imageFade] so a settling grid does
-  /// not leave a long trail of animating tiles behind a scroll.
-  static const imageFadeFeed = Duration(milliseconds: 300);
-
-  /// Placeholder fade-out under the incoming frame. This must outlive
-  /// [imageFade]: the disappearing layer finishing first leaves the
-  /// half-transparent new frame over the page background for the rest of
-  /// the fade — the white flash on a quality-tier swap.
-  static const imageFadeOut = Duration(milliseconds: 1000);
+  /// Image load transition: the placeholder dissolves, linearly, off the
+  /// image already painted beneath it — Glide's default crossfade (300 ms,
+  /// placeholder kept opaque under the incoming image) as Shaft uses it.
+  /// Over an opaque image the two layer orders composite identically.
+  static const imageFade = Duration(milliseconds: 300);
+  static const imageFadeCurve = Curves.linear;
 
   /// Pull-to-refresh: the indicator shrinks away once the refresh
   /// completes; the list retracts right after.

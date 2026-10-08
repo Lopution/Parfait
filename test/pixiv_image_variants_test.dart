@@ -148,10 +148,9 @@ void main() {
           await tester.pump();
         }
 
-        expect(_fadesOf(tester), (
-          MotionTokens.imageFade,
-          MotionTokens.imageFadeOut,
-        ));
+        // Glide's crossfade: the image paints at once and the placeholder
+        // dissolves off it, so no frame shows the page through both.
+        expect(_fadesOf(tester), (Duration.zero, MotionTokens.imageFade));
       });
     });
   }
@@ -182,16 +181,16 @@ void main() {
           const PixivImage(url: 'https://i.pximg.net/cold-flip.jpg'),
         ),
       );
-      expect(image(tester).fadeInDuration, MotionTokens.imageFade);
+      expect(image(tester).fadeOutDuration, MotionTokens.imageFade);
 
       // A transition starts: the snapshot must not bake a half fade.
       tickers.value = false;
       await tester.pump();
-      expect(image(tester).fadeInDuration, Duration.zero);
+      expect(image(tester).fadeOutDuration, Duration.zero);
 
       tickers.value = true;
       await tester.pump();
-      expect(image(tester).fadeInDuration, MotionTokens.imageFade);
+      expect(image(tester).fadeOutDuration, MotionTokens.imageFade);
     });
 
     testWidgets('an image the flip cannot change is not rebuilt', (

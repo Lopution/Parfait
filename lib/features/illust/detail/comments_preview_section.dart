@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/format/app_format.dart';
-import '../../../app/motion/state_fade.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/person_avatar.dart';
 import '../../../app/pixiv_image.dart';
@@ -110,52 +109,49 @@ class _PreviewBody extends ConsumerWidget {
           ref.read(commentFeedProvider(query).notifier).retryInitial(),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
-        child: StateFade(
-          kind: kind,
-          child: switch (kind) {
-            _PreviewKind.loading => FuncSkeleton(
-              label: l10n.contentLoading,
-              child: const _PreviewBones(),
-            ),
-            _PreviewKind.error => _NoteRow(
-              text: l10n.commentLoadFailed,
-              style: muted,
-              actionLabel: l10n.retry,
-              onAction: () =>
-                  ref.read(commentFeedProvider(query).notifier).retryInitial(),
-            ),
-            _PreviewKind.empty => _NoteRow(
-              text: l10n.commentNoResults,
-              style: muted,
-              actionLabel: l10n.commentInput,
-              onAction: onOpenAll,
-            ),
-            _PreviewKind.comments => Material(
-              key: const Key('illust-comments-preview'),
-              color: Theme.of(context).colorScheme.surfaceContainerLow,
-              borderRadius: FuncShape.card,
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: onOpenAll,
-                child: Padding(
-                  padding: const EdgeInsets.all(FuncSpacing.md),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final (index, comment) in comments.indexed) ...[
-                        if (index > 0) const SizedBox(height: FuncSpacing.md),
-                        _PreviewTile(
-                          comment: comment,
-                          byAuthor: comment.user.id == authorId,
-                        ),
-                      ],
+        child: switch (kind) {
+          _PreviewKind.loading => FuncSkeleton(
+            label: l10n.contentLoading,
+            child: const _PreviewBones(),
+          ),
+          _PreviewKind.error => _NoteRow(
+            text: l10n.commentLoadFailed,
+            style: muted,
+            actionLabel: l10n.retry,
+            onAction: () =>
+                ref.read(commentFeedProvider(query).notifier).retryInitial(),
+          ),
+          _PreviewKind.empty => _NoteRow(
+            text: l10n.commentNoResults,
+            style: muted,
+            actionLabel: l10n.commentInput,
+            onAction: onOpenAll,
+          ),
+          _PreviewKind.comments => Material(
+            key: const Key('illust-comments-preview'),
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
+            borderRadius: FuncShape.card,
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onOpenAll,
+              child: Padding(
+                padding: const EdgeInsets.all(FuncSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (index, comment) in comments.indexed) ...[
+                      if (index > 0) const SizedBox(height: FuncSpacing.md),
+                      _PreviewTile(
+                        comment: comment,
+                        byAuthor: comment.user.id == authorId,
+                      ),
                     ],
-                  ),
+                  ],
                 ),
               ),
             ),
-          },
-        ),
+          ),
+        },
       ),
     );
   }

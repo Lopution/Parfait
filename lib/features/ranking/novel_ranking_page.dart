@@ -1,7 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/motion/feed_entrance.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
@@ -49,7 +48,6 @@ class _NovelRankingPageState extends State<NovelRankingPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   final _scrollControllers = <NovelRankingMode, ScrollController>{};
-  final _entrancePlayed = <int>{};
   final _loadedModes = <int>{};
 
   /// One body instance per mode, reused across page builds: an identical
@@ -230,7 +228,6 @@ class _NovelRankingPageState extends State<NovelRankingPage>
                         key: ValueKey((mode, _date)),
                         feedKey: (mode: mode, date: _date),
                         scrollController: _scrollControllerFor(mode),
-                        entrancePlayed: _entrancePlayed,
                       ),
                     )
                   else
@@ -261,12 +258,10 @@ class _NovelRankingModeBody extends ConsumerWidget {
     super.key,
     required this.feedKey,
     required this.scrollController,
-    required this.entrancePlayed,
   });
 
   final NovelRankingFeedKey feedKey;
   final ScrollController scrollController;
-  final Set<int> entrancePlayed;
 
   /// Scroll restoration per list: a past day is a different list from the
   /// latest one.
@@ -341,11 +336,8 @@ class _NovelRankingModeBody extends ConsumerWidget {
                     padding: const EdgeInsets.only(top: FuncSpacing.sm),
                     sliver: SliverList.builder(
                       itemCount: entities.length,
-                      itemBuilder: (context, index) => StaggeredEntrance(
+                      itemBuilder: (context, index) => KeyedSubtree(
                         key: ValueKey(entities[index].id),
-                        index: index,
-                        id: entities[index].id,
-                        played: entrancePlayed,
                         child: NovelEntry.ranking(
                           entity: entities[index],
                           rank: index + 1,

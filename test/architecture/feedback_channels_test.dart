@@ -115,7 +115,7 @@ const _heroFiles = <String>{
 /// throttle, wheel floor clamp, ugoira frame delay, debug probe poll).
 /// Counts are pinned so a new hard-coded animation duration fails here.
 const _durationCensus = <String, int>{
-  'lib/app/motion/motion_tokens.dart': 23,
+  'lib/app/motion/motion_tokens.dart': 19,
   // Press-feedback settle window before a covered page may be snapshotted:
   // a throttle on capture timing, not an animation.
   'lib/app/motion/page_transitions.dart': 1,

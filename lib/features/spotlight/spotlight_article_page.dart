@@ -265,8 +265,11 @@ class _ArticleImage extends ConsumerWidget {
       fit: BoxFit.contain,
       placeholderBuilder: placeholder == null ? null : (_) => placeholder,
       errorBuilder: (_, _, _) => const Icon(Icons.broken_image),
-      fadeInDuration: MotionTokens.resolve(context, MotionTokens.imageFade),
-      fadeOutDuration: MotionTokens.resolve(context, MotionTokens.imageFadeOut),
+      // PixivImage's load transition: the image at once, the placeholder
+      // dissolving off it.
+      fadeInDuration: Duration.zero,
+      fadeOutDuration: MotionTokens.resolve(context, MotionTokens.imageFade),
+      fadeOutCurve: MotionTokens.imageFadeCurve,
     );
   }
 }
