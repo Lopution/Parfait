@@ -37,6 +37,9 @@ empty successful result.
   they do not show UI or catch an error merely to return an empty value.
 - `PixivHttpClient` maps auth and rate-limit responses to `ApiUnauthorized` or
   `ApiRateLimited`, and keeps a bounded `ApiHttpError.detail` for diagnosis.
+  After an App API 429 it fails GETs fast with `ApiRateLimited(remaining)`
+  for the Retry-After wait (`rateLimitCooldown` without one, capped at
+  `maxRateLimitCooldown`); POSTs still go.
   Its auth refresh/replay rules are part of the network contract, not a page
   concern.
 - Riverpod controllers expose `AsyncValue` or a sealed domain state. An

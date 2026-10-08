@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:clock/clock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -627,6 +628,57 @@ void main() {
         ),
       ),
     );
+  });
+
+  test('after a 429 reads wait out the cooldown; posts still go', () async {
+    var now = DateTime(2026, 10, 8, 12);
+    await withClock(Clock(() => now), () async {
+      final (container, _, _, _) = await _makeWorld();
+      addTearDown(container.dispose);
+      var limited = true;
+      final requests = <String>[];
+      final client = PixivHttpClient(
+        client: MockClient((request) async {
+          requests.add(request.method);
+          return limited
+              ? http.Response('limited', 429)
+              : http.Response('{}', 200);
+        }),
+        accountStore: container.read(accountStoreProvider.notifier),
+        credentialStore: FakeCredentialStore(
+          values: const {
+            '100': Credential(
+              accessToken: 'old-access',
+              refreshToken: 'old-refresh',
+            ),
+          },
+        ),
+        oauthService: container.read(oauthServiceProvider),
+      );
+
+      await expectLater(
+        client.getJson(Uri.parse(_api)),
+        throwsA(isA<ApiRateLimited>()),
+      );
+      limited = false;
+      now = now.add(const Duration(seconds: 4));
+      await expectLater(
+        client.getJson(Uri.parse(_api)),
+        throwsA(
+          isA<ApiRateLimited>().having(
+            (e) => e.retryAfter,
+            'retryAfter',
+            PixivHttpClient.rateLimitCooldown - const Duration(seconds: 4),
+          ),
+        ),
+      );
+      await client.post(Uri.parse(_api));
+      expect(requests, ['GET', 'POST']);
+
+      now = now.add(PixivHttpClient.rateLimitCooldown);
+      await client.getJson(Uri.parse(_api));
+      expect(requests, ['GET', 'POST', 'GET']);
+    });
   });
 
   test('server errors map to ApiHttpError without retry', () async {
