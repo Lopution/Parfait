@@ -23,7 +23,6 @@ import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import 'settings/settings_control.dart';
 import 'app_choice_chip.dart';
-import 'undo_snack_bar.dart';
 
 String _bookmarkText(BuildContext context, String key) =>
     l10nLookup(context.l10n, key);
@@ -31,45 +30,33 @@ String _bookmarkText(BuildContext context, String key) =>
 /// Toggles the bookmark of [key]. The heart flips on this frame
 /// (optimistic), so the haptic plays now too: add → success, remove →
 /// select. A failure rolls the heart back with an error haptic; the button
-/// reports the cause. A confirmed removal offers Undo, which restores the
-/// old visibility and tags.
-Future<void> toggleBookmarkWithUndo(
-  BuildContext context,
-  BookmarkKey key,
-) async {
+/// reports the cause. A removal says nothing more, as in Shaft: tapping the
+/// heart again restores the old visibility and tags.
+Future<void> toggleBookmark(BuildContext context, BookmarkKey key) async {
   // Read up front: the toggle may outlive the widget that started it.
   final container = ProviderScope.containerOf(context, listen: false);
   final store = container.read(bookmarkStoreProvider.notifier);
   final wish = !(store.entryOf(key)?.shown ?? false);
   wish ? AppHaptics.success() : AppHaptics.select();
-  final removed = await container.read(bookmarkActionsProvider).toggle(key);
-  if (store.entryOf(key)?.error != null) {
-    AppHaptics.error();
-    return;
-  }
-  if (removed != null && context.mounted) {
-    showUndoSnackBar(
-      context,
-      context.l10n.bookmarkRemoved,
-      onUndo: (container) => container
-          .read(bookmarkActionsProvider)
-          .addWithRestrict(removed.key, removed.restrict, tags: removed.tags),
-    );
-  }
+  await container.read(bookmarkActionsProvider).toggle(key);
+  if (store.entryOf(key)?.error != null) AppHaptics.error();
 }
 
 /// Peak overshoot of the heart pop above its rest scale of 1.
 const _heartPopPeak = 0.25;
 
+/// How far the heart sinks below its rest scale on a removal.
+const _heartDipDepth = 0.15;
+
 /// Initial velocity that carries an underdamped spring released at rest
-/// position up to [_heartPopPeak]. For x(t) = v/ωd · e^(−ζωt) · sin(ωd t)
-/// the first peak is v/ω · e^(−ζθ/√(1−ζ²)) with θ = atan(√(1−ζ²)/ζ).
-double _heartPopVelocity(SpringDescription spring) {
+/// position out to [peak]. For x(t) = v/ωd · e^(−ζωt) · sin(ωd t) the
+/// first peak is v/ω · e^(−ζθ/√(1−ζ²)) with θ = atan(√(1−ζ²)/ζ).
+double _heartKickVelocity(SpringDescription spring, double peak) {
   final omega = math.sqrt(spring.stiffness / spring.mass);
   final zeta = spring.damping / (2 * math.sqrt(spring.stiffness * spring.mass));
   final root = math.sqrt(1 - zeta * zeta);
   final theta = math.atan(root / zeta);
-  return _heartPopPeak * omega * math.exp(zeta * theta / root);
+  return peak * omega * math.exp(zeta * theta / root);
 }
 
 /// Beta56 BookmarkSwitchButton replica driven entirely by the shared
@@ -152,7 +139,7 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
         spring,
         1,
         1,
-        _heartPopVelocity(spring),
+        _heartKickVelocity(spring, _heartPopPeak),
         snapToEnd: true,
       ),
     );
@@ -160,11 +147,28 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
     _burst.forward(from: 0);
   }
 
+  /// Sinks the heart a little and lets it settle back on a removal: the
+  /// quiet counterpart of the add pop, with no burst and no overshoot.
+  void _dip() {
+    final spring = MotionTokens.spring(context, MotionSpring.spatialFast);
+    if (spring == null) return;
+    _burst.value = 1;
+    _pop.animateWith(
+      SpringSimulation(
+        spring,
+        1,
+        1,
+        -_heartKickVelocity(spring, _heartDipDepth),
+        snapToEnd: true,
+      ),
+    );
+  }
+
   void _toggle() {
     final key = _key;
     final shown = ref.read(bookmarkStoreProvider)[key]?.shown ?? false;
-    _popIfAdded(!shown, key);
-    unawaited(toggleBookmarkWithUndo(context, key));
+    shown ? _dip() : _popIfAdded(true, key);
+    unawaited(toggleBookmark(context, key));
   }
 
   Future<void> _showBookmarkSheet({required bool bookmarked}) async {

@@ -5357,12 +5357,6 @@ abstract class AppLocalizations {
   /// **'已从稍后再看移除'**
   String get watchLaterRemoved;
 
-  /// SnackBar after removing a bookmark; offers undo
-  ///
-  /// In zh, this message translates to:
-  /// **'已取消收藏'**
-  String get bookmarkRemoved;
-
   /// SnackBar after unfollowing a user; offers undo
   ///
   /// In zh, this message translates to:

@@ -62,11 +62,10 @@ void main() {
       expect(zh.cancelDownload, '取消');
     });
 
-    test('compound undo verbs stay idiomatic (取消关注/取消收藏/取消追更)', () {
+    test('compound undo verbs stay idiomatic (取消关注/取消追更)', () {
       // List-level undo idioms — the "cancel" is bound to its object, so
       // they read as removal-tier actions, not navigation.
       expect(zh.unfollow, '取消关注');
-      expect(zh.bookmarkRemoved, '已取消收藏');
       expect(zh.watchlistRemove, '取消追更');
     });
 

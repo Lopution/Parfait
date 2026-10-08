@@ -1223,7 +1223,6 @@
   "@watchLaterRemoved": {
     "description": "SnackBar shown after removing a watch-later entry; offers undo"
   },
-  "bookmarkRemoved": "Удалено из закладок",
   "followRemoved": "Вы отписались",
   "muteRemoved": "Скрытие снято",
   "watchlistOpenContents": "Открыть содержание",

@@ -1579,10 +1579,6 @@
   "@watchLaterRemoved": {
     "description": "SnackBar shown after removing a watch-later entry; offers undo"
   },
-  "bookmarkRemoved": "已取消收藏",
-  "@bookmarkRemoved": {
-    "description": "SnackBar after removing a bookmark; offers undo"
-  },
   "followRemoved": "已取消关注",
   "@followRemoved": {
     "description": "SnackBar after unfollowing a user; offers undo"

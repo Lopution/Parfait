@@ -2820,9 +2820,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get watchLaterRemoved => 'あとで見るから削除しました';
 
   @override
-  String get bookmarkRemoved => 'ブックマークを解除しました';
-
-  @override
   String get followRemoved => 'フォローを解除しました';
 
   @override
