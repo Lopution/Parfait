@@ -354,7 +354,7 @@ void main() {
       );
     }
     final unknown = AppSettings.fromJson({
-      'pageTransitionStyle': 'fadeThrough',
+      'pageTransitionStyle': 'zoom',
     }, fallback: baseTestSettings());
     expect(unknown.pageTransitionStyle, PageTransitionStyle.system);
   });

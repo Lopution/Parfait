@@ -1,12 +1,14 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/scheduler.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/navigation/route_observer.dart';
 import '../../l10n/context.dart';
 import '../motion/motion_tokens.dart';
+import '../motion/scroll_hide.dart';
 import '../icons/app_icons.dart';
 import '../navigation/home_shell_metrics.dart';
 import '../theme/func_semantic_tokens.dart';
@@ -355,11 +357,14 @@ class _PillInkWell extends InkResponse {
 }
 
 /// The single bottom bar at the home-shell layer: a **sibling** of the
-/// branch stack, floating
-/// over the pages instead of riding inside one. While the current branch's
-/// root route is covered by a pushed route (reported by
-/// [BranchRootScaffold] into [branchStackCoveredProvider]) it slides away,
-/// as if a whole new screen had been pushed over the home pages.
+/// branch stack, floating over the pages instead of riding inside one, so
+/// it stays put while the branches slide past under it.
+///
+/// While the current branch's root is covered (reported by
+/// [BranchRootScaffold] into [branchStackCoveredProvider]) it steps aside
+/// and the root page draws the same bar underneath the covering routes —
+/// pages pushed inside the branch cover the bar the way a new screen
+/// would.
 ///
 /// It is also the shell's [PromptAnchor]: prompts rest above the height it
 /// covers right now, so they ride along as it slides.
@@ -380,14 +385,13 @@ class FuncShellBottomNav extends ConsumerStatefulWidget {
   final ValueChanged<int> onSelected;
 
   /// 1 = fully shown, 0 = slid entirely below the screen edge. Owned by
-  /// [HomeBranchStack], which drives it from scroll deltas bubbling out
-  /// of the branch Navigators — the bar floats over the pages, so sliding
-  /// never reflows the page underneath.
+  /// [HomeBranchStack], which drives it from the current branch root's
+  /// scrolling — the bar floats over the pages, so sliding never reflows
+  /// the page underneath.
   final AnimationController scrollVisibility;
 
-  /// Sink for the bar's live covered height at the screen bottom, updated
-  /// from the same curved animations that drive the two [SlideTransition]s
-  /// below — the Hero landing clip reads it through
+  /// Sink for the bar's live covered height at the screen bottom — the
+  /// Hero landing clip reads it through
   /// [HomeShellChrome.bottomBarVisibleExtent], and it is the bar's prompt
   /// anchor extent.
   final ValueNotifier<double> visibleExtent;
@@ -396,125 +400,51 @@ class FuncShellBottomNav extends ConsumerStatefulWidget {
   ConsumerState<FuncShellBottomNav> createState() => _FuncShellBottomNavState();
 }
 
-class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _coveredVisibility;
-  // The same two CurvedAnimation instances the SlideTransitions below use —
-  // reading their values here keeps the published extent pixel-exact with
-  // the bar's real on-screen position, curves and reverses included.
-  late final CurvedAnimation _coveredCurve;
-  late CurvedAnimation _scrollCurve;
+class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav> {
   double _restingExtent = 0;
 
   @override
   void initState() {
     super.initState();
-    // Durations set in didChangeDependencies.
-    _coveredVisibility = AnimationController(
-      vsync: this,
-      value: ref.read(branchStackCoveredProvider).contains(widget.selectedIndex)
-          ? 0
-          : 1,
-    );
-    _coveredCurve = CurvedAnimation(
-      parent: _coveredVisibility,
-      curve: MotionTokens.navBarShowCurve,
-      reverseCurve: MotionTokens.navBarHideCurve,
-    )..addListener(_publishVisibleExtent);
-    _attachScrollCurve(widget.scrollVisibility);
+    widget.scrollVisibility.addListener(_publishVisibleExtent);
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _coveredVisibility
-      ..duration = MotionTokens.resolve(context, MotionTokens.navBarShow)
-      ..reverseDuration = MotionTokens.resolve(
-        context,
-        MotionTokens.navBarHide,
-      );
-  }
-
-  void _attachScrollCurve(AnimationController controller) {
-    _scrollCurve = CurvedAnimation(
-      parent: controller,
-      curve: MotionTokens.navBarShowCurve,
-      reverseCurve: MotionTokens.navBarHideCurve,
-    )..addListener(_publishVisibleExtent);
-  }
-
-  /// Both slides translate the bar downward by their own fraction of its
-  /// height; what is still on screen is the resting extent minus the sum
-  /// of the two translations, clamped at zero — the bar cannot hide
-  /// further than fully.
+  /// What is still on screen of the bar as it slides.
   void _publishVisibleExtent() {
-    final hidden = (1 - _coveredCurve.value) + (1 - _scrollCurve.value);
-    widget.visibleExtent.value = _restingExtent * math.max(0.0, 1.0 - hidden);
+    widget.visibleExtent.value =
+        _restingExtent * ScrollHiddenChrome.shownOf(widget.scrollVisibility);
   }
 
   @override
   void didUpdateWidget(covariant FuncShellBottomNav oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.scrollVisibility, widget.scrollVisibility)) {
+      oldWidget.scrollVisibility.removeListener(_publishVisibleExtent);
+      widget.scrollVisibility.addListener(_publishVisibleExtent);
+    }
     if (oldWidget.selectedIndex != widget.selectedIndex) {
       // A hidden bar must return on a branch switch.
-      if (MotionTokens.enabled(context)) {
-        widget.scrollVisibility.forward();
-      } else {
-        widget.scrollVisibility.value = 1;
-      }
-      _syncCovered(_isCovered);
-    }
-    if (!identical(oldWidget.scrollVisibility, widget.scrollVisibility)) {
-      _scrollCurve
-        ..removeListener(_publishVisibleExtent)
-        ..dispose();
-      _attachScrollCurve(widget.scrollVisibility);
+      slideChrome(context, widget.scrollVisibility, hidden: false);
     }
   }
 
   @override
   void dispose() {
+    widget.scrollVisibility.removeListener(_publishVisibleExtent);
     // A rail switch (or shell teardown) unmounts the bar — report zero so
     // the hero clip never reads a stale extent.
     widget.visibleExtent.value = 0;
-    _coveredVisibility.dispose();
-    _coveredCurve.dispose();
-    _scrollCurve.dispose();
     super.dispose();
-  }
-
-  bool get _isCovered =>
-      ref.read(branchStackCoveredProvider).contains(widget.selectedIndex);
-
-  void _syncCovered(bool covered) {
-    if (MotionTokens.enabled(context)) {
-      if (covered) {
-        _coveredVisibility.reverse();
-      } else {
-        _coveredVisibility.forward();
-      }
-    } else {
-      _coveredVisibility.value = covered ? 0 : 1;
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Covered state is a provider — watch the slice this bar cares about
-    // (is *my* branch covered) so a pushed route inside the branch
-    // Navigator rebuilds us and the controller slides away in step.
-    // `ref.watch` drives the rebuild declaratively — unlike `ref.listen`,
-    // a change that lands between builds can never be dropped.
+    // Watch only the slice this bar cares about: is *my* branch covered.
     final covered = ref.watch(
       branchStackCoveredProvider.select(
         (set) => set.contains(widget.selectedIndex),
       ),
     );
-    _syncCovered(covered);
-    // The bar is an overlay that *slides* out of the screen —
-    // the pages use a full-height layout so nothing reflows underneath.
-    // Two stacked transitions: covered (pushed route) over scroll
-    // (auto-hide), either one wins the hide.
     _restingExtent = FuncBottomNav.restingExtent(
       MediaQuery.paddingOf(context).bottom,
     );
@@ -522,16 +452,14 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
     // frame or only relayout on it (see HomeShellChrome.bottomBarVisibleExtent
     // and PromptAnchors).
     _publishVisibleExtent();
+    // Covered, the root page's copy of the bar anchors prompts: it sinks
+    // with the root as pages cover it.
     return PromptAnchor(
-      extent: widget.visibleExtent,
-      child: SlideTransition(
-        position: _coveredCurve.drive(
-          Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero),
-        ),
-        child: SlideTransition(
-          position: _scrollCurve.drive(
-            Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero),
-          ),
+      extent: covered ? _noExtent : widget.visibleExtent,
+      child: Offstage(
+        offstage: covered,
+        child: ScrollHiddenChrome(
+          visibility: widget.scrollVisibility,
           child: FuncBottomNav(
             destinations: homeDestinations(context),
             selectedIndex: widget.selectedIndex,
@@ -542,6 +470,8 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav>
     );
   }
 }
+
+const _noExtent = AlwaysStoppedAnimation<double>(0);
 
 /// Trailing spacer for branch-root scrollables. The navigation bar floats
 /// over the body ([Scaffold.extendBody]), so lists pad their tail by the
@@ -579,15 +509,17 @@ class BranchRootScope extends InheritedWidget {
       branchIndex != oldWidget.branchIndex;
 }
 
-/// Shell for a branch-root page: reports through RouteAware whether the
-/// branch's root route is covered by a route pushed inside the branch
-/// Navigator, so the shell-level [FuncShellBottomNav] slides away while it
-/// is — replacing the physical cover a page-local bar used to get for
-/// free.
+/// Shell for a branch-root page. It hands the user's scrolling of the page
+/// to the shell bar ([HomeShellChrome.onBranchRootScroll]) and reports
+/// whether the root route is covered into [branchStackCoveredProvider].
 ///
-/// `didPushNext`/`didPopNext` fire at push/pop start (RouteObserver
-/// notifies synchronously), so the bar animates in step with the route
-/// transition rather than after it.
+/// Covered — a route sits on the root inside the branch Navigator, or a
+/// page transition over it has not settled — the shell bar steps aside and
+/// this scaffold draws an inert copy of it at the same place, so the
+/// routes above cover the bar like any other part of the page and it
+/// leaves and returns with the page. The swap happens while the two copies
+/// overlap exactly: as a push starts and once a pop has fully revealed the
+/// root.
 class BranchRootScaffold extends ConsumerStatefulWidget {
   const BranchRootScaffold({
     super.key,
@@ -606,6 +538,9 @@ class _BranchRootScaffoldState extends ConsumerState<BranchRootScaffold>
     with RouteAware {
   RouteObserver<ModalRoute<dynamic>>? _observer;
   ModalRoute<dynamic>? _route;
+  Animation<double>? _cover;
+  bool _covered = false;
+  bool _syncScheduled = false;
 
   @override
   void didChangeDependencies() {
@@ -619,43 +554,63 @@ class _BranchRootScaffoldState extends ConsumerState<BranchRootScaffold>
     if (observer != null && route != null) {
       observer.subscribe(this, route);
     }
+    _cover = route?.secondaryAnimation?..addStatusListener(_onCoverStatus);
   }
 
   void _unsubscribe() {
-    final observer = _observer;
-    final route = _route;
-    if (observer != null && route != null) observer.unsubscribe(this);
+    if (_observer != null && _route != null) _observer!.unsubscribe(this);
+    _cover?.removeStatusListener(_onCoverStatus);
   }
 
   /// Fires once on subscribe. A branch stack built in one go — a deep-link
   /// cold start, state restoration — already has routes above the root
   /// then, and no didPushNext ever follows.
   @override
-  void didPush() => _recheckCovered();
+  void didPush() => _scheduleSync();
+
+  /// RouteObserver notifies at push and pop start.
+  @override
+  void didPushNext() => _scheduleSync();
 
   @override
-  void didPushNext() => _recheckCovered();
+  void didPopNext() => _scheduleSync();
 
-  @override
-  void didPopNext() => _recheckCovered();
+  /// A transition over the root starts, settles, or finishes revealing it.
+  void _onCoverStatus(AnimationStatus status) => _scheduleSync();
 
-  /// Navigator._updatePages replays synthetic push observations when a
-  /// branch rebuild hands the Navigator new pages — didPushNext/didPopNext
-  /// fire with no real stack change behind them. Verify a frame later,
-  /// once the stack has settled: covered simply means the root route is
-  /// no longer the branch Navigator's current route.
-  void _recheckCovered() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _setCovered(!(_route?.isCurrent ?? true));
+  /// Navigator._updatePages notifies while the tree builds — and replays
+  /// synthetic push observations with no real stack change behind them.
+  /// Neither the provider nor this state may change mid-build, so those
+  /// wait for the frame's end and read the settled stack then.
+  void _scheduleSync() {
+    final scheduler = SchedulerBinding.instance;
+    if (scheduler.schedulerPhase != SchedulerPhase.persistentCallbacks) {
+      _sync();
+      return;
+    }
+    if (_syncScheduled) return;
+    _syncScheduled = true;
+    scheduler.addPostFrameCallback((_) {
+      _syncScheduled = false;
+      _sync();
     });
+  }
+
+  void _sync() {
+    if (!mounted) return;
+    final route = _route;
+    final covered =
+        route != null &&
+        (!route.isCurrent || !(route.secondaryAnimation?.isDismissed ?? true));
+    _setCovered(covered);
+    if (covered != _covered) setState(() => _covered = covered);
   }
 
   void _setCovered(bool covered) {
     try {
       ref
           .read(branchStackCoveredProvider.notifier)
-          .setCovered(widget.branchIndex, covered);
+          .setCovered(this, widget.branchIndex, covered);
     } on Object {
       // The provider container can already be gone (test teardown).
     }
@@ -670,9 +625,45 @@ class _BranchRootScaffoldState extends ConsumerState<BranchRootScaffold>
 
   @override
   Widget build(BuildContext context) {
-    return BranchRootScope(
+    final chrome = HomeShellChrome.maybeOf(context);
+    final page = BranchRootScope(
       branchIndex: widget.branchIndex,
-      child: widget.child,
+      child: chrome == null
+          ? widget.child
+          : NotificationListener<ScrollNotification>(
+              onNotification: chrome.onBranchRootScroll,
+              child: widget.child,
+            ),
+    );
+    final bar = chrome == null || chrome.bottomBarExtent == 0 ? null : chrome;
+    // The Stack stays whether or not the copy shows, so the page below is
+    // never remounted.
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        page,
+        if (bar != null && _covered)
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: PromptAnchor(
+              extent: bar.bottomBarVisibleExtent,
+              child: IgnorePointer(
+                child: ExcludeSemantics(
+                  child: ScrollHiddenChrome(
+                    visibility: bar.bottomBarVisibility,
+                    child: FuncBottomNav(
+                      destinations: homeDestinations(context),
+                      selectedIndex: widget.branchIndex,
+                      onSelected: _ignoreSelection,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
+
+void _ignoreSelection(int _) {}

@@ -8,12 +8,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// reserve the slot on the very first frame instead of waiting for a
 /// post-layout measurement.
 ///
+/// Also the channel between the shell bar and the branch roots: a root
+/// page reports its user's scrolling through [onBranchRootScroll] and,
+/// while a route covers it, draws the bar itself from [bottomBarVisibility]
+/// (see `BranchRootScaffold`).
+///
 /// Zero on NavigationRail layouts, where no bottom bar exists.
 class HomeShellChrome extends InheritedWidget {
   const HomeShellChrome({
     super.key,
     required this.bottomBarExtent,
     required this.bottomBarVisibleExtent,
+    required this.bottomBarVisibility,
+    required this.onBranchRootScroll,
     required super.child,
   });
 
@@ -22,12 +29,11 @@ class HomeShellChrome extends InheritedWidget {
   /// or 0 while the width ladder selects the NavigationRail.
   final double bottomBarExtent;
 
-  /// The bar's *currently visible* height at the screen bottom — the two
-  /// stacked slide-out animations (route cover + scroll auto-hide) are
-  /// resolved into one live value by `FuncShellBottomNav`. The Hero
-  /// landing clip reads it per frame so a half-returned bar clips at its
-  /// real top edge instead of the resting one; the bar also anchors
-  /// prompts with it (`PromptAnchor`).
+  /// The bar's *currently visible* height at the screen bottom, resolved
+  /// from its scroll hide by `FuncShellBottomNav`. The Hero landing clip
+  /// reads it per frame so a half-returned bar clips at its real top edge
+  /// instead of the resting one; the bar also anchors prompts with it
+  /// (`PromptAnchor`).
   ///
   /// The instance is a stable notifier owned by `HomeBranchStack`;
   /// [updateShouldNotify] deliberately ignores it. Stays 0 on rail
@@ -38,6 +44,14 @@ class HomeShellChrome extends InheritedWidget {
   /// widgets dirty mid-build; relayout-only listeners (the prompt layout)
   /// are safe.
   final ValueListenable<double> bottomBarVisibleExtent;
+
+  /// The bar's scroll hide, 1 shown and 0 hidden, linear (see
+  /// `ScrollHiddenChrome`). Stable, like [bottomBarVisibleExtent].
+  final Animation<double> bottomBarVisibility;
+
+  /// Scroll notifications of the current branch's root page: the user's
+  /// scrolling there, and nowhere else, hides and shows the bar.
+  final NotificationListenerCallback<ScrollNotification> onBranchRootScroll;
 
   static HomeShellChrome? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<HomeShellChrome>();
@@ -50,32 +64,41 @@ class HomeShellChrome extends InheritedWidget {
 
   @override
   bool updateShouldNotify(HomeShellChrome oldWidget) =>
-      bottomBarExtent != oldWidget.bottomBarExtent;
+      bottomBarExtent != oldWidget.bottomBarExtent ||
+      bottomBarVisibility != oldWidget.bottomBarVisibility;
 }
 
-/// Branches whose root route is currently covered by a pushed route inside
-/// the branch Navigator. The shell-level bottom bar subscribes to this and
-/// slides away while the current branch is covered, as if a whole new
-/// screen had been pushed over the home pager.
+/// Branches whose root route is covered: a route sits on it inside the
+/// branch Navigator, or a page transition over it has not settled. The
+/// shell bar steps aside for the current branch while it is, and the root
+/// page draws the bar instead, so the pages pushed over it cover it.
 ///
-/// Reported by [BranchRootScaffold], which subscribes to its branch's
-/// RouteObserver: `didPushNext`/`didPopNext` fire at push/pop start, so the
-/// bar animates in step with the route transition rather than after it.
+/// Reported by `BranchRootScaffold` from its route's state.
 final branchStackCoveredProvider =
     NotifierProvider<_BranchStackCoveredNotifier, Set<int>>(
       _BranchStackCoveredNotifier.new,
     );
 
 class _BranchStackCoveredNotifier extends Notifier<Set<int>> {
-  @override
-  Set<int> build() => const {};
+  /// Covered scaffold → its branch. A branch can hold two root scaffolds
+  /// for a moment (one leaving as its page is replaced); the branch is
+  /// covered while either reports so.
+  final _owners = <Object, int>{};
 
-  void setCovered(int branchIndex, bool covered) {
-    if (state.contains(branchIndex) == covered) return;
-    state = {
-      for (final b in state)
-        if (b != branchIndex) b,
-      if (covered) branchIndex,
-    };
+  @override
+  Set<int> build() {
+    _owners.clear();
+    return const {};
+  }
+
+  void setCovered(Object owner, int branchIndex, bool covered) {
+    if (covered) {
+      _owners[owner] = branchIndex;
+    } else {
+      _owners.remove(owner);
+    }
+    final next = _owners.values.toSet();
+    if (setEquals(next, state)) return;
+    state = next;
   }
 }

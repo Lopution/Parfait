@@ -1,4 +1,3 @@
-import 'package:animations/animations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -39,8 +38,9 @@ void reTapScrollToTop(BuildContext context, ScrollController controller) {
 }
 
 /// The home shell container. Branches remain mounted in place so each branch
-/// retains its navigator stack and scroll state; switching only fades between
-/// the current and outgoing branch.
+/// retains its navigator stack and scroll state; a switch slides the
+/// outgoing and incoming branch side by side, toward where the chosen
+/// destination sits on the bar.
 class HomeBranchStack extends StatefulWidget {
   const HomeBranchStack({
     super.key,
@@ -71,14 +71,13 @@ class _HomeBranchStackState extends State<HomeBranchStack>
   );
   late final AnimationController _navVisibility;
 
-  /// Freezes the outgoing branch into one texture while it fades through.
-  /// Fading a live page re-renders it into a full-screen offscreen layer
-  /// on every frame; a texture takes the opacity in a single draw. The
-  /// incoming branch stays live — its ticker, entrances and image fades
-  /// keep running so the switch never lands on a frozen page.
+  /// Freezes the outgoing branch into one texture while it slides away:
+  /// one draw per frame instead of re-rendering the page. The incoming
+  /// branch stays live — its ticker, entrances and image fades keep
+  /// running so the switch never lands on a frozen page.
   final SnapshotController _switchSnapshot = SnapshotController();
 
-  /// Never armed: assigned to every branch that is not fading out, so the
+  /// Never armed: assigned to every branch that is not sliding out, so the
   /// `SnapshotWidget` stays in the tree without remounting branches and
   /// only the outgoing one becomes a texture.
   final SnapshotController _idleSnapshot = SnapshotController();
@@ -107,12 +106,10 @@ class _HomeBranchStackState extends State<HomeBranchStack>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _switch.duration = MotionTokens.resolve(context, MotionTokens.branchSwitch);
-    _navVisibility
-      ..duration = MotionTokens.resolve(context, MotionTokens.navBarShow)
-      ..reverseDuration = MotionTokens.resolve(
-        context,
-        MotionTokens.navBarHide,
-      );
+    _navVisibility.duration = MotionTokens.resolve(
+      context,
+      MotionTokens.chromeScrollHide,
+    );
     _touchExploration = MediaQuery.accessibleNavigationOf(context);
     // Touch exploration started while the bar was scrolled away: bring it
     // back, a TalkBack user cannot find a bar that is off screen.
@@ -175,12 +172,35 @@ class _HomeBranchStackState extends State<HomeBranchStack>
     _reTap.emit(index);
   }
 
-  bool _onScrollNotification(ScrollNotification notification) {
+  bool _onBranchRootScroll(ScrollNotification notification) {
     if (_touchExploration) return false;
-    final slop = MediaQuery.maybeGestureSettingsOf(context)?.touchSlop ?? 8.0;
-    final hide = _scrollHide.update(notification, slop: slop);
+    final hide = _scrollHide.update(
+      notification,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+    );
     if (hide != null) slideChrome(context, _navVisibility, hidden: hide);
     return false;
+  }
+
+  /// Where branch [i] slides during a switch: the incoming one in from the
+  /// side of its destination, the outgoing one out the other way. Along
+  /// the rail on wide layouts, mirrored for right-to-left bars.
+  Animation<Offset> _slideOf(int i, {required bool rail}) {
+    final outgoing = _outgoing;
+    if (outgoing == null || (i != _current && i != outgoing)) {
+      return _still;
+    }
+    var sign = _current > outgoing ? 1.0 : -1.0;
+    if (!rail && Directionality.of(context) == TextDirection.rtl) {
+      sign = -sign;
+    }
+    final away = rail ? Offset(0, sign) : Offset(sign, 0);
+    final tween = i == _current
+        ? Tween<Offset>(begin: away, end: Offset.zero)
+        : Tween<Offset>(begin: Offset.zero, end: -away);
+    return _switch.drive(
+      tween.chain(CurveTween(curve: MotionTokens.branchSwitchCurve)),
+    );
   }
 
   Widget _buildRail(BuildContext context) {
@@ -212,68 +232,61 @@ class _HomeBranchStackState extends State<HomeBranchStack>
     final bottomBarExtent = rail
         ? 0.0
         : FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom);
-    final strip = NotificationListener<ScrollNotification>(
-      onNotification: _onScrollNotification,
-      child: Stack(
-        fit: StackFit.expand,
-        clipBehavior: Clip.hardEdge,
-        children: [
-          for (var i = 0; i < widget.children.length; i++)
-            Offstage(
-              offstage: i != _current && i != _outgoing,
-              // Only the leaving branch freezes: its texture takes the
-              // fade in a single draw while the incoming branch runs live —
-              // entrances, image fades and press feedback keep animating
-              // through the switch instead of jumping at the end.
-              child: TickerMode(
-                enabled: i == _current,
-                child: IgnorePointer(
-                  ignoring: i != _current,
-                  child: ExcludeSemantics(
-                    excluding: i != _current,
-                    child: BranchActivityScope(
-                      active: enclosingRouteIsCurrent && i == _current,
-                      child: FadeThroughTransition(
-                        animation: i == _current
-                            ? _switch
-                            : kAlwaysCompleteAnimation,
-                        secondaryAnimation: i == _outgoing
-                            ? _switch
-                            : kAlwaysDismissedAnimation,
-                        fillColor: Colors.transparent,
-                        // Always in the tree, so starting a switch never
-                        // remounts a branch; only the outgoing branch paints
-                        // from a texture.
-                        child: SnapshotWidget(
-                          // A branch showing a platform view paints live.
-                          mode: SnapshotMode.permissive,
-                          controller: i == _outgoing
-                              ? _switchSnapshot
-                              : _idleSnapshot,
-                          child: widget.children[i],
-                        ),
+    final strip = Stack(
+      fit: StackFit.expand,
+      clipBehavior: Clip.hardEdge,
+      children: [
+        for (var i = 0; i < widget.children.length; i++)
+          Offstage(
+            offstage: i != _current && i != _outgoing,
+            // Only the leaving branch freezes: its texture slides in a
+            // single draw while the incoming branch runs live — entrances,
+            // image fades and press feedback keep animating through the
+            // switch instead of jumping at the end.
+            child: TickerMode(
+              enabled: i == _current,
+              child: IgnorePointer(
+                ignoring: i != _current,
+                child: ExcludeSemantics(
+                  excluding: i != _current,
+                  child: BranchActivityScope(
+                    active: enclosingRouteIsCurrent && i == _current,
+                    child: SlideTransition(
+                      position: _slideOf(i, rail: rail),
+                      // Always in the tree, so starting a switch never
+                      // remounts a branch; only the outgoing branch paints
+                      // from a texture.
+                      child: SnapshotWidget(
+                        // A branch showing a platform view paints live.
+                        mode: SnapshotMode.permissive,
+                        controller: i == _outgoing
+                            ? _switchSnapshot
+                            : _idleSnapshot,
+                        child: widget.children[i],
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          if (!rail)
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: FuncShellBottomNav(
-                selectedIndex: _current,
-                onSelected: _select,
-                scrollVisibility: _navVisibility,
-                visibleExtent: _navBarVisibleExtent,
-              ),
+          ),
+        if (!rail)
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: FuncShellBottomNav(
+              selectedIndex: _current,
+              onSelected: _select,
+              scrollVisibility: _navVisibility,
+              visibleExtent: _navBarVisibleExtent,
             ),
-        ],
-      ),
+          ),
+      ],
     );
     return HomeShellChrome(
       bottomBarExtent: bottomBarExtent,
       bottomBarVisibleExtent: _navBarVisibleExtent,
+      bottomBarVisibility: _navVisibility,
+      onBranchRootScroll: _onBranchRootScroll,
       child: _HomeBranchScope(
         channel: _reTap,
         child: rail
@@ -312,6 +325,8 @@ class BranchActivityScope extends InheritedWidget {
   bool updateShouldNotify(BranchActivityScope oldWidget) =>
       active != oldWidget.active;
 }
+
+const _still = AlwaysStoppedAnimation<Offset>(Offset.zero);
 
 class _HomeBranchScope extends InheritedWidget {
   const _HomeBranchScope({required this.channel, required super.child});

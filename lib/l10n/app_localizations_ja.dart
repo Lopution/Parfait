@@ -952,19 +952,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get pageTransitionStyleSystemHintOther => 'プラットフォームのデフォルト';
 
   @override
-  String get pageTransitionStyleSharedAxis => '共有軸';
-
-  @override
-  String get pageTransitionStyleSharedAxisHint =>
-      'Material 推奨：新旧の画面が同じ方向にスライドしてクロスフェード';
-
-  @override
-  String get pageTransitionStyleZoom => 'ズーム';
-
-  @override
-  String get pageTransitionStyleZoomHint => '拡大して表示（Android 10 風）';
-
-  @override
   String get pageTransitionStyleSlide => 'スライド';
 
   @override

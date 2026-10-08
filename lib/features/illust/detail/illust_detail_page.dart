@@ -106,8 +106,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   );
   late final CurvedAnimation _barCurve = CurvedAnimation(
     parent: _barVisibility,
-    curve: MotionTokens.navBarShowCurve,
-    reverseCurve: MotionTokens.navBarHideCurve,
+    curve: MotionTokens.chromeScrollCurve,
   );
   final _scrollHide = ScrollHideTracker();
 
@@ -147,12 +146,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _barVisibility
-      ..duration = MotionTokens.resolve(context, MotionTokens.navBarShow)
-      ..reverseDuration = MotionTokens.resolve(
-        context,
-        MotionTokens.navBarHide,
-      );
+    _barVisibility.duration = MotionTokens.resolve(
+      context,
+      MotionTokens.chromeScrollHide,
+    );
     _touchExploration = MediaQuery.accessibleNavigationOf(context);
     if (_touchExploration) _barVisibility.value = 1;
     _topBarEntrance.duration = MotionTokens.resolve(context, MotionTokens.fast);
@@ -196,8 +193,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
 
   bool _onBarScroll(ScrollNotification notification) {
     if (_touchExploration) return false;
-    final slop = MediaQuery.maybeGestureSettingsOf(context)?.touchSlop ?? 8.0;
-    final hide = _scrollHide.update(notification, slop: slop);
+    final hide = _scrollHide.update(
+      notification,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+    );
     if (hide != null) slideChrome(context, _barVisibility, hidden: hide);
     return false;
   }

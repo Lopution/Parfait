@@ -100,12 +100,7 @@ enum Setting implements SettingsEntry {
   pageTransition(
     SettingsPageRef.motion,
     'motionPageTransition',
-    optionKeys: [
-      'pageTransitionStyleSystem',
-      'pageTransitionStyleSharedAxis',
-      'pageTransitionStyleZoom',
-      'pageTransitionStyleSlide',
-    ],
+    optionKeys: ['pageTransitionStyleSystem', 'pageTransitionStyleSlide'],
   ),
   animationSpeed(
     SettingsPageRef.motion,

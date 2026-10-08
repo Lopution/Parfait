@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:animations/animations.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -118,14 +117,14 @@ bool _branchActive(WidgetTester tester, Finder page) => tester
     .active;
 
 /// Drives the shell's shared tap entry the way FuncShellBottomNav does —
-/// needed while a pushed route covers the current branch root, when the
-/// bar has slid off screen and cannot be tapped.
+/// needed while a pushed route covers the current branch root and the bar
+/// with it.
 void _select(WidgetTester tester, int index) => tester
     .widget<FuncShellBottomNav>(find.byType(FuncShellBottomNav))
     .onSelected(index);
 
 void main() {
-  testWidgets('a bar tap fades the outgoing branch out and the new one in', (
+  testWidgets('a bar tap slides the new branch in from its side', (
     tester,
   ) async {
     await _pumpHome(tester);
@@ -133,14 +132,18 @@ void main() {
 
     await tester.tap(_barIcon(AppIcons.ranking));
     await tester.pump();
-    // Mid-flight both branches are on stage — the fade-through pair —
-    // but only the incoming one is hittable, has semantics and is marked
+    // Mid-flight both branches are on stage side by side — ranking sits
+    // right of recommended on the bar, so it enters from the right — but
+    // only the incoming one is hittable, has semantics and is marked
     // active for predictive back.
     await tester.pump(const Duration(milliseconds: 150));
     final recommended = find.byType(RecommendedHomePage);
     final ranking = find.byType(RankingPage);
     expect(recommended, findsOneWidget);
     expect(ranking, findsOneWidget);
+    final incoming = tester.getTopLeft(ranking).dx;
+    expect(incoming, inExclusiveRange(0, 390));
+    expect(tester.getTopRight(recommended).dx, closeTo(incoming, 0.5));
     expect(_branchPointer(tester, recommended).ignoring, isTrue);
     expect(_branchPointer(tester, ranking).ignoring, isFalse);
     expect(_branchSemantics(tester, recommended).excluding, isTrue);
@@ -167,7 +170,7 @@ void main() {
     final recommended = find.byType(RecommendedHomePage, skipOffstage: false);
     bool tickersOn(Finder page) =>
         TickerMode.valuesOf(tester.element(page)).enabled;
-    // The branch's own snapshot: the outermost below the fade-through,
+    // The branch's own snapshot: the outermost below its activity scope,
     // above the route snapshots inside the branch Navigator.
     bool snapshotting(Finder page) => tester
         .widget<SnapshotWidget>(
@@ -175,7 +178,7 @@ void main() {
               .ancestor(
                 of: page,
                 matching: find.descendant(
-                  of: find.byType(FadeThroughTransition, skipOffstage: false),
+                  of: find.byType(BranchActivityScope, skipOffstage: false),
                   matching: find.byType(SnapshotWidget, skipOffstage: false),
                   skipOffstage: false,
                 ),
@@ -305,8 +308,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(HistoryPage), findsOneWidget);
 
-      // The bar slides away while a pushed route covers the root, so the
-      // tap arrives at the stack the same way FuncShellBottomNav sends it.
+      // The pushed route covers the bar, so the tap arrives at the stack
+      // the same way FuncShellBottomNav sends it.
       _select(tester, 0);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));

@@ -141,13 +141,11 @@ enum AnimationSpeed {
 }
 
 /// Page route transition style. [system] is the platform's own transition
-/// (Android predictive back, the slide elsewhere); the others are the
-/// official shared-axis, zoom and Cupertino slide transitions. Persisted
-/// by [name].
+/// (Android predictive back, the slide elsewhere); [slide] is the official
+/// Cupertino slide. Persisted by [name]; a retired name (`sharedAxis`,
+/// `zoom`) reads as unknown and falls back to [system].
 enum PageTransitionStyle {
   system,
-  sharedAxis,
-  zoom,
   slide;
 
   static PageTransitionStyle? tryFromName(Object? value) {

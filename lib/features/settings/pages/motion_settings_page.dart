@@ -199,9 +199,6 @@ String _hapticTierText(BuildContext context, HapticsTier tier) {
 String _transitionStyleText(BuildContext context, PageTransitionStyle style) =>
     switch (style) {
       PageTransitionStyle.system => context.l10n.pageTransitionStyleSystem,
-      PageTransitionStyle.sharedAxis =>
-        context.l10n.pageTransitionStyleSharedAxis,
-      PageTransitionStyle.zoom => context.l10n.pageTransitionStyleZoom,
       PageTransitionStyle.slide => context.l10n.pageTransitionStyleSlide,
     };
 
@@ -212,8 +209,5 @@ String _transitionStyleHint(BuildContext context, PageTransitionStyle style) =>
         defaultTargetPlatform == TargetPlatform.android
             ? context.l10n.pageTransitionStyleSystemHint
             : context.l10n.pageTransitionStyleSystemHintOther,
-      PageTransitionStyle.sharedAxis =>
-        context.l10n.pageTransitionStyleSharedAxisHint,
-      PageTransitionStyle.zoom => context.l10n.pageTransitionStyleZoomHint,
       PageTransitionStyle.slide => context.l10n.pageTransitionStyleSlideHint,
     };

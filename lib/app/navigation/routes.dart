@@ -182,12 +182,14 @@ Page<dynamic> _page(
 ) {
   // Reduced-motion collapses the transition without dropping the state it
   // communicates: the route still changes on the same frame. The animation
-  // speed scales both platform bases (Android 250/350/450ms).
+  // speed scales each style's own duration.
+  final style = MotionScope.transitionStyleOf(context);
   final duration = MotionTokens.resolve(
     context,
-    defaultTargetPlatform == TargetPlatform.android
-        ? MotionTokens.pageTransitionAndroid
-        : MotionTokens.pageTransition,
+    MotionTokens.pageTransitionOf(
+      style,
+      android: defaultTargetPlatform == TargetPlatform.android,
+    ),
   );
   return FuncPage<dynamic>(
     key: state.pageKey,
@@ -202,7 +204,7 @@ Page<dynamic> _page(
     child: _scoped(observer, child),
     transitionDuration: duration,
     reverseTransitionDuration: duration,
-    transitionStyle: MotionScope.transitionStyleOf(context),
+    transitionStyle: style,
   );
 }
 
@@ -1026,8 +1028,8 @@ StatefulShellBranch _branch({
           state,
           observer,
           // The bottom bar is a shell-level sibling of the branch strip;
-          // this scaffold only reports through the branch RouteObserver
-          // when the root route is covered so the bar can slide away.
+          // this scaffold feeds it the root page's scrolling and draws it
+          // under the routes that cover the root.
           BranchRootScaffold(
             branchIndex: branchIndex,
             child: homeBuilder?.call(context, state) ?? home,
