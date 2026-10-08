@@ -932,18 +932,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pageTransitionStyleSystemHintOther => '平台默认';
 
   @override
-  String get pageTransitionStyleSharedAxis => '共享轴';
-
-  @override
-  String get pageTransitionStyleSharedAxisHint => 'Material 推荐：新旧页面同向滑动并交叉淡化';
-
-  @override
-  String get pageTransitionStyleZoom => '缩放';
-
-  @override
-  String get pageTransitionStyleZoomHint => '放大进入（Android 10 风格）';
-
-  @override
   String get pageTransitionStyleSlide => '侧滑';
 
   @override

@@ -11,10 +11,24 @@ import '../../core/settings/app_settings.dart';
 /// here. Read every duration through [resolve] so the animation speed and
 /// the reduced-motion gate apply.
 abstract final class MotionTokens {
-  /// Page route transition used by the router page builder on Android.
-  static const pageTransitionAndroid = Duration(milliseconds: 350);
+  /// Page route transition at each style's own spec duration (before
+  /// [resolve]): FadeForwards behind Android's system style
+  /// (`FadeForwardsPageTransitionsBuilder.kTransitionMilliseconds`), the
+  /// `CupertinoPageRoute` slide, and [pageTransition] for the system style
+  /// elsewhere.
+  static Duration pageTransitionOf(
+    PageTransitionStyle style, {
+    required bool android,
+  }) => switch (style) {
+    PageTransitionStyle.slide => _pageTransitionSlide,
+    PageTransitionStyle.system when android => _pageTransitionFadeForwards,
+    PageTransitionStyle.system => pageTransition,
+  };
 
-  /// Page route transition on the other platforms.
+  static const _pageTransitionFadeForwards = Duration(milliseconds: 450);
+  static const _pageTransitionSlide = Duration(milliseconds: 500);
+
+  /// `FuncRouteTransition`, the system style off Android.
   static const pageTransition = Duration(milliseconds: 300);
   static const pageCurve = Curves.easeInOutCubic;
 

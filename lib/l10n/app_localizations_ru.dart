@@ -987,20 +987,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get pageTransitionStyleSystemHintOther => 'По умолчанию для платформы';
 
   @override
-  String get pageTransitionStyleSharedAxis => 'Общая ось';
-
-  @override
-  String get pageTransitionStyleSharedAxisHint =>
-      'Рекомендация Material: обе страницы сдвигаются в одну сторону с наплывом';
-
-  @override
-  String get pageTransitionStyleZoom => 'Масштаб';
-
-  @override
-  String get pageTransitionStyleZoomHint =>
-      'Увеличение при открытии (как в Android 10)';
-
-  @override
   String get pageTransitionStyleSlide => 'Сдвиг';
 
   @override

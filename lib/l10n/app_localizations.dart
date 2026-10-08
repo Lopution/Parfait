@@ -1865,30 +1865,6 @@ abstract class AppLocalizations {
   /// **'平台默认'**
   String get pageTransitionStyleSystemHintOther;
 
-  /// No description provided for @pageTransitionStyleSharedAxis.
-  ///
-  /// In zh, this message translates to:
-  /// **'共享轴'**
-  String get pageTransitionStyleSharedAxis;
-
-  /// No description provided for @pageTransitionStyleSharedAxisHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'Material 推荐：新旧页面同向滑动并交叉淡化'**
-  String get pageTransitionStyleSharedAxisHint;
-
-  /// No description provided for @pageTransitionStyleZoom.
-  ///
-  /// In zh, this message translates to:
-  /// **'缩放'**
-  String get pageTransitionStyleZoom;
-
-  /// No description provided for @pageTransitionStyleZoomHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'放大进入（Android 10 风格）'**
-  String get pageTransitionStyleZoomHint;
-
   /// No description provided for @pageTransitionStyleSlide.
   ///
   /// In zh, this message translates to:

@@ -985,19 +985,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pageTransitionStyleSystemHintOther => 'Platform default';
 
   @override
-  String get pageTransitionStyleSharedAxis => 'Shared axis';
-
-  @override
-  String get pageTransitionStyleSharedAxisHint =>
-      'Material recommended: both pages slide the same way and cross-fade';
-
-  @override
-  String get pageTransitionStyleZoom => 'Zoom';
-
-  @override
-  String get pageTransitionStyleZoomHint => 'Zooms in (Android 10 style)';
-
-  @override
   String get pageTransitionStyleSlide => 'Slide';
 
   @override

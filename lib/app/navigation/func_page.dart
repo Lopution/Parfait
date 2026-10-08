@@ -1,14 +1,9 @@
-import 'package:animations/animations.dart'
-    show SharedAxisPageTransitionsBuilder, SharedAxisTransitionType;
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoPageTransition;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show PredictiveBackEvent;
 import 'package:flutter/widgets.dart';
 import 'package:material_ui/material_ui.dart'
-    show
-        PredictiveBackPageTransitionsBuilder,
-        Theme,
-        ZoomPageTransitionsBuilder;
+    show PredictiveBackPageTransitionsBuilder;
 
 import '../../core/settings/app_settings.dart' show PageTransitionStyle;
 import '../motion/motion_tokens.dart';
@@ -20,9 +15,9 @@ import '../widgets/home_branch_stack.dart' show BranchActivityScope;
 ///   [PredictiveBackPageTransitionsBuilder] (predictive-back shared element
 ///   on Android U+, FadeForwards elsewhere); every other platform keeps the
 ///   [FuncRouteTransition] trailing-edge slide.
-/// - `sharedAxis`, `zoom`, `slide`: the official horizontal shared axis,
-///   zoom and Cupertino slide transitions on every platform. On Android a
-///   back-gesture driver lets the system back gesture scrub them.
+/// - [PageTransitionStyle.slide]: the official Cupertino slide on every
+///   platform. On Android a back-gesture driver lets the system back
+///   gesture scrub it.
 ///
 /// A hand-rolled [Page] instead of `CustomTransitionPage` because the
 /// predictive-back builder's `buildTransitions` takes the [PageRoute]
@@ -150,20 +145,6 @@ class _FuncPageRoute<T> extends PageRoute<T> {
               secondaryAnimation,
               child,
             );
-      case PageTransitionStyle.sharedAxis:
-        transition = (child) => SharedAxisPageTransitionsBuilder(
-          transitionType: SharedAxisTransitionType.horizontal,
-          fillColor: Theme.of(context).colorScheme.surface,
-        ).buildTransitions(this, context, animation, secondaryAnimation, child);
-      case PageTransitionStyle.zoom:
-        transition = (child) =>
-            const ZoomPageTransitionsBuilder().buildTransitions(
-              this,
-              context,
-              animation,
-              secondaryAnimation,
-              child,
-            );
       case PageTransitionStyle.slide:
         // The transition widget, not CupertinoPageTransitionsBuilder: the
         // builder adds an iOS edge-swipe back detector that would take
@@ -175,8 +156,7 @@ class _FuncPageRoute<T> extends PageRoute<T> {
           child: child,
         );
     }
-    final drive =
-        android && _page.transitionStyle != PageTransitionStyle.system;
+    final drive = android && _page.transitionStyle == PageTransitionStyle.slide;
     return FuncTransitionGuard(
       animation: animation,
       secondaryAnimation: secondaryAnimation,
@@ -207,7 +187,7 @@ void commitBackGestureGuarded(NavigatorState? navigator, VoidCallback commit) {
 /// `CupertinoPageRoute`'s barrier over the page below a slide.
 const _slideBarrierColor = Color(0x18000000);
 
-/// Hands the Android predictive back gesture to [route] so a non-system
+/// Hands the Android predictive back gesture to [route] so the slide
 /// transition follows the finger: the same forwarding as Material's private
 /// predictive-back detector, without its own visuals. Only the visible top
 /// route takes the gesture ([PageRoute.popGestureEnabled] includes the
