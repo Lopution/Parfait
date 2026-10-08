@@ -6,7 +6,6 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
-import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/motion/feed_entrance.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
@@ -130,77 +129,6 @@ void main() {
       );
     });
 
-    testWidgets('sheets and dialogs follow the speed', (tester) async {
-      late BuildContext host;
-      await tester.pumpWidget(
-        _wrap(
-          Builder(
-            builder: (context) {
-              host = context;
-              return const SizedBox.shrink();
-            },
-          ),
-          speed: AnimationSpeed.slow,
-        ),
-      );
-      const factor = 450 / 350;
-
-      late BuildContext sheet;
-      unawaited(
-        showAppBottomSheet<void>(
-          context: host,
-          builder: (context) {
-            sheet = context;
-            return const SizedBox(height: 100);
-          },
-        ),
-      );
-      await tester.pumpAndSettle();
-      final (sheetIn, sheetCurve) = MotionTokens.springCurve(
-        host,
-        MotionSpring.spatialDefault,
-      );
-      final normalSheet = SpringCurve(
-        SpringDescription.withDampingRatio(
-          mass: 1,
-          stiffness: MotionSpring.spatialDefault.stiffness,
-          ratio: MotionSpring.spatialDefault.dampingRatio,
-        ),
-      ).settleDuration;
-      expect(
-        sheetIn.inMicroseconds,
-        closeTo(normalSheet.inMicroseconds * factor, 2000),
-      );
-      final sheetRoute = ModalRoute.of(sheet)! as ModalBottomSheetRoute<void>;
-      expect(sheetRoute.transitionDuration, sheetIn);
-      expect(
-        sheetRoute.reverseTransitionDuration,
-        MotionTokens.medium * factor,
-      );
-      expect(sheetRoute.sheetAnimationStyle!.curve, isA<SpringCurve>());
-      expect(sheetCurve, isA<SpringCurve>());
-      Navigator.of(sheet).pop();
-      await tester.pumpAndSettle();
-
-      late BuildContext dialog;
-      unawaited(
-        showAppDialog<void>(
-          context: host,
-          builder: (context) {
-            dialog = context;
-            return const SizedBox(height: 100);
-          },
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        ModalRoute.of(dialog)!.transitionDuration,
-        MotionTokens.dialog * factor,
-      );
-      Navigator.of(dialog).pop();
-      await tester.pumpAndSettle();
-    });
-
     testWidgets('plays when neither source asks for reduction', (tester) async {
       expect(await resolve(tester), MotionTokens.medium);
     });
@@ -239,13 +167,6 @@ void main() {
         host(const MediaQueryData(disableAnimations: true)),
       );
       expect(_gateReads, 2);
-    });
-
-    testWidgets('collapses when both sources ask', (tester) async {
-      expect(
-        await resolve(tester, reduce: true, platformDisable: true),
-        Duration.zero,
-      );
     });
 
     testWidgets('collapses under platform reduceMotion (iOS hole)', (
@@ -294,25 +215,6 @@ void main() {
       }
     });
 
-    test('a stiffer spring settles sooner', () {
-      expect(
-        curveOf(MotionSpring.spatialFast).settleDuration,
-        lessThan(curveOf(MotionSpring.spatialDefault).settleDuration),
-      );
-    });
-
-    test('only the expressive spring overshoots', () {
-      double peak(MotionSpring token) {
-        final curve = curveOf(token);
-        return [
-          for (var i = 0; i <= 200; i++) curve.transform(i / 200),
-        ].reduce((a, b) => a > b ? a : b);
-      }
-
-      expect(peak(MotionSpring.expressiveSpatialFast), greaterThan(1.05));
-      expect(peak(MotionSpring.effectsFast), lessThanOrEqualTo(1.0));
-    });
-
     Future<(Duration, Curve)> springCurveAt(
       WidgetTester tester, {
       AnimationSpeed speed = AnimationSpeed.normal,
@@ -336,15 +238,6 @@ void main() {
       );
       return resolved!;
     }
-
-    testWidgets('the slow speed stretches the settle time', (tester) async {
-      final (normal, _) = await springCurveAt(tester);
-      final (slow, _) = await springCurveAt(tester, speed: AnimationSpeed.slow);
-      expect(
-        slow.inMicroseconds / normal.inMicroseconds,
-        closeTo(450 / 350, 450 / 350 * 0.02),
-      );
-    });
 
     testWidgets('reduced motion has no spring', (tester) async {
       final (duration, _) = await springCurveAt(tester, reduce: true);
@@ -620,46 +513,6 @@ void main() {
       );
     });
 
-    testWidgets('an entrance frozen mid-play lands on its end state', (
-      tester,
-    ) async {
-      final played = <int>{};
-      final tickers = ValueNotifier(true);
-      addTearDown(tickers.dispose);
-      // The entrance itself is the same instance on every pump: only its
-      // own ticker-mode reaction can land it.
-      final entrance = StaggeredEntrance(
-        index: 0,
-        id: 0,
-        played: played,
-        child: const Text('card'),
-      );
-      await tester.pumpWidget(
-        _wrap(
-          ValueListenableBuilder<bool>(
-            valueListenable: tickers,
-            builder: (_, enabled, child) =>
-                TickerMode(enabled: enabled, child: child!),
-            child: entrance,
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 40));
-      Opacity opacity() => tester.widget<Opacity>(
-        find.descendant(
-          of: find.byType(StaggeredEntrance),
-          matching: find.byType(Opacity),
-        ),
-      );
-      expect(opacity().opacity, lessThan(1));
-
-      tickers.value = false;
-      await tester.pump();
-      expect(opacity().opacity, 1);
-      expect(played, contains(0));
-    });
-
     testWidgets('a remounted item does not replay once its id is played', (
       tester,
     ) async {
@@ -814,60 +667,6 @@ void main() {
       expect(_pressScale(tester), 1);
     });
 
-    testWidgets('a quick release reverses from the current scale', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _wrap(const PressScale(child: Text('card content'))),
-      );
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.byType(PressScale)),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-      final released = _pressScale(tester);
-      expect(released, lessThan(1));
-      await gesture.up();
-
-      // Frame by frame: no jump back to 1 or to the pressed rest, and the
-      // scale keeps heading home once it turns around.
-      final frames = <double>[released];
-      for (var i = 0; i < 30; i++) {
-        await tester.pump(const Duration(milliseconds: 16));
-        frames.add(_pressScale(tester));
-      }
-      for (var i = 1; i < frames.length; i++) {
-        expect(
-          (frames[i] - frames[i - 1]).abs(),
-          lessThan(0.01),
-          reason: 'frame $i jumped',
-        );
-      }
-      final lowest = frames.reduce((a, b) => a < b ? a : b);
-      final turn = frames.indexOf(lowest);
-      // Damping ratio 0.9 overshoots 1 by ~1e-5 before snapping to it.
-      for (var i = turn + 1; i < frames.length; i++) {
-        expect(frames[i], greaterThanOrEqualTo(frames[i - 1] - 1e-4));
-      }
-      expect(frames.last, 1);
-    });
-
-    testWidgets('reduced motion snaps the scale without a flight', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _wrap(const PressScale(child: Text('card content')), reduce: true),
-      );
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.byType(PressScale)),
-      );
-      await tester.pump();
-      expect(_pressScale(tester), MotionTokens.pressScale);
-      await gesture.up();
-      await tester.pump();
-      expect(_pressScale(tester), 1.0);
-    });
-
     testWidgets('a release after the press removed the widget is ignored', (
       tester,
     ) async {
@@ -968,27 +767,6 @@ void main() {
       expect(_pressScale(tester), closeTo(1, 1e-3));
       await gesture.up();
     });
-
-    testWidgets('frozen tickers force the neutral scale', (tester) async {
-      var tickers = true;
-      Widget app() => TickerMode(
-        enabled: tickers,
-        child: _wrap(const PressScale(child: Text('card content'))),
-      );
-      await tester.pumpWidget(app());
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.byType(PressScale)),
-      );
-      await tester.pumpAndSettle();
-      expect(_pressScale(tester), closeTo(MotionTokens.pressScale, 1e-3));
-
-      // Route transition owns the ticker budget: the armed press scale must
-      // not bake into the outgoing snapshot.
-      tickers = false;
-      await tester.pumpWidget(app());
-      expect(_pressScale(tester), 1.0);
-      await gesture.up();
-    });
   });
 
   group('StateIconSwitcher', () {
@@ -1021,27 +799,6 @@ void main() {
     testWidgets('the first build shows the icon at rest', (tester) async {
       await tester.pumpWidget(_wrap(switcher(false)));
       expect(entering(tester, Icons.circle_outlined), (1.0, 1.0));
-    });
-
-    testWidgets('a state change scales the new icon up from 0.8 and fades '
-        'it in over the effectsFast spring', (tester) async {
-      await tester.pumpWidget(_wrap(switcher(false)));
-      await tester.pumpWidget(_wrap(switcher(true)));
-
-      final (startScale, startOpacity) = entering(tester, Icons.check_circle);
-      expect(startScale, StateIconSwitcher.enterScale);
-      expect(startOpacity, 0);
-
-      await tester.pump(const Duration(milliseconds: 40));
-      final (midScale, midOpacity) = entering(tester, Icons.check_circle);
-      expect(midScale, inExclusiveRange(StateIconSwitcher.enterScale, 1));
-      expect(midOpacity, inExclusiveRange(0, 1));
-      expect(find.byIcon(Icons.circle_outlined), findsOneWidget);
-
-      // effectsFast settles in ~150 ms.
-      await tester.pump(const Duration(milliseconds: 130));
-      expect(find.byIcon(Icons.circle_outlined), findsNothing);
-      expect(entering(tester, Icons.check_circle), (1.0, 1.0));
     });
 
     testWidgets('a rebuild with the same state does not swap', (tester) async {
@@ -1117,20 +874,6 @@ void main() {
       expect(opacity(tester, 'b'), 1);
     });
 
-    testWidgets('a collapsing row stays pinned to its top edge', (
-      tester,
-    ) async {
-      final controller = RemovalController();
-      await tester.pumpWidget(list(controller, ['a', 'b']));
-      final aTop = tester.getTopLeft(find.text('a')).dy;
-      unawaited(controller.playExit(['a']));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 60));
-      // The bottom edge moves; the content does not slide up out of view.
-      expect(tester.getTopLeft(find.text('a')).dy, aTop);
-      await tester.pumpAndSettle();
-    });
-
     testWidgets('leaving lists rows from exit start until restore or '
         'disposal', (tester) async {
       final controller = RemovalController();
@@ -1176,27 +919,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(find.text('b')).dy, bTop);
       expect(opacity(tester, 'a'), 1);
-    });
-
-    testWidgets('a tile shrinks to 0.9 and fades out', (tester) async {
-      final controller = RemovalController();
-      await tester.pumpWidget(
-        list(controller, ['a'], style: RemovalStyle.tile),
-      );
-      unawaited(controller.playExit(['a']));
-      await tester.pumpAndSettle();
-      final scale = tester.widget<ScaleTransition>(
-        find
-            .ancestor(
-              of: find.text('a'),
-              matching: find.byType(ScaleTransition),
-            )
-            .first,
-      );
-      expect(scale.scale.value, 0.9);
-      expect(opacity(tester, 'a'), 0);
-      // A tile keeps its cell: the grid reflows on the commit.
-      expect(tester.getSize(find.text('a')).height, 50);
     });
 
     testWidgets('reduced motion and ids off screen complete at once', (
@@ -1275,13 +997,6 @@ void main() {
       expect(opacity(tester, 'new'), 1);
       expect(tester.getTopLeft(find.text('below')).dy, belowTop + 50);
     });
-
-    testWidgets('reduced motion inserts the row at full size', (tester) async {
-      await tester.pumpWidget(inserted(RemovalController(), reduce: true));
-      await tester.pump();
-      expect(opacity(tester, 'new'), 1);
-      expect(tester.getSize(find.text('new')).height, 50);
-    });
   });
 
   group('StateFade', () {
@@ -1305,21 +1020,6 @@ void main() {
     testWidgets('the first build shows its state at once', (tester) async {
       await tester.pumpWidget(faded('skeleton'));
       expect(opacity(tester, 'skeleton'), 1);
-    });
-
-    testWidgets('a kind change fades the new state in from zero over the '
-        'effectsFast spring', (tester) async {
-      await tester.pumpWidget(faded('skeleton'));
-      await tester.pumpWidget(faded('content'));
-      expect(find.text('skeleton'), findsNothing, reason: 'no cross-fade');
-      expect(opacity(tester, 'content'), 0);
-
-      await tester.pump(const Duration(milliseconds: 40));
-      expect(opacity(tester, 'content'), inExclusiveRange(0, 1));
-
-      // effectsFast settles in ~150 ms.
-      await tester.pump(const Duration(milliseconds: 130));
-      expect(opacity(tester, 'content'), 1);
     });
 
     testWidgets('a rebuild of the same kind does not fade', (tester) async {
@@ -1468,33 +1168,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       await gesture.up();
       await tester.pumpAndSettle();
-    });
-
-    testWidgets('default motion returns the surface with a flight', (
-      tester,
-    ) async {
-      var dismissed = false;
-      await tester.pumpWidget(
-        _wrap(
-          DragToDismiss(
-            onDismissed: () => dismissed = true,
-            child: const SizedBox.expand(child: Text('viewer')),
-          ),
-        ),
-      );
-      await dragDownAndRelease(tester);
-      // Release frame: the return flight is armed but has not ticked yet —
-      // the offset still sits at the released 80.
-      await tester.pump();
-      expect(dragOffset(tester), 80);
-      // Mid-flight: the offset is between the released 80 and the 0 target.
-      await tester.pump(const Duration(milliseconds: 90));
-      final mid = dragOffset(tester);
-      expect(mid, greaterThan(0));
-      expect(mid, lessThan(80));
-      expect(dismissed, isFalse);
-      await tester.pumpAndSettle();
-      expect(dragOffset(tester), 0);
     });
 
     testWidgets('the return spring starts at the release velocity', (

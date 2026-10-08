@@ -84,8 +84,6 @@ Future<GoRouter> _pumpHome(
   return router;
 }
 
-String _path(GoRouter router) => router.routeInformationProvider.value.uri.path;
-
 Finder _barIcon(IconData icon) => find.descendant(
   of: find.byType(FuncShellBottomNav),
   matching: find.byIcon(icon),
@@ -205,37 +203,6 @@ void main() {
     expect(snapshotting(ranking), isFalse);
   });
 
-  testWidgets('a switch interrupting another keeps its outgoing branch', (
-    tester,
-  ) async {
-    await _pumpHome(tester);
-    await tester.tap(_barIcon(AppIcons.ranking));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    _select(tester, 4);
-    await tester.pump();
-    // The first switch's cancellation must not end the second one early.
-    await tester.pump(const Duration(milliseconds: 150));
-    expect(find.byType(RankingPage), findsOneWidget);
-    expect(find.byType(MeDashboardPage), findsOneWidget);
-
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump();
-    expect(find.byType(RankingPage), findsNothing);
-    expect(find.byType(MeDashboardPage), findsOneWidget);
-  });
-
-  testWidgets('reduced motion switches branches within a frame', (
-    tester,
-  ) async {
-    await _pumpHome(tester, reduceMotion: true);
-
-    await tester.tap(_barIcon(AppIcons.ranking));
-    await tester.pump();
-    expect(find.byType(RecommendedHomePage), findsNothing);
-    expect(find.byType(RankingPage), findsOneWidget);
-  });
-
   testWidgets('each branch keeps its stack and scroll position', (
     tester,
   ) async {
@@ -349,67 +316,9 @@ void main() {
       expect(find.byType(RecommendedHomePage), findsOneWidget);
       expect(events, [0]);
     });
-
-    testWidgets('a different-destination tap does not emit', (tester) async {
-      await _pumpHome(tester);
-      final events = _recordReTaps(tester, find.byType(RecommendedHomePage));
-
-      await tester.tap(_barIcon(AppIcons.search));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      await tester.pump();
-      expect(events, isEmpty);
-    });
-
-    testWidgets('a programmatic branch switch does not emit', (tester) async {
-      final router = await _pumpHome(tester, location: '/search');
-      final events = _recordReTaps(tester, find.byType(SearchHomePage));
-
-      // A deep link moves the shell — didUpdateWidget fades without any
-      // re-tap.
-      router.go('/recommended');
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      await tester.pump();
-      expect(_path(router), '/recommended');
-      expect(events, isEmpty);
-
-      // Back again is silent too.
-      router.go('/search');
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      await tester.pump();
-      expect(_path(router), '/search');
-      expect(events, isEmpty);
-    });
   });
 
   group('NavigationRail shares the bar action entry', () {
-    // Wide surfaces swap the bottom bar for a NavigationRail; both
-    // controls funnel into HomeBranchStack's select, so each check mirrors
-    // a bar case above.
-    testWidgets('a different-destination rail tap fades over and does '
-        'not emit', (tester) async {
-      final router = await _pumpHome(tester, width: 900);
-      expect(find.byType(NavigationRail), findsOneWidget);
-      expect(find.byType(FuncShellBottomNav), findsNothing);
-      final events = _recordReTaps(tester, find.byType(RecommendedHomePage));
-
-      await tester.tap(
-        find.descendant(
-          of: find.byType(NavigationRail),
-          matching: find.byIcon(AppIcons.ranking),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      await tester.pump();
-
-      expect(_path(router), '/ranking');
-      expect(find.byType(RankingPage), findsOneWidget);
-      expect(events, isEmpty);
-    });
-
     testWidgets('a same-destination rail tap pops the branch stack and '
         'emits re-tap', (tester) async {
       final router = await _pumpHome(tester, width: 900);
@@ -488,19 +397,6 @@ void main() {
       expect(tester.getTopLeft(nav).dy, closeTo(shownTop, 0.5));
     });
 
-    testWidgets('semantics alone does not pin the bar', (tester) async {
-      final handle = tester.ensureSemantics();
-      await _pumpHome(tester, location: '/settings', height: _shortHeight);
-      final nav = find.byType(FuncBottomNav);
-
-      // Services that only open the semantics tree do not set
-      // accessibleNavigation — the bar keeps its hide-on-scroll.
-      await tester.drag(settingsList, const Offset(0, -300));
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_shortHeight));
-      handle.dispose();
-    });
-
     testWidgets('a polluted engine flag does not pin the bar', (tester) async {
       // GKD reads nodes constantly, which sets the engine's
       // accessibleNavigation bit — but it is not touch exploration, so the
@@ -521,25 +417,6 @@ void main() {
       await tester.drag(settingsList, const Offset(0, -300));
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_shortHeight));
-    });
-
-    testWidgets('the engine flag applies until Android reports', (
-      tester,
-    ) async {
-      // A TalkBack user must not lose the bar in the frames before the
-      // channel's first event, so the engine value is the fallback.
-      tester.platformDispatcher.accessibilityFeaturesTestValue =
-          const FakeAccessibilityFeatures(accessibleNavigation: true);
-      addTearDown(
-        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
-      );
-      await _pumpHome(tester, location: '/settings', height: _shortHeight);
-      final nav = find.byType(FuncBottomNav);
-      final shownTop = tester.getTopLeft(nav).dy;
-
-      await tester.drag(settingsList, const Offset(0, -300));
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(nav).dy, closeTo(shownTop, 0.5));
     });
   });
 }

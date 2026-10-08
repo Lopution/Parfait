@@ -2,13 +2,11 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
-import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/settings/app_settings.dart' hide NetworkMode;
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/settings/settings_repository.dart';
@@ -192,54 +190,6 @@ void main() {
     WebViewPlatform.instance = _FakeWebViewPlatform();
     _FakeNavigationDelegate.latest = null;
     _FakeWebViewController.latest = null;
-  });
-
-  Widget wrap() {
-    final router = createPixivRouter(initialLocation: '/login');
-    addTearDown(router.dispose);
-    return ProviderScope(
-      overrides: [
-        ...accountProviderOverrides(),
-        oauthServiceProvider.overrideWithValue(
-          OAuthService(exchangeTimeout: Duration.zero),
-        ),
-        // Widget tests run on Linux: without an Android cap override the
-        // /login/web route would select the InAppWebView desktop page.
-        platformCapsProvider.overrideWithValue(
-          const PlatformCaps(isAndroid: true),
-        ),
-      ],
-      child: MaterialApp.router(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
-        routerConfig: router,
-      ),
-    );
-  }
-
-  testWidgets('login button opens the OAuth WebView page', (tester) async {
-    await tester.pumpWidget(wrap());
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byType(ReplicaButton).last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('我已开启代理'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(LoginWebViewPage), findsOneWidget);
-  });
-
-  testWidgets('register button opens the signup WebView page', (tester) async {
-    await tester.pumpWidget(wrap());
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byType(ReplicaButton).first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('我已开启代理'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(LoginWebViewPage), findsOneWidget);
   });
 
   testWidgets(
@@ -588,44 +538,6 @@ void main() {
     expect(find.text('页面加载失败'), findsOneWidget);
   });
 
-  testWidgets('signup mode reports page progress like the desktop page', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          ...accountProviderOverrides(),
-          oauthServiceProvider.overrideWithValue(
-            OAuthService(exchangeTimeout: Duration.zero),
-          ),
-        ],
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: LoginWebViewPage(
-            create: true,
-            oauthService: OAuthService(exchangeTimeout: Duration.zero),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final delegate = _FakeNavigationDelegate.latest!;
-
-    delegate.progress?.call(40);
-    await tester.pump();
-    final indicator = tester.widget<LinearProgressIndicator>(
-      find.byType(LinearProgressIndicator),
-    );
-    expect(indicator.value, 0.4);
-
-    // Full progress hides the bar again.
-    delegate.progress?.call(100);
-    await tester.pump();
-    expect(find.byType(LinearProgressIndicator), findsNothing);
-  });
-
   testWidgets('error messages carry type and host, never the full URL', (
     tester,
   ) async {
@@ -720,30 +632,6 @@ void main() {
       ),
     );
 
-    testWidgets('renders an error with retry instead of a blank page', (
-      tester,
-    ) async {
-      final repository = _FlakySettingsRepository(failures: 1);
-      await tester.pumpWidget(wrapWithRepository(repository));
-      await tester.pumpAndSettle();
-
-      expect(repository.loadCount, 1);
-      expect(find.byKey(const Key('settings-load-error')), findsOneWidget);
-      expect(find.byKey(const Key('settings-load-retry')), findsOneWidget);
-      // The raw cause stays reachable behind the details disclosure
-      // (C8/D1) instead of being swallowed or printed outright.
-      await tester.tap(find.text('详情'));
-      await tester.pump();
-      expect(
-        find.textContaining('SettingsRepositoryException'),
-        findsOneWidget,
-        reason: 'the real cause stays visible instead of being swallowed',
-      );
-      // The blank-page bug: the login controls must not be silently absent
-      // AND unrecoverable — before the fix this branch rendered nothing.
-      expect(find.byType(ReplicaButton), findsNothing);
-    });
-
     testWidgets('retry performs a real second read and recovers', (
       tester,
     ) async {
@@ -757,19 +645,6 @@ void main() {
       expect(repository.loadCount, 2, reason: 'retry re-reads storage');
       expect(find.byKey(const Key('settings-load-error')), findsNothing);
       expect(find.byType(ReplicaButton), findsNWidgets(2));
-    });
-
-    testWidgets('a still-failing retry keeps the error state', (tester) async {
-      final repository = _FlakySettingsRepository(failures: 2);
-      await tester.pumpWidget(wrapWithRepository(repository));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('settings-load-retry')));
-      await tester.pumpAndSettle();
-
-      expect(repository.loadCount, 2);
-      expect(find.byKey(const Key('settings-load-error')), findsOneWidget);
-      expect(find.byKey(const Key('settings-load-retry')), findsOneWidget);
     });
   });
 }

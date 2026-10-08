@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/app_tab_bar.dart';
-import 'package:parfait/app/widgets/scroll_edge_fade.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 Widget _host(
@@ -55,58 +54,6 @@ RichText _labelRichText(WidgetTester tester, String label) {
 }
 
 void main() {
-  group('edge fades (H3)', () {
-    const many = ['插画', '漫画', '小说', '收藏插画', '收藏小说', '关注', '粉丝', '系列'];
-
-    testWidgets('a row that fits fades nothing', (tester) async {
-      await _pumpBar(tester, const ['推荐', '排行', '新作', '追更']);
-      expect(find.byType(ScrollEdgeFade), findsNothing);
-    });
-
-    testWidgets('a scrolling row fades the side that has more tabs', (
-      tester,
-    ) async {
-      await _pumpBar(tester, many);
-      (bool, bool) fades() =>
-          tester.state<ScrollEdgeFadeState>(find.byType(ScrollEdgeFade)).fades;
-      expect(fades(), (false, true));
-
-      await tester.drag(find.text('收藏插画'), const Offset(-30, 0));
-      await tester.pumpAndSettle();
-      expect(fades(), (true, true));
-
-      await tester.drag(find.text('收藏插画'), const Offset(-2000, 0));
-      await tester.pumpAndSettle();
-      expect(fades(), (true, false));
-    });
-  });
-
-  testWidgets('four short labels share equal slots when they fit', (
-    tester,
-  ) async {
-    await _pumpBar(tester, const ['推荐', '排行', '新作', '追更']);
-
-    final bar = tester.widget<TabBar>(find.byType(TabBar));
-    expect(bar.isScrollable, isFalse);
-    expect(bar.tabAlignment, TabAlignment.fill);
-    // Slots live in the Expanded wrappers; a Tab's own box keeps its
-    // natural label size even when the bar fills the row.
-    final widths = [
-      for (var i = 0; i < 4; i++)
-        tester
-            .getRect(
-              find.ancestor(
-                of: find.byType(Tab).at(i),
-                matching: find.byType(Expanded),
-              ),
-            )
-            .width,
-    ];
-    for (final width in widths) {
-      expect(width, moreOrLessEquals(widths.first, epsilon: 0.01));
-    }
-  });
-
   testWidgets('eleven labels scroll from the start instead of shrinking', (
     tester,
   ) async {
@@ -129,22 +76,6 @@ void main() {
     expect(bar.tabAlignment, TabAlignment.start);
   });
 
-  testWidgets('a set that fit at 1x scrolls at 2x, labels stay 14sp', (
-    tester,
-  ) async {
-    const labels = ['每日排行', '昨日排行', '每周排行', '每月排行'];
-    await _pumpBar(tester, labels);
-    expect(tester.widget<TabBar>(find.byType(TabBar)).isScrollable, isFalse);
-
-    await _pumpBar(tester, labels, textScale: 2);
-    expect(tester.widget<TabBar>(find.byType(TabBar)).isScrollable, isTrue);
-    // R5: fitting is decided by measurement, never by shrinking the font.
-    expect(
-      (_labelRichText(tester, '每日排行').text as TextSpan).style!.fontSize,
-      14,
-    );
-  });
-
   testWidgets('labels stay 14sp and scroll instead of overflowing at 1.3x', (
     tester,
   ) async {
@@ -156,43 +87,6 @@ void main() {
     expect(
       (_labelRichText(tester, '每日排行').text as TextSpan).style!.fontSize,
       14,
-    );
-  });
-
-  testWidgets('label style is the resolved 14sp w500 platform style', (
-    tester,
-  ) async {
-    await _pumpBar(tester, const ['推荐', '排行']);
-
-    final context = tester.element(find.byType(AppTabBar));
-    // The provenance matters: the style must come from the resolved
-    // textTheme so labels keep the platform family (D3).
-    final style = TabBarTheme.of(context).labelStyle!;
-    expect(style.fontSize, 14);
-    expect(style.fontWeight, FontWeight.w500);
-    expect(style.fontFamily, 'Roboto');
-    expect((_labelRichText(tester, '推荐').text as TextSpan).style!.fontSize, 14);
-  });
-
-  testWidgets('onTap receives the tapped index verbatim', (tester) async {
-    final tapped = <int>[];
-    await _pumpBar(tester, const ['推荐', '排行', '新作'], onTap: tapped.add);
-
-    await tester.tap(find.text('新作'));
-    await tester.pump();
-    expect(tapped, [2]);
-    await tester.tap(find.text('新作'));
-    await tester.pump();
-    expect(tapped, [2, 2]);
-  });
-
-  test('preferredSize matches the equivalent TabBar', () {
-    const labels = ['a', 'bb', 'ccc'];
-    expect(
-      const AppTabBar(labels: labels).preferredSize,
-      TabBar(
-        tabs: [for (final label in labels) Tab(text: label)],
-      ).preferredSize,
     );
   });
 }

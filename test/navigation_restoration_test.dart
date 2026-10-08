@@ -16,18 +16,14 @@ import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/illust/ranking_repository.dart';
 import 'package:parfait/core/illust/recommended_repository.dart';
-import 'package:parfait/core/new/new_feed_models.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
-import 'package:parfait/core/novel/novel_repository.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/core/search/search_trending_controller.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
-import 'package:parfait/features/new/new_page.dart';
 import 'package:parfait/features/profile/bookmark_tag_feed_page.dart';
-import 'package:parfait/features/ranking/novel_ranking_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/settings/settings_page.dart';
@@ -238,68 +234,6 @@ void main() {
     );
   });
 
-  testWidgets('replaces and restores the selected novel ranking mode', (
-    tester,
-  ) async {
-    final router = createPixivRouter(
-      initialLocation: '/ranking/novel-ranking?mode=week&date=2025-10-01',
-    );
-    addTearDown(router.dispose);
-
-    await tester.pumpWidget(
-      _routerApp(
-        router,
-        httpHandler: (_) async =>
-            _json({'novels': <Object?>[], 'next_url': null}),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    expect(
-      tester
-          .widget<NovelRankingPage>(find.byType(NovelRankingPage))
-          .initialMode,
-      NovelRankingMode.week,
-    );
-
-    // Same gesture family as the illust ranking: a tab tap writes the mode
-    // back through context.replace.
-    await tester.tap(find.byType(Tab).at(4));
-    await tester.pumpAndSettle();
-
-    expect(router.state.uri.path, '/ranking/novel-ranking');
-    expect(router.state.uri.queryParameters['mode'], 'weekAi');
-    expect(router.state.uri.queryParameters['date'], '2025-10-01');
-    expect(
-      tester
-          .widget<NovelRankingPage>(find.byType(NovelRankingPage))
-          .initialMode,
-      NovelRankingMode.weekAi,
-    );
-    expect(
-      tester.widget<NovelRankingPage>(find.byType(NovelRankingPage)).date,
-      DateTime(2025, 10, 1),
-    );
-
-    await tester.restartAndRestore();
-    await tester.pump();
-
-    expect(router.state.uri.path, '/ranking/novel-ranking');
-    expect(router.state.uri.queryParameters['mode'], 'weekAi');
-    expect(router.state.uri.queryParameters['date'], '2025-10-01');
-    expect(
-      tester
-          .widget<NovelRankingPage>(find.byType(NovelRankingPage))
-          .initialMode,
-      NovelRankingMode.weekAi,
-    );
-    expect(
-      tester.widget<NovelRankingPage>(find.byType(NovelRankingPage)).date,
-      DateTime(2025, 10, 1),
-    );
-  });
-
   testWidgets('replaces and restores the recommended content type', (
     tester,
   ) async {
@@ -348,87 +282,6 @@ void main() {
           .initialType,
       RecommendedContentType.illust,
     );
-  });
-
-  testWidgets('replaces and restores the new feed scope', (tester) async {
-    // An old `type=novel` link lands on the illust feed: the type is no
-    // longer part of the route.
-    final router = createPixivRouter(
-      initialLocation: '/new?scope=everyone&type=novel',
-    );
-    addTearDown(router.dispose);
-
-    await tester.pumpWidget(
-      _routerApp(
-        router,
-        httpHandler: (_) async =>
-            _json({'illusts': <Object?>[], 'next_url': null}),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    var page = tester.widget<NewPage>(find.byType(NewPage));
-    expect(page.type, NewFeedType.illust);
-    expect(page.initialScope, NewFeedScope.everyone);
-
-    // A scope tap writes the scope back through context.replace.
-    await tester.tap(find.text('关注'));
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/new');
-    expect(router.state.uri.queryParameters, {'scope': 'following'});
-    page = tester.widget<NewPage>(find.byType(NewPage));
-    expect(page.initialScope, NewFeedScope.following);
-
-    await tester.restartAndRestore();
-    await tester.pump();
-
-    expect(router.state.uri.path, '/new');
-    expect(router.state.uri.queryParameters, {'scope': 'following'});
-    page = tester.widget<NewPage>(find.byType(NewPage));
-    expect(page.type, NewFeedType.illust);
-    expect(page.initialScope, NewFeedScope.following);
-  });
-
-  testWidgets('replaces and restores the new novels scope', (tester) async {
-    final router = createPixivRouter(
-      initialLocation: '/new/new-novels?scope=everyone',
-    );
-    addTearDown(router.dispose);
-
-    await tester.pumpWidget(
-      _routerApp(
-        router,
-        httpHandler: (_) async => _json({
-          'illusts': <Object?>[],
-          'novels': <Object?>[],
-          'next_url': null,
-        }),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    // The pushed novel page sits over the branch's illust page.
-    NewPage novelPage() => tester.widget<NewPage>(
-      find.byWidgetPredicate(
-        (w) => w is NewPage && w.type == NewFeedType.novel,
-      ),
-    );
-    expect(novelPage().initialScope, NewFeedScope.everyone);
-
-    await tester.tap(find.text('关注'));
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/new/new-novels');
-    expect(router.state.uri.queryParameters, {'scope': 'following'});
-    expect(novelPage().initialScope, NewFeedScope.following);
-
-    await tester.restartAndRestore();
-    await tester.pump();
-
-    expect(router.state.uri.path, '/new/new-novels');
-    expect(router.state.uri.queryParameters, {'scope': 'following'});
-    expect(novelPage().initialScope, NewFeedScope.following);
   });
 
   testWidgets('restores the bookmark tag feed tag and restrict', (

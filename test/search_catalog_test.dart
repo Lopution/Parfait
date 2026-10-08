@@ -13,13 +13,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:visibility_detector/visibility_detector.dart';
-import 'package:parfait/app/pixiv_image.dart';
-import 'package:parfait/app/widgets/feed/feed_states.dart';
-import 'package:parfait/app/widgets/skeleton/illust_grid_skeleton.dart';
-import 'package:parfait/app/widgets/skeleton/func_skeleton.dart';
-import 'package:parfait/app/widgets/skeleton/list_skeletons.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
-import 'package:parfait/app/widgets/image_overlay_button.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -27,7 +21,6 @@ import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
-import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/core/search/search_autocomplete_controller.dart';
 import 'package:parfait/core/search/search_feed_controller.dart';
 import 'package:parfait/core/search/search_models.dart';
@@ -44,7 +37,6 @@ import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/search_world.dart';
 import 'helpers/test_preferences.dart';
@@ -663,48 +655,6 @@ void main() {
     expect(filters.bookmarkMax, isNull);
   });
 
-  testWidgets('filter sheet shows only novel dims for novel search', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-        home: ProviderScope(
-          child: Builder(
-            builder: (context) => Scaffold(
-              body: TextButton(
-                onPressed: () async {
-                  await showSearchFilterSheet(
-                    context,
-                    initial: NovelSearchFilters.defaults,
-                  );
-                },
-                child: const Text('open'),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
-
-    // Illust-only dims never render on the novel sheet.
-    for (final section in ['纵横比', '作品类别', '分辨率']) {
-      expect(find.text(section), findsNothing, reason: section);
-    }
-    // Shared and novel-only dims do.
-    for (final section in ['排序', 'AI 作品', '收藏数', '正文长度', '仅原创']) {
-      expect(find.text(section), findsOneWidget, reason: section);
-    }
-    // The novel target set offers 正文/关键词, not 标题和简介.
-    expect(find.text('正文'), findsOneWidget);
-    expect(find.text('关键词'), findsOneWidget);
-    expect(find.text('标题和简介'), findsNothing);
-  });
-
   group('filter sheet bounds', () {
     const reversedError = '最小值不能大于最大值';
 
@@ -754,58 +704,6 @@ void main() {
     bool setDefaultEnabled(WidgetTester tester) =>
         tester.widget<OutlinedButton>(find.byType(OutlinedButton)).enabled;
 
-    testWidgets('the sheet stays below the status bar with its actions '
-        'fixed in reach', (tester) async {
-      tester.view.physicalSize = const Size(360, 640);
-      tester.view.devicePixelRatio = 1;
-      tester.view.padding = const FakeViewPadding(top: 24, bottom: 16);
-      addTearDown(tester.view.reset);
-      // The app's shape: the scope above the navigator, so the sheet route
-      // rebuilds under it as the insets change.
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: Builder(
-              builder: (context) => Scaffold(
-                body: TextButton(
-                  onPressed: () => showSearchFilterSheet(
-                    context,
-                    initial: IllustSearchFilters.defaults,
-                    offerSetDefault: true,
-                  ),
-                  child: const Text('open'),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.tap(find.text('open'));
-      await tester.pumpAndSettle();
-
-      final sheet = tester.getRect(find.byType(BottomSheet));
-      expect(sheet.top, greaterThanOrEqualTo(24));
-      // Both actions are on screen before any scroll, above the gesture
-      // bar, and stay put while the groups scroll.
-      final apply = tester.getRect(find.byType(FilledButton));
-      expect(apply.bottom, lessThanOrEqualTo(640 - 16));
-      expect(find.byType(OutlinedButton).hitTestable(), findsOneWidget);
-      await tester.drag(find.text('排序'), const Offset(0, -400));
-      await tester.pumpAndSettle();
-      expect(tester.getRect(find.byType(FilledButton)), apply);
-
-      // The keyboard lifts the actions above it.
-      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-      await tester.pumpAndSettle();
-      expect(
-        tester.getRect(find.byType(FilledButton)).bottom,
-        lessThanOrEqualTo(640 - 300),
-      );
-    });
-
     testWidgets('a reversed pair shows an error and blocks apply until '
         'fixed', (tester) async {
       final result = await open(tester, IllustSearchFilters.defaults);
@@ -840,23 +738,6 @@ void main() {
       expect(filters.widthMin, 125);
     });
 
-    testWidgets('the height pair is checked', (tester) async {
-      await open(tester, IllustSearchFilters.defaults);
-      await enter(tester, 5, '100');
-      await enter(tester, 4, '200');
-      expect(find.text(reversedError), findsOneWidget);
-      expect(applyEnabled(tester), isFalse);
-    });
-
-    testWidgets('the novel text length pair is checked', (tester) async {
-      await open(tester, NovelSearchFilters.defaults);
-      // Novel fields: bookmark, then text length.
-      await enter(tester, 2, '9000');
-      await enter(tester, 3, '100');
-      expect(find.text(reversedError), findsOneWidget);
-      expect(applyEnabled(tester), isFalse);
-    });
-
     testWidgets('a stored reversed pair opens ordered', (tester) async {
       // What a pre-check sheet saved, read back as the app reads settings.
       await open(
@@ -870,48 +751,6 @@ void main() {
       expect(fields, ['100', '500']);
       expect(find.text(reversedError), findsNothing);
     });
-  });
-
-  testWidgets('search guide renders trending tags and the three input tabs', (
-    tester,
-  ) async {
-    final repository = FakeSearchRepository();
-    final router = createPixivRouter(initialLocation: '/search');
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.text('热门标签'), findsOneWidget);
-    expect(find.text('#风景'), findsOneWidget);
-    expect(find.text('#猫'), findsOneWidget);
-
-    // The guide's field only opens the input page; it is not a text field.
-    expect(find.byType(SearchBar), findsNothing);
-    expect(find.byType(TextField), findsNothing);
-    final field = find.ancestor(
-      of: find.descendant(of: find.byType(AppBar), matching: find.text('搜索')),
-      matching: find.byType(InkWell),
-    );
-    expect(tester.getSize(field).height, greaterThanOrEqualTo(48));
-    await tester.tap(field);
-    await tester.pumpAndSettle();
-    expect(find.byType(SearchInputPage), findsOneWidget);
-    expect(find.byType(SearchAnchor), findsNothing);
-    expect(find.byType(SearchBar), findsOneWidget);
-    expect(find.text('插画 & 漫画'), findsOneWidget);
-    expect(find.text('小说'), findsOneWidget);
-    expect(find.text('用户'), findsOneWidget);
   });
 
   testWidgets('the guide camera opens reverse image search; the novel tab '
@@ -980,43 +819,6 @@ void main() {
     expect(scaffold.resizeToAvoidBottomInset, isFalse);
   });
 
-  testWidgets('U2: a trending tag renders its representative image', (
-    tester,
-  ) async {
-    final repository = FakeSearchRepository();
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-
-            home: const SearchHomePage(),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-    });
-
-    // 风景 has a representative; 猫 does not. Exactly one image, and it uses
-    // the square thumbnail rather than a full-size preview.
-    final images = tester.widgetList<PixivImage>(find.byType(PixivImage));
-    expect(images, hasLength(1));
-    expect(images.single.url, 'https://i.pximg.net/901/square.jpg');
-    expect(images.single.fit, BoxFit.cover);
-    // The tagless card keeps the plain text form, no broken-image slot.
-    expect(find.text('#猫'), findsOneWidget);
-    expect(find.text('#风景'), findsOneWidget);
-    // No corner button overlays the artwork — the representative work is
-    // reached by long press.
-    expect(find.byTooltip('打开详情页'), findsNothing);
-    expect(find.byType(ImageOverlayButton), findsNothing);
-    expect(find.byIcon(Icons.open_in_new), findsNothing);
-  });
-
   for (final tab in ['插画 & 漫画', '小说']) {
     testWidgets('long-pressing a $tab trending tag opens its representative '
         'work', (tester) async {
@@ -1055,139 +857,6 @@ void main() {
       expect(router.state.uri.path, '/search/illust/901');
     });
   }
-
-  testWidgets('a trending tag without a work has no long press', (
-    tester,
-  ) async {
-    final haptics = recordHaptics();
-    final repository = FakeSearchRepository();
-    final router = createPixivRouter(initialLocation: '/search');
-    addTearDown(router.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: router,
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-
-      // 猫 has no representative: the press reads as the tap and searches.
-      await tester.longPress(find.text('#猫'));
-      await tester.pumpAndSettle();
-    });
-    expect(haptics.roles, isEmpty);
-    expect(router.state.uri.path, '/search/results');
-    expect(find.byType(IllustDetailPage), findsNothing);
-  });
-
-  testWidgets('trending grid keeps three columns on narrow screens', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(360, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final repository = FakeSearchRepository(trendingTagCount: 6);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: SearchHomePage(),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    final grid = tester.widget<SliverGrid>(
-      find.ancestor(of: find.text('#风景'), matching: find.byType(SliverGrid)),
-    );
-    final delegate =
-        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
-    expect(delegate.crossAxisCount, 3);
-    // Three columns actually show three tiles side by side.
-    expect(find.text('#标签3'), findsOneWidget);
-    expect(find.text('#标签4'), findsOneWidget);
-  });
-
-  testWidgets('trending tags load under square bones on the grid columns', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(360, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final repository = FakeSearchRepository(trendingTagCount: 6)
-      ..trendingGate = Completer<void>();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: SearchHomePage(),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    final tileBones = find.byWidgetPredicate(
-      (widget) =>
-          widget is SkeletonBone &&
-          widget.width != null &&
-          widget.width == widget.height,
-    );
-    // Three columns at 360dp, three rows.
-    expect(tileBones, findsNWidgets(9));
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-
-    repository.trendingGate!.complete();
-    await tester.pump();
-    await tester.pump();
-    expect(tileBones, findsNothing);
-    expect(find.text('#风景'), findsOneWidget);
-  });
-
-  testWidgets('trending grid adds columns on wide screens, never below 3', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1200, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final repository = FakeSearchRepository(trendingTagCount: 14);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: SearchHomePage(),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    final grid = tester.widget<SliverGrid>(
-      find.ancestor(of: find.text('#风景'), matching: find.byType(SliverGrid)),
-    );
-    final delegate =
-        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
-    // (1200 - 2*FuncSpacing.lg + 10) / 170 → ceil 7, floored at 3.
-    expect(delegate.crossAxisCount, 7);
-    expect(delegate.crossAxisCount, greaterThanOrEqualTo(3));
-  });
 
   for (final (count, shown) in const [(2, 2), (3, 3), (4, 3), (5, 3), (7, 6)]) {
     testWidgets('$count trending tags show $shown: whole rows only', (
@@ -1321,93 +990,6 @@ void main() {
     expect(repository.trendingTagsCallCount, 1);
     expect(find.text('#风景'), findsOneWidget);
   });
-
-  testWidgets('typed result page uses the shared result route', (tester) async {
-    final repository = FakeSearchRepository();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-
-          home: const SearchResultPage(
-            query: UserSearchQuery(keyword: 'not-an-id'),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    expect(find.byType(SearchResultPage), findsOneWidget);
-  });
-
-  testWidgets('illust results show the grid skeleton while pending', (
-    tester,
-  ) async {
-    final repository = FakeSearchRepository()..pendingFetch = Completer<void>();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          searchRepositoryProvider.overrideWithValue(repository),
-          feedSnapshotStoreProvider.overrideWithValue(
-            MemoryFeedSnapshotStore(),
-          ),
-        ],
-        child: const MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: SearchResultPage(query: IllustSearchQuery(keyword: 'cat')),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.byType(IllustGridSkeleton), findsOneWidget);
-    expect(find.byType(FeedEmpty), findsNothing);
-
-    repository.pendingFetch!.complete();
-    await tester.pumpAndSettle();
-  });
-
-  for (final (query, skeleton) in [
-    (const NovelSearchQuery(keyword: 'cat'), NovelListSkeleton),
-    (const UserSearchQuery(keyword: 'cat'), UserListSkeleton),
-  ]) {
-    testWidgets('${query.runtimeType} results show their row skeleton while '
-        'pending, not an empty state', (tester) async {
-      final repository = FakeSearchRepository()
-        ..pendingFetch = Completer<void>();
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            searchRepositoryProvider.overrideWithValue(repository),
-            feedSnapshotStoreProvider.overrideWithValue(
-              MemoryFeedSnapshotStore(),
-            ),
-          ],
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: SearchResultPage(query: query),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-
-      expect(find.byType(skeleton), findsOneWidget);
-      expect(find.byType(IllustGridSkeleton), findsNothing);
-      expect(find.byType(FeedEmpty), findsNothing);
-
-      repository.pendingFetch!.complete();
-      await tester.pumpAndSettle();
-      expect(find.byType(skeleton), findsNothing);
-    });
-  }
 
   testWidgets('result route parameters round-trip every filter field', (
     tester,

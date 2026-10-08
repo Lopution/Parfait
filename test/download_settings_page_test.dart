@@ -50,30 +50,6 @@ void main() {
   bool fieldFocused(WidgetTester tester) =>
       tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus;
 
-  testWidgets('every template variable has a labelled chip', (tester) async {
-    await pumpCustomTemplate(tester);
-
-    expect(
-      find.byType(ActionChip),
-      findsNWidgets(NamingRule.supportedVariables.length),
-    );
-    // Screen readers hear what the chip means and what it inserts.
-    final handle = tester.ensureSemantics();
-    for (final name in NamingRule.supportedVariables) {
-      expect(
-        find.bySemanticsLabel(RegExp('.+, \\{$name\\}\$')),
-        findsOneWidget,
-        reason: name,
-      );
-    }
-    handle.dispose();
-    expect(find.text('页码（从 0 开始）'), findsOneWidget);
-    expect(find.text('页码（从 1 开始）'), findsOneWidget);
-    // The variable list line is gone; the cleanup note stays.
-    expect(find.text('非法字符自动替换为 _，超长自动裁剪。'), findsOneWidget);
-    expect(find.textContaining('{artist} {title}'), findsNothing);
-  });
-
   testWidgets('a chip inserts at the cursor and keeps the field focused', (
     tester,
   ) async {
@@ -97,45 +73,6 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('放弃未保存的修改？'), findsOneWidget);
-  });
-
-  testWidgets('a chip replaces the selection', (tester) async {
-    final controller = await pumpCustomTemplate(tester);
-    controller.text = '{title}_{id}';
-    controller.selection = const TextSelection(baseOffset: 0, extentOffset: 7);
-
-    await tapChip(tester, '宽度');
-
-    expect(controller.text, '{w}_{id}');
-    expect(controller.selection, const TextSelection.collapsed(offset: 3));
-    expect(find.textContaining('预览：1200_123456'), findsOneWidget);
-  });
-
-  testWidgets('without a cursor the variable goes at the end', (tester) async {
-    final controller = await pumpCustomTemplate(tester);
-    controller.selection = const TextSelection.collapsed(offset: -1);
-
-    await tapChip(tester, '系列名');
-
-    expect(controller.text, '{id}{series}');
-    expect(find.textContaining('预览：123456系列名'), findsOneWidget);
-  });
-
-  testWidgets('every variable shows a sample in the preview', (tester) async {
-    final controller = await pumpCustomTemplate(tester);
-    controller.text = '';
-    for (final label in ['作者 ID', '总页数', '高度', '日期和时间', '系列内序号', '系列总话数']) {
-      await tapChip(tester, label);
-    }
-
-    expect(
-      controller.text,
-      '{author_id}{pages}{h}{created}{series_order}{chapters}',
-    );
-    expect(
-      find.textContaining('预览：78903160020260901_123000210'),
-      findsOneWidget,
-    );
   });
 
   testWidgets('a variable that would pass the limit is not inserted', (

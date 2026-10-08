@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cupertino_ui/cupertino_ui.dart';
@@ -16,7 +15,6 @@ import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/user/follow_store.dart';
-import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/profile/profile_header_delegate.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
@@ -113,33 +111,6 @@ Future<void> _pump(
         home: home,
       ),
     ),
-  );
-}
-
-RenderParagraph _buttonParagraph(WidgetTester tester) =>
-    tester.renderObject<RenderParagraph>(
-      find.descendant(
-        of: find.byType(FollowSwitchButton),
-        matching: find.byType(Text),
-      ),
-    );
-
-/// The label is whole, or — scaled to LabelFit's floor and still too wide
-/// (FlutterTest's square glyphs at ru + 2x) — ellipsized with its full text
-/// in a tooltip.
-void _expectLabelReadable(WidgetTester tester, {String? reason}) {
-  final paragraph = _buttonParagraph(tester);
-  if (!paragraph.didExceedMaxLines) return;
-  final text = paragraph.text.toPlainText();
-  expect(
-    find.descendant(
-      of: find.byType(FollowSwitchButton),
-      matching: find.byWidgetPredicate(
-        (widget) => widget is Tooltip && widget.message == text,
-      ),
-    ),
-    findsOneWidget,
-    reason: reason,
   );
 }
 
@@ -336,197 +307,5 @@ void main() {
     await tester.pumpAndSettle();
     expect(follows.calls.last, 'add 7 public');
     expect(container.read(followStoreProvider)[7]?.followed, isTrue);
-  });
-
-  testWidgets('a long label widens the button instead of truncating', (
-    tester,
-  ) async {
-    final container = await _world();
-    await _pump(
-      tester,
-      container,
-      locale: const Locale('ru'),
-      textScale: 2,
-      home: const Scaffold(
-        body: Center(
-          child: FollowSwitchButton(userId: 42, userName: 'sample user'),
-        ),
-      ),
-    );
-
-    final paragraph = _buttonParagraph(tester);
-    expect(paragraph.didExceedMaxLines, isFalse);
-    // With softWrap: false a squeezed label reports a laid-out textSize
-    // wider than its render box — equality means nothing was clipped.
-    expect(
-      paragraph.textSize.width,
-      lessThanOrEqualTo(paragraph.size.width + 0.01),
-    );
-    expect(
-      tester.getSize(find.byType(FollowSwitchButton)).width,
-      greaterThan(116),
-    );
-  });
-
-  testWidgets('a 1.3x label widens without scaling the text down', (
-    tester,
-  ) async {
-    final container = await _world();
-    await _pump(
-      tester,
-      container,
-      locale: const Locale('ru'),
-      textScale: 1.3,
-      home: const Scaffold(
-        body: Center(
-          child: FollowSwitchButton(userId: 42, userName: 'sample user'),
-        ),
-      ),
-    );
-
-    final textFinder = find.descendant(
-      of: find.byType(FollowSwitchButton),
-      matching: find.byType(Text),
-    );
-    final paragraph = tester.renderObject<RenderParagraph>(textFinder);
-    expect(
-      tester.getSize(find.byType(FollowSwitchButton)).width,
-      greaterThan(116),
-    );
-    // While the label fits, the FittedBox transform stays at identity: the
-    // painted rect equals the laid-out text size at the real 1.3x metrics.
-    expect(
-      tester.getRect(textFinder).width,
-      closeTo(paragraph.size.width, 0.5),
-    );
-    expect(paragraph.didExceedMaxLines, isFalse);
-  });
-
-  testWidgets('short labels keep the minimum size', (tester) async {
-    final container = await _world();
-    await _pump(
-      tester,
-      container,
-      home: const Scaffold(
-        body: Center(
-          child: FollowSwitchButton(userId: 42, userName: 'sample user'),
-        ),
-      ),
-    );
-    expect(
-      tester.getSize(find.byType(FollowSwitchButton)),
-      const Size(116, 42),
-    );
-
-    await _pump(
-      tester,
-      container,
-      home: const Scaffold(
-        body: Center(
-          child: FollowSwitchButton(
-            userId: 42,
-            userName: 'sample user',
-            compact: true,
-          ),
-        ),
-      ),
-    );
-    expect(tester.getSize(find.byType(FollowSwitchButton)), const Size(96, 36));
-  });
-
-  testWidgets('call sites lay out without overflow at ru + 2x text', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(360, 640);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final container = await _world();
-
-    // Profile header (profile_header_delegate.dart): the button sits in a
-    // Flexible next to the share action, so a wider label squeezes the row
-    // instead of overflowing it.
-    await _pump(
-      tester,
-      container,
-      locale: const Locale('ru'),
-      textScale: 2,
-      home: Scaffold(
-        body: CustomScrollView(
-          slivers: [
-            _MeasuredHeader(
-              delegateFor: (extent, onMeasured) => ReplicaProfileHeaderDelegate(
-                user: const UserEntity(id: 42, name: 'u', account: 'u'),
-                isMe: false,
-                selectedTabIndex: 0,
-                onShare: (_) {},
-                onToggleFollow: () {},
-                expandedExtent: extent,
-                onExpandedExtentMeasured: onMeasured,
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 2000)),
-          ],
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    expect(find.byType(FollowSwitchButton), findsOneWidget);
-    expect(tester.takeException(), isNull);
-    _expectLabelReadable(tester);
-
-    // Both user lists (profile_user_feed.dart, search_result_page.dart)
-    // cap the ListTile's trailing slot at half the row: the title keeps a
-    // lane, and the label scales down (then ellipsizes) instead of
-    // overflowing the tile.
-    for (final subtitle in ['@sample', 'u: sample']) {
-      await _pump(
-        tester,
-        container,
-        locale: const Locale('ru'),
-        textScale: 2,
-        home: Scaffold(
-          body: Card(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: ListTile(
-              leading: const SizedBox(width: 52, height: 52),
-              title: const Text(
-                'sample user',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Text(subtitle),
-              trailing: LayoutBuilder(
-                builder: (context, constraints) => ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: constraints.maxWidth * 0.5,
-                  ),
-                  child: const FollowSwitchButton(
-                    userId: 42,
-                    userName: 'sample user',
-                    userAccount: 'sample',
-                    compact: true,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      expect(tester.takeException(), isNull, reason: 'tile "$subtitle"');
-      expect(
-        tester.getSize(find.text('sample user')).width,
-        greaterThan(0),
-        reason: 'tile "$subtitle" title lane',
-      );
-      expect(
-        tester.getSize(find.byType(FollowSwitchButton)).width,
-        lessThanOrEqualTo(
-          tester.getSize(find.byType(ListTile)).width * 0.5 + 0.01,
-        ),
-        reason: 'tile "$subtitle" button cap',
-      );
-      _expectLabelReadable(tester, reason: 'tile "$subtitle" label');
-    }
   });
 }

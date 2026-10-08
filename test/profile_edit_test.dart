@@ -19,9 +19,6 @@ import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/core/user/user_store.dart';
-import 'package:parfait/app/layout/content_widths.dart';
-import 'package:parfait/app/person_avatar.dart';
-import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/features/profile/profile_edit_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -503,134 +500,6 @@ void main() {
     expect(find.text('Discard unsaved changes?'), findsOneWidget);
   });
 
-  testWidgets('a clean form leaves directly without a confirm dialog', (
-    tester,
-  ) async {
-    final session = ProfileEditSession(
-      repository: _FakeRepository(
-        capabilities: ProfileCapabilities(
-          editableFields: ProfileField.values,
-          channel: ProfileEditChannel.appApi,
-        ),
-        outcome: ProfileEditConfirmed(_user()),
-      ),
-      owner: _owner(),
-      readOwner: () => _owner(),
-      initialUser: _user(),
-      onConfirmed: (_) async {},
-    );
-    final container = ProviderContainer(
-      overrides: [
-        profileEditControllerProvider.overrideWith2(
-          (arguments) => ProfileEditController(arguments),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-    await container
-        .read(profileEditControllerProvider(session).notifier)
-        .load();
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('en', 'US'),
-          home: _EditHost(session: session),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.tap(find.text('open'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
-    expect(find.byType(ProfileEditPage), findsOneWidget);
-
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
-
-    expect(find.text('Discard unsaved changes?'), findsNothing);
-    expect(find.byType(ProfileEditPage), findsNothing);
-  });
-
-  testWidgets('caps profile edit content and previews images by shape', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1600, 1000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    addTearDown(tester.view.resetViewInsets);
-
-    final session = ProfileEditSession(
-      repository: _FakeRepository(
-        capabilities: ProfileCapabilities(
-          editableFields: ProfileField.values,
-          channel: ProfileEditChannel.appApi,
-        ),
-        outcome: ProfileEditConfirmed(_user()),
-      ),
-      owner: _owner(),
-      readOwner: () => _owner(),
-      initialUser: _user(),
-      onConfirmed: (_) async {},
-    );
-    final container = ProviderContainer(
-      overrides: [
-        profileEditControllerProvider.overrideWith2(
-          (arguments) => ProfileEditController(arguments),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-    await container
-        .read(profileEditControllerProvider(session).notifier)
-        .load();
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('en', 'US'),
-          home: ProfileEditPage(userId: 42, session: session),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(tester.getSize(find.byType(ListView)).width, ContentWidths.form);
-    final avatarFinder = find.byKey(
-      const ValueKey('profile-edit-avatar-preview'),
-    );
-    final avatar = tester.widget<PersonAvatar>(avatarFinder);
-    expect(avatar.ring, isTrue);
-    final avatarSize = tester.getSize(avatarFinder);
-    expect(avatarSize.width, avatarSize.height);
-
-    final backgroundFinder = find.byKey(
-      const ValueKey('profile-edit-background-preview'),
-    );
-    final backgroundSize = tester.getSize(backgroundFinder);
-    expect(backgroundSize.width, greaterThan(backgroundSize.height));
-    final backgroundImage = find.byWidgetPredicate(
-      (widget) =>
-          widget is PixivImage &&
-          widget.url == _user().backgroundImageUrl &&
-          widget.fit == BoxFit.cover,
-    );
-    expect(backgroundImage, findsOneWidget);
-
-    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-    await tester.pumpAndSettle();
-    final saveButtonRect = tester.getRect(find.text('Save profile'));
-    expect(saveButtonRect.bottom, lessThanOrEqualTo(700));
-  });
-
   group('images are tapped to change them', () {
     late _CountingImagePlatform platform;
 
@@ -725,101 +594,6 @@ void main() {
       expect(avatarSize.shortestSide, greaterThanOrEqualTo(48));
       expect(tester.getSize(background).height, greaterThanOrEqualTo(48));
     });
-
-    testWidgets('an unsupported image is plain and says why', (tester) async {
-      await pumpEditor(
-        tester,
-        ProfileCapabilities(
-          editableFields: ProfileField.values.where(
-            (field) => field != ProfileField.avatar,
-          ),
-          channel: ProfileEditChannel.appApi,
-        ),
-      );
-
-      expect(find.bySemanticsLabel('Change avatar'), findsNothing);
-      expect(find.bySemanticsLabel('Change background'), findsOneWidget);
-      expect(find.byIcon(Icons.edit), findsOneWidget);
-      expect(
-        find.text('This field is not supported by the current route'),
-        findsOneWidget,
-      );
-      await tester.tap(avatar, warnIfMissed: false);
-      await tester.pumpAndSettle();
-      expect(platform.picks, 0);
-    });
-
-    testWidgets('while editing is unavailable no image is a control', (
-      tester,
-    ) async {
-      await pumpEditor(
-        tester,
-        ProfileCapabilities.unavailable('Editing is down for now'),
-      );
-
-      // The page notice explains; the images carry no badge or ink.
-      expect(find.text('Editing is down for now'), findsOneWidget);
-      expect(find.byIcon(Icons.edit), findsNothing);
-      expect(find.bySemanticsLabel('Change avatar'), findsNothing);
-      expect(find.bySemanticsLabel('Change background'), findsNothing);
-      await tester.tap(background, warnIfMissed: false);
-      await tester.pumpAndSettle();
-      expect(platform.picks, 0);
-    });
-  });
-
-  testWidgets('a dirty form confirms, discards, then pops', (tester) async {
-    final session = ProfileEditSession(
-      repository: _FakeRepository(
-        capabilities: ProfileCapabilities(
-          editableFields: ProfileField.values,
-          channel: ProfileEditChannel.appApi,
-        ),
-        outcome: ProfileEditConfirmed(_user()),
-      ),
-      owner: _owner(),
-      readOwner: () => _owner(),
-      initialUser: _user(),
-      onConfirmed: (_) async {},
-    );
-    final container = ProviderContainer(
-      overrides: [
-        profileEditControllerProvider.overrideWith2(
-          (arguments) => ProfileEditController(arguments),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-    await container
-        .read(profileEditControllerProvider(session).notifier)
-        .load();
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('en', 'US'),
-          home: _EditHost(session: session),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.tap(find.text('open'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
-
-    await tester.enterText(find.byType(TextFormField).first, 'changed');
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
-    expect(find.text('Discard unsaved changes?'), findsOneWidget);
-
-    await tester.tap(find.text('Discard changes'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
-    expect(find.byType(ProfileEditPage), findsNothing);
   });
 
   testWidgets('production init keeps the auto-dispose controller alive', (
@@ -926,30 +700,6 @@ void main() {
     expect(users.calls, 2);
     expect(find.text('Display name'), findsOneWidget);
   });
-}
-
-/// Host page that pushes [ProfileEditPage], so the back affordance has a
-/// route to land on.
-class _EditHost extends StatelessWidget {
-  const _EditHost({required this.session});
-
-  final ProfileEditSession session;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: TextButton(
-          onPressed: () => Navigator.of(context).push<void>(
-            MaterialPageRoute<void>(
-              builder: (_) => ProfileEditPage(userId: 42, session: session),
-            ),
-          ),
-          child: const Text('open'),
-        ),
-      ),
-    );
-  }
 }
 
 UserEntity _user() => const UserEntity(

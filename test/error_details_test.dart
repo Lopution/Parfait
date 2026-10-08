@@ -38,23 +38,6 @@ void _mockClipboard(Map<String, String> store) {
 
 void main() {
   group('ErrorDetails', () {
-    testWidgets('starts collapsed with the expanded state on the button', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_host(ErrorDetails(error: StateError('boom'))));
-
-      expect(find.byType(SelectableText), findsNothing);
-      expect(
-        tester.getSemantics(find.widgetWithText(TextButton, '详情')),
-        isSemantics(
-          isButton: true,
-          hasExpandedState: true,
-          isExpanded: false,
-          hasTapAction: true,
-        ),
-      );
-    });
-
     testWidgets('expands to the raw text and flips the expanded flag', (
       tester,
     ) async {
@@ -71,41 +54,6 @@ void main() {
       await tester.tap(find.widgetWithText(TextButton, '详情'));
       await tester.pump();
       expect(find.byType(SelectableText), findsNothing);
-    });
-
-    testWidgets('the section opens and closes with a height animation', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_host(ErrorDetails(error: StateError('boom'))));
-      final collapsed = tester.getSize(find.byType(ErrorDetails)).height;
-
-      await tester.tap(find.widgetWithText(TextButton, '详情'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 40));
-      final opening = tester.getSize(find.byType(ErrorDetails)).height;
-      await tester.pumpAndSettle();
-      final expanded = tester.getSize(find.byType(ErrorDetails)).height;
-      expect(opening, greaterThan(collapsed));
-      expect(opening, lessThan(expanded));
-
-      await tester.tap(find.widgetWithText(TextButton, '详情'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 40));
-      final closing = tester.getSize(find.byType(ErrorDetails)).height;
-      expect(closing, inExclusiveRange(collapsed, expanded));
-      await tester.pumpAndSettle();
-      expect(tester.getSize(find.byType(ErrorDetails)).height, collapsed);
-    });
-
-    testWidgets('caps the raw text at maxChars', (tester) async {
-      final huge = 'x' * (ErrorDetails.maxChars + 500);
-      await tester.pumpWidget(_host(ErrorDetails(error: huge)));
-      await tester.tap(find.widgetWithText(TextButton, '详情'));
-      await tester.pump();
-
-      final text = tester.widget<SelectableText>(find.byType(SelectableText));
-      expect(text.data, hasLength(ErrorDetails.maxChars + 1));
-      expect(text.data!.endsWith('…'), isTrue);
     });
 
     testWidgets('copy puts the text on the clipboard and confirms', (

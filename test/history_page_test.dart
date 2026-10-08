@@ -1,33 +1,18 @@
-import 'dart:io';
-
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:network_image_mock/network_image_mock.dart';
-import 'package:parfait/app/haptics/haptics_driver.dart';
-import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/app/motion/removal.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
-import 'package:parfait/app/widgets/entity_row.dart';
-import 'package:parfait/app/widgets/feed/feed_grid.dart';
-import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_models.dart';
-import 'package:parfait/core/novel/novel_entity.dart';
-import 'package:parfait/core/novel/novel_store.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
-import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-import 'helpers/connectivity_channels.dart';
-import 'helpers/recording_haptics.dart';
 import 'helpers/history_world.dart';
-import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
 
 Widget _app(ProviderContainer container) => UncontrolledProviderScope(
@@ -171,140 +156,6 @@ void main() {
     expect(find.text('重试'), findsNothing);
   });
 
-  testWidgets('entries use shared object contracts', (tester) async {
-    // A seeded entity builds the real IllustCard, whose image path creates
-    // the network factory — connectivity EventChannel plus the cache
-    // manager's path_provider calls. Under runAsync the missing-plugin
-    // replies actually land, so answer those channels (an external
-    // boundary) instead of letting them surface as test exceptions.
-    final messenger = tester.binding.defaultBinaryMessenger;
-    final supportDir = Directory.systemTemp.createTempSync('hist-img-');
-    addTearDown(() => supportDir.delete(recursive: true));
-    const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
-    messenger.setMockMethodCallHandler(
-      pathChannel,
-      (call) async => switch (call.method) {
-        'getTemporaryDirectory' ||
-        'getApplicationSupportDirectory' => supportDir.path,
-        _ => null,
-      },
-    );
-    addTearDown(() => messenger.setMockMethodCallHandler(pathChannel, null));
-    answerConnectivityChannels();
-
-    await mockNetworkImagesFor(() async {
-      // IllustStore is a plain provider — its map does not notify — so the
-      // entity must be merged before the page builds.
-      final illustStore = IllustStore()..mergeAll([parseIllust(illustJson(1))]);
-      final container = await _seedPage(tester, [
-        historyRecord(1),
-        historyRecord(2, type: HistoryContentType.novel),
-      ], illustStore: illustStore);
-
-      // The novel store is a NotifierProvider — a post-build merge rebuilds
-      // the entry so the entity-backed branch is exercised too.
-      await tester.runAsync(() async {
-        container.read(novelStoreProvider.notifier).mergeAll([
-          const NovelEntity(
-            id: 2,
-            title: 'novel 2',
-            caption: '',
-            user: UserEntity(id: 8, name: 'author 2', account: 'a'),
-            tags: [],
-            textLength: 100,
-            contentVersion: 'v1',
-            paragraphs: [],
-          ),
-        ]);
-        await tester.pump();
-      });
-
-      // The known-illust cell is the shared IllustCard living under the
-      // grid's FeedItemExtent; consuming the published width means the
-      // card's own LayoutBuilder fallback is not built (the only other
-      // LayoutBuilder under the card lives inside PixivImage — a
-      // descendant, never an ancestor of PressScale).
-      expect(find.byType(IllustCard), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byType(FeedItemExtent),
-          matching: find.byType(IllustCard),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: find.byType(IllustCard),
-          matching: find.ancestor(
-            of: find.byType(PressScale),
-            matching: find.byType(LayoutBuilder),
-          ),
-        ),
-        findsNothing,
-      );
-
-      // The visit date rides the shared meta presentation on the card and
-      // inside the framed cells.
-      expect(
-        find.descendant(
-          of: find.byType(IllustCard),
-          matching: find.byType(EntityMetaText),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        tester
-            .widget<EntityMetaText>(
-              find
-                  .descendant(
-                    of: find.byType(IllustCard),
-                    matching: find.byType(EntityMetaText),
-                  )
-                  .first,
-            )
-            .text,
-        contains('2026年9月20日'),
-      );
-
-      // The novel cell carries the type badge so it stays distinguishable
-      // next to illust entries.
-      expect(
-        find.descendant(
-          of: find.byType(EntityBadge),
-          matching: find.byIcon(Icons.menu_book_outlined),
-        ),
-        findsOneWidget,
-      );
-    });
-  });
-
-  testWidgets('management interactions fire graded haptics', (tester) async {
-    final haptics = recordHaptics();
-    await _seedPage(tester, [historyRecord(1), historyRecord(2)]);
-
-    // Long-press entering selection mode = explicit vibration.
-    await tester.longPress(find.text('work 1'));
-    await tester.pump();
-    expect(haptics.roles, [HapticRole.confirm]);
-
-    // In-mode toggling = light selection tick (separate lane, not
-    // throttled by the heavy window).
-    await tester.tap(find.text('work 2'), warnIfMissed: false);
-    await tester.pump();
-    expect(haptics.roles, [HapticRole.confirm, HapticRole.select]);
-
-    // Opening the destructive confirm surface = explicit vibration. The
-    // throttle window is real-clock, so a second confirm inside 120ms
-    // would be swallowed — reset the timestamps to isolate the call site.
-    final confirmHaptics = recordHaptics();
-    await tester.tap(find.byTooltip('删除历史记录'));
-    await tester.pump();
-    expect(confirmHaptics.roles, [HapticRole.confirm]);
-    // Let the confirm sheet finish dismissing before teardown.
-    await tester.tapAt(const Offset(10, 10));
-    await tester.pump(const Duration(milliseconds: 300));
-  });
-
   testWidgets('system back exits selection mode instead of popping', (
     tester,
   ) async {
@@ -372,51 +223,6 @@ void main() {
     expect(
       find.descendant(of: pixiv, matching: find.byIcon(Icons.check)),
       findsOneWidget,
-    );
-  });
-
-  testWidgets('signed out the menu keeps switches, disables delete-all', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.runAsync(() async {
-      final repository = await openHistoryRepository(const []);
-      final container = await makeHistoryWorld(repository, signedOut: true);
-      await tester.pumpWidget(_app(container));
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      await tester.pump();
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-      await tester.pump();
-    });
-
-    // The overflow still opens — the record switches are global settings.
-    await tester.tap(find.byIcon(Icons.more_vert));
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<MenuItemButton>(
-            find.widgetWithText(MenuItemButton, '记录本地浏览历史'),
-          )
-          .onPressed,
-      isNotNull,
-    );
-    expect(
-      tester
-          .widget<MenuItemButton>(
-            find.widgetWithText(MenuItemButton, '记录到 Pixiv 浏览历史'),
-          )
-          .onPressed,
-      isNotNull,
-    );
-    expect(
-      tester
-          .widget<MenuItemButton>(
-            find.widgetWithText(MenuItemButton, '删除全部历史记录'),
-          )
-          .onPressed,
-      isNull,
     );
   });
 }

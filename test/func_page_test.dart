@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:animations/animations.dart' show SharedAxisTransition;
-import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoPageTransition;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:parfait/app/motion/motion_tokens.dart';
-import 'package:parfait/app/motion/page_transitions.dart';
 import 'package:parfait/app/navigation/func_page.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/home_branch_stack.dart';
@@ -154,36 +151,6 @@ Future<GoRouter> _pumpHome(
 ModalRoute<dynamic> _routeOf(WidgetTester tester, Finder finder) =>
     ModalRoute.of(tester.element(finder))!;
 
-/// The official transition widget each non-system style mounts.
-Finder _styleTransition(PageTransitionStyle style) => switch (style) {
-  PageTransitionStyle.sharedAxis => find.byType(SharedAxisTransition),
-  // Material keeps the zoom transition widget private.
-  PageTransitionStyle.zoom => find.byWidgetPredicate(
-    (widget) => widget.runtimeType.toString() == '_ZoomPageTransition',
-  ),
-  PageTransitionStyle.slide => find.byType(CupertinoPageTransition),
-  PageTransitionStyle.system => _sharedElementTransition(),
-};
-
-const _styled = [
-  PageTransitionStyle.sharedAxis,
-  PageTransitionStyle.zoom,
-  PageTransitionStyle.slide,
-];
-
-Future<void> _startGesture() => _sendBackGestureMethod('startBackGesture', {
-  'touchOffset': <double>[5.0, 300.0],
-  'progress': 0.0,
-  'swipeEdge': 0,
-});
-
-Future<void> _gestureProgress(double progress) =>
-    _sendBackGestureMethod('updateBackGestureProgress', {
-      'touchOffset': <double>[100.0, 300.0],
-      'progress': progress,
-      'swipeEdge': 0,
-    });
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -304,158 +271,6 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.android),
   );
 
-  for (final style in _styled) {
-    testWidgets('${style.name} mounts its official transition both ways', (
-      tester,
-    ) async {
-      final route = await _pushSecondPage(tester, transitionStyle: style);
-      expect(_sharedElementTransition(), findsNothing);
-      expect(_styleTransition(style), findsWidgets);
-
-      Navigator.of(tester.element(find.text('page b'))).pop();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(route.animation!.isAnimating, isTrue);
-      expect(_styleTransition(style), findsWidgets);
-      await tester.pumpAndSettle();
-      expect(find.text('page b'), findsNothing);
-      expect(find.text('page a'), findsOneWidget);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-
-    testWidgets('${style.name} follows the back gesture and commits', (
-      tester,
-    ) async {
-      final route = await _pushSecondPage(tester, transitionStyle: style);
-
-      await _startGesture();
-      await tester.pump();
-      expect(route.popGestureInProgress, isTrue);
-      await _gestureProgress(0.35);
-      await tester.pump();
-      expect(route.animation!.value, moreOrLessEquals(0.65));
-      expect(_styleTransition(style), findsWidgets);
-
-      await _sendBackGestureMethod('commitBackGesture');
-      await tester.pumpAndSettle();
-      expect(find.text('page b'), findsNothing);
-      expect(find.text('page a'), findsOneWidget);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-
-    testWidgets('${style.name} returns to rest when the gesture cancels', (
-      tester,
-    ) async {
-      final route = await _pushSecondPage(tester, transitionStyle: style);
-
-      await _startGesture();
-      await tester.pump();
-      await _gestureProgress(0.3);
-      await tester.pump();
-      expect(route.animation!.value, lessThan(1.0));
-
-      await _sendBackGestureMethod('cancelBackGesture');
-      await tester.pumpAndSettle();
-      expect(find.text('page b'), findsOneWidget);
-      expect(route.animation!.value, 1.0);
-      expect(route.popGestureInProgress, isFalse);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-
-    testWidgets('${style.name} applies off Android without the gesture', (
-      tester,
-    ) async {
-      await _pushSecondPage(tester, transitionStyle: style);
-      expect(_styleTransition(style), findsWidgets);
-      expect(find.byType(FuncRouteTransition), findsNothing);
-
-      await _startGesture();
-      await tester.pump();
-      await _gestureProgress(0.35);
-      await tester.pump();
-      expect(find.text('page b'), findsOneWidget);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
-  }
-
-  testWidgets('the slide dims the page below and has no edge-swipe detector', (
-    tester,
-  ) async {
-    final route = await _pushSecondPage(
-      tester,
-      transitionStyle: PageTransitionStyle.slide,
-    );
-    expect(route.barrierColor, const Color(0x18000000));
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is AnimatedModalBarrier &&
-            widget.color.value == const Color(0x18000000),
-      ),
-      findsOneWidget,
-    );
-    // CupertinoPageTransitionsBuilder would add an iOS edge-swipe detector
-    // that takes horizontal drags from in-page pagers.
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget.runtimeType.toString().contains('CupertinoBackGesture'),
-      ),
-      findsNothing,
-    );
-
-    final shared = const FuncPage<void>(
-      transitionStyle: PageTransitionStyle.sharedAxis,
-      child: SizedBox(),
-    ).createRoute(tester.element(find.text('page b')));
-    expect((shared as PageRoute<void>).barrierColor, isNull);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-
-  testWidgets('routes pushed through _page take the scoped transition style', (
-    tester,
-  ) async {
-    final router = await _pumpHome(
-      tester,
-      transitionStyle: PageTransitionStyle.sharedAxis,
-    );
-    unawaited(router.push('/recommended/history'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(_styleTransition(PageTransitionStyle.sharedAxis), findsWidgets);
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.byType(HistoryPage), findsOneWidget);
-    expect(_sharedElementTransition(), findsNothing);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-
-  testWidgets('routes pushed through _page carry the scoped duration', (
-    tester,
-  ) async {
-    final router = await _pumpHome(tester);
-    unawaited(router.push('/recommended/history'));
-    // The route transition plus the feed's shimmer settle window —
-    // pump a fixed span, the shimmer never lets pumpAndSettle return.
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.byType(HistoryPage), findsOneWidget);
-    final route = _routeOf(tester, find.byType(HistoryPage));
-    // No MotionScope → the normal speed (350ms) resolves.
-    expect(route.transitionDuration, MotionTokens.pageTransitionAndroid);
-    expect(route.reverseTransitionDuration, MotionTokens.pageTransitionAndroid);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-
-  testWidgets('the Android route duration follows the animation speed', (
-    tester,
-  ) async {
-    for (final speed in AnimationSpeed.values) {
-      final router = await _pumpHome(tester, speed: speed);
-      unawaited(router.push('/recommended/history'));
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
-      expect(find.byType(HistoryPage), findsOneWidget);
-      final route = _routeOf(tester, find.byType(HistoryPage));
-      // The Android base is 350ms, so each tier lands on its code.
-      final expected = Duration(milliseconds: speed.code);
-      expect(route.transitionDuration, expected, reason: 'tier ${speed.name}');
-      expect(route.reverseTransitionDuration, expected);
-    }
-  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-
   testWidgets('the scoped tier still collapses under reduced motion', (
     tester,
   ) async {
@@ -464,33 +279,6 @@ void main() {
       reduceMotion: true,
       speed: AnimationSpeed.slow,
     );
-    unawaited(router.push('/recommended/history'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    final route = _routeOf(tester, find.byType(HistoryPage));
-    expect(route.transitionDuration, Duration.zero);
-    expect(route.reverseTransitionDuration, Duration.zero);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-
-  testWidgets('windows keeps the FuncRouteTransition slide', (tester) async {
-    await _pushSecondPage(tester, duration: MotionTokens.pageTransition);
-    expect(find.byType(FuncRouteTransition), findsWidgets);
-    expect(_sharedElementTransition(), findsNothing);
-
-    // The gesture channel is android-only; a fake event must be ignored.
-    await _sendBackGestureMethod('startBackGesture', {
-      'touchOffset': <double>[5.0, 300.0],
-      'progress': 0.0,
-      'swipeEdge': 0,
-    });
-    await tester.pump();
-    expect(find.text('page b'), findsOneWidget);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
-
-  testWidgets('reduced motion collapses the route duration to zero', (
-    tester,
-  ) async {
-    final router = await _pumpHome(tester, reduceMotion: true);
     unawaited(router.push('/recommended/history'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));

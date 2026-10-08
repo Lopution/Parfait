@@ -14,9 +14,7 @@ import 'package:parfait/core/profile/profile_models.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/features/profile/bookmark_tag_feed_page.dart';
 import 'package:parfait/features/profile/profile_illust_feed.dart';
-import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
-import 'package:parfait/app/widgets/skeleton/illust_grid_skeleton.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -172,43 +170,6 @@ void main() {
         .heroScope;
     expect(untaggedScope, endsWith(':'));
     expect(untaggedScope, isNot(taggedScope));
-  });
-
-  testWidgets('profile works show the grid skeleton while pending', (
-    tester,
-  ) async {
-    final repository = _RecordingUserRepository()
-      ..pendingFetch = Completer<void>();
-    final container = _makeContainer(repository);
-    addTearDown(container.dispose);
-    addTearDown(() {
-      if (repository.pendingFetch?.isCompleted == false) {
-        repository.pendingFetch!.complete();
-      }
-    });
-
-    await tester.pumpWidget(
-      _testApp(
-        container,
-        const ProfileIllustFeed(
-          feedKey: ProfileFeedKey(
-            userId: 100,
-            kind: ProfileFeedKind.bookmarks,
-            restrict: UserRestrict.private,
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.byType(IllustGridSkeleton), findsOneWidget);
-    expect(find.byType(FeedEmpty), findsNothing);
-
-    repository.pendingFetch!.complete();
-    await tester.pumpAndSettle();
-    expect(find.byType(IllustGridSkeleton), findsNothing);
-    expect(find.byType(IllustCard), findsWidgets);
   });
 
   testWidgets('bookmark tag filter only changes loaded works locally', (

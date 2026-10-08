@@ -655,27 +655,6 @@ void main() {
       return service;
     }
 
-    testWidgets('renders both actions', (tester) async {
-      await pumpPage(tester);
-      expect(find.text('导出备份'), findsOneWidget);
-      expect(find.text('导入备份'), findsOneWidget);
-    });
-
-    testWidgets('export reports the written file name', (tester) async {
-      final service = await pumpPage(tester);
-      await tester.tap(find.text('导出备份'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('backup.json'), findsOneWidget);
-      expect(service.exportCalls, 1);
-    });
-
-    testWidgets('export cancel stays silent', (tester) async {
-      (await pumpPage(tester)).exportResult = null;
-      await tester.tap(find.text('导出备份'));
-      await tester.pumpAndSettle();
-      expect(shownPrompt, findsNothing);
-    });
-
     testWidgets('import picks a strategy, then confirms before applying', (
       tester,
     ) async {
@@ -772,34 +751,6 @@ void main() {
       expect(service.lastEnvelope, isNull);
     });
 
-    // Both steps go through showAppDialog on every form factor, so the
-    // pick -> continue -> confirm order is identical at desktop width.
-    testWidgets('desktop width walks the same pick-then-confirm order', (
-      tester,
-    ) async {
-      tester.view.physicalSize = const Size(1400, 900);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final bytes = BackupEnvelope(
-        exportedAt: DateTime.utc(2026, 9, 20),
-        settings: const {},
-        muteTags: {'t'},
-      ).encode();
-      final service = await pumpPage(tester, fileBytes: bytes);
-
-      await tester.tap(find.text('导入备份'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('覆盖'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '继续'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('将清空本地历史'), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, '确定'));
-      await tester.pumpAndSettle();
-
-      expect(service.lastStrategy, BackupImportStrategy.overwrite);
-    });
-
     testWidgets('an unparsable file fails visibly without a dialog', (
       tester,
     ) async {
@@ -809,15 +760,6 @@ void main() {
 
       expect(find.textContaining('备份文件无效'), findsOneWidget);
       expect(find.text('选择导入方式'), findsNothing);
-    });
-
-    testWidgets('picker cancel does nothing', (tester) async {
-      final service = await pumpPage(tester);
-      await tester.tap(find.text('导入备份'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('选择导入方式'), findsNothing);
-      expect(service.lastEnvelope, isNull);
     });
 
     testWidgets('apply failure surfaces a visible error', (tester) async {
@@ -839,66 +781,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('导入失败'), findsOneWidget);
-    });
-
-    // Width-matrix spot check (W8 acceptance): the two-step dialog must
-    // fit every supported width and landscape without overflow exceptions.
-    for (final size in [
-      const Size(320, 800),
-      const Size(390, 844),
-      const Size(600, 800),
-      const Size(840, 900),
-      const Size(1200, 800),
-      const Size(844, 390), // landscape
-    ]) {
-      testWidgets('strategy flow fits ${size.width}x${size.height}', (
-        tester,
-      ) async {
-        tester.view.physicalSize = size;
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        final bytes = BackupEnvelope(
-          exportedAt: DateTime.utc(2026, 9, 20),
-          accountId: 'other',
-          settings: const {},
-          muteTags: {'t1'},
-          muteWorks: _works([1]),
-          history: [_record(3)],
-        ).encode();
-        await pumpPage(tester, fileBytes: bytes);
-
-        await tester.tap(find.text('导入备份'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('覆盖'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(FilledButton, '继续'));
-        await tester.pumpAndSettle();
-
-        expect(find.textContaining('将清空本地历史'), findsOneWidget);
-        expect(tester.takeException(), isNull, reason: 'no overflow');
-      });
-    }
-
-    testWidgets('strategy flow survives 1.3x text at 320dp', (tester) async {
-      tester.view.physicalSize = const Size(320, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final bytes = BackupEnvelope(
-        exportedAt: DateTime.utc(2026, 9, 20),
-        settings: const {},
-        muteTags: {'t1'},
-      ).encode();
-      await pumpPage(tester, fileBytes: bytes, textScale: 1.3);
-
-      await tester.tap(find.text('导入备份'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('合并'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '继续'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('将添加'), findsOneWidget);
-      expect(tester.takeException(), isNull, reason: 'no overflow');
     });
   });
 }

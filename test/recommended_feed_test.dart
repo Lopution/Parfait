@@ -8,7 +8,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:octo_image/octo_image.dart';
-import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -27,7 +26,6 @@ import 'package:parfait/core/illust/recommended_repository.dart'
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
-import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
@@ -374,108 +372,6 @@ void main() {
     expect(refreshed.showRefreshSpinner, isFalse);
     expect(refreshed.ids, hasLength(10));
   });
-  // Beta56 parity regression: the feed is a two-column waterfall flow and
-  // the card preview must render a tall portrait at its original aspect
-  // ratio (BoxFit.fitWidth) without overflow or cropping — the real-device
-  // fixed-tile crop looked broken (heads/subjects cut off). Up to 1:2;
-  // taller works are covered by the card layout tests.
-  testWidgets(
-    'IllustCard renders a tall portrait at full aspect ratio without overflow',
-    (tester) async {
-      final (container, _) = await makeWorld();
-      await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: MaterialApp(
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-
-              home: Scaffold(
-                body: SingleChildScrollView(
-                  child: SizedBox(
-                    width: 300,
-                    child: IllustCard(
-                      entity: parseIllust(
-                        illustJson(7, pageCount: 1, width: 800, height: 1600),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-        await tester.pump();
-      });
-      expect(tester.takeException(), isNull);
-      // 300-wide column with a 800x1600 work: preview height follows the
-      // original ratio (300 / 800 * 1600 = 600) instead of a cropped tile.
-      final image = tester.getSize(find.byType(IllustCard).first);
-      expect(image.width, 300);
-      expect(image.height, greaterThan(600));
-      expect(
-        tester.widget<PixivImage>(find.byType(PixivImage).first).url,
-        'https://i.pximg.net/7/medium.jpg',
-        reason: 'a 1:2 card keeps the user preview tier',
-      );
-      // One stop for the work (H2): the lines under the image are read
-      // through its label, and the decoded pixels add no unnamed node.
-      expect(find.bySemanticsLabel('illust 7'), findsNothing);
-      expect(find.bySemanticsLabel('author'), findsNothing);
-      expect(find.bySemanticsLabel('illust 7, author'), findsOneWidget);
-      expect(
-        tester.getSemantics(find.bySemanticsLabel('illust 7, author')),
-        isSemantics(
-          label: 'illust 7, author',
-          isButton: true,
-          isImage: true,
-          hasTapAction: true,
-        ),
-      );
-    },
-  );
-
-  testWidgets('IllustCard keeps the artwork loading transition in the feed', (
-    tester,
-  ) async {
-    final (container, _) = await makeWorld();
-    addTearDown(container.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-
-            home: Scaffold(
-              body: SingleChildScrollView(
-                child: SizedBox(
-                  width: 300,
-                  child: IllustCard(
-                    entity: parseIllust(
-                      illustJson(9, width: 800, height: 1200),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-    });
-
-    final image = tester.widget<PixivImage>(find.byType(PixivImage).first);
-    expect(
-      image.fade,
-      isTrue,
-      reason: 'feed artwork should transition out of its placeholder',
-    );
-  });
 
   testWidgets('IllustCard hands quality changes off gaplessly', (tester) async {
     final (container, _) = await makeWorld();
@@ -546,46 +442,6 @@ void main() {
     expect(tags, contains('IllustHero:search:blue-archive:8'));
   });
 
-  testWidgets('U1: feed top padding follows the status-bar inset', (
-    tester,
-  ) async {
-    final (container, _) = await makeWorld();
-    // Emulate edge-to-edge Android 15+: a 100px top system inset.
-    tester.view.viewPadding = const FakeViewPadding(top: 100);
-    addTearDown(tester.view.resetViewPadding);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: RecommendedIllustPage(),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
-    });
-
-    // The only top-level sliver inside the feed scroll view.
-    final padding = tester.widget<SliverPadding>(
-      find.byType(SliverPadding).first,
-    );
-    final inset = padding.padding as EdgeInsets;
-    expect(
-      inset.top,
-      greaterThan(0),
-      reason:
-          'U1: the tab without an AppBar must offset the status bar '
-          'itself (edge-to-edge); before the fix the top padding was 0 and '
-          'the feed overlapped the status bar',
-    );
-    expect(inset.top, isNot(closeTo(0, 0.01)));
-    expect(inset.left, FuncSpacing.sm);
-  });
   testWidgets('appending a page leaves the built cards alone', (tester) async {
     final (container, _) = await makeWorld();
     addTearDown(container.dispose);

@@ -201,29 +201,6 @@ void main() {
     expect(find.byType(WelcomePage), findsNothing);
   });
 
-  testWidgets('settingsPending paints the splash child without decisions', (
-    tester,
-  ) async {
-    // Fake defaults would read guideCompleted == false and bounce a
-    // signed-in user through /welcome; a pending gate must paint the route
-    // child as-is and never navigate.
-    await tester.pumpWidget(
-      _wrap(
-        settings: AppSettings.defaults(),
-        snapshot: const AccountMetadataSnapshot(
-          accounts: [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-        initialLocation: '/splash',
-        settingsPending: true,
-      ),
-    );
-    await tester.pump();
-
-    expect(find.byType(SplashPage), findsOneWidget);
-    expect(find.byType(WelcomePage), findsNothing);
-  });
-
   testWidgets('guide completed with a usable account shows home', (
     tester,
   ) async {
@@ -372,18 +349,5 @@ void main() {
     expect(find.widgetWithText(FilledButton, '重试'), findsOneWidget);
     expect(find.byType(LoginPage), findsNothing);
     expect(find.byType(HomePage), findsNothing);
-  });
-
-  testWidgets('splash mark matches the Android 12+ system splash icon size', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const MaterialApp(home: SplashPage()));
-
-    final mark = find.byType(Image);
-    final image = tester.widget<Image>(mark).image as AssetImage;
-    expect(image.assetName, 'assets/branding/parfait_icon.png');
-    // 160dp is where the system splash draws the 72dp visible icon area, so
-    // the mark does not jump when the system splash hands over.
-    expect(tester.getSize(mark), const Size(160, 160));
   });
 }

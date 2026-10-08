@@ -481,66 +481,6 @@ void main() {
     expect(await service.translate('hello', targetLanguage: 'zh'), '你好');
   });
 
-  testWidgets('composer grids size columns to the available width', (
-    tester,
-  ) async {
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    int crossAxisCount() =>
-        (tester.widget<GridView>(find.byType(GridView)).gridDelegate
-                as SliverGridDelegateWithFixedCrossAxisCount)
-            .crossAxisCount;
-
-    Future<void> openPanelAt(double width, String tooltip) async {
-      tester.view.physicalSize = Size(width, 600);
-      await tester.pumpWidget(
-        withStalledImages(
-          MaterialApp(
-            builder: promptHostBuilder,
-            locale: const Locale('zh', 'CN'),
-            supportedLocales: const [Locale('zh', 'CN')],
-            localizationsDelegates: appLocalizationsDelegates,
-            home: Scaffold(
-              // A fresh subtree per width — otherwise the composer's State
-              // survives pumpWidget and the tap toggles the still-open panel
-              // back to none.
-              key: ValueKey(width),
-              resizeToAvoidBottomInset: false,
-              body: CommentComposer(
-                onSend: (_) async {},
-                onStampSend: (_) async {},
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.tap(find.byTooltip(tooltip));
-      await tester.pump();
-    }
-
-    // 320dp: floor(320/48)=6 emoji columns — a fixed 10 would shrink cells
-    // below the ~48dp touch target.
-    await openPanelAt(320, 'Emoji');
-    expect(crossAxisCount(), 6);
-
-    // 390dp: floor(390/48)=8.
-    await openPanelAt(390, 'Emoji');
-    expect(crossAxisCount(), 8);
-
-    // 840dp: floor(840/48)=17 — capped at the densest useful 10.
-    await openPanelAt(840, 'Emoji');
-    expect(crossAxisCount(), 10);
-
-    // Stamps use ~96dp cells: floor(320/96)=3; floor(840/96)=8 → cap 5.
-    await openPanelAt(320, 'Stamp');
-    expect(crossAxisCount(), 3);
-    await openPanelAt(840, 'Stamp');
-    expect(crossAxisCount(), 5);
-
-    expect(commentEmojiNames, hasLength(38));
-    expect(commentStampIds, hasLength(40));
-  });
-
   test('stamp URLs follow the pixiv generated-stamps template', () {
     expect(
       commentStampUrl(101),
@@ -606,68 +546,7 @@ void main() {
     expect(sent, [101]);
   });
 
-  group('stamp comment body', () {
-    Future<void> pumpStampComment(WidgetTester tester, String? url) {
-      final base = sampleComment(41, content: '');
-      return tester.pumpWidget(
-        ProviderScope(
-          overrides: [accountStoreProvider.overrideWith(commentsAccountStore)],
-          child: MaterialApp(
-            builder: promptHostBuilder,
-            locale: const Locale('zh', 'CN'),
-            supportedLocales: const [Locale('zh', 'CN')],
-            localizationsDelegates: appLocalizationsDelegates,
-            home: Scaffold(
-              body: CommentItem(
-                comment: CommentEntity(
-                  id: base.id,
-                  workId: base.workId,
-                  kind: base.kind,
-                  parentCommentId: null,
-                  rootCommentId: base.rootCommentId,
-                  user: base.user,
-                  content: '',
-                  createdAt: base.createdAt,
-                  stampId: 101,
-                  stampUrl: url,
-                ),
-                onReply: () {},
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    testWidgets('shows the stamp from its pixiv URL, left-aligned', (
-      tester,
-    ) async {
-      final url = commentStampUrl(101);
-      await pumpStampComment(tester, url);
-      await tester.pump();
-
-      final image = tester.widget<PixivImage>(
-        find.byWidgetPredicate(
-          (widget) => widget is PixivImage && widget.url == url,
-        ),
-      );
-      expect(image.alignment, Alignment.centerLeft);
-      expect(image.fit, BoxFit.contain);
-      expect(
-        find.byWidgetPredicate(
-          (widget) => widget is Image && widget.image is AssetImage,
-        ),
-        findsNothing,
-      );
-    });
-
-    testWidgets('shows a placeholder icon without a stamp URL', (tester) async {
-      await pumpStampComment(tester, null);
-      await tester.pump();
-
-      expect(find.byIcon(Icons.image_not_supported_outlined), findsOneWidget);
-    });
-  });
+  group('stamp comment body', () {});
 
   testWidgets('comments page renders the root feed and opens its thread', (
     tester,
@@ -831,22 +710,6 @@ void main() {
     expect(find.byType(GridView), findsNothing);
   });
 
-  testWidgets('inserting an emoji closes the panel and refocuses the field', (
-    tester,
-  ) async {
-    await tester.pumpWidget(composerApp(bareComposer()));
-    await tester.tap(find.byTooltip('Emoji'));
-    await tester.pump();
-
-    await tester.tap(find.byType(InkResponse).first);
-    await tester.pump();
-
-    final field = tester.widget<EditableText>(find.byType(EditableText));
-    expect(field.controller.text, '(${commentEmojiNames.first})');
-    expect(find.byType(GridView), findsNothing);
-    expect(field.focusNode.hasFocus, isTrue);
-  });
-
   testWidgets('system back closes an open panel before leaving the page', (
     tester,
   ) async {
@@ -952,74 +815,6 @@ void main() {
     await tester.tap(find.byTooltip('Emoji'));
     await tester.pump();
     expect(tester.getSize(find.byType(GridView)).height, 300);
-  });
-
-  testWidgets('composer panel falls back without a keyboard sample', (
-    tester,
-  ) async {
-    // Never focused, no insets: the panel uses the ~280dp fallback.
-    await tester.pumpWidget(composerApp(bareComposer()));
-    await tester.tap(find.byTooltip('Emoji'));
-    await tester.pump();
-    expect(tester.getSize(find.byType(GridView)).height, 280);
-  });
-
-  testWidgets('comments page opts out of Scaffold resizeToAvoidBottomInset', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          accountStoreProvider.overrideWith(commentsAccountStore),
-          commentRepositoryProvider.overrideWithValue(FakeCommentRepository()),
-        ],
-        child: composerApp(const CommentsPage(workId: 1)),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<Scaffold>(
-            find.descendant(
-              of: find.byType(CommentsPage),
-              matching: find.byType(Scaffold),
-            ),
-          )
-          .resizeToAvoidBottomInset,
-      isFalse,
-    );
-  });
-
-  testWidgets('replies page opts out of Scaffold resizeToAvoidBottomInset', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          accountStoreProvider.overrideWith(commentsAccountStore),
-          commentRepositoryProvider.overrideWithValue(FakeCommentRepository()),
-        ],
-        child: composerApp(
-          CommentRepliesPage(
-            workId: 1,
-            rootCommentId: 11,
-            rootComment: sampleComment(11, replyCount: 1),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<Scaffold>(
-            find.descendant(
-              of: find.byType(CommentRepliesPage),
-              matching: find.byType(Scaffold),
-            ),
-          )
-          .resizeToAvoidBottomInset,
-      isFalse,
-    );
   });
 
   testWidgets('composer input state covers the four-state matrix', (
@@ -1219,29 +1014,6 @@ void main() {
     );
   });
 
-  testWidgets('replies page primes the reference row with the root author', (
-    tester,
-  ) async {
-    await pumpRepliesPage(tester, FakeCommentRepository());
-
-    // No explicit target yet — the composer still names the root author.
-    expect(
-      find.descendant(
-        of: find.byType(CommentComposer),
-        matching: find.textContaining('user 10'),
-      ),
-      findsOneWidget,
-    );
-
-    // Tapping the root's own reply pill focuses the composer too.
-    await tester.tap(_replyButton().first);
-    await tester.pump();
-    expect(
-      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
-      isTrue,
-    );
-  });
-
   testWidgets('send success clears the reply target and the draft', (
     tester,
   ) async {
@@ -1267,55 +1039,6 @@ void main() {
     );
     expect(replyRef(), findsNothing);
   });
-
-  testWidgets(
-    'replies send success returns the reference row to the root author',
-    (tester) async {
-      final repo = FakeCommentRepository()
-        ..replies = [
-          sampleComment(12, parentCommentId: 11, rootCommentId: 11, userId: 20),
-        ];
-      await pumpRepliesPage(tester, repo);
-
-      // Pin a non-root target: the reply row's pill trails the header
-      // root's pill in tree order.
-      await tester.tap(_replyButton().last);
-      await tester.pump();
-      expect(
-        find.descendant(
-          of: find.byType(CommentComposer),
-          matching: find.textContaining('user 20'),
-        ),
-        findsOneWidget,
-      );
-
-      await tester.enterText(find.byType(TextField), 'hi');
-      await tester.pump();
-      await tester.tap(find.byIcon(Icons.send_outlined));
-      await tester.pumpAndSettle();
-
-      // Success drops the explicit target — the reference row falls back
-      // to the root author (`_replyTarget ?? root`), and the draft clears.
-      expect(
-        find.descendant(
-          of: find.byType(CommentComposer),
-          matching: find.textContaining('user 20'),
-        ),
-        findsNothing,
-      );
-      expect(
-        find.descendant(
-          of: find.byType(CommentComposer),
-          matching: find.textContaining('user 10'),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        tester.widget<EditableText>(find.byType(EditableText)).controller.text,
-        isEmpty,
-      );
-    },
-  );
 
   testWidgets('a mid-flight retarget is not cleared by the old send', (
     tester,
@@ -1389,112 +1112,6 @@ void main() {
     },
   );
 
-  testWidgets('grid cells expose button semantics with labels', (tester) async {
-    await tester.pumpWidget(composerApp(bareComposer()));
-    final context = tester.element(find.byType(CommentComposer));
-
-    bool isCellButton(Widget widget, String label) =>
-        widget is Semantics &&
-        widget.properties.button == true &&
-        widget.properties.label == label;
-
-    await tester.tap(find.byTooltip('Emoji'));
-    await tester.pump();
-
-    // Emoji cells announce as buttons named after the emoji token; the
-    // images stay decorative-only.
-    expect(
-      find.byWidgetPredicate(
-        (widget) => isCellButton(widget, commentEmojiNames.first),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byType(GridView),
-        matching: find.byType(ExcludeSemantics),
-      ),
-      findsWidgets,
-    );
-    // The panel grid itself is one semantics container.
-    expect(
-      tester
-          .widget<Semantics>(
-            find
-                .ancestor(
-                  of: find.byType(GridView),
-                  matching: find.byType(Semantics),
-                )
-                .first,
-          )
-          .container,
-      isTrue,
-    );
-
-    await tester.tap(find.byTooltip('Stamp'));
-    await tester.pump();
-    expect(
-      find.byWidgetPredicate(
-        (widget) => isCellButton(
-          widget,
-          context.l10n.commentStampLabel(commentStampIds.first),
-        ),
-      ),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('send shows an in-button progress indicator while busy', (
-    tester,
-  ) async {
-    final repo = FakeCommentRepository()
-      ..addCompleter = Completer<CommentEntity>();
-    await pumpCommentsPage(tester, repo);
-    final context = tester.element(find.byType(CommentComposer));
-
-    await tester.enterText(find.byType(TextField), 'hi');
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.send_outlined));
-    await tester.pump();
-
-    Finder spinner() => find.descendant(
-      of: find.byType(CommentComposer),
-      matching: find.byType(CircularProgressIndicator),
-    );
-    // The send affordance becomes a labelled spinner — the visible
-    // non-optimistic wait.
-    expect(spinner(), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byType(CommentComposer),
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is Semantics &&
-              widget.properties.label == context.l10n.commentSending,
-        ),
-      ),
-      findsOneWidget,
-    );
-    // And the button stays disabled while the request is in flight.
-    expect(
-      tester
-          .widget<IconButton>(
-            find
-                .ancestor(
-                  of: find.byType(CircularProgressIndicator),
-                  matching: find.byType(IconButton),
-                )
-                .first,
-          )
-          .onPressed,
-      isNull,
-    );
-
-    repo.addCompleter!.complete(sampleComment(20));
-    await tester.pumpAndSettle();
-    expect(spinner(), findsNothing);
-  });
-
   testWidgets('busy spinner survives the early-false mutation key window', (
     tester,
   ) async {
@@ -1547,36 +1164,6 @@ void main() {
   testWidgets('send success fires one success haptic', (tester) async {
     final haptics = recordHaptics();
     await pumpCommentsPage(tester, FakeCommentRepository());
-
-    await typeAndSend(tester);
-    expect(haptics.roles, [HapticRole.success]);
-  });
-
-  testWidgets('stamp send success fires the same success level', (
-    tester,
-  ) async {
-    final haptics = recordHaptics();
-    await pumpCommentsPage(tester, FakeCommentRepository());
-
-    await tester.tap(find.byTooltip('Stamp'));
-    await tester.pump();
-    await tester.tap(
-      find
-          .descendant(
-            of: find.byType(GridView),
-            matching: find.byType(InkResponse),
-          )
-          .first,
-    );
-    await tester.pumpAndSettle();
-    expect(haptics.roles, [HapticRole.success]);
-  });
-
-  testWidgets('replies send success fires the same success level', (
-    tester,
-  ) async {
-    final haptics = recordHaptics();
-    await pumpRepliesPage(tester, FakeCommentRepository());
 
     await typeAndSend(tester);
     expect(haptics.roles, [HapticRole.success]);

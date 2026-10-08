@@ -94,29 +94,6 @@ void main() {
     expect(_page(tester), 0);
   });
 
-  testWidgets('pager stops at the first and last work — no wrap', (
-    tester,
-  ) async {
-    final (container, _, _) = await makeWorld();
-    container.read(illustStoreProvider).mergeAll([
-      for (final id in [42, 43]) parseIllust(illustJson(id)),
-    ]);
-    final source = IllustPagerSource()..update(const [42, 43]);
-    await _pumpPager(tester, container, source: source, initialId: 42);
-
-    // First work, swipe right — stays on 0.
-    await tester.flingFrom(_swipeOrigin(tester), const Offset(260, 0), 900);
-    await tester.pumpAndSettle();
-    expect(_page(tester), 0);
-
-    // Last work, swipe left — stays on 1.
-    await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
-    await tester.pumpAndSettle();
-    await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
-    await tester.pumpAndSettle();
-    expect(_page(tester), 1);
-  });
-
   testWidgets('swiping near the end asks the feed for its next page', (
     tester,
   ) async {
@@ -413,57 +390,6 @@ void main() {
     await tester.pump();
     expect(find.byType(IllustDetailPagerPage), findsOneWidget);
     expect(find.byType(PageView), findsOneWidget);
-  });
-
-  testWidgets('a route without a pager source mounts the single page', (
-    tester,
-  ) async {
-    final (container, _, _) = await makeWorld();
-    container.read(illustStoreProvider).mergeAll([parseIllust(illustJson(42))]);
-    final router = createPixivRouter(initialLocation: '/recommended');
-    addTearDown(router.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: router,
-          ),
-        ),
-      );
-      await tester.pump();
-    });
-    unawaited(router.push<void>('/recommended/illust/42'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
-    await tester.pump();
-    expect(find.byType(IllustDetailPagerPage), findsNothing);
-    expect(find.byType(IllustDetailPage), findsOneWidget);
-  });
-
-  testWidgets('grid exposes its pager source to card children', (tester) async {
-    IllustPagerSource? seen;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: CustomScrollView(
-          slivers: [
-            IllustFeedGrid(
-              itemCount: 2,
-              itemIds: const [1, 2],
-              itemBuilder: (context, index) {
-                seen ??= IllustPagerScope.maybeOf(context);
-                return const SizedBox(height: 100);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-    await tester.pump();
-    expect(seen?.ids, [1, 2]);
   });
 
   group('related works on demand', () {

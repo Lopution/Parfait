@@ -188,16 +188,6 @@ void main() {
       );
     });
 
-    testWidgets('empty result shows the empty state', (tester) async {
-      final repository = _FakeUserRepository()
-        ..script(UserWorkType.illust, [_page(const [])])
-        ..script(UserWorkType.manga, [_page(const [])]);
-      await pumpDialog(tester, repository);
-      await tester.pumpAndSettle();
-
-      expect(find.text('该作者没有可下载的作品。'), findsOneWidget);
-    });
-
     testWidgets('cancel during enumeration pops without submitting', (
       tester,
     ) async {

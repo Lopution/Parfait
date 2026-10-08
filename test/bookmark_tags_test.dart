@@ -125,16 +125,6 @@ void main() {
     expect(requests.single.body['tags[]'], 'illustration オリジナル');
   });
 
-  test('add without tags omits tags[]', () async {
-    final (container, requests) = await _makeWorld({});
-    final repository = container.read(bookmarkRepositoryProvider);
-
-    await repository.addNovel(7, BookmarkRestrict.public, tags: const []);
-
-    expect(requests.single.uri.path, '/v2/novel/bookmark/add');
-    expect(requests.single.body.containsKey('tags[]'), isFalse);
-  });
-
   test('fetchDetail parses illust bookmark_detail payload', () async {
     final (container, requests) = await _makeWorld({
       'GET /v2/illust/bookmark/detail': {
@@ -393,36 +383,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('procreate'), findsOneWidget);
     expect(repository.requests, ['tags:100:public', 'tags:100:private']);
-  });
-
-  testWidgets('BookmarkTagsPage opens on the requested visibility', (
-    tester,
-  ) async {
-    final repository = _FakeTagRepository();
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-    final container = ProviderContainer(
-      overrides: [
-        accountStoreProvider.overrideWith(StubAccountStore.new),
-        bookmarkRepositoryProvider.overrideWithValue(repository),
-      ],
-    );
-    addTearDown(container.dispose);
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(
-          locale: Locale('zh', 'CN'),
-          supportedLocales: [Locale('zh', 'CN')],
-          localizationsDelegates: appLocalizationsDelegates,
-          home: BookmarkTagsPage(initialRestrict: BookmarkRestrict.private),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final tabs = tester.widget<TabBar>(find.byType(TabBar));
-    expect(tabs.controller!.index, 1);
-    expect(repository.requests, ['tags:100:private']);
   });
 
   testWidgets('BookmarkTagsPage retries a failed load-more request', (

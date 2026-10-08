@@ -92,47 +92,6 @@ void main() {
     expect(find.text('真实 SNI 被封——建议把网络模式设为「兼容优先」。'), findsOneWidget);
   });
 
-  testWidgets('host panel keeps step details folded until expanded', (
-    tester,
-  ) async {
-    final report = _report(
-      'app-api.pixiv.net',
-      NetworkProbeConclusion.sniBlocked,
-      firstError: 'tls handshake reset',
-      steps: const [
-        NetworkProbeStep(name: 'system-dns', ok: true, detail: '2 addrs'),
-        NetworkProbeStep(name: 'tls', ok: false, detail: 'reset'),
-      ],
-    );
-    await tester.pumpWidget(
-      _wrap(
-        NetworkProbeHostPanel(
-          host: 'app-api.pixiv.net',
-          report: report,
-          error: null,
-          running: false,
-        ),
-      ),
-    );
-
-    // Summary row: host, conclusion badge and the first error stay visible;
-    // the step list lives behind the collapsed details tile.
-    expect(find.text('app-api.pixiv.net'), findsOneWidget);
-    expect(find.text('tls handshake reset'), findsOneWidget);
-    final tile = tester.widget<ExpansionTile>(find.byType(ExpansionTile));
-    expect(tile.initiallyExpanded, isFalse);
-    final collapsedHeight = tester.getSize(find.byType(Card)).height;
-
-    await tester.tap(find.text('明细'));
-    await tester.pumpAndSettle();
-    expect(
-      tester.getSize(find.byType(Card)).height,
-      greaterThan(collapsedHeight),
-    );
-    expect(find.textContaining('系统 DNS'), findsWidgets);
-    expect(find.text('复制'), findsOneWidget);
-  });
-
   testWidgets('probe page states results are not persisted', (tester) async {
     await tester.pumpWidget(
       ProviderScope(

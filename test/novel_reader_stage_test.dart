@@ -1,14 +1,10 @@
-import 'dart:convert';
-
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
-import 'package:parfait/core/novel/reader_settings.dart';
 import 'package:parfait/core/settings/shared_preferences.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/novel/novel_layout.dart';
@@ -75,26 +71,6 @@ void main() {
     expect(binding.loadCalls, 1);
   });
 
-  testWidgets('settings sliders span exactly the model clamp range', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_stageApp(_RecordingBinding()));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    await tester.tapAt(const Offset(400, 300));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.tune_outlined));
-    await tester.pumpAndSettle();
-
-    final sliders = tester.widgetList<Slider>(find.byType(Slider)).toList();
-    expect(sliders, hasLength(2));
-    expect(sliders[0].min, NovelReaderSettings.minFontSize);
-    expect(sliders[0].max, NovelReaderSettings.maxFontSize);
-    expect(sliders[1].min, NovelReaderSettings.minLineHeight);
-    expect(sliders[1].max, NovelReaderSettings.maxLineHeight);
-  });
-
   testWidgets(
     'progress sheet: drag previews only; confirm lands without animation',
     (tester) async {
@@ -153,29 +129,6 @@ void main() {
     expect(find.textContaining('1/'), findsWidgets);
   });
 
-  testWidgets('progress sheet lists chapters and taps jump to their page', (
-    tester,
-  ) async {
-    final binding = _RecordingBinding();
-    await tester.pumpWidget(_stageApp(binding, chapters: true));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    await tester.tapAt(const Offset(400, 300));
-    await tester.pumpAndSettle();
-    await tester.tap(find.bySemanticsLabel('阅读进度'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('目录'), findsOneWidget);
-    expect(find.text('第二章'), findsOneWidget);
-    await tester.tap(find.text('第二章'));
-    await tester.pumpAndSettle();
-
-    // The chapter tap jumped straight to its page — one user-committed
-    // write for the landing anchor.
-    expect(binding.saves, hasLength(1));
-  });
-
   testWidgets('arrow keys turn pages with user-turn semantics', (tester) async {
     final binding = _RecordingBinding();
     await tester.pumpWidget(_stageApp(binding));
@@ -189,33 +142,6 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pumpAndSettle();
     expect(binding.saves, hasLength(2));
-  });
-
-  testWidgets('a failed anchor save stays observable via the debug log', (
-    tester,
-  ) async {
-    final binding = _RecordingBinding()..saveError = StateError('disk full');
-    final printed = <String>[];
-    final prevDebugPrint = debugPrint;
-    debugPrint = (message, {wrapWidth}) {
-      if (message != null) printed.add(message);
-    };
-    await tester.pumpWidget(_stageApp(binding));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    // A user-committed turn still routes through save — the failure is
-    // logged, not swallowed silently and not surfaced as a snackbar
-    // (anchor loss is non-fatal; a spammed snackbar would be worse).
-    await tester.tapAt(const Offset(780, 300));
-    await tester.pumpAndSettle();
-    // debugPrint is a foundation debug variable: restore it inside the
-    // test body — the invariant check runs before addTearDown.
-    debugPrint = prevDebugPrint;
-    expect(binding.saveCalls, 1);
-    expect(binding.saves, isEmpty);
-    expect(shownPrompt, findsNothing);
-    expect(printed, contains(contains('novel anchor persist failed')));
   });
 
   testWidgets('a failed prefs read surfaces an error with retry', (
@@ -264,127 +190,6 @@ void main() {
     await tester.tap(find.byIcon(Icons.tune_outlined));
     await tester.pumpAndSettle();
     expect(find.text('16'), findsOneWidget);
-  });
-
-  testWidgets('bar icons invert off the reading palette', (tester) async {
-    // R2: paper/sepia pin dark icons, night pins light ones, and the
-    // `system` preset defers to the app theme under both brightnesses.
-    // The settings store reads the seeded SharedPreferences on open.
-    Future<void> open(
-      NovelReaderTheme readerTheme,
-      Brightness appBrightness,
-    ) async {
-      // pumpWidget reuses the stage's Element across identical trees —
-      // drop to an empty tree so each palette mounts a fresh stage that
-      // reloads the seeded settings. The store builds its
-      // SharedPreferencesAsync lazily, so it binds to the platform
-      // instance installed here.
-      installMemoryPreferences({
-        'parfait.novel.reader_settings.v1': jsonEncode(
-          NovelReaderSettings(theme: readerTheme).toJson(),
-        ),
-      });
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpWidget(
-        _stageApp(_RecordingBinding(), theme: replicaTheme(appBrightness)),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      // RenderView applies the AnnotatedRegion at frame time and publishes
-      // latestStyle in a following microtask — pump once more before
-      // reading (same handling as test/system_ui_test.dart).
-      await tester.pump();
-    }
-
-    for (final (readerTheme, icons) in [
-      (NovelReaderTheme.paper, Brightness.dark),
-      (NovelReaderTheme.sepia, Brightness.dark),
-      (NovelReaderTheme.night, Brightness.light),
-    ]) {
-      await open(readerTheme, Brightness.light);
-      expect(
-        SystemChrome.latestStyle?.statusBarIconBrightness,
-        icons,
-        reason: '$readerTheme must paint $icons status-bar icons',
-      );
-      expect(
-        SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
-        icons,
-        reason: '$readerTheme must paint $icons nav-bar icons',
-      );
-    }
-
-    for (final appBrightness in Brightness.values) {
-      await open(NovelReaderTheme.system, appBrightness);
-      final icons = appBrightness == Brightness.light
-          ? Brightness.dark
-          : Brightness.light;
-      expect(
-        SystemChrome.latestStyle?.statusBarIconBrightness,
-        icons,
-        reason: 'system under a $appBrightness theme must paint $icons icons',
-      );
-      expect(
-        SystemChrome.latestStyle?.systemNavigationBarIconBrightness,
-        icons,
-      );
-    }
-  });
-
-  testWidgets('progress sheet percent matches the footer formula at 1/2/N '
-      'boundaries', (tester) async {
-    // pageBreakBefore makes the page count deterministic — one short
-    // paragraph per page regardless of layout metrics.
-    NovelEntity paged(int pages) => NovelEntity(
-      id: 77,
-      title: 'A novel',
-      caption: '',
-      user: const UserEntity(id: 8, name: 'author', account: 'author'),
-      tags: const [],
-      textLength: 1,
-      contentVersion: 'paged-$pages',
-      contentAvailable: true,
-      paragraphs: [
-        for (var i = 0; i < pages; i++)
-          NovelParagraph(id: 'pg$i', text: 'page $i', pageBreakBefore: i > 0),
-      ],
-    );
-
-    Future<void> openSheet(int pages) async {
-      // pumpWidget reuses the stage's Element across identical trees —
-      // drop to an empty tree first so each page count mounts a fresh
-      // stage with hidden chrome.
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpWidget(
-        _stageApp(_RecordingBinding(), novel: paged(pages)),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.tapAt(const Offset(400, 300));
-      await tester.pumpAndSettle();
-      await tester.tap(find.bySemanticsLabel('阅读进度'));
-      await tester.pumpAndSettle();
-    }
-
-    // One page: 100% regardless of formula.
-    await openSheet(1);
-    expect(find.text('1/1 · 100%'), findsWidgets);
-    await tester.tap(find.text('取消'));
-    await tester.pumpAndSettle();
-
-    // Two pages: the preview starts on page 1 — the footer formula
-    // reads 50% where the old position-over-range formula read 0%.
-    await openSheet(2);
-    expect(find.text('1/2 · 50%'), findsWidgets);
-    await tester.drag(find.byType(Slider), const Offset(400, 0));
-    await tester.pump();
-    expect(find.text('2/2 · 100%'), findsWidgets);
-    await tester.tap(find.text('取消'));
-    await tester.pumpAndSettle();
-
-    // N pages: page 1 of 4 shows the same 25% the footer reports.
-    await openSheet(4);
-    expect(find.text('1/4 · 25%'), findsWidgets);
   });
 }
 

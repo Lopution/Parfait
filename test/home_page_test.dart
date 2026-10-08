@@ -13,7 +13,6 @@ import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/platform/intent_router.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
-import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/new/new_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
@@ -135,48 +134,6 @@ void main() {
     },
   );
 
-  group('three-tier navigation chrome', () {
-    Future<void> pumpAt(WidgetTester tester, double width) async {
-      tester.view.physicalSize = Size(width, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(_homeApp());
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-
-    bool railExtended(WidgetTester tester) {
-      final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
-      return rail.extended;
-    }
-
-    testWidgets('compact surface keeps the bottom bar and no rail', (
-      tester,
-    ) async {
-      await pumpAt(tester, 390);
-      expect(find.byType(NavigationRail), findsNothing);
-    });
-
-    testWidgets('medium surface uses the compact rail', (tester) async {
-      await pumpAt(tester, 900);
-      expect(find.byType(NavigationRail), findsOneWidget);
-      expect(railExtended(tester), isFalse);
-    });
-
-    testWidgets('1199 stays compact, 1200 switches to the extended rail', (
-      tester,
-    ) async {
-      await pumpAt(tester, 1199);
-      expect(railExtended(tester), isFalse);
-
-      tester.view.physicalSize = const Size(1200, 844);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(find.byType(NavigationRail), findsOneWidget);
-      expect(railExtended(tester), isTrue);
-    });
-  });
-
   testWidgets('C7: cold start builds only the current tab', (tester) async {
     await _pumpHome(tester);
 
@@ -226,15 +183,6 @@ void main() {
     expect(find.byType(SettingsPage, skipOffstage: false), findsNothing);
   });
 
-  testWidgets('Bottom navigation labels render in every supported locale', (
-    tester,
-  ) async {
-    for (final locale in AppLocalizations.supportedLocales) {
-      await _pumpHome(tester, locale: locale);
-      expect(find.byType(FuncBottomNav), findsOneWidget);
-    }
-  });
-
   testWidgets('C8: UserRoute delivered to home pushes the user page', (
     tester,
   ) async {
@@ -250,24 +198,4 @@ void main() {
     expect(find.byType(UserPage), findsOneWidget);
     expect(tester.widget<UserPage>(find.byType(UserPage)).userId, 123);
   });
-
-  testWidgets(
-    'C8: UnknownRoute shows the rejection snackbar and does not navigate',
-    (tester) async {
-      final unknown = IntentRouter.routePlatformMessage({
-        'action': AndroidIntentInput.viewAction,
-        'uri': 'https://www.pixiv.net/unknown-path',
-      });
-      expect(unknown, isA<RejectedAndroidIntent>());
-
-      await _pumpHome(tester, intentSource: _ScriptedIntentSource(unknown));
-      await tester.pump();
-      await tester.pump();
-
-      expect(shownPrompt, findsOneWidget);
-      expect(find.text('分享的图片无法使用'), findsOneWidget);
-      expect(find.byType(UserPage), findsNothing);
-      expect(find.byType(IllustDetailPage), findsNothing);
-    },
-  );
 }

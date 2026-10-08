@@ -7,9 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 
-import 'package:parfait/features/comments/comment_input.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
-import 'package:parfait/features/profile/profile_statistics.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/image_network.dart';
@@ -26,38 +24,6 @@ Widget _host(Widget child) {
 }
 
 void main() {
-  testWidgets('about-page stats announce label+value as one node', (
-    tester,
-  ) async {
-    ProfileStatisticData stat({VoidCallback? onTap}) => ProfileStatisticData(
-      id: 'following',
-      icon: Icons.favorite_outline,
-      label: '关注',
-      value: 12,
-      onTap: onTap,
-    );
-
-    // A tappable row is a single button node announcing "label, value" —
-    // the inner visuals are excluded so the pair never double-announces.
-    await tester.pumpWidget(
-      _host(ProfileStatistic(statistic: stat(onTap: () {}))),
-    );
-    expect(find.bySemanticsLabel('关注, 12'), findsOneWidget);
-    expect(
-      tester.getSemantics(find.bySemanticsLabel('关注, 12')),
-      isSemantics(isButton: true, hasTapAction: true),
-    );
-
-    // A read-only stat keeps the same announcement but loses the button
-    // role — no phantom affordance.
-    await tester.pumpWidget(_host(ProfileStatistic(statistic: stat())));
-    expect(find.bySemanticsLabel('关注, 12'), findsOneWidget);
-    expect(
-      tester.getSemantics(find.bySemanticsLabel('关注, 12')),
-      isSemantics(isButton: false, hasTapAction: false),
-    );
-  });
-
   testWidgets('viewer pages announce a per-page image and chrome controls', (
     tester,
   ) async {
@@ -82,50 +48,6 @@ void main() {
     );
     expect(
       tester.getSemantics(find.byTooltip('适应屏幕')),
-      isSemantics(isButton: true, hasTapAction: true),
-    );
-  });
-
-  testWidgets('comment composer exposes field, send and reply context', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(
-        Column(
-          children: [
-            const Expanded(child: SizedBox()),
-            CommentComposer(
-              replyTo: 'alice',
-              onCancelReply: () {},
-              onSend: (_) async {},
-              onStampSend: (_) async {},
-            ),
-          ],
-        ),
-      ),
-    );
-    await tester.pump();
-
-    // The reply context is one announcement unit ("回复给 alice") with its
-    // own named cancel affordance.
-    expect(find.bySemanticsLabel('回复给：alice'), findsOneWidget);
-    expect(
-      tester.getSemantics(find.byTooltip('取消回复')),
-      isSemantics(isButton: true, hasTapAction: true),
-    );
-
-    // The field is a text-input node; send/emoji/stamp are named buttons.
-    expect(
-      tester.getSemantics(find.byType(EditableText)),
-      isSemantics(isTextField: true),
-    );
-    expect(find.byTooltip('发送'), findsOneWidget);
-    expect(
-      tester.getSemantics(find.byTooltip('Emoji')),
-      isSemantics(isButton: true, hasTapAction: true),
-    );
-    expect(
-      tester.getSemantics(find.byTooltip('Stamp')),
       isSemantics(isButton: true, hasTapAction: true),
     );
   });

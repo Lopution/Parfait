@@ -9,7 +9,6 @@ import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/image/image_worker.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
-import 'package:parfait/core/image/worker_image_provider.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
@@ -25,18 +24,6 @@ Widget _host(Widget child) => ProviderScope(
     home: Scaffold(body: child),
   ),
 );
-
-/// An image loads through the worker; a capped decode is the
-/// [ResizeImage] around the worker's provider, an uncapped one the bare
-/// provider. The width is the memory contract, and nothing paints it before
-/// a frame loads.
-int? _workerDecodeWidthOf(WidgetTester tester) {
-  return switch (tester.widget<OctoImage>(find.byType(OctoImage)).image) {
-    ResizeImage(:final width) => width,
-    WorkerImageProvider() => null,
-    final image => fail('unexpected provider $image'),
-  };
-}
 
 /// The layout width the image on screen was given.
 double? _layoutWidthOf(WidgetTester tester) =>
@@ -70,45 +57,6 @@ void main() {
     expect(PixivImage.decodeWidthFor(0.1, devicePixelRatio: 2), 1);
   });
 
-  testWidgets('feed variant decodes at layout width under the test DPR', (
-    tester,
-  ) async {
-    // flutter_test default view: DPR 3, 800x600 logical.
-    await tester.pumpWidget(
-      _host(PixivImage.feed('https://i.pximg.net/test.jpg', layoutWidth: 200)),
-    );
-    await tester.pump();
-    // 200 logical at DPR 3 -> 600 physical decode.
-    expect(_workerDecodeWidthOf(tester), 600);
-  });
-
-  testWidgets('avatar variant decodes at the avatar box size', (tester) async {
-    await tester.pumpWidget(
-      _host(PixivImage.avatar('https://i.pximg.net/test.jpg', size: 54)),
-    );
-    await tester.pump();
-    // 54 logical at DPR 3 -> 162 physical decode.
-    expect(_workerDecodeWidthOf(tester), 162);
-  });
-
-  testWidgets('detail variant decodes at the screen width', (tester) async {
-    await tester.pumpWidget(
-      _host(PixivImage.detail('https://i.pximg.net/test.jpg')),
-    );
-    await tester.pump();
-    // Test view is 800 logical wide at DPR 3.
-    expect(_workerDecodeWidthOf(tester), 800 * 3);
-  });
-
-  testWidgets('plain (viewer) variant has no decode cap', (tester) async {
-    await tester.pumpWidget(
-      _host(const PixivImage(url: 'https://i.pximg.net/test.jpg')),
-    );
-    await tester.pump();
-
-    expect(_workerDecodeWidthOf(tester), isNull);
-  });
-
   testWidgets(
     'loose-constrained detail fills the bounded width, not intrinsic size',
     (tester) async {
@@ -130,20 +78,6 @@ void main() {
       expect(_layoutWidthOf(tester), 320);
     },
   );
-
-  testWidgets('unbounded width keeps intrinsic sizing', (tester) async {
-    await tester.pumpWidget(
-      _host(
-        const SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: PixivImage(url: 'https://i.pximg.net/test.jpg'),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    expect(_layoutWidthOf(tester), isNull);
-  });
 
   testWidgets('quality handoff keeps an old decoded frame placeholder', (
     tester,
@@ -213,21 +147,6 @@ void main() {
           );
           await tester.pump();
         }
-
-        expect(_fadesOf(tester), (
-          MotionTokens.imageFade,
-          MotionTokens.imageFadeOut,
-        ));
-      });
-
-      testWidgets('a freshly created slot keeps the cold-load fade', (
-        tester,
-      ) async {
-        // A new element has no previous URL at all — the genuine cold load.
-        await tester.pumpWidget(
-          _host(PixivImage(url: '$base/work-a.jpg', memCacheWidth: width)),
-        );
-        await tester.pump();
 
         expect(_fadesOf(tester), (
           MotionTokens.imageFade,

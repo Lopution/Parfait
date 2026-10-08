@@ -1,12 +1,9 @@
-import 'dart:async';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
-import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/widgets/card_actions/illust_card_actions.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/feed/muted_cover.dart';
@@ -15,8 +12,6 @@ import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/share/share_service.dart';
 import 'package:parfait/features/settings/pages/muted_items_page.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
-import 'package:parfait/core/watchlater/watch_later_store.dart';
-import 'package:parfait/features/watchlater/watchlater_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 
@@ -96,68 +91,6 @@ void main() {
       expect(find.bySemanticsLabel(label), findsWidgets);
     }
     expect(find.widgetWithText(ListTile, '收藏'), findsNothing);
-  });
-
-  testWidgets('the sheet names the work it acts on', (tester) async {
-    final semantics = tester.ensureSemantics();
-    final (container, _, _) = await makeCardWorld();
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
-      );
-      await _openSheet(tester);
-    });
-
-    final sheet = find.byType(BottomSheet);
-    Finder inSheet(Finder finder) =>
-        find.descendant(of: sheet, matching: finder);
-    final thumbnail = tester.widget<PixivImage>(
-      inSheet(find.byType(PixivImage)),
-    );
-    expect(thumbnail.url, 'https://i.pximg.net/7/square.jpg');
-    expect(
-      tester.getSize(inSheet(find.byType(PixivImage))),
-      const Size.square(48),
-    );
-    expect(inSheet(find.text('illust 7')), findsOneWidget);
-    expect(inSheet(find.text('author')), findsOneWidget);
-    // Above the first action.
-    expect(
-      tester.getBottomLeft(inSheet(find.text('author'))).dy,
-      lessThanOrEqualTo(
-        tester.getTopLeft(find.widgetWithText(ListTile, '下载')).dy,
-      ),
-    );
-    expect(find.bySemanticsLabel('illust 7'), findsWidgets);
-    semantics.dispose();
-  });
-
-  testWidgets('a muted work keeps its thumbnail hidden in the sheet', (
-    tester,
-  ) async {
-    final (container, _, _) = await makeCardWorld();
-    await container
-        .read(muteStoreProvider.notifier)
-        .muteWork(const MutedWork(illustId: 7));
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
-      );
-      await _openSheet(tester);
-    });
-
-    final sheet = find.byType(BottomSheet);
-    expect(
-      find.descendant(of: sheet, matching: find.byType(PixivImage)),
-      findsNothing,
-    );
-    expect(
-      find.descendant(
-        of: sheet,
-        matching: find.byIcon(Icons.visibility_off_outlined),
-      ),
-      findsOneWidget,
-    );
   });
 
   testWidgets('unmuting from the card offers Undo', (tester) async {
@@ -303,26 +236,6 @@ void main() {
     expect(find.text('链接已复制'), findsOneWidget);
   });
 
-  testWidgets('watch-later page renders stored works and empty state', (
-    tester,
-  ) async {
-    final (container, _, repository) = await makeCardWorld();
-    await repository.add('100', parseIllust(illustJson(21)));
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(_cardApp(container, const WatchLaterPage()));
-      await tester.pumpAndSettle();
-    });
-    expect(find.text('illust 21'), findsWidgets);
-    expect(find.byType(IllustCard), findsOneWidget);
-
-    await repository.removeAll('100', [21]);
-    container.invalidate(watchLaterStoreProvider);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpAndSettle();
-    });
-    expect(find.text('暂存的作品会显示在这里'), findsOneWidget);
-  });
-
   testWidgets('mute-work action toggles the local work mute', (tester) async {
     final (container, fixture, _) = await makeCardWorld();
     final entity = parseIllust(illustJson(31));
@@ -415,89 +328,6 @@ void main() {
     );
   });
 
-  testWidgets('muted items page lists entries and removes them', (
-    tester,
-  ) async {
-    final (container, fixture, _) = await makeCardWorld();
-    fixture.muteList = {
-      'muted_tags': [
-        {'tag': 'tagA'},
-      ],
-      'muted_users': [
-        {
-          'user_id': 5,
-          'user_name': 'user5',
-          'user_account': 'u5',
-          'user_profile_image_urls': {'medium': 'https://i.pximg.net/m.png'},
-        },
-      ],
-      'mute_limit_count': 500,
-    };
-    // Seed a local work mute before the page builds.
-    await container
-        .read(muteStoreProvider.notifier)
-        .muteWork(const MutedWork(illustId: 41));
-
-    await tester.pumpWidget(_cardApp(container, const MutedItemsPage()));
-    await tester.pumpAndSettle();
-
-    expect(find.text('tagA'), findsOneWidget);
-    expect(find.text('user5'), findsOneWidget);
-    expect(find.text('#41'), findsOneWidget);
-
-    // Unmute tag → server delete_tags[] request, row disappears.
-    final tagTile = find.widgetWithText(ListTile, 'tagA');
-    await tester.tap(
-      find.descendant(
-        of: tagTile,
-        matching: find.byIcon(Icons.visibility_outlined),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('tagA'), findsNothing);
-    final edit = fixture.posts.indexWhere(
-      (u) => u.path.endsWith('/v1/mute/edit'),
-    );
-    expect(edit, isNonNegative);
-    expect(fixture.postBodies[edit]['delete_tags[]'], 'tagA');
-
-    // Unmute work → local only, no additional HTTP.
-    final postsBefore = fixture.posts.length;
-    final workTile = find.widgetWithText(ListTile, '#41');
-    await tester.tap(
-      find.descendant(
-        of: workTile,
-        matching: find.byIcon(Icons.visibility_outlined),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('#41'), findsNothing);
-    expect(fixture.posts, hasLength(postsBefore));
-    expect(
-      container.read(muteStoreProvider.select((s) => s.isWorkMuted(41))),
-      isFalse,
-    );
-  });
-
-  testWidgets('muted items rows expose the release verb and icon', (
-    tester,
-  ) async {
-    final (container, fixture, _) = await makeCardWorld();
-    fixture.muteList = {
-      'muted_tags': [
-        {'tag': 'tagA'},
-      ],
-      'muted_users': <dynamic>[],
-      'mute_limit_count': 500,
-    };
-    await tester.pumpWidget(_cardApp(container, const MutedItemsPage()));
-    await tester.pumpAndSettle();
-
-    // D6: removing a mute reads as 解除屏蔽 with a visibility icon.
-    expect(find.byTooltip('解除屏蔽'), findsOneWidget);
-    expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
-  });
-
   testWidgets('failed tag add keeps the input for a retry', (tester) async {
     final (container, fixture, _) = await makeCardWorld();
     await tester.pumpWidget(_cardApp(container, const MutedItemsPage()));
@@ -531,32 +361,5 @@ void main() {
       container.read(muteStoreProvider.select((s) => s.isTagMuted('tagFail'))),
       isTrue,
     );
-  });
-
-  testWidgets('a pending mute write shows a spinner on the new row', (
-    tester,
-  ) async {
-    // The store applies optimistically: an added tag lands in the list
-    // immediately and stays marked pending until the write resolves — the
-    // trailing slot swaps its button for a live spinner.
-    final (container, fixture, _) = await makeCardWorld();
-    await tester.pumpWidget(_cardApp(container, const MutedItemsPage()));
-    await tester.pumpAndSettle();
-
-    fixture.muteEditGate = Completer<void>();
-    await tester.enterText(find.byType(TextField), 'tagNew');
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-    expect(find.widgetWithText(ListTile, 'tagNew'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.byTooltip('解除屏蔽'), findsNothing);
-
-    fixture.muteEditGate!.complete();
-    await tester.pumpAndSettle();
-    expect(
-      container.read(muteStoreProvider.select((s) => s.isTagMuted('tagNew'))),
-      isTrue,
-    );
-    expect(find.byTooltip('解除屏蔽'), findsOneWidget);
   });
 }

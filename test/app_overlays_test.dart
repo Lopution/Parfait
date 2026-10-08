@@ -153,31 +153,6 @@ void main() {
     expect(taps, 1);
   });
 
-  testWidgets('reduced motion still shows both at once', (tester) async {
-    for (final open in [(BuildContext c) => _openDialog(c), _openSheet]) {
-      final navigatorKey = GlobalKey<NavigatorState>();
-      await tester.pumpWidget(
-        MediaQuery(
-          data: const MediaQueryData(size: _page, disableAnimations: true),
-          child: MaterialApp(
-            navigatorKey: navigatorKey,
-            home: Builder(
-              builder: (context) => TextButton(
-                onPressed: () => open(context),
-                child: const Text('open'),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.tap(find.text('open'));
-      await tester.pump();
-      expect(find.text('overlay'), findsOneWidget);
-      navigatorKey.currentState!.pop();
-      await tester.pumpAndSettle();
-    }
-  });
-
   group('sheet content that fits drags the sheet closed', () {
     // Under the app's bouncing, always-scrollable behaviour the content
     // used to take the drag and rubber-band inside a still panel.

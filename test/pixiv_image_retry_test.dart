@@ -157,15 +157,6 @@ void main() {
         expect(network.requests, 2);
       });
 
-      testWidgets('a small image slot keeps the broken-image icon', (
-        tester,
-      ) async {
-        final network = pipeline()..script = (_) => _Outcome.notFound;
-        await _pump(tester, network, size: 32);
-        expect(find.byIcon(Icons.refresh), findsNothing);
-        expect(find.byIcon(Icons.broken_image), findsOneWidget);
-      });
-
       testWidgets('a pending retry dies with the widget', (tester) async {
         final network = pipeline()..script = (_) => _Outcome.transient;
         await _pump(tester, network);

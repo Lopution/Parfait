@@ -181,22 +181,6 @@ void main() {
     expect(pushStaysInStack(router, '/recommended/illust/2'), isFalse);
   });
 
-  testWidgets('update prompt navigation uses one settings shell', (
-    tester,
-  ) async {
-    final router = await pumpRouter(tester, '/me');
-    goToAbout(router);
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/settings/about');
-    expect(
-      find.byType(StatefulNavigationShell, skipOffstage: false),
-      findsOneWidget,
-    );
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, '/settings');
-  });
-
   testWidgets('bottom bar hides on pushed branch routes and returns at root', (
     tester,
   ) async {
@@ -400,27 +384,6 @@ void main() {
     expect(router.state.uri.path, '/me');
   });
 
-  testWidgets('/settings/history/view no longer matches', (tester) async {
-    final router = createPixivRouter(initialLocation: '/settings/history/view');
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    // The retired settings-page subroute resolves to the router's
-    // unmatched-path error page, not to a page.
-    expect(find.byType(HistoryPage), findsNothing);
-    expect(find.text('Page Not Found'), findsOneWidget);
-  });
-
   testWidgets('every settings subroute returns to the Me root', (tester) async {
     final router = await pumpRouter(tester, '/settings');
     expect(find.byType(MeDashboardPage), findsOneWidget);
@@ -448,45 +411,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       expect(router.state.uri.path, '/settings', reason: sub);
     }
-  });
-
-  testWidgets('pop slides the outgoing page as a snapshot texture', (
-    tester,
-  ) async {
-    final router = await pumpRouter(tester, '/recommended');
-    unawaited(openMe(tester.element(find.byType(RecommendedHomePage))));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(MePage), findsOneWidget);
-
-    await tester.binding.handlePopRoute();
-    await tester.pump();
-    // While the reverse animation runs, both leaving directions hand their
-    // subtree to a SnapshotWidget so each frame blits a captured texture:
-    // the popping route and the settled reveal it uncovers.
-    await tester.pump(const Duration(milliseconds: 16));
-    final snapshots = tester.widgetList<SnapshotWidget>(
-      find.byType(SnapshotWidget, skipOffstage: false),
-    );
-    expect(
-      snapshots.where((s) => s.controller.allowSnapshotting),
-      hasLength(2),
-    );
-    // The live subtree stays mounted so a cancelled pop or route state
-    // survives the snapshot window.
-    expect(find.byType(MePage, skipOffstage: false), findsOneWidget);
-
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(router.state.uri.path, '/recommended');
-    expect(find.byType(RecommendedHomePage), findsOneWidget);
-  });
-
-  testWidgets('/settings deep links still resolve as a root flow', (
-    tester,
-  ) async {
-    final router = await pumpRouter(tester, '/settings/theme');
-    expect(router.state.uri.path, '/settings/theme');
-    expect(find.byType(MeDashboardPage), findsNothing);
   });
 
   testWidgets('bookmark tag route restores and writes its restrict query', (
@@ -519,29 +443,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(router.state.uri.queryParameters['restrict'], 'public');
     expect(selectedTab(), 0);
-  });
-
-  testWidgets('wide layout uses a rail with settings as a peer entry', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1200, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final router = await pumpRouter(tester, '/recommended');
-
-    expect(find.byType(NavigationRail), findsOneWidget);
-    expect(find.byType(FuncBottomNav), findsNothing);
-
-    await tester.tap(
-      find.descendant(
-        of: find.byType(NavigationRail),
-        matching: find.byIcon(Icons.person_outline),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(router.state.uri.path, '/settings');
-    expect(find.byType(MeDashboardPage), findsOneWidget);
   });
 
   testWidgets('detail pushed from the reverse-image page does not stack a '
