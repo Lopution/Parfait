@@ -711,7 +711,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       // Official client behaviour: when the work belongs to an
       // illust series, the series card sits between the image pages
       // and the info block (name, 第 N 话, prev/next navigation).
-      IllustSeriesSection(illustId: widget.illustId),
+      IllustSeriesSection(
+        illustId: widget.illustId,
+        outsideSeries: entity.outsideSeries,
+      ),
       SliverToBoxAdapter(
         // The ⋮ menu's artwork-info item scrolls to this anchor
         // (ensureVisible by context — no controller takeover, risks R9).

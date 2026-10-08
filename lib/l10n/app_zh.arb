@@ -1127,25 +1127,6 @@
   "@detailStatBookmarks": {
     "description": "Label under the bookmark count in the artwork stats card."
   },
-  "detailStatComments": "评论",
-  "@detailStatComments": {
-    "description": "Label under the comment count in the artwork stats card."
-  },
-  "detailStatsSemantics": "{views} 次浏览，{bookmarks} 次收藏，{comments} 条评论",
-  "@detailStatsSemantics": {
-    "description": "Screen-reader text for the artwork stats card. All three are compact counts.",
-    "placeholders": {
-      "views": {
-        "type": "String"
-      },
-      "bookmarks": {
-        "type": "String"
-      },
-      "comments": {
-        "type": "String"
-      }
-    }
-  },
   "detailSectionCaption": "简介",
   "@detailSectionCaption": {
     "description": "Section heading over the artwork caption."

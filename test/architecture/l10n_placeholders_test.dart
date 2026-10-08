@@ -52,7 +52,6 @@ const _textPlaceholderKeys = <String, String>{
   'searchReverseEngineUnavailable': 'search engine name',
   'searchReverseBadResponse': 'search engine name',
   'searchReverseTryEngine': 'search engine name',
-  'detailStatsSemantics': 'compact counts (AppFormat.count)',
   'detailMetaCountsSemantics': 'compact counts (AppFormat.count)',
   'localNovelsImported': 'novel title',
   'localNovelsDeleteConfirm': 'novel title',

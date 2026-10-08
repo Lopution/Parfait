@@ -45,7 +45,7 @@ final class IllustSnapshotCodec extends FeedSnapshotCodec {
       }
     }
     if (decoded.isNotEmpty) {
-      ref.read(illustStoreProvider).mergeAll(decoded);
+      ref.read(illustStoreProvider).mergeAll(decoded, fromLocalCache: true);
     }
     return restored;
   }

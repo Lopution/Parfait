@@ -36,6 +36,10 @@ class _CommentFeedController extends PagedFeedController {
             cancelToken: context.cancelToken,
           );
     ref.read(commentStoreProvider.notifier).mergePage(query, page.comments);
+    final total = page.totalComments;
+    if (!query.isReplies && total != null) {
+      ref.read(commentTotalsProvider.notifier).record(query.workKey, total);
+    }
     return FeedPage(
       ids: [for (final comment in page.comments) comment.id],
       nextCursor: page.nextUrl,
@@ -77,3 +81,22 @@ final commentFeedProvider =
       PagedFeedState,
       CommentFeedQuery
     >(_CommentFeedController.new);
+
+/// The comment count each work's comments response last reported, by
+/// [CommentFeedQuery.workKey]. The comments call carries it, so the detail
+/// page can show the count without asking the detail API.
+final commentTotalsProvider =
+    NotifierProvider<_CommentTotals, Map<String, int>>(_CommentTotals.new);
+
+class _CommentTotals extends Notifier<Map<String, int>> {
+  @override
+  Map<String, int> build() {
+    ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
+    return const {};
+  }
+
+  void record(String workKey, int total) {
+    if (state[workKey] == total) return;
+    state = {...state, workKey: total};
+  }
+}

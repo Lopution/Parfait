@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../app/format/app_format.dart';
 import '../../../app/motion/state_fade.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/person_avatar.dart';
@@ -8,6 +9,7 @@ import '../../../app/pixiv_image.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/author_badge.dart';
 import '../../../app/widgets/comment_text.dart';
+import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/skeleton/func_skeleton.dart';
 import '../../../core/comments/comment_feed_controller.dart';
 import '../../../core/comments/comment_models.dart';
@@ -37,8 +39,14 @@ class CommentsPreviewSlivers extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final query = CommentFeedQuery.root(workId: illustId);
     void openAll() => openIllustComments(context, illustId);
+    final count =
+        ref.watch(commentTotalsProvider.select((t) => t[query.workKey])) ??
+        ref.read(illustStoreProvider).get(illustId)?.totalComments;
+    final title = context.l10n.commentTitle;
     final header = DetailSectionHeader(
-      title: context.l10n.commentTitle,
+      title: count == null
+          ? title
+          : '$title (${AppFormat.count(context, count)})',
       actionLabel: context.l10n.detailViewAll,
       onAction: openAll,
     );
@@ -95,53 +103,59 @@ class _PreviewBody extends ConsumerWidget {
     final muted = Theme.of(context).textTheme.bodyMedium?.copyWith(
       color: Theme.of(context).colorScheme.onSurfaceVariant,
     );
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
-      child: StateFade(
-        kind: kind,
-        child: switch (kind) {
-          _PreviewKind.loading => FuncSkeleton(
-            label: l10n.contentLoading,
-            child: const _PreviewBones(),
-          ),
-          _PreviewKind.error => _NoteRow(
-            text: l10n.commentLoadFailed,
-            style: muted,
-            actionLabel: l10n.retry,
-            onAction: () =>
-                ref.read(commentFeedProvider(query).notifier).retryInitial(),
-          ),
-          _PreviewKind.empty => _NoteRow(
-            text: l10n.commentNoResults,
-            style: muted,
-            actionLabel: l10n.commentInput,
-            onAction: onOpenAll,
-          ),
-          _PreviewKind.comments => Material(
-            key: const Key('illust-comments-preview'),
-            color: Theme.of(context).colorScheme.surfaceContainerLow,
-            borderRadius: FuncShape.card,
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: onOpenAll,
-              child: Padding(
-                padding: const EdgeInsets.all(FuncSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final (index, comment) in comments.indexed) ...[
-                      if (index > 0) const SizedBox(height: FuncSpacing.md),
-                      _PreviewTile(
-                        comment: comment,
-                        byAuthor: comment.user.id == authorId,
-                      ),
+    return AutoRetry(
+      failed: kind == _PreviewKind.error,
+      error: state == null ? async.error : state.initialError,
+      onRetry: () =>
+          ref.read(commentFeedProvider(query).notifier).retryInitial(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
+        child: StateFade(
+          kind: kind,
+          child: switch (kind) {
+            _PreviewKind.loading => FuncSkeleton(
+              label: l10n.contentLoading,
+              child: const _PreviewBones(),
+            ),
+            _PreviewKind.error => _NoteRow(
+              text: l10n.commentLoadFailed,
+              style: muted,
+              actionLabel: l10n.retry,
+              onAction: () =>
+                  ref.read(commentFeedProvider(query).notifier).retryInitial(),
+            ),
+            _PreviewKind.empty => _NoteRow(
+              text: l10n.commentNoResults,
+              style: muted,
+              actionLabel: l10n.commentInput,
+              onAction: onOpenAll,
+            ),
+            _PreviewKind.comments => Material(
+              key: const Key('illust-comments-preview'),
+              color: Theme.of(context).colorScheme.surfaceContainerLow,
+              borderRadius: FuncShape.card,
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onOpenAll,
+                child: Padding(
+                  padding: const EdgeInsets.all(FuncSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final (index, comment) in comments.indexed) ...[
+                        if (index > 0) const SizedBox(height: FuncSpacing.md),
+                        _PreviewTile(
+                          comment: comment,
+                          byAuthor: comment.user.id == authorId,
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-        },
+          },
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@
 /// See `frontend/state-management.md`.
 library;
 
+import 'package:clock/clock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
@@ -27,6 +28,13 @@ enum EntityMergeSource { feed, detail }
 /// future surface observe identical data (design §4.4).
 class IllustStore {
   final Map<int, IllustEntity> _entities = {};
+
+  /// When an API payload for each work was last merged.
+  final Map<int, DateTime> _receivedAt = {};
+
+  /// Works some detail payload has been merged for: their empty caption is
+  /// real, not a list endpoint trimming it.
+  final Set<int> _detailed = {};
 
   void Function(
     Iterable<(int id, bool bookmarked)> snapshots,
@@ -74,6 +82,13 @@ class IllustStore {
 
   IllustEntity? get(int id) => _entities[id];
 
+  /// When the last feed or detail payload for [id] was merged; null when
+  /// none was (an entity restored from local storage).
+  DateTime? receivedAt(int id) => _receivedAt[id];
+
+  /// Whether a detail payload for [id] has been merged.
+  bool hasDetail(int id) => _detailed.contains(id);
+
   /// Merges entities: newer parse wins; bookmark state follows the bound
   /// BookmarkStore when bound (remote snapshots are forwarded with the
   /// fetch-time revision and the confirmed local value wins — R2); when
@@ -84,10 +99,14 @@ class IllustStore {
   /// viewer/download URLs); trimmed payloads with an empty `caption`/`tags`
   /// never erase richer values already observed (detail fields must not
   /// regress, parent AC); `visible: false` sticks once seen.
+  ///
+  /// [fromLocalCache] marks entities restored from local storage: they say
+  /// nothing about how fresh the work is, so [receivedAt] stays as it was.
   void mergeAll(
     Iterable<IllustEntity> incoming, {
     EntityMergeSource source = EntityMergeSource.feed,
     int? bookmarkSnapshotRevision,
+    bool fromLocalCache = false,
   }) {
     final entities = incoming.toList(growable: false);
     // Forward the remote snapshots before anything else so the bound
@@ -96,7 +115,10 @@ class IllustStore {
     _observeRemote?.call([
       for (final entity in entities) (entity.id, entity.isBookmarked),
     ], bookmarkSnapshotRevision);
+    final now = clock.now();
     for (final entity in entities) {
+      if (!fromLocalCache) _receivedAt[entity.id] = now;
+      if (source == EntityMergeSource.detail) _detailed.add(entity.id);
       final bookmarkAuthority = _authorityOf?.call(entity.id);
       final existing = _entities[entity.id];
       if (existing == null || existing == entity) {
@@ -114,6 +136,8 @@ class IllustStore {
           isBookmarked:
               bookmarkAuthority ??
               (entity.isBookmarked || existing.isBookmarked),
+          seriesId: entity.seriesKnown ? entity.seriesId : existing.seriesId,
+          seriesKnown: entity.seriesKnown || existing.seriesKnown,
         );
         continue;
       }
@@ -134,6 +158,9 @@ class IllustStore {
         // no-regress rule as caption/metaPages).
         createDate: entity.createDate ?? existing.createDate,
         totalComments: entity.totalComments ?? existing.totalComments,
+        // A payload that does not say leaves the known series alone.
+        seriesId: entity.seriesKnown ? entity.seriesId : existing.seriesId,
+        seriesKnown: entity.seriesKnown || existing.seriesKnown,
       );
       // pageCount never shrinks: a feed snapshot with page_count=1 must not
       // erase a detail payload's multi-page count (AC: merge 不倒退).
@@ -142,6 +169,19 @@ class IllustStore {
         _entities[entity.id] = merged.copyWith(pageCount: existing.pageCount);
       }
     }
+  }
+
+  /// Seeds true per-page sizes from the web pages endpoint into the stored
+  /// entity (see [IllustEntity.withPageDimensions]). Not a payload of the
+  /// work itself, so it leaves [receivedAt] and [hasDetail] alone. Returns
+  /// whether anything changed.
+  bool applyPageDimensions(int id, List<({int width, int height})> dims) {
+    final current = _entities[id];
+    if (current == null) return false;
+    final enriched = current.withPageDimensions(dims);
+    if (identical(enriched, current)) return false;
+    _entities[id] = enriched;
+    return true;
   }
 
   /// Applies a confirmed bookmark state change coming from the shared
@@ -154,7 +194,11 @@ class IllustStore {
   }
 
   /// Clears account-scoped data (account switch).
-  void clear() => _entities.clear();
+  void clear() {
+    _entities.clear();
+    _receivedAt.clear();
+    _detailed.clear();
+  }
 }
 
 final illustStoreProvider = Provider<IllustStore>((ref) {

@@ -2057,14 +2057,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get detailStatBookmarks => '收藏';
 
   @override
-  String get detailStatComments => '评论';
-
-  @override
-  String detailStatsSemantics(String views, String bookmarks, String comments) {
-    return '$views 次浏览，$bookmarks 次收藏，$comments 条评论';
-  }
-
-  @override
   String get detailSectionCaption => '简介';
 
   @override

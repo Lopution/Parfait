@@ -120,6 +120,28 @@ void main() {
       expect(IllustEntity.fromJson(entity(2).toJson()).totalComments, isNull);
     });
 
+    test('a payload that does not mention series keeps the known one', () {
+      final store = IllustStore();
+      IllustEntity parsed(Map<String, dynamic> extra) =>
+          IllustEntity.fromJson({...entity(1).toJson(), ...extra});
+      store.mergeAll([parsed({})]);
+      expect(store.get(1)!.seriesKnown, isFalse);
+      store.mergeAll([
+        parsed({
+          'series': {'id': 9, 'title': 's'},
+        }),
+      ]);
+      // An older local snapshot has no `series` key at all.
+      store.mergeAll([parsed({})]);
+      store.mergeAll([parsed({})], source: EntityMergeSource.detail);
+      expect(store.get(1)!.seriesId, 9);
+      store.mergeAll([
+        parsed({'series': null}),
+      ]);
+      expect(store.get(1)!.outsideSeries, isTrue);
+      expect(IllustEntity.fromJson(store.get(1)!.toJson()).outsideSeries, true);
+    });
+
     test(
       'detail merge may overwrite empty caption/tags, visible=false, smaller pageCount',
       () {

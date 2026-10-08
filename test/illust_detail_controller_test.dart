@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:clock/clock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -272,6 +273,50 @@ void main() {
       final error = state as IllustDetailError;
       expect(error.hasSnapshot, isTrue);
       expect(error.snapshot!.id, 5);
+    },
+  );
+
+  test(
+    'a fresh full list payload is Ready with no request; a stale one refreshes behind it',
+    () async {
+      var now = DateTime(2026, 10, 8, 12);
+      await withClock(Clock(() => now), () async {
+        final requests = <String>[];
+        final container = await makeContainer((request) async {
+          requests.add(request.url.path);
+          return okJson({
+            'illust': illustJson(
+              7,
+              withMetaSinglePage: true,
+              caption: 'caption',
+              totalView: 99,
+            ),
+          });
+        });
+        addTearDown(container.dispose);
+        container.read(illustStoreProvider).mergeAll([
+          parseIllust(
+            illustJson(7, withMetaSinglePage: true, caption: 'caption'),
+          ),
+        ]);
+        final provider = illustDetailControllerProvider(7);
+        final sub = container.listen(provider, (_, _) {});
+        addTearDown(sub.close);
+
+        expect(await container.read(provider.future), isA<IllustDetailReady>());
+        await Future<void>.delayed(Duration.zero);
+        expect(requests, isEmpty);
+
+        now = now.add(illustDetailFreshness + const Duration(minutes: 1));
+        container.invalidate(provider);
+        final snapshot = await container.read(provider.future);
+        expect((snapshot as IllustDetailReady).entity.totalView, 10);
+        await untilStore(() => requests.isNotEmpty);
+        await Future<void>.delayed(Duration.zero);
+        final refreshed = container.read(provider).value;
+        expect((refreshed as IllustDetailReady).entity.totalView, 99);
+        expect(requests, ['/v1/illust/detail']);
+      });
     },
   );
 
