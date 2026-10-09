@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../actionqueue/action_bootstrap.dart';
 import '../actionqueue/action_models.dart';
+import '../mutation/mutation_boundary.dart';
 import '../mutation/mutation_models.dart';
 import '../network/api_error.dart';
 import 'bookmark_models.dart';
@@ -37,24 +38,40 @@ class _BookmarkActions {
 
   final Ref _ref;
 
+  /// What the last unbookmark of each work removed, and on which account.
+  /// Tapping the heart again puts the bookmark back as it was — a private
+  /// one stays private and its tags return — so a removal needs no Undo
+  /// prompt. Session memory; the oldest entry goes past [_maxRemembered].
+  final _removed = <BookmarkKey, (String account, RemovedBookmark removed)>{};
+  static const _maxRemembered = 100;
+
   /// Short-press behaviour (beta56 changeBookmarkState): flips the shown
-  /// value at once — not bookmarked → public add, bookmarked → delete — and
-  /// settles on the server one request at a time ([settleToggle]).
-  ///
-  /// Returns what a delete removed, for Undo. Null when nothing was removed
-  /// (an add, a failure, a queued delete, or a tap that only redirected a
-  /// request already under way) or when the original state could not be
-  /// read — then there is no Undo: guessing "public" would expose a private
-  /// bookmark.
-  Future<RemovedBookmark?> toggle(BookmarkKey key) async {
+  /// value at once — bookmarked → delete, not bookmarked → add — and
+  /// settles on the server one request at a time ([settleToggle]). An add
+  /// restores what this account's last delete of the work removed, and is
+  /// public otherwise — including after a delete whose removed state could
+  /// not be read.
+  Future<void> toggle(BookmarkKey key) async {
     final store = _ref.read(bookmarkStoreProvider.notifier);
     final entry = store.entryOf(key);
     final wish = !(entry?.shown ?? false);
     if (entry != null && entry.isUnsettled) {
       await _redirect(store, entry, key, wish);
-      return null;
+      return;
     }
-    return _settle(store, key, wish: wish);
+    final account = readMutationBoundary(_ref)?.accountId;
+    final remembered = _removed.remove(key);
+    final removed = await _settle(
+      store,
+      key,
+      wish: wish,
+      restore: wish && remembered != null && remembered.$1 == account
+          ? remembered.$2
+          : null,
+    );
+    if (removed == null || account == null) return;
+    _removed[key] = (account, removed);
+    if (_removed.length > _maxRemembered) _removed.remove(_removed.keys.first);
   }
 
   /// Requests [wish], then follows the user's later taps ([settleToggle]).
@@ -112,7 +129,7 @@ class _BookmarkActions {
   }
 
   /// Deletes [key], reporting what it removes to [onRemoved] before the
-  /// request so Undo can restore it.
+  /// request so a later tap can restore it.
   Future<bool> _delete(
     BookmarkStore store,
     BookmarkKey key,
@@ -142,7 +159,7 @@ class _BookmarkActions {
   }
 
   /// Reads visibility and tags from the server before the delete; null
-  /// when that fails — the delete still goes ahead, without Undo.
+  /// when that fails — the delete still goes ahead, with nothing to restore.
   Future<RemovedBookmark?> _fetchRemoved(BookmarkKey key, BookmarkOp op) async {
     try {
       final detail = await _ref
@@ -163,7 +180,7 @@ class _BookmarkActions {
     }
   }
 
-  /// Sheet confirm and Undo: add (or overwrite an existing bookmark — the
+  /// Sheet confirm: add (or overwrite an existing bookmark — the
   /// server treats add as replace) with the chosen restrict and full tag
   /// set. Taps on the heart meanwhile are followed up like [toggle]'s. An
   /// unsettled entry suppresses the request.
@@ -174,6 +191,8 @@ class _BookmarkActions {
   }) async {
     final store = _ref.read(bookmarkStoreProvider.notifier);
     if (store.entryOf(key)?.isUnsettled ?? false) return;
+    // The sheet's choice replaces whatever a delete left to restore.
+    _removed.remove(key);
     await _settle(
       store,
       key,

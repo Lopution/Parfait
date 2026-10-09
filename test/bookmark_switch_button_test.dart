@@ -458,26 +458,31 @@ void main() {
 
     /// Pumps [span] in small steps and returns the largest heart scale
     /// seen.
-    Future<double> peakScale(
+    /// The lowest and highest heart scale over [span].
+    Future<(double, double)> scaleRange(
       WidgetTester tester, {
       Duration span = const Duration(milliseconds: 600),
     }) async {
       const step = Duration(milliseconds: 4);
-      var peak = 1.0;
+      var (low, high) = (1.0, 1.0);
       for (var t = Duration.zero; t < span; t += step) {
         await tester.pump(step);
         final heart = find.descendant(
           of: find.byType(BookmarkSwitchButton),
           matching: find.byType(ScaleTransition),
         );
-        if (heart.evaluate().isNotEmpty && heartScale(tester) > peak) {
-          peak = heartScale(tester);
-        }
+        if (heart.evaluate().isEmpty) continue;
+        final scale = heartScale(tester);
+        if (scale < low) low = scale;
+        if (scale > high) high = scale;
       }
-      return peak;
+      return (low, high);
     }
 
-    testWidgets('a removal or a refresh does not pop', (tester) async {
+    Future<double> peakScale(WidgetTester tester) async =>
+        (await scaleRange(tester)).$2;
+
+    testWidgets('a refresh does not pop; a removal only dips', (tester) async {
       final (container, repository) = await _pump(tester);
 
       // Refresh: the store learns the work is bookmarked.
@@ -488,7 +493,9 @@ void main() {
       expect(find.byIcon(Icons.favorite_sharp), findsOneWidget);
 
       await tester.tap(find.byType(BookmarkSwitchButton));
-      expect(await peakScale(tester), 1);
+      final (low, high) = await scaleRange(tester);
+      expect(low, closeTo(0.85, 0.01));
+      expect(high, lessThan(1.01), reason: 'settles back without a bounce');
       expect(repository.deletes, [1]);
     });
 

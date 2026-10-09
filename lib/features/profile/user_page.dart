@@ -286,10 +286,9 @@ class _UserPageState extends ConsumerState<UserPage>
   }
 
   /// Drives [position] to offset 0 through a local scroll activity. The
-  /// profile feeds share the NestedScrollView's inner controller, whose
-  /// positions route jumpTo/animateTo through the nested coordinator —
-  /// and the coordinator broadcasts the motion to EVERY attached inner
-  /// position, keep-alive sibling tabs included. A [DrivenScrollActivity]
+  /// selected feed sits on the NestedScrollView's inner controller, whose
+  /// positions route jumpTo/animateTo through the nested coordinator, and
+  /// the coordinator moves the header along. A [DrivenScrollActivity]
   /// begun directly on the position touches only that offset.
   static void _drivePositionToTop(
     TickerProvider vsync,
@@ -649,15 +648,18 @@ class _UserPageState extends ConsumerState<UserPage>
             body: TabBarView(
               controller: tabController,
               children: [
-                for (final tab in _tabs)
-                  _ProfileTabBody(
-                    key: _bodyKeys.putIfAbsent(tab, GlobalKey.new),
-                    user: user,
-                    userId: widget.userId,
-                    isSeries: tab == _ProfileTab.series,
-                    feedKey: _feedKeyFor(tab),
-                    header: _filterBarFor(tab) ?? _worksTotalFor(tab, user),
-                    statistics: statistics,
+                for (final (index, tab) in _tabs.indexed)
+                  _SelectedTabScroll(
+                    selected: index == _selectedIndex,
+                    child: _ProfileTabBody(
+                      key: _bodyKeys.putIfAbsent(tab, GlobalKey.new),
+                      user: user,
+                      userId: widget.userId,
+                      isSeries: tab == _ProfileTab.series,
+                      feedKey: _feedKeyFor(tab),
+                      header: _filterBarFor(tab) ?? _worksTotalFor(tab, user),
+                      statistics: statistics,
+                    ),
                   ),
               ],
             ),
@@ -666,6 +668,68 @@ class _UserPageState extends ConsumerState<UserPage>
       ],
     );
   }
+}
+
+/// Hands the NestedScrollView's inner controller to the selected tab only.
+///
+/// Every tab stays alive, and each one's feed would otherwise attach to
+/// that one controller. The coordinator then drives all attached positions
+/// as one: a fling on About (always at 0) was computed against a sibling
+/// scrolled thousands of pixels down and died at the header, and a drag
+/// moved the hidden tabs along. An unselected tab parks its feed on a
+/// [_ParkedScrollController]; the position carries its offset across both
+/// hand-offs.
+class _SelectedTabScroll extends StatefulWidget {
+  const _SelectedTabScroll({required this.selected, required this.child});
+
+  final bool selected;
+  final Widget child;
+
+  @override
+  State<_SelectedTabScroll> createState() => _SelectedTabScrollState();
+}
+
+class _SelectedTabScrollState extends State<_SelectedTabScroll> {
+  _ParkedScrollController? _parked;
+
+  @override
+  void dispose() {
+    _parked?.dispose();
+    super.dispose();
+  }
+
+  // Always a full PrimaryScrollController, never `.none`: a feed that did
+  // not inherit one registers no dependency and would miss the hand-back.
+  @override
+  Widget build(BuildContext context) {
+    final nested = PrimaryScrollController.of(context);
+    final parked = (_parked ??= _ParkedScrollController(nested))
+      ..nested = nested;
+    return PrimaryScrollController(
+      controller: widget.selected ? nested : parked,
+      // As NestedScrollView's own: the feed inherits it on every platform.
+      automaticallyInheritForPlatforms: TargetPlatform.values.toSet(),
+      child: widget.child,
+    );
+  }
+}
+
+/// Holds an unselected tab's feed off the nested coordinator, which drives
+/// only the positions attached to its own inner controller. The positions
+/// are still made by that controller: on a controller change, Scrollable
+/// attaches its current position to the new controller before replacing
+/// it, and the nested controller accepts no other kind.
+class _ParkedScrollController extends ScrollController {
+  _ParkedScrollController(this.nested);
+
+  ScrollController nested;
+
+  @override
+  ScrollPosition createScrollPosition(
+    ScrollPhysics physics,
+    ScrollContext context,
+    ScrollPosition? oldPosition,
+  ) => nested.createScrollPosition(physics, context, oldPosition);
 }
 
 class _ProfileTabBody extends ConsumerStatefulWidget {
@@ -706,9 +770,8 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
     required Duration duration,
     required Curve curve,
   }) {
-    // The feed's own Scrollable position is one of several attached to the
-    // shared inner controller — driving it with a local activity rewinds
-    // only this tab while sibling positions keep their offsets.
+    // Driving the feed's own position with a local activity rewinds only
+    // this list; the header stays where it is.
     final scrollable = _tabScrollable();
     final position = scrollable?.position;
     if (scrollable == null || position == null || !position.hasPixels) {

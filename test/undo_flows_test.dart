@@ -56,9 +56,8 @@ Future<void> _closePage(WidgetTester tester) async {
 Finder get _undo => promptAction('撤销');
 
 void main() {
-  testWidgets('a private, tagged bookmark comes back private with its tags', (
-    tester,
-  ) async {
+  testWidgets('a removed bookmark offers no Undo; the heart brings it back '
+      'private with its tags', (tester) async {
     installMemoryPreferences();
     final repository = RecordingBookmarkRepository()
       ..detail = const BookmarkDetail(
@@ -90,11 +89,10 @@ void main() {
     await tester.tap(find.byType(BookmarkSwitchButton));
     await tester.pumpAndSettle();
     expect(repository.deletes, [1]);
-    expect(find.text('已取消收藏'), findsOneWidget);
+    // As in Shaft: the heart is the feedback.
+    expect(_undo, findsNothing);
 
-    // Undo still lands after the page that offered it is gone.
-    await _closePage(tester);
-    await tester.tap(_undo);
+    await tester.tap(find.byType(BookmarkSwitchButton));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);

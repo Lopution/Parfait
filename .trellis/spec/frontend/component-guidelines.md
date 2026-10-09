@@ -962,7 +962,8 @@ Contract), never through a plain message plus a hand-built
 Reversible actions run immediately and offer Undo; only irreversible ones
 (deleting an imported file, clearing history) ask for confirmation first.
 Unfollow, unbookmark, unmute and watch-later removal have no confirmation
-dialog.
+dialog. Unbookmark offers no Undo prompt either (user decision 2026-10-08,
+as in Shaft): the heart is the feedback, and tapping it again is the undo.
 
 - `showUndoSnackBar(context, message, onUndo:)`
   (`lib/app/widgets/undo_snack_bar.dart`) captures the
@@ -970,29 +971,32 @@ dialog.
   shows. Undo plays `AppHaptics.select()` and runs `onUndo(container)`, so
   it still works after the page that offered it is gone. A failed undo is
   recorded in `CrashLog` and reported on the captured host.
-- Bookmarks and follows go through `toggleBookmarkWithUndo(context, key)`
-  and `toggleFollowWithUndo(context, userId)` — the only UI entry points
-  to `bookmarkActionsProvider.toggle` / `followActionsProvider.toggle`.
-  The actions return what a delete removed (`RemovedBookmark` with
-  restrict and tags, `RemovedFollow` with restrict); Undo re-adds through
-  `addWithRestrict`.
+- Bookmarks and follows go through `toggleBookmark(context, key)` and
+  `toggleFollowWithUndo(context, userId)` — the only UI entry points to
+  `bookmarkActionsProvider.toggle` / `followActionsProvider.toggle`.
+  The follow action returns what a delete removed (`RemovedFollow` with
+  restrict); Undo re-adds through `addWithRestrict`. The bookmark action
+  keeps what a delete removed (`RemovedBookmark` with restrict and tags)
+  per work, for the account that removed it (session memory, 100 works),
+  and the next add of that work restores it; a sheet add drops it.
 - The snapshot is exact or absent. A bookmark entry is trusted only right
   after an add confirmed in this session (`status == confirmed`): remote
   observations carry visibility but never tags. Otherwise the action reads
   `fetchDetail` (registered tags only) before the delete; a follow with an
   unknown restrict reads `FollowRepository.fetchRestrict`
   (`/v1/user/follow/detail`). When the lookup fails, the delete still
-  goes ahead and no Undo is offered — never guess "public": restoring a
-  private bookmark or follow as public would expose it. A queued (offline)
-  or failed delete offers no Undo either.
+  goes ahead and no Undo is offered (a bookmark re-add is then public) —
+  never guess "public" for a restore: restoring a private bookmark or
+  follow as public would expose it. A queued (offline) or failed delete
+  offers no Undo either.
 - Unmute offers Undo through `showUnmuteUndo(context, MuteKey, user:)`.
   The mute store only toggles, so Undo skips an entry that is muted again
   by then.
 
 Owning tests: `bookmark_actions_test.dart`, `follow_actions_test.dart`
 (local snapshot, lookup, failed lookup), `undo_flows_test.dart` (private
-and tagged restores, Undo after the page closed, no Undo without the
-original visibility), `muted_items_page_test.dart` and
+and tagged restores, a bookmark through the heart, Undo after the page
+closed, no Undo without the original visibility), `muted_items_page_test.dart` and
 `card_action_test.dart` (unmute Undo).
 
 ## Route Restoration Contract
@@ -1811,6 +1815,16 @@ static bool PullToRefresh.trigger(ScrollController controller);
   tab body owns one nested `PullToRefresh` wrapper (the `EasyRefresh`
   locator pattern). Do not add another wrapper around the whole
   `NestedScrollView`. Ordinary lists use the default `isNested: false` path.
+- Only the selected tab of a `NestedScrollView` sits on its inner
+  controller (`_SelectedTabScroll` in `user_page.dart`). Kept-alive tabs
+  otherwise all attach to it, and the coordinator drives every attached
+  position as one: it picks an arbitrary one for a fling's metrics (a
+  fling on About died at the header) and drags the hidden tabs along. An
+  unselected tab parks on a controller whose positions the inner controller
+  still makes — Scrollable attaches its old position to a new controller
+  before replacing it, and the nested controller accepts only its own kind.
+  Its `PrimaryScrollController` is never `.none`: a feed that does not
+  inherit registers no dependency and misses the hand-back.
 - Touch scroll physics are unified app-wide through `FuncScrollBehavior`:
   `BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())` plus no
   platform overscroll indicator — the same scheme `_ERScrollPhysics` installs
@@ -1959,7 +1973,7 @@ consumer and a planner row.
   `ChoiceChip`/`FilterChip`, `Slider`, `Switch`/`SwitchListTile` and
   `Radio`/`RadioListTile` to these wrappers.
 - **Store mutations vibrate on the settled outcome, at the call site.**
-  `toggleBookmarkWithUndo`, `toggleFollowWithUndo` and `WatchlistToggle`
+  `toggleBookmark`, `toggleFollowWithUndo` and `WatchlistToggle`
   read the entry
   before, await the action, then read it again: a pending (queued) or
   cancelled entry is silent, an error plays `error`, a landed change plays
@@ -2020,7 +2034,8 @@ durations (debounce, throttles, frame scheduling) do not belong there.
 - `MotionSpring` holds Material 3 (damping ratio, stiffness) pairs from
   androidx `StandardMotionTokens` / `ExpressiveMotionTokens`, mass 1,
   listed only when something uses them: `spatialFast` (press,
-  expand/collapse, removal, drag return), `spatialDefault` (bottom
+  expand/collapse, removal, drag return, bookmark heart dip on removal),
+  `spatialDefault` (bottom
   sheet), `effectsFast` (state fades, check marks), `expressiveSpatialFast`
   (bookmark heart pop). **Spatial** springs move position, scale and
   size; **effects** springs change opacity and colour — never swap them.

@@ -2791,9 +2791,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get watchLaterRemoved => '已从稍后再看移除';
 
   @override
-  String get bookmarkRemoved => '已取消收藏';
-
-  @override
   String get followRemoved => '已取消关注';
 
   @override
