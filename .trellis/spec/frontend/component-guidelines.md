@@ -370,16 +370,22 @@ through `HomeBranchStack._select`, which calls `goBranch`; there is no
 second tab controller or per-destination animation.
 
 `FuncBottomNav` is a custom bar (`destinations`, `selectedIndex`,
-`onSelected`) — not a `NavigationBar` — because the M3 widget sizes its
-indicator to the label while this app paints the fixed pill. Each item
-renders a 56×32 `NavigationIndicator` stadium behind the icon
-(`FuncBottomNav.indicatorSize`), cross-faded by a per-item selection
-controller; the ink response is clipped to that pill, so splashes never
-cover the label. Item semantics mirror `NavigationBar`'s: the destination
-exposes its localized `tabLabel` plus the selected flag, so screen readers
-announce "selected, <label>, tab, N of 5". Labels are laid out through
-`LabelFit` with a hard 1.3 scale cap — above `textScaler` 1.3 the label
-stays at 1.3 so the row cannot outgrow the 64dp bar.
+`onSelected`) — not a `NavigationBar`, whose M3 indicator this app does
+not draw. It follows Shaft's `BottomNavigationView` (user decision
+2026-10-09, option C): a 56dp row on the page background
+(`navigationBarTheme.backgroundColor`, else `surface`) under a
+`ScrollEdgeLine.thickness` hairline in the `divider` token, the app's own
+icons, and no indicator shape. The selected item is tinted: icon and label
+go from `onSurfaceVariant` to `primary` and the label from w500 to w600.
+A per-item controller drives the tint on `MotionSpring.effectsFast` both
+ways (reduced motion sets it at once); nothing moves or changes size. The
+ink is an `InkResponse` of radius 28 around the item centre. Item
+semantics mirror `NavigationBar`'s: the destination exposes its localized
+`tabLabel` plus the selected flag, so screen readers announce "selected,
+<label>, tab, N of 5". Labels are laid out through `LabelFit` with a hard
+1.3 scale cap — above `textScaler` 1.3 the label stays at 1.3 so the row
+cannot outgrow the 56dp bar. The wide layout's `NavigationRail` keeps the
+M3 rail and its indicator.
 
 The shell publishes the bar's resting extent through `HomeShellChrome`, an
 InheritedWidget `HomeBranchStack` wraps around the strip and the bar —
@@ -458,12 +464,13 @@ scroll for them. Widgets read the MediaQuery flag, never the provider.
 The five labels share one `LabelFit` (see the Multi-Locale Layout
 Contract): the widest translation sets one scale for all of them against
 the slot `itemWidth − 2 × 6`, floor 0.8, and past the floor every label
-ellipsizes with a tooltip. The labels are measured and painted in one
-style — the ambient `DefaultTextStyle` merged with the bar's 12sp label
-style — so one shared scale keeps every destination identical.
-`func_bottom_nav_test.dart` pins the shared scale, the tooltip, the pill
-geometry, the 1.3 cap, the pill-clipped ripple, and the selected
-semantics.
+ellipsizes with a tooltip. The labels are measured in the selected
+style — the ambient `DefaultTextStyle` merged with the bar's 12sp w600
+label style, the wider of the two weights — so one shared scale holds
+for every destination in either state.
+`compact_controls_test.dart` ('bottom bar') checks the labels whole in
+every locale and size profile; `func_bottom_nav_test.dart` pins scroll
+hide and the published extent.
 
 ## Top Tab Contract
 
@@ -2431,7 +2438,9 @@ reintroduce it or hand-build group containers.
   segment), `SettingsGroup.segmentGap` (2dp) apart; `segmentRadius(index,
   count)` gives the group's outer edge `FuncShape.card` corners and every
   edge facing another segment `FuncShape.segment`. A single-row group is
-  one card. A composite control (a text field in
+  one card. A `separated` group (the me page's settings list, never a
+  settings page) sets its rows `separatedGap` (8dp) apart, each with
+  `FuncShape.card` corners on every side. A composite control (a text field in
   `SettingsGroupContent`) is one child and therefore one segment — the
   group never splits a child. Explanatory copy that used to sit above the
   rows belongs in `footer` so the rows come first. Empty `children` render
@@ -2534,15 +2543,26 @@ unchanged. Top to bottom:
    id)`. Tapping it calls `openMe`; signed out it shows `login` and calls
    `openLogin`. Its trailing `switch_account_outlined` button opens
    `/settings/account`.
-2. My content (`settingsGroupLibrary`): a grid of entries, each a 48dp
-   `primaryContainer` circle over a `bodyMedium` label, four per row on
-   a phone and all in one row from 560dp. The entries are:
-   - bookmarks and following: `openMe(tab: MeTab.…)`, which pushes
-     `/me?tab=`;
-   - watchlist, history and watch later;
-   - download tasks, with a `Badge` counting active tasks;
-   - local novels.
-3. One `SettingsTile` to the settings index `/settings/all`.
+2. My content, after Shaft's me page (user decision 2026-10-09, option
+   乙, with more room between the sections than the prototype):
+   - three cards 12dp apart, one height (the tallest label): each a
+     `surfaceContainer` card with a 40dp rounded square in an accent
+     container — bookmarks `primary`, following `tertiary`, download
+     tasks `secondary` — over a `bodyMedium` label. Bookmarks and
+     following call `openMe(tab: MeTab.…)`, which pushes `/me?tab=`; the
+     download tasks square carries a `Badge` counting active tasks;
+   - under them a row of four plain entries (`onSurfaceVariant` icon,
+     no container): watchlist, history, watch later, local novels. Below
+     80dp per entry (scaled by `textScaler`) they go two to a row;
+   - labels wrap between words, never inside one; each row shares one
+     `LabelFit` scale.
+3. The settings pages (theme through about — not account, which the
+   account row owns, nor the frame probe) as `SettingsTile`s with the
+   index's icons (`settingsPageIcons`) and no summaries, in a
+   `separated` group (user decision 2026-10-09: always listed, no fold,
+   and room between the rows). The group's heading is "settings" with a
+   search button that opens `/settings/all`, whose search field is on
+   top.
 
 `SettingsPage` is the settings index with a `SearchBar` in the app bar's
 `bottom`. Typing swaps the groups for the results; an empty result shows

@@ -68,9 +68,6 @@ abstract final class MotionTokens {
   static const branchSwitch = Duration(milliseconds: 300);
   static const branchSwitchCurve = Curves.easeInOutCubicEmphasized;
 
-  /// Selected navigation destination animation.
-  static const navDestination = Duration(milliseconds: 500);
-
   /// In-page tab switch, matching the app bar's kTabScrollDuration.
   static const tabSwitch = Duration(milliseconds: 300);
 
@@ -189,7 +186,8 @@ enum MotionSpring {
   /// Settles in ~320 ms: bottom sheet.
   spatialDefault(0.9, 700),
 
-  /// Settles in ~150 ms: state fades, selection check marks.
+  /// Settles in ~150 ms: state fades, selection check marks, the bottom
+  /// bar's selected tint.
   effectsFast(1.0, 3800),
 
   /// Underdamped (~9% overshoot, ~390 ms): the bookmark heart pop.

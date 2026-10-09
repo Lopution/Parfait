@@ -74,7 +74,6 @@
   "settingsTitle": "设置",
   "settingsSearchHint": "搜索设置",
   "settingsSearchEmpty": "没有匹配的设置",
-  "settingsEntrySummary": "外观、浏览、网络、下载、备份",
   "settingsGroupAppearance": "外观",
   "settingsGroupNetwork": "网络与下载",
   "settingsGroupBrowse": "浏览",

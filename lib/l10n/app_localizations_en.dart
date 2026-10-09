@@ -237,10 +237,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsSearchEmpty => 'No matching settings';
 
   @override
-  String get settingsEntrySummary =>
-      'Appearance, browsing, network, downloads, backup';
-
-  @override
   String get settingsGroupAppearance => 'Appearance';
 
   @override

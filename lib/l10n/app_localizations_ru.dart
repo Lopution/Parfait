@@ -237,10 +237,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsSearchEmpty => 'Ничего не найдено';
 
   @override
-  String get settingsEntrySummary =>
-      'Оформление, просмотр, сеть, загрузки, резервные копии';
-
-  @override
   String get settingsGroupAppearance => 'Внешний вид';
 
   @override

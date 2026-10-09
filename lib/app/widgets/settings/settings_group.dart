@@ -25,6 +25,7 @@ class SettingsGroup extends StatelessWidget {
     this.title,
     this.footer,
     this.setting,
+    this.separated = false,
     required this.children,
   });
 
@@ -35,6 +36,14 @@ class SettingsGroup extends StatelessWidget {
 
   /// Space between two segments of one group.
   static const double segmentGap = 2;
+
+  /// Space between two rows of a [separated] group.
+  static const double separatedGap = FuncSpacing.sm;
+
+  /// Rows stand apart as cards, [separatedGap] between them and every
+  /// corner rounded: a dashboard's short list (the "me" page), not a
+  /// settings page.
+  final bool separated;
 
   /// Corners of the segment at [index] in a group of [count]: the group's
   /// outer edge uses the card radius, edges facing another segment
@@ -139,7 +148,9 @@ class SettingsGroup extends StatelessWidget {
           _Segment(
             key: key,
             gap: 0,
-            radius: segmentRadius(index, children.length),
+            radius: separated
+                ? FuncShape.card
+                : segmentRadius(index, children.length),
             motion: motion,
             child: child,
           ),
@@ -149,8 +160,12 @@ class SettingsGroup extends StatelessWidget {
       segments.add(
         _Segment(
           key: key,
-          gap: position > 0 ? segmentGap : 0,
-          radius: segmentRadius(position, present),
+          gap: position == 0
+              ? 0
+              : separated
+              ? separatedGap
+              : segmentGap,
+          radius: separated ? FuncShape.card : segmentRadius(position, present),
           motion: motion,
           child: child,
         ),

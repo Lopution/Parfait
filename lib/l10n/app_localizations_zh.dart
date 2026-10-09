@@ -225,9 +225,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsSearchEmpty => '没有匹配的设置';
 
   @override
-  String get settingsEntrySummary => '外观、浏览、网络、下载、备份';
-
-  @override
   String get settingsGroupAppearance => '外观';
 
   @override

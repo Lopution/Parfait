@@ -744,7 +744,6 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'settingsBrowseHint' => l10n.settingsBrowseHint,
   'settingsCredentialConfigured' => l10n.settingsCredentialConfigured,
   'settingsCredentialNotConfigured' => l10n.settingsCredentialNotConfigured,
-  'settingsEntrySummary' => l10n.settingsEntrySummary,
   'settingsGroupAppearance' => l10n.settingsGroupAppearance,
   'settingsGroupBrowse' => l10n.settingsGroupBrowse,
   'settingsGroupData' => l10n.settingsGroupData,

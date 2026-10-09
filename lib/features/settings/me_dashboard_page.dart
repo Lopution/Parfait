@@ -21,10 +21,11 @@ import '../../core/download/download_task.dart' show isTerminal;
 import '../../l10n/context.dart';
 import 'settings_catalog.dart';
 import 'settings_helpers.dart';
+import 'settings_page.dart' show settingsPageIcons;
 
 /// The "me" destination: who is signed in, the places of their own content
-/// one tap away, and the way into settings. The content entries carry more
-/// weight than the settings row — they are what the page is opened for.
+/// one tap away, and the settings pages. The content entries carry more
+/// weight than the settings — they are what the page is opened for.
 class MeDashboardPage extends ConsumerWidget {
   const MeDashboardPage({super.key});
 
@@ -72,20 +73,8 @@ class MeDashboardPage extends ConsumerWidget {
         ),
         children: [
           SettingsGroup(children: [_AccountRow(account: state?.current)]),
-          SettingsGroup(
-            title: Text(context.l10n.settingsGroupLibrary),
-            children: const [_ContentEntries()],
-          ),
-          SettingsGroup(
-            children: [
-              SettingsTile(
-                icon: Icons.settings_outlined,
-                title: context.l10n.settingsTitle,
-                subtitle: Text(context.l10n.settingsEntrySummary),
-                onTap: () => openSettingsPage(context, settingsIndexPath),
-              ),
-            ],
-          ),
+          const _ContentShortcuts(),
+          const _SettingsList(),
           const FuncNavBarSpacer(),
         ],
       ),
@@ -157,58 +146,61 @@ final _activeDownloadCountProvider = StreamProvider.autoDispose<int>((
   }
 });
 
-/// One entry of [_ContentEntries].
+/// One content entry: a card or a cell of [_ContentShortcuts].
 typedef _Entry = ({IconData icon, String label, VoidCallback onTap, int badge});
 
-/// The user's own content as a grid of large entries: a tonal circle and
-/// a label each, four to a row on a phone (three on a narrow one or with
-/// large text), one row on a wide screen.
-class _ContentEntries extends ConsumerWidget {
-  const _ContentEntries();
+/// The user's own content: the three places opened most as cards with an
+/// accent icon each, the rest as a row of plain icons under them.
+class _ContentShortcuts extends ConsumerWidget {
+  const _ContentShortcuts();
 
-  /// A row on a phone; a wide screen fits all of them in one.
-  static const _phoneColumns = 4;
-  static const _narrowColumns = 3;
-  static const _wideWidth = 560.0;
+  static const _cardGap = FuncSpacing.md;
 
-  /// The narrowest cell at the default font size that holds a two-line
-  /// label of a few CJK characters or one long word.
+  /// The narrowest plain entry at the default font size that holds a
+  /// two-line label of a few CJK characters or one long word. Narrower,
+  /// the plain entries go two to a row.
   static const _minCellWidth = 80.0;
-
-  static int _columnsFor(BuildContext context, double width, int count) {
-    if (width >= _wideWidth) return count;
-    final cell = MediaQuery.textScalerOf(context).scale(_minCellWidth);
-    return width / _phoneColumns >= cell ? _phoneColumns : _narrowColumns;
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
+    final scheme = Theme.of(context).colorScheme;
     final activeTasks = ref.watch(_activeDownloadCountProvider).value ?? 0;
-    final List<_Entry> entries = [
+    final List<(_Entry, _Accent)> cards = [
       (
-        icon: Icons.favorite_border,
-        label: l10n.profileBookmarked,
-        onTap: () => unawaited(openMe(context, tab: MeTab.bookmarks)),
-        badge: 0,
+        (
+          icon: Icons.favorite_border,
+          label: l10n.profileBookmarked,
+          onTap: () => unawaited(openMe(context, tab: MeTab.bookmarks)),
+          badge: 0,
+        ),
+        (fill: scheme.primaryContainer, ink: scheme.onPrimaryContainer),
       ),
       (
-        icon: Icons.people_outline,
-        label: l10n.profileFollowing,
-        onTap: () => unawaited(openMe(context, tab: MeTab.following)),
-        badge: 0,
+        (
+          icon: Icons.people_outline,
+          label: l10n.profileFollowing,
+          onTap: () => unawaited(openMe(context, tab: MeTab.following)),
+          badge: 0,
+        ),
+        (fill: scheme.tertiaryContainer, ink: scheme.onTertiaryContainer),
       ),
+      (
+        (
+          icon: Icons.downloading_outlined,
+          label: l10n.downloaderSettings,
+          onTap: () => unawaited(openDownloadTasks(context)),
+          badge: activeTasks,
+        ),
+        (fill: scheme.secondaryContainer, ink: scheme.onSecondaryContainer),
+      ),
+    ];
+    final List<_Entry> cells = [
       (
         icon: Icons.collections_bookmark_outlined,
         label: l10n.watchlistTitle,
         onTap: () => unawaited(openWatchlist(context)),
         badge: 0,
-      ),
-      (
-        icon: Icons.downloading_outlined,
-        label: l10n.downloaderSettings,
-        onTap: () => unawaited(openDownloadTasks(context)),
-        badge: activeTasks,
       ),
       (
         icon: Icons.history,
@@ -229,36 +221,63 @@ class _ContentEntries extends ConsumerWidget {
         badge: 0,
       ),
     ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = _columnsFor(
-          context,
-          constraints.maxWidth,
-          entries.length,
-        );
-        final fit = _wordFit(context, [
-          for (final entry in entries) entry.label,
-        ], constraints.maxWidth / columns - 2 * _EntryCell.labelInset);
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
-          child: Column(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        FuncSpacing.lg,
+        0,
+        FuncSpacing.lg,
+        FuncSpacing.md,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final cardWidth =
+              (width - (cards.length - 1) * _cardGap) / cards.length;
+          final cardFit = _wordFit(context, [
+            for (final (entry, _) in cards) entry.label,
+          ], cardWidth - 2 * _EntryLabel.inset);
+          final minCell = MediaQuery.textScalerOf(context).scale(_minCellWidth);
+          final columns = width / cells.length >= minCell
+              ? cells.length
+              : cells.length ~/ 2;
+          final cellFit = _wordFit(context, [
+            for (final entry in cells) entry.label,
+          ], width / columns - 2 * _EntryLabel.inset);
+          return Column(
             children: [
-              for (var start = 0; start < entries.length; start += columns)
+              // Cards of one row share the height of the tallest label.
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (index, (entry, accent)) in cards.indexed) ...[
+                      if (index > 0) const SizedBox(width: _cardGap),
+                      Expanded(
+                        child: _AccentEntry(
+                          entry: entry,
+                          accent: accent,
+                          fit: cardFit,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: FuncSpacing.sm),
+              for (var start = 0; start < cells.length; start += columns)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (var i = start; i < start + columns; i++)
+                    for (final entry in cells.skip(start).take(columns))
                       Expanded(
-                        child: i < entries.length
-                            ? _EntryCell(entry: entries[i], fit: fit)
-                            : const SizedBox.shrink(),
+                        child: _PlainEntry(entry: entry, fit: cellFit),
                       ),
                   ],
                 ),
             ],
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -268,17 +287,17 @@ class _ContentEntries extends ConsumerWidget {
   static LabelFit _wordFit(
     BuildContext context,
     List<String> labels,
-    double cellWidth,
+    double slotWidth,
   ) => LabelFit.group(
     labels: [
       for (final label in labels)
         for (final word in label.split(RegExp(r'\s+')))
           if (!_breaksAnywhere.hasMatch(word)) word,
     ],
-    style: _EntryCell.labelStyle(context),
+    style: _EntryLabel.style(context),
     textScaler: MediaQuery.textScalerOf(context),
     textDirection: Directionality.of(context),
-    slotWidth: cellWidth,
+    slotWidth: slotWidth,
   );
 
   static final _breaksAnywhere = RegExp(
@@ -286,61 +305,166 @@ class _ContentEntries extends ConsumerWidget {
   );
 }
 
-class _EntryCell extends StatelessWidget {
-  const _EntryCell({required this.entry, required this.fit});
+/// A card's icon colors: a container tone and the ink on it.
+typedef _Accent = ({Color fill, Color ink});
+
+/// A tonal card: the icon on its accent square, the label under it.
+class _AccentEntry extends StatelessWidget {
+  const _AccentEntry({
+    required this.entry,
+    required this.accent,
+    required this.fit,
+  });
+
+  final _Entry entry;
+  final _Accent accent;
+  final LabelFit fit;
+
+  static const _iconSquare = 40.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final badge = entry.badge;
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(borderRadius: FuncShape.card),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: entry.onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: _EntryLabel.inset,
+            vertical: FuncSpacing.md,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Badge(
+                isLabelVisible: badge > 0,
+                label: Text(AppFormat.count(context, badge)),
+                child: SizedBox.square(
+                  dimension: _iconSquare,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: accent.fill,
+                      borderRadius: FuncShape.card,
+                    ),
+                    child: Icon(entry.icon, color: accent.ink),
+                  ),
+                ),
+              ),
+              const SizedBox(height: FuncSpacing.sm),
+              _EntryLabel(entry.label, fit: fit),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A plain entry: the icon in the label's tone, no container.
+class _PlainEntry extends StatelessWidget {
+  const _PlainEntry({required this.entry, required this.fit});
 
   final _Entry entry;
   final LabelFit fit;
 
-  static const _circleDiameter = 48.0;
-  static const labelInset = FuncSpacing.xs;
-  static const _labelLines = 2;
-
-  /// The ambient style with `bodyMedium` over it, as the label draws.
-  static TextStyle labelStyle(BuildContext context) => DefaultTextStyle.of(
-    context,
-  ).style.merge(Theme.of(context).textTheme.bodyMedium);
-
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final badge = entry.badge;
     return InkWell(
       onTap: entry.onTap,
       borderRadius: FuncShape.card,
       child: Padding(
         padding: const EdgeInsets.symmetric(
-          horizontal: labelInset,
+          horizontal: _EntryLabel.inset,
           vertical: FuncSpacing.md,
         ),
         child: Column(
           children: [
-            Badge(
-              isLabelVisible: badge > 0,
-              label: Text(AppFormat.count(context, badge)),
-              child: SizedBox.square(
-                dimension: _circleDiameter,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(entry.icon, color: scheme.onPrimaryContainer),
-                ),
-              ),
+            Icon(
+              entry.icon,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             const SizedBox(height: FuncSpacing.sm),
-            Text(
-              entry.label,
-              textAlign: TextAlign.center,
-              style: labelStyle(context),
-              maxLines: _labelLines,
-              overflow: TextOverflow.ellipsis,
-              textScaler: fit.scaler(MediaQuery.textScalerOf(context)),
-            ),
+            _EntryLabel(entry.label, fit: fit),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _EntryLabel extends StatelessWidget {
+  const _EntryLabel(this.label, {required this.fit});
+
+  final String label;
+  final LabelFit fit;
+
+  /// Side padding of an entry around its label.
+  static const inset = FuncSpacing.xs;
+  static const _lines = 2;
+
+  /// The ambient style with `bodyMedium` over it, as the label draws.
+  static TextStyle style(BuildContext context) => DefaultTextStyle.of(
+    context,
+  ).style.merge(Theme.of(context).textTheme.bodyMedium);
+
+  @override
+  Widget build(BuildContext context) => Text(
+    label,
+    textAlign: TextAlign.center,
+    style: style(context),
+    maxLines: _lines,
+    overflow: TextOverflow.ellipsis,
+    textScaler: fit.scaler(MediaQuery.textScalerOf(context)),
+  );
+}
+
+/// The settings pages as the index lists them, without their summaries,
+/// each row a card of its own. The heading's search button opens the
+/// index, whose search field is on top.
+class _SettingsList extends StatelessWidget {
+  const _SettingsList();
+
+  /// The account page is the account row's; the frame probe stays on the
+  /// index.
+  static const _pages = [
+    SettingsPageRef.theme,
+    SettingsPageRef.language,
+    SettingsPageRef.translate,
+    SettingsPageRef.motion,
+    SettingsPageRef.browse,
+    SettingsPageRef.muted,
+    SettingsPageRef.network,
+    SettingsPageRef.download,
+    SettingsPageRef.backup,
+    SettingsPageRef.about,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return SettingsGroup(
+      separated: true,
+      title: Row(
+        children: [
+          Expanded(child: Text(l10n.settingsTitle)),
+          IconButton(
+            tooltip: l10n.settingsSearchHint,
+            icon: const Icon(Icons.search, size: 20),
+            onPressed: () => openSettingsPage(context, settingsIndexPath),
+          ),
+        ],
+      ),
+      children: [
+        for (final page in _pages)
+          SettingsTile(
+            setting: page,
+            icon: settingsPageIcons[page],
+            onTap: () => openSettingsPage(context, page.path),
+          ),
+      ],
     );
   }
 }

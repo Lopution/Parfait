@@ -12,6 +12,7 @@ import '../motion/scroll_hide.dart';
 import '../icons/app_icons.dart';
 import '../navigation/home_shell_metrics.dart';
 import '../theme/func_semantic_tokens.dart';
+import 'app_top_bar.dart' show ScrollEdgeLine;
 import 'fit_label.dart';
 import 'prompt_anchor.dart';
 
@@ -37,10 +38,10 @@ List<FuncBottomNavDestination> homeDestinations(BuildContext context) => [
   ),
 ];
 
-/// Primary bottom navigation for narrow layouts, an M3 navigation bar:
-/// 64dp tall with a 56×32 pill indicator behind the selected destination's
-/// icon. Only the pill paints ink — the whole cell still takes the tap,
-/// the same split `NavigationBar` makes through its `_IndicatorInkWell`.
+/// Primary bottom navigation for narrow layouts, after Shaft's
+/// `BottomNavigationView`: a 56dp row on the page background under a
+/// hairline, every destination an icon over its label, the selected one
+/// tinted in the theme's selected colour. No indicator shape.
 class FuncBottomNav extends StatelessWidget {
   const FuncBottomNav({
     super.key,
@@ -53,9 +54,7 @@ class FuncBottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelected;
 
-  /// M3 navigation bar indicator: a 56×32 stadium behind the icon.
-  static const Size indicatorSize = Size(56, 32);
-  static const double _height = 64;
+  static const double _height = 56;
 
   /// Rendered height the bar occupies at rest: the fixed row plus the
   /// bottom safe-area inset [SafeArea] adds underneath it. The shell's
@@ -76,7 +75,13 @@ class FuncBottomNav extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final navTheme = NavigationBarTheme.of(context);
     return Material(
-      color: colors.surfaceContainerLowest,
+      color: navTheme.backgroundColor ?? colors.surface,
+      shape: Border(
+        top: BorderSide(
+          color: FuncSemanticTokens.of(context).divider,
+          width: ScrollEdgeLine.thickness,
+        ),
+      ),
       child: SafeArea(
         top: false,
         // The labels are exempt from the user's text scale past
@@ -97,11 +102,12 @@ class FuncBottomNav extends StatelessWidget {
                   // style floats above the shell.
                   final ambient = DefaultTextStyle.of(context).style;
                   // The theme's label style merged over the ambient keeps the
-                  // inherited font family; state colours never change
-                  // metrics, so one resolution serves the group's fit
-                  // measurement.
+                  // inherited font family. The selected weight is the wider
+                  // one, so the fit measured in it holds for every label.
                   final measureStyle = ambient.merge(
-                    navTheme.labelTextStyle?.resolve(const <WidgetState>{}),
+                    navTheme.labelTextStyle?.resolve(const {
+                      WidgetState.selected,
+                    }),
                   );
                   final itemWidth = constraints.maxWidth / destinations.length;
                   // Uniform label scale: every destination shares one
@@ -183,8 +189,10 @@ Color? _resolveDestinationOverlay(ColorScheme colors, Set<WidgetState> states) {
 }
 
 /// One destination cell: an icon over its label, vertically centred in the
-/// 64dp row. Owns the selection animation behind its pill so selecting a
-/// destination grows the pill from its centre — the M3 indicator expand.
+/// row. The whole cell takes the tap; the ripple is a circle around the
+/// icon, as on Shaft's `BottomNavigationView`. Selecting tints the icon and
+/// label from `onSurfaceVariant` to the theme's selected colour and the
+/// label to its selected weight, on the [MotionSpring.effectsFast] spring.
 class _FuncBottomNavItem extends StatefulWidget {
   const _FuncBottomNavItem({
     required this.destination,
@@ -213,26 +221,24 @@ class _FuncBottomNavItem extends StatefulWidget {
 
 class _FuncBottomNavItemState extends State<_FuncBottomNavItem>
     with SingleTickerProviderStateMixin {
-  /// Locates the pill for [_PillInkWell]'s rect callback.
-  final GlobalKey _pillKey = GlobalKey();
-  late final AnimationController _selection;
+  static const _selectedStates = <WidgetState>{WidgetState.selected};
+  static const _idleStates = <WidgetState>{};
 
-  @override
-  void initState() {
-    super.initState();
-    _selection = AnimationController(
-      vsync: this,
-      value: widget.selected ? 1 : 0,
-    );
-  }
+  late final AnimationController _selection = AnimationController(
+    vsync: this,
+    value: widget.selected ? 1 : 0,
+  );
+  Curve _curve = Curves.linear;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _selection.duration = MotionTokens.resolve(
+    final (duration, curve) = MotionTokens.springCurve(
       context,
-      MotionTokens.navDestination,
+      MotionSpring.effectsFast,
     );
+    _selection.duration = duration;
+    _curve = curve;
   }
 
   @override
@@ -260,21 +266,21 @@ class _FuncBottomNavItemState extends State<_FuncBottomNavItem>
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final navTheme = NavigationBarTheme.of(context);
-    final states = widget.selected
-        ? const <WidgetState>{WidgetState.selected}
-        : const <WidgetState>{};
-    final iconTheme =
-        navTheme.iconTheme?.resolve(states) ?? const IconThemeData();
-    final labelStyle = widget.ambientStyle.merge(
-      navTheme.labelTextStyle?.resolve(states),
+    final idleIcon = navTheme.iconTheme?.resolve(_idleStates)?.color;
+    final selectedIcon = navTheme.iconTheme?.resolve(_selectedStates)?.color;
+    final idleLabel = widget.ambientStyle.merge(
+      navTheme.labelTextStyle?.resolve(_idleStates),
+    );
+    final selectedLabel = widget.ambientStyle.merge(
+      navTheme.labelTextStyle?.resolve(_selectedStates),
     );
     return Semantics(
       button: true,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          _PillInkWell(
-            pillKey: _pillKey,
+          InkResponse(
+            radius: FuncBottomNav._height / 2,
             overlayColor: WidgetStateProperty.resolveWith(
               (inkStates) => _resolveDestinationOverlay(colors, {
                 if (widget.selected) WidgetState.selected,
@@ -282,38 +288,34 @@ class _FuncBottomNavItemState extends State<_FuncBottomNavItem>
               }),
             ),
             onTap: widget.onTap,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Stack(
-                  key: _pillKey,
-                  alignment: Alignment.center,
-                  children: [
-                    NavigationIndicator(
-                      animation: _selection,
-                      width: FuncBottomNav.indicatorSize.width,
-                      height: FuncBottomNav.indicatorSize.height,
-                      color: navTheme.indicatorColor,
-                      shape: const StadiumBorder(),
-                    ),
-                    IconTheme.merge(
-                      data: iconTheme,
-                      child: Icon(widget.destination.icon, size: 24),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: FuncSpacing.xs),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: FuncBottomNav._labelInset,
-                  ),
-                  child: FitLabel(
-                    widget.destination.label,
-                    fit: widget.labelFit,
-                    style: labelStyle,
-                  ),
-                ),
-              ],
+            child: SizedBox.expand(
+              child: AnimatedBuilder(
+                animation: _selection,
+                builder: (context, _) {
+                  final t = _curve.transform(_selection.value);
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        widget.destination.icon,
+                        size: 24,
+                        color: Color.lerp(idleIcon, selectedIcon, t),
+                      ),
+                      const SizedBox(height: FuncSpacing.xxs),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: FuncBottomNav._labelInset,
+                        ),
+                        child: FitLabel(
+                          widget.destination.label,
+                          fit: widget.labelFit,
+                          style: TextStyle.lerp(idleLabel, selectedLabel, t)!,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
           // A label-only overlay so the merged node reads "推荐，标签 1/5"
@@ -326,33 +328,6 @@ class _FuncBottomNavItemState extends State<_FuncBottomNavItem>
         ],
       ),
     );
-  }
-}
-
-/// The destination's tap target: the whole cell takes the pointer, but ink
-/// is confined to the pill — the same rect-callback trick the SDK's
-/// `_IndicatorInkWell` uses.
-class _PillInkWell extends InkResponse {
-  const _PillInkWell({
-    required this.pillKey,
-    super.overlayColor,
-    super.onTap,
-    super.child,
-  }) : super(
-         containedInkWell: true,
-         highlightColor: Colors.transparent,
-         customBorder: const StadiumBorder(),
-       );
-
-  final GlobalKey pillKey;
-
-  @override
-  RectCallback? getRectCallback(RenderBox referenceBox) {
-    return () {
-      final pill = pillKey.currentContext!.findRenderObject()! as RenderBox;
-      final rect = pill.localToGlobal(Offset.zero) & pill.size;
-      return referenceBox.globalToLocal(rect.topLeft) & pill.size;
-    };
   }
 }
 
