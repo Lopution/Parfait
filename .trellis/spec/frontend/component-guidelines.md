@@ -1620,9 +1620,11 @@ On the narrow layout, once content renders:
   (`occludesContent` false), not clipped below it. The flight paints over
   the bar, so a detail opened from a card (`heroImageUrl` set) holds the
   bar at `entrance` 0 and fades it in over `MotionTokens.fast` once the
-  route animation completes. The route status is read after the first
-  frame: before the push starts, the route's proxy animation reports a
-  placeholder `completed`.
+  route animation completes. The action bar likewise starts hidden and
+  rises on `slideChrome` at the landing, and slides away as soon as the
+  route reverses, so neither flight covers it. The route status is read
+  after the first frame: before the push starts, the route's proxy
+  animation reports a placeholder `completed`.
 
 ### 6. Tests required
 
@@ -1646,8 +1648,9 @@ On the narrow layout, once content renders:
   the ring follows half-downloaded pages, then the saved state, with the
   prompt above the bar; the bar hides and returns and stays under
   touch exploration; page 1 runs under a see-through bar that draws in.
-- `hero_transition_test.dart`: mid-flight the top bar's `entrance` is 0,
-  after landing 1.
+- `hero_transition_test.dart`: mid-flight the top bar's `entrance` and
+  the action bar are 0, after landing 1; the action bar leaves as the pop
+  starts.
 - `priority_surface_semantics_test.dart`: the viewer counter and fit are
   named buttons.
 - The `content: illust detail` locale matrix covers the info block in four

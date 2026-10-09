@@ -100,9 +100,12 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
 
   /// The floating action bar's presence (1 shown): it slides away while
   /// reading down and returns on the way back up, like the shell's bar.
+  /// The Hero image flying in from a card or back to it is drawn above the
+  /// page, so with a card the bar rises only once the route has landed and
+  /// slides away as soon as the route starts to leave.
   late final AnimationController _barVisibility = AnimationController(
     vsync: this,
-    value: 1,
+    value: widget.heroImageUrl == null ? 1 : 0,
   );
   late final CurvedAnimation _barCurve = CurvedAnimation(
     parent: _barVisibility,
@@ -168,7 +171,14 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   }
 
   void _onRouteStatus(AnimationStatus status) {
-    if (status.isCompleted) _topBarEntrance.forward();
+    if (status.isCompleted) {
+      _topBarEntrance.forward();
+      if (!_touchExploration) {
+        slideChrome(context, _barVisibility, hidden: false);
+      }
+    } else if (status == AnimationStatus.reverse && !_touchExploration) {
+      slideChrome(context, _barVisibility, hidden: true);
+    }
   }
 
   /// The bar draws over the last toolbar height before the first image
