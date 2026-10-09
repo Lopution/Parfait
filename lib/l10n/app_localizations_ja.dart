@@ -232,9 +232,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsSearchEmpty => '一致する設定はありません';
 
   @override
-  String get settingsEntrySummary => '外観、閲覧、ネットワーク、ダウンロード、バックアップ';
-
-  @override
   String get settingsGroupAppearance => '外観';
 
   @override

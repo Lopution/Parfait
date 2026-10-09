@@ -504,12 +504,6 @@ abstract class AppLocalizations {
   /// **'没有匹配的设置'**
   String get settingsSearchEmpty;
 
-  /// No description provided for @settingsEntrySummary.
-  ///
-  /// In zh, this message translates to:
-  /// **'外观、浏览、网络、下载、备份'**
-  String get settingsEntrySummary;
-
   /// No description provided for @settingsGroupAppearance.
   ///
   /// In zh, this message translates to:

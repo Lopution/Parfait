@@ -74,7 +74,6 @@
   "settingsTitle": "Settings",
   "settingsSearchHint": "Search settings",
   "settingsSearchEmpty": "No matching settings",
-  "settingsEntrySummary": "Appearance, browsing, network, downloads, backup",
   "settingsGroupAppearance": "Appearance",
   "settingsGroupNetwork": "Network & downloads",
   "settingsGroupBrowse": "Browsing",

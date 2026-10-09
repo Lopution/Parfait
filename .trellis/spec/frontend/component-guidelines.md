@@ -2438,7 +2438,9 @@ reintroduce it or hand-build group containers.
   segment), `SettingsGroup.segmentGap` (2dp) apart; `segmentRadius(index,
   count)` gives the group's outer edge `FuncShape.card` corners and every
   edge facing another segment `FuncShape.segment`. A single-row group is
-  one card. A composite control (a text field in
+  one card. A `separated` group (the me page's settings list, never a
+  settings page) sets its rows `separatedGap` (8dp) apart, each with
+  `FuncShape.card` corners on every side. A composite control (a text field in
   `SettingsGroupContent`) is one child and therefore one segment — the
   group never splits a child. Explanatory copy that used to sit above the
   rows belongs in `footer` so the rows come first. Empty `children` render
@@ -2541,15 +2543,26 @@ unchanged. Top to bottom:
    id)`. Tapping it calls `openMe`; signed out it shows `login` and calls
    `openLogin`. Its trailing `switch_account_outlined` button opens
    `/settings/account`.
-2. My content (`settingsGroupLibrary`): a grid of entries, each a 48dp
-   `primaryContainer` circle over a `bodyMedium` label, four per row on
-   a phone and all in one row from 560dp. The entries are:
-   - bookmarks and following: `openMe(tab: MeTab.…)`, which pushes
-     `/me?tab=`;
-   - watchlist, history and watch later;
-   - download tasks, with a `Badge` counting active tasks;
-   - local novels.
-3. One `SettingsTile` to the settings index `/settings/all`.
+2. My content, after Shaft's me page (user decision 2026-10-09, option
+   乙, with more room between the sections than the prototype):
+   - three cards 12dp apart, one height (the tallest label): each a
+     `surfaceContainer` card with a 40dp rounded square in an accent
+     container — bookmarks `primary`, following `tertiary`, download
+     tasks `secondary` — over a `bodyMedium` label. Bookmarks and
+     following call `openMe(tab: MeTab.…)`, which pushes `/me?tab=`; the
+     download tasks square carries a `Badge` counting active tasks;
+   - under them a row of four plain entries (`onSurfaceVariant` icon,
+     no container): watchlist, history, watch later, local novels. Below
+     80dp per entry (scaled by `textScaler`) they go two to a row;
+   - labels wrap between words, never inside one; each row shares one
+     `LabelFit` scale.
+3. The settings pages (theme through about — not account, which the
+   account row owns, nor the frame probe) as `SettingsTile`s with the
+   index's icons (`settingsPageIcons`) and no summaries, in a
+   `separated` group (user decision 2026-10-09: always listed, no fold,
+   and room between the rows). The group's heading is "settings" with a
+   search button that opens `/settings/all`, whose search field is on
+   top.
 
 `SettingsPage` is the settings index with a `SearchBar` in the app bar's
 `bottom`. Typing swaps the groups for the results; an empty result shows

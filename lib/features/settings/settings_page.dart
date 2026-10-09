@@ -108,6 +108,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 }
 
+/// The row icon of each settings page, on the index and in the settings
+/// fold of the "me" page.
+const settingsPageIcons = <SettingsPageRef, IconData>{
+  SettingsPageRef.account: Icons.manage_accounts_outlined,
+  SettingsPageRef.theme: Icons.palette_outlined,
+  SettingsPageRef.language: Icons.language,
+  SettingsPageRef.translate: Icons.translate,
+  SettingsPageRef.motion: Icons.animation,
+  SettingsPageRef.browse: Icons.image_outlined,
+  SettingsPageRef.muted: Icons.block_outlined,
+  SettingsPageRef.network: Icons.network_check,
+  SettingsPageRef.download: Icons.download_outlined,
+  SettingsPageRef.backup: Icons.backup_outlined,
+  SettingsPageRef.about: Icons.info_outline,
+  SettingsPageRef.frameProbe: Icons.monitor_heart_outlined,
+};
+
 /// The search field under the title: the field plus its bottom padding.
 const double _searchBarExtent = 48 + FuncSpacing.sm;
 
@@ -165,13 +182,9 @@ class _SettingsGroups extends ConsumerWidget {
     final muted = ref.watch(muteStoreProvider);
     final mutedCount =
         muted.tags.length + muted.users.length + muted.works.length;
-    SettingsTile page(
-      SettingsPageRef page, {
-      required IconData icon,
-      Widget? subtitle,
-    }) => SettingsTile(
+    SettingsTile page(SettingsPageRef page, {Widget? subtitle}) => SettingsTile(
       setting: page,
-      icon: icon,
+      icon: settingsPageIcons[page],
       subtitle: subtitle,
       onTap: () => openSettingsPage(context, page.path),
     );
@@ -193,7 +206,6 @@ class _SettingsGroups extends ConsumerWidget {
             children: [
               page(
                 SettingsPageRef.account,
-                icon: Icons.manage_accounts_outlined,
                 subtitle: Text(account?.name ?? context.l10n.signedOut),
               ),
             ],
@@ -203,24 +215,20 @@ class _SettingsGroups extends ConsumerWidget {
             children: [
               page(
                 SettingsPageRef.theme,
-                icon: Icons.palette_outlined,
                 subtitle: Text(themeModeLabel(context, settings.themeCode)),
               ),
               page(
                 SettingsPageRef.language,
-                icon: Icons.language,
                 subtitle: Text(languageDisplayName(settings.languageTag)),
               ),
               page(
                 SettingsPageRef.translate,
-                icon: Icons.translate,
                 subtitle: _TranslationSummary(
                   provider: settings.translationProvider,
                 ),
               ),
               page(
                 SettingsPageRef.motion,
-                icon: Icons.animation,
                 subtitle: Text(
                   settings.reduceMotion
                       ? context.l10n.reduceMotion
@@ -237,12 +245,10 @@ class _SettingsGroups extends ConsumerWidget {
               // same as the backup tile.
               page(
                 SettingsPageRef.browse,
-                icon: Icons.image_outlined,
                 subtitle: Text(context.l10n.settingsBrowseHint),
               ),
               page(
                 SettingsPageRef.muted,
-                icon: Icons.block_outlined,
                 subtitle: Text(
                   mutedCount == 0
                       ? context.l10n.mutedEmpty
@@ -256,12 +262,10 @@ class _SettingsGroups extends ConsumerWidget {
             children: [
               page(
                 SettingsPageRef.network,
-                icon: Icons.network_check,
                 subtitle: Text(networkModeLabel(context, settings.networkMode)),
               ),
               page(
                 SettingsPageRef.download,
-                icon: Icons.download_outlined,
                 subtitle: Text(
                   '${namingPresetLabel(context, settings.namingRule.preset)} · '
                   '${downloadDestinationLabel(context, settings.downloadDestination)}',
@@ -276,18 +280,13 @@ class _SettingsGroups extends ConsumerWidget {
               // tells the user what the page does instead (per design §4.8-1).
               page(
                 SettingsPageRef.backup,
-                icon: Icons.backup_outlined,
                 subtitle: Text(context.l10n.backupHint),
               ),
             ],
           ),
           SettingsGroup(
             children: [
-              page(
-                SettingsPageRef.about,
-                icon: Icons.info_outline,
-                subtitle: const _VersionSummary(),
-              ),
+              page(SettingsPageRef.about, subtitle: const _VersionSummary()),
             ],
           ),
           // Frame probe is a diagnostics tool, not a preference: it ships in
@@ -300,12 +299,7 @@ class _SettingsGroups extends ConsumerWidget {
               kPixivFrameProbe)
             SettingsGroup(
               title: Text(context.l10n.settingsGroupDeveloper),
-              children: [
-                page(
-                  SettingsPageRef.frameProbe,
-                  icon: Icons.monitor_heart_outlined,
-                ),
-              ],
+              children: [page(SettingsPageRef.frameProbe)],
             ),
         ],
       ),
