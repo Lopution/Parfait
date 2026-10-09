@@ -4199,6 +4199,12 @@ abstract class AppLocalizations {
   /// **'暂无评论'**
   String get commentNoResults;
 
+  /// No description provided for @commentDeletedUser.
+  ///
+  /// In zh, this message translates to:
+  /// **'已注销用户'**
+  String get commentDeletedUser;
+
   /// No description provided for @commentReplies.
   ///
   /// In zh, this message translates to:

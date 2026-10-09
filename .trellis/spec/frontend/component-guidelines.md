@@ -134,6 +134,13 @@ state or action.
 - Entry animations keyed by list index replay whenever a refresh re-seats
   positions; identity-based state (played sets, element keys via
   `findChildIndexCallback`, `ValueKey(entity.id)`) must use the entity id.
+- `IllustFeedGrid` keeps `FeedItemExtent` unkeyed and puts
+  `ValueKey(entity.id)` on the inner card subtree. With
+  `flutter_staggered_grid_view` 0.7.0, keying the outer extent and wiring
+  `findChildIndexCallback` lets a refresh that replaces the first works leave
+  masonry index 0 without a `layoutOffset`, causing a null-check crash during
+  layout; keep the keyed identity inside the extent and verify the replacement
+  case in `responsive_layout_test.dart`.
 - A control painted over artwork uses `ImageOverlayButton` (icon actions) or
   the `FuncTokens.imageControl`/`onImageControl` pair (pill counters and
   other non-button chrome). A `filledTonal` button or a plain glyph sits on

@@ -132,9 +132,9 @@ class IllustFeedGrid extends StatefulWidget {
   /// Stable entity ids aligned with [itemBuilder]'s index order. Supplying
   /// them does two things positional identity cannot: the staggered
   /// entrance marks entities (not slots) as played, and
-  /// [SliverChildBuilderDelegate.findChildIndexCallback] re-seats element
-  /// state when a refresh inserts at the head — without keys, every card's
-  /// subtree is re-bound to whatever entity landed on its old position.
+  /// keys the card subtree so a refresh mounts a new card when an entity
+  /// changes position — without keys, every card's subtree is re-bound to
+  /// whatever entity landed on its old position.
   /// They also become the detail pager's work list — opening a card lets
   /// the user swipe sideways through the feed.
   final List<int>? itemIds;
@@ -218,20 +218,15 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
                 // afresh. Cards land in place, as in Shaft; only their
                 // images fade in.
                 return FeedItemExtent(
-                  key: ValueKey(id),
                   width: columnWidth,
-                  child: widget.itemBuilder(context, index),
+                  child: KeyedSubtree(
+                    key: ValueKey(id),
+                    child: widget.itemBuilder(context, index),
+                  ),
                 );
               },
               childCount: widget.itemCount,
               addAutomaticKeepAlives: false,
-              findChildIndexCallback: widget.itemIds == null
-                  ? null
-                  : (key) {
-                      if (key is! ValueKey<int>) return null;
-                      final i = widget.itemIds!.indexOf(key.value);
-                      return i < 0 ? null : i;
-                    },
             ),
           ),
         );

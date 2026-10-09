@@ -215,6 +215,31 @@ void main() {
     ]);
   });
 
+  test(
+    'deleted authors stay visible and one malformed comment is skipped',
+    () async {
+      final deleted = _commentJson(103, userId: 0);
+      (deleted['user'] as Map<String, dynamic>)['name'] = '';
+      final malformed = _commentJson(104);
+      (malformed['user'] as Map<String, dynamic>)['name'] = 42;
+      final container = await _apiContainer(
+        (request) async => _json({
+          'comments': [deleted, malformed, _commentJson(105)],
+          'next_url': null,
+        }),
+      );
+      addTearDown(container.dispose);
+
+      final page = await container
+          .read(commentRepositoryProvider)
+          .fetchComments(50);
+
+      expect(page.comments.map((comment) => comment.id).toList(), [103, 105]);
+      expect(page.comments.first.user.id, 0);
+      expect(page.comments.first.user.name, isEmpty);
+    },
+  );
+
   test('novel comments use the novel endpoint family and novel_id', () async {
     final paths = <String>[];
     final container = await _apiContainer((request) async {

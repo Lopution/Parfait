@@ -13,6 +13,7 @@ import '../../core/auth/account_store.dart';
 import '../../core/entity/comment_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/novel/novel_store.dart';
+import '../../core/user/user_entity.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/comment_text.dart';
 import '../../app/widgets/inline_translation.dart';
@@ -47,9 +48,12 @@ class _CommentItemState extends ConsumerState<CommentItem>
     final theme = Theme.of(context);
     final account = ref.watch(accountStoreProvider).value?.usableCurrent;
     final canDelete =
-        account?.userId == widget.comment.user.id && widget.onDelete != null;
+        widget.comment.user.id > 0 &&
+        account?.userId == widget.comment.user.id &&
+        widget.onDelete != null;
     final showTranslate = widget.comment.content.trim().isNotEmpty;
     final byAuthor =
+        widget.comment.user.id > 0 &&
         _workAuthorId(ref, widget.comment) == widget.comment.user.id;
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -77,7 +81,10 @@ class _CommentItemState extends ConsumerState<CommentItem>
                             children: [
                               Flexible(
                                 child: Text(
-                                  widget.comment.user.name,
+                                  commentAuthorDisplayName(
+                                    context,
+                                    widget.comment.user,
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -155,14 +162,21 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        openUser(context, comment.user.id);
-      },
+      onTap: comment.user.id > 0
+          ? () => openUser(context, comment.user.id)
+          : null,
       // Keep comment/profile avatars on the same placeholder, cache and ring
       // contract as every other user surface.
       child: PersonAvatar(imageUrl: comment.user.profileImageUrl, radius: 21),
     );
   }
+}
+
+/// Returns the localized display name used by comment rows and reply targets.
+/// Deleted authors can remain in the API response without a usable profile id.
+String commentAuthorDisplayName(BuildContext context, UserEntity user) {
+  final name = user.name.trim();
+  return name.isEmpty ? context.l10n.commentDeletedUser : name;
 }
 
 class _CommentBody extends StatelessWidget {

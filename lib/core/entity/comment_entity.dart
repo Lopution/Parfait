@@ -114,7 +114,10 @@ class CommentEntity {
       kind: kind,
       parentCommentId: effectiveParent,
       rootCommentId: effectiveRoot,
-      user: UserEntity.fromUserJson(userJson),
+      // Deleted authors can remain attached to a comment with an empty name
+      // or a non-positive id. Keep the comment observable; the feature layer
+      // supplies a localized name and disables profile navigation for id 0.
+      user: UserEntity.fromUserJson(userJson, allowDeleted: true),
       content: content as String? ?? '',
       createdAt: _date(json['date'] ?? json['created_at']),
       stampId: stamp?.id,

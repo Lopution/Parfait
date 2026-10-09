@@ -133,6 +133,13 @@ void main() {
     expect(menuItem('删除评论'), findsNothing);
   });
 
+  testWidgets('deleted author uses a localized placeholder', (tester) async {
+    await pumpItem(tester, sampleComment(40, userId: 0, userName: ''));
+
+    expect(find.text('已注销用户'), findsOneWidget);
+    expect(find.text('user 0'), findsNothing);
+  });
+
   testWidgets('translate is disabled while a translation runs', (tester) async {
     await pumpItem(tester, sampleComment(40, userId: 20));
     await openMenu(tester);

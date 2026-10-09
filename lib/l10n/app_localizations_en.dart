@@ -2280,6 +2280,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commentNoResults => 'No comments';
 
   @override
+  String get commentDeletedUser => 'Deleted user';
+
+  @override
   String get commentReplies => 'Replies';
 
   @override

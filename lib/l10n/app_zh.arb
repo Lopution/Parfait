@@ -1216,6 +1216,7 @@
   "relatedLoadFailed": "相关作品加载失败",
   "commentLoadMoreFailed": "加载更多评论失败",
   "commentNoResults": "暂无评论",
+  "commentDeletedUser": "已注销用户",
   "commentReplies": "回复",
   "commentViewReplies": "查看 {count} 条回复",
   "@commentViewReplies": {

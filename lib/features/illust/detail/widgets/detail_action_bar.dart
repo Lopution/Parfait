@@ -82,6 +82,7 @@ class _DetailActionBarState extends State<DetailActionBar> {
   @override
   Widget build(BuildContext context) {
     _restingExtent = DetailActionBar.restingExtent(context);
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
     // Written during build: the anchor only relayouts on it.
     _publish();
     final colors = Theme.of(context).colorScheme;
@@ -143,7 +144,9 @@ class _DetailActionBarState extends State<DetailActionBar> {
           },
           child: SafeArea(
             top: false,
-            minimum: const EdgeInsets.only(bottom: DetailActionBar.margin),
+            minimum: EdgeInsets.only(
+              bottom: bottomInset + DetailActionBar.margin,
+            ),
             child: Center(heightFactor: 1, child: toolbar),
           ),
         ),

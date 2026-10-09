@@ -73,4 +73,49 @@ void main() {
       expect(delegate.crossAxisCount, 2);
     },
   );
+
+  testWidgets('refreshing keyed feed items keeps the masonry layout valid', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    var ids = [for (var id = 1; id <= 20; id++) id];
+    late StateSetter refresh;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: replicaTheme(Brightness.light),
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            refresh = setState;
+            return Scaffold(
+              body: CustomScrollView(
+                slivers: [
+                  IllustFeedGrid(
+                    itemCount: ids.length,
+                    itemIds: ids,
+                    itemBuilder: (context, index) => SizedBox(
+                      height: 60 + (ids[index] % 5) * 20,
+                      child: Text('work ${ids[index]}'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+    await tester.pump();
+    refresh(() => ids = [for (var id = 21; id <= 40; id++) id]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 16));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('work 21'), findsOneWidget);
+  });
 }
