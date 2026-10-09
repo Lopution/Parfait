@@ -19,10 +19,6 @@ abstract final class FuncSpacing {
 abstract final class FuncShape {
   static const BorderRadius card = BorderRadius.all(Radius.circular(12));
 
-  /// Inner corners of a segmented list: the edges where two segments of one
-  /// group face each other (the group's outer edge stays [card]).
-  static const BorderRadius segment = BorderRadius.all(Radius.circular(4));
-
   /// Corner badges over artwork (R-18, page count, AI).
   static const BorderRadius badge = BorderRadius.all(Radius.circular(4));
   static const BorderRadius control = BorderRadius.all(Radius.circular(8));

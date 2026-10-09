@@ -133,7 +133,7 @@ class _SettingsFocusMarker extends InheritedWidget {
 
 /// Marks [child] as the place of [entry] on its settings page. A row
 /// anchor tints itself when revealed ([paintsMark]); a group anchor leaves
-/// the tint to the group's segments, which read it through
+/// the tint to the group's row cards, which read it through
 /// [SettingHighlight].
 class SettingAnchor extends StatefulWidget {
   const SettingAnchor({
@@ -214,7 +214,7 @@ class _SettingAnchorState extends State<SettingAnchor>
 }
 
 /// The mark of the nearest [SettingAnchor], for widgets that paint it on
-/// their own shape (the segments of a settings group).
+/// their own shape (the row cards of a settings group).
 class SettingHighlight extends InheritedNotifier<Animation<double>> {
   const SettingHighlight._({
     required Animation<double> mark,

@@ -3,7 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../theme/func_semantic_tokens.dart';
 import 'settings_anchor.dart';
 
-/// Non-row content inside a [SettingsGroup]: text fields, segmented buttons,
+/// Non-row content inside a [SettingsGroup]: text fields, choice chips,
 /// sliders and buttons sit on the group's surface with the group's own inner
 /// padding instead of `ListTile` chrome.
 class SettingsGroupContent extends StatelessWidget {

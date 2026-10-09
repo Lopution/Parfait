@@ -19,6 +19,9 @@ void main() {
           manifestTransport: _UnusedTransport(),
           platform: _FdroidPlatform(),
         );
+    // Tall enough that the update block below the about rows is built.
+    tester.view.physicalSize = const Size(800, 2400);
+    addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
