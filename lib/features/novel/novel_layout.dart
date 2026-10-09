@@ -15,6 +15,7 @@ class NovelLayoutStyle {
     this.paragraphSpacing = 12,
     this.horizontalPadding = 24,
     this.verticalPadding = 22,
+    this.translationGap = 4,
   });
 
   final String? fontFamily;
@@ -25,10 +26,25 @@ class NovelLayoutStyle {
   final double horizontalPadding;
   final double verticalPadding;
 
+  /// Space between a paragraph and its translation (bilingual reading).
+  final double translationGap;
+
+  /// A translation reads a step smaller and lighter than its paragraph.
+  static const double _translationScale = 0.9;
+  static const double _translationAlpha = 0.7;
+
   TextStyle textStyle(Color color) => TextStyle(
     color: color,
     fontFamily: fontFamily,
     fontSize: fontSize,
+    fontWeight: fontWeight,
+    height: lineHeight,
+  );
+
+  TextStyle translationStyle(Color color) => TextStyle(
+    color: color.withValues(alpha: _translationAlpha),
+    fontFamily: fontFamily,
+    fontSize: fontSize * _translationScale,
     fontWeight: fontWeight,
     height: lineHeight,
   );
@@ -177,6 +193,8 @@ class NovelPageLine {
     required this.endOffset,
     required this.height,
     required this.isParagraphEnd,
+    required this.spacingAfter,
+    this.isTranslation = false,
   });
 
   final String text;
@@ -185,6 +203,15 @@ class NovelPageLine {
   final int endOffset;
   final double height;
   final bool isParagraphEnd;
+
+  /// Blank space below the line: the paragraph spacing after a paragraph,
+  /// the translation gap between a paragraph and its translation.
+  final double spacingAfter;
+
+  /// A line of a paragraph's translation. It belongs to the paragraph and
+  /// sits at its end (both offsets are the paragraph's length), so anchors
+  /// and progress never point into a translation.
+  final bool isTranslation;
 
   NovelAnchor get startAnchor =>
       NovelAnchor(paragraphId: paragraphId, offset: startOffset);
@@ -304,6 +331,12 @@ class NovelLayoutEngine {
 
   final NovelLayoutCache cache;
 
+  /// Measured lines of the latest text/width signature, by paragraph and
+  /// by translation: a relayout that only adds translations measures
+  /// nothing but the new ones.
+  Object? _measureSignature;
+  final Map<Object, List<_MeasuredLine>> _measured = {};
+
   NovelLayout layout({
     required List<NovelParagraph> paragraphs,
     required String contentVersion,
@@ -329,6 +362,7 @@ class NovelLayoutEngine {
     }
     final result = _build(
       paragraphs: paragraphs,
+      contentVersion: contentVersion,
       key: key,
       style: style,
       textColor: textColor,
@@ -341,6 +375,8 @@ class NovelLayoutEngine {
     return result;
   }
 
+  /// [translations] (paragraph id → translation; an empty one shows
+  /// nothing) lays each translation out under its paragraph.
   Future<NovelLayout> layoutCancellable({
     required List<NovelParagraph> paragraphs,
     required String contentVersion,
@@ -349,12 +385,13 @@ class NovelLayoutEngine {
     required Color textColor,
     required Brightness brightness,
     TextDirection textDirection = TextDirection.ltr,
+    Map<String, String> translations = const {},
     CancelToken? cancelToken,
     NovelLayoutBudget budget = const NovelLayoutBudget(),
     NovelLayoutProgressCallback? onProgress,
   }) async {
     final key = _key(
-      contentVersion: contentVersion,
+      contentVersion: _versionWith(contentVersion, translations),
       viewport: viewport,
       style: style,
       brightness: brightness,
@@ -369,6 +406,8 @@ class NovelLayoutEngine {
     // viewport/font calculation cancel before the result reaches the UI.
     final result = await _buildAsync(
       paragraphs: paragraphs,
+      contentVersion: contentVersion,
+      translations: translations,
       key: key,
       style: style,
       textColor: textColor,
@@ -413,6 +452,7 @@ class NovelLayoutEngine {
     required Color textColor,
     required Brightness brightness,
     TextDirection textDirection = TextDirection.ltr,
+    Map<String, String> translations = const {},
     CancelToken? cancelToken,
     NovelLayoutBudget budget = const NovelLayoutBudget(),
     NovelLayoutProgressCallback? onProgress,
@@ -425,6 +465,7 @@ class NovelLayoutEngine {
       textColor: textColor,
       brightness: brightness,
       textDirection: textDirection,
+      translations: translations,
       cancelToken: cancelToken,
       budget: budget,
       onProgress: onProgress,
@@ -542,6 +583,19 @@ class NovelLayoutEngine {
     );
   }
 
+  /// The cache identity of a body laid out with [translations].
+  static String _versionWith(
+    String contentVersion,
+    Map<String, String> translations,
+  ) {
+    if (translations.isEmpty) return contentVersion;
+    final digest = Object.hashAllUnordered([
+      for (final entry in translations.entries)
+        Object.hash(entry.key, entry.value),
+    ]);
+    return '$contentVersion+${translations.length}:$digest';
+  }
+
   NovelLayoutKey _key({
     required String contentVersion,
     required Size viewport,
@@ -563,6 +617,8 @@ class NovelLayoutEngine {
 
   Future<NovelLayout> _buildAsync({
     required List<NovelParagraph> paragraphs,
+    required String contentVersion,
+    required Map<String, String> translations,
     required NovelLayoutKey key,
     required NovelLayoutStyle style,
     required Color textColor,
@@ -577,17 +633,23 @@ class NovelLayoutEngine {
     if (paragraphs.isEmpty) {
       lines.add(_MeasuredLine.empty());
     } else {
+      final measure = _Measure(
+        signature: _signature(contentVersion, key, style),
+        maxWidth: _maxWidth(key.viewport, style),
+        style: style,
+        textColor: textColor,
+        textDirection: textDirection,
+      );
       for (var index = 0; index < paragraphs.length; index++) {
         if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
-        final measured = _measureParagraph(
-          paragraphs[index],
-          paragraphIndex: index,
-          maxWidth: _maxWidth(key.viewport, style),
-          style: style,
-          textColor: textColor,
-          textDirection: textDirection,
-        );
-        lines.addAll(measured);
+        final paragraph = paragraphs[index];
+        lines.addAll(_measureCached(measure, paragraph, index));
+        final translation = translations[paragraph.id];
+        if (translation != null && translation.isNotEmpty) {
+          lines.addAll(
+            _measureTranslationCached(measure, paragraph, index, translation),
+          );
+        }
         if (lines.length > budget.maxLines) {
           throw NovelLayoutBudgetExceeded(
             budgetName: 'maxLines',
@@ -630,6 +692,7 @@ class NovelLayoutEngine {
 
   NovelLayout _build({
     required List<NovelParagraph> paragraphs,
+    required String contentVersion,
     required NovelLayoutKey key,
     required NovelLayoutStyle style,
     required Color textColor,
@@ -643,18 +706,16 @@ class NovelLayoutEngine {
     if (paragraphs.isEmpty) {
       lines.add(_MeasuredLine.empty());
     } else {
+      final measure = _Measure(
+        signature: _signature(contentVersion, key, style),
+        maxWidth: _maxWidth(key.viewport, style),
+        style: style,
+        textColor: textColor,
+        textDirection: textDirection,
+      );
       for (var index = 0; index < paragraphs.length; index++) {
         if (cancelled()) throw const ApiCancelled();
-        lines.addAll(
-          _measureParagraph(
-            paragraphs[index],
-            paragraphIndex: index,
-            maxWidth: _maxWidth(key.viewport, style),
-            style: style,
-            textColor: textColor,
-            textDirection: textDirection,
-          ),
-        );
+        lines.addAll(_measureCached(measure, paragraphs[index], index));
         if (lines.length > budget.maxLines) {
           throw NovelLayoutBudgetExceeded(
             budgetName: 'maxLines',
@@ -693,22 +754,63 @@ class NovelLayoutEngine {
     return result;
   }
 
+  /// What decides how a text wraps: the body, the measure width and the
+  /// type. Color and brightness only paint.
+  Object _signature(
+    String contentVersion,
+    NovelLayoutKey key,
+    NovelLayoutStyle style,
+  ) => (
+    contentVersion,
+    _maxWidth(key.viewport, style),
+    key.fontFamily,
+    key.fontSize,
+    key.lineHeight,
+    key.fontWeight,
+    key.textDirection,
+  );
+
+  List<_MeasuredLine> _cached(
+    _Measure measure,
+    Object key,
+    List<_MeasuredLine> Function() measureLines,
+  ) {
+    if (measure.signature != _measureSignature) {
+      _measureSignature = measure.signature;
+      _measured.clear();
+    }
+    return _measured.putIfAbsent(key, measureLines);
+  }
+
+  List<_MeasuredLine> _measureCached(
+    _Measure measure,
+    NovelParagraph paragraph,
+    int paragraphIndex,
+  ) => _cached(measure, (
+    paragraphIndex,
+    paragraph.id,
+  ), () => _measureParagraph(paragraph, paragraphIndex, measure));
+
+  List<_MeasuredLine> _measureTranslationCached(
+    _Measure measure,
+    NovelParagraph paragraph,
+    int paragraphIndex,
+    String translation,
+  ) => _cached(
+    measure,
+    (paragraph.id, translation),
+    () => _measureTranslation(paragraph, paragraphIndex, translation, measure),
+  );
+
   List<_MeasuredLine> _measureParagraph(
-    NovelParagraph paragraph, {
-    required int paragraphIndex,
-    required double maxWidth,
-    required NovelLayoutStyle style,
-    required Color textColor,
-    required TextDirection textDirection,
-  }) {
+    NovelParagraph paragraph,
+    int paragraphIndex,
+    _Measure measure,
+  ) {
+    final style = measure.style;
     final source = paragraph.text.isEmpty ? ' ' : paragraph.text;
-    final painter = TextPainter(
-      text: TextSpan(text: source, style: style.textStyle(textColor)),
-      textDirection: textDirection,
-      textScaler: TextScaler.noScaling,
-    )..layout(maxWidth: maxWidth);
-    final metrics = painter.computeLineMetrics();
-    if (metrics.isEmpty) {
+    final rows = _rows(source, style.textStyle(measure.textColor), measure);
+    if (rows.isEmpty) {
       return [
         _MeasuredLine(
           paragraphIndex: paragraphIndex,
@@ -723,10 +825,72 @@ class NovelLayoutEngine {
         ),
       ];
     }
+    final length = paragraph.text.length;
     return [
-      for (var index = 0; index < metrics.length; index++)
+      for (final (index, row) in rows.indexed)
         () {
-          final metric = metrics[index];
+          final start = row.start.clamp(0, length);
+          final end = row.end.clamp(start, length);
+          return _MeasuredLine(
+            paragraphIndex: paragraphIndex,
+            paragraphId: paragraph.id,
+            startOffset: start,
+            endOffset: end,
+            text: paragraph.text.substring(start, end),
+            height: row.height,
+            isParagraphEnd: index == rows.length - 1,
+            pageBreakBefore: index == 0 && paragraph.pageBreakBefore,
+            chapterTitle: index == 0 && paragraph.isChapterHeading
+                ? paragraph.text
+                : null,
+          );
+        }(),
+    ];
+  }
+
+  /// [translation]'s lines, anchored at the end of [paragraph].
+  List<_MeasuredLine> _measureTranslation(
+    NovelParagraph paragraph,
+    int paragraphIndex,
+    String translation,
+    _Measure measure,
+  ) {
+    final rows = _rows(
+      translation,
+      measure.style.translationStyle(measure.textColor),
+      measure,
+    );
+    final end = paragraph.text.length;
+    return [
+      for (final (index, row) in rows.indexed)
+        _MeasuredLine(
+          paragraphIndex: paragraphIndex,
+          paragraphId: paragraph.id,
+          startOffset: end,
+          endOffset: end,
+          text: translation.substring(row.start, row.end),
+          height: row.height,
+          isParagraphEnd: index == rows.length - 1,
+          isTranslation: true,
+        ),
+    ];
+  }
+
+  /// The rows [text] wraps into at the measure width: each row's UTF-16
+  /// range in [text] and its height.
+  List<({int start, int end, double height})> _rows(
+    String text,
+    TextStyle style,
+    _Measure measure,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: measure.textDirection,
+      textScaler: TextScaler.noScaling,
+    )..layout(maxWidth: measure.maxWidth);
+    final rows = [
+      for (final metric in painter.computeLineMetrics())
+        () {
           // Flutter's LineMetrics intentionally exposes geometry, not text
           // indices. Resolve each geometry row back to a line range through
           // TextPainter so UTF-16 offsets remain stable for anchor restore.
@@ -735,23 +899,16 @@ class NovelLayoutEngine {
             Offset(0, lineTop + 0.5),
           );
           final range = painter.getLineBoundary(position);
-          final start = range.start.clamp(0, paragraph.text.length);
-          final end = range.end.clamp(start, paragraph.text.length);
-          return _MeasuredLine(
-            paragraphIndex: paragraphIndex,
-            paragraphId: paragraph.id,
-            startOffset: start,
-            endOffset: end,
-            text: paragraph.text.substring(start, end),
+          final start = range.start.clamp(0, text.length);
+          return (
+            start: start,
+            end: range.end.clamp(start, text.length),
             height: metric.height,
-            isParagraphEnd: index == metrics.length - 1,
-            pageBreakBefore: index == 0 && paragraph.pageBreakBefore,
-            chapterTitle: index == 0 && paragraph.isChapterHeading
-                ? paragraph.text
-                : null,
           );
         }(),
     ];
+    painter.dispose();
+    return rows;
   }
 
   NovelLayout _paginate({
@@ -765,7 +922,7 @@ class NovelLayoutEngine {
     final availableHeight = (key.viewport.height - style.verticalPadding * 2)
         .clamp(1.0, double.infinity);
     final pages = <NovelLayoutPage>[];
-    final current = <_MeasuredLine>[];
+    final current = <({_MeasuredLine line, double spacing})>[];
     var currentHeight = 0.0;
     var paragraphBase = 0;
     var nextParagraph = 0;
@@ -782,7 +939,7 @@ class NovelLayoutEngine {
       }
       final pageIndex = pages.length;
       final pageLines = [
-        for (final line in current)
+        for (final (:line, :spacing) in current)
           NovelPageLine(
             text: line.text,
             paragraphId: line.paragraphId,
@@ -790,9 +947,12 @@ class NovelLayoutEngine {
             endOffset: line.endOffset,
             height: line.height,
             isParagraphEnd: line.isParagraphEnd,
+            spacingAfter: spacing,
+            isTranslation: line.isTranslation,
           ),
       ];
-      final last = current.last;
+      final first = current.first.line;
+      final last = current.last.line;
       final endCharacter = _characterOffset(
         last,
         paragraphs,
@@ -802,11 +962,11 @@ class NovelLayoutEngine {
         NovelLayoutPage(
           index: pageIndex,
           lines: List.unmodifiable(pageLines),
-          startAnchor: current.first.startAnchor,
+          startAnchor: first.startAnchor,
           endAnchor: last.endAnchor,
           startCharacter: startCharacter,
           endCharacter: endCharacter,
-          chapterTitle: current.first.chapterTitle,
+          chapterTitle: first.chapterTitle,
         ),
       );
       current.clear();
@@ -814,13 +974,14 @@ class NovelLayoutEngine {
       startCharacter = endCharacter;
     }
 
-    for (final line in lines) {
+    for (final (index, line) in lines.indexed) {
       if (cancelled()) throw const ApiCancelled();
       while (nextParagraph < line.paragraphIndex) {
         paragraphBase += paragraphs[nextParagraph].text.length + 1;
         nextParagraph++;
       }
-      final spacing = line.isParagraphEnd ? style.paragraphSpacing : 0;
+      final next = index + 1 < lines.length ? lines[index + 1] : null;
+      final spacing = _spacingAfter(line, next, style);
       final lineHeight = line.height + spacing;
       if (line.pageBreakBefore && current.isNotEmpty) {
         flush();
@@ -828,7 +989,7 @@ class NovelLayoutEngine {
       if (current.isNotEmpty && currentHeight + lineHeight > availableHeight) {
         flush();
       }
-      current.add(line);
+      current.add((line: line, spacing: spacing));
       currentHeight += lineHeight;
     }
     flush();
@@ -845,6 +1006,7 @@ class NovelLayoutEngine {
               endOffset: 0,
               height: 0,
               isParagraphEnd: true,
+              spacingAfter: 0,
             ),
           ],
           startAnchor: empty,
@@ -865,6 +1027,22 @@ class NovelLayoutEngine {
       totalCharacters: totalCharacters,
       paragraphOrder: [for (final paragraph in paragraphs) paragraph.id],
     );
+  }
+
+  /// Paragraph spacing after a paragraph — after its translation when it
+  /// has one, with the smaller translation gap between the two.
+  static double _spacingAfter(
+    _MeasuredLine line,
+    _MeasuredLine? next,
+    NovelLayoutStyle style,
+  ) {
+    if (!line.isParagraphEnd) return 0;
+    final translationFollows =
+        !line.isTranslation &&
+        next != null &&
+        next.isTranslation &&
+        next.paragraphIndex == line.paragraphIndex;
+    return translationFollows ? style.translationGap : style.paragraphSpacing;
   }
 
   int _characterOffset(
@@ -893,6 +1071,7 @@ class _MeasuredLine {
     required this.isParagraphEnd,
     this.pageBreakBefore = false,
     this.chapterTitle,
+    this.isTranslation = false,
   });
 
   const _MeasuredLine.empty()
@@ -904,7 +1083,8 @@ class _MeasuredLine {
       height = 0,
       isParagraphEnd = true,
       pageBreakBefore = false,
-      chapterTitle = null;
+      chapterTitle = null,
+      isTranslation = false;
 
   final int paragraphIndex;
   final String paragraphId;
@@ -915,10 +1095,29 @@ class _MeasuredLine {
   final bool isParagraphEnd;
   final bool pageBreakBefore;
   final String? chapterTitle;
+  final bool isTranslation;
 
   NovelAnchor get startAnchor =>
       NovelAnchor(paragraphId: paragraphId, offset: startOffset);
 
   NovelAnchor get endAnchor =>
       NovelAnchor(paragraphId: paragraphId, offset: endOffset);
+}
+
+/// One layout's measuring inputs.
+class _Measure {
+  const _Measure({
+    required this.signature,
+    required this.maxWidth,
+    required this.style,
+    required this.textColor,
+    required this.textDirection,
+  });
+
+  /// Lines measured under an equal signature wrap the same way.
+  final Object signature;
+  final double maxWidth;
+  final NovelLayoutStyle style;
+  final Color textColor;
+  final TextDirection textDirection;
 }

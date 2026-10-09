@@ -22,6 +22,7 @@ import '../../core/watchlist/watchlist_models.dart';
 import '../../core/watchlist/watchlist_store.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/context.dart';
+import 'novel_bilingual.dart';
 import 'novel_layout.dart';
 import 'novel_reader.dart';
 import '../../app/theme/func_semantic_tokens.dart';
@@ -123,7 +124,7 @@ class NovelReaderStage extends ConsumerStatefulWidget {
 }
 
 class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, BilingualReading {
   /// One controller drives both bars and the passive hint: the hint
   /// tracks the *rendered* chrome state, not the user's intent — it
   /// reappears only once the bottom bar is fully dismissed (R4).
@@ -148,6 +149,19 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   Size? _insetsSize;
 
   NovelEntity get novel => widget.spec.novel;
+
+  @override
+  NovelEntity get bilingualNovel => novel;
+
+  @override
+  NovelReaderHandle get bilingualReader => _readerHandle;
+
+  /// The settings page needs the system bars the immersive reader hides.
+  @override
+  void showTranslationSettings() {
+    if (!_chromeVisible) _setChromeVisible(true);
+    super.showTranslationSettings();
+  }
 
   @override
   void initState() {
@@ -322,7 +336,8 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                     bottom: 4 + _stableInsets.bottom,
                     child: IgnorePointer(
                       child: Text(
-                        '${novel.title} · ${_page + 1}/$_pageCount · $percent%',
+                        '${novel.title} · ${_page + 1}/$_pageCount · $percent%'
+                        '${bilingual && translatingPage ? ' · ${l10n.novelTranslating}' : ''}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: _hintStyle(context, palette),
@@ -426,6 +441,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
         settings: _settings,
         initialAnchor: _initialAnchor,
         textColor: palette.foreground,
+        translations: pageTranslations,
         handle: _readerHandle,
         onCenterTap: _toggleChrome,
         onProgressChanged: (page, pageCount) {
@@ -441,6 +457,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
           // echoes (open/restore, settings relayout) are not reads —
           // opening and closing the book leaves no record behind.
           if (cause == NovelAnchorCause.userTurn) _persistAnchor(anchor);
+          bilingualPageSettled();
         },
       ),
     );
@@ -486,6 +503,26 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                 ),
               ),
               ...widget.spec.topActions,
+              IconButton(
+                tooltip: bilingual
+                    ? context.l10n.translationHide
+                    : context.l10n.novelTranslatePage,
+                isSelected: bilingual,
+                onPressed: toggleBilingual,
+                icon: const Icon(Icons.translate),
+                selectedIcon: translatingPage
+                    ? SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: foreground,
+                        ),
+                      )
+                    : Icon(
+                        Icons.translate,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+              ),
               IconButton(
                 tooltip: widget.spec.infoTooltip,
                 onPressed: () => _showInfoSheet(context),

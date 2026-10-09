@@ -1019,6 +1019,8 @@
   "novelIncreaseFont": "Увеличить шрифт",
   "novelReadingProgress": "Прогресс чтения",
   "novelReaderSettings": "Настройки чтения",
+  "novelTranslatePage": "Перевести страницу",
+  "novelTranslating": "Перевод",
   "novelSettingsSaveFailed": "Не удалось сохранить настройки чтения — они действуют только в этом сеансе",
   "novelFontSize": "Размер шрифта",
   "novelLineHeight": "Межстрочный интервал",

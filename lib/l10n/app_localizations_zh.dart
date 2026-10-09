@@ -2461,6 +2461,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelReaderSettings => '阅读设置';
 
   @override
+  String get novelTranslatePage => '翻译本页';
+
+  @override
+  String get novelTranslating => '翻译中';
+
+  @override
   String get novelSettingsSaveFailed => '阅读设置未能保存，仅本次生效';
 
   @override

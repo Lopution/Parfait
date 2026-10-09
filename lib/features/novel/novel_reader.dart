@@ -234,7 +234,8 @@ class NovelReaderHandle {
   /// first layout lands.
   List<({String title, int pageIndex})> Function()? chapters;
 
-  /// The committed layout — tests read `key.viewport` to verify which
+  /// The committed layout: bilingual reading reads the paragraphs of the
+  /// current page from it; tests read `key.viewport` to verify which
   /// measure width actually fed the layout cache key.
   NovelLayout? Function()? layout;
 }
@@ -247,6 +248,7 @@ class NovelReader extends StatefulWidget {
     this.settings = const NovelReaderSettings(),
     this.initialAnchor,
     this.textColor,
+    this.translations = const {},
     this.onAnchorChanged,
     this.onCenterTap,
     this.onProgressChanged,
@@ -267,6 +269,10 @@ class NovelReader extends StatefulWidget {
   /// Body text color override (reader theme palette); defaults to the
   /// ambient `colorScheme.onSurface`.
   final Color? textColor;
+
+  /// Paragraph translations shown under their paragraphs (bilingual
+  /// reading), by paragraph id. A new map relayouts, keeping the page.
+  final Map<String, String> translations;
 
   /// Fires when the current page's start anchor is reported — either by a
   /// layout commit re-asserting position ([NovelAnchorCause.layoutEcho]) or
@@ -358,7 +364,8 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     if (oldWidget.novel.contentVersion != widget.novel.contentVersion) {
       _layoutEngine.cache.clear();
       _scheduleLayout(force: true);
-    } else if (oldWidget.settings != widget.settings) {
+    } else if (oldWidget.settings != widget.settings ||
+        !identical(oldWidget.translations, widget.translations)) {
       _scheduleLayout(force: true);
     }
   }
@@ -516,22 +523,13 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     if (viewport == null || viewport.isEmpty) return;
     final brightness = _requestedBrightness ?? Theme.of(context).brightness;
     final direction = _requestedDirection ?? Directionality.of(context);
-    final oldLayout = _layout;
-    final oldPage = _reader.currentPage;
-    // First layout restores the persisted resume anchor; later relayouts
-    // keep the live page's start anchor.
-    final oldAnchor = oldLayout == null || oldLayout.pages.isEmpty
-        ? widget.initialAnchor
-        : oldLayout
-              .pages[oldPage.clamp(0, oldLayout.pages.length - 1)]
-              .startAnchor;
     final document =
         widget.novel.markup ??
         NovelMarkupDocument.fromParagraphs(widget.novel.paragraphs);
     final layoutContext = _commitGate.beginLayout(
       contentVersion: widget.novel.contentVersion,
       chapterId: null,
-      pageIndex: oldPage,
+      pageIndex: _reader.currentPage,
     );
     try {
       final result = await _layoutEngine.layoutDocumentCancellable(
@@ -542,6 +540,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         textColor: widget.textColor ?? Theme.of(context).colorScheme.onSurface,
         brightness: brightness,
         textDirection: direction,
+        translations: widget.translations,
         cancelToken: layoutContext.cancelToken,
         budget: widget.budget,
       );
@@ -551,15 +550,15 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         chapterId: null,
         disposed: !mounted,
         action: () {
-          // A page swipe that happened while layout was running is a user
-          // choice and wins over the old anchor. Otherwise restore the
-          // stable paragraph/UTF-16 anchor captured before relayout.
-          final pageWasChanged = _reader.currentPage != layoutContext.pageIndex;
-          final restoredPage = pageWasChanged
+          // Restore the stable paragraph/UTF-16 anchor of the page on
+          // screen now — the first layout restores the persisted resume
+          // anchor. A swipe made while the layout ran is a user choice
+          // and wins; its anchor, unlike its index, still names the same
+          // text once translations have moved the page breaks.
+          final anchor = _liveAnchor ?? widget.initialAnchor;
+          final restoredPage = anchor == null
               ? _reader.currentPage.clamp(0, result.pages.length - 1)
-              : oldAnchor == null
-              ? layoutContext.pageIndex.clamp(0, result.pages.length - 1)
-              : result.pageIndexForAnchor(oldAnchor);
+              : result.pageIndexForAnchor(anchor);
           setState(() {
             _reader.updatePageCount(result.pages.length, page: restoredPage);
           });
@@ -570,10 +569,15 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted || !_pageController.hasClients) return;
             if (!_commitGate.isCurrent(layoutContext)) return;
-            _layoutEchoPending = true;
-            _pageController.jumpToPage(restoredPage);
-            _layoutEchoPending = false;
-            // The explicit echo also covers the no-op jump where the
+            // Jump only when the page moved: a jump idles the position,
+            // which would cut short a swipe the user is making while a
+            // relayout (a translation arriving) lands.
+            if (_pageController.page?.round() != restoredPage) {
+              _layoutEchoPending = true;
+              _pageController.jumpToPage(restoredPage);
+              _layoutEchoPending = false;
+            }
+            // The explicit echo also covers the skipped jump where the
             // restored page already equals the current one (no
             // onPageChanged fires then).
             _notifyAnchor(NovelAnchorCause.layoutEcho);
@@ -592,12 +596,18 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     }
   }
 
-  void _notifyAnchor(NovelAnchorCause cause) {
+  /// Start anchor of the page on screen; null before the first layout.
+  NovelAnchor? get _liveAnchor {
     final layout = _layout;
-    if (layout == null || layout.pages.isEmpty) return;
-    final page =
-        layout.pages[_reader.currentPage.clamp(0, layout.pages.length - 1)];
-    widget.onAnchorChanged?.call(page.startAnchor, cause);
+    if (layout == null || layout.pages.isEmpty) return null;
+    return layout
+        .pages[_reader.currentPage.clamp(0, layout.pages.length - 1)]
+        .startAnchor;
+  }
+
+  void _notifyAnchor(NovelAnchorCause cause) {
+    final anchor = _liveAnchor;
+    if (anchor != null) widget.onAnchorChanged?.call(anchor, cause);
   }
 
   void _notifyProgress() {
@@ -632,6 +642,8 @@ class _NovelPage extends StatelessWidget {
   }
 
   Widget _buildColumn() {
+    final textStyle = style.textStyle(color);
+    final translationStyle = style.translationStyle(color);
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: style.horizontalPadding,
@@ -651,10 +663,10 @@ class _NovelPage extends StatelessWidget {
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.clip,
-                  style: style.textStyle(color),
+                  style: line.isTranslation ? translationStyle : textStyle,
                 ),
               ),
-            if (line.isParagraphEnd) SizedBox(height: style.paragraphSpacing),
+            if (line.spacingAfter > 0) SizedBox(height: line.spacingAfter),
           ],
         ],
       ),

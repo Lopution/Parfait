@@ -1019,6 +1019,8 @@
   "novelIncreaseFont": "Increase font size",
   "novelReadingProgress": "Reading progress",
   "novelReaderSettings": "Reading settings",
+  "novelTranslatePage": "Translate this page",
+  "novelTranslating": "Translating",
   "novelSettingsSaveFailed": "Couldn't save reading settings — applied for this session only",
   "novelFontSize": "Font size",
   "novelLineHeight": "Line height",

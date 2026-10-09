@@ -1019,6 +1019,8 @@
   "novelIncreaseFont": "文字を大きく",
   "novelReadingProgress": "読書進捗",
   "novelReaderSettings": "読書設定",
+  "novelTranslatePage": "このページを翻訳",
+  "novelTranslating": "翻訳中",
   "novelSettingsSaveFailed": "読書設定を保存できませんでした。今回のみ有効です",
   "novelFontSize": "文字サイズ",
   "novelLineHeight": "行間",

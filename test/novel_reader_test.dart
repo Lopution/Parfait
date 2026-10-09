@@ -92,6 +92,45 @@ void main() {
     );
   });
 
+  test(
+    'a translation lays out under its paragraph and moves no anchor',
+    () async {
+      final engine = NovelLayoutEngine();
+      final paragraphs = [
+        for (var index = 0; index < 40; index++)
+          NovelParagraph(id: 'p$index', text: 'paragraph $index ' * 4),
+      ];
+      Future<NovelLayout> layout(Map<String, String> translations) =>
+          engine.layoutCancellable(
+            paragraphs: paragraphs,
+            contentVersion: 'v1',
+            viewport: const Size(240, 320),
+            style: const NovelLayoutStyle(),
+            textColor: Colors.black,
+            brightness: Brightness.light,
+            translations: translations,
+          );
+
+      final plain = await layout(const {});
+      // An empty translation (already in the target language) shows nothing.
+      final bilingual = await layout(const {
+        'p0': 'translation zero',
+        'p1': '',
+      });
+
+      final lines = [for (final page in bilingual.pages) ...page.lines];
+      final translated = lines.where((line) => line.isTranslation).toList();
+      expect(translated.map((line) => line.paragraphId).toSet(), {'p0'});
+      expect(translated.first.startOffset, paragraphs.first.text.length);
+      final original = lines[lines.indexOf(translated.first) - 1];
+      expect(original.paragraphId, 'p0');
+      expect(original.spacingAfter, const NovelLayoutStyle().translationGap);
+      expect(bilingual.key, isNot(plain.key));
+      expect(bilingual.totalCharacters, plain.totalCharacters);
+      expect(bilingual.pages.last.endCharacter, plain.pages.last.endCharacter);
+    },
+  );
+
   test('reader tap zones and page progress are bounded and monotonic', () {
     final reader = NovelReaderController(pageCount: 4);
 
@@ -355,6 +394,7 @@ class _CountingLayoutEngine extends NovelLayoutEngine {
     required Color textColor,
     required Brightness brightness,
     TextDirection textDirection = TextDirection.ltr,
+    Map<String, String> translations = const {},
     CancelToken? cancelToken,
     NovelLayoutBudget budget = const NovelLayoutBudget(),
     NovelLayoutProgressCallback? onProgress,
@@ -368,6 +408,7 @@ class _CountingLayoutEngine extends NovelLayoutEngine {
       textColor: textColor,
       brightness: brightness,
       textDirection: textDirection,
+      translations: translations,
       cancelToken: cancelToken,
       budget: budget,
       onProgress: onProgress,
