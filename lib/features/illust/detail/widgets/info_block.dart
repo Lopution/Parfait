@@ -4,22 +4,19 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/format/app_format.dart';
-import '../../../../app/haptics/app_haptics.dart';
-import '../../../../app/motion/app_overlays.dart';
 import '../../../../app/navigation/routes.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
-import '../../../../app/widgets/errors/error_details.dart';
 import '../../../../app/widgets/author_row.dart';
 import '../../../../app/widgets/follow_switch_button.dart';
 import '../../../../app/widgets/tag_chips.dart';
-import '../../../../app/widgets/unmute_undo.dart';
 import '../../../../core/auth/account_store.dart';
 import '../../../../core/entity/illust_entity.dart';
-import '../../../../core/mute/mute_models.dart';
 import '../../../../core/mute/mute_store.dart';
 import '../../../../l10n/context.dart';
 import '../../../../app/widgets/caption_rich_text.dart';
-import '../../../../app/clipboard.dart';
+import '../../../../app/widgets/inline_translation.dart';
+import '../../../../app/widgets/tag_actions_sheet.dart';
+import '../../../../core/entity/illust_caption.dart';
 
 class InfoBlock extends ConsumerWidget {
   const InfoBlock({
@@ -43,8 +40,6 @@ class InfoBlock extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
-
     // Tag chips now block through the MuteStore: tag mutes sync with the
     // official /v1/mute list instead of the legacy local-only pref.
     final mutedTags = ref.watch(muteStoreProvider.select((s) => s.tags));
@@ -66,10 +61,11 @@ class InfoBlock extends ConsumerWidget {
           // Official client order: the work title
           // leads the meta block, wraps without a line cap, and stays
           // selectable — a one-line AppBar title could only ellipsise.
-          SelectableText(
-            entity.title,
-            style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-          ),
+          // Without a caption the title carries the translate button.
+          if (entity.caption.isEmpty)
+            _TranslatableTitle(title: entity.title)
+          else
+            _Title(title: entity.title),
           if (_postedDate(context) case final date?) ...[
             const SizedBox(height: FuncSpacing.xs),
             Text(
@@ -105,16 +101,9 @@ class InfoBlock extends ConsumerWidget {
             ),
           ),
           if (entity.caption.isNotEmpty)
-            _Section(
+            _CaptionSection(
               key: const Key('illust-detail-caption'),
-              heading: context.l10n.detailSectionCaption,
-              // Pixiv captions are HTML; render them immediately so the
-              // detail content is complete on the same frame as the
-              // artwork.
-              child: CaptionRichText(
-                caption: entity.caption,
-                maxLines: captionLines,
-              ),
+              entity: entity,
             ),
           _Section(
             key: const Key('illust-detail-tags'),
@@ -130,7 +119,7 @@ class InfoBlock extends ConsumerWidget {
                     onTap: () {
                       if (blockMode) {
                         unawaited(
-                          _toggleTagMute(
+                          toggleTagMute(
                             context,
                             muteStore,
                             tag.name,
@@ -144,11 +133,22 @@ class InfoBlock extends ConsumerWidget {
                     // Long-press opens the direct action menu (search /
                     // copy / mute / batch-mute entry) instead of silently
                     // flipping the block mode.
-                    onLongPress: () => _showTagActions(
-                      context,
-                      ref,
-                      tag,
-                      muted: mutedTags.contains(tag.name),
+                    onLongPress: () => unawaited(
+                      showTagActionsSheet(
+                        context,
+                        tag: tag.name,
+                        muted: mutedTags.contains(tag.name),
+                        onSearch: () => openTagSearch(context, tag.name),
+                        onToggleMute: () => unawaited(
+                          toggleTagMute(
+                            context,
+                            muteStore,
+                            tag.name,
+                            muted: mutedTags.contains(tag.name),
+                          ),
+                        ),
+                        onMuteMode: onToggleBlockMode,
+                      ),
                     ),
                   ),
               ],
@@ -166,85 +166,6 @@ class InfoBlock extends ConsumerWidget {
             style: _metaStyle(context),
           ),
         ],
-      ),
-    );
-  }
-
-  /// Direct tag action menu (R3): search, copy, mute/unmute, and the entry
-  /// into the batch mute mode. `TagChip`'s signature stays unchanged — the
-  /// menu is call-site behavior, not a chip variant.
-  void _showTagActions(
-    BuildContext context,
-    WidgetRef ref,
-    IllustTag tag, {
-    required bool muted,
-  }) {
-    AppHaptics.longPress();
-    final l10n = context.l10n;
-    unawaited(
-      showAppBottomSheet<void>(
-        context: context,
-        showDragHandle: true,
-        builder: (sheetContext) {
-          return SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.search),
-                  title: Text(l10n.tagActionSearch),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    openTagSearch(context, tag.name);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.copy_outlined),
-                  title: Text(l10n.tagActionCopy),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    unawaited(
-                      copyToClipboard(
-                        context,
-                        tag.name,
-                        message: l10n.tagCopied,
-                      ),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: Icon(
-                    muted
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                  ),
-                  title: Text(
-                    muted ? l10n.tagActionUnmute : l10n.tagActionMute,
-                  ),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    unawaited(
-                      _toggleTagMute(
-                        context,
-                        ref.read(muteStoreProvider.notifier),
-                        tag.name,
-                        muted: muted,
-                      ),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.playlist_add_check),
-                  title: Text(l10n.tagActionMuteMode),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    onToggleBlockMode();
-                  },
-                ),
-              ],
-            ),
-          );
-        },
       ),
     );
   }
@@ -350,12 +271,122 @@ class _BlockSurface extends StatelessWidget {
   );
 }
 
-/// One titled part of the info area: a heading, then its content.
+/// The work title: large, wrapping without a line cap, selectable.
+class _Title extends StatelessWidget {
+  const _Title({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => SelectableText(
+    title,
+    style: Theme.of(
+      context,
+    ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+  );
+}
+
+/// The title of a work without a caption, with the translate button at its
+/// end and the translation below.
+class _TranslatableTitle extends ConsumerStatefulWidget {
+  const _TranslatableTitle({required this.title});
+
+  final String title;
+
+  @override
+  ConsumerState<_TranslatableTitle> createState() => _TranslatableTitleState();
+}
+
+class _TranslatableTitleState extends ConsumerState<_TranslatableTitle>
+    with InlineTranslation {
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: _Title(title: widget.title)),
+          TranslateIconButton(
+            translating: translating,
+            shown: translationShown,
+            onPressed: () => unawaited(toggleTranslation([widget.title])),
+          ),
+        ],
+      ),
+      TranslationPanel(
+        translating: translating,
+        translations: translations,
+        failure: translationFailure,
+      ),
+    ],
+  );
+}
+
+/// The caption section. Its translate button translates the title and the
+/// caption together and shows both below the caption.
+class _CaptionSection extends ConsumerStatefulWidget {
+  const _CaptionSection({super.key, required this.entity});
+
+  final IllustEntity entity;
+
+  @override
+  ConsumerState<_CaptionSection> createState() => _CaptionSectionState();
+}
+
+class _CaptionSectionState extends ConsumerState<_CaptionSection>
+    with InlineTranslation {
+  @override
+  Widget build(BuildContext context) {
+    final entity = widget.entity;
+    return _Section(
+      heading: context.l10n.detailSectionCaption,
+      action: TranslateIconButton(
+        translating: translating,
+        shown: translationShown,
+        onPressed: () => unawaited(
+          toggleTranslation([
+            entity.title,
+            ?_nonBlank(captionPlainText(entity.caption)),
+          ]),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Pixiv captions are HTML; render them immediately so the
+          // detail content is complete on the same frame as the artwork.
+          CaptionRichText(
+            caption: entity.caption,
+            maxLines: InfoBlock.captionLines,
+          ),
+          TranslationPanel(
+            translating: translating,
+            translations: translations,
+            failure: translationFailure,
+            emphasizeFirst: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String? _nonBlank(String text) => text.trim().isEmpty ? null : text;
+
+/// One titled part of the info area: a heading, then its content. [action]
+/// sits at the end of the heading row.
 class _Section extends StatelessWidget {
-  const _Section({super.key, required this.heading, required this.child});
+  const _Section({
+    super.key,
+    required this.heading,
+    required this.child,
+    this.action,
+  });
 
   final String heading;
   final Widget child;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -363,32 +394,24 @@ class _Section extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Semantics(
-          header: true,
-          child: Text(heading, style: Theme.of(context).textTheme.titleMedium),
+        Row(
+          children: [
+            Expanded(
+              child: Semantics(
+                header: true,
+                child: Text(
+                  heading,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            ),
+            ?action,
+          ],
         ),
-        const SizedBox(height: FuncSpacing.sm),
+        // The button's own padding already spaces the heading.
+        if (action == null) const SizedBox(height: FuncSpacing.sm),
         child,
       ],
     ),
   );
-}
-
-/// Mutes or unmutes [tag]; a failure shows the error, a landed unmute
-/// offers Undo.
-Future<void> _toggleTagMute(
-  BuildContext context,
-  MuteStore store,
-  String tag, {
-  required bool muted,
-}) async {
-  try {
-    await store.toggleTag(tag);
-  } on Object catch (error) {
-    if (context.mounted) {
-      showErrorSnackBar(context, action: context.l10n.muteFailed, error: error);
-    }
-    return;
-  }
-  if (muted && context.mounted) showUnmuteUndo(context, MuteKey.tag(tag));
 }

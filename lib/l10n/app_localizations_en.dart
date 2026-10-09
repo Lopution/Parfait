@@ -2297,29 +2297,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commentMoreActions => 'More actions';
 
   @override
-  String get commentTranslate => 'Translate';
+  String get translateAction => 'Translate';
 
   @override
-  String get commentTranslation => 'Translation';
+  String get translationResult => 'Translation';
 
   @override
-  String get commentTranslationUnavailable =>
-      'Translation is unavailable. Enable it in Settings.';
+  String get translationUnavailable => 'Translation is off';
 
   @override
-  String get commentTranslationFailed => 'Translation failed';
+  String get translationFailed => 'Translation failed';
 
   @override
-  String get commentTranslationInvalidCredentials =>
-      'Translation credentials are invalid or the sign-in has expired; check settings';
+  String get translationInvalidCredentials =>
+      'Translation credentials are invalid or the sign-in has expired';
 
   @override
-  String get commentTranslationRateLimited =>
+  String get translationRateLimited =>
       'Too many translations or quota exhausted';
 
   @override
-  String get commentTranslationRejected =>
+  String get translationRejected =>
       'The translation service declined this content';
+
+  @override
+  String get translationNotConfigured =>
+      'Translation isn\'t set up yet (missing credentials or not signed in)';
+
+  @override
+  String get translationOpenSettings => 'Settings';
+
+  @override
+  String get translationHide => 'Hide translation';
+
+  @override
+  String get translationCopied => 'Translation copied';
 
   @override
   String get commentEmoji => 'Emoji';
@@ -2868,6 +2880,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tagActionCopy => 'Copy tag name';
+
+  @override
+  String get tagActionTranslate => 'Translate tag';
+
+  @override
+  String get tagActionCopyTranslation => 'Copy translation';
 
   @override
   String get tagActionMute => 'Mute this tag';

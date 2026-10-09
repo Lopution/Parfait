@@ -10,12 +10,16 @@ import '../../app/widgets/author_summary.dart';
 import '../../app/widgets/bookmark_switch_button.dart';
 import '../../app/widgets/caption_rich_text.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/inline_translation.dart';
+import '../../app/widgets/tag_actions_sheet.dart';
 import '../../app/widgets/tag_chips.dart';
 import '../../core/auth/account_store.dart';
+import '../../core/entity/illust_caption.dart';
 import '../../core/history/history_models.dart';
 import '../../core/history/history_repository.dart';
 import '../../core/history/history_snapshot.dart';
 import '../../core/history/history_visibility.dart';
+import '../../core/mute/mute_store.dart';
 import '../../core/network/api_error.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/novel/novel_entity.dart';
@@ -150,6 +154,19 @@ class NovelPage extends ConsumerWidget {
     WidgetRef ref,
     NovelEntity novel,
   ) {
+    // Same close-then-navigate sequence as the author chip. Tag searches
+    // start from the persisted novel defaults like every other entry.
+    void searchTag(String tag) {
+      Navigator.of(sheetContext).pop();
+      openSearchResults(
+        sheetContext,
+        NovelSearchQuery(
+          keyword: tag,
+          filters: ref.read(searchNovelFiltersProvider),
+        ),
+      );
+    }
+
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.5,
@@ -163,28 +180,23 @@ class NovelPage extends ConsumerWidget {
           FuncSpacing.xl,
         ),
         children: [
-          Text(novel.title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: FuncSpacing.sm),
-          AuthorSummary(
-            name: novel.user.name,
-            imageUrl: novel.user.profileImageUrl,
-            avatarRadius: 16,
-            compact: true,
-            // 32dp avatar + 2×8dp = the 48dp touch target. The sheet closes
-            // before opening the profile, so AuthorRow (which navigates by
-            // itself) does not fit here.
-            padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
-            onTap: () {
-              Navigator.of(sheetContext).pop();
-              openUser(context, novel.user.id);
-            },
+          _NovelIntro(
+            novel: novel,
+            author: AuthorSummary(
+              name: novel.user.name,
+              imageUrl: novel.user.profileImageUrl,
+              avatarRadius: 16,
+              compact: true,
+              // 32dp avatar + 2×8dp = the 48dp touch target. The sheet closes
+              // before opening the profile, so AuthorRow (which navigates by
+              // itself) does not fit here.
+              padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                openUser(context, novel.user.id);
+              },
+            ),
           ),
-          if (novel.caption.isNotEmpty) ...[
-            const SizedBox(height: FuncSpacing.md),
-            // Caption HTML renders through the shared parser — <br> tags
-            // become real line breaks and links stay clickable.
-            CaptionRichText(caption: novel.caption),
-          ],
           if (novel.tags.isNotEmpty) ...[
             const SizedBox(height: FuncSpacing.md),
             TagChips(
@@ -193,16 +205,26 @@ class NovelPage extends ConsumerWidget {
                   TagChip(
                     label: tag.name,
                     translated: tag.translatedName,
-                    onTap: () {
-                      // Same close-then-navigate sequence as the author
-                      // chip above. Tag searches start from the persisted
-                      // novel defaults like every other entry.
-                      Navigator.of(sheetContext).pop();
-                      openSearchResults(
-                        context,
-                        NovelSearchQuery(
-                          keyword: tag.name,
-                          filters: ref.read(searchNovelFiltersProvider),
+                    onTap: () => searchTag(tag.name),
+                    onLongPress: () {
+                      final muted = ref
+                          .read(muteStoreProvider)
+                          .tags
+                          .contains(tag.name);
+                      unawaited(
+                        showTagActionsSheet(
+                          context,
+                          tag: tag.name,
+                          muted: muted,
+                          onSearch: () => searchTag(tag.name),
+                          onToggleMute: () => unawaited(
+                            toggleTagMute(
+                              context,
+                              ref.read(muteStoreProvider.notifier),
+                              tag.name,
+                              muted: muted,
+                            ),
+                          ),
                         ),
                       );
                     },
@@ -308,6 +330,67 @@ class _NovelHistoryVisibility extends ConsumerWidget {
       isAccountCurrent: () =>
           container.read(historyAccountIdProvider) == accountId,
       child: child,
+    );
+  }
+}
+
+/// The head of the novel info sheet: title with the translate button,
+/// author, caption, then the translation of title and caption.
+class _NovelIntro extends ConsumerStatefulWidget {
+  const _NovelIntro({required this.novel, required this.author});
+
+  final NovelEntity novel;
+  final Widget author;
+
+  @override
+  ConsumerState<_NovelIntro> createState() => _NovelIntroState();
+}
+
+class _NovelIntroState extends ConsumerState<_NovelIntro>
+    with InlineTranslation {
+  @override
+  Widget build(BuildContext context) {
+    final novel = widget.novel;
+    final caption = captionPlainText(novel.caption);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                novel.title,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            TranslateIconButton(
+              translating: translating,
+              shown: translationShown,
+              onPressed: () => unawaited(
+                toggleTranslation([
+                  novel.title,
+                  if (caption.isNotEmpty) caption,
+                ]),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: FuncSpacing.sm),
+        widget.author,
+        if (novel.caption.isNotEmpty) ...[
+          const SizedBox(height: FuncSpacing.md),
+          // Caption HTML renders through the shared parser — <br> tags
+          // become real line breaks and links stay clickable.
+          CaptionRichText(caption: novel.caption),
+        ],
+        TranslationPanel(
+          translating: translating,
+          translations: translations,
+          failure: translationFailure,
+          emphasizeFirst: true,
+        ),
+      ],
     );
   }
 }

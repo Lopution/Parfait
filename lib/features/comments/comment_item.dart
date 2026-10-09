@@ -1,21 +1,21 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/format/app_format.dart';
-import '../../app/motion/spring_size.dart';
-import '../../app/motion/state_fade.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/author_badge.dart';
 import '../../core/auth/account_store.dart';
-import '../../core/translation/translation_service.dart';
 import '../../core/entity/comment_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/novel/novel_store.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/comment_text.dart';
+import '../../app/widgets/inline_translation.dart';
 import '../../l10n/context.dart';
 
 /// One comment row. The work's author is marked beside the name. Reply and
@@ -40,11 +40,8 @@ class CommentItem extends ConsumerStatefulWidget {
   ConsumerState<CommentItem> createState() => _CommentItemState();
 }
 
-class _CommentItemState extends ConsumerState<CommentItem> {
-  bool _translating = false;
-  String? _translation;
-  String? _translationError;
-
+class _CommentItemState extends ConsumerState<CommentItem>
+    with InlineTranslation {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -106,43 +103,10 @@ class _CommentItemState extends ConsumerState<CommentItem> {
                     _CommentBody(comment: widget.comment),
                     // Translation, its progress or its failure open below
                     // the body instead of popping in.
-                    SpringSize(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_translation case final translation?)
-                            StateFade.onMount(
-                              child: _TranslationOverlay(text: translation),
-                            ),
-                          if (_translating)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(
-                                vertical: FuncSpacing.sm,
-                              ),
-                              child: SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            ),
-                          if (_translationError case final error?)
-                            StateFade.onMount(
-                              child: Padding(
-                                padding: const EdgeInsets.only(
-                                  top: FuncSpacing.xs,
-                                ),
-                                child: Text(
-                                  error,
-                                  style: TextStyle(
-                                    color: theme.colorScheme.error,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
+                    TranslationPanel(
+                      translating: translating,
+                      translations: translations,
+                      failure: translationFailure,
                     ),
                     _Actions(
                       comment: widget.comment,
@@ -156,9 +120,11 @@ class _CommentItemState extends ConsumerState<CommentItem> {
               if (showTranslate || canDelete)
                 _MoreMenu(
                   showTranslate: showTranslate,
-                  translating: _translating,
+                  translating: translating,
+                  translationShown: translationShown,
                   canDelete: canDelete,
-                  onTranslate: _translate,
+                  onTranslate: () =>
+                      unawaited(toggleTranslation([widget.comment.content])),
                   onDelete: widget.onDelete,
                 ),
             ],
@@ -167,46 +133,6 @@ class _CommentItemState extends ConsumerState<CommentItem> {
         ],
       ),
     );
-  }
-
-  Future<void> _translate() async {
-    if (_translating) return;
-    setState(() {
-      _translating = true;
-      _translationError = null;
-    });
-    try {
-      final value = await ref
-          .read(translationServiceProvider)
-          .translate(
-            widget.comment.content,
-            targetLanguage: Localizations.localeOf(context).languageCode,
-          );
-      if (!mounted) return;
-      setState(() => _translation = value);
-    } on TranslationUnavailable catch (error) {
-      if (mounted) {
-        setState(
-          () =>
-              _translationError = _translationFailureText(context, error.kind),
-        );
-      }
-    } on TranslationError catch (error) {
-      if (mounted) {
-        setState(
-          () =>
-              _translationError = _translationFailureText(context, error.kind),
-        );
-      }
-    } on Object {
-      if (mounted) {
-        setState(
-          () => _translationError = context.l10n.commentTranslationFailed,
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _translating = false);
-    }
   }
 }
 
@@ -220,28 +146,6 @@ int? _workAuthorId(WidgetRef ref, CommentEntity comment) =>
         novelStoreProvider.select((novels) => novels[comment.workId]?.user.id),
       ),
     };
-
-String _translationFailureText(
-  BuildContext context,
-  TranslationFailureKind kind,
-) {
-  switch (kind) {
-    case TranslationFailureKind.disabled:
-    case TranslationFailureKind.notConfigured:
-      return context.l10n.commentTranslationUnavailable;
-    case TranslationFailureKind.invalidCredentials:
-      return context.l10n.commentTranslationInvalidCredentials;
-    case TranslationFailureKind.rateLimited:
-      return context.l10n.commentTranslationRateLimited;
-    case TranslationFailureKind.rejected:
-      return context.l10n.commentTranslationRejected;
-    case TranslationFailureKind.network:
-    case TranslationFailureKind.malformed:
-    case TranslationFailureKind.unsupportedLanguage:
-    case TranslationFailureKind.other:
-      return context.l10n.commentTranslationFailed;
-  }
-}
 
 class _Avatar extends StatelessWidget {
   const _Avatar({required this.comment});
@@ -300,6 +204,7 @@ class _MoreMenu extends StatelessWidget {
   const _MoreMenu({
     required this.showTranslate,
     required this.translating,
+    required this.translationShown,
     required this.canDelete,
     required this.onTranslate,
     this.onDelete,
@@ -307,6 +212,7 @@ class _MoreMenu extends StatelessWidget {
 
   final bool showTranslate;
   final bool translating;
+  final bool translationShown;
   final bool canDelete;
   final VoidCallback onTranslate;
   final VoidCallback? onDelete;
@@ -320,7 +226,9 @@ class _MoreMenu extends StatelessWidget {
           AppMenuEntry(
             value: _CommentMenuAction.translate,
             icon: Icons.translate_outlined,
-            label: context.l10n.commentTranslate,
+            label: translationShown
+                ? context.l10n.translationHide
+                : context.l10n.translateAction,
             enabled: !translating,
           ),
         if (canDelete)
@@ -389,37 +297,6 @@ class _Actions extends StatelessWidget {
             child: Text(repliesLabel),
           ),
       ],
-    );
-  }
-}
-
-class _TranslationOverlay extends StatelessWidget {
-  const _TranslationOverlay({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: FuncSpacing.xs),
-      padding: const EdgeInsets.all(FuncSpacing.sm),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainer,
-        borderRadius: FuncShape.control,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            context.l10n.commentTranslation,
-            style: TextStyle(color: theme.colorScheme.primary),
-          ),
-          const Divider(height: 12),
-          Text(text),
-        ],
-      ),
     );
   }
 }

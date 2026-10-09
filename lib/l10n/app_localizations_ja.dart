@@ -2221,26 +2221,37 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commentMoreActions => 'その他の操作';
 
   @override
-  String get commentTranslate => '翻訳';
+  String get translateAction => '翻訳';
 
   @override
-  String get commentTranslation => '翻訳結果';
+  String get translationResult => '翻訳結果';
 
   @override
-  String get commentTranslationUnavailable => '翻訳は利用できません。設定で有効にしてください。';
+  String get translationUnavailable => '翻訳はオフです';
 
   @override
-  String get commentTranslationFailed => '翻訳に失敗しました';
+  String get translationFailed => '翻訳に失敗しました';
 
   @override
-  String get commentTranslationInvalidCredentials =>
-      '翻訳の認証情報が無効か、ログインの有効期限が切れています。設定を確認してください。';
+  String get translationInvalidCredentials => '翻訳の認証情報が無効か、ログインの有効期限が切れています';
 
   @override
-  String get commentTranslationRateLimited => '翻訳が混み合っているか、上限に達しました';
+  String get translationRateLimited => '翻訳が混み合っているか、上限に達しました';
 
   @override
-  String get commentTranslationRejected => '翻訳サービスがこの内容を拒否しました';
+  String get translationRejected => '翻訳サービスがこの内容を拒否しました';
+
+  @override
+  String get translationNotConfigured => '翻訳サービスの設定が済んでいません（認証情報がないか未ログイン）';
+
+  @override
+  String get translationOpenSettings => '設定へ';
+
+  @override
+  String get translationHide => '翻訳を閉じる';
+
+  @override
+  String get translationCopied => '訳文をコピーしました';
 
   @override
   String get commentEmoji => 'Emoji';
@@ -2780,6 +2791,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get tagActionCopy => 'タグ名をコピー';
+
+  @override
+  String get tagActionTranslate => 'タグ名を翻訳';
+
+  @override
+  String get tagActionCopyTranslation => '訳文をコピー';
 
   @override
   String get tagActionMute => 'このタグをミュート';

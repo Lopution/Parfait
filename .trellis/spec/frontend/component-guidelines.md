@@ -2279,6 +2279,34 @@ viewer's own comment (`destructive`, confirmed by the page) — is in a
 neither it is not built. No pill buttons. Owning test:
 `comment_item_test.dart`.
 
+**Inline translation.** Every "translate this text" entry shares
+`app/widgets/inline_translation.dart`: the State showing the original
+mixes in `InlineTranslation` (`toggleTranslation(sources)` sends the
+non-blank texts in order through `translationServiceProvider.translateAll`
+into the app language; asking again while a result or failure is shown
+hides it), and a `TranslationPanel` below the original shows progress, the
+translations in a `surfaceContainer` box headed `translationResult`, or the
+failure in `error` color. A failure meaning off, not set up or refused
+credentials carries a `translationOpenSettings` button that closes any
+popup first, then pushes `/settings/translate`. Entries (user decision
+2026-10-09, after Shaft):
+
+- illust detail: a `TranslateIconButton` at the end of the caption
+  heading translates title + caption (the title emphasized in the
+  result); a work without a caption carries the button at the end of its
+  title instead;
+- novel info sheet: the button at the end of the title, the result below
+  the caption;
+- user about tab: the button on the introduction's label row;
+- comments: the ⋮ menu's translate / hide translation;
+- tags: `showTagActionsSheet` (illust detail and novel info sheet) —
+  search, copy, translate (always offered, the result inside the sheet
+  with a copy button), then mute/unmute and the batch mute mode where the
+  caller passes them.
+
+Translations are transient: never persisted, never replacing the
+original. Owning test: `illust_detail_actions_test.dart` (tag menu).
+
 **Series.** The series header has one primary button. With a reading
 record (`SeriesRecentOpenStore`, this session's last opened work) it is
 "continue episode n" (`seriesContinueEpisode`, or `seriesContinue`

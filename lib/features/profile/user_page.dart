@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/widgets/inline_translation.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/motion/state_fade.dart';
@@ -876,30 +877,18 @@ class _ProfileAbout extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final entries = <({String label, String value, String? socialId})>[
-      (label: context.l10n.profileId, value: '${user.id}', socialId: null),
-      if (user.account.isNotEmpty)
-        (
-          label: context.l10n.profileAccount,
-          value: user.account,
-          socialId: null,
-        ),
-      if (user.comment != null)
-        (
-          label: context.l10n.profileIntroduction,
-          value: user.comment!,
-          socialId: null,
-        ),
+    final comment = user.comment;
+    final links = <({String label, String value, String id})>[
       if (user.webpage != null)
         (
           label: context.l10n.profileWebsite,
           value: user.webpage!,
-          socialId: 'website',
+          id: 'website',
         ),
       if (user.twitterUrl != null)
-        (label: 'Twitter', value: user.twitterUrl!, socialId: 'twitter'),
+        (label: 'Twitter', value: user.twitterUrl!, id: 'twitter'),
       if (user.pawooUrl != null)
-        (label: 'Pawoo', value: user.pawooUrl!, socialId: 'pawoo'),
+        (label: 'Pawoo', value: user.pawooUrl!, id: 'pawoo'),
     ];
     return ListView(
       key: PageStorageKey('profile-about-${user.id}'),
@@ -911,20 +900,27 @@ class _ProfileAbout extends ConsumerWidget {
         FuncSpacing.xxl,
       ),
       children: [
-        for (final entry in entries)
-          if (entry.socialId == null)
-            _ProfileAboutTextEntry(label: entry.label, value: entry.value)
-          else
-            _ProfileSocialLinkRow(
-              key: ValueKey('profile-link-${entry.socialId}'),
-              id: entry.socialId!,
-              label: entry.label,
-              value: entry.value,
-              onOpen: () =>
-                  unawaited(_openProfileSocialLink(context, ref, entry.value)),
-              onCopy: () =>
-                  unawaited(_copyProfileSocialLink(context, entry.value)),
-            ),
+        _ProfileAboutTextEntry(
+          label: context.l10n.profileId,
+          value: '${user.id}',
+        ),
+        if (user.account.isNotEmpty)
+          _ProfileAboutTextEntry(
+            label: context.l10n.profileAccount,
+            value: user.account,
+          ),
+        if (comment != null) _ProfileIntroduction(text: comment),
+        for (final link in links)
+          _ProfileSocialLinkRow(
+            key: ValueKey('profile-link-${link.id}'),
+            id: link.id,
+            label: link.label,
+            value: link.value,
+            onOpen: () =>
+                unawaited(_openProfileSocialLink(context, ref, link.value)),
+            onCopy: () =>
+                unawaited(_copyProfileSocialLink(context, link.value)),
+          ),
         const Divider(),
         Text(
           context.l10n.profileStats,
@@ -953,6 +949,53 @@ class _ProfileAboutTextEntry extends StatelessWidget {
         Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: FuncSpacing.xs),
         SelectableText(value),
+      ],
+    ),
+  );
+}
+
+/// The user's introduction, with the translate button on its label row and
+/// the translation below the text.
+class _ProfileIntroduction extends ConsumerStatefulWidget {
+  const _ProfileIntroduction({required this.text});
+
+  final String text;
+
+  @override
+  ConsumerState<_ProfileIntroduction> createState() =>
+      _ProfileIntroductionState();
+}
+
+class _ProfileIntroductionState extends ConsumerState<_ProfileIntroduction>
+    with InlineTranslation {
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                context.l10n.profileIntroduction,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            if (widget.text.trim().isNotEmpty)
+              TranslateIconButton(
+                translating: translating,
+                shown: translationShown,
+                onPressed: () => unawaited(toggleTranslation([widget.text])),
+              ),
+          ],
+        ),
+        SelectableText(widget.text),
+        TranslationPanel(
+          translating: translating,
+          translations: translations,
+          failure: translationFailure,
+        ),
       ],
     ),
   );

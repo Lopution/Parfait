@@ -1,3 +1,5 @@
+import 'package:flutter_test/flutter_test.dart';
+
 import 'review_support.dart';
 
 /// Artist profile, profile edit and the /me page.
@@ -6,6 +8,14 @@ void main() {
 
   testShot('user/profile', location: user, variants: {...ShotVariant.values});
   testShot('user/profile-edit', location: '/recommended/profile/99/edit');
+  // The about tab: the introduction carries the translate button.
+  testShot(
+    'user/profile-about',
+    location: user,
+    before: (tester, router) async {
+      await tester.tap(find.text('关于'));
+    },
+  );
   testShot(
     'user/me',
     location: '/me',

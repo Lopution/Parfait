@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:flutter/services.dart';
 
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/app/layout/two_pane.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
@@ -421,6 +423,39 @@ void main() {
       );
     }
 
+    testWidgets('translate answers inside the menu, or points to settings '
+        'while translation is off', (tester) async {
+      var provider = TranslationProvider.disabled;
+      final engine = _StubEngine('TAG-IN-ZH');
+      final (container, _, _) = await makeWorld(
+        extraOverrides: [
+          translationServiceProvider.overrideWithValue(
+            ConfiguredTranslationService(
+              resolveProvider: () => provider,
+              google: engine,
+              baidu: engine,
+              llm: engine,
+              doubao: engine,
+            ),
+          ),
+        ],
+      );
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await longPressFirstTag(tester);
+
+      await tester.tap(find.text('翻译标签名'));
+      await tester.pumpAndSettle();
+      expect(find.text('去设置'), findsOneWidget);
+
+      provider = TranslationProvider.google;
+      await tester.tap(find.text('收起翻译'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('翻译标签名'));
+      await tester.pumpAndSettle();
+      expect(find.text('TAG-IN-ZH'), findsOneWidget);
+      expect(engine.sources, ['original']);
+    });
+
     testWidgets(
       'long-press opens the menu with search/copy/mute/batch entries and '
       'copy lands on the clipboard',
@@ -531,4 +566,23 @@ void main() {
       expect(find.text('1 / 2'), findsOneWidget);
     });
   });
+}
+
+/// The translation engine boundary: answers every text with [answer].
+class _StubEngine
+    with SequentialBatchTranslation
+    implements TranslationTransport {
+  _StubEngine(this.answer);
+
+  final String answer;
+  final sources = <String>[];
+
+  @override
+  Future<String> translate(
+    String text, {
+    required String targetLanguage,
+  }) async {
+    sources.add(text);
+    return answer;
+  }
 }

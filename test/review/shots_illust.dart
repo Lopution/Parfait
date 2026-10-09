@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'package:parfait/app/widgets/tag_chips.dart';
+
 import 'review_support.dart';
 
 /// Illust detail, viewer, comments and replies — the deep pages off feeds.
@@ -42,6 +44,36 @@ void main() {
           .state<ScrollableState>(find.byType(Scrollable).first)
           .position
           .jumpTo(240);
+    },
+  );
+  // The caption's translate button pressed while translation is off: the
+  // failure row points to the settings.
+  testShot(
+    'illust/detail-translate',
+    location: detail,
+    before: (tester, router) async {
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(240);
+      // The detail page keeps animating images; pump instead of settle.
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(find.byIcon(Icons.translate).first);
+    },
+  );
+  // The tag menu after a long press, with its translate row asked.
+  testShot(
+    'illust/detail-tag-menu',
+    location: detail,
+    before: (tester, router) async {
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(400);
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.longPress(find.byType(TagChip).first);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.byIcon(Icons.translate).last);
     },
   );
   // Below the info: the comment preview and the author's other works.
