@@ -1153,6 +1153,7 @@ Future<NovelLayout> NovelLayoutEngine.layoutDocumentCancellable({
   required NovelLayoutStyle style,
   required Color textColor,
   required Brightness brightness,
+  Map<String, String> translations, // paragraph id → translation
   CancelToken? cancelToken,
   NovelLayoutBudget budget,
   NovelLayoutProgressCallback? onProgress,
@@ -1185,7 +1186,27 @@ NovelReaderLayoutContext NovelReaderCommitGate.beginLayout({
 - `NovelReaderCommitGate` carries content version, chapter ID, selected page,
   generation and cancellation from the layout request to the commit. A late
   result may not update `_layout`, page count, `PageController` or history
-  anchor after a newer generation, content/chapter change or disposal.
+  anchor after a newer generation, content/chapter change or disposal. A
+  commit restores the start anchor of the page on screen at commit time
+  (the persisted anchor on the first layout), so a swipe made while the
+  layout ran wins by its anchor, never by its page index. The
+  `PageController` jumps only when the restored page differs from the
+  position's page — a jump idles the position and would cut short a swipe
+  in progress; the layout echo is reported either way.
+- Bilingual reading (`BilingualReading` on the stage) passes paragraph
+  translations into the layout. Translation lines follow their paragraph's
+  last line (translation gap, then paragraph spacing), carry the
+  paragraph's id with both offsets at the paragraph's end, and add no
+  characters: anchors, progress and history never point into a
+  translation. The layout key's content version folds in a digest of the
+  translations; the engine keeps measured lines per paragraph and per
+  translation for the latest text/width signature, so adding translations
+  re-measures only them. The stage translates the current page's missing
+  paragraphs in one `translateAll`, then the next page's, one batch at a
+  time; an answer equal to its source is stored empty and shows nothing. A
+  failure turns bilingual reading off with a prompt (settings action for
+  disabled / not configured / invalid credentials). Translations live in
+  memory for the stage only.
 - The reader chrome runs off one stage-owned `AnimationController`. The
   user's intent (`_chromeVisible`) and the rendered state
   (`_chromeHidden == controller.isDismissed`) are separate; the passive
