@@ -4217,47 +4217,71 @@ abstract class AppLocalizations {
   /// **'更多操作'**
   String get commentMoreActions;
 
-  /// No description provided for @commentTranslate.
+  /// No description provided for @translateAction.
   ///
   /// In zh, this message translates to:
   /// **'翻译'**
-  String get commentTranslate;
+  String get translateAction;
 
-  /// No description provided for @commentTranslation.
+  /// No description provided for @translationResult.
   ///
   /// In zh, this message translates to:
   /// **'翻译结果'**
-  String get commentTranslation;
+  String get translationResult;
 
-  /// No description provided for @commentTranslationUnavailable.
+  /// No description provided for @translationUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'翻译服务不可用，请在设置中开启。'**
-  String get commentTranslationUnavailable;
+  /// **'翻译未开启'**
+  String get translationUnavailable;
 
-  /// No description provided for @commentTranslationFailed.
+  /// No description provided for @translationFailed.
   ///
   /// In zh, this message translates to:
   /// **'翻译失败'**
-  String get commentTranslationFailed;
+  String get translationFailed;
 
-  /// No description provided for @commentTranslationInvalidCredentials.
+  /// No description provided for @translationInvalidCredentials.
   ///
   /// In zh, this message translates to:
-  /// **'翻译凭据无效或登录已失效，请在设置中检查。'**
-  String get commentTranslationInvalidCredentials;
+  /// **'翻译凭据无效或登录已失效'**
+  String get translationInvalidCredentials;
 
-  /// No description provided for @commentTranslationRateLimited.
+  /// No description provided for @translationRateLimited.
   ///
   /// In zh, this message translates to:
   /// **'翻译过于频繁或额度已用完'**
-  String get commentTranslationRateLimited;
+  String get translationRateLimited;
 
-  /// No description provided for @commentTranslationRejected.
+  /// No description provided for @translationRejected.
   ///
   /// In zh, this message translates to:
   /// **'翻译服务拒绝了这段内容'**
-  String get commentTranslationRejected;
+  String get translationRejected;
+
+  /// No description provided for @translationNotConfigured.
+  ///
+  /// In zh, this message translates to:
+  /// **'翻译服务还没配置好（缺少凭据或未登录）'**
+  String get translationNotConfigured;
+
+  /// No description provided for @translationOpenSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'去设置'**
+  String get translationOpenSettings;
+
+  /// No description provided for @translationHide.
+  ///
+  /// In zh, this message translates to:
+  /// **'收起翻译'**
+  String get translationHide;
+
+  /// No description provided for @translationCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制译文'**
+  String get translationCopied;
 
   /// No description provided for @commentEmoji.
   ///
@@ -5290,6 +5314,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'复制标签名'**
   String get tagActionCopy;
+
+  /// No description provided for @tagActionTranslate.
+  ///
+  /// In zh, this message translates to:
+  /// **'翻译标签名'**
+  String get tagActionTranslate;
+
+  /// No description provided for @tagActionCopyTranslation.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制译文'**
+  String get tagActionCopyTranslation;
 
   /// No description provided for @tagActionMute.
   ///

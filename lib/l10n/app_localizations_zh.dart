@@ -2192,25 +2192,37 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commentMoreActions => '更多操作';
 
   @override
-  String get commentTranslate => '翻译';
+  String get translateAction => '翻译';
 
   @override
-  String get commentTranslation => '翻译结果';
+  String get translationResult => '翻译结果';
 
   @override
-  String get commentTranslationUnavailable => '翻译服务不可用，请在设置中开启。';
+  String get translationUnavailable => '翻译未开启';
 
   @override
-  String get commentTranslationFailed => '翻译失败';
+  String get translationFailed => '翻译失败';
 
   @override
-  String get commentTranslationInvalidCredentials => '翻译凭据无效或登录已失效，请在设置中检查。';
+  String get translationInvalidCredentials => '翻译凭据无效或登录已失效';
 
   @override
-  String get commentTranslationRateLimited => '翻译过于频繁或额度已用完';
+  String get translationRateLimited => '翻译过于频繁或额度已用完';
 
   @override
-  String get commentTranslationRejected => '翻译服务拒绝了这段内容';
+  String get translationRejected => '翻译服务拒绝了这段内容';
+
+  @override
+  String get translationNotConfigured => '翻译服务还没配置好（缺少凭据或未登录）';
+
+  @override
+  String get translationOpenSettings => '去设置';
+
+  @override
+  String get translationHide => '收起翻译';
+
+  @override
+  String get translationCopied => '已复制译文';
 
   @override
   String get commentEmoji => 'Emoji';
@@ -2749,6 +2761,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get tagActionCopy => '复制标签名';
+
+  @override
+  String get tagActionTranslate => '翻译标签名';
+
+  @override
+  String get tagActionCopyTranslation => '复制译文';
 
   @override
   String get tagActionMute => '屏蔽该标签';

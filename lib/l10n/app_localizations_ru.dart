@@ -2290,29 +2290,40 @@ class AppLocalizationsRu extends AppLocalizations {
   String get commentMoreActions => 'Другие действия';
 
   @override
-  String get commentTranslate => 'Перевести';
+  String get translateAction => 'Перевести';
 
   @override
-  String get commentTranslation => 'Перевод';
+  String get translationResult => 'Перевод';
 
   @override
-  String get commentTranslationUnavailable =>
-      'Перевод недоступен. Включите его в настройках.';
+  String get translationUnavailable => 'Перевод отключён';
 
   @override
-  String get commentTranslationFailed => 'Перевод не удался';
+  String get translationFailed => 'Перевод не удался';
 
   @override
-  String get commentTranslationInvalidCredentials =>
-      'Учётные данные перевода недействительны или вход истёк; проверьте настройки';
+  String get translationInvalidCredentials =>
+      'Учётные данные перевода недействительны или вход истёк';
 
   @override
-  String get commentTranslationRateLimited =>
+  String get translationRateLimited =>
       'Слишком много переводов или исчерпана квота';
 
   @override
-  String get commentTranslationRejected =>
-      'Сервис перевода отклонил этот текст';
+  String get translationRejected => 'Сервис перевода отклонил этот текст';
+
+  @override
+  String get translationNotConfigured =>
+      'Перевод ещё не настроен (нет учётных данных или вход не выполнен)';
+
+  @override
+  String get translationOpenSettings => 'Настройки';
+
+  @override
+  String get translationHide => 'Скрыть перевод';
+
+  @override
+  String get translationCopied => 'Перевод скопирован';
 
   @override
   String get commentEmoji => 'Emoji';
@@ -2859,6 +2870,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get tagActionCopy => 'Копировать имя тега';
+
+  @override
+  String get tagActionTranslate => 'Перевести тег';
+
+  @override
+  String get tagActionCopyTranslation => 'Копировать перевод';
 
   @override
   String get tagActionMute => 'Скрыть этот тег';

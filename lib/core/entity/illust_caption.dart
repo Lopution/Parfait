@@ -69,6 +69,19 @@ class IllustCaptionParse {
   final List<String> unobservedTags;
 }
 
+/// The caption as plain text — link text kept, `<br>` as a newline — for
+/// a translation request.
+String captionPlainText(String html) => parseIllustCaption(html).spans
+    .map(
+      (span) => switch (span) {
+        CaptionText(:final text) => text,
+        CaptionBreak() => '\n',
+        CaptionLink(:final text) => text,
+      },
+    )
+    .join()
+    .trim();
+
 /// Parses a Pixiv caption fragment.
 IllustCaptionParse parseIllustCaption(String html) {
   final spans = <CaptionSpan>[];
