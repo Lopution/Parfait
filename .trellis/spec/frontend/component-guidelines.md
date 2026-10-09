@@ -1507,7 +1507,10 @@ requested until the section is on screen on the current pager page, and
 until then it holds a static placeholder (header plus a blank of the
 body's usual height, no spinner). The loading skeleton, the states and
 the content replace each other in place, without `StateFade`: a section
-fading in around images that fade in on their own stacks two fades. All
+fading in around images that fade in on their own stacks two fades.
+Related works use the same `DetailSectionHeader` in every state, and its
+grid and skeleton take the `FuncSpacing.xl` inset of the blocks above, so
+headers, cards and the author's strip share one edge. All
 three sections wrap their body
 in `AutoRetry`: a network, timeout, rate-limit or 5xx failure of the
 first page retries by itself twice (1.5 s, then 3 s; at least the

@@ -55,6 +55,18 @@ void main() {
           .jumpTo(900);
     },
   );
+  // Further down: the author's works over related works, on one inset.
+  testShot(
+    'illust/detail-related',
+    location: detail,
+    variants: {ShotVariant.dark},
+    before: (tester, router) async {
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(1250);
+    },
+  );
   // An expanded set read into page 2: the fold pill hangs under the count.
   testShot(
     'illust/detail-expanded',
