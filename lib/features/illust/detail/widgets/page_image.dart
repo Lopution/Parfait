@@ -29,6 +29,7 @@ class DetailPageImage extends ConsumerStatefulWidget {
     required this.onLongPress,
     this.placeholderOnly = false,
     this.overlayTopInset = 0,
+    this.imageSlotHeight,
   });
 
   final IllustEntity entity;
@@ -50,6 +51,11 @@ class DetailPageImage extends ConsumerStatefulWidget {
   /// How far the page's top runs under the detail page's see-through bar;
   /// the selection badge sits below it.
   final double overlayTopInset;
+
+  /// Optional narrow-layout slot for a short first image. The Hero remains
+  /// inside the centered aspect-ratio box so its flight rect is the artwork,
+  /// rather than the empty space around it.
+  final double? imageSlotHeight;
 
   /// Detail-quality URL once the detail payload is merged. Preferring it
   /// over [heroImageUrl] means the detail hero upgrades from the feed
@@ -244,7 +250,19 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
         ],
       ),
     );
-    return image;
+    final slotHeight = widget.imageSlotHeight;
+    if (slotHeight == null) return image;
+
+    return SizedBox(
+      width: double.infinity,
+      height: slotHeight,
+      child: Center(
+        child: AspectRatio(
+          aspectRatio: entity.pageAspectRatioAt(widget.index),
+          child: image,
+        ),
+      ),
+    );
   }
 
   void _openViewer(BuildContext context, {required ViewQuality quality}) {

@@ -475,6 +475,21 @@ void main() {
         expect(_page(tester), 1);
         expect(log, [42], reason: 'a page swiped through sends nothing');
 
+        // The detail page reserves a 70%-height slot for short single-page
+        // artwork on narrow screens. Reveal the current page's related
+        // section explicitly so this activity-gate test does not depend on
+        // the synthetic 2400dp viewport's content budget.
+        final currentScroll = find.descendant(
+          of: _detail(43),
+          matching: find.byType(Scrollable),
+        );
+        final position = tester
+            .state<ScrollableState>(currentScroll.first)
+            .position;
+        position.jumpTo(position.maxScrollExtent);
+        await tester.pump();
+        await tester.pump();
+
         await tester.pump(IllustDetailPagerPage.activeDwell);
         await tester.pump();
       });

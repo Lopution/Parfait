@@ -1329,6 +1329,15 @@ Future<ImagePreloadResult> PixivImage.preload(
   letterboxes every non-matching page. Estimated-ratio boxes are placeholder
   real estate only: the slot must hold an estimated box until the decode
   lands, then let the real dimensions take over.
+- On a narrow detail route, a short single-page work (natural height below
+  `viewport.height * _singlePageShortImageSlotFactor`) receives a fixed
+  `DetailPageImage.imageSlotHeight`; the image stays centered at its own
+  `pageAspectRatioAt(0)` inside that slot. The Hero must remain inside the
+  aspect-ratio box, with loading/error/placeholder surfaces using the same
+  outer slot, so the flight rect contains the artwork and not the reserved
+  empty space. The cold-load skeleton keeps its square image bone: before the
+  entity arrives neither the page count nor the ratio is known. Multi-page, ugoira, and two-pane layouts do not receive this
+  slot.
 - The decoded image cache must survive backgrounding: Android posts
   TRIM_MEMORY_UI_HIDDEN on every hide and the stock binding answers it with
   `imageCache.clear()`, which re-fades every artwork on resume. The app's

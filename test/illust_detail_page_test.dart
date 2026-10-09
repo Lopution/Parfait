@@ -16,6 +16,7 @@ import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_detail_skeleton.dart';
+import 'package:parfait/features/illust/detail/widgets/page_image.dart';
 import 'package:parfait/features/illust/detail/widgets/info_block.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
@@ -272,6 +273,84 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('作品说明文字'), findsOneWidget);
       expect(find.text('展开'), findsNothing);
+    });
+  });
+
+  group('narrow single-page image slot', () {
+    testWidgets('centers a short first image without changing its Hero rect', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {
+          42: illustJson(42, pageCount: 1, width: 1600, height: 900),
+        },
+      );
+      container.read(illustStoreProvider).mergeAll([
+        parseIllust(illustJson(42, pageCount: 1, width: 1600, height: 900)),
+      ]);
+      await pumpDetail(
+        tester,
+        container,
+        seedStore: false,
+        locale: const Locale('zh', 'CN'),
+      );
+      await tester.pumpAndSettle();
+
+      final slot = tester.getRect(find.byType(DetailPageImage));
+      final hero = find.byWidgetPredicate(
+        (widget) => widget is Hero && widget.tag == illustHeroTag('feed', 42),
+      );
+      final naturalHeight = 390 / (1600 / 900);
+      expect(slot.height, closeTo(844 * 0.7, 0.5));
+      expect(tester.getRect(hero).height, closeTo(naturalHeight, 0.5));
+      expect(tester.getRect(hero).center.dy, closeTo(slot.center.dy, 0.5));
+    });
+
+    testWidgets('leaves a multi-page first image at its natural height', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {
+          42: illustJson(
+            42,
+            pageCount: 2,
+            withMetaPages: true,
+            width: 1600,
+            height: 900,
+          ),
+        },
+      );
+      container.read(illustStoreProvider).mergeAll([
+        parseIllust(
+          illustJson(
+            42,
+            pageCount: 2,
+            withMetaPages: true,
+            width: 1600,
+            height: 900,
+          ),
+        ),
+      ]);
+      await pumpDetail(
+        tester,
+        container,
+        seedStore: false,
+        locale: const Locale('zh', 'CN'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSize(find.byType(DetailPageImage)),
+        const Size(390, 219.375),
+      );
     });
   });
 

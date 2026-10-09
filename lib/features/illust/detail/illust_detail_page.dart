@@ -47,6 +47,10 @@ import '../../../app/layout/app_breakpoints.dart';
 import '../../../app/layout/two_pane.dart';
 import '../../../app/widgets/smooth_wheel_scroll.dart';
 
+/// Short single-page artwork gets a stable reading slot on narrow screens.
+/// The image itself remains at its natural aspect ratio inside this slot.
+const _singlePageShortImageSlotFactor = 0.7;
+
 class IllustDetailPage extends ConsumerStatefulWidget {
   const IllustDetailPage({
     super.key,
@@ -616,13 +620,22 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     // Narrow layout: the artwork runs under the status bar and the
     // see-through top bar, so overlays on it start below them, and the
     // bar draws in as the first image leaves.
+    final viewport = MediaQuery.sizeOf(context);
+    final useTwoPane = AppBreakpoints.useTwoPaneDetail(viewport.width);
     final topChrome = MediaQuery.paddingOf(context).top + kToolbarHeight;
-    _topChromeExtent =
-        AppBreakpoints.useTwoPaneDetail(MediaQuery.sizeOf(context).width)
-        ? 0
-        : topChrome;
+    _topChromeExtent = useTwoPane ? 0 : topChrome;
+    final naturalFirstImageExtent =
+        viewport.width / entity.pageAspectRatioAt(0);
     final firstImageExtent =
-        MediaQuery.sizeOf(context).width / entity.pageAspectRatioAt(0);
+        !useTwoPane && entity.pageCount == 1 && !entity.isUgoira
+        ? math.max(
+            naturalFirstImageExtent,
+            viewport.height * _singlePageShortImageSlotFactor,
+          )
+        : naturalFirstImageExtent;
+    final firstImageSlotHeight = firstImageExtent > naturalFirstImageExtent
+        ? firstImageExtent
+        : null;
     _immersionStart = math.max(
       0,
       firstImageExtent - topChrome - kToolbarHeight,
@@ -695,6 +708,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
                   onLongPress: _enterDownloadMode,
                   placeholderOnly: !detailReady && index > 0,
                   overlayTopInset: index == 0 ? topChrome : 0,
+                  imageSlotHeight: index == 0 ? firstImageSlotHeight : null,
                 ),
               ),
             ),
