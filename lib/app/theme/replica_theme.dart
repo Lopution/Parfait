@@ -202,21 +202,20 @@ ThemeData replicaTheme(
       backgroundColor: background,
       elevation: 0,
       surfaceTintColor: FuncTokens.transparent,
-      indicatorColor: colorScheme.primaryContainer,
+      // No indicator: the selected destination is told by its tint alone.
       iconTheme: WidgetStateProperty.resolveWith((states) {
         return IconThemeData(
           color: states.contains(WidgetState.selected)
-              ? colorScheme.onPrimaryContainer
+              ? colorScheme.primary
               : colorScheme.onSurfaceVariant,
         );
       }),
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
         return TextStyle(
-          color: states.contains(WidgetState.selected)
-              ? colorScheme.primary
-              : colorScheme.onSurfaceVariant,
+          color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
           fontSize: 12,
-          fontWeight: FontWeight.w500,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
         );
       }),
     ),
