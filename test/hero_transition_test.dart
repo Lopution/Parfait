@@ -10,6 +10,7 @@ import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
+import 'package:parfait/features/illust/detail/widgets/detail_action_bar.dart';
 import 'package:parfait/features/illust/detail/widgets/page_image.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -332,17 +333,31 @@ void main() {
         isEmpty,
         reason: 'the page draws no copy of the artwork under the flight',
       );
-      // The flight is drawn over the see-through top bar: the bar waits
-      // for the landing and fades in rather than cutting in.
+      // The flight is drawn over the page's chrome: the see-through top bar
+      // and the action bar wait for the landing rather than sit under it.
       double barEntrance() =>
           tester.widget<AppTopBar>(find.byType(AppTopBar)).entrance!.value;
+      double actionBar() => tester
+          .widget<DetailActionBar>(find.byType(DetailActionBar))
+          .visibility
+          .value;
       expect(barEntrance(), 0);
+      expect(actionBar(), 0);
       await tester.pumpAndSettle();
       expect(barEntrance(), 1);
+      expect(actionBar(), 1);
       expect(
         find.descendant(of: page, matching: find.byType(PixivImage)),
         findsOneWidget,
       );
+
+      // Leaving, the action bar steps aside before the flight back can
+      // cover it.
+      navigatorKey.currentState!.pop();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(actionBar(), lessThan(1));
+      await tester.pumpAndSettle();
     });
   });
 

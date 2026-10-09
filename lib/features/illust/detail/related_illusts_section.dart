@@ -14,6 +14,7 @@ import '../../../core/illust/related_illust_controller.dart';
 import '../../../l10n/context.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import 'on_demand_sliver.dart';
+import 'widgets/detail_section_header.dart';
 
 export '../../../core/illust/related_illust_controller.dart';
 export '../../../core/illust/related_illust_repository.dart';
@@ -27,6 +28,10 @@ export '../../../core/illust/related_illust_repository.dart';
 /// section is on screen on the page the user is looking at. A work whose
 /// related list already exists renders it straight away.
 const _gridMainAxisSpacing = FuncSpacing.sm;
+
+/// The grid keeps the detail page's content inset, so its cards line up
+/// with the header, the info block and the author's works above.
+const _gridPadding = EdgeInsets.symmetric(horizontal: FuncSpacing.xl);
 
 class RelatedIllustsSlivers extends ConsumerStatefulWidget {
   const RelatedIllustsSlivers({super.key, required this.illustId});
@@ -94,24 +99,20 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
       // error instead of an endless skeleton.
       final error = state == null ? async.error : state.initialError;
       return SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            FuncSpacing.lg,
-            FuncSpacing.lg,
-            FuncSpacing.lg,
-            FuncSpacing.xl,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                context.l10n.relatedWorks,
-                style: Theme.of(context).textTheme.titleMedium,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DetailSectionHeader(title: context.l10n.relatedWorks),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                FuncSpacing.xl,
+                0,
+                FuncSpacing.xl,
+                FuncSpacing.xl,
               ),
-              const SizedBox(height: FuncSpacing.md),
-              _errorRow(context, error, controller.refresh),
-            ],
-          ),
+              child: _errorRow(context, error, controller.refresh),
+            ),
+          ],
         ),
       );
     }
@@ -123,12 +124,11 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
     }
     return SliverMainAxisGroup(
       slivers: [
-        const SliverToBoxAdapter(child: _RelatedHeader()),
-        const SliverPadding(
-          padding: EdgeInsets.symmetric(horizontal: FuncSpacing.md),
-          sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
+        SliverToBoxAdapter(
+          child: DetailSectionHeader(title: context.l10n.relatedWorks),
         ),
         IllustFeedGrid(
+          padding: _gridPadding,
           mainAxisSpacing: _gridMainAxisSpacing,
           itemIds: [for (final e in illusts) e.id],
           itemCount: illusts.length,
@@ -178,25 +178,6 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
   }
 }
 
-/// The section title above the grid.
-class _RelatedHeader extends StatelessWidget {
-  const _RelatedHeader();
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(
-      FuncSpacing.lg,
-      FuncSpacing.lg,
-      FuncSpacing.lg,
-      FuncSpacing.sm,
-    ),
-    child: Text(
-      context.l10n.relatedWorks,
-      style: Theme.of(context).textTheme.titleMedium,
-    ),
-  );
-}
-
 /// The first page loading: the real title over a grid skeleton with the
 /// grid's spacing, so the first cards land where their bones were.
 class _RelatedSkeleton extends StatelessWidget {
@@ -207,9 +188,10 @@ class _RelatedSkeleton extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _RelatedHeader(),
+        DetailSectionHeader(title: context.l10n.relatedWorks),
         IllustGridSkeleton(
           label: context.l10n.contentLoading,
+          padding: _gridPadding,
           mainAxisSpacing: _gridMainAxisSpacing,
         ),
       ],
