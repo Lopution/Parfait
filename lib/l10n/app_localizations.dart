@@ -4751,6 +4751,18 @@ abstract class AppLocalizations {
   /// **'阅读设置'**
   String get novelReaderSettings;
 
+  /// No description provided for @novelTranslatePage.
+  ///
+  /// In zh, this message translates to:
+  /// **'翻译本页'**
+  String get novelTranslatePage;
+
+  /// No description provided for @novelTranslating.
+  ///
+  /// In zh, this message translates to:
+  /// **'翻译中'**
+  String get novelTranslating;
+
   /// No description provided for @novelSettingsSaveFailed.
   ///
   /// In zh, this message translates to:

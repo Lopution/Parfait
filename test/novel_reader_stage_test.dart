@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/settings/shared_preferences.dart';
+import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:parfait/features/novel/novel_reader_stage.dart';
@@ -191,6 +192,59 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('16'), findsOneWidget);
   });
+
+  testWidgets(
+    'translate this page: translations under the paragraphs, on with each '
+    'turn, gone once hidden',
+    (tester) async {
+      final engine = _EchoEngine();
+      await tester.pumpWidget(
+        _stageApp(
+          _RecordingBinding(),
+          novel: _novelOfParagraphs(60),
+          translation: engine,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      await tester.tapAt(const Offset(400, 300));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('翻译本页'));
+      await tester.pumpAndSettle();
+
+      // The opening page, then the page ahead — never the whole book.
+      expect(engine.sources.first, 'paragraph 0');
+      expect(engine.sources.length, lessThan(60));
+      expect(find.text('译 paragraph 0'), findsOneWidget);
+      final translated = engine.sources.length;
+
+      await tester.tapAt(const Offset(780, 300));
+      await tester.pumpAndSettle();
+      expect(engine.sources.length, greaterThan(translated));
+      expect(find.textContaining('译 '), findsWidgets);
+
+      await tester.tap(find.byTooltip('收起翻译'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('译 '), findsNothing);
+    },
+  );
+}
+
+/// Answers every paragraph with a marked copy and records what was asked.
+class _EchoEngine
+    with SequentialBatchTranslation
+    implements TranslationTransport {
+  final sources = <String>[];
+
+  @override
+  Future<String> translate(
+    String text, {
+    required String targetLanguage,
+  }) async {
+    sources.add(text);
+    return '译 $text';
+  }
 }
 
 /// setString always fails — the in-memory platform still backs getString
@@ -235,11 +289,14 @@ Widget _stageApp(
   NovelEntity? novel,
   SharedPreferencesAsync? preferences,
   ThemeData? theme,
+  TranslationTransport? translation,
 }) {
   return ProviderScope(
     overrides: [
       if (preferences != null)
         sharedPreferencesProvider.overrideWithValue(preferences),
+      if (translation != null)
+        translationServiceProvider.overrideWithValue(translation),
     ],
     child: MaterialApp(
       builder: promptHostBuilder,
@@ -275,6 +332,21 @@ NovelEntity _novel(String text) => NovelEntity(
   contentVersion: text,
   paragraphs: NovelContentMapper.fromText(text),
   contentAvailable: true,
+);
+
+NovelEntity _novelOfParagraphs(int count) => NovelEntity(
+  id: 79,
+  title: 'Short paragraphs',
+  caption: '',
+  user: const UserEntity(id: 8, name: 'author', account: 'author'),
+  tags: const [],
+  textLength: count,
+  contentVersion: 'short-$count',
+  contentAvailable: true,
+  paragraphs: [
+    for (var i = 0; i < count; i++)
+      NovelParagraph(id: 'p$i', text: 'paragraph $i'),
+  ],
 );
 
 /// Two chapter headings embedded in enough body text to span pages — the

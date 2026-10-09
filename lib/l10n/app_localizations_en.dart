@@ -2572,6 +2572,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelReaderSettings => 'Reading settings';
 
   @override
+  String get novelTranslatePage => 'Translate this page';
+
+  @override
+  String get novelTranslating => 'Translating';
+
+  @override
   String get novelSettingsSaveFailed =>
       'Couldn\'t save reading settings — applied for this session only';
 

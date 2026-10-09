@@ -1335,6 +1335,8 @@
   "novelIncreaseFont": "增大字号",
   "novelReadingProgress": "阅读进度",
   "novelReaderSettings": "阅读设置",
+  "novelTranslatePage": "翻译本页",
+  "novelTranslating": "翻译中",
   "novelSettingsSaveFailed": "阅读设置未能保存，仅本次生效",
   "novelFontSize": "字号",
   "novelLineHeight": "行距",

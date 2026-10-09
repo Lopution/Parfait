@@ -2563,6 +2563,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelReaderSettings => 'Настройки чтения';
 
   @override
+  String get novelTranslatePage => 'Перевести страницу';
+
+  @override
+  String get novelTranslating => 'Перевод';
+
+  @override
   String get novelSettingsSaveFailed =>
       'Не удалось сохранить настройки чтения — они действуют только в этом сеансе';
 

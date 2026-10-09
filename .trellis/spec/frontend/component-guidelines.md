@@ -2302,10 +2302,16 @@ popup first, then pushes `/settings/translate`. Entries (user decision
 - tags: `showTagActionsSheet` (illust detail and novel info sheet) —
   search, copy, translate (always offered, the result inside the sheet
   with a copy button), then mute/unmute and the batch mute mode where the
-  caller passes them.
+  caller passes them;
+- novel reader: the top bar's translate button (`novelTranslatePage`,
+  selected while on, a spinner while a batch runs) switches bilingual
+  reading — each translation under its paragraph, page by page as the
+  reader turns; a failure is a prompt instead of a panel (contract in
+  `state-management.md`, Novel reader commit contract).
 
 Translations are transient: never persisted, never replacing the
-original. Owning test: `illust_detail_actions_test.dart` (tag menu).
+original. Owning tests: `illust_detail_actions_test.dart` (tag menu),
+`novel_reader_stage_test.dart` (bilingual reading).
 
 **Series.** The series header has one primary button. With a reading
 record (`SeriesRecentOpenStore`, this session's last opened work) it is

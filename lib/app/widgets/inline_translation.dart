@@ -202,22 +202,18 @@ class _TranslationFailure extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final needsSettings =
-        kind == TranslationFailureKind.disabled ||
-        kind == TranslationFailureKind.notConfigured ||
-        kind == TranslationFailureKind.invalidCredentials;
     final text = Text(
       translationFailureText(context, kind),
       style: TextStyle(color: Theme.of(context).colorScheme.error),
     );
     return Padding(
       padding: const EdgeInsets.only(top: FuncSpacing.xs),
-      child: needsSettings
+      child: translationNeedsSettings(kind)
           ? Row(
               children: [
                 Expanded(child: text),
                 TextButton(
-                  onPressed: () => _openSettings(context),
+                  onPressed: () => openTranslationSettings(context),
                   child: Text(context.l10n.translationOpenSettings),
                 ),
               ],
@@ -227,9 +223,15 @@ class _TranslationFailure extends StatelessWidget {
   }
 }
 
+/// The engine is off or not set up: the fix is in the translation settings.
+bool translationNeedsSettings(TranslationFailureKind kind) =>
+    kind == TranslationFailureKind.disabled ||
+    kind == TranslationFailureKind.notConfigured ||
+    kind == TranslationFailureKind.invalidCredentials;
+
 /// Opens the translation settings. From inside a sheet or a dialog the popup
 /// closes first, so the page is not pushed underneath it.
-void _openSettings(BuildContext context) {
+void openTranslationSettings(BuildContext context) {
   final router = GoRouter.of(context);
   if (ModalRoute.of(context) is PopupRoute) Navigator.of(context).pop();
   unawaited(router.push<void>('/settings/translate'));

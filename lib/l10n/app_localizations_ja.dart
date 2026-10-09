@@ -2490,6 +2490,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelReaderSettings => '読書設定';
 
   @override
+  String get novelTranslatePage => 'このページを翻訳';
+
+  @override
+  String get novelTranslating => '翻訳中';
+
+  @override
   String get novelSettingsSaveFailed => '読書設定を保存できませんでした。今回のみ有効です';
 
   @override
