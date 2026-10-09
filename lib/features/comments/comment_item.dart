@@ -10,7 +10,7 @@ import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/author_badge.dart';
 import '../../core/auth/account_store.dart';
-import '../../core/comments/comment_translation.dart';
+import '../../core/translation/translation_service.dart';
 import '../../core/entity/comment_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/novel/novel_store.dart';
@@ -177,21 +177,21 @@ class _CommentItemState extends ConsumerState<CommentItem> {
     });
     try {
       final value = await ref
-          .read(commentTranslationServiceProvider)
+          .read(translationServiceProvider)
           .translate(
             widget.comment.content,
             targetLanguage: Localizations.localeOf(context).languageCode,
           );
       if (!mounted) return;
       setState(() => _translation = value);
-    } on CommentTranslationUnavailable catch (error) {
+    } on TranslationUnavailable catch (error) {
       if (mounted) {
         setState(
           () =>
               _translationError = _translationFailureText(context, error.kind),
         );
       }
-    } on CommentTranslationError catch (error) {
+    } on TranslationError catch (error) {
       if (mounted) {
         setState(
           () =>
@@ -223,20 +223,22 @@ int? _workAuthorId(WidgetRef ref, CommentEntity comment) =>
 
 String _translationFailureText(
   BuildContext context,
-  CommentTranslationFailureKind kind,
+  TranslationFailureKind kind,
 ) {
   switch (kind) {
-    case CommentTranslationFailureKind.disabled:
-    case CommentTranslationFailureKind.notConfigured:
+    case TranslationFailureKind.disabled:
+    case TranslationFailureKind.notConfigured:
       return context.l10n.commentTranslationUnavailable;
-    case CommentTranslationFailureKind.invalidCredentials:
+    case TranslationFailureKind.invalidCredentials:
       return context.l10n.commentTranslationInvalidCredentials;
-    case CommentTranslationFailureKind.rateLimited:
+    case TranslationFailureKind.rateLimited:
       return context.l10n.commentTranslationRateLimited;
-    case CommentTranslationFailureKind.network:
-    case CommentTranslationFailureKind.malformed:
-    case CommentTranslationFailureKind.unsupportedLanguage:
-    case CommentTranslationFailureKind.other:
+    case TranslationFailureKind.rejected:
+      return context.l10n.commentTranslationRejected;
+    case TranslationFailureKind.network:
+    case TranslationFailureKind.malformed:
+    case TranslationFailureKind.unsupportedLanguage:
+    case TranslationFailureKind.other:
       return context.l10n.commentTranslationFailed;
   }
 }

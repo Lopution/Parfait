@@ -1210,6 +1210,42 @@ class AppLocalizationsRu extends AppLocalizations {
       'Данные перевода не записываются в обычные настройки; при необходимости они хранятся в защищённом хранилище.';
 
   @override
+  String get translateDoubao => 'Doubao (вход через веб)';
+
+  @override
+  String get translateDoubaoAccount => 'Аккаунт Doubao';
+
+  @override
+  String get translateDoubaoSignedIn => 'Вход выполнен';
+
+  @override
+  String get translateDoubaoSignedOut => 'Вход не выполнен';
+
+  @override
+  String get translateDoubaoHint =>
+      'Перевод через веб-аккаунт Doubao, в который вы вошли в приложении. Ключ API не нужен; запросы отправляются от имени вашего аккаунта Doubao. Это неофициальный интерфейс: он может перестать работать в любой момент и может вызвать проверку аккаунта.';
+
+  @override
+  String get translateDoubaoSignOut => 'Выйти из Doubao?';
+
+  @override
+  String get translateDoubaoSignOutConfirm =>
+      'Сохранённый вход в Doubao будет удалён; перед переводом войдите снова.';
+
+  @override
+  String get translateDoubaoSignOutAction => 'Выйти';
+
+  @override
+  String get doubaoLoginTitle => 'Вход в Doubao';
+
+  @override
+  String get doubaoLoginDone => 'Готово';
+
+  @override
+  String get doubaoLoginNotDetected =>
+      'Вход в Doubao пока не обнаружен; сначала войдите на странице';
+
+  @override
   String get downloadTasksEmpty => 'Нет задач загрузки';
 
   @override
@@ -2268,11 +2304,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get commentTranslationInvalidCredentials =>
-      'Учётные данные перевода недействительны; проверьте настройки';
+      'Учётные данные перевода недействительны или вход истёк; проверьте настройки';
 
   @override
   String get commentTranslationRateLimited =>
       'Слишком много переводов или исчерпана квота';
+
+  @override
+  String get commentTranslationRejected =>
+      'Сервис перевода отклонил этот текст';
 
   @override
   String get commentEmoji => 'Emoji';

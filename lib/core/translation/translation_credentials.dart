@@ -65,6 +65,31 @@ class LlmTranslationCredentials {
   String toString() => 'LlmTranslationCredentials(baseUrl: $baseUrl)';
 }
 
+/// A doubao.com web login captured from the in-app login WebView.
+@immutable
+class DoubaoWebSession {
+  const DoubaoWebSession({required this.cookie, required this.teaUuid});
+
+  /// Raw `Cookie` header value for www.doubao.com.
+  final String cookie;
+
+  /// 18-digit device id generated once per login; Doubao's web client sends
+  /// it as both `tea_uuid` and `web_id`.
+  final String teaUuid;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DoubaoWebSession &&
+      other.cookie == cookie &&
+      other.teaUuid == teaUuid;
+
+  @override
+  int get hashCode => Object.hash(cookie, teaUuid);
+
+  @override
+  String toString() => 'DoubaoWebSession(teaUuid: $teaUuid)';
+}
+
 /// Isolated read/write/delete access to translation credentials.
 ///
 /// Deliberately separate from the Pixiv account [CredentialStore] and from
@@ -76,14 +101,18 @@ abstract class TranslationCredentialStore {
   Future<void> writeBaidu(BaiduTranslationCredentials credentials);
   Future<LlmTranslationCredentials?> readLlm();
   Future<void> writeLlm(LlmTranslationCredentials credentials);
+  Future<DoubaoWebSession?> readDoubao();
+  Future<void> writeDoubao(DoubaoWebSession session);
 
   /// Key-existence probes for summary UI (D8): they answer "configured?"
   /// without loading secret values, so summaries never render secrets.
   Future<bool> hasBaidu();
   Future<bool> hasLlm();
+  Future<bool> hasDoubao();
 
   Future<void> deleteBaidu();
   Future<void> deleteLlm();
+  Future<void> deleteDoubao();
   Future<void> deleteAll();
 }
 
@@ -98,6 +127,8 @@ class SecureTranslationCredentialStore implements TranslationCredentialStore {
   static const _llmBaseUrlKey = '${_keyNamespace}llm.base_url';
   static const _llmApiKeyKey = '${_keyNamespace}llm.api_key';
   static const _llmModelKey = '${_keyNamespace}llm.model';
+  static const _doubaoCookieKey = '${_keyNamespace}doubao.cookie';
+  static const _doubaoTeaUuidKey = '${_keyNamespace}doubao.tea_uuid';
 
   final FlutterSecureStorage _storage;
 
@@ -140,10 +171,28 @@ class SecureTranslationCredentialStore implements TranslationCredentialStore {
   }
 
   @override
+  Future<DoubaoWebSession?> readDoubao() async {
+    final cookie = await _read(_doubaoCookieKey);
+    final teaUuid = await _read(_doubaoTeaUuidKey);
+    if (cookie == null || teaUuid == null) return null;
+    return DoubaoWebSession(cookie: cookie, teaUuid: teaUuid);
+  }
+
+  @override
+  Future<void> writeDoubao(DoubaoWebSession session) async {
+    await _write(_doubaoCookieKey, session.cookie);
+    await _write(_doubaoTeaUuidKey, session.teaUuid);
+  }
+
+  @override
   Future<bool> hasBaidu() => _hasKeys(const [_baiduAppIdKey, _baiduSecretKey]);
 
   @override
   Future<bool> hasLlm() => _hasKeys(const [_llmBaseUrlKey, _llmApiKeyKey]);
+
+  @override
+  Future<bool> hasDoubao() =>
+      _hasKeys(const [_doubaoCookieKey, _doubaoTeaUuidKey]);
 
   Future<bool> _hasKeys(List<String> keys) async {
     try {
@@ -164,12 +213,18 @@ class SecureTranslationCredentialStore implements TranslationCredentialStore {
       _deleteKeys([_llmBaseUrlKey, _llmApiKeyKey, _llmModelKey]);
 
   @override
+  Future<void> deleteDoubao() =>
+      _deleteKeys([_doubaoCookieKey, _doubaoTeaUuidKey]);
+
+  @override
   Future<void> deleteAll() => _deleteKeys([
     _baiduAppIdKey,
     _baiduSecretKey,
     _llmBaseUrlKey,
     _llmApiKeyKey,
     _llmModelKey,
+    _doubaoCookieKey,
+    _doubaoTeaUuidKey,
   ]);
 
   Future<void> _deleteKeys(List<String> keys) async {

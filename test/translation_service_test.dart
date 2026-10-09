@@ -4,62 +4,21 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:parfait/core/comments/comment_translation.dart';
-import 'package:parfait/core/comments/translation_credentials.dart';
+import 'package:parfait/core/translation/translation_service.dart';
+import 'package:parfait/core/translation/translation_credentials.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 
-class _FakeCredentials implements TranslationCredentialStore {
-  BaiduTranslationCredentials? baidu;
-  LlmTranslationCredentials? llm;
-
-  @override
-  Future<BaiduTranslationCredentials?> readBaidu() async => baidu;
-
-  @override
-  Future<void> writeBaidu(BaiduTranslationCredentials credentials) async {
-    baidu = credentials;
-  }
-
-  @override
-  Future<LlmTranslationCredentials?> readLlm() async => llm;
-
-  @override
-  Future<void> writeLlm(LlmTranslationCredentials credentials) async {
-    llm = credentials;
-  }
-
-  @override
-  Future<bool> hasBaidu() async => baidu != null;
-
-  @override
-  Future<bool> hasLlm() async => llm != null;
-
-  @override
-  Future<void> deleteBaidu() async {
-    baidu = null;
-  }
-
-  @override
-  Future<void> deleteLlm() async {
-    llm = null;
-  }
-
-  @override
-  Future<void> deleteAll() async {
-    baidu = null;
-    llm = null;
-  }
-}
+import 'helpers/settings_world.dart';
 
 void main() {
   final fixedNow = DateTime(2026, 9, 3, 12, 0, 0);
-  late _FakeCredentials store;
+  late FakeTranslationStore store;
 
   setUp(() {
-    store = _FakeCredentials();
+    store = FakeTranslationStore();
   });
 
-  group('BaiduCommentTranslationService', () {
+  group('BaiduTranslationTransport', () {
     test(
       'signs with md5(appid+q+salt+secret) and maps a success response',
       () async {
@@ -93,7 +52,7 @@ void main() {
             200,
           );
         });
-        final service = BaiduCommentTranslationService(
+        final service = BaiduTranslationTransport(
           client,
           () => fixedNow,
           store,
@@ -110,7 +69,7 @@ void main() {
     );
 
     test('throws notConfigured for an absent credential record', () async {
-      final service = BaiduCommentTranslationService(
+      final service = BaiduTranslationTransport(
         MockClient((_) async => http.Response('{}', 200)),
         () => fixedNow,
         store,
@@ -119,10 +78,10 @@ void main() {
       await expectLater(
         service.translate('hello', targetLanguage: 'zh'),
         throwsA(
-          isA<CommentTranslationUnavailable>().having(
+          isA<TranslationUnavailable>().having(
             (e) => e.kind,
             'kind',
-            CommentTranslationFailureKind.notConfigured,
+            TranslationFailureKind.notConfigured,
           ),
         ),
       );
@@ -134,17 +93,17 @@ void main() {
         secret: 'sec-1',
       );
       final cases = {
-        '52003': CommentTranslationFailureKind.invalidCredentials,
-        '54001': CommentTranslationFailureKind.invalidCredentials,
-        '90107': CommentTranslationFailureKind.invalidCredentials,
-        '54000': CommentTranslationFailureKind.rateLimited,
-        '54003': CommentTranslationFailureKind.rateLimited,
-        '54004': CommentTranslationFailureKind.rateLimited,
-        '54005': CommentTranslationFailureKind.rateLimited,
-        '58002': CommentTranslationFailureKind.other,
+        '52003': TranslationFailureKind.invalidCredentials,
+        '54001': TranslationFailureKind.invalidCredentials,
+        '90107': TranslationFailureKind.invalidCredentials,
+        '54000': TranslationFailureKind.rateLimited,
+        '54003': TranslationFailureKind.rateLimited,
+        '54004': TranslationFailureKind.rateLimited,
+        '54005': TranslationFailureKind.rateLimited,
+        '58002': TranslationFailureKind.other,
       };
       for (final entry in cases.entries) {
-        final service = BaiduCommentTranslationService(
+        final service = BaiduTranslationTransport(
           MockClient(
             (_) async =>
                 http.Response(jsonEncode({'error_code': entry.key}), 200),
@@ -155,11 +114,7 @@ void main() {
         await expectLater(
           service.translate('hello', targetLanguage: 'zh'),
           throwsA(
-            isA<CommentTranslationError>().having(
-              (e) => e.kind,
-              'kind',
-              entry.value,
-            ),
+            isA<TranslationError>().having((e) => e.kind, 'kind', entry.value),
           ),
           reason: 'error code ${entry.key}',
         );
@@ -172,7 +127,7 @@ void main() {
         secret: 'sec-1',
       );
       var called = false;
-      final service = BaiduCommentTranslationService(
+      final service = BaiduTranslationTransport(
         MockClient((_) async {
           called = true;
           return http.Response('{}', 200);
@@ -184,10 +139,10 @@ void main() {
       await expectLater(
         service.translate('hello', targetLanguage: 'xx'),
         throwsA(
-          isA<CommentTranslationError>().having(
+          isA<TranslationError>().having(
             (e) => e.kind,
             'kind',
-            CommentTranslationFailureKind.unsupportedLanguage,
+            TranslationFailureKind.unsupportedLanguage,
           ),
         ),
       );
@@ -195,7 +150,7 @@ void main() {
     });
   });
 
-  group('LlmCommentTranslationService', () {
+  group('LlmTranslationTransport', () {
     test('posts a fixed prompt and extracts the answer', () async {
       store.llm = const LlmTranslationCredentials(
         baseUrl: 'https://llm.example.com/v1',
@@ -225,7 +180,7 @@ void main() {
         );
       });
 
-      final service = LlmCommentTranslationService(client, store);
+      final service = LlmTranslationTransport(client, store);
       final result = await service.translate('hello', targetLanguage: 'zh');
 
       expect(result, '你好');
@@ -246,7 +201,7 @@ void main() {
         apiKey: 'key-secret',
       );
       var called = false;
-      final service = LlmCommentTranslationService(
+      final service = LlmTranslationTransport(
         MockClient((_) async {
           called = true;
           return http.Response('{}', 200);
@@ -257,10 +212,10 @@ void main() {
       await expectLater(
         service.translate('hello', targetLanguage: 'zh'),
         throwsA(
-          isA<CommentTranslationError>().having(
+          isA<TranslationError>().having(
             (e) => e.kind,
             'kind',
-            CommentTranslationFailureKind.invalidCredentials,
+            TranslationFailureKind.invalidCredentials,
           ),
         ),
       );
@@ -275,19 +230,19 @@ void main() {
           apiKey: 'key-secret',
         );
         final cases = {
-          401: CommentTranslationFailureKind.invalidCredentials,
-          403: CommentTranslationFailureKind.invalidCredentials,
-          429: CommentTranslationFailureKind.rateLimited,
+          401: TranslationFailureKind.invalidCredentials,
+          403: TranslationFailureKind.invalidCredentials,
+          429: TranslationFailureKind.rateLimited,
         };
         for (final entry in cases.entries) {
-          final service = LlmCommentTranslationService(
+          final service = LlmTranslationTransport(
             MockClient((_) async => http.Response('{}', entry.key)),
             store,
           );
           await expectLater(
             service.translate('hello', targetLanguage: 'zh'),
             throwsA(
-              isA<CommentTranslationError>().having(
+              isA<TranslationError>().having(
                 (e) => e.kind,
                 'kind',
                 entry.value,
@@ -305,7 +260,7 @@ void main() {
         apiKey: 'key-secret',
       );
       var seenModel = '';
-      final service = LlmCommentTranslationService(
+      final service = LlmTranslationTransport(
         MockClient((request) async {
           seenModel =
               (jsonDecode(request.body) as Map<String, dynamic>)['model']
@@ -329,41 +284,41 @@ void main() {
       expect(seenModel, 'gpt-4o-mini');
       expect(result, 'hi');
       // An oversized response must be rejected as malformed.
-      final oversized = LlmCommentTranslationService(
+      final oversized = LlmTranslationTransport(
         MockClient((_) async => http.Response('x' * (256 * 1024 + 1), 200)),
         store,
       );
       await expectLater(
         oversized.translate('hello', targetLanguage: 'zh'),
         throwsA(
-          isA<CommentTranslationError>().having(
+          isA<TranslationError>().having(
             (e) => e.kind,
             'kind',
-            CommentTranslationFailureKind.malformed,
+            TranslationFailureKind.malformed,
           ),
         ),
       );
     });
   });
 
-  group('ConfiguredCommentTranslationService dispatch', () {
+  group('ConfiguredTranslationService dispatch', () {
     test('disabled path throws without touching the network', () async {
       var called = false;
-      final service = ConfiguredCommentTranslationService(
+      final service = ConfiguredTranslationService(
         resolveProvider: () => TranslationProvider.disabled,
-        store: store,
         google: _RecordingTransport(() => called = true),
         baidu: _RecordingTransport(() => called = true),
         llm: _RecordingTransport(() => called = true),
+        doubao: _RecordingTransport(() => called = true),
       );
 
       await expectLater(
         service.translate('hello', targetLanguage: 'zh'),
         throwsA(
-          isA<CommentTranslationUnavailable>().having(
+          isA<TranslationUnavailable>().having(
             (e) => e.kind,
             'kind',
-            CommentTranslationFailureKind.disabled,
+            TranslationFailureKind.disabled,
           ),
         ),
       );
@@ -372,12 +327,12 @@ void main() {
 
     test('baidu provider is dispatched to the baidu transport', () async {
       var baiduCalled = false;
-      final service = ConfiguredCommentTranslationService(
+      final service = ConfiguredTranslationService(
         resolveProvider: () => TranslationProvider.baidu,
-        store: store,
         google: _RecordingTransport(() {}),
         baidu: _RecordingTransport(() => baiduCalled = true, result: '你好'),
         llm: _RecordingTransport(() {}),
+        doubao: _RecordingTransport(() {}),
       );
 
       expect(await service.translate('hello', targetLanguage: 'zh'), '你好');
@@ -436,7 +391,9 @@ String md5Of(String value) {
   return md5.convert(utf8.encode(value)).toString();
 }
 
-class _RecordingTransport implements CommentTranslationTransport {
+class _RecordingTransport
+    with SequentialBatchTranslation
+    implements TranslationTransport {
   _RecordingTransport(this.onCall, {this.result});
 
   final void Function() onCall;

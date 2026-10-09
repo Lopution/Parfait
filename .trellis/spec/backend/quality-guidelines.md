@@ -38,12 +38,19 @@ store; apply the same shape to any new secret.
 - Each secret family gets its own secure-storage namespace and store class:
   account tokens `replica.credentials.v1.` (`lib/core/auth/credential_store.dart`),
   translation credentials `replica.translation.v1.`
-  (`lib/core/comments/translation_credentials.dart`). Never share a namespace or
+  (`lib/core/translation/translation_credentials.dart`). Never share a namespace or
   a store between families.
 - `AppSettings` serializes selectors only (e.g. `translateIndex`), never the
-  secret. Secrets are read from the store per request (`readBaidu` / `readLlm`
-  inside `translate`), not cached in providers or widgets, so clearing them takes
-  effect on the next call without a restart.
+  secret. Secrets are read from the store per request (`readBaidu` / `readLlm` /
+  `readDoubao` inside `translate`), not cached in providers or widgets, so
+  clearing them takes effect on the next call without a restart.
+- A web login used as a credential (the Doubao translation engine) is copied
+  out of the WebView cookie store into the secure store when the login page
+  sees the session cookie; the transport sends the stored copy. The WebView
+  store is shared with every other site and Pixiv logout clears all of it, so
+  the stored copy is the source of truth. Signing out deletes the stored copy
+  and only that site's WebView cookies (`deleteCookies` for the host and the
+  parent domain), never `removeAllCookies`.
 - The account-transfer envelope carries exactly
   `version / payloadType / payload{accountId, userId, credential{accessToken,
   refreshToken[, cookie]}} / checksum`; adding anything else to it requires a

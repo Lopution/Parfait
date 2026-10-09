@@ -4,39 +4,18 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:parfait/core/comments/comment_translation.dart';
-import 'package:parfait/core/comments/translation_credentials.dart';
+import 'package:parfait/core/translation/translation_service.dart';
+import 'package:parfait/core/translation/translation_credentials.dart';
 import 'package:parfait/features/settings/pages/translation_credentials_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
-class _FakeStore implements TranslationCredentialStore {
-  BaiduTranslationCredentials? baidu;
-  LlmTranslationCredentials? llm;
+import 'helpers/settings_world.dart';
+
+/// The shared fake with injectable delete failures and delays.
+class _FakeStore extends FakeTranslationStore {
   Object? deleteError;
   Completer<void>? deleteBlocker;
-
-  @override
-  Future<BaiduTranslationCredentials?> readBaidu() async => baidu;
-
-  @override
-  Future<void> writeBaidu(BaiduTranslationCredentials credentials) async {
-    baidu = credentials;
-  }
-
-  @override
-  Future<LlmTranslationCredentials?> readLlm() async => llm;
-
-  @override
-  Future<void> writeLlm(LlmTranslationCredentials credentials) async {
-    llm = credentials;
-  }
-
-  @override
-  Future<bool> hasBaidu() async => baidu != null;
-
-  @override
-  Future<bool> hasLlm() async => llm != null;
 
   @override
   Future<void> deleteBaidu() async {
@@ -51,12 +30,6 @@ class _FakeStore implements TranslationCredentialStore {
     await deleteBlocker?.future;
     final error = deleteError;
     if (error != null) throw error;
-    llm = null;
-  }
-
-  @override
-  Future<void> deleteAll() async {
-    baidu = null;
     llm = null;
   }
 }

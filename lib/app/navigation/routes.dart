@@ -64,6 +64,7 @@ import '../../features/settings/me_dashboard_page.dart';
 import '../../features/settings/settings_catalog.dart' show focusQuery;
 import '../../features/settings/settings_page.dart';
 import '../widgets/settings/settings_anchor.dart';
+import '../../features/settings/pages/doubao_login_page.dart';
 import '../../features/settings/pages/translation_credentials_page.dart';
 import '../../l10n/context.dart';
 import '../motion/hero_transition.dart';
@@ -885,6 +886,11 @@ List<RouteBase> _settingsSubRoutes(
               baidu: state.pathParameters['provider'] == 'baidu',
             ),
           ),
+        ),
+        GoRoute(
+          path: 'doubao-login',
+          pageBuilder: (context, state) =>
+              _settingsPage(context, state, observer, const DoubaoLoginPage()),
         ),
       ],
     ),

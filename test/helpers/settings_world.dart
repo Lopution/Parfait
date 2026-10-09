@@ -12,7 +12,7 @@ import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/secure_resolver.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_repository.dart';
-import 'package:parfait/core/comments/translation_credentials.dart';
+import 'package:parfait/core/translation/translation_credentials.dart';
 
 /// In-memory settings persistence: [value] is what `load` returns and the
 /// last saved settings; [saved] records every save.
@@ -46,6 +46,7 @@ class FakeSettingsRepository implements SettingsRepository {
 class FakeTranslationStore implements TranslationCredentialStore {
   BaiduTranslationCredentials? baidu;
   LlmTranslationCredentials? llm;
+  DoubaoWebSession? doubao;
 
   @override
   Future<BaiduTranslationCredentials?> readBaidu() async => baidu;
@@ -64,10 +65,21 @@ class FakeTranslationStore implements TranslationCredentialStore {
   }
 
   @override
+  Future<DoubaoWebSession?> readDoubao() async => doubao;
+
+  @override
+  Future<void> writeDoubao(DoubaoWebSession session) async {
+    doubao = session;
+  }
+
+  @override
   Future<bool> hasBaidu() async => baidu != null;
 
   @override
   Future<bool> hasLlm() async => llm != null;
+
+  @override
+  Future<bool> hasDoubao() async => doubao != null;
 
   @override
   Future<void> deleteBaidu() async => baidu = null;
@@ -76,9 +88,13 @@ class FakeTranslationStore implements TranslationCredentialStore {
   Future<void> deleteLlm() async => llm = null;
 
   @override
+  Future<void> deleteDoubao() async => doubao = null;
+
+  @override
   Future<void> deleteAll() async {
     baidu = null;
     llm = null;
+    doubao = null;
   }
 }
 

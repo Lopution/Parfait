@@ -1170,6 +1170,42 @@ class AppLocalizationsJa extends AppLocalizations {
       '翻訳の認証情報は通常の設定に保存せず、必要な場合は安全なストレージで管理します。';
 
   @override
+  String get translateDoubao => 'Doubao（ウェブログイン）';
+
+  @override
+  String get translateDoubaoAccount => 'Doubao アカウント';
+
+  @override
+  String get translateDoubaoSignedIn => 'ログイン済み';
+
+  @override
+  String get translateDoubaoSignedOut => '未ログイン';
+
+  @override
+  String get translateDoubaoHint =>
+      'アプリ内でログインした Doubao ウェブアカウントで翻訳します。API キーは不要で、リクエストはあなたの Doubao アカウントとして送信されます。非公式のエンドポイントのため、いつでも使えなくなる可能性があり、アカウントのリスク判定を受けることもあります。';
+
+  @override
+  String get translateDoubaoSignOut => 'Doubao からログアウトしますか？';
+
+  @override
+  String get translateDoubaoSignOutConfirm =>
+      '保存された Doubao のログイン情報を削除します。翻訳する前に再度ログインしてください。';
+
+  @override
+  String get translateDoubaoSignOutAction => 'ログアウト';
+
+  @override
+  String get doubaoLoginTitle => 'Doubao にログイン';
+
+  @override
+  String get doubaoLoginDone => '完了';
+
+  @override
+  String get doubaoLoginNotDetected =>
+      'Doubao のログインをまだ検出できません。先にページでログインしてください';
+
+  @override
   String get downloadTasksEmpty => 'ダウンロードタスクはありません';
 
   @override
@@ -2198,10 +2234,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get commentTranslationInvalidCredentials =>
-      '翻訳の認証情報が無効です。設定を確認してください。';
+      '翻訳の認証情報が無効か、ログインの有効期限が切れています。設定を確認してください。';
 
   @override
   String get commentTranslationRateLimited => '翻訳が混み合っているか、上限に達しました';
+
+  @override
+  String get commentTranslationRejected => '翻訳サービスがこの内容を拒否しました';
 
   @override
   String get commentEmoji => 'Emoji';

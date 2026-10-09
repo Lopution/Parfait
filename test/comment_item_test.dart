@@ -5,8 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/comments/comment_translation.dart';
-import 'package:parfait/core/comments/translation_credentials.dart';
+import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/entity/comment_entity.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/entity/illust_store.dart';
@@ -18,7 +17,9 @@ import 'helpers/comment_world.dart';
 
 /// The Google transport stands in for the network; the rest of the
 /// translation service runs as shipped.
-class _PendingTransport implements CommentTranslationTransport {
+class _PendingTransport
+    with SequentialBatchTranslation
+    implements TranslationTransport {
   final completer = Completer<String>();
   int calls = 0;
 
@@ -27,13 +28,6 @@ class _PendingTransport implements CommentTranslationTransport {
     calls++;
     return completer.future;
   }
-}
-
-/// Google needs no credentials; any read means the wrong path ran.
-class _NoCredentials implements TranslationCredentialStore {
-  @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError('${invocation.memberName}');
 }
 
 void main() {
@@ -64,13 +58,13 @@ void main() {
             illustStoreProvider.overrideWithValue(
               IllustStore()..mergeAll([work]),
             ),
-          commentTranslationServiceProvider.overrideWithValue(
-            ConfiguredCommentTranslationService(
+          translationServiceProvider.overrideWithValue(
+            ConfiguredTranslationService(
               resolveProvider: () => TranslationProvider.google,
-              store: _NoCredentials(),
               google: transport,
               baidu: transport,
               llm: transport,
+              doubao: transport,
             ),
           ),
         ],

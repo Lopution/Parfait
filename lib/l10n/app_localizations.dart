@@ -2279,6 +2279,72 @@ abstract class AppLocalizations {
   /// **'翻译凭据不会写入普通设置；需要时由安全存储管理。'**
   String get translateCredentialHint;
 
+  /// No description provided for @translateDoubao.
+  ///
+  /// In zh, this message translates to:
+  /// **'豆包（网页登录）'**
+  String get translateDoubao;
+
+  /// No description provided for @translateDoubaoAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'豆包账号'**
+  String get translateDoubaoAccount;
+
+  /// No description provided for @translateDoubaoSignedIn.
+  ///
+  /// In zh, this message translates to:
+  /// **'已登录'**
+  String get translateDoubaoSignedIn;
+
+  /// No description provided for @translateDoubaoSignedOut.
+  ///
+  /// In zh, this message translates to:
+  /// **'未登录'**
+  String get translateDoubaoSignedOut;
+
+  /// No description provided for @translateDoubaoHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'用你在应用内登录的豆包网页账号翻译，无需 API Key，请求以你的豆包账号身份发出。这是非官方接口，可能随时失效，也可能触发账号风控。'**
+  String get translateDoubaoHint;
+
+  /// No description provided for @translateDoubaoSignOut.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出豆包登录？'**
+  String get translateDoubaoSignOut;
+
+  /// No description provided for @translateDoubaoSignOutConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'将删除保存的豆包登录信息，翻译前需要重新登录。'**
+  String get translateDoubaoSignOutConfirm;
+
+  /// No description provided for @translateDoubaoSignOutAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'退出登录'**
+  String get translateDoubaoSignOutAction;
+
+  /// No description provided for @doubaoLoginTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录豆包'**
+  String get doubaoLoginTitle;
+
+  /// No description provided for @doubaoLoginDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'完成'**
+  String get doubaoLoginDone;
+
+  /// No description provided for @doubaoLoginNotDetected.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有检测到豆包登录，请先在页面中登录'**
+  String get doubaoLoginNotDetected;
+
   /// No description provided for @downloadTasksEmpty.
   ///
   /// In zh, this message translates to:
@@ -4178,7 +4244,7 @@ abstract class AppLocalizations {
   /// No description provided for @commentTranslationInvalidCredentials.
   ///
   /// In zh, this message translates to:
-  /// **'翻译凭据无效，请在设置中检查。'**
+  /// **'翻译凭据无效或登录已失效，请在设置中检查。'**
   String get commentTranslationInvalidCredentials;
 
   /// No description provided for @commentTranslationRateLimited.
@@ -4186,6 +4252,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'翻译过于频繁或额度已用完'**
   String get commentTranslationRateLimited;
+
+  /// No description provided for @commentTranslationRejected.
+  ///
+  /// In zh, this message translates to:
+  /// **'翻译服务拒绝了这段内容'**
+  String get commentTranslationRejected;
 
   /// No description provided for @commentEmoji.
   ///

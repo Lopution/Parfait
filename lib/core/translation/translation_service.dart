@@ -1,66 +1,27 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../network/http_client_providers.dart';
-
 import '../settings/app_settings.dart';
 import '../settings/settings_controller.dart';
+import 'doubao_web_translation.dart';
 import 'translation_credentials.dart';
+import 'translation_transport.dart';
 
-/// Failure classification surfaced to the comment overlay. The overlay never
-/// falls back to a different provider on its own; a failure stays visible.
-enum CommentTranslationFailureKind {
-  disabled,
-  notConfigured,
-  invalidCredentials,
-  rateLimited,
-  network,
-  malformed,
-  unsupportedLanguage,
-  other,
-}
-
-class CommentTranslationUnavailable implements Exception {
-  const CommentTranslationUnavailable(this.kind);
-
-  final CommentTranslationFailureKind kind;
-
-  @override
-  String toString() => 'CommentTranslationUnavailable($kind)';
-}
-
-class CommentTranslationError implements Exception {
-  const CommentTranslationError(
-    this.reason, [
-    this.kind = CommentTranslationFailureKind.other,
-  ]);
-
-  final String reason;
-  final CommentTranslationFailureKind kind;
-
-  @override
-  String toString() => 'CommentTranslationError($reason)';
-}
-
-abstract interface class _CommentTranslationService {
-  Future<String> translate(String text, {required String targetLanguage});
-}
-
-/// Resolved at request scope from secure storage: a cleared credential is
-/// observed immediately on the next tap, never reused from a cached state.
-abstract interface class CommentTranslationTransport {
-  Future<String> translate(String text, {required String targetLanguage});
-}
+export 'translation_transport.dart';
 
 /// Google gtx compatibility path. Retained for users who explicitly saved
 /// Google before (D2); there is no automatic provider fallback.
-class GoogleCommentTranslationService implements CommentTranslationTransport {
-  GoogleCommentTranslationService(this._client);
+class GoogleTranslationTransport
+    with SequentialBatchTranslation
+    implements TranslationTransport {
+  GoogleTranslationTransport(this._client);
 
   static const _host = 'translate.googleapis.com';
   static const _timeout = Duration(seconds: 15);
@@ -74,13 +35,13 @@ class GoogleCommentTranslationService implements CommentTranslationTransport {
   }) async {
     final source = text.trim();
     if (source.isEmpty) {
-      throw const CommentTranslationError('empty source text');
+      throw const TranslationError('empty source text');
     }
     final target = targetLanguage.trim().toLowerCase();
     if (!RegExp(r'^[a-z]{2,3}(?:-[a-z]{2,4})?$').hasMatch(target)) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'invalid target language',
-        CommentTranslationFailureKind.unsupportedLanguage,
+        TranslationFailureKind.unsupportedLanguage,
       );
     }
     final http.Response response;
@@ -97,46 +58,46 @@ class GoogleCommentTranslationService implements CommentTranslationTransport {
           )
           .timeout(_timeout);
     } on TimeoutException {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'translation timed out',
-        CommentTranslationFailureKind.network,
+        TranslationFailureKind.network,
       );
     } on SocketException {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'translation network failure',
-        CommentTranslationFailureKind.network,
+        TranslationFailureKind.network,
       );
     } on http.ClientException {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'translation network failure',
-        CommentTranslationFailureKind.network,
+        TranslationFailureKind.network,
       );
     }
     if (response.statusCode == 429) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'translation rate limited',
-        CommentTranslationFailureKind.rateLimited,
+        TranslationFailureKind.rateLimited,
       );
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'translation http failure',
-        CommentTranslationFailureKind.network,
+        TranslationFailureKind.network,
       );
     }
     final dynamic decoded;
     try {
       decoded = jsonDecode(utf8.decode(response.bodyBytes));
     } on FormatException {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'malformed response',
-        CommentTranslationFailureKind.malformed,
+        TranslationFailureKind.malformed,
       );
     }
     if (decoded is! List || decoded.isEmpty || decoded.first is! List) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'malformed response',
-        CommentTranslationFailureKind.malformed,
+        TranslationFailureKind.malformed,
       );
     }
     final translations = decoded.first as List;
@@ -148,9 +109,9 @@ class GoogleCommentTranslationService implements CommentTranslationTransport {
     }
     final result = parts.join();
     if (result.trim().isEmpty) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'empty translation',
-        CommentTranslationFailureKind.malformed,
+        TranslationFailureKind.malformed,
       );
     }
     return result;
@@ -160,8 +121,10 @@ class GoogleCommentTranslationService implements CommentTranslationTransport {
 /// Baidu general translation (D2): AppID + secret from the isolated secure
 /// store, standard MD5 signature, HTTPS form post. AppID/secret only exist
 /// inside this request scope.
-class BaiduCommentTranslationService implements CommentTranslationTransport {
-  BaiduCommentTranslationService(this._client, this._now, this._store);
+class BaiduTranslationTransport
+    with SequentialBatchTranslation
+    implements TranslationTransport {
+  BaiduTranslationTransport(this._client, this._now, this._store);
 
   static const _host = 'https://fanyi-api.baidu.com/api/trans/vip/translate';
   static const _timeout = Duration(seconds: 15);
@@ -184,17 +147,15 @@ class BaiduCommentTranslationService implements CommentTranslationTransport {
   }) async {
     final source = text.trim();
     if (source.isEmpty) {
-      throw const CommentTranslationError('empty source text');
+      throw const TranslationError('empty source text');
     }
     if (utf8.encode(source).length > _maxBodyBytes) {
-      throw const CommentTranslationError('source text is too long');
+      throw const TranslationError('source text is too long');
     }
     final target = _targetCode(targetLanguage);
     final credentials = await _store.readBaidu();
     if (credentials == null) {
-      throw const CommentTranslationUnavailable(
-        CommentTranslationFailureKind.notConfigured,
-      );
+      throw const TranslationUnavailable(TranslationFailureKind.notConfigured);
     }
     final salt = _now().millisecondsSinceEpoch.toString();
     final sign = md5
@@ -223,46 +184,46 @@ class BaiduCommentTranslationService implements CommentTranslationTransport {
           )
           .timeout(_timeout);
     } on TimeoutException {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'translation timed out',
-        CommentTranslationFailureKind.network,
+        TranslationFailureKind.network,
       );
     } on SocketException {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'translation network failure',
-        CommentTranslationFailureKind.network,
+        TranslationFailureKind.network,
       );
     } on http.ClientException {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'translation network failure',
-        CommentTranslationFailureKind.network,
+        TranslationFailureKind.network,
       );
     }
     if (response.statusCode == 429) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'baidu rate limited',
-        CommentTranslationFailureKind.rateLimited,
+        TranslationFailureKind.rateLimited,
       );
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'baidu http failure',
-        CommentTranslationFailureKind.network,
+        TranslationFailureKind.network,
       );
     }
     final dynamic decoded;
     try {
       decoded = jsonDecode(utf8.decode(response.bodyBytes));
     } on FormatException {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'malformed response',
-        CommentTranslationFailureKind.malformed,
+        TranslationFailureKind.malformed,
       );
     }
     if (decoded is! Map<String, dynamic>) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'malformed response',
-        CommentTranslationFailureKind.malformed,
+        TranslationFailureKind.malformed,
       );
     }
     final Object? errorCode = decoded['error_code'];
@@ -271,9 +232,9 @@ class BaiduCommentTranslationService implements CommentTranslationTransport {
     }
     final results = decoded['trans_result'];
     if (results is! List || results.isEmpty) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'empty translation',
-        CommentTranslationFailureKind.malformed,
+        TranslationFailureKind.malformed,
       );
     }
     final parts = <String>[];
@@ -284,45 +245,45 @@ class BaiduCommentTranslationService implements CommentTranslationTransport {
     }
     final result = parts.join('\n').trim();
     if (result.isEmpty) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'empty translation',
-        CommentTranslationFailureKind.malformed,
+        TranslationFailureKind.malformed,
       );
     }
     return result;
   }
 
-  CommentTranslationError _mapBaiduError(Object errorCode) {
+  TranslationError _mapBaiduError(Object errorCode) {
     switch (errorCode.toString()) {
       case '52003':
       case '54001':
       case '54002':
       case '90107':
-        return const CommentTranslationError(
+        return const TranslationError(
           'baidu credentials invalid',
-          CommentTranslationFailureKind.invalidCredentials,
+          TranslationFailureKind.invalidCredentials,
         );
       case '54003':
       case '54005':
-        return const CommentTranslationError(
+        return const TranslationError(
           'baidu rate limited',
-          CommentTranslationFailureKind.rateLimited,
+          TranslationFailureKind.rateLimited,
         );
       case '54000':
       case '54004':
-        return const CommentTranslationError(
+        return const TranslationError(
           'baidu quota exhausted',
-          CommentTranslationFailureKind.rateLimited,
+          TranslationFailureKind.rateLimited,
         );
       case '58002':
-        return const CommentTranslationError(
+        return const TranslationError(
           'baidu service closed',
-          CommentTranslationFailureKind.other,
+          TranslationFailureKind.other,
         );
       default:
-        return CommentTranslationError(
+        return TranslationError(
           'baidu error $errorCode',
-          CommentTranslationFailureKind.other,
+          TranslationFailureKind.other,
         );
     }
   }
@@ -369,9 +330,9 @@ class BaiduCommentTranslationService implements CommentTranslationTransport {
       case 'id':
         return 'id';
       default:
-        throw const CommentTranslationError(
+        throw const TranslationError(
           'unsupported target language',
-          CommentTranslationFailureKind.unsupportedLanguage,
+          TranslationFailureKind.unsupportedLanguage,
         );
     }
   }
@@ -379,13 +340,15 @@ class BaiduCommentTranslationService implements CommentTranslationTransport {
 
 /// OpenAI-compatible chat completions transport (D2): HTTPS only, fixed
 /// system prompt, zero configurable prompt/model advanced parameters.
-class LlmCommentTranslationService implements CommentTranslationTransport {
-  LlmCommentTranslationService(this._client, this._store);
+class LlmTranslationTransport
+    with SequentialBatchTranslation
+    implements TranslationTransport {
+  LlmTranslationTransport(this._client, this._store);
 
   static const _timeout = Duration(seconds: 40);
   static const _maxResponseBytes = 256 * 1024;
   static const _prompt =
-      'You are a translation engine for Pixiv comments. Translate the user '
+      'You are a translation engine for Pixiv text. Translate the user '
       'text into the requested language. Return only the translation with no '
       'quotes, no notes, no explanation. Preserve emoticons, line breaks, '
       'emoji and punctuation.';
@@ -400,20 +363,18 @@ class LlmCommentTranslationService implements CommentTranslationTransport {
   }) async {
     final source = text.trim();
     if (source.isEmpty) {
-      throw const CommentTranslationError('empty source text');
+      throw const TranslationError('empty source text');
     }
     final target = targetLanguage.trim().toLowerCase();
     if (!RegExp(r'^[a-z]{2,3}(?:-[a-z]{2,4})?$').hasMatch(target)) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'invalid target language',
-        CommentTranslationFailureKind.unsupportedLanguage,
+        TranslationFailureKind.unsupportedLanguage,
       );
     }
     final credentials = await _store.readLlm();
     if (credentials == null) {
-      throw const CommentTranslationUnavailable(
-        CommentTranslationFailureKind.notConfigured,
-      );
+      throw const TranslationUnavailable(TranslationFailureKind.notConfigured);
     }
     final base = credentials.baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
     final endpoint = Uri.tryParse('$base/chat/completions');
@@ -421,9 +382,9 @@ class LlmCommentTranslationService implements CommentTranslationTransport {
         endpoint.scheme != 'https' ||
         endpoint.host.isEmpty ||
         endpoint.userInfo.isNotEmpty) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'LLM endpoint is not HTTPS',
-        CommentTranslationFailureKind.invalidCredentials,
+        TranslationFailureKind.invalidCredentials,
       );
     }
     final request = http.Request('POST', endpoint)
@@ -446,59 +407,59 @@ class LlmCommentTranslationService implements CommentTranslationTransport {
         await _client.send(request).timeout(_timeout),
       ).timeout(_timeout);
     } on TimeoutException {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'translation timed out',
-        CommentTranslationFailureKind.network,
+        TranslationFailureKind.network,
       );
     } on SocketException {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'translation network failure',
-        CommentTranslationFailureKind.network,
+        TranslationFailureKind.network,
       );
     } on http.ClientException {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'translation network failure',
-        CommentTranslationFailureKind.network,
+        TranslationFailureKind.network,
       );
     }
     if (response.statusCode == 401 || response.statusCode == 403) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'LLM credentials invalid',
-        CommentTranslationFailureKind.invalidCredentials,
+        TranslationFailureKind.invalidCredentials,
       );
     }
     if (response.statusCode == 429) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'LLM rate limited',
-        CommentTranslationFailureKind.rateLimited,
+        TranslationFailureKind.rateLimited,
       );
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'LLM http failure',
-        CommentTranslationFailureKind.network,
+        TranslationFailureKind.network,
       );
     }
     if (response.bodyBytes.length > _maxResponseBytes) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'LLM response too large',
-        CommentTranslationFailureKind.malformed,
+        TranslationFailureKind.malformed,
       );
     }
     final dynamic decoded;
     try {
       decoded = jsonDecode(utf8.decode(response.bodyBytes));
     } on FormatException {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'malformed response',
-        CommentTranslationFailureKind.malformed,
+        TranslationFailureKind.malformed,
       );
     }
     final content = _extractContent(decoded);
     if (content == null) {
-      throw const CommentTranslationError(
+      throw const TranslationError(
         'malformed response',
-        CommentTranslationFailureKind.malformed,
+        TranslationFailureKind.malformed,
       );
     }
     return content;
@@ -519,33 +480,27 @@ class LlmCommentTranslationService implements CommentTranslationTransport {
   }
 }
 
-class _DisabledCommentTranslationService implements _CommentTranslationService {
-  const _DisabledCommentTranslationService();
-
-  @override
-  Future<String> translate(
-    String text, {
-    required String targetLanguage,
-  }) async {
-    throw const CommentTranslationUnavailable(
-      CommentTranslationFailureKind.disabled,
-    );
-  }
-}
-
-final commentTranslationServiceProvider = Provider<_CommentTranslationService>((
-  ref,
-) {
+final translationServiceProvider = Provider<TranslationTransport>((ref) {
   final client = ref.watch(thirdPartyHttpClientProvider);
   final store = ref.watch(translationCredentialStoreProvider);
-  return ConfiguredCommentTranslationService(
+  return ConfiguredTranslationService(
     resolveProvider: () => ref.read(_translationSelectionProvider),
-    store: store,
-    google: GoogleCommentTranslationService(client),
-    baidu: BaiduCommentTranslationService(client, DateTime.now, store),
-    llm: LlmCommentTranslationService(client, store),
+    google: GoogleTranslationTransport(client),
+    baidu: BaiduTranslationTransport(client, DateTime.now, store),
+    llm: LlmTranslationTransport(client, store),
+    doubao: ref.watch(doubaoWebTranslationProvider),
   );
 });
+
+/// Kept alive for the process: it owns the launch handshake and the tab id
+/// Doubao expects to stay stable across requests.
+final doubaoWebTranslationProvider = Provider<DoubaoWebTranslationTransport>(
+  (ref) => DoubaoWebTranslationTransport(
+    ref.watch(thirdPartyHttpClientProvider),
+    ref.watch(translationCredentialStoreProvider),
+    browserLanguage: () => PlatformDispatcher.instance.locale.toLanguageTag(),
+  ),
+);
 
 /// Isolated secure storage for translation credentials (D2). A single
 /// instance shared by the settings UI and the transports.
@@ -561,37 +516,41 @@ final _translationSelectionProvider = Provider<TranslationProvider>((ref) {
       TranslationProvider.disabled;
 });
 
-class ConfiguredCommentTranslationService
-    implements _CommentTranslationService {
-  ConfiguredCommentTranslationService({
+class ConfiguredTranslationService implements TranslationTransport {
+  ConfiguredTranslationService({
     required this.resolveProvider,
-    required this.store,
     required this.google,
     required this.baidu,
     required this.llm,
+    required this.doubao,
   });
 
   final TranslationProvider Function() resolveProvider;
-  final TranslationCredentialStore store;
-  final CommentTranslationTransport google;
-  final CommentTranslationTransport baidu;
-  final CommentTranslationTransport llm;
+  final TranslationTransport google;
+  final TranslationTransport baidu;
+  final TranslationTransport llm;
+  final TranslationTransport doubao;
 
   @override
-  Future<String> translate(String text, {required String targetLanguage}) {
-    final provider = resolveProvider();
-    switch (provider) {
-      case TranslationProvider.disabled:
-        return const _DisabledCommentTranslationService().translate(
-          text,
-          targetLanguage: targetLanguage,
-        );
-      case TranslationProvider.google:
-        return google.translate(text, targetLanguage: targetLanguage);
-      case TranslationProvider.baidu:
-        return baidu.translate(text, targetLanguage: targetLanguage);
-      case TranslationProvider.translationLlm:
-        return llm.translate(text, targetLanguage: targetLanguage);
-    }
-  }
+  Future<String> translate(
+    String text, {
+    required String targetLanguage,
+  }) async => _selected().translate(text, targetLanguage: targetLanguage);
+
+  @override
+  Future<List<String>> translateAll(
+    List<String> texts, {
+    required String targetLanguage,
+  }) async => _selected().translateAll(texts, targetLanguage: targetLanguage);
+
+  /// Throws [TranslationUnavailable] when translation is switched off.
+  TranslationTransport _selected() => switch (resolveProvider()) {
+    TranslationProvider.disabled => throw const TranslationUnavailable(
+      TranslationFailureKind.disabled,
+    ),
+    TranslationProvider.google => google,
+    TranslationProvider.baidu => baidu,
+    TranslationProvider.translationLlm => llm,
+    TranslationProvider.doubao => doubao,
+  };
 }
