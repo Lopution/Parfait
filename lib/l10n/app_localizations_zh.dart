@@ -1148,6 +1148,40 @@ class AppLocalizationsZh extends AppLocalizations {
   String get translateCredentialHint => '翻译凭据不会写入普通设置；需要时由安全存储管理。';
 
   @override
+  String get translateDoubao => '豆包（网页登录）';
+
+  @override
+  String get translateDoubaoAccount => '豆包账号';
+
+  @override
+  String get translateDoubaoSignedIn => '已登录';
+
+  @override
+  String get translateDoubaoSignedOut => '未登录';
+
+  @override
+  String get translateDoubaoHint =>
+      '用你在应用内登录的豆包网页账号翻译，无需 API Key，请求以你的豆包账号身份发出。这是非官方接口，可能随时失效，也可能触发账号风控。';
+
+  @override
+  String get translateDoubaoSignOut => '退出豆包登录？';
+
+  @override
+  String get translateDoubaoSignOutConfirm => '将删除保存的豆包登录信息，翻译前需要重新登录。';
+
+  @override
+  String get translateDoubaoSignOutAction => '退出登录';
+
+  @override
+  String get doubaoLoginTitle => '登录豆包';
+
+  @override
+  String get doubaoLoginDone => '完成';
+
+  @override
+  String get doubaoLoginNotDetected => '还没有检测到豆包登录，请先在页面中登录';
+
+  @override
   String get downloadTasksEmpty => '暂无下载任务';
 
   @override
@@ -2170,10 +2204,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commentTranslationFailed => '翻译失败';
 
   @override
-  String get commentTranslationInvalidCredentials => '翻译凭据无效，请在设置中检查。';
+  String get commentTranslationInvalidCredentials => '翻译凭据无效或登录已失效，请在设置中检查。';
 
   @override
   String get commentTranslationRateLimited => '翻译过于频繁或额度已用完';
+
+  @override
+  String get commentTranslationRejected => '翻译服务拒绝了这段内容';
 
   @override
   String get commentEmoji => 'Emoji';

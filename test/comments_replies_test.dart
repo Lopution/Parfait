@@ -21,7 +21,7 @@ import 'package:parfait/core/comments/comment_feed_controller.dart';
 import 'package:parfait/core/comments/comment_models.dart';
 import 'package:parfait/core/comments/comment_repository.dart';
 import 'package:parfait/core/comments/comment_store.dart';
-import 'package:parfait/core/comments/comment_translation.dart';
+import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/entity/comment_entity.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/features/comments/comment_input.dart';
@@ -477,7 +477,7 @@ void main() {
         ],
       ]);
     });
-    final service = GoogleCommentTranslationService(client);
+    final service = GoogleTranslationTransport(client);
     expect(await service.translate('hello', targetLanguage: 'zh'), '你好');
   });
 

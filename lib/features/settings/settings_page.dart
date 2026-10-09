@@ -13,7 +13,7 @@ import '../../app/widgets/settings/settings_group.dart';
 import '../../app/widgets/settings/settings_tile.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/auth/account_store.dart';
-import '../../core/comments/comment_translation.dart';
+import '../../core/translation/translation_service.dart';
 import '../../core/debug/frame_probe.dart';
 import '../../core/mute/mute_store.dart';
 import '../../core/navigation/route_observer.dart';
@@ -339,6 +339,7 @@ class _TranslationSummaryState extends ConsumerState<_TranslationSummary>
     return switch (widget.provider) {
       TranslationProvider.baidu => store.hasBaidu(),
       TranslationProvider.translationLlm => store.hasLlm(),
+      TranslationProvider.doubao => store.hasDoubao(),
       _ => null,
     };
   }
@@ -404,10 +405,15 @@ class _TranslationSummaryState extends ConsumerState<_TranslationSummary>
         // the credentials page owns surfacing store failures; the summary
         // never invents a state.
         if (state == null) return Text(label);
-        return Text(
-          '$label · '
-          '${state ? context.l10n.settingsCredentialConfigured : context.l10n.settingsCredentialNotConfigured}',
-        );
+        final l10n = context.l10n;
+        final status = widget.provider == TranslationProvider.doubao
+            ? (state
+                  ? l10n.translateDoubaoSignedIn
+                  : l10n.translateDoubaoSignedOut)
+            : (state
+                  ? l10n.settingsCredentialConfigured
+                  : l10n.settingsCredentialNotConfigured);
+        return Text('$label · $status');
       },
     );
   }

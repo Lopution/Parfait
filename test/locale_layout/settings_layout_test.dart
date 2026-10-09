@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/comments/comment_translation.dart'
+import 'package:parfait/core/translation/translation_service.dart'
     show translationCredentialStoreProvider;
 import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/i18n/replica_language.dart';

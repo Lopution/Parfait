@@ -17,7 +17,7 @@ import 'package:parfait/app/widgets/settings/settings_menu_tile.dart';
 import 'package:parfait/app/widgets/settings/settings_tile.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/comments/comment_translation.dart'
+import 'package:parfait/core/translation/translation_service.dart'
     show translationCredentialStoreProvider;
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/settings/settings_controller.dart';

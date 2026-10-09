@@ -171,6 +171,7 @@ String translationProviderLabel(
     TranslationProvider.baidu => context.l10n.translateBaidu,
     TranslationProvider.translationLlm => context.l10n.translateLlm,
     TranslationProvider.google => context.l10n.translateGoogle,
+    TranslationProvider.doubao => context.l10n.translateDoubao,
   };
 }
 

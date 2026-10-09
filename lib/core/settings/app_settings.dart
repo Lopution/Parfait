@@ -21,7 +21,10 @@ enum TranslationProvider {
   google(0),
   disabled(1),
   baidu(2),
-  translationLlm(3);
+  translationLlm(3),
+
+  /// Doubao web translation signed in as the user's own doubao.com account.
+  doubao(4);
 
   const TranslationProvider(this.code);
 

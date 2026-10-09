@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/motion/app_overlays.dart';
 import '../../../app/widgets/app_top_bar.dart';
-import '../../../core/comments/comment_translation.dart';
-import '../../../core/comments/translation_credentials.dart';
+import '../../../core/translation/translation_service.dart';
+import '../../../core/translation/translation_credentials.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
@@ -122,7 +122,7 @@ class _TranslationCredentialsPageState
         final appId = _appIdController.text.trim();
         final secret = _secretController.text.trim();
         if (appId.isEmpty || secret.isEmpty) {
-          throw const CommentTranslationError('incomplete baidu credentials');
+          throw const TranslationError('incomplete baidu credentials');
         }
         await store.writeBaidu(
           BaiduTranslationCredentials(appId: appId, secret: secret),
@@ -136,7 +136,7 @@ class _TranslationCredentialsPageState
             uri == null ||
             uri.scheme != 'https' ||
             uri.host.isEmpty) {
-          throw const CommentTranslationError('invalid LLM endpoint');
+          throw const TranslationError('invalid LLM endpoint');
         }
         final model = _modelController.text.trim();
         await store.writeLlm(
@@ -154,7 +154,7 @@ class _TranslationCredentialsPageState
           _statusIsError = false;
         });
       }
-    } on CommentTranslationError {
+    } on TranslationError {
       if (mounted) {
         setState(() {
           _status = context.l10n.translateCredentialsInvalid;

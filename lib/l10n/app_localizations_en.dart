@@ -1209,6 +1209,42 @@ class AppLocalizationsEn extends AppLocalizations {
       'Translation credentials are never written to ordinary settings; secure storage owns them when needed.';
 
   @override
+  String get translateDoubao => 'Doubao (web sign-in)';
+
+  @override
+  String get translateDoubaoAccount => 'Doubao account';
+
+  @override
+  String get translateDoubaoSignedIn => 'Signed in';
+
+  @override
+  String get translateDoubaoSignedOut => 'Not signed in';
+
+  @override
+  String get translateDoubaoHint =>
+      'Translates with the Doubao web account you sign in to inside the app. No API key is needed; requests are sent as your Doubao account. This is an unofficial endpoint: it may stop working at any time and may trigger account risk checks.';
+
+  @override
+  String get translateDoubaoSignOut => 'Sign out of Doubao?';
+
+  @override
+  String get translateDoubaoSignOutConfirm =>
+      'The saved Doubao sign-in will be deleted; sign in again before translating.';
+
+  @override
+  String get translateDoubaoSignOutAction => 'Sign out';
+
+  @override
+  String get doubaoLoginTitle => 'Sign in to Doubao';
+
+  @override
+  String get doubaoLoginDone => 'Done';
+
+  @override
+  String get doubaoLoginNotDetected =>
+      'No Doubao sign-in detected yet; sign in on the page first';
+
+  @override
   String get downloadTasksEmpty => 'No download tasks';
 
   @override
@@ -2275,11 +2311,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commentTranslationInvalidCredentials =>
-      'Translation credentials are invalid; check settings';
+      'Translation credentials are invalid or the sign-in has expired; check settings';
 
   @override
   String get commentTranslationRateLimited =>
       'Too many translations or quota exhausted';
+
+  @override
+  String get commentTranslationRejected =>
+      'The translation service declined this content';
 
   @override
   String get commentEmoji => 'Emoji';
