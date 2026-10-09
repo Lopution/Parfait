@@ -446,7 +446,6 @@ class _SettingsList extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return SettingsGroup(
-      separated: true,
       title: Row(
         children: [
           Expanded(child: Text(l10n.settingsTitle)),

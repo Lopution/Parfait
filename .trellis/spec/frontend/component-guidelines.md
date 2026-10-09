@@ -250,7 +250,7 @@ token's equality with its role.
 **Spacing and shape tokens.** Feature code never writes a numeric
 `EdgeInsets.(all|symmetric|only|fromLTRB)` or `Radius.circular` — spacing
 resolves to `FuncSpacing` (xxs 2, xs 4 … xxxl 48) and component radii to
-`FuncShape` (`segment` 4, `control` 8, `card` 12, `dialog` 28, `sheet` top
+`FuncShape` (`control` 8, `card` 12, `dialog` 28, `sheet` top
 corners, `pill`). All-zero insets are `EdgeInsets.zero`; `SizedBox(width/height)`
 used as a `Row`/`Column` gap takes the same tokens (fixed image/control
 dimensions are not spacing and stay literal). Absorption: pick the nearest
@@ -2432,25 +2432,21 @@ reintroduce it or hand-build group containers.
 - `SettingsGroup` owns the group chrome: an optional `title` rendered as
   a `Semantics(header: true)` label in `titleSmall`/`onSurfaceVariant`
   (never `primary` — the brand color is reserved for actions, selection,
-  and indicators), the rows as an M3 Expressive segmented list, and an
-  optional `footer` rendered below the rows. Every child is its own
-  `surfaceContainer` `Material` (clip `antiAlias`, so ink stays inside the
-  segment), `SettingsGroup.segmentGap` (2dp) apart; `segmentRadius(index,
-  count)` gives the group's outer edge `FuncShape.card` corners and every
-  edge facing another segment `FuncShape.segment`. A single-row group is
-  one card. A `separated` group (the me page's settings list, never a
-  settings page) sets its rows `separatedGap` (8dp) apart, each with
-  `FuncShape.card` corners on every side. A composite control (a text field in
-  `SettingsGroupContent`) is one child and therefore one segment — the
-  group never splits a child. Explanatory copy that used to sit above the
-  rows belongs in `footer` so the rows come first. Empty `children` render
-  no segment. The gap is the only separator — never `Divider`. Under a
+  and indicators), the rows as separate cards, and an optional `footer`
+  rendered below the rows. Every child is its own `surfaceContainer`
+  `Material` with `FuncShape.card` corners (clip `antiAlias`, so ink stays
+  inside the card), `SettingsGroup.rowGap` (8dp) apart — on settings pages
+  and the me page alike (user decision 2026-10-09; the earlier 2dp
+  segmented list is gone). A composite control (a text field in
+  `SettingsGroupContent`) is one child and therefore one card — the group
+  never splits a child. Explanatory copy that used to sit above the rows
+  belongs in `footer` so the rows come first. Empty `children` render no
+  card. The gap is the only separator — never `Divider`. Under a
   `RemovalScope`, a `Removable` child in `leaving` no longer counts: the
-  other segments take their final corners and the gap above the leaving
-  row (or above the new first row) closes as the exit starts, both on the
-  `spatialFast` spring the row collapses on, so the commit moves nothing.
-  Removable segments are keyed by id, so gap and corner state follow
-  their row across the commit.
+  gap above the leaving row (or above the new first row) closes as the
+  exit starts, on the `spatialFast` spring the row collapses on, so the
+  commit moves nothing. Removable rows are keyed by id, so gap state
+  follows their row across the commit.
   Spacing between groups is `FuncSpacing.xl`; the page `ListView` keeps
   only `top: sm, bottom: xl` padding because the group supplies the
   horizontal margins.
@@ -2558,9 +2554,8 @@ unchanged. Top to bottom:
      `LabelFit` scale.
 3. The settings pages (theme through about — not account, which the
    account row owns, nor the frame probe) as `SettingsTile`s with the
-   index's icons (`settingsPageIcons`) and no summaries, in a
-   `separated` group (user decision 2026-10-09: always listed, no fold,
-   and room between the rows). The group's heading is "settings" with a
+   index's icons (`settingsPageIcons`) and no summaries, in one group
+   (user decision 2026-10-09: always listed, no fold). The group's heading is "settings" with a
    search button that opens `/settings/all`, whose search field is on
    top.
 

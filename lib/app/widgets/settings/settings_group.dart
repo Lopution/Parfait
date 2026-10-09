@@ -9,52 +9,31 @@ import 'settings_anchor.dart';
 
 /// Inset settings group: optional header, the rows, optional footnote below.
 ///
-/// M3 Expressive segmented list: every row is its own surfaceContainer
-/// segment, [segmentGap] apart; the group's outer corners are large, the
-/// inner ones extra-small. A row that is one composite control (a segmented
-/// button) is one segment — the group never splits a child. The group's
-/// bottom padding (FuncSpacing.xl) separates groups.
+/// Every row is its own surfaceContainer card with [FuncShape.card] corners,
+/// [rowGap] apart. A row that is one composite control (a slider block) is
+/// one card — the group never splits a child. The group's bottom padding
+/// (FuncSpacing.xl) separates groups.
 ///
 /// Under a [RemovalScope], a [Removable] row whose exit is playing no
-/// longer counts: the other segments take their final corners and gaps as
-/// the exit starts, animated on the same spring as the row's collapse, so
-/// nothing jumps when the data drops the row.
+/// longer counts: the gap above it closes as the exit starts, animated on
+/// the same spring as the row's collapse, so nothing jumps when the data
+/// drops the row.
 class SettingsGroup extends StatelessWidget {
   const SettingsGroup({
     super.key,
     this.title,
     this.footer,
     this.setting,
-    this.separated = false,
     required this.children,
   });
 
   /// The catalog entry this group is the place of (settings search): a
   /// choice group, or a block whose rows only exist in some states. When
-  /// the search reveals it, every segment takes the mark.
+  /// the search reveals it, every row takes the mark.
   final SettingsEntry? setting;
 
-  /// Space between two segments of one group.
-  static const double segmentGap = 2;
-
-  /// Space between two rows of a [separated] group.
-  static const double separatedGap = FuncSpacing.sm;
-
-  /// Rows stand apart as cards, [separatedGap] between them and every
-  /// corner rounded: a dashboard's short list (the "me" page), not a
-  /// settings page.
-  final bool separated;
-
-  /// Corners of the segment at [index] in a group of [count]: the group's
-  /// outer edge uses the card radius, edges facing another segment
-  /// [FuncShape.segment].
-  static BorderRadius segmentRadius(int index, int count) {
-    final outer = FuncShape.card.topLeft;
-    final inner = FuncShape.segment.topLeft;
-    final top = index == 0 ? outer : inner;
-    final bottom = index == count - 1 ? outer : inner;
-    return BorderRadius.vertical(top: top, bottom: bottom);
-  }
+  /// Space between two rows of one group.
+  static const double rowGap = FuncSpacing.sm;
 
   /// Section heading, rendered as a semantics header in onSurfaceVariant.
   /// A whole row (title + action button) is allowed — only its text picks up
@@ -101,7 +80,7 @@ class SettingsGroup extends StatelessWidget {
                 child: Semantics(header: true, child: title),
               ),
             ),
-          if (children.isNotEmpty) _segments(context),
+          if (children.isNotEmpty) _rows(context),
           if (footer != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(
@@ -124,74 +103,51 @@ class SettingsGroup extends StatelessWidget {
     return SettingAnchor(entry: setting, paintsMark: false, child: group);
   }
 
-  Widget _segments(BuildContext context) {
+  Widget _rows(BuildContext context) {
     final leaving = RemovalScope.maybeOf(context)?.leaving;
-    if (leaving == null) return _layoutSegments(context, const {});
+    if (leaving == null) return _layoutRows(context, const {});
     return ValueListenableBuilder(
       valueListenable: leaving,
-      builder: (context, ids, _) => _layoutSegments(context, ids),
+      builder: (context, ids, _) => _layoutRows(context, ids),
     );
   }
 
-  Widget _layoutSegments(BuildContext context, Set<Object> leaving) {
-    bool isLeaving(Widget child) =>
-        child is Removable && leaving.contains(child.id);
-    final present = children.where((child) => !isLeaving(child)).length;
+  Widget _layoutRows(BuildContext context, Set<Object> leaving) {
     final motion = MotionTokens.springCurve(context, MotionSpring.spatialFast);
-    final segments = <Widget>[];
+    final rows = <Widget>[];
     var position = 0;
-    for (final (index, child) in children.indexed) {
+    for (final child in children) {
       final key = child is Removable ? ValueKey(child.id) : null;
-      if (isLeaving(child)) {
-        // Keeps its corners while it collapses; its gap closes with it.
-        segments.add(
-          _Segment(
-            key: key,
-            gap: 0,
-            radius: separated
-                ? FuncShape.card
-                : segmentRadius(index, children.length),
-            motion: motion,
-            child: child,
-          ),
-        );
-        continue;
-      }
-      segments.add(
-        _Segment(
+      // A leaving row's gap closes with it as it collapses.
+      final isLeaving = child is Removable && leaving.contains(child.id);
+      rows.add(
+        _Row(
           key: key,
-          gap: position == 0
-              ? 0
-              : separated
-              ? separatedGap
-              : segmentGap,
-          radius: separated ? FuncShape.card : segmentRadius(position, present),
+          gap: isLeaving || position == 0 ? 0 : rowGap,
           motion: motion,
           child: child,
         ),
       );
-      position++;
+      if (!isLeaving) position++;
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: segments,
+      children: rows,
     );
   }
 }
 
-/// One row of a [SettingsGroup] and the gap above it. Gap and corners
-/// animate on [motion] when the group reshapes.
-class _Segment extends StatelessWidget {
-  const _Segment({
+/// One row of a [SettingsGroup] and the gap above it. The gap animates on
+/// [motion] when the group reshapes.
+class _Row extends StatelessWidget {
+  const _Row({
     super.key,
     required this.gap,
-    required this.radius,
     required this.motion,
     required this.child,
   });
 
   final double gap;
-  final BorderRadius radius;
   final (Duration, Curve) motion;
   final Widget child;
 
@@ -213,10 +169,8 @@ class _Segment extends StatelessWidget {
         ),
         Material(
           color: Theme.of(context).colorScheme.surfaceContainer,
-          shape: RoundedRectangleBorder(borderRadius: radius),
-          // Material animates a shape change itself (with its own curve).
-          animationDuration: duration,
-          // Ink stays inside its own segment.
+          shape: const RoundedRectangleBorder(borderRadius: FuncShape.card),
+          // Ink stays inside its own card.
           clipBehavior: Clip.antiAlias,
           child: mark == null
               ? child
