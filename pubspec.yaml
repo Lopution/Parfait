@@ -6,7 +6,7 @@ publish_to: 'none'
 
 # Single source of truth for releases: versionName X.Y.Z, versionCode +N
 # (release.yml reads both; bump N on every release).
-version: 0.1.0+1
+version: 0.9.0+1
 
 environment:
   sdk: ^3.11.0

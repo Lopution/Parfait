@@ -9,25 +9,38 @@
 
 **[下载最新版](https://github.com/Lopution/Parfait/releases/latest)**
 
+简体中文 | [English](README.en.md)
+
 </div>
 
 > [!NOTE]
 > 本项目是非官方的第三方客户端，与 pixiv Inc. 无关。作品版权归各自的创作者所有。
+>
+> Parfait 目前处于公开测试阶段（0.9.x），欢迎通过 [Issues](https://github.com/Lopution/Parfait/issues) 反馈问题。
 
-Parfait 是 Android 上的 pixiv 第三方客户端，可以浏览、收藏和下载插画、漫画与小说。在中国大陆网络下，浏览和下载可以直接连接 pixiv，不需要一直开着代理（首次登录除外，见[登录](#登录)）。
+Parfait 是 Android 上的 pixiv 第三方客户端，可以浏览、收藏和下载插画、漫画与小说。
+
+- **中国大陆直连**：浏览和下载不需要一直开着代理（首次登录除外，见[登录](#登录)）；兼容通道只作用于 pixiv 的域名，不接管其他流量。
+- **离线操作不丢**：没网时点的收藏、关注和追更会先记下来，联网后自动补发。
+- **安全更新**：应用内更新会先校验签名和证书，再交给系统安装。
+- **无广告、无统计**：不包含任何广告、统计或遥测组件。
+
+Parfait 用 Flutter 编写，界面遵循 Material Design 3，状态管理和路由分别使用 Riverpod 与 go_router。网络层是基于 [rhttp](https://codeberg.org/Tienisto/rhttp) 改造的 Rust 原生组件（reqwest、rustls、tokio，经 flutter_rust_bridge 接入），直连所需的 DoH 解析、ECH 等连接方式都在这一层实现。本地数据保存在 SQLite 中，登录凭据保存在系统安全存储里。
 
 ## 截图
 
 <table align="center">
 <tr>
-<td align="center" width="33%"><img src=".github/readme/home.webp" width="260" alt="推荐"><br><b>推荐</b><br><sub>插画、漫画、小说的个性化推荐</sub></td>
-<td align="center" width="33%"><img src=".github/readme/detail.webp" width="260" alt="作品详情"><br><b>作品详情</b><br><sub>标签、作者信息，一键下载与收藏</sub></td>
-<td align="center" width="33%"><img src=".github/readme/search.webp" width="260" alt="搜索"><br><b>搜索</b><br><sub>关键词与热门标签、反向搜图、特辑</sub></td>
+<td align="center" width="25%"><img src=".github/readme/home.webp" width="200" alt="推荐"><br><b>推荐</b><br><sub>插画、漫画、小说与用户推荐</sub></td>
+<td align="center" width="25%"><img src=".github/readme/detail.webp" width="200" alt="作品详情"><br><b>作品详情</b><br><sub>下载、评论、收藏随手可达</sub></td>
+<td align="center" width="25%"><img src=".github/readme/search.webp" width="200" alt="搜索"><br><b>搜索</b><br><sub>特辑、热门标签，拍照反向搜图</sub></td>
+<td align="center" width="25%"><img src=".github/readme/profile.webp" width="200" alt="画师主页"><br><b>画师主页</b><br><sub>作品、收藏与关注一览</sub></td>
 </tr>
 <tr>
-<td align="center"><img src=".github/readme/profile.webp" width="260" alt="画师主页"><br><b>画师主页</b><br><sub>作品、收藏与关注一览</sub></td>
-<td align="center"><img src=".github/readme/ranking.webp" width="260" alt="排行"><br><b>排行</b><br><sub>每日、每周、每月榜单</sub></td>
-<td align="center"><img src=".github/readme/novel.webp" width="260" alt="小说阅读"><br><b>小说阅读</b><br><sub>字号、行距与配色可调</sub></td>
+<td align="center"><img src=".github/readme/ranking.webp" width="200" alt="排行"><br><b>排行</b><br><sub>每日、每周等榜单，可按日期回看</sub></td>
+<td align="center"><img src=".github/readme/novel.webp" width="200" alt="小说阅读"><br><b>小说阅读</b><br><sub>字号可调，一键翻译，显示阅读进度</sub></td>
+<td align="center"><img src=".github/readme/viewer.webp" width="200" alt="看图"><br><b>看图</b><br><sub>多页作品拖动跳页，保存与分享</sub></td>
+<td align="center"><img src=".github/readme/downloads.webp" width="200" alt="下载任务"><br><b>下载任务</b><br><sub>多页作品自动分组，进度一目了然</sub></td>
 </tr>
 </table>
 
@@ -43,7 +56,7 @@ Parfait 是 Android 上的 pixiv 第三方客户端，可以浏览、收藏和�
 **网络**
 
 - 默认直连；直连被阻断时自动尝试兼容通道，只作用于 pixiv 的域名，不代理其他流量
-- 内置网络诊断，逐项检查 DNS 污染、SNI 阻断并给出设置建议
+- 内置「分层连通性探测」，逐项检查 DNS 污染、SNI 阻断并给出设置建议
 - 图片源可选自动竞速、pixiv.re 等公共镜像或自定义反代
 
 **阅读**
@@ -55,7 +68,6 @@ Parfait 是 Android 上的 pixiv 第三方客户端，可以浏览、收藏和�
 **收藏与整理**
 
 - 收藏（可加标签）、关注、稍后再看、浏览历史
-- 离线时点的收藏、关注和追更，联网后自动补发，不会丢
 - 按标签、用户、作品屏蔽内容；可在本地屏蔽 R-18 或 AI 作品
 
 **下载**
@@ -74,8 +86,7 @@ Parfait 是 Android 上的 pixiv 第三方客户端，可以浏览、收藏和�
 - 多账号切换；可把登录状态迁移到另一台设备
 - 备份与导入设置、屏蔽列表和浏览历史
 - 桌面小部件，展示推荐作品
-- 中文、English、日本語、Русский 界面，跟随系统的浅色与深色主题
-- 应用内检查更新，安装前校验签名与证书
+- 中文、English、日本語、Русский 界面；浅色与深色主题，可跟随系统壁纸取色
 
 ## 下载与安装
 
@@ -97,7 +108,7 @@ Windows 版还在准备中，之后会以预览版发布。
 <details>
 <summary>APK 签名证书指纹</summary>
 
-正式发布的 APK 都使用同一个证书签名。在手机上可以用 [AppVerifier](https://github.com/soupslurpr/AppVerifier) 核对，包名和指纹应为：
+Releases 中的 APK 都使用同一个证书签名。在手机上可以用 [AppVerifier](https://github.com/soupslurpr/AppVerifier) 核对，包名和指纹应为：
 
 ```text
 io.github.lopution.parfait
@@ -122,7 +133,7 @@ Signer #1 certificate SHA-256 digest: d0b41afc87b7d207511a52bd8ccca6563c673c2df1
 
 登录使用 pixiv 官方网页。由于网络环境限制，**登录和注册需要先在系统或其他应用中开启代理**，Parfait 不提供内置代理；登录完成后，浏览和下载都可以直连。
 
-如果你已经在另一台设备上登录过，可以在那台设备的「设置」中选择「导出账号凭据」，再在新设备登录页选择「使用剪贴板数据登录」。
+如果你已经在另一台设备上登录过，可以在那台设备的「我的 → 账号管理」中选择「导出账号凭据」，再在新设备登录页选择「使用剪贴板数据登录」。
 
 ## 常见问题
 
@@ -130,6 +141,22 @@ Signer #1 certificate SHA-256 digest: d0b41afc87b7d207511a52bd8ccca6563c673c2df1
 <summary>打不开页面或图片加载很慢？</summary>
 
 在「我的 → 网络」中运行「分层连通性探测」，按结论调整网络模式；图片慢可以在「我的 → 网络 → 图片源」中选择「自动」或其他镜像。
+
+</details>
+
+<details>
+<summary>直连是怎么做到的，安全吗？</summary>
+
+应用会按顺序尝试几种连接方式：经 Cloudflare 的 ECH 加密握手、通过加密 DNS 解析后连接、不带 SNI 连接 pixiv 的服务器，以及系统直连，并记住能用的那一种。**所有方式都会完整校验 HTTPS 证书**，如果连上的不是 pixiv 的服务器，连接会直接失败。这些兼容方式只作用于 pixiv 的域名，不接管其他流量。
+
+如果只想走系统直连，可以在「我的 → 网络 → 网络模式」中选择「仅直连」。在中国大陆网络下，这时通常需要自备代理。
+
+</details>
+
+<details>
+<summary>下载的文件存在哪里？</summary>
+
+默认保存到相册中的「Parfait」相册。可以在「我的 → 下载设置 → 保存位置」中改成自定义相册，或通过系统目录选择器指定任意文件夹；文件命名模板也在下载设置中。
 
 </details>
 
@@ -143,9 +170,17 @@ Parfait 源自 git-xiaocao 的 Pixiv Func，基于其开源代码重写，并非
 <details>
 <summary>遇到问题怎么反馈？</summary>
 
-请在 [Issues](https://github.com/Lopution/Parfait/issues) 中描述问题和复现步骤。在「我的 → 关于 → 导出日志」中可以导出本机日志，附在 Issue 里能帮助定位问题；提交前请确认日志里没有你不想公开的内容。
+请在 [Issues](https://github.com/Lopution/Parfait/issues) 中描述问题和复现步骤。在「我的 → 关于 → 导出日志」中可以导出本机日志，附在 Issue 里能帮助定位问题；提交前请确认日志里没有你不想公开的内容。安全问题请不要公开提交，按 [SECURITY.md](SECURITY.md) 私下报告。
 
 </details>
+
+## 交流与反馈
+
+- 问题反馈与功能建议：[Issues](https://github.com/Lopution/Parfait/issues)
+- QQ 交流群：**167853962**
+- 邮箱：[fuyian533@gmail.com](mailto:fuyian533@gmail.com)
+
+<img src=".github/readme/qq-group.webp" width="280" alt="Parfait 交流群二维码，群号 167853962">
 
 ## 尊重创作者
 
@@ -153,15 +188,14 @@ Parfait 源自 git-xiaocao 的 Pixiv Func，基于其开源代码重写，并非
 
 ## 隐私
 
-- 不收集任何用户数据，不包含统计、遥测或广告组件；只申请网络权限。
+- 不收集任何用户数据，不包含统计、遥测或广告组件。
+- 只申请三项权限：网络；振动（用于触感反馈，安装时自动授予）；安装应用（用于应用内更新，安装前系统仍会请你确认）。
 - 登录凭据保存在系统安全存储中；日志只保存在本机，只有你主动导出时才会离开设备。
 - 只有在你使用翻译或反向搜图时，相应的文字或图片才会发送给你选择的服务。
 
 ## 参与开发
 
-欢迎通过 [Issues](https://github.com/Lopution/Parfait/issues) 反馈问题或提出建议。安全问题请不要公开提交，按 [SECURITY.md](SECURITY.md) 私下报告。
-
-本地构建需要 Flutter 3.47.2 和 Rust 工具链（网络层的原生部分由 Rust 编译）。
+欢迎提交 Issue 和 Pull Request。构建方法和开发约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 致谢
 
