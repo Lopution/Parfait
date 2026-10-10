@@ -2570,6 +2570,9 @@ these rules:
   content: two lines on phones, one on wide rows. A group header title is
   mostly app copy ("Batch download · N items") and wraps in full
   (`titleWraps`).
+- **A group of one is a plain row.** Only groups of two or more tasks get
+  a header; a one-page work's download (the detail button always submits
+  a group) or a group down to its last task shows as that task's row.
 - **Selection mode uses `selectionAppBar`.** The title is the bare count
   (see the Multi-Locale Layout Contract).
 
