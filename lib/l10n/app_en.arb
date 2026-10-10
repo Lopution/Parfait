@@ -750,6 +750,7 @@
   "searchCancel": "Cancel",
   "searchSubmit": "Search",
   "searchClear": "Clear",
+  "searchUserFiltersUnavailable": "User search has no filters",
   "contentLoading": "Loading",
   "searchLoading": "Searching",
   "searchNoResults": "No search results",

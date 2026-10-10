@@ -1774,6 +1774,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchClear => 'Очистить';
 
   @override
+  String get searchUserFiltersUnavailable =>
+      'В поиске пользователей нет фильтров';
+
+  @override
   String get contentLoading => 'Загрузка';
 
   @override

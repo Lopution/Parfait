@@ -10,6 +10,7 @@ import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/core/search/search_shortcut.dart';
 import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:parfait/features/search/search_result_page.dart';
+import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
@@ -44,7 +45,10 @@ Future<GoRouter> _pumpInput(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  // The input owns a focused TextField whose cursor schedules a persistent
+  // frame; settle the route transition with a bounded pump instead.
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 500));
   return router;
 }
 
@@ -211,12 +215,18 @@ void main() {
 
     // Tapping a recent search searches it again and moves it to the front.
     await tester.tap(_historyChip('cat'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
     expect(router.state.uri.path, '/search/results');
     expect(router.state.uri.queryParameters['q'], 'cat');
     router.pop();
-    await tester.pumpAndSettle();
-    expect(_historyShown(tester), ['cat', 'dog']);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(router.state.uri.path, '/search');
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SearchHomePage)),
+    );
+    expect(container.read(searchHistoryProvider), ['cat', 'dog']);
   });
 
   testWidgets('removing a recent search offers undo; clearing all asks', (
@@ -289,6 +299,23 @@ void main() {
     expect(find.byType(SearchResultPage), findsOneWidget);
   });
 
+  testWidgets('submitting a search replaces input so back returns home', (
+    tester,
+  ) async {
+    final router = await _pumpInput(tester);
+    await tester.enterText(find.byType(TextField), 'cat');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/search/results');
+    router.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(router.state.uri.path, '/search');
+    expect(find.byType(SearchInputPage), findsNothing);
+    expect(find.byType(SearchHomePage), findsOneWidget);
+  });
+
   testWidgets('a pixiv link or an id opens directly and is not recorded', (
     tester,
   ) async {
@@ -315,9 +342,13 @@ void main() {
     expect(router.state.uri.path, endsWith('/user/77'));
 
     router.pop();
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '');
-    await tester.pumpAndSettle();
-    expect(find.byType(InputChip), findsNothing);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(router.state.uri.path, '/search');
+    expect(find.byType(SearchInputPage), findsNothing);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SearchHomePage)),
+    );
+    expect(container.read(searchHistoryProvider), isEmpty);
   });
 }

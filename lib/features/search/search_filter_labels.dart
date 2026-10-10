@@ -108,10 +108,12 @@ class SearchFilterButton extends StatelessWidget {
     super.key,
     required this.filters,
     required this.onPressed,
+    this.muted = false,
   });
 
   final SearchFilters filters;
   final VoidCallback onPressed;
+  final bool muted;
 
   @override
   Widget build(BuildContext context) {
@@ -122,6 +124,7 @@ class SearchFilterButton extends StatelessWidget {
           ? l10n.searchFilters
           : l10n.searchFiltersActive(count),
       onPressed: onPressed,
+      color: muted ? Theme.of(context).colorScheme.onSurfaceVariant : null,
       icon: Badge(
         isLabelVisible: count > 0,
         // The tooltip already reads the count.

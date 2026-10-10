@@ -719,6 +719,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'searchTrendingFailed' => l10n.searchTrendingFailed,
   'searchUser' => l10n.searchUser,
   'searchUserAccount' => l10n.searchUserAccount,
+  'searchUserFiltersUnavailable' => l10n.searchUserFiltersUnavailable,
   'searchWidth' => l10n.searchWidth,
   'searchWithinDay' => l10n.searchWithinDay,
   'searchWithinMonth' => l10n.searchWithinMonth,

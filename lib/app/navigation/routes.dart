@@ -209,34 +209,6 @@ Page<dynamic> _page(
   );
 }
 
-/// Modal page variant of [_page]: keyboard-first surfaces (search input)
-/// rise a short distance from the bottom edge with a fade instead of the
-/// full trailing-edge slide.
-Page<dynamic> _modalPage(
-  BuildContext context,
-  GoRouterState state,
-  RouteObserver<ModalRoute<dynamic>> observer,
-  Widget child,
-) {
-  final duration = MotionTokens.resolve(context, MotionTokens.modalTransition);
-  return CustomTransitionPage<dynamic>(
-    key: state.pageKey,
-    restorationId: RestorationScope.maybeOf(context) == null
-        ? null
-        : state.pageKey.value,
-    child: _scoped(observer, child),
-    transitionDuration: duration,
-    reverseTransitionDuration: duration,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      return FuncModalTransition(
-        animation: animation,
-        secondaryAnimation: secondaryAnimation,
-        child: child,
-      );
-    },
-  );
-}
-
 /// Applies the same raster snapshot as `_page`'s transition builder, driven
 /// by the enclosing route's `secondaryAnimation`. The home shell is a
 /// [NoTransitionPage], so root-level pushes/pops (settings, viewer) over it
@@ -504,7 +476,7 @@ List<RouteBase> _searchRoutes(
   return [
     GoRoute(
       path: '${prefix}input',
-      pageBuilder: (context, state) => _modalPage(
+      pageBuilder: (context, state) => _page(
         context,
         state,
         observer,
@@ -1628,7 +1600,11 @@ void replaceNewNovelScope(BuildContext context, NewFeedScope scope) {
   context.replace(location);
 }
 
-Future<void> openSearchResults(BuildContext context, SearchQuery query) async {
+Future<void> openSearchResults(
+  BuildContext context,
+  SearchQuery query, {
+  bool replaceCurrent = false,
+}) async {
   final keyword = query.keyword.trim();
   if (keyword.isEmpty) {
     showAppSnackBar(context, context.l10n.searchInputEmpty);
@@ -1637,14 +1613,31 @@ Future<void> openSearchResults(BuildContext context, SearchQuery query) async {
   // An id or a pixiv link opens what it names instead of searching.
   final shortcut = searchShortcutFor(keyword, query.type);
   if (shortcut != null) {
-    await openSearchShortcut(context, shortcut);
+    if (replaceCurrent) {
+      replaceSearchShortcut(context, shortcut);
+    } else {
+      await openSearchShortcut(context, shortcut);
+    }
     return;
   }
   final location = Uri(
     path: _searchPath(context, 'results'),
     queryParameters: _searchQueryParameters(query),
   ).toString();
-  await _push(context, location);
+  if (replaceCurrent) {
+    context.replace(location);
+  } else {
+    await _push(context, location);
+  }
+}
+
+void replaceSearchShortcut(BuildContext context, SearchShortcut shortcut) {
+  final path = switch (shortcut.kind) {
+    SearchShortcutKind.illust => 'illust',
+    SearchShortcutKind.novel => 'novel',
+    SearchShortcutKind.user => 'user',
+  };
+  context.replace('${_currentStackRoot(context)}/$path/${shortcut.id}');
 }
 
 void replaceSearchResults(BuildContext context, SearchQuery query) {

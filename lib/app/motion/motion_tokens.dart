@@ -32,11 +32,6 @@ abstract final class MotionTokens {
   static const pageTransition = Duration(milliseconds: 300);
   static const pageCurve = Curves.easeInOutCubic;
 
-  /// Modal page transition (search input): short bottom-edge slide + fade.
-  static const modalTransition = Duration(milliseconds: 260);
-  static const modalCurve = Curves.easeOutCubic;
-  static const modalSlideBegin = Offset(0, 0.06);
-
   /// Short UI transitions (type-selector snap, tab hint fade-in).
   static const fast = Duration(milliseconds: 180);
   static const fastCurve = Curves.easeOut;

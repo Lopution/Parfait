@@ -750,6 +750,7 @@
   "searchCancel": "キャンセル",
   "searchSubmit": "検索",
   "searchClear": "クリア",
+  "searchUserFiltersUnavailable": "ユーザー検索に絞り込みはありません",
   "contentLoading": "読み込み中",
   "searchLoading": "検索中",
   "searchNoResults": "検索結果はありません",

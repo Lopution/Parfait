@@ -750,6 +750,7 @@
   "searchCancel": "Отмена",
   "searchSubmit": "Поиск",
   "searchClear": "Очистить",
+  "searchUserFiltersUnavailable": "В поиске пользователей нет фильтров",
   "contentLoading": "Загрузка",
   "searchLoading": "Поиск",
   "searchNoResults": "Нет результатов поиска",

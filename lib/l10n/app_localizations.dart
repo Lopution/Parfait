@@ -3305,6 +3305,12 @@ abstract class AppLocalizations {
   /// **'清除'**
   String get searchClear;
 
+  /// No description provided for @searchUserFiltersUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户搜索没有筛选'**
+  String get searchUserFiltersUnavailable;
+
   /// No description provided for @contentLoading.
   ///
   /// In zh, this message translates to:

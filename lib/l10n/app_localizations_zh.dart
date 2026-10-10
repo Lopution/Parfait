@@ -1696,6 +1696,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchClear => '清除';
 
   @override
+  String get searchUserFiltersUnavailable => '用户搜索没有筛选';
+
+  @override
   String get contentLoading => '正在加载';
 
   @override

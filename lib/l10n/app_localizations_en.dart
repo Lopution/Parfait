@@ -1779,6 +1779,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchClear => 'Clear';
 
   @override
+  String get searchUserFiltersUnavailable => 'User search has no filters';
+
+  @override
   String get contentLoading => 'Loading';
 
   @override

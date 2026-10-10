@@ -871,6 +871,7 @@
   "searchCancel": "取消",
   "searchSubmit": "搜索",
   "searchClear": "清除",
+  "searchUserFiltersUnavailable": "用户搜索没有筛选",
   "contentLoading": "正在加载",
   "searchLoading": "正在搜索",
   "searchNoResults": "暂无搜索结果",
