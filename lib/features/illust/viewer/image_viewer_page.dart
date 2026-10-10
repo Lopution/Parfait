@@ -15,6 +15,7 @@ import '../../../app/motion/motion_tokens.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/pixiv_image.dart';
+import '../../../app/widgets/app_slider.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart'
@@ -247,17 +248,17 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     if (page != _activePage && mounted) _pageController.jumpToPage(page);
   }
 
-  /// Scrubbing only warms the small image beside the thumb. In particular it
-  /// never asks the viewer for the original tier, so pages crossed during a
-  /// drag cannot trigger a chain of full-size decodes.
+  /// Scrubbing only warms the square thumbnails the bubble shows beside the
+  /// thumb. It never asks for a viewer tier, so pages crossed during a drag
+  /// cannot trigger a chain of full-size decodes; a viewer opened without
+  /// an entity has no thumbnails and warms nothing.
   void _prefetchScrubWindow(int page) {
-    if (!mounted) return;
+    final entity = widget.entity;
+    if (!mounted || entity == null) return;
     final urls = <int, String>{};
     for (final candidate in [page - 1, page, page + 1]) {
       if (candidate < 0 || candidate >= _pageCount) continue;
-      final url =
-          widget.entity?.squareUrlAt(candidate) ??
-          widget.prefetchUrlForPage?.call(candidate);
+      final url = entity.squareUrlAt(candidate);
       if (url != null && url.isNotEmpty) urls[candidate] = url;
     }
     if (urls.isEmpty) return;
@@ -858,6 +859,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                 onChangeEnd: _onScrubEnd,
                 pageLabel: (page) =>
                     context.l10n.viewerPageLabel(page + 1, _pageCount),
+                thumbnailUrl: (page) => widget.entity?.squareUrlAt(page),
               ),
             Row(
               children: [
@@ -918,6 +920,8 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
       1.0 + precisionErrorTolerance;
 }
 
+/// Manga-reader page scrubber: dragging shows the target page's thumbnail
+/// and label above the track; releasing jumps straight there.
 class _PageScrubber extends StatelessWidget {
   const _PageScrubber({
     super.key,
@@ -927,9 +931,11 @@ class _PageScrubber extends StatelessWidget {
     required this.onChanged,
     required this.onChangeEnd,
     required this.pageLabel,
+    required this.thumbnailUrl,
   });
 
   static const double thumbnailExtent = 72;
+  static const double _trackHeight = 48;
 
   final int count;
   final int current;
@@ -937,72 +943,91 @@ class _PageScrubber extends StatelessWidget {
   final ValueChanged<double> onChanged;
   final ValueChanged<double> onChangeEnd;
   final String Function(int page) pageLabel;
+  final String? Function(int page) thumbnailUrl;
 
   @override
   Widget build(BuildContext context) {
-    final color = FuncTokens.lightBackground;
+    const color = FuncTokens.lightBackground;
     final dragging = value != current;
-    return Semantics(
-      label: pageLabel(value),
-      value: pageLabel(value),
-      slider: true,
-      child: SizedBox(
-        height: 64,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            if (dragging)
-              Align(
-                alignment: Alignment.topCenter,
+    final thumbnail = thumbnailUrl(value);
+    return SizedBox(
+      height: _trackHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          if (dragging)
+            // Above the track, over the artwork: display only, so it may
+            // overflow the scrubber's own box.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: _trackHeight,
+              child: Center(
                 child: DecoratedBox(
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: FuncTokens.imageControl,
                     borderRadius: FuncShape.control,
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: FuncSpacing.sm,
-                      vertical: FuncSpacing.xs,
+                    padding: const EdgeInsets.all(FuncSpacing.xs),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (thumbnail != null)
+                          ClipRRect(
+                            borderRadius: FuncShape.badge,
+                            child: SizedBox.square(
+                              dimension: thumbnailExtent,
+                              child: PixivImage.avatar(
+                                thumbnail,
+                                key: ValueKey(thumbnail),
+                                size: thumbnailExtent,
+                              ),
+                            ),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: FuncSpacing.xs,
+                            vertical: FuncSpacing.xxs,
+                          ),
+                          child: Text(
+                            pageLabel(value),
+                            style: const TextStyle(
+                              color: color,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    child: Text(
-                      pageLabel(value),
-                      style: TextStyle(
-                        color: color,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
                   ),
-                ),
-              ),
-            Positioned.fill(
-              top: 16,
-              child: SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  activeTrackColor: color,
-                  inactiveTrackColor: color.withValues(alpha: 0.35),
-                  thumbColor: color,
-                  overlayColor: color.withValues(alpha: 0.16),
-                  trackHeight: 3,
-                  thumbShape: const RoundSliderThumbShape(
-                    enabledThumbRadius: 7,
-                  ),
-                  overlayShape: const RoundSliderOverlayShape(
-                    overlayRadius: 24,
-                  ),
-                ),
-                child: Slider(
-                  min: 0,
-                  max: (count - 1).toDouble(),
-                  divisions: count - 1,
-                  value: value.toDouble(),
-                  label: pageLabel(value),
-                  onChanged: onChanged,
-                  onChangeEnd: onChangeEnd,
                 ),
               ),
             ),
-          ],
-        ),
+          Positioned.fill(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: color,
+                inactiveTrackColor: color.withValues(alpha: 0.35),
+                thumbColor: color,
+                overlayColor: color.withValues(alpha: 0.16),
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 24),
+              ),
+              // No label: the bubble above is the page indicator, so the
+              // slider's own value indicator would be a second one.
+              child: AppSlider(
+                min: 0,
+                max: (count - 1).toDouble(),
+                divisions: count - 1,
+                value: value.toDouble(),
+                onChanged: onChanged,
+                onChangeEnd: onChangeEnd,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1367,6 +1367,14 @@ Future<ImagePreloadResult> PixivImage.preload(
   empty space. The cold-load skeleton keeps its square image bone: before the
   entity arrives neither the page count nor the ratio is known. Manga,
   ugoira, and two-pane layouts do not receive this slot.
+- A page whose natural height is under 60% of 280dp is a panorama
+  (`DetailPageImage.panoramaHeight`): a 280dp viewport (at most 70% of the
+  screen) that scrolls sideways, opens centered (so the Hero flight grows
+  around the work's middle), decodes at the scrolled content width (capped
+  at 8192px) and never takes the short-image slot. Its drag recognizer only
+  claims a swipe the panorama can still follow; at an edge the detail pager
+  wins, as Android's ViewPager treats scrollable children
+  (`illust_detail_pager_test.dart`).
 - The decoded image cache must survive backgrounding: Android posts
   TRIM_MEMORY_UI_HIDDEN on every hide and the stock binding answers it with
   `imageCache.clear()`, which re-fades every artwork on resume. The app's

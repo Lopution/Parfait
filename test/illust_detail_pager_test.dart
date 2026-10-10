@@ -102,6 +102,39 @@ void main() {
     expect(_page(tester), 0);
   });
 
+  testWidgets('a panorama scrolls first and hands the swipe on at its edge', (
+    tester,
+  ) async {
+    final (container, _, _) = await makeWorld();
+    container.read(illustStoreProvider).mergeAll([
+      parseIllust(illustJson(90, width: 4000, height: 400)),
+      parseIllust(illustJson(91)),
+    ]);
+    final source = IllustPagerSource()..update(const [90, 91]);
+    await _pumpPager(tester, container, source: source, initialId: 90);
+
+    ScrollPosition panorama() => tester
+        .state<ScrollableState>(
+          find.descendant(
+            of: find.byKey(const ValueKey('panorama-frame')),
+            matching: find.byType(Scrollable),
+          ),
+        )
+        .position;
+    final start = panorama().pixels;
+    expect(start, closeTo(panorama().maxScrollExtent / 2, 0.5));
+
+    await tester.dragFrom(_swipeOrigin(tester), const Offset(-150, 0));
+    await tester.pumpAndSettle();
+    expect(panorama().pixels, greaterThan(start + 100));
+    expect(_page(tester), 0);
+
+    panorama().jumpTo(panorama().maxScrollExtent);
+    await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
+    await tester.pumpAndSettle();
+    expect(_page(tester), 1);
+  });
+
   testWidgets('swiping near the end asks the feed for its next page', (
     tester,
   ) async {
