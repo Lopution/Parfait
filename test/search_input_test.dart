@@ -305,9 +305,16 @@ void main() {
     final router = await _pumpInput(tester);
     await tester.enterText(find.byType(TextField), 'cat');
     await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    // Mid-transition: the results page enters over the leaving input page
+    // instead of swapping in place.
+    expect(find.byType(SearchInputPage), findsOneWidget);
+    expect(find.byType(SearchResultPage), findsOneWidget);
     await tester.pumpAndSettle();
 
     expect(router.state.uri.path, '/search/results');
+    expect(find.byType(SearchInputPage), findsNothing);
     router.pop();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));

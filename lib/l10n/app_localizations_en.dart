@@ -1773,9 +1773,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchCancel => 'Cancel';
 
   @override
-  String get searchSubmit => 'Search';
-
-  @override
   String get searchClear => 'Clear';
 
   @override

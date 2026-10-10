@@ -1031,7 +1031,10 @@ result location (`openSearchResults(..., replaceCurrent: true)`), and direct
 ID/link shortcuts use the same replacement rule. Editing the query or using a
 result's empty-state modify action replaces the result location with input.
 This keeps the requesting page as the back destination instead of stacking a
-second search route.
+second search route. These swaps go through `pushReplacement` (a fresh page
+key, so the normal page transition runs); `context.replace` keeps the key and
+swaps without a transition, which is only right for a page updating its own
+query (tab or type changes).
 
 ## Stack Integrity Contract
 

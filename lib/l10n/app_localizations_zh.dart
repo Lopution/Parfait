@@ -1690,9 +1690,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchCancel => '取消';
 
   @override
-  String get searchSubmit => '搜索';
-
-  @override
   String get searchClear => '清除';
 
   @override

@@ -1344,6 +1344,19 @@ Future<void> _push(
   await context.push<void>(location, extra: extra);
 }
 
+/// Swaps the top page for [location] under a fresh page key, so the new page
+/// runs the normal entrance transition. `context.replace` keeps the key and
+/// swaps without one — right for updating a page's own query, wrong for
+/// moving on to a different page.
+Future<void> _pushReplacement(BuildContext context, String location) async {
+  final router = GoRouter.of(context);
+  assert(
+    pushStaysInStack(router, location),
+    'push of $location leaves the stack of ${router.state.uri}',
+  );
+  await router.pushReplacement<void>(location);
+}
+
 /// Branch locations must be pushed from their own visible branch stack. A
 /// branch push from an overlay, another branch, or a root-level page such as
 /// the viewer would create a second shell or bury the target below that page.
@@ -1540,12 +1553,25 @@ void replaceSearchInput(
   required String keyword,
   required SearchResultType type,
 }) {
-  final location = Uri(
-    path: _searchPath(context, 'input'),
-    queryParameters: {'q': keyword, 'type': type.name},
-  ).toString();
-  context.replace(location);
+  context.replace(_searchInputLocation(context, keyword, type));
 }
+
+/// Results → input for editing the query: the input page takes the results'
+/// place, so the search stack never grows past input or results.
+Future<void> swapToSearchInput(
+  BuildContext context, {
+  required String keyword,
+  required SearchResultType type,
+}) => _pushReplacement(context, _searchInputLocation(context, keyword, type));
+
+String _searchInputLocation(
+  BuildContext context,
+  String keyword,
+  SearchResultType type,
+) => Uri(
+  path: _searchPath(context, 'input'),
+  queryParameters: {'q': keyword, 'type': type.name},
+).toString();
 
 void replaceRankingMode(
   BuildContext context,
@@ -1614,7 +1640,7 @@ Future<void> openSearchResults(
   final shortcut = searchShortcutFor(keyword, query.type);
   if (shortcut != null) {
     if (replaceCurrent) {
-      replaceSearchShortcut(context, shortcut);
+      await swapToSearchShortcut(context, shortcut);
     } else {
       await openSearchShortcut(context, shortcut);
     }
@@ -1625,19 +1651,26 @@ Future<void> openSearchResults(
     queryParameters: _searchQueryParameters(query),
   ).toString();
   if (replaceCurrent) {
-    context.replace(location);
+    await _pushReplacement(context, location);
   } else {
     await _push(context, location);
   }
 }
 
-void replaceSearchShortcut(BuildContext context, SearchShortcut shortcut) {
+/// Opens what an id or pixiv link names in place of the search input page.
+Future<void> swapToSearchShortcut(
+  BuildContext context,
+  SearchShortcut shortcut,
+) {
   final path = switch (shortcut.kind) {
     SearchShortcutKind.illust => 'illust',
     SearchShortcutKind.novel => 'novel',
     SearchShortcutKind.user => 'user',
   };
-  context.replace('${_currentStackRoot(context)}/$path/${shortcut.id}');
+  return _pushReplacement(
+    context,
+    '${_currentStackRoot(context)}/$path/${shortcut.id}',
+  );
 }
 
 void replaceSearchResults(BuildContext context, SearchQuery query) {

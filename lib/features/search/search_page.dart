@@ -1019,7 +1019,7 @@ class _SearchInputBody extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.open_in_new),
             title: Text(_shortcutLabel(context, shortcut)),
-            onTap: () => replaceSearchShortcut(context, shortcut),
+            onTap: () => unawaited(swapToSearchShortcut(context, shortcut)),
           ),
         ],
       );

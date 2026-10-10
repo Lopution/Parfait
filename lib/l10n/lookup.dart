@@ -706,7 +706,6 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'searchSetDefault' => l10n.searchSetDefault,
   'searchSort' => l10n.searchSort,
   'searchStartDate' => l10n.searchStartDate,
-  'searchSubmit' => l10n.searchSubmit,
   'searchSuggestionFill' => l10n.searchSuggestionFill,
   'searchSuggestionSearch' => l10n.searchSuggestionSearch,
   'searchTarget' => l10n.searchTarget,

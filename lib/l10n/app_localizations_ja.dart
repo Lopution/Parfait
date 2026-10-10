@@ -1717,9 +1717,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchCancel => 'キャンセル';
 
   @override
-  String get searchSubmit => '検索';
-
-  @override
   String get searchClear => 'クリア';
 
   @override

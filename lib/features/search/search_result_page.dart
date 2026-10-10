@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../app/widgets/app_top_bar.dart';
@@ -286,10 +288,12 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
   /// keyword reopens the input page prefilled with this query so editing a
   /// search never means retyping it.
   void _editQuery() {
-    replaceSearchInput(
-      context,
-      keyword: widget.query.keyword,
-      type: _selectedType,
+    unawaited(
+      swapToSearchInput(
+        context,
+        keyword: widget.query.keyword,
+        type: _selectedType,
+      ),
     );
   }
 
@@ -504,7 +508,7 @@ class _IllustSearchFeed extends ConsumerWidget {
         icon: Icons.search,
         title: context.l10n.searchNoResults,
         actionLabel: context.l10n.searchModifyQuery,
-        onAction: () => replaceSearchInput(
+        onAction: () => swapToSearchInput(
           context,
           keyword: query.keyword,
           type: query.type,
@@ -584,7 +588,7 @@ class _NovelSearchFeed extends ConsumerWidget {
         icon: Icons.search,
         title: context.l10n.searchNoResults,
         actionLabel: context.l10n.searchModifyQuery,
-        onAction: () => replaceSearchInput(
+        onAction: () => swapToSearchInput(
           context,
           keyword: query.keyword,
           type: query.type,
@@ -651,7 +655,7 @@ class _UserSearchFeed extends ConsumerWidget {
         icon: Icons.search,
         title: context.l10n.searchNoResults,
         actionLabel: context.l10n.searchModifyQuery,
-        onAction: () => replaceSearchInput(
+        onAction: () => swapToSearchInput(
           context,
           keyword: query.keyword,
           type: query.type,
