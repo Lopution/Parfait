@@ -1938,13 +1938,16 @@ static bool PullToRefresh.trigger(ScrollController controller);
   Its `PrimaryScrollController` is never `.none`: a feed that does not
   inherit registers no dependency and misses the hand-back.
 - Touch scroll physics are unified app-wide through `FuncScrollBehavior`:
-  `BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())` plus no
-  platform overscroll indicator — the same scheme `_ERScrollPhysics` installs
-  inside `PullToRefresh` subtrees, so non-feed pages (detail, settings,
-  search) share the feed's feel. Do not reintroduce a
+  `FuncScrollPhysics(parent: AlwaysScrollableScrollPhysics())` (bouncing)
+  plus no platform overscroll indicator — the same feel `_ERScrollPhysics`
+  gives `PullToRefresh` subtrees, so non-feed pages (detail, settings,
+  search, profile) share the feed's. Do not reintroduce a
   `ClampingScrollPhysics` region.
-- Inside `PullToRefresh` a fling stops at either edge; only a drag
-  overscrolls. The header's `hitOver` is already off; the wrapper passes
+- Everywhere a fling stops at either edge; only a drag overscrolls and
+  springs back. `FuncScrollPhysics` ends an in-range ballistic at the edge
+  it would cross (`scroll_behavior_test.dart`). Before, a fling into the end
+  of the detail page overshot and sprang back while related works loaded.
+  Inside `PullToRefresh` EasyRefresh does the same itself. The header's `hitOver` is already off; the wrapper passes
   `notLoadFooter: NotLoadFooter(hitOver: false)` because without `onLoad`
   EasyRefresh copies `ClassicFooter`'s `hitOver: true`, and a fling into a
   feed's end then sprang back up while the next page loaded.
