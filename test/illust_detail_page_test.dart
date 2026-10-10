@@ -16,6 +16,7 @@ import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_detail_skeleton.dart';
+import 'package:parfait/features/illust/detail/widgets/page_image.dart';
 import 'package:parfait/features/illust/detail/widgets/info_block.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
@@ -272,6 +273,125 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('作品说明文字'), findsOneWidget);
       expect(find.text('展开'), findsNothing);
+    });
+  });
+
+  group('narrow first image slot', () {
+    // Whether the bar's controls take the artwork look: a halo traced
+    // around the bare glyph, never a disc under it.
+    bool lifted(WidgetTester tester) {
+      final glyph = tester.element(
+        find
+            .descendant(of: find.byType(AppTopBar), matching: find.byType(Icon))
+            .first,
+      );
+      final disc = IconButtonTheme.of(
+        glyph,
+      ).style?.backgroundColor?.resolve(const {});
+      expect(disc == null || disc.a == 0, isTrue);
+      return IconTheme.of(glyph).shadows?.isNotEmpty ?? false;
+    }
+
+    // The bar never dims the artwork with a gradient.
+    Finder barGradient() => find.descendant(
+      of: find.byType(AppTopBar),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is DecoratedBox &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration as BoxDecoration).gradient != null,
+      ),
+    );
+
+    testWidgets('centers a short first image below the status bar without '
+        'changing its Hero rect', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 24);
+      addTearDown(tester.view.reset);
+
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {
+          42: illustJson(42, pageCount: 1, width: 1600, height: 900),
+        },
+      );
+      container.read(illustStoreProvider).mergeAll([
+        parseIllust(illustJson(42, pageCount: 1, width: 1600, height: 900)),
+      ]);
+      await pumpDetail(
+        tester,
+        container,
+        seedStore: false,
+        locale: const Locale('zh', 'CN'),
+      );
+      await tester.pumpAndSettle();
+
+      final slot = tester.getRect(find.byType(DetailPageImage));
+      final hero = find.byWidgetPredicate(
+        (widget) => widget is Hero && widget.tag == illustHeroTag('feed', 42),
+      );
+      final naturalHeight = 390 / (1600 / 900);
+      expect(slot.top, closeTo(24, 0.5));
+      expect(slot.height, closeTo(844 * 0.7, 0.5));
+      // The image starts below the toolbar: the controls sit bare.
+      expect(lifted(tester), isFalse);
+      expect(barGradient(), findsNothing);
+      expect(tester.getRect(hero).height, closeTo(naturalHeight, 0.5));
+      expect(tester.getRect(hero).center.dy, closeTo(slot.center.dy, 0.5));
+    });
+
+    testWidgets('gives the first image of a set the same slot', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final (container, _, _) = await makeWorld(
+        detailOverrides: {
+          42: illustJson(
+            42,
+            pageCount: 2,
+            withMetaPages: true,
+            width: 1600,
+            height: 900,
+          ),
+        },
+      );
+      container.read(illustStoreProvider).mergeAll([
+        parseIllust(
+          illustJson(
+            42,
+            pageCount: 2,
+            withMetaPages: true,
+            width: 1600,
+            height: 900,
+          ),
+        ),
+      ]);
+      await pumpDetail(
+        tester,
+        container,
+        seedStore: false,
+        locale: const Locale('zh', 'CN'),
+      );
+      await tester.pumpAndSettle();
+
+      // Collapsed, the set shows page 1 only.
+      expect(
+        tester.getSize(find.byType(DetailPageImage)).height,
+        closeTo(844 * 0.7, 0.5),
+      );
+      expect(lifted(tester), isFalse);
+
+      // Expanded, page 1 springs to its natural height under the toolbar,
+      // and the controls take the artwork look over it.
+      await tester.tap(find.byKey(const Key('illust-expand-pages')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byType(DetailPageImage).first).height,
+        closeTo(219.375, 0.5),
+      );
+      expect(lifted(tester), isTrue);
+      expect(barGradient(), findsNothing);
     });
   });
 

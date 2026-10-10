@@ -142,10 +142,14 @@ state or action.
   layout (a refresh, while scrolled, that moves works still on screen to the
   head reproduces it); keep the keyed identity inside the extent and verify
   that case in `responsive_layout_test.dart`.
-- A control painted over artwork uses `ImageOverlayButton` (icon actions) or
-  the `FuncTokens.imageControl`/`onImageControl` pair (pill counters and
-  other non-button chrome). A `filledTonal` button or a plain glyph sits on
-  an unpredictable image background — on a white artwork both wash out.
+- Toolbar controls over artwork have one look everywhere (detail
+  `AppTopBar`, profile banner, viewer chrome): `ArtworkControls` — bare
+  glyphs in the accent colour (white on the viewer's black stage) with a
+  tight halo of the surface (black on the viewer) traced around each
+  glyph. No disc under a control and no gradient scrim over the artwork.
+  A plain glyph without the halo washes out on a white artwork. Pills and
+  other non-button chrome (page counters, load progress) keep the
+  `FuncTokens.imageControl`/`onImageControl` pair.
 - Never hard-code `SliverPersistentHeaderDelegate.maxExtent` for a header
   whose content contains text. A fixed extent overflows at large text
   scales or under longer translations — measure the laid-out content after
@@ -779,10 +783,10 @@ it never enters the toolbar band.
 `topInset + 4` and stay mounted — and tappable — through the whole
 collapse interval, including the fade hand-off between expanded and
 collapsed chrome. While real cover artwork still sits behind the toolbar
-(`hasCover && geometry.bannerBehindToolbar`), the back button is an
-`ImageOverlayButton` and the overflow `AppMenuButton` applies
-`ImageOverlayButton.buttonStyle()`; collapsed or cover-less, both are
-plain surface icons with no fill. The whole header is wrapped in
+(`hasCover && geometry.bannerBehindToolbar`), the back button and the
+overflow anchor (an `anchorBuilder`, so the opened menu keeps the theme's
+look) sit in `ArtworkControls`; collapsed or cover-less, both are plain
+surface icons. The whole header is wrapped in
 `FuncSystemBars(background: overArtwork ? Brightness.dark :
 theme.brightness)`, so the status bar paints light icons over artwork
 only and restores the root default otherwise.
@@ -1152,11 +1156,22 @@ scope non-dependently because the getter runs outside build. Routes outside
 the shell (root Navigator, any inner Navigator) see no scope and fall through
 to `?? true`.
 
-During a gesture back, Heroes do not fly back (`transitionOnUserGestures`
-stays false): the predictive transition shrinks the whole page but the Hero
-flight start rect is measured at gesture start, so the flight cannot track
-the shrinking page — the detail page fades out and the card is simply there.
-Button pops and `DragToDismiss` still fly Heroes as before.
+A page opened with a Hero from the page below — a card into its detail
+(`heroImageUrl` set), a detail image into the viewer (`heroScope` set) —
+is a `FuncPage(sharedElement: true)`, whatever the style. It fades in and
+out (`pageCurve`) over a page below that holds still
+(`canTransitionTo` is false toward it, so the style's covered motion never
+runs), and the flying image is the only thing that moves. Sliding pages
+under a flight read as two animations pulling apart. Heroes cannot follow
+a gesture-driven pop (`transitionOnUserGestures` stays false: the flight's
+start rect is fixed when it begins), so on Android the back gesture does
+not scrub the route: the page shrinks with the finger to 0.9, as
+`DragToDismiss` does in the viewer, a commit is an ordinary `maybePop`, so
+the Hero flies from the shrunken image and the page fades from where the
+gesture left it, and a cancel springs back (`spatialFast`). The back
+button, the gesture and `DragToDismiss` therefore end the same way. Covered
+by an ordinary page, a shared-element page plays the style's outgoing
+half like any page (`func_page_test.dart`).
 
 Pages with local edit state, such as `ProfileEditPage`, keep their
 `canPop`/confirmation behavior in their own `PopScope`. A dirty page reports
@@ -1192,8 +1207,8 @@ count. A sliver whose type depends on the snapshot's page count rebuilds the
 landing Hero when the detail payload disagrees with the snapshot (a restored
 feed), and the orphaned endpoint then paints under the flight.
 
-Chrome over artwork stays readable over a white page: the viewer's bars sit on
-an `imageControl` → transparent gradient that takes no taps, and the page
+Chrome over artwork stays readable over a white page: the viewer's bars take
+`ArtworkControls` (white glyphs, black halo; no scrim), and the page
 position is one `PageCountPill` on both the detail page and the viewer. The
 detail pill fades in and out and never hard-cuts.
 
@@ -1342,6 +1357,16 @@ Future<ImagePreloadResult> PixivImage.preload(
   letterboxes every non-matching page. Estimated-ratio boxes are placeholder
   real estate only: the slot must hold an estimated box until the decode
   lands, then let the real dimensions take over.
+- On a narrow detail route, a short first illustration (natural height
+  below `viewport.height * _shortFirstImageSlotFactor`, single or the first
+  of a set) receives a fixed
+  `DetailPageImage.imageSlotHeight`; the image stays centered at its own
+  `pageAspectRatioAt(0)` inside that slot. The Hero must remain inside the
+  aspect-ratio box, with loading/error/placeholder surfaces using the same
+  outer slot, so the flight rect contains the artwork and not the reserved
+  empty space. The cold-load skeleton keeps its square image bone: before the
+  entity arrives neither the page count nor the ratio is known. Manga,
+  ugoira, and two-pane layouts do not receive this slot.
 - The decoded image cache must survive backgrounding: Android posts
   TRIM_MEMORY_UI_HIDDEN on every hide and the stock binding answers it with
   `imageCache.clear()`, which re-fades every artwork on resume. The app's
@@ -1647,23 +1672,39 @@ On the narrow layout, once content renders:
   notifications raised during build or layout are deferred to one
   post-frame notify; an anchor under a `LayoutBuilder` would otherwise
   mutate the prompt layout mid-`performLayout`.
-- **Immersive top.** The `Scaffold` extends its body behind the AppBar and
-  page 1 starts at y = 0, under the status bar. `AppTopBar(immersion:)` is
-  0 there: a transparent bar over an `imageControl` gradient scrim, light
-  controls with a soft shadow, light status-bar icons, no title. Over the
-  last `kToolbarHeight` before page 1 leaves the top the value runs to 1:
-  surface alpha, control colour and the work's title fade in together.
+- **Immersive top.** The `Scaffold` extends its body behind the AppBar;
+  page 1 starts below the status bar (a status-bar-high spacer leads the
+  narrow scroll), never under the clock. `AppTopBar(immersion:)` keeps the
+  status strip the page surface with theme-following icons at every value,
+  so content scrolling up disappears under it. At 0 the toolbar is
+  transparent, no title. Only while page 1 actually starts under the
+  toolbar (`overArtwork`) do the controls take the `ArtworkControls` look
+  (the `AppBar`'s `iconTheme`, lerped from the theme's by the value); no
+  disc, no gradient scrim. A slotted image starting below the bar
+  leaves the theme's controls bare on the page, and the bar draws in as
+  the image reaches it instead of as it leaves. Over the last
+  `kToolbarHeight` before page 1 leaves the top the value runs to 1:
+  surface alpha and the work's title fade in while the artwork look fades
+  back to the theme's controls.
   The `ScrollEdgeLine` stays off until the bar is fully drawn — while it
   fades, the surface itself is the edge, so two edges never stack. Overlays
-  on page 1 (selection badge, page pill) are inset by the status bar plus
-  toolbar height. A page whose only visible strip sits behind the status
-  bar and toolbar does not count as on screen, so the page count fades out
-  instead of hanging over the info. The two-pane layout and loading/error
-  states keep the opaque bar.
-- **Hero landing.** The flight lands under the see-through bar
-  (`occludesContent` false), not clipped below it. The flight paints over
-  the bar, so a detail opened from a card (`heroImageUrl` set) holds the
-  bar at `entrance` 0 and fades it in over `MotionTokens.fast` once the
+  on page 1 (selection badge) are inset by the toolbar height; the page
+  pill sits below status bar plus toolbar. A page whose only visible strip
+  sits behind the status bar and toolbar does not count as on screen, so
+  the page count fades out instead of hanging over the info. The two-pane
+  layout and loading/error states keep the opaque bar.
+- **First image slot.** On narrow screens a short first illustration —
+  single or the first of a set, not manga or ugoira — sits vertically
+  centered in a slot of 0.7 × the viewport height, at its natural ratio;
+  the Hero lands on the image, not the slot. Only an image shown alone
+  takes the slot: expanding a set springs page 1 (`spatialFast`) to its
+  natural height, so no gap opens before page 2, and folding springs it
+  back. Page 1 of an illustration always goes through the slot box (its
+  natural height when expanded or tall) so the toggle never remounts it.
+- **Hero landing.** The flight lands under the see-through toolbar
+  (`occludesContent` false), clipped only below the opaque status strip.
+  The flight paints over the bar, so a detail opened from a card
+  (`heroImageUrl` set) holds the bar at `entrance` 0 and fades it in over `MotionTokens.fast` once the
   route animation completes. The action bar likewise starts hidden and
   rises on `slideChrome` at the landing, and slides away as soon as the
   route reverses, so neither flight covers it. The route status is read
