@@ -27,6 +27,7 @@ import '../../../app/system_ui.dart';
 import '../../../app/theme/func_tokens.dart';
 import '../../../l10n/lookup.dart';
 import '../../../app/widgets/app_snack_bar.dart';
+import '../../../app/widgets/artwork_controls.dart';
 import '../../../app/widgets/entity_row.dart' show EntityBadge;
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../l10n/context.dart';
@@ -745,7 +746,6 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   /// Top chrome: back affordance + the `n / total` counter, the viewer's
   /// only page counter. Tapping it opens the thumbnail jump sheet.
   Widget _buildTopBar(BuildContext context) {
-    final color = FuncTokens.lightBackground;
     return Material(
       color: Colors.transparent,
       child: SafeArea(
@@ -754,7 +754,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
           children: [
             // Imperative pop: explicit exits never route through the
             // system-back intercept chain (W1 split).
-            BackButton(color: color, onPressed: _imperativePop),
+            BackButton(onPressed: _imperativePop),
             const Spacer(),
             // Empty state honesty: no misleading "1 / 0" counter.
             if (_pageCount > 0)
@@ -789,7 +789,6 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     final entity = widget.entity;
     final l10n = context.l10n;
     final hasPages = _pageCount > 0;
-    final color = FuncTokens.lightBackground;
     return Material(
       color: Colors.transparent,
       child: SafeArea(
@@ -800,7 +799,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
             IconButton(
               tooltip: l10n.viewerFitScreen,
               onPressed: hasPages ? _resetZoom : null,
-              icon: Icon(Icons.fit_screen, color: color),
+              icon: const Icon(Icons.fit_screen),
             ),
             if (entity != null) ...[
               IconButton(
@@ -818,26 +817,20 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                  IllustPageSaveState.exist => Icon(
-                    Icons.check_circle,
-                    color: color,
-                  ),
-                  IllustPageSaveState.error => Icon(
-                    Icons.error_outline,
-                    color: color,
-                  ),
-                  _ => Icon(Icons.download_outlined, color: color),
+                  IllustPageSaveState.exist => const Icon(Icons.check_circle),
+                  IllustPageSaveState.error => const Icon(Icons.error_outline),
+                  _ => const Icon(Icons.download_outlined),
                 },
               ),
               IconButton(
                 tooltip: l10n.cardActionShare,
                 onPressed: hasPages ? () => unawaited(_share(entity)) : null,
-                icon: Icon(Icons.share_outlined, color: color),
+                icon: const Icon(Icons.share_outlined),
               ),
               IconButton(
                 tooltip: l10n.viewerInfo,
                 onPressed: hasPages ? () => _showInfo(entity) : null,
-                icon: Icon(Icons.info_outline, color: color),
+                icon: const Icon(Icons.info_outline),
               ),
             ],
           ],
@@ -996,51 +989,15 @@ class _ChromeEdgeBarState extends State<_ChromeEdgeBar>
               alwaysIncludeSemantics: true,
               child: child,
             ),
-            child: _ChromeScrim(edge: widget.edge, child: widget.child),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A dark gradient behind one chrome bar, fading toward the artwork, so the
-/// light controls stay readable over a white page. It reaches
-/// [_ChromeScrim.fadeExtent] past the controls; that run takes no taps, so
-/// a tap there still toggles the chrome.
-class _ChromeScrim extends StatelessWidget {
-  const _ChromeScrim({required this.edge, required this.child});
-
-  static const double fadeExtent = FuncSpacing.xxl;
-
-  final _ChromeEdge edge;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final top = edge == _ChromeEdge.top;
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: top ? Alignment.topCenter : Alignment.bottomCenter,
-                  end: top ? Alignment.bottomCenter : Alignment.topCenter,
-                  colors: const [FuncTokens.imageControl, Colors.transparent],
-                ),
-              ),
+            // The stage is always black, whatever the theme.
+            child: ArtworkControls(
+              glyph: FuncTokens.onImageControl,
+              halo: Colors.black,
+              child: widget.child,
             ),
           ),
         ),
-        Padding(
-          padding: top
-              ? const EdgeInsets.only(bottom: fadeExtent)
-              : const EdgeInsets.only(top: fadeExtent),
-          child: child,
-        ),
-      ],
+      ),
     );
   }
 }

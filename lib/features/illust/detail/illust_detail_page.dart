@@ -53,6 +53,88 @@ import '../../../app/widgets/smooth_wheel_scroll.dart';
 /// its first page keeps its natural height.
 const _shortFirstImageSlotFactor = 0.7;
 
+/// Where the first image sits in the detail scroll. The narrow layout
+/// starts the artwork below the status bar, which the top bar keeps opaque;
+/// it may run under the see-through toolbar, so overlays on it start below
+/// the toolbar, and the bar draws in as it leaves.
+class _FirstImageLayout {
+  _FirstImageLayout._({
+    required this.useTwoPane,
+    required this.statusInset,
+    required this.topChrome,
+    required this.collapsible,
+    required this.shownPages,
+    required this.natural,
+    required this.slots,
+    required this.alone,
+  });
+
+  factory _FirstImageLayout.of(
+    BuildContext context,
+    IllustEntity entity, {
+    required bool expanded,
+  }) {
+    final viewport = MediaQuery.sizeOf(context);
+    final useTwoPane = AppBreakpoints.useTwoPaneDetail(viewport.width);
+    // An illustration set opens on its first image; manga reads in full.
+    final collapsible =
+        entity.type == IllustType.illust && entity.pageCount > 1;
+    final natural = viewport.width / entity.pageAspectRatioAt(0);
+    final slots =
+        !useTwoPane && entity.type == IllustType.illust && !entity.isUgoira;
+    return _FirstImageLayout._(
+      useTwoPane: useTwoPane,
+      statusInset: useTwoPane ? 0 : MediaQuery.paddingOf(context).top,
+      topChrome: MediaQuery.paddingOf(context).top + kToolbarHeight,
+      collapsible: collapsible,
+      shownPages: collapsible && !expanded ? 1 : entity.pageCount,
+      natural: natural,
+      slots: slots,
+      alone: slots
+          ? math.max(natural, viewport.height * _shortFirstImageSlotFactor)
+          : natural,
+    );
+  }
+
+  final bool useTwoPane;
+  final double statusInset;
+  final double topChrome;
+  final bool collapsible;
+  final int shownPages;
+
+  /// The first image's height at the full width.
+  final double natural;
+
+  /// Whether the first image goes through the reading slot.
+  final bool slots;
+
+  /// The first image's extent when shown alone: the slot, or its natural
+  /// height when that is taller.
+  final double alone;
+
+  /// The slot only frames an image shown alone: below an expanded set's
+  /// first page it would open a gap before page 2.
+  double get extent => shownPages == 1 ? alone : natural;
+
+  /// The image's top in the scroll: centered in its slot.
+  double get top => statusInset + (extent - natural) / 2;
+
+  /// Whether the image starts under the toolbar, so the bar's controls
+  /// need lifting off it.
+  bool get artworkUnderBar => top < topChrome;
+
+  /// Where the bar starts drawing in: over the last toolbar height before
+  /// the image leaves the top, or, for an image below the bar, before it
+  /// reaches the bar.
+  double get immersionStart => math.max(
+    0,
+    (artworkUnderBar ? statusInset + extent : top) - topChrome - kToolbarHeight,
+  );
+
+  /// Where a collapsed set ends: page 1's bottom just under the top bar.
+  double get firstPageEnd => math.max(0, statusInset + alone - topChrome);
+}
+
 class IllustDetailPage extends ConsumerStatefulWidget {
   const IllustDetailPage({
     super.key,
@@ -500,6 +582,14 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
         overflow: TextOverflow.ellipsis,
       ),
       immersion: immersive ? _immersion : null,
+      // Nothing to lift the controls off while page 1 sits below the bar.
+      overArtwork:
+          entity == null ||
+          _FirstImageLayout.of(
+            context,
+            entity,
+            expanded: _pagesExpanded,
+          ).artworkUnderBar,
       entrance: immersive ? _topBarEntrance : null,
       // Download and bookmark live in the floating action bar.
       actions: [
@@ -615,43 +705,20 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
 
     // The media column and the metadata column are the same slivers in both
     // layouts; only their arrangement differs (single scroll vs two panes).
-    // An illustration set opens on its first image; manga reads in full.
-    final collapsible =
-        entity.type == IllustType.illust && entity.pageCount > 1;
-    final shownPages = collapsible && !_pagesExpanded ? 1 : entity.pageCount;
-    // Narrow layout: the artwork starts below the status bar, which the
-    // top bar keeps opaque, and runs under the see-through toolbar, so
-    // overlays on it start below the toolbar, and the bar draws in as the
-    // first image leaves.
-    final viewport = MediaQuery.sizeOf(context);
-    final useTwoPane = AppBreakpoints.useTwoPaneDetail(viewport.width);
-    final statusInset = useTwoPane ? 0.0 : MediaQuery.paddingOf(context).top;
-    final topChrome = MediaQuery.paddingOf(context).top + kToolbarHeight;
-    _topChromeExtent = useTwoPane ? 0 : topChrome;
-    final naturalFirstImageExtent =
-        viewport.width / entity.pageAspectRatioAt(0);
-    final slotsFirstImage =
-        !useTwoPane && entity.type == IllustType.illust && !entity.isUgoira;
-    // The slot only frames an image shown alone: below an expanded set's
-    // first page it would open a gap before page 2.
-    final aloneFirstImageExtent = slotsFirstImage
-        ? math.max(
-            naturalFirstImageExtent,
-            viewport.height * _shortFirstImageSlotFactor,
-          )
-        : naturalFirstImageExtent;
-    final firstImageExtent = shownPages == 1
-        ? aloneFirstImageExtent
-        : naturalFirstImageExtent;
-    _immersionStart = math.max(
-      0,
-      statusInset + firstImageExtent - topChrome - kToolbarHeight,
+    final layout = _FirstImageLayout.of(
+      context,
+      entity,
+      expanded: _pagesExpanded,
     );
-    // Where a collapsed set ends: page 1's bottom just under the top bar.
-    final firstPageEnd = math.max(
-      0.0,
-      statusInset + aloneFirstImageExtent - topChrome,
-    );
+    final collapsible = layout.collapsible;
+    final shownPages = layout.shownPages;
+    final statusInset = layout.statusInset;
+    final topChrome = layout.topChrome;
+    final slotsFirstImage = layout.slots;
+    final firstImageExtent = layout.extent;
+    final firstPageEnd = layout.firstPageEnd;
+    _topChromeExtent = layout.useTwoPane ? 0 : topChrome;
+    _immersionStart = layout.immersionStart;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _updateImmersion();
     });

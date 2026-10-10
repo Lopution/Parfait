@@ -59,7 +59,6 @@ class AppMenuButton<T> extends StatefulWidget {
     required this.onSelected,
     this.tooltip,
     this.icon = const Icon(Icons.more_vert),
-    this.style,
     this.anchorBuilder,
     this.edge = AppMenuEdge.end,
   });
@@ -75,10 +74,6 @@ class AppMenuButton<T> extends StatefulWidget {
   final String? tooltip;
 
   final Widget icon;
-
-  /// Forwarded to the default [IconButton] anchor (the over-artwork
-  /// palette, for instance).
-  final ButtonStyle? style;
 
   /// Replaces the default icon button; call `toggle` to open or close.
   final Widget Function(BuildContext context, VoidCallback toggle)?
@@ -184,7 +179,6 @@ class _AppMenuButtonState<T> extends State<AppMenuButton<T>> {
                   tooltip:
                       widget.tooltip ??
                       MaterialLocalizations.of(context).showMenuTooltip,
-                  style: widget.style,
                   icon: widget.icon,
                   onPressed: toggle,
                 );

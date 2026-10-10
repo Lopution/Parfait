@@ -47,7 +47,7 @@ abstract final class FuncTokens {
   /// Scrim/overlay tone for dimming content under floating surfaces.
   static const Color surfaceOverlay = Color(0x52000000);
 
-  /// Controls floating over artwork (ImageOverlayButton, page counters):
+  /// Pills floating over artwork (page counters, load progress):
   /// dark enough that white glyphs keep 4.5:1 even over a pure white image.
   static const Color imageControl = Color(0x8C000000);
   static const Color onImageControl = lightBackground;

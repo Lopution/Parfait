@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../motion/motion_tokens.dart';
 import '../system_ui.dart';
 import '../theme/func_semantic_tokens.dart';
-import '../theme/func_tokens.dart';
+import 'artwork_controls.dart';
 
 /// The single entry point for page top bars: an [AppBar] that keeps the
 /// page colour in both states and marks content scrolled under it with a
@@ -28,6 +28,7 @@ class AppTopBar extends StatefulWidget implements PreferredSizeWidget {
     this.backgroundColor,
     this.notificationPredicate = defaultScrollNotificationPredicate,
     this.immersion,
+    this.overArtwork = true,
     this.entrance,
   });
 
@@ -47,14 +48,20 @@ class AppTopBar extends StatefulWidget implements PreferredSizeWidget {
   final ScrollNotificationPredicate notificationPredicate;
 
   /// For a page that opens on artwork under the bar (the body extends
-  /// behind it): 0 draws the toolbar transparent, its controls light on a
-  /// dark scrim with a shadow so they read on any image, the title hidden;
-  /// 1 is the normal bar. Values between fade one into the other. The
+  /// behind it): 0 draws the toolbar transparent with the theme's
+  /// controls ([overArtwork] gives them the [ArtworkControls] look), the title hidden; 1 is
+  /// the normal bar. Values between fade one into the other. The
   /// status bar strip stays the page surface throughout, its icons
   /// following the theme: the artwork starts below it rather than under
   /// the clock. The edge line shows only once the bar is fully drawn —
   /// until then the fading surface is the edge. Null is the normal bar.
   final ValueListenable<double>? immersion;
+
+  /// Whether artwork lies under the transparent toolbar: the immersed
+  /// controls then take the [ArtworkControls] look. Off (the artwork
+  /// starts below the bar), they sit bare: there is nothing to lift them
+  /// off.
+  final bool overArtwork;
 
   /// Fades the whole bar in. A Hero flight that lands under a see-through
   /// bar is drawn over it; the page holds the bar back until the image has
@@ -136,20 +143,16 @@ class _AppTopBarState extends State<AppTopBar> {
         theme.colorScheme.surface;
     final foreground = barTheme.foregroundColor ?? theme.colorScheme.onSurface;
     final immersed = drawn < 1;
-    final controls = Color.lerp(FuncTokens.onImageControl, foreground, drawn)!;
-    final iconTheme = IconThemeData(
-      color: controls,
-      shadows: immersed
-          ? [
-              Shadow(
-                color: FuncTokens.imageControl.withValues(
-                  alpha: FuncTokens.imageControl.a * (1 - drawn),
-                ),
-                blurRadius: FuncSpacing.sm,
-              ),
-            ]
-          : null,
-    );
+    // Over artwork the controls take the shared artwork look; it fades
+    // back to the theme's as the bar's surface takes over.
+    final lift = immersed && widget.overArtwork ? 1 - drawn : 0.0;
+    final liftedIcons = lift == 0
+        ? null
+        : IconThemeData.lerp(
+            IconThemeData(color: foreground),
+            ArtworkControls.iconTheme(context, halo: surface),
+            lift,
+          );
     final title = widget.title;
     final statusInset = MediaQuery.paddingOf(context).top;
     return Stack(
@@ -162,24 +165,6 @@ class _AppTopBarState extends State<AppTopBar> {
             right: 0,
             height: statusInset,
             child: ColoredBox(color: surface),
-          ),
-        if (immersed)
-          Positioned.fill(
-            top: statusInset,
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: 1 - drawn,
-                child: const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [FuncTokens.imageControl, FuncTokens.transparent],
-                    ),
-                  ),
-                ),
-              ),
-            ),
           ),
         AppBar(
           leading: widget.leading,
@@ -194,9 +179,8 @@ class _AppTopBarState extends State<AppTopBar> {
           backgroundColor: immersed
               ? surface.withValues(alpha: surface.a * drawn)
               : widget.backgroundColor,
-          foregroundColor: immersed ? controls : null,
-          iconTheme: immersed ? iconTheme : null,
-          actionsIconTheme: immersed ? iconTheme : null,
+          foregroundColor: immersed ? foreground : null,
+          iconTheme: liftedIcons,
           // The status strip is the page surface, so its icons follow the
           // theme like the navigation bar's.
           systemOverlayStyle: immersed

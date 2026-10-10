@@ -179,8 +179,9 @@ Page<dynamic> _page(
   BuildContext context,
   GoRouterState state,
   RouteObserver<ModalRoute<dynamic>> observer,
-  Widget child,
-) {
+  Widget child, {
+  bool sharedElement = false,
+}) {
   // Reduced-motion collapses the transition without dropping the state it
   // communicates: the route still changes on the same frame. The animation
   // speed scales each style's own duration.
@@ -206,6 +207,7 @@ Page<dynamic> _page(
     transitionDuration: duration,
     reverseTransitionDuration: duration,
     transitionStyle: style,
+    sharedElement: sharedElement,
   );
 }
 
@@ -532,6 +534,7 @@ List<RouteBase> _commonBranchRoutes(
                 heroImageUrl: extra.heroImageUrl,
                 heroImageDecodeWidth: extra.heroImageDecodeWidth,
               ),
+              sharedElement: extra.heroImageUrl != null,
             );
           }
           return _page(
@@ -545,6 +548,7 @@ List<RouteBase> _commonBranchRoutes(
               heroImageUrl: extra.heroImageUrl,
               heroImageDecodeWidth: extra.heroImageDecodeWidth,
             ),
+            sharedElement: extra.heroImageUrl != null,
           );
         }
         return _page(
@@ -578,6 +582,7 @@ List<RouteBase> _commonBranchRoutes(
                 quality: quality,
                 extra: extra,
               ),
+              sharedElement: extra?.heroScope != null,
             );
           },
         ),

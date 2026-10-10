@@ -13,8 +13,8 @@ import '../../core/user/user_entity.dart';
 import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
+import '../../app/widgets/artwork_controls.dart';
 import '../../app/widgets/follow_switch_button.dart';
-import '../../app/widgets/image_overlay_button.dart';
 import '../../l10n/context.dart';
 import 'profile_statistics.dart';
 
@@ -624,10 +624,9 @@ class _ProfileHeaderMoreButton extends StatelessWidget {
   final List<_ProfileHeaderAction> actions;
   final bool includePrimary;
 
-  /// While artwork sits behind the control it carries the shared
-  /// [ImageOverlayButton] palette — a fixed 55% black fill keeps the
-  /// glyph legible over any image. On the normal surface there is no
-  /// fill at all.
+  /// While artwork sits behind the control it takes the shared
+  /// [ArtworkControls] look; on the normal surface it is a plain toolbar
+  /// icon.
   final bool overArtwork;
 
   @override
@@ -637,11 +636,17 @@ class _ProfileHeaderMoreButton extends StatelessWidget {
         .toList();
     if (entries.isEmpty) return const SizedBox.shrink();
     return AppMenuButton<_ProfileHeaderAction>(
-      // AppMenuButton builds its own IconButton, so it cannot wrap an
-      // ImageOverlayButton — the shared style keeps the affordance
-      // identical instead of duplicating the token list.
-      style: overArtwork ? ImageOverlayButton.buttonStyle() : null,
       onSelected: (anchorContext, action) => action.onSelected(anchorContext),
+      // Only the anchor stands on artwork; the menu keeps the theme's look.
+      anchorBuilder: overArtwork
+          ? (context, toggle) => ArtworkControls(
+              child: IconButton(
+                tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+                icon: const Icon(Icons.more_vert),
+                onPressed: toggle,
+              ),
+            )
+          : null,
       entries: [
         for (final action in entries)
           AppMenuEntry(value: action, icon: action.icon, label: action.label),
@@ -691,8 +696,8 @@ class _HeaderBackButton extends StatefulWidget {
   const _HeaderBackButton({this.overArtwork = false});
 
   /// While artwork sits behind the button it takes the shared
-  /// [ImageOverlayButton] style; on the normal surface it is a plain
-  /// toolbar icon with no fill (R4).
+  /// [ArtworkControls] look; on the normal surface it is a plain toolbar
+  /// icon (R4).
   final bool overArtwork;
 
   @override
@@ -713,13 +718,13 @@ class _HeaderBackButtonState extends State<_HeaderBackButton> {
     if (!_canPop) return const SizedBox.shrink();
     final tooltip = MaterialLocalizations.of(context).backButtonTooltip;
     // The platform's back glyph, as every BackButton (U1); over artwork
-    // only the backing changes.
-    const icon = BackButtonIcon();
-    void pop() => Navigator.of(context).maybePop();
-    if (widget.overArtwork) {
-      return ImageOverlayButton(icon: icon, tooltip: tooltip, onPressed: pop);
-    }
-    return IconButton(tooltip: tooltip, onPressed: pop, icon: icon);
+    // only the colours change.
+    final button = IconButton(
+      tooltip: tooltip,
+      onPressed: () => Navigator.of(context).maybePop(),
+      icon: const BackButtonIcon(),
+    );
+    return widget.overArtwork ? ArtworkControls(child: button) : button;
   }
 }
 

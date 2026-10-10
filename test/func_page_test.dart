@@ -271,6 +271,91 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.android),
   );
 
+  testWidgets('a shared-element page answers the back gesture by shrinking, '
+      'then pops with its Hero over a still page', (tester) async {
+    late BuildContext rootContext;
+    late final PageRoute<void> below;
+    late final PageRoute<void> pushed;
+    PageRoute<void> page(Widget child, {bool sharedElement = false}) =>
+        FuncPage<void>(
+              transitionDuration: const Duration(milliseconds: 400),
+              reverseTransitionDuration: const Duration(milliseconds: 400),
+              sharedElement: sharedElement,
+              child: child,
+            ).createRoute(rootContext)
+            as PageRoute<void>;
+    Widget hero(String label, Offset at) => Stack(
+      children: [
+        Positioned(
+          left: at.dx,
+          top: at.dy,
+          child: Hero(
+            tag: 'art',
+            child: SizedBox.square(dimension: 50, child: Text(label)),
+          ),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Builder(
+          builder: (context) {
+            rootContext = context;
+            return Navigator(
+              observers: [HeroController()],
+              onGenerateRoute: (_) => below = page(
+                Builder(
+                  builder: (context) => GestureDetector(
+                    onTap: () {
+                      pushed = page(
+                        hero('detail', const Offset(300, 500)),
+                        sharedElement: true,
+                      );
+                      Navigator.of(context).push(pushed);
+                    },
+                    child: hero('card', Offset.zero),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.text('card'));
+    await tester.pumpAndSettle();
+    // The page below never plays its covered motion.
+    expect(below.secondaryAnimation!.value, 0);
+
+    await _sendBackGestureMethod('startBackGesture', {
+      'touchOffset': <double>[5.0, 300.0],
+      'progress': 0.0,
+      'swipeEdge': 0,
+    });
+    await _sendBackGestureMethod('updateBackGestureProgress', {
+      'touchOffset': <double>[100.0, 300.0],
+      'progress': 1.0,
+      'swipeEdge': 0,
+    });
+    await tester.pump();
+    // The gesture shrinks the page; it does not scrub the route.
+    expect(pushed.animation!.value, 1.0);
+    expect(tester.getRect(find.text('detail')).width, closeTo(45, 0.5));
+
+    await _sendBackGestureMethod('commitBackGesture');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    // The Hero flies from the shrunken image back to the card, while the
+    // page below stays where it is.
+    final flying = tester.getTopLeft(find.text('card'));
+    expect(flying.dx, inExclusiveRange(0, 300));
+    expect(flying.dy, inExclusiveRange(0, 500));
+    await tester.pumpAndSettle();
+    expect(find.text('detail'), findsNothing);
+    expect(tester.getTopLeft(find.text('card')), Offset.zero);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
   testWidgets('the scoped tier still collapses under reduced motion', (
     tester,
   ) async {
