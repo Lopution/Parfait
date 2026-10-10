@@ -338,6 +338,14 @@ void main() {
       expect(barGradient(), findsNothing);
       expect(tester.getRect(hero).height, closeTo(naturalHeight, 0.5));
       expect(tester.getRect(hero).center.dy, closeTo(slot.center.dy, 0.5));
+      // The pager's stand-in for an unbuilt page draws at the same frame,
+      // so a swipe does not land on a jump.
+      final frame = detailFirstImageFrame(
+        tester.element(find.byType(IllustDetailPage)),
+        container.read(illustStoreProvider).get(42)!,
+      );
+      expect(frame.top, closeTo(tester.getRect(hero).top, 0.5));
+      expect(frame.height, closeTo(naturalHeight, 0.5));
     });
 
     testWidgets('gives the first image of a set the same slot', (tester) async {

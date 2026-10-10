@@ -147,6 +147,18 @@ class _FirstImageLayout {
   double get firstPageEnd => math.max(0, statusInset + alone - topChrome);
 }
 
+/// Where a freshly built narrow detail page draws [entity]'s first image:
+/// its top in the scroll and its height (a panorama's viewport height). The
+/// pager's stand-in for a page not built yet draws there, so a swipe lands
+/// on the picture the page then builds instead of jumping into place.
+({double top, double height}) detailFirstImageFrame(
+  BuildContext context,
+  IllustEntity entity,
+) {
+  final layout = _FirstImageLayout.of(context, entity, expanded: false);
+  return (top: layout.top, height: layout.natural);
+}
+
 class IllustDetailPage extends ConsumerStatefulWidget {
   const IllustDetailPage({
     super.key,
@@ -270,14 +282,14 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     }
   }
 
+  /// The action bar rises once the page has landed. Leaving, it stays and
+  /// goes with the page: sliding it down on its own read as a second,
+  /// smaller exit under the page's fade.
   void _onRouteStatus(AnimationStatus status) {
-    if (status.isCompleted) {
-      _topBarEntrance.forward();
-      if (!_touchExploration) {
-        slideChrome(context, _barVisibility, hidden: false);
-      }
-    } else if (status == AnimationStatus.reverse && !_touchExploration) {
-      slideChrome(context, _barVisibility, hidden: true);
+    if (!status.isCompleted) return;
+    _topBarEntrance.forward();
+    if (!_touchExploration) {
+      slideChrome(context, _barVisibility, hidden: false);
     }
   }
 

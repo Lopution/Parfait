@@ -88,11 +88,24 @@ class _FuncPageRoute<T> extends PageRoute<T> {
       : _page.barrierColor;
 
   /// The page below a shared-element page holds still: the Hero flies to
-  /// or from a spot on it, which must not slide away under the flight.
+  /// or from a spot on it, which must not slide away under the flight. Its
+  /// secondary animation still runs, so it counts as covered until a pop
+  /// has finished — the home branch root keeps drawing its own copy of the
+  /// bottom bar under the fading page instead of the shell's popping up
+  /// over it. One builder per route: the framework skips a delegated
+  /// transition equal to the receiving route's own, which would let a
+  /// shared-element page below another (detail under viewer) move.
   @override
-  bool canTransitionTo(TransitionRoute<dynamic> nextRoute) =>
-      super.canTransitionTo(nextRoute) &&
-      !(nextRoute is _FuncPageRoute && nextRoute._page.sharedElement);
+  DelegatedTransitionBuilder? get delegatedTransition =>
+      _page.sharedElement ? _holdStill : null;
+
+  Widget? _holdStill(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    bool allowSnapshotting,
+    Widget? child,
+  ) => child;
 
   @override
   String? get barrierLabel => _page.barrierLabel;

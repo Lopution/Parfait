@@ -1159,9 +1159,13 @@ to `?? true`.
 A page opened with a Hero from the page below — a card into its detail
 (`heroImageUrl` set), a detail image into the viewer (`heroScope` set) —
 is a `FuncPage(sharedElement: true)`, whatever the style. It fades in and
-out (`pageCurve`) over a page below that holds still
-(`canTransitionTo` is false toward it, so the style's covered motion never
-runs), and the flying image is the only thing that moves. Sliding pages
+out (`pageCurve`) over a page below that holds still (the route's
+`delegatedTransition` is a per-route builder returning the child, which
+replaces the style's covered motion), and the flying image is the only
+thing that moves. Do not refuse the transition (`canTransitionTo` false)
+instead: the page below's secondary animation must still run, or a branch
+root counts as uncovered from the start of the pop and the shell's bottom
+bar appears at once over the leaving page and its action bar. Sliding pages
 under a flight read as two animations pulling apart. Heroes cannot follow
 a gesture-driven pop (`transitionOnUserGestures` stays false: the flight's
 start rect is fixed when it begins), so on Android the back gesture does
@@ -1415,8 +1419,12 @@ Future<ImagePreloadResult> PixivImage.preload(
   the square thumbnail (the 540 px resize, or the uncropped `square1200`
   for wider cards) and opens without a Hero, since that image is not the
   detail page's. A top-cropped card hands `cropAspect` (the work's
-  width/height) to its frame, and the shuttle lerps the child from the
-  card's cover-top rect to the whole contained image, both directions.
+  width/height) to its frame, and the shuttle lays the image out full
+  width and top-aligned at that ratio for the whole flight, both
+  directions. The flight rect runs from 1:2 to the image ratio, so it is
+  never taller than the image. Fitting the image inside the rect mid-flight
+  shrank it narrower than the rect and widened it back, which read as a
+  second shrink.
   There is no feed prefetch: the grid's cache extent builds cards ahead and
   each card's image loads as it mounts. Cards have no entrance of their
   own: they land in place, as in Shaft (its lists run without an item
@@ -1450,8 +1458,11 @@ Future<ImagePreloadResult> PixivImage.preload(
   `loadMore` only on an existing, loaded provider. It must never send the
   first request.
 - A pager page outside the build window paints the work's image where the
-  detail draws it (full width, top) from a decode the feed already made
-  (`PixivImage.decodedStandIn`), never a load; a bare surface when none
+  built detail page will draw it (`detailFirstImageFrame`: below the status
+  bar, centered in the reading slot, a panorama `cover`-cropped to its
+  viewport) from a decode the feed already made
+  (`PixivImage.decodedStandIn`), never a load. A stand-in at the old
+  top-of-page position made a swipe jump on landing; a bare surface when none
   exists and in the two-pane layout. `findChildIndexCallback` maps pages by
   work id, so a list shift moves built pages instead of rebuilding them as
   other works.
@@ -1723,8 +1734,8 @@ On the narrow layout, once content renders:
   The flight paints over the bar, so a detail opened from a card
   (`heroImageUrl` set) holds the bar at `entrance` 0 and fades it in over `MotionTokens.fast` once the
   route animation completes. The action bar likewise starts hidden and
-  rises on `slideChrome` at the landing, and slides away as soon as the
-  route reverses, so neither flight covers it. The route status is read
+  rises on `slideChrome` at the landing. Leaving, it stays and fades
+  with the page; the flight back is drawn above it. The route status is read
   after the first frame: before the push starts, the route's proxy
   animation reports a placeholder `completed`.
 
@@ -1751,7 +1762,7 @@ On the narrow layout, once content renders:
   prompt above the bar; the bar hides and returns and stays under
   touch exploration; page 1 runs under a see-through bar that draws in.
 - `hero_transition_test.dart`: mid-flight the top bar's `entrance` and
-  the action bar are 0, after landing 1; the action bar leaves as the pop
+  the action bar are 0, after landing 1; the action bar stays as the pop
   starts.
 - `priority_surface_semantics_test.dart`: the viewer counter and fit are
   named buttons.
@@ -1931,13 +1942,16 @@ static bool PullToRefresh.trigger(ScrollController controller);
   Its `PrimaryScrollController` is never `.none`: a feed that does not
   inherit registers no dependency and misses the hand-back.
 - Touch scroll physics are unified app-wide through `FuncScrollBehavior`:
-  `BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())` plus no
-  platform overscroll indicator — the same scheme `_ERScrollPhysics` installs
-  inside `PullToRefresh` subtrees, so non-feed pages (detail, settings,
-  search) share the feed's feel. Do not reintroduce a
+  `FuncScrollPhysics(parent: AlwaysScrollableScrollPhysics())` (bouncing)
+  plus no platform overscroll indicator — the same feel `_ERScrollPhysics`
+  gives `PullToRefresh` subtrees, so non-feed pages (detail, settings,
+  search, profile) share the feed's. Do not reintroduce a
   `ClampingScrollPhysics` region.
-- Inside `PullToRefresh` a fling stops at either edge; only a drag
-  overscrolls. The header's `hitOver` is already off; the wrapper passes
+- Everywhere a fling stops at either edge; only a drag overscrolls and
+  springs back. `FuncScrollPhysics` ends an in-range ballistic at the edge
+  it would cross (`scroll_behavior_test.dart`). Before, a fling into the end
+  of the detail page overshot and sprang back while related works loaded.
+  Inside `PullToRefresh` EasyRefresh does the same itself. The header's `hitOver` is already off; the wrapper passes
   `notLoadFooter: NotLoadFooter(hitOver: false)` because without `onLoad`
   EasyRefresh copies `ClassicFooter`'s `hitOver: true`, and a fling into a
   feed's end then sprang back up while the next page loaded.
