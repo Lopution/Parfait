@@ -135,6 +135,11 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   /// PageView does not build or decode every page between the endpoints.
   int? _scrubPage;
 
+  /// The last pointer that went down on the scrubber. Its Listener sits
+  /// below [DragToDismiss] in the hit path, so it records the pointer
+  /// before the dismiss recognizer is offered it and turns it away.
+  int? _scrubPointer;
+
   int get _pageCount => widget.urls.length;
 
   bool get _chromeVisible => _viewerSessionChromeVisible;
@@ -543,6 +548,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
             enabled: widget.heroTagForPage?.call(_activePage) == null,
             child: DragToDismiss(
               enabled: !_activeZoomed,
+              allowPointer: (event) => event.pointer != _scrubPointer,
               onDismissed: () => Navigator.of(context).pop<void>(),
               // The stage is always black; pin light bar icons while the
               // viewer is mounted so the clock stays readable after exiting
@@ -850,16 +856,19 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_pageCount >= 4)
-              _PageScrubber(
-                key: const Key('viewer-page-scrubber'),
-                count: _pageCount,
-                current: _activePage,
-                value: _scrubPage ?? _activePage,
-                onChanged: _onScrubChanged,
-                onChangeEnd: _onScrubEnd,
-                pageLabel: (page) =>
-                    context.l10n.viewerPageLabel(page + 1, _pageCount),
-                thumbnailUrl: (page) => widget.entity?.squareUrlAt(page),
+              Listener(
+                onPointerDown: (event) => _scrubPointer = event.pointer,
+                child: _PageScrubber(
+                  key: const Key('viewer-page-scrubber'),
+                  count: _pageCount,
+                  current: _activePage,
+                  value: _scrubPage ?? _activePage,
+                  onChanged: _onScrubChanged,
+                  onChangeEnd: _onScrubEnd,
+                  pageLabel: (page) =>
+                      context.l10n.viewerPageLabel(page + 1, _pageCount),
+                  thumbnailUrl: (page) => widget.entity?.squareUrlAt(page),
+                ),
               ),
             Row(
               children: [
@@ -955,9 +964,40 @@ class _PageScrubber extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
+          Positioned.fill(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                // No scrim under the chrome: the light run and the dark
+                // rest of the track, plus a shadowed thumb, keep the
+                // position legible on white and black artwork alike.
+                activeTrackColor: color,
+                inactiveTrackColor: FuncTokens.imageControl,
+                thumbColor: color,
+                overlayColor: color.withValues(alpha: 0.16),
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(
+                  enabledThumbRadius: 7,
+                  elevation: 2,
+                ),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 24),
+              ),
+              // No label: the bubble above is the page indicator, so the
+              // slider's own value indicator would be a second one.
+              child: AppSlider(
+                min: 0,
+                max: (count - 1).toDouble(),
+                divisions: count - 1,
+                value: value.toDouble(),
+                onChanged: onChanged,
+                onChangeEnd: onChangeEnd,
+              ),
+            ),
+          ),
+          // After the slider: appearing mid-drag, it must not shift the
+          // slider's slot, or the slider is rebuilt and the drag dies.
+          // Above the track, over the artwork: display only, so it may
+          // overflow the scrubber's own box.
           if (dragging)
-            // Above the track, over the artwork: display only, so it may
-            // overflow the scrubber's own box.
             Positioned(
               left: 0,
               right: 0,
@@ -1004,29 +1044,6 @@ class _PageScrubber extends StatelessWidget {
                 ),
               ),
             ),
-          Positioned.fill(
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                activeTrackColor: color,
-                inactiveTrackColor: color.withValues(alpha: 0.35),
-                thumbColor: color,
-                overlayColor: color.withValues(alpha: 0.16),
-                trackHeight: 3,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 24),
-              ),
-              // No label: the bubble above is the page indicator, so the
-              // slider's own value indicator would be a second one.
-              child: AppSlider(
-                min: 0,
-                max: (count - 1).toDouble(),
-                divisions: count - 1,
-                value: value.toDouble(),
-                onChanged: onChanged,
-                onChangeEnd: onChangeEnd,
-              ),
-            ),
-          ),
         ],
       ),
     );

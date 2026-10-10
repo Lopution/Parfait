@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/physics.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -15,6 +16,7 @@ class DragToDismiss extends StatefulWidget {
     required this.child,
     required this.onDismissed,
     this.enabled = true,
+    this.allowPointer,
     this.dismissDistance = 160,
     this.dismissVelocity = 1000,
   });
@@ -22,6 +24,11 @@ class DragToDismiss extends StatefulWidget {
   final Widget child;
   final VoidCallback onDismissed;
   final bool enabled;
+
+  /// Whether a pointer that just went down may start a dismiss drag. A
+  /// control that owns every direction of its drag (a slider) rejects its
+  /// pointers here, so a thumb drifting vertically keeps driving it.
+  final bool Function(PointerDownEvent event)? allowPointer;
   final double dismissDistance;
   final double dismissVelocity;
 
@@ -114,21 +121,34 @@ class _DragToDismissState extends State<DragToDismiss>
       ),
     );
 
-    return GestureDetector(
+    final active = widget.enabled && !_dismissing;
+    return RawGestureDetector(
       behavior: HitTestBehavior.translucent,
-      onVerticalDragStart: widget.enabled && !_dismissing
-          ? _onVerticalDragStart
-          : null,
-      onVerticalDragUpdate: widget.enabled && !_dismissing
-          ? _onVerticalDragUpdate
-          : null,
-      onVerticalDragEnd: widget.enabled && !_dismissing
-          ? _onVerticalDragEnd
-          : null,
-      onVerticalDragCancel: widget.enabled && !_dismissing
-          ? _onVerticalDragCancel
-          : null,
+      gestures: {
+        if (active)
+          _DismissDragRecognizer:
+              GestureRecognizerFactoryWithHandlers<_DismissDragRecognizer>(
+                () => _DismissDragRecognizer(debugOwner: this),
+                (recognizer) => recognizer
+                  ..allowPointer = widget.allowPointer
+                  ..onStart = _onVerticalDragStart
+                  ..onUpdate = _onVerticalDragUpdate
+                  ..onEnd = _onVerticalDragEnd
+                  ..onCancel = _onVerticalDragCancel,
+              ),
+      },
       child: Stack(fit: StackFit.passthrough, children: [surface]),
     );
   }
+}
+
+class _DismissDragRecognizer extends VerticalDragGestureRecognizer {
+  _DismissDragRecognizer({super.debugOwner});
+
+  bool Function(PointerDownEvent event)? allowPointer;
+
+  @override
+  bool isPointerAllowed(PointerEvent event) =>
+      (event is! PointerDownEvent || (allowPointer?.call(event) ?? true)) &&
+      super.isPointerAllowed(event);
 }

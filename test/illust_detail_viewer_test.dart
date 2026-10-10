@@ -145,7 +145,14 @@ void main() {
 
           final scrubber = find.byKey(const Key('viewer-page-scrubber'));
           expect(scrubber, findsOneWidget);
-          await tester.drag(scrubber, const Offset(320, 0));
+          // A thumb on the bar wanders: starting downward must still scrub,
+          // not hand the drag to pull-to-dismiss.
+          final gesture = await tester.startGesture(tester.getCenter(scrubber));
+          await gesture.moveBy(const Offset(0, 30));
+          await tester.pump();
+          await gesture.moveBy(const Offset(320, 0));
+          await tester.pump();
+          await gesture.up();
           await tester.pumpAndSettle();
 
           expect(find.text('5 / 5'), findsOneWidget);
