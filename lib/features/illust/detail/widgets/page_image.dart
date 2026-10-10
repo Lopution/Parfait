@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -180,52 +182,57 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
               child: _DetailImageFallback(),
             )
           else
-            Hero(
-              tag: widget.heroTag,
-              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-              child: IllustHeroFlightChild(
-                // The detail endpoint stays sharp for the normal page and
-                // for a viewer push. The shared shuttle swaps to the
-                // already-decoded card preview only on a reverse flight.
-                popChild: widget.heroImageUrl == null
-                    ? null
-                    : PixivImage.detail(
-                        widget.heroImageUrl!,
-                        fit: BoxFit.contain,
-                        transitionKey: widget.heroTag,
-                        tierKey: entity.imageTierKeyAt(widget.index),
-                        tier: entity.imageTierOf(widget.heroImageUrl!),
-                        tierUpgrade: false,
-                        decodeWidth: widget.heroImageDecodeWidth,
-                        filterColor: downloadMode
-                            ? FuncTokens.imageOverlay
-                            : null,
-                        filterBlendMode: downloadMode
-                            ? BlendMode.srcOver
-                            : null,
+            _DetailHeroFrame(
+              aspectRatio: entity.pageAspectRatioAt(widget.index),
+              child: Hero(
+                tag: widget.heroTag,
+                flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+                child: IllustHeroFlightChild(
+                  // The detail endpoint stays sharp for the normal page and
+                  // for a viewer push. The shared shuttle swaps to the
+                  // already-decoded card preview only on a reverse flight.
+                  popChild: widget.heroImageUrl == null
+                      ? null
+                      : PixivImage.detail(
+                          widget.heroImageUrl!,
+                          fit: BoxFit.contain,
+                          transitionKey: widget.heroTag,
+                          tierKey: entity.imageTierKeyAt(widget.index),
+                          tier: entity.imageTierOf(widget.heroImageUrl!),
+                          tierUpgrade: false,
+                          decodeWidth: widget.heroImageDecodeWidth,
+                          filterColor: downloadMode
+                              ? FuncTokens.imageOverlay
+                              : null,
+                          filterBlendMode: downloadMode
+                              ? BlendMode.srcOver
+                              : null,
+                        ),
+                  child: PixivImage.detail(
+                    previewUrl,
+                    fit: BoxFit.contain,
+                    transitionKey: widget.heroTag,
+                    tierKey: entity.imageTierKeyAt(widget.index),
+                    tier: entity.imageTierOf(previewUrl),
+                    tierUpgrade: !onHeroPhase,
+                    // The hero-phase URL is the feed card's image: decode it
+                    // at the feed's width so the landing frame is the
+                    // already-decoded cache entry. Once detailUrl arrives,
+                    // the normal page endpoint uses screen width.
+                    decodeWidth: onHeroPhase
+                        ? widget.heroImageDecodeWidth
+                        : null,
+                    progress: onHeroPhase ? null : _progress,
+                    filterColor: downloadMode ? FuncTokens.imageOverlay : null,
+                    filterBlendMode: downloadMode ? BlendMode.srcOver : null,
+                    // Estimated box until the first frame: after decode the
+                    // image's own aspect ratio sizes the slot instead. Same
+                    // surfaceContainer tier as PixivImage's default backdrop.
+                    placeholderWidget: AspectRatio(
+                      aspectRatio: entity.pageAspectRatioAt(widget.index),
+                      child: ColoredBox(
+                        color: Theme.of(context).colorScheme.surfaceContainer,
                       ),
-                child: PixivImage.detail(
-                  previewUrl,
-                  fit: BoxFit.contain,
-                  transitionKey: widget.heroTag,
-                  tierKey: entity.imageTierKeyAt(widget.index),
-                  tier: entity.imageTierOf(previewUrl),
-                  tierUpgrade: !onHeroPhase,
-                  // The hero-phase URL is the feed card's image: decode it
-                  // at the feed's width so the landing frame is the
-                  // already-decoded cache entry. Once detailUrl arrives,
-                  // the normal page endpoint uses screen width.
-                  decodeWidth: onHeroPhase ? widget.heroImageDecodeWidth : null,
-                  progress: onHeroPhase ? null : _progress,
-                  filterColor: downloadMode ? FuncTokens.imageOverlay : null,
-                  filterBlendMode: downloadMode ? BlendMode.srcOver : null,
-                  // Estimated box until the first frame: after decode the
-                  // image's own aspect ratio sizes the slot instead. Same
-                  // surfaceContainer tier as PixivImage's default backdrop.
-                  placeholderWidget: AspectRatio(
-                    aspectRatio: entity.pageAspectRatioAt(widget.index),
-                    child: ColoredBox(
-                      color: Theme.of(context).colorScheme.surfaceContainer,
                     ),
                   ),
                 ),
@@ -283,6 +290,55 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
       page: widget.index,
       quality: quality,
       heroScope: widget.heroScope,
+    );
+  }
+}
+
+/// A very wide page gets a readable fixed-height viewport instead of being
+/// compressed to a thin strip. The image keeps its aspect ratio and the
+/// horizontal scroll view exposes the full panorama without changing the
+/// normal page layout for ordinary artwork.
+class _DetailHeroFrame extends StatelessWidget {
+  const _DetailHeroFrame({required this.aspectRatio, required this.child});
+
+  static const double _height = 280;
+  static const double _naturalHeightFactor = 0.6;
+
+  final double aspectRatio;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final naturalHeight = width / aspectRatio.clamp(0.01, double.infinity);
+        if (naturalHeight >= _height * _naturalHeightFactor) return child;
+
+        final height = math.min(
+          _height,
+          MediaQuery.sizeOf(context).height * 0.7,
+        );
+        final contentWidth = math.max(width, height * aspectRatio);
+        return SizedBox(
+          key: const ValueKey('panorama-frame'),
+          width: double.infinity,
+          height: height,
+          child: ClipRect(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: SizedBox(
+                width: contentWidth,
+                height: height,
+                child: child,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

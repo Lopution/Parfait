@@ -129,6 +129,11 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   /// Where [_prefetchNeighbours] registered its window, cleared on dispose.
   ImageDemand? _prefetchDemand;
 
+  /// The page represented by the scrubber while the thumb is down. Keeping
+  /// this separate from [_activePage] is what makes a long drag cheap: the
+  /// PageView does not build or decode every page between the endpoints.
+  int? _scrubPage;
+
   int get _pageCount => widget.urls.length;
 
   bool get _chromeVisible => _viewerSessionChromeVisible;
@@ -224,6 +229,53 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
           url,
           tierKey: widget.tierKeyForPage?.call(neighbour),
           tier: IllustImageTier.medium,
+        ).catchError((_) => ImagePreloadResult.failed),
+      );
+    }
+  }
+
+  void _onScrubChanged(double value) {
+    final page = value.round().clamp(0, _pageCount - 1);
+    if (_scrubPage == page) return;
+    setState(() => _scrubPage = page);
+    _prefetchScrubWindow(page);
+  }
+
+  void _onScrubEnd(double value) {
+    final page = value.round().clamp(0, _pageCount - 1);
+    setState(() => _scrubPage = null);
+    if (page != _activePage && mounted) _pageController.jumpToPage(page);
+  }
+
+  /// Scrubbing only warms the small image beside the thumb. In particular it
+  /// never asks the viewer for the original tier, so pages crossed during a
+  /// drag cannot trigger a chain of full-size decodes.
+  void _prefetchScrubWindow(int page) {
+    if (!mounted) return;
+    final urls = <int, String>{};
+    for (final candidate in [page - 1, page, page + 1]) {
+      if (candidate < 0 || candidate >= _pageCount) continue;
+      final url =
+          widget.entity?.squareUrlAt(candidate) ??
+          widget.prefetchUrlForPage?.call(candidate);
+      if (url != null && url.isNotEmpty) urls[candidate] = url;
+    }
+    if (urls.isEmpty) return;
+    final demand =
+        ProviderScope.containerOf(
+            context,
+            listen: false,
+          ).read(imageWorkerProvider).demand
+          ..setPrefetchWindow(this, urls.values.toSet());
+    _prefetchDemand = demand;
+    for (final entry in urls.entries) {
+      unawaited(
+        PixivImage.preload(
+          context,
+          entry.value,
+          memCacheWidth: PixivImage.decodeWidthFor(
+            _PageScrubber.thumbnailExtent,
+          ),
         ).catchError((_) => ImagePreloadResult.failed),
       );
     }
@@ -793,46 +845,68 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
       color: Colors.transparent,
       child: SafeArea(
         top: false,
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Spacer(),
-            IconButton(
-              tooltip: l10n.viewerFitScreen,
-              onPressed: hasPages ? _resetZoom : null,
-              icon: const Icon(Icons.fit_screen),
-            ),
-            if (entity != null) ...[
-              IconButton(
-                tooltip: l10n.viewerSavePage,
-                onPressed: !hasPages
-                    ? null
-                    : switch (saveState) {
-                        IllustPageSaveState.downloading ||
-                        IllustPageSaveState.exist => null,
-                        _ => () => unawaited(_saveActivePage(entity)),
-                      },
-                icon: switch (saveState) {
-                  IllustPageSaveState.downloading => const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+            if (_pageCount >= 4)
+              _PageScrubber(
+                key: const Key('viewer-page-scrubber'),
+                count: _pageCount,
+                current: _activePage,
+                value: _scrubPage ?? _activePage,
+                onChanged: _onScrubChanged,
+                onChangeEnd: _onScrubEnd,
+                pageLabel: (page) =>
+                    context.l10n.viewerPageLabel(page + 1, _pageCount),
+              ),
+            Row(
+              children: [
+                const Spacer(),
+                IconButton(
+                  tooltip: l10n.viewerFitScreen,
+                  onPressed: hasPages ? _resetZoom : null,
+                  icon: const Icon(Icons.fit_screen),
+                ),
+                if (entity != null) ...[
+                  IconButton(
+                    tooltip: l10n.viewerSavePage,
+                    onPressed: !hasPages
+                        ? null
+                        : switch (saveState) {
+                            IllustPageSaveState.downloading ||
+                            IllustPageSaveState.exist => null,
+                            _ => () => unawaited(_saveActivePage(entity)),
+                          },
+                    icon: switch (saveState) {
+                      IllustPageSaveState.downloading => const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      IllustPageSaveState.exist => const Icon(
+                        Icons.check_circle,
+                      ),
+                      IllustPageSaveState.error => const Icon(
+                        Icons.error_outline,
+                      ),
+                      _ => const Icon(Icons.download_outlined),
+                    },
                   ),
-                  IllustPageSaveState.exist => const Icon(Icons.check_circle),
-                  IllustPageSaveState.error => const Icon(Icons.error_outline),
-                  _ => const Icon(Icons.download_outlined),
-                },
-              ),
-              IconButton(
-                tooltip: l10n.cardActionShare,
-                onPressed: hasPages ? () => unawaited(_share(entity)) : null,
-                icon: const Icon(Icons.share_outlined),
-              ),
-              IconButton(
-                tooltip: l10n.viewerInfo,
-                onPressed: hasPages ? () => _showInfo(entity) : null,
-                icon: const Icon(Icons.info_outline),
-              ),
-            ],
+                  IconButton(
+                    tooltip: l10n.cardActionShare,
+                    onPressed: hasPages
+                        ? () => unawaited(_share(entity))
+                        : null,
+                    icon: const Icon(Icons.share_outlined),
+                  ),
+                  IconButton(
+                    tooltip: l10n.viewerInfo,
+                    onPressed: hasPages ? () => _showInfo(entity) : null,
+                    icon: const Icon(Icons.info_outline),
+                  ),
+                ],
+              ],
+            ),
           ],
         ),
       ),
@@ -842,6 +916,96 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   bool _isZoomed(int page) =>
       _transformationFor(page).value.getMaxScaleOnAxis() >
       1.0 + precisionErrorTolerance;
+}
+
+class _PageScrubber extends StatelessWidget {
+  const _PageScrubber({
+    super.key,
+    required this.count,
+    required this.current,
+    required this.value,
+    required this.onChanged,
+    required this.onChangeEnd,
+    required this.pageLabel,
+  });
+
+  static const double thumbnailExtent = 72;
+
+  final int count;
+  final int current;
+  final int value;
+  final ValueChanged<double> onChanged;
+  final ValueChanged<double> onChangeEnd;
+  final String Function(int page) pageLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = FuncTokens.lightBackground;
+    final dragging = value != current;
+    return Semantics(
+      label: pageLabel(value),
+      value: pageLabel(value),
+      slider: true,
+      child: SizedBox(
+        height: 64,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            if (dragging)
+              Align(
+                alignment: Alignment.topCenter,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: FuncTokens.imageControl,
+                    borderRadius: FuncShape.control,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: FuncSpacing.sm,
+                      vertical: FuncSpacing.xs,
+                    ),
+                    child: Text(
+                      pageLabel(value),
+                      style: TextStyle(
+                        color: color,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            Positioned.fill(
+              top: 16,
+              child: SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: color,
+                  inactiveTrackColor: color.withValues(alpha: 0.35),
+                  thumbColor: color,
+                  overlayColor: color.withValues(alpha: 0.16),
+                  trackHeight: 3,
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 7,
+                  ),
+                  overlayShape: const RoundSliderOverlayShape(
+                    overlayRadius: 24,
+                  ),
+                ),
+                child: Slider(
+                  min: 0,
+                  max: (count - 1).toDouble(),
+                  divisions: count - 1,
+                  value: value.toDouble(),
+                  label: pageLabel(value),
+                  onChanged: onChanged,
+                  onChangeEnd: onChangeEnd,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Slides the viewer down off the screen while its route pops, for exits

@@ -121,6 +121,40 @@ void main() {
     });
 
     testWidgets(
+      'scrubbing jumps to the target page without building crossed pages',
+      (tester) async {
+        await mockNetworkImagesFor(() async {
+          await tester.pumpWidget(
+            withStalledImages(
+              MaterialApp(
+                builder: promptHostBuilder,
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: const Locale('zh', 'CN'),
+                home: ImageViewerPage(
+                  urls: [
+                    for (var i = 0; i < 5; i++)
+                      'https://i.pximg.net/$i/original.jpg',
+                  ],
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+          expect(find.byKey(const ValueKey('viewer-page-2')), findsNothing);
+
+          final scrubber = find.byKey(const Key('viewer-page-scrubber'));
+          expect(scrubber, findsOneWidget);
+          await tester.drag(scrubber, const Offset(320, 0));
+          await tester.pumpAndSettle();
+
+          expect(find.text('5 / 5'), findsOneWidget);
+          expect(find.byKey(const ValueKey('viewer-page-2')), findsNothing);
+        });
+      },
+    );
+
+    testWidgets(
       'hidden chrome belongs to the session: it survives page turns and '
       'route swaps (revision ①)',
       (tester) async {
