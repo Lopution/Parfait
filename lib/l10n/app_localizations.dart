@@ -3293,17 +3293,17 @@ abstract class AppLocalizations {
   /// **'取消'**
   String get searchCancel;
 
-  /// No description provided for @searchSubmit.
-  ///
-  /// In zh, this message translates to:
-  /// **'搜索'**
-  String get searchSubmit;
-
   /// No description provided for @searchClear.
   ///
   /// In zh, this message translates to:
   /// **'清除'**
   String get searchClear;
+
+  /// No description provided for @searchUserFiltersUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户搜索没有筛选'**
+  String get searchUserFiltersUnavailable;
 
   /// No description provided for @contentLoading.
   ///

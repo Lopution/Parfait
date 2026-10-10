@@ -73,40 +73,6 @@ class FuncRouteTransition extends StatelessWidget {
   }
 }
 
-/// Modal-page transition (search input and similar keyboard-first surfaces):
-/// a short bottom-edge rise plus fade. No Hero flights originate here, so
-/// the slide is intentionally subtler than the push transition.
-class FuncModalTransition extends StatelessWidget {
-  const FuncModalTransition({
-    super.key,
-    required this.animation,
-    required this.secondaryAnimation,
-    required this.child,
-  });
-
-  final Animation<double> animation;
-  final Animation<double> secondaryAnimation;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final curved = animation.drive(CurveTween(curve: MotionTokens.modalCurve));
-    return FadeTransition(
-      opacity: curved,
-      child: SlideTransition(
-        position: curved.drive(
-          Tween<Offset>(begin: MotionTokens.modalSlideBegin, end: Offset.zero),
-        ),
-        child: RoutePopSnapshot(
-          animation: animation,
-          secondaryAnimation: secondaryAnimation,
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
 /// Keeps a page real-time through a route transition and freezes into a
 /// single texture only while it leaves the stage.
 ///

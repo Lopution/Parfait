@@ -8,10 +8,12 @@ import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
+import 'package:parfait/features/search/search_field_button.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/search_world.dart';
+import 'helpers/prompt_host.dart';
 import 'helpers/test_preferences.dart';
 
 Future<GoRouter> _pumpRouter(
@@ -33,6 +35,7 @@ Future<GoRouter> _pumpRouter(
         searchRepositoryProvider.overrideWithValue(FakeSearchRepository()),
       ],
       child: MaterialApp.router(
+        builder: promptHostBuilder,
         localizationsDelegates: appLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: locale,
@@ -74,7 +77,9 @@ void main() {
     expect(params.containsKey('sort'), isFalse);
     expect(params.containsKey('bmin'), isFalse);
     expect(find.text('收藏数 100 以上'), findsNothing);
-    expect(find.byTooltip('筛选'), findsNothing);
+    // The user tab keeps the muted filter slot so the search field does not
+    // move; tapping it explains that this result kind has no filters.
+    expect(find.byTooltip('筛选'), findsOneWidget);
     // The route was replaced in place: same page state, no new page.
     expect(tester.state(find.byType(SearchResultPage)), same(state));
 
@@ -120,7 +125,7 @@ void main() {
     // User searches are filter-free: a shared URL's leftover params never
     // reach the query or the artwork tabs.
     expect(page.query.filtersOrNull, isNull);
-    expect(find.byTooltip('筛选'), findsNothing);
+    expect(find.byTooltip('筛选'), findsOneWidget);
 
     await tester.tap(_tab('小说'));
     await tester.pumpAndSettle();
@@ -154,5 +159,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byTooltip('筛选'), findsOneWidget);
     expect(find.byType(ActionChip), findsNothing);
+  });
+
+  testWidgets('the user filter slot stays in place and explains its scope', (
+    tester,
+  ) async {
+    final router = await _pumpRouter(
+      tester,
+      initialLocation: '/search/results?q=cat&type=illust',
+    );
+    final initialField = tester.getRect(find.byType(SearchFieldButton));
+
+    await tester.tap(_tab('用户'));
+    await tester.pumpAndSettle();
+    final userField = tester.getRect(find.byType(SearchFieldButton));
+    expect(userField.width, closeTo(initialField.width, 0.01));
+    expect(find.byTooltip('筛选'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('筛选'));
+    await tester.pumpAndSettle();
+    expect(find.text('用户搜索没有筛选'), findsOneWidget);
+    // Keep the router alive until the prompt has been painted.
+    expect(router.state.uri.path, '/search/results');
   });
 }

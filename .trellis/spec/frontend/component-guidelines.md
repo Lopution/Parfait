@@ -1026,6 +1026,16 @@ durable path/query values and are updated through the route facade. An entity or
 route `extra` accelerates the first frame but is not the restoration source.
 The router instance stays stable while settings, account, or providers update.
 
+Search submission from `SearchInputPage` replaces the input location with the
+result location (`openSearchResults(..., replaceCurrent: true)`), and direct
+ID/link shortcuts use the same replacement rule. Editing the query or using a
+result's empty-state modify action replaces the result location with input.
+This keeps the requesting page as the back destination instead of stacking a
+second search route. These swaps go through `pushReplacement` (a fresh page
+key, so the normal page transition runs); `context.replace` keeps the key and
+swaps without a transition, which is only right for a page updating its own
+query (tab or type changes).
+
 ## Stack Integrity Contract
 
 The router has five branch roots (`/recommended`, `/ranking`, `/new`,
@@ -1296,12 +1306,15 @@ Future<ImagePreloadResult> PixivImage.preload(
   as the same one across pushes; `SearchFieldButton` draws its icon and text
   where `SearchBar` does. The filter button's badge counts
   `searchFilterLabels` — the same list the result page shows as chips under
-  the tabs, a row that exists only while a filter is active. The filter
-  sheet opens below the status bar, scrolls its groups (match, time, work,
-  counts) between a fixed header (title, reset) and a fixed action bar that
-  rides above the IME; "设为默认" sits beside Apply and stacks above it when
-  its label does not fit half the bar. Owning tests:
-  `search_result_page_test.dart`, `search_catalog_test.dart`.
+  the tabs. The button slot stays reserved on the user tab with a muted
+  appearance and a localized no-filters prompt. The summary row's
+  `PreferredSize` height follows its size animation, so switching tabs does
+  not jump the app bar. The filter sheet opens below the status bar, scrolls
+  its groups (match, time, work, counts) between a fixed header (title, reset)
+  and a fixed action bar that rides above the IME; "设为默认" sits beside
+  Apply and stacks above it when its label does not fit half the bar. Owning
+  tests: `search_result_page_test.dart`, `search_catalog_test.dart`,
+  `search_input_test.dart`.
 - The input page starts empty-field users on recent searches
   (`searchHistoryProvider`, 20, newest first; removal is undoable, clearing
   all confirms) and the type's trending tags. A suggestion, recent search or

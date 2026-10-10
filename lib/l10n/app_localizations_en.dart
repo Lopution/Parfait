@@ -1773,10 +1773,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchCancel => 'Cancel';
 
   @override
-  String get searchSubmit => 'Search';
+  String get searchClear => 'Clear';
 
   @override
-  String get searchClear => 'Clear';
+  String get searchUserFiltersUnavailable => 'User search has no filters';
 
   @override
   String get contentLoading => 'Loading';

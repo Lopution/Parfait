@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../app/widgets/app_top_bar.dart';
@@ -17,6 +19,7 @@ import '../../core/settings/settings_controller.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_store.dart';
 import '../../app/motion/state_fade.dart';
+import '../../app/motion/motion_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/illust_card.dart';
 import '../../app/widgets/follow_switch_button.dart';
@@ -34,6 +37,7 @@ import 'search_text.dart';
 import '../../l10n/context.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/app_snack_bar.dart';
 
 /// Grid padding shared by the result sliver and its first-load skeleton.
 const _illustGridPadding = EdgeInsets.all(FuncSpacing.sm);
@@ -61,8 +65,9 @@ class SearchResultPage extends ConsumerStatefulWidget {
 }
 
 class _SearchResultPageState extends ConsumerState<SearchResultPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final TabController _tabController;
+  late final AnimationController _filterSummaryController;
   late SearchResultType _selectedType;
   final _scrollControllers = <SearchResultType, ScrollController>{};
   final _loadedTypes = <SearchResultType>{};
@@ -72,6 +77,12 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
   /// link's filter set wins and the other type falls back to the default.
   late IllustSearchFilters _illustFilters;
   late NovelSearchFilters _novelFilters;
+
+  /// Keeps the summary row and the app-bar height on the same animation
+  /// progress while switching between filter-capable and user tabs.
+  var _filterSummaryInitialized = false;
+  var _filterSummaryVisible = false;
+  List<String> _filterSummaryLabels = const <String>[];
 
   /// One body per type, reused across page builds while its query is
   /// unchanged — same reasoning as the ranking page's body cache.
@@ -91,8 +102,8 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
   SearchFilters _filtersFor(SearchResultType type) => switch (type) {
     SearchResultType.illust => _illustFilters,
     SearchResultType.novel => _novelFilters,
-    // User results have no filters — the sheet and summary bar are never
-    // shown for it (showFilters guards both entry points).
+    // User results have no filters — the muted button keeps the header slot,
+    // while showFilters guards the sheet and summary bar.
     SearchResultType.user => _illustFilters,
   };
 
@@ -111,6 +122,10 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
   @override
   void initState() {
     super.initState();
+    _filterSummaryController = AnimationController(vsync: this)
+      ..addListener(() {
+        if (mounted) setState(() {});
+      });
     _illustFilters = ref.read(searchIllustFiltersProvider);
     _novelFilters = ref.read(searchNovelFiltersProvider);
     _acceptQueryFilters(widget.query);
@@ -121,6 +136,23 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
       vsync: this,
       initialIndex: _selectedType.index,
     )..addListener(_handleTabChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _filterSummaryController.duration = MotionTokens.resolve(
+      context,
+      MotionTokens.fast,
+    );
+    if (_filterSummaryInitialized) return;
+    final labels = _selectedType == SearchResultType.user
+        ? const <String>[]
+        : searchFilterLabels(context, _filtersFor(_selectedType));
+    _filterSummaryLabels = List<String>.of(labels);
+    _filterSummaryVisible = labels.isNotEmpty;
+    _filterSummaryController.value = _filterSummaryVisible ? 1 : 0;
+    _filterSummaryInitialized = true;
   }
 
   @override
@@ -140,6 +172,7 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
 
   @override
   void dispose() {
+    _filterSummaryController.dispose();
     _tabController
       ..removeListener(_handleTabChanged)
       ..dispose();
@@ -184,6 +217,25 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
     };
     if (_loadedTypes.containsAll(neighbours)) return;
     setState(() => _loadedTypes.addAll(neighbours));
+  }
+
+  void _syncFilterSummary(List<String> labels) {
+    if (!_filterSummaryInitialized) return;
+    final shouldShow =
+        _selectedType != SearchResultType.user && labels.isNotEmpty;
+    if (shouldShow) {
+      _filterSummaryLabels = List<String>.of(labels);
+    }
+    if (shouldShow == _filterSummaryVisible) return;
+    _filterSummaryVisible = shouldShow;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_filterSummaryVisible) {
+        _filterSummaryController.forward();
+      } else {
+        _filterSummaryController.reverse();
+      }
+    });
   }
 
   _SearchTabBody _bodyFor(SearchResultType type) {
@@ -236,10 +288,12 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
   /// keyword reopens the input page prefilled with this query so editing a
   /// search never means retyping it.
   void _editQuery() {
-    openSearchInput(
-      context,
-      initialKeyword: widget.query.keyword,
-      type: _selectedType,
+    unawaited(
+      swapToSearchInput(
+        context,
+        keyword: widget.query.keyword,
+        type: _selectedType,
+      ),
     );
   }
 
@@ -251,6 +305,8 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
     final filterLabels = showFilters
         ? searchFilterLabels(context, _filtersFor(_selectedType))
         : const <String>[];
+    _syncFilterSummary(filterLabels);
+    final summaryHeight = _filterSummaryController.value * _filterBarHeight;
     final tabBar = AppTabBar(
       controller: _tabController,
       onTap: (index) {
@@ -286,37 +342,50 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
         // button alone says so.
         bottom: PreferredSize(
           preferredSize: Size.fromHeight(
-            tabBar.preferredSize.height +
-                (filterLabels.isEmpty ? 0 : _filterBarHeight),
+            tabBar.preferredSize.height + summaryHeight,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               tabBar,
-              if (filterLabels.isNotEmpty)
-                _FilterSummaryBar(
-                  labels: filterLabels,
-                  onEdit: _editFilters,
-                  // Clearing resets this tab to its type's empty set —
-                  // the persisted defaults stay untouched.
-                  onClear: () => _replaceFilters(
-                    _selectedType == SearchResultType.novel
-                        ? NovelSearchFilters.defaults
-                        : IllustSearchFilters.defaults,
+              if (_filterSummaryLabels.isNotEmpty &&
+                  (_filterSummaryVisible || _filterSummaryController.value > 0))
+                ClipRect(
+                  child: Align(
+                    heightFactor: _filterSummaryController.value,
+                    alignment: Alignment.topCenter,
+                    child: IgnorePointer(
+                      ignoring: !_filterSummaryVisible,
+                      child: _FilterSummaryBar(
+                        labels: _filterSummaryLabels,
+                        onEdit: _editFilters,
+                        // Clearing resets this tab to its type's empty set —
+                        // the persisted defaults stay untouched.
+                        onClear: () => _replaceFilters(
+                          _selectedType == SearchResultType.novel
+                              ? NovelSearchFilters.defaults
+                              : IllustSearchFilters.defaults,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
             ],
           ),
         ),
         actions: [
-          if (showFilters)
-            SearchFilterButton(
-              filters: _filtersFor(_selectedType),
-              onPressed: _editFilters,
-            )
-          else
-            // Keeps the field off the screen edge.
-            const SizedBox(width: FuncSpacing.lg),
+          SearchFilterButton(
+            filters: showFilters
+                ? _filtersFor(_selectedType)
+                : IllustSearchFilters.defaults,
+            muted: !showFilters,
+            onPressed: showFilters
+                ? _editFilters
+                : () => showAppSnackBar(
+                    context,
+                    context.l10n.searchUserFiltersUnavailable,
+                  ),
+          ),
         ],
       ),
       body: Builder(
@@ -439,9 +508,9 @@ class _IllustSearchFeed extends ConsumerWidget {
         icon: Icons.search,
         title: context.l10n.searchNoResults,
         actionLabel: context.l10n.searchModifyQuery,
-        onAction: () => openSearchInput(
+        onAction: () => swapToSearchInput(
           context,
-          initialKeyword: query.keyword,
+          keyword: query.keyword,
           type: query.type,
         ),
       );
@@ -519,9 +588,9 @@ class _NovelSearchFeed extends ConsumerWidget {
         icon: Icons.search,
         title: context.l10n.searchNoResults,
         actionLabel: context.l10n.searchModifyQuery,
-        onAction: () => openSearchInput(
+        onAction: () => swapToSearchInput(
           context,
-          initialKeyword: query.keyword,
+          keyword: query.keyword,
           type: query.type,
         ),
       );
@@ -586,9 +655,9 @@ class _UserSearchFeed extends ConsumerWidget {
         icon: Icons.search,
         title: context.l10n.searchNoResults,
         actionLabel: context.l10n.searchModifyQuery,
-        onAction: () => openSearchInput(
+        onAction: () => swapToSearchInput(
           context,
-          initialKeyword: query.keyword,
+          keyword: query.keyword,
           type: query.type,
         ),
       );

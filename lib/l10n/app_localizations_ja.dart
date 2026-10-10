@@ -1717,10 +1717,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchCancel => 'キャンセル';
 
   @override
-  String get searchSubmit => '検索';
+  String get searchClear => 'クリア';
 
   @override
-  String get searchClear => 'クリア';
+  String get searchUserFiltersUnavailable => 'ユーザー検索に絞り込みはありません';
 
   @override
   String get contentLoading => '読み込み中';

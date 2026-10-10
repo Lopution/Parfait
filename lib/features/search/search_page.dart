@@ -833,7 +833,9 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
     if (searchShortcutFor(keyword, _types[_selectedIndex]) == null) {
       unawaited(ref.read(searchHistoryProvider.notifier).record(keyword));
     }
-    unawaited(openSearchResults(context, _query(keyword)));
+    unawaited(
+      openSearchResults(context, _query(keyword), replaceCurrent: true),
+    );
   }
 
   SearchQuery _query(String keyword) {
@@ -932,14 +934,7 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
       ),
       hintText: context.l10n.searchBarHint,
       leading: const Icon(Icons.search),
-      trailing: [
-        _clearSearchAction(),
-        IconButton(
-          tooltip: context.l10n.searchSubmit,
-          onPressed: _submit,
-          icon: const Icon(Icons.search),
-        ),
-      ],
+      trailing: [_clearSearchAction()],
       onChanged: _onSearchChanged,
       onSubmitted: (_) => _submit(),
       textInputAction: TextInputAction.search,
@@ -965,11 +960,16 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
         // The same slot as the result page's filter button, so the field
         // keeps its place across the push.
         actions: [
-          if (supportsFilters)
-            SearchFilterButton(filters: _filters, onPressed: _editFilters)
-          else
-            // Keeps the field off the screen edge.
-            const SizedBox(width: FuncSpacing.lg),
+          SearchFilterButton(
+            filters: supportsFilters ? _filters : IllustSearchFilters.defaults,
+            muted: !supportsFilters,
+            onPressed: supportsFilters
+                ? _editFilters
+                : () => showAppSnackBar(
+                    context,
+                    context.l10n.searchUserFiltersUnavailable,
+                  ),
+          ),
         ],
         bottom: AppTabBar(
           controller: _tabController,
@@ -1019,7 +1019,7 @@ class _SearchInputBody extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.open_in_new),
             title: Text(_shortcutLabel(context, shortcut)),
-            onTap: () => unawaited(openSearchShortcut(context, shortcut)),
+            onTap: () => unawaited(swapToSearchShortcut(context, shortcut)),
           ),
         ],
       );
