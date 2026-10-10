@@ -79,9 +79,20 @@ class _FirstImageLayout {
     // An illustration set opens on its first image; manga reads in full.
     final collapsible =
         entity.type == IllustType.illust && entity.pageCount > 1;
-    final natural = viewport.width / entity.pageAspectRatioAt(0);
+    final aspectRatio = entity.pageAspectRatioAt(0);
+    final panoramaHeight = DetailPageImage.panoramaHeight(
+      viewport,
+      viewport.width,
+      aspectRatio,
+    );
+    final natural = panoramaHeight ?? viewport.width / aspectRatio;
+    // A panorama already has its own viewport; the centered reading slot is
+    // for an ordinary short illustration.
     final slots =
-        !useTwoPane && entity.type == IllustType.illust && !entity.isUgoira;
+        !useTwoPane &&
+        entity.type == IllustType.illust &&
+        !entity.isUgoira &&
+        panoramaHeight == null;
     return _FirstImageLayout._(
       useTwoPane: useTwoPane,
       statusInset: useTwoPane ? 0 : MediaQuery.paddingOf(context).top,
@@ -102,7 +113,8 @@ class _FirstImageLayout {
   final bool collapsible;
   final int shownPages;
 
-  /// The first image's height at the full width.
+  /// The first image's height at the full width, or its panorama
+  /// viewport's.
   final double natural;
 
   /// Whether the first image goes through the reading slot.

@@ -498,6 +498,22 @@ void main() {
       expect(position.maxScrollExtent, greaterThan(firstPageEnd));
       expect(position.pixels, closeTo(firstPageEnd, 0.5));
     });
+
+    testWidgets('an ultra-wide page gets a fixed-height horizontal viewport', (
+      tester,
+    ) async {
+      final json = illustJson(42, width: 4000, height: 100);
+      final (container, _, _) = await makeWorld(detailOverrides: {42: json});
+      await mockNetworkImagesFor(() async {
+        await pumpDetail(tester, container, locale: const Locale('en', 'US'));
+        await tester.pumpAndSettle();
+      });
+
+      final frame = find.byKey(const ValueKey('panorama-frame'));
+      expect(frame, findsOneWidget);
+      expect(tester.getSize(frame).height, closeTo(280, 0.1));
+      expect(find.byType(SingleChildScrollView), findsWidgets);
+    });
   });
 
   group('Related works (official detail-page section)', () {

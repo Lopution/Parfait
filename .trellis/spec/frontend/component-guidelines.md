@@ -1196,6 +1196,14 @@ threshold. A qualifying drag pops the current typed
 route so the existing `FuncPage`, scoped Hero tag, and
 `HeroRectClip` perform the reverse flight.
 
+A control under it that owns every direction of its drag (the viewer's page
+scrubber) turns its pointers away through `allowPointer`: a `Listener` on
+the control records the pointer on down, before the dismiss recognizer is
+offered it. Otherwise a thumb drifting vertically on the slider loses the
+arena to the dismiss drag. Overlays that appear mid-drag (the scrubber's
+page bubble) go after the slider in its `Stack`; inserted before, they
+shift its slot, the slider is rebuilt and the drag dies after one page.
+
 Only the page the viewer opened on (`ImageViewerRouteExtra.entryPage`)
 carries the Hero. After a page turn the viewer has no Hero, and any pop
 (back button, system back, drag) slides the stage down from wherever the pop
@@ -1208,7 +1216,8 @@ landing Hero when the detail payload disagrees with the snapshot (a restored
 feed), and the orphaned endpoint then paints under the flight.
 
 Chrome over artwork stays readable over a white page: the viewer's bars take
-`ArtworkControls` (white glyphs, black halo; no scrim), and the page
+`ArtworkControls` (white glyphs, black halo; no scrim), the page scrubber's
+track runs white then `imageControl` under a shadowed thumb, and the page
 position is one `PageCountPill` on both the detail page and the viewer. The
 detail pill fades in and out and never hard-cuts.
 
@@ -1367,6 +1376,14 @@ Future<ImagePreloadResult> PixivImage.preload(
   empty space. The cold-load skeleton keeps its square image bone: before the
   entity arrives neither the page count nor the ratio is known. Manga,
   ugoira, and two-pane layouts do not receive this slot.
+- A page whose natural height is under 60% of 280dp is a panorama
+  (`DetailPageImage.panoramaHeight`): a 280dp viewport (at most 70% of the
+  screen) that scrolls sideways, opens centered (so the Hero flight grows
+  around the work's middle), decodes at the scrolled content width (capped
+  at 8192px) and never takes the short-image slot. Its drag recognizer only
+  claims a swipe the panorama can still follow; at an edge the detail pager
+  wins, as Android's ViewPager treats scrollable children
+  (`illust_detail_pager_test.dart`).
 - The decoded image cache must survive backgrounding: Android posts
   TRIM_MEMORY_UI_HIDDEN on every hide and the stock binding answers it with
   `imageCache.clear()`, which re-fades every artwork on resume. The app's

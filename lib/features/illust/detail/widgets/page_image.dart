@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -52,6 +55,26 @@ class DetailPageImage extends ConsumerStatefulWidget {
   /// How far the page's top runs under the detail page's see-through bar;
   /// the selection badge sits below it.
   final double overlayTopInset;
+
+  /// Height of the sideways-scrolling viewport a page of [aspectRatio] gets
+  /// at [width], or null for an ordinary page: Shaft's panorama rule — a
+  /// natural height under 60% of 280dp gets a 280dp viewport, capped at 70%
+  /// of the screen.
+  static double? panoramaHeight(
+    Size viewport,
+    double width,
+    double aspectRatio,
+  ) {
+    if (aspectRatio <= 0) return null;
+    if (width / aspectRatio >= _panoramaHeight * _panoramaTriggerFactor) {
+      return null;
+    }
+    return math.min(_panoramaHeight, viewport.height * _panoramaMaxScreenShare);
+  }
+
+  static const double _panoramaHeight = 280;
+  static const double _panoramaTriggerFactor = 0.6;
+  static const double _panoramaMaxScreenShare = 0.7;
 
   /// Optional narrow-layout slot for the first image: its natural height,
   /// or more for a short image shown alone. The Hero remains inside the
@@ -180,52 +203,57 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
               child: _DetailImageFallback(),
             )
           else
-            Hero(
-              tag: widget.heroTag,
-              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-              child: IllustHeroFlightChild(
-                // The detail endpoint stays sharp for the normal page and
-                // for a viewer push. The shared shuttle swaps to the
-                // already-decoded card preview only on a reverse flight.
-                popChild: widget.heroImageUrl == null
-                    ? null
-                    : PixivImage.detail(
-                        widget.heroImageUrl!,
-                        fit: BoxFit.contain,
-                        transitionKey: widget.heroTag,
-                        tierKey: entity.imageTierKeyAt(widget.index),
-                        tier: entity.imageTierOf(widget.heroImageUrl!),
-                        tierUpgrade: false,
-                        decodeWidth: widget.heroImageDecodeWidth,
-                        filterColor: downloadMode
-                            ? FuncTokens.imageOverlay
-                            : null,
-                        filterBlendMode: downloadMode
-                            ? BlendMode.srcOver
-                            : null,
+            _PanoramaFrame(
+              aspectRatio: entity.pageAspectRatioAt(widget.index),
+              builder: (panoramaDecodeWidth) => Hero(
+                tag: widget.heroTag,
+                flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+                child: IllustHeroFlightChild(
+                  // The detail endpoint stays sharp for the normal page and
+                  // for a viewer push. The shared shuttle swaps to the
+                  // already-decoded card preview only on a reverse flight.
+                  popChild: widget.heroImageUrl == null
+                      ? null
+                      : PixivImage.detail(
+                          widget.heroImageUrl!,
+                          fit: BoxFit.contain,
+                          transitionKey: widget.heroTag,
+                          tierKey: entity.imageTierKeyAt(widget.index),
+                          tier: entity.imageTierOf(widget.heroImageUrl!),
+                          tierUpgrade: false,
+                          decodeWidth: widget.heroImageDecodeWidth,
+                          filterColor: downloadMode
+                              ? FuncTokens.imageOverlay
+                              : null,
+                          filterBlendMode: downloadMode
+                              ? BlendMode.srcOver
+                              : null,
+                        ),
+                  child: PixivImage.detail(
+                    previewUrl,
+                    fit: BoxFit.contain,
+                    transitionKey: widget.heroTag,
+                    tierKey: entity.imageTierKeyAt(widget.index),
+                    tier: entity.imageTierOf(previewUrl),
+                    tierUpgrade: !onHeroPhase,
+                    // The hero-phase URL is the feed card's image: decode it
+                    // at the feed's width so the landing frame is the
+                    // already-decoded cache entry. Once detailUrl arrives,
+                    // the normal page endpoint uses screen width.
+                    decodeWidth: onHeroPhase
+                        ? widget.heroImageDecodeWidth
+                        : panoramaDecodeWidth,
+                    progress: onHeroPhase ? null : _progress,
+                    filterColor: downloadMode ? FuncTokens.imageOverlay : null,
+                    filterBlendMode: downloadMode ? BlendMode.srcOver : null,
+                    // Estimated box until the first frame: after decode the
+                    // image's own aspect ratio sizes the slot instead. Same
+                    // surfaceContainer tier as PixivImage's default backdrop.
+                    placeholderWidget: AspectRatio(
+                      aspectRatio: entity.pageAspectRatioAt(widget.index),
+                      child: ColoredBox(
+                        color: Theme.of(context).colorScheme.surfaceContainer,
                       ),
-                child: PixivImage.detail(
-                  previewUrl,
-                  fit: BoxFit.contain,
-                  transitionKey: widget.heroTag,
-                  tierKey: entity.imageTierKeyAt(widget.index),
-                  tier: entity.imageTierOf(previewUrl),
-                  tierUpgrade: !onHeroPhase,
-                  // The hero-phase URL is the feed card's image: decode it
-                  // at the feed's width so the landing frame is the
-                  // already-decoded cache entry. Once detailUrl arrives,
-                  // the normal page endpoint uses screen width.
-                  decodeWidth: onHeroPhase ? widget.heroImageDecodeWidth : null,
-                  progress: onHeroPhase ? null : _progress,
-                  filterColor: downloadMode ? FuncTokens.imageOverlay : null,
-                  filterBlendMode: downloadMode ? BlendMode.srcOver : null,
-                  // Estimated box until the first frame: after decode the
-                  // image's own aspect ratio sizes the slot instead. Same
-                  // surfaceContainer tier as PixivImage's default backdrop.
-                  placeholderWidget: AspectRatio(
-                    aspectRatio: entity.pageAspectRatioAt(widget.index),
-                    child: ColoredBox(
-                      color: Theme.of(context).colorScheme.surfaceContainer,
                     ),
                   ),
                 ),
@@ -285,6 +313,168 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
       heroScope: widget.heroScope,
     );
   }
+}
+
+/// A very wide page gets a readable fixed-height viewport instead of being
+/// compressed to a thin strip (Shaft's panorama rule): the image keeps its
+/// aspect ratio at the viewport height and scrolls sideways, starting at its
+/// center so the Hero flight opens around the middle of the work.
+class _PanoramaFrame extends StatefulWidget {
+  const _PanoramaFrame({required this.aspectRatio, required this.builder});
+
+  final double aspectRatio;
+
+  /// Builds the page image; a panorama passes the decode width its
+  /// scrolled content needs, ordinary pages pass null (screen width).
+  final Widget Function(int? decodeWidth) builder;
+
+  @override
+  State<_PanoramaFrame> createState() => _PanoramaFrameState();
+}
+
+class _PanoramaFrameState extends State<_PanoramaFrame> {
+  /// Above common GPU texture limits a decode fails or tiles; the source
+  /// tier rarely reaches it anyway (ResizeImage never upscales).
+  static const _maxDecodeWidth = 8192;
+
+  ScrollController? _controller;
+  Drag? _drag;
+
+  @override
+  void dispose() {
+    _drag?.cancel();
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  /// Whether the panorama itself can move for a finger travelling [dx]
+  /// (positive = rightwards). At an edge the drag belongs to the detail
+  /// pager, so swiping on to the next work still works from the panorama —
+  /// the rule Android's ViewPager applies to scrollable children.
+  bool _canScroll(double dx) {
+    final controller = _controller;
+    if (controller == null || !controller.hasClients) return false;
+    final position = controller.position;
+    return dx > 0
+        ? position.pixels > position.minScrollExtent
+        : position.pixels < position.maxScrollExtent;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final height = DetailPageImage.panoramaHeight(
+          MediaQuery.sizeOf(context),
+          width,
+          widget.aspectRatio,
+        );
+        if (height == null) return widget.builder(null);
+
+        final contentWidth = math.max(width, height * widget.aspectRatio);
+        final controller = _controller ??= ScrollController(
+          initialScrollOffset: (contentWidth - width) / 2,
+        );
+        return RawGestureDetector(
+          gestures: {
+            _EdgeAwareDragRecognizer:
+                GestureRecognizerFactoryWithHandlers<_EdgeAwareDragRecognizer>(
+                  () => _EdgeAwareDragRecognizer(canScroll: _canScroll),
+                  (recognizer) {
+                    recognizer
+                      ..onStart = (details) {
+                        _drag = controller.position.drag(
+                          details,
+                          () => _drag = null,
+                        );
+                      }
+                      ..onUpdate = (details) {
+                        _drag?.update(details);
+                      }
+                      ..onEnd = (details) {
+                        _drag?.end(details);
+                      }
+                      ..onCancel = () {
+                        _drag?.cancel();
+                      };
+                  },
+                ),
+          },
+          child: SizedBox(
+            key: const ValueKey('panorama-frame'),
+            width: double.infinity,
+            height: height,
+            child: SingleChildScrollView(
+              controller: controller,
+              scrollDirection: Axis.horizontal,
+              physics: const _PanoramaPhysics(),
+              child: SizedBox(
+                width: contentWidth,
+                height: height,
+                child: widget.builder(
+                  math.min(
+                    PixivImage.decodeWidthFor(contentWidth),
+                    _maxDecodeWidth,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Clamped panorama scrolling whose drags come only from
+/// [_EdgeAwareDragRecognizer]: refusing user offsets keeps the Scrollable
+/// from adding its own drag recognizer, while flings still settle with
+/// clamping physics.
+class _PanoramaPhysics extends ClampingScrollPhysics {
+  const _PanoramaPhysics({super.parent});
+
+  @override
+  _PanoramaPhysics applyTo(ScrollPhysics? ancestor) =>
+      _PanoramaPhysics(parent: buildParent(ancestor));
+
+  @override
+  bool shouldAcceptUserOffset(ScrollMetrics position) => false;
+}
+
+/// A horizontal drag that only claims the gesture when the panorama can
+/// scroll in the direction the finger moved; otherwise the enclosing pager
+/// wins the arena.
+class _EdgeAwareDragRecognizer extends HorizontalDragGestureRecognizer {
+  _EdgeAwareDragRecognizer({required this.canScroll});
+
+  final bool Function(double dx) canScroll;
+  double _dx = 0;
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    _dx = 0;
+    super.addAllowedPointer(event);
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (event is PointerMoveEvent) _dx += event.localDelta.dx;
+    super.handleEvent(event);
+  }
+
+  @override
+  bool hasSufficientGlobalDistanceToAccept(
+    PointerDeviceKind pointerDeviceKind,
+    double? deviceTouchSlop,
+  ) =>
+      super.hasSufficientGlobalDistanceToAccept(
+        pointerDeviceKind,
+        deviceTouchSlop,
+      ) &&
+      canScroll(_dx);
 }
 
 /// Stable multi-page placeholder used while the detail payload is pending.
