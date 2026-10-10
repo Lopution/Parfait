@@ -147,6 +147,18 @@ class _FirstImageLayout {
   double get firstPageEnd => math.max(0, statusInset + alone - topChrome);
 }
 
+/// Where a freshly built narrow detail page draws [entity]'s first image:
+/// its top in the scroll and its height (a panorama's viewport height). The
+/// pager's stand-in for a page not built yet draws there, so a swipe lands
+/// on the picture the page then builds instead of jumping into place.
+({double top, double height}) detailFirstImageFrame(
+  BuildContext context,
+  IllustEntity entity,
+) {
+  final layout = _FirstImageLayout.of(context, entity, expanded: false);
+  return (top: layout.top, height: layout.natural);
+}
+
 class IllustDetailPage extends ConsumerStatefulWidget {
   const IllustDetailPage({
     super.key,

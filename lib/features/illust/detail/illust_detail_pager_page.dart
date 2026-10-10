@@ -439,9 +439,11 @@ class _PagerSlotState extends State<_PagerSlot> {
 }
 
 /// A page not built yet: the work's image where the detail page will draw
-/// it — full width at the top — from a decode the feed already made, so a
-/// fast swipe shows the artwork instead of an empty surface. Bare surface
-/// when nothing of it was decoded, and in the two-pane layout.
+/// it ([detailFirstImageFrame]: below the status bar, centered in its
+/// reading slot, a panorama cropped to its viewport) from a decode the feed
+/// already made, so a fast swipe shows the artwork in place instead of an
+/// empty surface. Bare surface when nothing of it was decoded, and in the
+/// two-pane layout.
 class _SlotStandIn extends ConsumerWidget {
   const _SlotStandIn({required this.illustId});
 
@@ -451,20 +453,31 @@ class _SlotStandIn extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final background = Theme.of(context).scaffoldBackgroundColor;
     final entity = ref.read(illustStoreProvider).get(illustId);
-    final image =
-        entity == null ||
-            AppBreakpoints.useTwoPaneDetail(MediaQuery.sizeOf(context).width)
-        ? null
-        : PixivImage.decodedStandIn(context, entity.imageTierKeyAt(0));
+    if (entity == null ||
+        AppBreakpoints.useTwoPaneDetail(MediaQuery.sizeOf(context).width)) {
+      return ColoredBox(color: background);
+    }
+    // Cover: a panorama's viewport shows the middle of the image at its
+    // height; any other frame has the image's own ratio.
+    final image = PixivImage.decodedStandIn(
+      context,
+      entity.imageTierKeyAt(0),
+      fit: BoxFit.cover,
+    );
+    final frame = detailFirstImageFrame(context, entity);
     return ColoredBox(
       color: background,
       child: image == null
           ? null
           : Align(
               alignment: Alignment.topCenter,
-              child: AspectRatio(
-                aspectRatio: entity!.pageAspectRatioAt(0),
-                child: image,
+              child: Padding(
+                padding: EdgeInsets.only(top: frame.top),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: frame.height,
+                  child: image,
+                ),
               ),
             ),
     );

@@ -54,37 +54,29 @@ class IllustHeroCardFrame extends StatelessWidget {
   }
 }
 
-/// Lays the shuttle image out between the card's top crop and the detail's
-/// contained frame. Both rects keep the image's own [aspect], so the
-/// detail's `BoxFit.contain` image fills the rect exactly; the shuttle clip
-/// cuts off what the card did not show.
-class _CropLerpDelegate extends SingleChildLayoutDelegate {
-  const _CropLerpDelegate({required this.progress, required this.aspect});
+/// Lays the shuttle image out full width and top-aligned at its own
+/// [aspect], whatever the flight rect: the card's top crop at one end, the
+/// whole image at the detail end (where the rect has the image's ratio),
+/// and a growing top crop between. The flight rect runs from the card's
+/// 1:2 to the taller image ratio, so it is never taller than the image and
+/// the image always fills it. Fitting the image inside the rect instead
+/// shrank it narrower than the rect mid-flight, then widened it back — a
+/// second shrink on top of the flight's own.
+class _CoverTopDelegate extends SingleChildLayoutDelegate {
+  const _CoverTopDelegate({required this.aspect});
 
-  /// 0 at the card, 1 at the detail page, in both directions.
-  final double progress;
+  /// The image's width / height.
   final double aspect;
 
-  Rect _rect(Size size) {
-    final coverTop = Offset.zero & Size(size.width, size.width / aspect);
-    final fitted = applyBoxFit(BoxFit.contain, Size(aspect, 1), size);
-    final containCenter = Alignment.center.inscribe(
-      fitted.destination,
-      Offset.zero & size,
-    );
-    return Rect.lerp(coverTop, containCenter, progress)!;
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    final width = constraints.maxWidth;
+    return BoxConstraints.tight(Size(width, width / aspect));
   }
 
   @override
-  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
-      BoxConstraints.tight(_rect(constraints.biggest).size);
-
-  @override
-  Offset getPositionForChild(Size size, Size childSize) => _rect(size).topLeft;
-
-  @override
-  bool shouldRelayout(_CropLerpDelegate oldDelegate) =>
-      progress != oldDelegate.progress || aspect != oldDelegate.aspect;
+  bool shouldRelayout(_CoverTopDelegate oldDelegate) =>
+      aspect != oldDelegate.aspect;
 }
 
 /// Conservative fallback for the home shell bottom navigation when the
@@ -207,10 +199,7 @@ Widget illustHeroFlightShuttleBuilder(
           child: cropAspect == null
               ? child
               : CustomSingleChildLayout(
-                  delegate: _CropLerpDelegate(
-                    progress: progress,
-                    aspect: cropAspect,
-                  ),
+                  delegate: _CoverTopDelegate(aspect: cropAspect),
                   child: child,
                 ),
         ),

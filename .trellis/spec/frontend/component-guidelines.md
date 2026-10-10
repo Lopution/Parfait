@@ -1415,8 +1415,12 @@ Future<ImagePreloadResult> PixivImage.preload(
   the square thumbnail (the 540 px resize, or the uncropped `square1200`
   for wider cards) and opens without a Hero, since that image is not the
   detail page's. A top-cropped card hands `cropAspect` (the work's
-  width/height) to its frame, and the shuttle lerps the child from the
-  card's cover-top rect to the whole contained image, both directions.
+  width/height) to its frame, and the shuttle lays the image out full
+  width and top-aligned at that ratio for the whole flight, both
+  directions. The flight rect runs from 1:2 to the image ratio, so it is
+  never taller than the image. Fitting the image inside the rect mid-flight
+  shrank it narrower than the rect and widened it back, which read as a
+  second shrink.
   There is no feed prefetch: the grid's cache extent builds cards ahead and
   each card's image loads as it mounts. Cards have no entrance of their
   own: they land in place, as in Shaft (its lists run without an item
@@ -1450,8 +1454,11 @@ Future<ImagePreloadResult> PixivImage.preload(
   `loadMore` only on an existing, loaded provider. It must never send the
   first request.
 - A pager page outside the build window paints the work's image where the
-  detail draws it (full width, top) from a decode the feed already made
-  (`PixivImage.decodedStandIn`), never a load; a bare surface when none
+  built detail page will draw it (`detailFirstImageFrame`: below the status
+  bar, centered in the reading slot, a panorama `cover`-cropped to its
+  viewport) from a decode the feed already made
+  (`PixivImage.decodedStandIn`), never a load. A stand-in at the old
+  top-of-page position made a swipe jump on landing; a bare surface when none
   exists and in the two-pane layout. `findChildIndexCallback` maps pages by
   work id, so a list shift moves built pages instead of rebuilding them as
   other works.
