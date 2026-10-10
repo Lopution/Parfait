@@ -284,6 +284,29 @@ void main() {
     expect(indicator, findsNothing);
   });
 
+  testWidgets('a fling stops at the trailing edge instead of bouncing back', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildSubject(onRefresh: () async {}));
+    final position = tester
+        .state<ScrollableState>(find.byType(Scrollable))
+        .position;
+
+    // A feed waits at its end for the next page; overshooting there would
+    // spring the list back up just before the page lands.
+    await tester.fling(find.byType(ListView), const Offset(0, -300), 6000);
+    var reachedEnd = false;
+    for (var frame = 0; frame < 120; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(
+        position.pixels,
+        lessThanOrEqualTo(position.maxScrollExtent + 0.001),
+      );
+      reachedEnd = reachedEnd || position.pixels == position.maxScrollExtent;
+    }
+    expect(reachedEnd, isTrue);
+  });
+
   testWidgets('the shared wrapper refreshes a nested scroll view once', (
     tester,
   ) async {

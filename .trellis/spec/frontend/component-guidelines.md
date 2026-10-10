@@ -1852,6 +1852,11 @@ static bool PullToRefresh.trigger(ScrollController controller);
   inside `PullToRefresh` subtrees, so non-feed pages (detail, settings,
   search) share the feed's feel. Do not reintroduce a
   `ClampingScrollPhysics` region.
+- Inside `PullToRefresh` a fling stops at either edge; only a drag
+  overscrolls. The header's `hitOver` is already off; the wrapper passes
+  `notLoadFooter: NotLoadFooter(hitOver: false)` because without `onLoad`
+  EasyRefresh copies `ClassicFooter`'s `hitOver: true`, and a fling into a
+  feed's end then sprang back up while the next page loaded.
 - A `NestedScrollView` does **not** inherit that behavior: its outer position
   is `widget.physics?.applyTo(Clamping) ?? ClampingScrollPhysics()`. Pass
   `physics: ScrollConfiguration.of(context).getScrollPhysics(context)`

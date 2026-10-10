@@ -157,6 +157,12 @@ class _PullToRefreshState extends State<PullToRefresh> {
           );
         },
       ),
+      // Without onLoad EasyRefresh derives this from ClassicFooter, whose
+      // infinite-scroll offset turns hitOver on: a fling then overshoots
+      // the end and springs back up while the feed loads its next page.
+      // Off, a fling stops at the end as it does at the top; a drag still
+      // overscrolls both edges.
+      notLoadFooter: const NotLoadFooter(hitOver: false),
       controller: _controller,
       scrollController: widget.scrollController,
       onRefresh: widget.onRefresh,
