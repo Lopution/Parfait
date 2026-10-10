@@ -14,9 +14,10 @@ Inputs (kept outside the repository):
 
 Outputs in .github/readme/:
   <shot>.webp          one framed screenshot per entry in SHOTS
-  banner.webp          README header, 2x for high-DPI screens
-  social-preview.jpg   the same banner at 1280x640, uploaded by hand in the
-                       repository settings
+  banner<lang>.webp    README header per entry in COPIES, 2x for high-DPI
+                       screens
+  social-preview.jpg   the Chinese banner at 1280x640, uploaded by hand in
+                       the repository settings
 
 Usage: python tool/build_readme_assets.py --raw ~/parfait-readme-work/raw
 Requirements: tool/requirements-app-icon.txt (numpy, pillow, scipy).
@@ -47,6 +48,8 @@ class Shot:
     # The app draws edge-to-edge content behind the status bar, so the old
     # icons are removed from the picture instead of painting over a flat fill.
     behind_status_bar: bool = False
+    # Light status bar icons, for screens with a dark top edge.
+    dark: bool = False
 
 
 SHOTS = (
@@ -56,6 +59,8 @@ SHOTS = (
     Shot("profile", behind_status_bar=True),
     Shot("ranking"),
     Shot("novel"),
+    Shot("viewer", dark=True),
+    Shot("downloads"),
 )
 
 RAW_SIZE = (1440, 3136)
@@ -83,6 +88,7 @@ ICON_PX = 60
 ICON_GAP = 6
 ICONS_RIGHT = 1318
 BAR_INK = (31, 31, 31, 255)
+BAR_INK_DARK = (255, 255, 255, 255)
 # Flutter's MaterialIcons font (its own code points, see Flutter's icons.dart):
 # wifi, signal_cellular_4_bar, battery_full.
 STATUS_GLYPHS = ("\ue6e7", "\ue5a6", "\ue0d2")
@@ -114,41 +120,52 @@ CJK_FONTS = {
     "NotoSansSC-Regular.otf": "faa6c9df652116dde789d351359f3d7e5d2285a2b2a1f04a2d7244df706d5ea9",
 }
 
-# Banner: README header and the repository's social preview. A tilted wall
-# of the screenshots, washed out towards the middle, under a centred card.
-# Layout values are in banner pixels at 1x; the README copy is drawn at
-# BANNER_SCALE.
+# Banner: README header and the repository's social preview. The copy on
+# the left, a fan of framed phones on the right. Layout values are in banner
+# pixels at 1x; the README copy is drawn at BANNER_SCALE.
 ICON = ROOT / ".github/branding/icon-512.png"
 BANNER_SIZE = (1280, 640)  # GitHub's recommended social preview size
 BANNER_SCALE = 2
 BANNER_RADIUS = 28
 INK = (43, 26, 34)
+INK_MUTED = (110, 88, 98)
 BRAND = (228, 70, 122)
 CHIP_BORDER = (247, 182, 203)
 SHADOW = (122, 14, 54)  # the icon's shadow colour
-
-# The picture-heavy screens: detail's single artwork dominates a small tile
-# and the novel reader turns into grey noise.
-WALL_SHOTS = ("home", "ranking", "profile", "search")
-WALL_TILE_WIDTH, WALL_GAP, WALL_TILE_RADIUS = 196, 22, 18
-WALL_TILE_SHADOW_BLUR, WALL_TILE_SHADOW_OPACITY = 10, 0.18
-WALL_ANGLE = 12  # degrees, counter-clockwise
 WASH = ((255, 248, 251), (255, 226, 236))  # top-left -> bottom-right
-# Wash opacity falls off from the middle like a Gaussian, so the corners
-# keep their colour; SPREAD is in half-diagonals of the banner.
-WASH_EDGE, WASH_CENTER, WASH_SPREAD = 0.08, 0.70, 0.55
 
-# Frosted glass: the wall behind the card, blurred and tinted white.
-CARD_SIZE, CARD_RADIUS = (600, 336), 28
-CARD_BLUR, CARD_TINT = 22, 0.72
-# Offsets from the card's top edge; text positions are baselines.
-CARD_ICON_TOP, CARD_ICON_SIZE, CARD_ICON_GAP = 40, 84, 20
+
+@dataclass(frozen=True)
+class Copy:
+    descriptor: str
+    headline: str
+    chips: tuple[str, ...]
+
+
+# One banner per README language; the social preview uses the first.
+COPIES = {
+    "": Copy("第三方 pixiv 客户端", "支持中国大陆直连", ("Android 10+", "免费开源", "无广告无统计")),
+    ".en": Copy("Unofficial pixiv client for Android", "Art, manga & novels",
+                ("Android 10+", "Open source", "No ads or tracking")),
+}
+
+# The copy block; offsets from its top edge, text positions are baselines.
 NAME = "Parfait"
-NAME_PX = 52
-HEADLINE = ("第三方 pixiv 客户端", "支持中国大陆直连")
-HEADLINE_TOP, HEADLINE_PX, HEADLINE_LEADING = 186, 28, 42
-CHIPS = ("Android 10+", "免费开源", "无广告")
-CHIPS_TOP, CHIP_PX, CHIP_HEIGHT, CHIP_PAD, CHIP_GAP = 256, 16, 36, 18, 10
+ICON_SIZE, ICON_GAP_X, NAME_PX = 96, 22, 72
+DESCRIPTOR_PX, DESCRIPTOR_TOP = 28, 160
+HEADLINE_PX, HEADLINE_TOP = 46, 228
+CHIPS_TOP, CHIP_PX, CHIP_HEIGHT, CHIP_PAD, CHIP_GAP = 262, 18, 40, 20, 10
+COPY_HEIGHT = CHIPS_TOP + CHIP_HEIGHT
+COPY_LEFT = 92
+
+PHONES = (  # (shot, centre x, centre y, height, angle), back to front
+    ("detail", 815, 370, 520, 8),
+    ("search", 1095, 380, 520, -8),
+    ("home", 955, 350, 590, 0),
+)
+PHONE_SHADOW_BLUR, PHONE_SHADOW_OPACITY = 24, 0.22
+GLOW = (255, 196, 216)  # soft spot of brand colour behind the phones
+GLOW_CENTER, GLOW_RADIUS = (955, 330), 420
 SOCIAL_JPEG_QUALITY = 90
 
 
@@ -223,15 +240,15 @@ def clear_icons_on_picture(screen: Image.Image) -> None:
     screen.paste(Image.fromarray(pixels.round().astype(np.uint8)))
 
 
-def draw_status_bar(screen: Image.Image, fonts: Path) -> None:
+def draw_status_bar(screen: Image.Image, fonts: Path, dark: bool) -> None:
     draw = ImageDraw.Draw(screen)
+    ink = BAR_INK_DARK if dark else BAR_INK
     clock = ImageFont.truetype(str(fonts / "Roboto-Medium.ttf"), CLOCK_PX)
-    draw.text((CLOCK_X, BAR_CENTER_Y), CLOCK_TEXT, font=clock, fill=BAR_INK,
-              anchor="lm")
+    draw.text((CLOCK_X, BAR_CENTER_Y), CLOCK_TEXT, font=clock, fill=ink, anchor="lm")
     icons = ImageFont.truetype(str(fonts / "MaterialIcons-Regular.otf"), ICON_PX)
     x = ICONS_RIGHT
     for glyph in reversed(STATUS_GLYPHS):
-        draw.text((x, BAR_CENTER_Y), glyph, font=icons, fill=BAR_INK, anchor="rm")
+        draw.text((x, BAR_CENTER_Y), glyph, font=icons, fill=ink, anchor="rm")
         x -= icons.getlength(glyph) + ICON_GAP
 
 
@@ -253,7 +270,7 @@ def build_screen(shot: Shot, raw: Path, fonts: Path) -> Image.Image:
         clear_icons_on_picture(screen)
     else:
         clear_flat_bar(screen)
-    draw_status_bar(screen, fonts)
+    draw_status_bar(screen, fonts, shot.dark)
     if screen.size != SCREEN_SIZE:
         raise SystemExit(f"{shot.name}: screen {screen.size}, expected {SCREEN_SIZE}")
     return screen
@@ -293,98 +310,64 @@ def paste_centered(canvas: Image.Image, image: Image.Image,
                                    round(center[1] - image.height / 2)))
 
 
-def screen_wall(screens: dict[str, Image.Image], size: tuple[int, int],
-                s: int) -> Image.Image:
-    """Columns of screenshot tiles, every other column shifted by half a
-    tile, rotated by WALL_ANGLE and cropped to `size`."""
-    tiles = [round_corners(resize_to_width(screens[name], WALL_TILE_WIDTH * s),
-                           WALL_TILE_RADIUS * s) for name in WALL_SHOTS]
-    tile_w, tile_h = tiles[0].size
-    shadowed = []
-    for tile in tiles:
-        shadow = drop_shadow(tile, WALL_TILE_SHADOW_BLUR * s, WALL_TILE_SHADOW_OPACITY)
-        pad = (shadow.width - tile_w) // 2
-        shadow.alpha_composite(tile, (pad, pad - WALL_TILE_SHADOW_BLUR * s // 2))
-        shadowed.append(shadow)
-    step_x, step_y = tile_w + WALL_GAP * s, tile_h + WALL_GAP * s
-    side = int(np.hypot(*size)) + 2 * step_y  # covers the canvas at any angle
-    wall = gradient((side, side))
-    for col in range(side // step_x + 1):
-        offset = -step_y // 2 if col % 2 else -step_y
-        for row in range(side // step_y + 2):
-            # Stride 1 down a column and 2 along a row keeps neighbours apart.
-            tile = shadowed[(row + 2 * col) % len(shadowed)]
-            wall.alpha_composite(tile, (col * step_x - pad, offset + row * step_y - pad))
-    wall = wall.rotate(WALL_ANGLE, Image.BICUBIC)
-    left, top = (side - size[0]) // 2, (side - size[1]) // 2
-    return wall.crop((left, top, left + size[0], top + size[1]))
-
-
-def wash(canvas: Image.Image) -> None:
-    """Fade the wall into the brand gradient, strongest behind the card."""
-    w, h = canvas.size
-    x = (np.arange(w)[None, :] - w / 2) / (w / 2)
-    y = (np.arange(h)[:, None] - h / 2) / (h / 2)
-    distance = np.hypot(x, y) / np.sqrt(2)
-    opacity = WASH_EDGE + (WASH_CENTER - WASH_EDGE) * np.exp(-(distance / WASH_SPREAD) ** 2)
-    layer = gradient(canvas.size)
-    layer.putalpha(Image.fromarray((opacity * 255).round().astype(np.uint8)))
-    canvas.alpha_composite(layer)
-
-
-def add_card(canvas: Image.Image, cjk: dict[str, Path], s: int) -> None:
+def draw_copy(canvas: Image.Image, cjk: dict[str, Path], s: int, copy: Copy,
+              left: float, top: float) -> None:
+    """Icon and name, descriptor, headline and chips, left-aligned."""
     def font(weight: str, px: int) -> ImageFont.FreeTypeFont:
         return ImageFont.truetype(str(cjk[f"NotoSansSC-{weight}.otf"]), px * s)
 
-    center_x, center_y = canvas.width / 2, canvas.height / 2
-    w, h = CARD_SIZE[0] * s, CARD_SIZE[1] * s
-    left, top = round(center_x - w / 2), round(center_y - h / 2)
-    glass = canvas.crop((left, top, left + w, top + h)).filter(
-        ImageFilter.GaussianBlur(CARD_BLUR * s))
-    glass = Image.blend(glass, Image.new("RGBA", glass.size, "white"), CARD_TINT)
-    card = round_corners(glass, CARD_RADIUS * s)
-    paste_centered(canvas, drop_shadow(card, 28 * s, 0.20), (center_x, center_y + 14 * s))
-    canvas.alpha_composite(card, (left, top))
     draw = ImageDraw.Draw(canvas)
-    draw.rounded_rectangle((left, top, left + w - 1, top + h - 1), radius=CARD_RADIUS * s,
-                           outline="white", width=2 * s)
-
-    name = font("Bold", NAME_PX)
-    icon_px = CARD_ICON_SIZE * s
-    row = icon_px + CARD_ICON_GAP * s + name.getlength(NAME)
-    icon_x, icon_y = round(center_x - row / 2), round(top + CARD_ICON_TOP * s)
+    icon_px = ICON_SIZE * s
+    icon_x, icon_y = round(left), round(top)
     icon = Image.open(ICON).convert("RGBA").resize((icon_px, icon_px), Image.LANCZOS)
-    # The icon is white too; the shadow is what outlines it on the card.
+    # The icon is white too; the shadow is what outlines it on the light ground.
     paste_centered(canvas, drop_shadow(icon, 6 * s, 0.30),
                    (icon_x + icon_px / 2, icon_y + icon_px / 2 + 3 * s))
     canvas.alpha_composite(icon, (icon_x, icon_y))
-    draw.text((icon_x + icon_px + CARD_ICON_GAP * s, icon_y + icon_px / 2), NAME,
-              font=name, fill=INK, anchor="lm")
+    draw.text((icon_x + icon_px + ICON_GAP_X * s, icon_y + icon_px / 2), NAME,
+              font=font("Bold", NAME_PX), fill=INK, anchor="lm")
 
-    headline = font("Bold", HEADLINE_PX)
-    for i, (line, color) in enumerate(zip(HEADLINE, (INK, BRAND))):
-        draw.text((center_x, top + (HEADLINE_TOP + i * HEADLINE_LEADING) * s), line,
-                  font=headline, fill=color, anchor="ms")
+    draw.text((left, top + DESCRIPTOR_TOP * s), copy.descriptor,
+              font=font("Regular", DESCRIPTOR_PX), fill=INK_MUTED, anchor="ls")
+    draw.text((left, top + HEADLINE_TOP * s), copy.headline,
+              font=font("Bold", HEADLINE_PX), fill=BRAND, anchor="ls")
 
     chip = font("Regular", CHIP_PX)
-    widths = [chip.getlength(label) + 2 * CHIP_PAD * s for label in CHIPS]
-    x = center_x - (sum(widths) + CHIP_GAP * s * (len(CHIPS) - 1)) / 2
+    chip_x = left
     chip_top = top + CHIPS_TOP * s
     chip_bottom = chip_top + CHIP_HEIGHT * s
-    for label, width in zip(CHIPS, widths):
-        draw.rounded_rectangle((x, chip_top, x + width, chip_bottom),
+    for label in copy.chips:
+        width = chip.getlength(label) + 2 * CHIP_PAD * s
+        draw.rounded_rectangle((chip_x, chip_top, chip_x + width, chip_bottom),
                                radius=CHIP_HEIGHT * s / 2, fill="white",
                                outline=CHIP_BORDER, width=s)
-        draw.text((x + width / 2, (chip_top + chip_bottom) / 2), label, font=chip,
+        draw.text((chip_x + width / 2, (chip_top + chip_bottom) / 2), label, font=chip,
                   fill=INK, anchor="mm")
-        x += width + CHIP_GAP * s
+        chip_x += width + CHIP_GAP * s
 
 
-def build_banner(screens: dict[str, Image.Image], cjk: dict[str, Path]) -> Image.Image:
+def glow(canvas: Image.Image, s: int) -> None:
+    w, h = canvas.size
+    cx, cy = GLOW_CENTER[0] * s, GLOW_CENTER[1] * s
+    d = np.hypot(np.arange(w)[None, :] - cx, np.arange(h)[:, None] - cy) / (GLOW_RADIUS * s)
+    layer = Image.new("RGBA", canvas.size, GLOW)
+    layer.putalpha(Image.fromarray((np.exp(-d ** 2) * 255).round().astype(np.uint8)))
+    canvas.alpha_composite(layer)
+
+
+def build_banner(framed: dict[str, Image.Image], cjk: dict[str, Path],
+                 copy: Copy) -> Image.Image:
     s = BANNER_SCALE
-    canvas = screen_wall(screens, (BANNER_SIZE[0] * s, BANNER_SIZE[1] * s), s)
-    wash(canvas)
-    add_card(canvas, cjk, s)
+    canvas = gradient((BANNER_SIZE[0] * s, BANNER_SIZE[1] * s))
+    glow(canvas, s)
+    for name, cx, cy, height, angle in PHONES:
+        phone = framed[name]
+        phone = phone.resize((round(phone.width * height * s / phone.height), height * s),
+                             Image.LANCZOS).rotate(angle, Image.BICUBIC, expand=True)
+        paste_centered(canvas, drop_shadow(phone, PHONE_SHADOW_BLUR * s, PHONE_SHADOW_OPACITY),
+                       (cx * s, (cy + 16) * s))
+        paste_centered(canvas, phone, (cx * s, cy * s))
+    draw_copy(canvas, cjk, s, copy, COPY_LEFT * s, (canvas.height - COPY_HEIGHT * s) / 2)
     return canvas
 
 
@@ -403,14 +386,16 @@ def main() -> int:
     fonts = material_fonts(args.flutter_root)
     OUT.mkdir(parents=True, exist_ok=True)
 
-    screens = {shot.name: build_screen(shot, args.raw, fonts) for shot in SHOTS}
-    for name, screen in screens.items():
-        save(resize_to_width(frame(screen, art), OUTPUT_WIDTH), OUT / f"{name}.webp")
+    framed = {shot.name: frame(build_screen(shot, args.raw, fonts), art) for shot in SHOTS}
+    for name, image in framed.items():
+        save(resize_to_width(image, OUTPUT_WIDTH), OUT / f"{name}.webp")
 
-    banner = build_banner(screens, cjk)
-    save(round_corners(banner, BANNER_RADIUS * BANNER_SCALE), OUT / "banner.webp")
-    social = banner.resize(BANNER_SIZE, Image.LANCZOS).convert("RGB")
-    save(social, OUT / "social-preview.jpg")
+    for i, (suffix, copy) in enumerate(COPIES.items()):
+        banner = build_banner(framed, cjk, copy)
+        save(round_corners(banner, BANNER_RADIUS * BANNER_SCALE), OUT / f"banner{suffix}.webp")
+        if i == 0:
+            social = banner.resize(BANNER_SIZE, Image.LANCZOS).convert("RGB")
+            save(social, OUT / "social-preview.jpg")
     return 0
 
 
