@@ -2731,6 +2731,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get spotlightArticleLoadFailed => '記事の読み込みに失敗しました';
 
   @override
+  String get spotlightChallengeVerifying => 'pixivision を確認しています…';
+
+  @override
+  String get spotlightChallengeManual => 'pixivision の手動確認が必要です。下で完了してください';
+
+  @override
+  String get spotlightChallengeFailed => 'pixivision は現在、確認またはプロキシを必要としています';
+
+  @override
   String get spotlightCategoryAll => 'すべて';
 
   @override

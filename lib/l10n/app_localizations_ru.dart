@@ -2806,6 +2806,17 @@ class AppLocalizationsRu extends AppLocalizations {
   String get spotlightArticleLoadFailed => 'Не удалось загрузить статью';
 
   @override
+  String get spotlightChallengeVerifying => 'Проверяем pixivision…';
+
+  @override
+  String get spotlightChallengeManual =>
+      'pixivision требует проверки вручную. Завершите её ниже';
+
+  @override
+  String get spotlightChallengeFailed =>
+      'pixivision сейчас требует проверки или прокси';
+
+  @override
   String get spotlightCategoryAll => 'Все';
 
   @override

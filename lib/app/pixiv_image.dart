@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:octo_image/octo_image.dart';
 
@@ -63,6 +65,7 @@ class PixivImage extends ConsumerStatefulWidget {
     this.placeholderColor,
     this.placeholderWidget,
     this.fade = true,
+    this.sizeToImage = false,
     this.transitionKey,
     this.filterColor,
     this.filterBlendMode,
@@ -234,6 +237,12 @@ class PixivImage extends ConsumerStatefulWidget {
   /// back in) appears instantly — Glide skips memory-cache hits the same
   /// way.
   final bool fade;
+
+  /// Lays the box out at the decoded image's own aspect ratio, as large as
+  /// the constraints allow ([AspectFitBox]), for images whose ratio nothing
+  /// knows up front (article images). Off, a bounded max width pins the
+  /// box's width — see build.
+  final bool sizeToImage;
 
   /// Stable identity for an image that participates in a Hero hand-off.
   ///
@@ -892,7 +901,9 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
         // aspect ratio still sets the height from whatever decoded first.
         final width =
             widget.width ??
-            (constraints.hasBoundedWidth ? constraints.maxWidth : null);
+            (constraints.hasBoundedWidth && !widget.sizeToImage
+                ? constraints.maxWidth
+                : null);
         return OctoImage(
           // A new key is a fresh resolve: how a retry reloads.
           key: ValueKey(_load),
@@ -907,7 +918,9 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
             // them names the work (the card, the viewer page). Left in, the
             // decoded image added an unnamed "image" stop for screen
             // readers (H2). The failure view, with its retry, stays.
-            return ExcludeSemantics(child: child);
+            return ExcludeSemantics(
+              child: widget.sizeToImage ? AspectFitBox(child: child) : child,
+            );
           },
           placeholderBuilder: placeholder,
           errorBuilder: (_, error, _) => failed(error),
@@ -932,5 +945,43 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
     // re-records every visible image on each tick. Keep the blast radius
     // at this image.
     return RepaintBoundary(child: image);
+  }
+}
+
+/// Sizes its child to the largest box within the constraints that keeps
+/// the child's natural aspect ratio, scaling up as well as down: what
+/// [BoxFit.contain] does to an image's pixels, done to its layout box. A
+/// decoded image alone only ever shrinks to fit, so an image with fewer
+/// pixels than the column stayed small, and one pinned to the column width
+/// under a height cap left bars beside it.
+///
+/// The natural size is the child's dry layout under unbounded constraints
+/// (an image's pixel size); the child must support dry layout.
+class AspectFitBox extends SingleChildRenderObjectWidget {
+  const AspectFitBox({super.key, super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderAspectFitBox();
+}
+
+class _RenderAspectFitBox extends RenderProxyBox {
+  Size _fit(BoxConstraints constraints) {
+    final natural = child?.getDryLayout(const BoxConstraints());
+    if (natural == null || natural.isEmpty) return constraints.smallest;
+    final scale = math.min(
+      constraints.maxWidth / natural.width,
+      constraints.maxHeight / natural.height,
+    );
+    return constraints.constrain(scale.isFinite ? natural * scale : natural);
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) => _fit(constraints);
+
+  @override
+  void performLayout() {
+    size = _fit(constraints);
+    child?.layout(BoxConstraints.tight(size));
   }
 }

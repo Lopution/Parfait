@@ -2701,6 +2701,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get spotlightArticleLoadFailed => '文章加载失败';
 
   @override
+  String get spotlightChallengeVerifying => '正在通过 pixivision 验证…';
+
+  @override
+  String get spotlightChallengeManual => 'pixivision 需要人工验证，请完成下方验证';
+
+  @override
+  String get spotlightChallengeFailed => 'pixivision 当前需要验证或代理';
+
+  @override
   String get spotlightCategoryAll => '全部';
 
   @override

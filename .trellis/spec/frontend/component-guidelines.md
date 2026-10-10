@@ -166,7 +166,20 @@ state or action.
   always-scrollable bouncing physics leaks into it, so every paragraph
   drags and bounces on its own, and selection cannot span paragraphs.
   `onboarding_pages_test.dart` drags a paragraph under
-  `FuncScrollBehavior` and expects the page itself to scroll.
+  `FuncScrollBehavior` and expects the page itself to scroll; the
+  Spotlight article follows the same rule (`spotlight_article_test.dart`).
+- An image whose ratio is unknown until it decodes (Spotlight article
+  images) holds a square placeholder, then takes its own ratio through
+  `PixivImage(sizeToImage: true)` / `AspectFitBox` inside `SpringSize`,
+  with no crossfade: a square dissolving over an image of another height
+  reads as banded loading. Under a height cap a tall image is drawn
+  narrower and centered — no background box, no bars.
+- The Spotlight article's cover (`SpotlightImage.cover`, the
+  `aie__image` eyecatch) is drawn from the list entry's pximg
+  `thumbnailUrl` when there is one. The page's own cover is an
+  embed.pixiv.net card generated per request behind Cloudflare and fetched
+  outside the Pixiv network policy; it failed intermittently on device.
+  Only a deep-linked article without a list entry falls back to it.
 - A date or count is formatted by hand (`'${d.year}-${d.month}'`,
   `NumberFormat` at the call site, `'${n}k'`). User-facing dates go through
   `AppFormat.date`/`relative` and counts through `AppFormat.count`, so every

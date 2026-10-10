@@ -10,7 +10,7 @@ import 'package:octo_image/octo_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/layout/content_widths.dart';
-import '../../app/motion/motion_tokens.dart';
+import '../../app/motion/spring_size.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/app_snack_bar.dart';
@@ -18,11 +18,14 @@ import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/author_row.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/network/http_client_providers.dart';
+import '../../core/network/api_error.dart';
 import '../../core/share/share_service.dart';
 import '../../core/spotlight/spotlight_article_controller.dart';
 import '../../core/spotlight/spotlight_models.dart';
+import '../../core/spotlight/spotlight_repository.dart';
 import '../../core/spotlight/spotlight_store.dart';
 import '../../l10n/context.dart';
+import 'spotlight_challenge_view.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 
 /// In-app pixivision article reader: renders the parsed [SpotlightBlock]s —
@@ -90,61 +93,82 @@ class SpotlightArticlePage extends ConsumerWidget {
       ),
       body: async.when(
         loading: () => const FeedLoading(),
-        error: (error, _) => FeedError(
-          title: context.l10n.spotlightArticleLoadFailed,
-          error: error,
-          retryLabel: context.l10n.retry,
-          onRetry: () => ref.invalidate(
-            spotlightArticleBodyProvider((id: articleId, url: _url)),
-          ),
-        ),
+        error: (error, _) => error is ApiChallengeRequired
+            ? SpotlightChallengeView(
+                uri: PixivSpotlightRepository.articleUri(_url),
+                contentBuilder: (body) =>
+                    _articleBody(context, body, entry?.thumbnailUrl),
+              )
+            : FeedError(
+                title: context.l10n.spotlightArticleLoadFailed,
+                error: error,
+                retryLabel: context.l10n.retry,
+                onRetry: () => ref.invalidate(
+                  spotlightArticleBodyProvider((id: articleId, url: _url)),
+                ),
+              ),
         // Article-width cap (a ContentWidths role, not a breakpoint): the
         // column stays top-centered and readable on wide surfaces while
         // narrow phones keep full width.
-        data: (body) => Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: ContentWidths.article),
-            child: ListView(
-              key: PageStorageKey('spotlight-article-$articleId'),
-              padding: const EdgeInsets.fromLTRB(
-                FuncSpacing.lg,
-                FuncSpacing.sm,
-                FuncSpacing.lg,
-                FuncSpacing.xxl,
-              ),
-              children: [
-                if (body.title.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: FuncSpacing.sm),
-                    child: SelectableText(
-                      body.title,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                  ),
-                if (body.description != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: FuncSpacing.md),
-                    child: SelectableText(
-                      body.description!,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                for (final block in body.blocks)
-                  _SpotlightBlockView(block: block),
-              ],
-            ),
-          ),
-        ),
+        data: (body) => _articleBody(context, body, entry?.thumbnailUrl),
       ),
     );
   }
+
+  Widget _articleBody(
+    BuildContext context,
+    SpotlightArticleBody body,
+    String? coverUrl,
+  ) => Align(
+    alignment: Alignment.topCenter,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: ContentWidths.article),
+      // One selection region for the whole article: text is plain Text, so
+      // no paragraph owns a Scrollable the app-wide bouncing physics could
+      // leak into, and a selection can span paragraphs.
+      child: SelectionArea(
+        child: ListView(
+          key: PageStorageKey('spotlight-article-$articleId'),
+          padding: const EdgeInsets.fromLTRB(
+            FuncSpacing.lg,
+            FuncSpacing.sm,
+            FuncSpacing.lg,
+            FuncSpacing.xxl,
+          ),
+          children: [
+            if (body.title.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: FuncSpacing.sm),
+                child: Text(
+                  body.title,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+              ),
+            if (body.description != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: FuncSpacing.md),
+                child: Text(
+                  body.description!,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            for (final block in body.blocks)
+              _SpotlightBlockView(block: block, coverUrl: coverUrl),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _SpotlightBlockView extends StatefulWidget {
-  const _SpotlightBlockView({required this.block});
+  const _SpotlightBlockView({required this.block, this.coverUrl});
 
   final SpotlightBlock block;
+
+  /// The list entry's pximg cover; a deep-linked article has none and keeps
+  /// the page's own.
+  final String? coverUrl;
 
   @override
   State<_SpotlightBlockView> createState() => _SpotlightBlockViewState();
@@ -167,15 +191,12 @@ class _SpotlightBlockViewState extends State<_SpotlightBlockView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return switch (widget.block) {
-      // Paragraph-level selection (no SelectionArea — its AOT cost was
-      // rejected): heading and paragraph text is selectable per block, and
-      // span recognizers stay live inside SelectableText.
       SpotlightHeading(:final text, :final level) => Padding(
         padding: const EdgeInsets.only(
           top: FuncSpacing.lg,
           bottom: FuncSpacing.xs,
         ),
-        child: SelectableText(
+        child: Text(
           text,
           style: switch (level) {
             2 => theme.textTheme.titleLarge,
@@ -186,16 +207,16 @@ class _SpotlightBlockViewState extends State<_SpotlightBlockView> {
       ),
       SpotlightParagraph(:final segments) => Padding(
         padding: const EdgeInsets.symmetric(vertical: FuncSpacing.xs),
-        child: SelectableText.rich(
+        child: Text.rich(
           TextSpan(
             style: theme.textTheme.bodyMedium,
             children: _linkSpans(context, segments, theme),
           ),
         ),
       ),
-      SpotlightImage(:final url) => Padding(
+      SpotlightImage(:final url, :final cover) => Padding(
         padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
-        child: _ArticleImage(url: url),
+        child: _ArticleImage(url: cover ? widget.coverUrl ?? url : url),
       ),
       final SpotlightIllustCard card => _SpotlightIllustCardView(card: card),
     };
@@ -241,35 +262,46 @@ class _SpotlightBlockViewState extends State<_SpotlightBlockView> {
 /// Article body images: pximg hosts need the Pixiv referer chain
 /// (PixivImage); pixivision's own CDN does not, so it is plain third-party
 /// traffic.
+///
+/// The page names no image sizes, so an image holds a square until it
+/// decodes, then takes its own ratio; the box springs between the two. No
+/// crossfade: the placeholder dissolving over an image of another height
+/// read as the image loading in bands.
 class _ArticleImage extends ConsumerWidget {
-  const _ArticleImage({required this.url, this.placeholder});
+  const _ArticleImage({required this.url});
 
   final String url;
 
-  /// Shown until the image decodes; null keeps each widget's default.
-  final Widget? placeholder;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final placeholder = this.placeholder;
+    final placeholder = AspectRatio(
+      aspectRatio: 1,
+      child: ColoredBox(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      ),
+    );
     final host = Uri.tryParse(url)?.host ?? '';
-    if (host.endsWith('pximg.net')) {
-      return PixivImage(
-        url: url,
-        fit: BoxFit.contain,
-        placeholderWidget: placeholder,
-      );
-    }
-    return OctoImage(
-      image: _ThirdPartyImage(ref.watch(thirdPartyHttpClientProvider), url),
-      fit: BoxFit.contain,
-      placeholderBuilder: placeholder == null ? null : (_) => placeholder,
-      errorBuilder: (_, _, _) => const Icon(Icons.broken_image),
-      // PixivImage's load transition: the image at once, the placeholder
-      // dissolving off it.
-      fadeInDuration: Duration.zero,
-      fadeOutDuration: MotionTokens.resolve(context, MotionTokens.imageFade),
-      fadeOutCurve: MotionTokens.imageFadeCurve,
+    return SpringSize(
+      child: host.endsWith('pximg.net')
+          ? PixivImage(
+              url: url,
+              fit: BoxFit.contain,
+              sizeToImage: true,
+              fade: false,
+              placeholderWidget: placeholder,
+            )
+          : OctoImage(
+              image: _ThirdPartyImage(
+                ref.watch(thirdPartyHttpClientProvider),
+                url,
+              ),
+              fit: BoxFit.contain,
+              imageBuilder: (_, child) => AspectFitBox(child: child),
+              placeholderBuilder: (_) => placeholder,
+              errorBuilder: (_, _, _) => const Icon(Icons.broken_image),
+              fadeInDuration: Duration.zero,
+              fadeOutDuration: Duration.zero,
+            ),
     );
   }
 }
@@ -341,21 +373,9 @@ class _SpotlightIllustCardView extends StatelessWidget {
               container: true,
               button: true,
               label: card.title,
-              child: ClipRRect(
-                borderRadius: FuncShape.card,
-                child: Stack(
-                  children: [
-                    _WorkImage(url: imageUrl),
-                    Positioned.fill(
-                      child: Material(
-                        type: MaterialType.transparency,
-                        child: InkWell(
-                          onTap: () => openIllust(context, card.illustId),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              child: _WorkImage(
+                url: imageUrl,
+                onTap: () => openIllust(context, card.illustId),
               ),
             ),
           const SizedBox(height: FuncSpacing.sm),
@@ -385,36 +405,41 @@ class _SpotlightIllustCardView extends StatelessWidget {
   }
 }
 
-/// Square while loading; once decoded, the image's own ratio up to
-/// [_maxHeightFactor] × the width, letterboxed beyond that.
+/// A work's image, centered at its own ratio up to [_maxHeightFactor] ×
+/// the column width: a tall work is drawn narrower, as pixivision does,
+/// rather than boxed in bars. The corners and the ripple follow the image.
 class _WorkImage extends StatelessWidget {
-  const _WorkImage({required this.url});
+  const _WorkImage({required this.url, required this.onTap});
 
   final String url;
+  final VoidCallback onTap;
 
   static const _maxHeightFactor = 1.5;
 
   @override
-  Widget build(BuildContext context) {
-    final background = Theme.of(context).colorScheme.surfaceContainerHighest;
-    return LayoutBuilder(
-      builder: (context, constraints) => ConstrainedBox(
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => Center(
+      child: ConstrainedBox(
         constraints: BoxConstraints(
           maxHeight: constraints.maxWidth * _maxHeightFactor,
         ),
-        child: ColoredBox(
-          color: background,
-          child: _ArticleImage(
-            url: url,
-            placeholder: AspectRatio(
-              aspectRatio: 1,
-              child: ColoredBox(color: background),
-            ),
+        child: ClipRRect(
+          borderRadius: FuncShape.card,
+          child: Stack(
+            children: [
+              _ArticleImage(url: url),
+              Positioned.fill(
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: InkWell(onTap: onTap),
+                ),
+              ),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 final _artworksPattern = RegExp(r'/artworks/(\d+)');

@@ -2814,6 +2814,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get spotlightArticleLoadFailed => 'Failed to load article';
 
   @override
+  String get spotlightChallengeVerifying => 'Verifying pixivision…';
+
+  @override
+  String get spotlightChallengeManual =>
+      'pixivision needs a manual verification. Complete it below.';
+
+  @override
+  String get spotlightChallengeFailed =>
+      'pixivision currently needs verification or a proxy';
+
+  @override
   String get spotlightCategoryAll => 'All';
 
   @override
