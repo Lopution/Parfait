@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:image/image.dart' as img;
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/share/share_service.dart';
@@ -16,7 +17,10 @@ import 'package:parfait/core/spotlight/article_parser.dart';
 import 'package:parfait/core/spotlight/spotlight_article_controller.dart';
 import 'package:parfait/core/spotlight/spotlight_models.dart';
 import 'package:parfait/core/spotlight/spotlight_repository.dart';
+import 'package:parfait/core/spotlight/spotlight_store.dart';
 import 'package:parfait/features/spotlight/spotlight_article_page.dart';
+import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -83,36 +87,13 @@ class _RecordingShareService implements ShareService {
   }
 }
 
-/// `find.textRange`/`tapOnText` only index plain `RichText` — paragraph
-/// text inside `SelectableText.rich` lives in an `EditableText`. Resolve
-/// the link's selection boxes from the RenderEditable and tap its center.
-Future<void> tapSelectableLink(WidgetTester tester, String pattern) async {
-  final editables = find
-      .descendant(
-        of: find.byType(SelectableText),
-        matching: find.byType(EditableText),
-      )
-      .evaluate()
-      .map((element) => element.widget as EditableText)
-      .where((editable) => editable.controller.text.contains(pattern));
-  final editable = editables.single;
-  final start = editable.controller.text.indexOf(pattern);
-  final render = tester
-      .state<EditableTextState>(find.byWidget(editable))
-      .renderEditable;
-  final boxes = render.getBoxesForSelection(
-    TextSelection(baseOffset: start, extentOffset: start + pattern.length),
-  );
-  expect(boxes, isNotEmpty, reason: 'link "$pattern" must be laid out');
-  await tester.tapAt(render.localToGlobal(boxes.first.toRect().center));
-}
-
 Future<GoRouter> pumpArticle(
   WidgetTester tester, {
   Size size = const Size(390, 844),
   String html = _articleHtml,
   Map<String, http.Response> images = const {},
   List<Override> extraOverrides = const [],
+  List<SpotlightArticle> entries = const [],
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -150,6 +131,7 @@ Future<GoRouter> pumpArticle(
   );
   final (container, _) = await makeSpotlightWorld(webClient: webClient);
   addTearDown(container.dispose);
+  container.read(spotlightArticleStoreProvider.notifier).mergeAll(entries);
 
   await mockNetworkImagesFor(() async {
     await tester.pumpWidget(
@@ -162,6 +144,7 @@ Future<GoRouter> pumpArticle(
           child: MaterialApp.router(
             builder: promptHostBuilder,
             routerConfig: router,
+            scrollBehavior: const FuncScrollBehavior(),
             localizationsDelegates: appLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             locale: const Locale('zh', 'CN'),
@@ -239,10 +222,12 @@ void main() {
       expect(first.userAvatarUrl, contains('/user-profile/'));
       // Card parts never leak out as loose headings, paragraphs or images.
       expect(body.blocks.whereType<SpotlightHeading>(), isEmpty);
+      final cover = body.blocks.whereType<SpotlightImage>().single;
       expect(
-        body.blocks.whereType<SpotlightImage>().map((image) => image.url),
-        ['https://embed.pixiv.net/pixivision/zh/a/10943/ogimage.jpg'],
+        cover.url,
+        'https://embed.pixiv.net/pixivision/zh/a/10943/ogimage.jpg',
       );
+      expect(cover.cover, isTrue);
     });
 
     test('descends into the _feature body variant', () {
@@ -463,9 +448,19 @@ void main() {
 
       expect(find.text('特辑标题'), findsOneWidget);
       expect(find.text('小节标题'), findsOneWidget);
-      expect(find.text('作品标题'), findsOneWidget);
+      // Images hold a square until decoded; the work sits below them.
+      await tester.scrollUntilVisible(
+        find.text('作品标题'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.scrollUntilVisible(
+        find.textContaining('作品链接'),
+        -200,
+        scrollable: find.byType(Scrollable).first,
+      );
 
-      await tapSelectableLink(tester, '作品链接');
+      await tester.tapOnText(find.textRange.ofSubstring('作品链接'));
       await tester.pumpAndSettle();
       expect(router.state.uri.path, '/recommended/illust/12345');
     });
@@ -491,9 +486,55 @@ void main() {
       await pumpIoUntil(tester, () => painted(tester));
       expect(find.byIcon(Icons.broken_image), findsNothing);
     });
+
+    testWidgets('the cover comes from the list entry on pximg', (tester) async {
+      const thumbnail = 'https://i.pximg.net/c/w1200/spotlight/101.jpg';
+      await pumpArticle(
+        tester,
+        html: html.replaceFirst('<img ', '<img class="aie__image" '),
+        entries: const [
+          SpotlightArticle(
+            id: 101,
+            title: '特辑标题',
+            articleUrl: 'https://www.pixivision.net/a/101',
+            thumbnailUrl: thumbnail,
+          ),
+        ],
+      );
+      // The Pixiv image path, never the per-request embed.pixiv.net card.
+      expect(tester.widget<PixivImage>(find.byType(PixivImage)).url, thumbnail);
+    });
   });
 
-  group('article layout and selection', () {});
+  group('article layout and selection', () {
+    testWidgets('a drag on a paragraph scrolls the whole article', (
+      tester,
+    ) async {
+      await pumpArticle(tester);
+      final position = tester
+          .state<ScrollableState>(
+            find
+                .descendant(
+                  of: find.byType(ListView),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          )
+          .position;
+
+      // A per-paragraph SelectableText owned a Scrollable that took this
+      // drag under the app's always-scrollable physics.
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.textContaining('开篇段落')),
+      );
+      await gesture.moveBy(const Offset(0, -60));
+      await gesture.moveBy(const Offset(0, -60));
+      await tester.pump();
+      expect(position.pixels, greaterThan(0));
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+  });
 
   group('article work cards', () {
     Finder workImage(String title) => find.byWidgetPredicate(
@@ -524,6 +565,43 @@ void main() {
       await tester.tap(image);
       await tester.pumpAndSettle();
       expect(router.state.uri.path, '/recommended/illust/777');
+    });
+
+    testWidgets('a tall work is drawn narrower, centered, without bars', (
+      tester,
+    ) async {
+      const tall = 'https://embed.pixiv.net/work/tall.png';
+      await pumpArticle(
+        tester,
+        html:
+            '<article><header><h1 class="am__title">特辑标题</h1></header>'
+            '<div class="am__body"><div class="am__work">'
+            '<h3><a href="/artworks/778">高图</a></h3>'
+            '<a href="/artworks/778"><img src="$tall"></a>'
+            '</div></div></article>',
+        images: {
+          tall: http.Response.bytes(
+            img.encodePng(img.Image(width: 20, height: 60)),
+            200,
+          ),
+        },
+      );
+      await pumpIoUntil(
+        tester,
+        () => tester
+            .widgetList<RawImage>(find.byType(RawImage))
+            .any((image) => image.image != null),
+      );
+      await tester.pumpAndSettle();
+
+      final column = tester.getRect(find.byType(ListView));
+      final columnWidth = column.width - 2 * FuncSpacing.lg;
+      final frame = tester.getRect(
+        find.descendant(of: workImage('高图'), matching: find.byType(ClipRRect)),
+      );
+      expect(frame.height, closeTo(columnWidth * 1.5, 0.5));
+      expect(frame.width, closeTo(columnWidth * 0.5, 0.5));
+      expect(frame.center.dx, closeTo(column.center.dx, 0.5));
     });
   });
 

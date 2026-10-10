@@ -79,8 +79,8 @@ void _collectBlock(dom.Element element, List<SpotlightBlock> out) {
       } else {
         // `<p><img></p>` — a standalone image wrapped in a paragraph.
         for (final img in element.querySelectorAll('img')) {
-          final url = _imageUrl(img);
-          if (url != null) out.add(SpotlightImage(url));
+          final image = _imageBlock(img);
+          if (image != null) out.add(image);
         }
       }
     case 'h1' || 'h2' || 'h3' || 'h4':
@@ -91,8 +91,8 @@ void _collectBlock(dom.Element element, List<SpotlightBlock> out) {
         );
       }
     case 'img':
-      final url = _imageUrl(element);
-      if (url != null) out.add(SpotlightImage(url));
+      final image = _imageBlock(element);
+      if (image != null) out.add(image);
     default:
       // Wrappers (section/div/figure/ul/blockquote/…) recurse so nested
       // paragraphs and cards are still found; leaf elements with text that
@@ -133,6 +133,13 @@ List<({String text, String? href})> _paragraphSegments(dom.Element element) {
     walk(node, null);
   }
   return segments;
+}
+
+/// The eyecatch is the `aie__image` inside `._article-illust-eyecatch`.
+SpotlightImage? _imageBlock(dom.Element img) {
+  final url = _imageUrl(img);
+  if (url == null) return null;
+  return SpotlightImage(url, cover: img.classes.contains('aie__image'));
 }
 
 String? _imageUrl(dom.Element img) {

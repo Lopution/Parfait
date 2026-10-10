@@ -39,7 +39,8 @@ class SpotlightArticle {
   /// `article_url` — the www.pixivision.net page fetched for in-app reading.
   final String articleUrl;
 
-  /// `thumbnail` — CDN image for list rows (not a pximg host).
+  /// `thumbnail` — the article's cover art on a pximg host, drawn by the
+  /// list rows and, in place of the page's own cover, by the article.
   final String? thumbnailUrl;
 
   /// `publish_date`, parsed at the boundary. Null when the wire string is
@@ -114,9 +115,15 @@ class SpotlightHeading extends SpotlightBlock {
 }
 
 class SpotlightImage extends SpotlightBlock {
-  const SpotlightImage(this.url);
+  const SpotlightImage(this.url, {this.cover = false});
 
   final String url;
+
+  /// The article's eyecatch. The page serves it from embed.pixiv.net — an
+  /// image generated per request behind Cloudflare, outside the Pixiv
+  /// network policy — so the reader prefers the list entry's pximg
+  /// [SpotlightArticle.thumbnailUrl] of the same art.
+  final bool cover;
 }
 
 /// The `.am__work` artwork card embedded in an article: `/artworks/<id>`
