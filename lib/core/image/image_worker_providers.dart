@@ -39,7 +39,7 @@ final imageWorkerProvider = Provider<ImageWorker>((ref) {
       dohEndpoints: ref.read(dohEnabledProvider)
           ? ref.read(dohEndpointsProvider)
           : const [],
-      insecureNoSniEnabled: true,
+      bootstrapNoSniEnabled: true,
       learnedFastRoutes: {
         for (final MapEntry(:key, :value) in learned.entries)
           key: value.address,

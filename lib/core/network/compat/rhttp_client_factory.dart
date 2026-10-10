@@ -86,7 +86,8 @@ abstract final class RhttpClientFactory {
     final tls = rhttp.TlsSettings(
       // TLS 1.3 is required by ECH; leave the rest at rustls defaults.
       sni: route.presentsRealSni,
-      verifyCertificates: route.verifiesCertificates,
+      // Every tier verifies the chain and hostname; no route may opt out.
+      verifyCertificates: true,
       echConfigList: route.kind == NetworkRouteKind.ech
           ? Uint8List.fromList(route.echConfig!)
           : null,

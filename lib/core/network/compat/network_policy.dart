@@ -42,7 +42,7 @@ class NetworkAccessPolicy {
     this.fastRouteStore,
     this.routeKindStore,
     this.echFrontHost = 'cloudflare-ech.com',
-    this.insecureNoSniEnabled = false,
+    this.bootstrapNoSniEnabled = false,
     @visibleForTesting Duration? imageHeadersTimeout,
     @visibleForTesting Duration? imageIdleTimeout,
     List<String> dohEndpoints = const [
@@ -92,11 +92,10 @@ class NetworkAccessPolicy {
   /// ECH config for pixiv domains via this host; configurable in settings).
   final String echFrontHost;
 
-  /// Whether the user explicitly enabled the `insecureNoSni` fallback tier
-  /// (PRD R6). In production this is enabled only together with
-  /// [fastRouteStore], which makes it the persisted compatibility tier;
-  /// tests and standalone callers retain the old opt-in fallback behavior.
-  final bool insecureNoSniEnabled;
+  /// Whether the `bootstrapNoSni` fallback tier exists. In production this
+  /// is enabled together with [fastRouteStore], which makes it the persisted
+  /// compatibility tier; tests and standalone callers opt in explicitly.
+  final bool bootstrapNoSniEnabled;
 
   /// Persisted compatibility-tier host addresses. When present, the
   /// compatibility tier is attempted before the cold direct probe and does
@@ -184,7 +183,7 @@ class NetworkAccessPolicy {
   NetworkRevision get revision => _revision;
 
   bool get _fastCompatibilityEnabled =>
-      insecureNoSniEnabled && fastRouteStore != null;
+      bootstrapNoSniEnabled && fastRouteStore != null;
 
   /// Loads the persisted compatibility-tier addresses and eagerly creates the
   /// corresponding pooled clients. This work is intentionally asynchronous so
@@ -228,7 +227,7 @@ class NetworkAccessPolicy {
       if (address == null) continue;
       clientFor(
         target.purpose,
-        NetworkRoute.insecureNoSni(
+        NetworkRoute.bootstrapNoSni(
           _revision,
           address,
           dnsSource: DnsSource.doh,

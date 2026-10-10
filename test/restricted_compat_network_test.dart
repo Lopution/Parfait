@@ -327,7 +327,7 @@ void main() {
     final policy = NetworkAccessPolicy(
       resolver: resolver,
       clientFactory: (route, canonicalHost, purpose) =>
-          route.kind == NetworkRouteKind.insecureNoSni ? fallback : doh,
+          route.kind == NetworkRouteKind.bootstrapNoSni ? fallback : doh,
     );
     addTearDown(policy.dispose);
     final client = PixivPolicyHttpClient(
@@ -498,14 +498,14 @@ void main() {
     },
   );
 
-  test('the explicit insecure tier is never promoted across hosts', () async {
+  test('the bootstrap tier is never promoted across hosts', () async {
     final failed = FakeClient(failure: SocketException('Connection refused'));
-    final insecure = FakeClient(body: '{"route":"insecure"}');
+    final bootstrap = FakeClient(body: '{"route":"bootstrap"}');
     final policy = NetworkAccessPolicy(
       resolver: FakeResolver([InternetAddress('1.2.3.34')]),
-      insecureNoSniEnabled: true,
+      bootstrapNoSniEnabled: true,
       clientFactory: (route, canonicalHost, _) =>
-          route.kind == NetworkRouteKind.insecureNoSni ? insecure : failed,
+          route.kind == NetworkRouteKind.bootstrapNoSni ? bootstrap : failed,
     );
     addTearDown(policy.dispose);
     final client = PixivPolicyHttpClient(
@@ -517,7 +517,7 @@ void main() {
     expect(response.statusCode, 200);
     expect(
       policy.rememberedRouteKind('app-api.pixiv.net'),
-      NetworkRouteKind.insecureNoSni,
+      NetworkRouteKind.bootstrapNoSni,
     );
     expect(
       policy.rememberedGroupRouteKind(
@@ -874,7 +874,7 @@ void main() {
   test(
     'an OAuth POST reaches the fast tier only after the strict tiers fail',
     () async {
-      final insecure = FakeClient(body: '{"ok":true}');
+      final bootstrap = FakeClient(body: '{"ok":true}');
       final nowhere = FakeClient(
         failure: SocketException('Connection refused'),
       );
@@ -883,12 +883,12 @@ void main() {
           [InternetAddress('1.2.3.45')],
           frontAddresses: [InternetAddress('1.2.3.46')],
         ),
-        insecureNoSniEnabled: true,
+        bootstrapNoSniEnabled: true,
         fastRouteStore: PixivFastRouteStore(
           preferences: SharedPreferencesAsync(),
         ),
         clientFactory: (route, canonicalHost, _) =>
-            route.kind == NetworkRouteKind.insecureNoSni ? insecure : nowhere,
+            route.kind == NetworkRouteKind.bootstrapNoSni ? bootstrap : nowhere,
       );
       addTearDown(policy.dispose);
       final client = PixivPolicyHttpClient(
@@ -905,7 +905,7 @@ void main() {
       // ECH, DoH-real-SNI and direct all failed first; the unverified fast
       // address is the last resort and gets the POST exactly once.
       expect(
-        insecure.requests.map((request) => request.method),
+        bootstrap.requests.map((request) => request.method),
         ['POST'],
         reason: 'the one-shot token exchange reaches the fast tier last, once',
       );
@@ -916,7 +916,9 @@ void main() {
   test(
     'a failed fast-tier POST gives up without repeating the token exchange',
     () async {
-      final insecure = FakeClient(failure: SocketException('Connection reset'));
+      final bootstrap = FakeClient(
+        failure: SocketException('Connection reset'),
+      );
       final direct = FakeClient(body: '{"ok":true}');
       final strict = FakeClient(failure: SocketException('Connection refused'));
       final policy = NetworkAccessPolicy(
@@ -924,12 +926,12 @@ void main() {
           [InternetAddress('1.2.3.47')],
           frontAddresses: [InternetAddress('1.2.3.48')],
         ),
-        insecureNoSniEnabled: true,
+        bootstrapNoSniEnabled: true,
         fastRouteStore: PixivFastRouteStore(
           preferences: SharedPreferencesAsync(),
         ),
         clientFactory: (route, canonicalHost, _) => switch (route.kind) {
-          NetworkRouteKind.insecureNoSni => insecure,
+          NetworkRouteKind.bootstrapNoSni => bootstrap,
           NetworkRouteKind.direct => direct,
           _ => strict,
         },
@@ -947,7 +949,7 @@ void main() {
 
       expect(response.statusCode, 200);
       expect(
-        insecure.requests,
+        bootstrap.requests,
         isEmpty,
         reason: 'the direct tier already answered; the fast tier is not tried',
       );

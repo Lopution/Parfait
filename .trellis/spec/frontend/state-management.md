@@ -939,15 +939,15 @@ consumers.
   `NetworkAccessPolicy._fallbackTiersFor`
   (`lib/core/network/compat/network_policy.dart`): Cloudflare hosts
   (appApi/oauth/accountsWeb/pixivWeb) use
-  `ech → dohRealSni → direct → insecureNoSni`; image hosts (`i.pximg.net` /
-  `s.pximg.net`) use `ech → noSni → dohRealSni → direct → insecureNoSni`;
+  `ech → dohRealSni → direct → bootstrapNoSni`; image hosts (`i.pximg.net` /
+  `s.pximg.net`) use `ech → noSni → dohRealSni → direct → bootstrapNoSni`;
   third-party image mirrors use `noSni → dohRealSni → direct` and never
-  enter the ECH or insecure tiers.
+  enter the ECH or bootstrap tiers.
   Host/group memory promotes the last successful kind, except on pixiv
-  image hosts (next bullet). `insecureNoSni`
-  (empty SNI, no certificate verification, persisted/bundled
+  image hosts (next bullet). `bootstrapNoSni`
+  (empty SNI, full certificate verification, persisted/bundled
   bootstrap 210.140.139.155/133) is always the last fallback. Production
-  forces `insecureNoSniEnabled: true` with no user switch
+  forces `bootstrapNoSniEnabled: true` with no user switch
   (`network_providers.dart:29`). A failed fast address is cooled for 30
   seconds (`_kFastRouteCooldown`). `NetworkMode.directOnly` closes
   compatibility route pools and prevents resolver fallback.
@@ -1016,7 +1016,7 @@ consumers.
   address) is also persisted per network identity through `RouteKindStore`
   and seeded at warm-up and on revision change, filtered by the same
   per-group rule.
-  `insecureNoSni` is never a cold-start first choice; after one success it
+  `bootstrapNoSni` is never a cold-start first choice; after one success it
   may be promoted by host/group memory like any other kind. The bootstrap
   address map is allowlisted in `network_fast_route_store.dart`.
 - `NetworkProbeReport.dnsDisagrees` is diagnostic evidence only. A reached ECH
@@ -1050,7 +1050,7 @@ consumers.
 - Good: an empty `GET` to a known Pixiv host in `Automatic` mode starts on
   the ECH tier (or the remembered kind), preserves the canonical hostname
   for the HTTP `Host` value, and walks remaining undelivered kinds on
-  transport failure; `insecureNoSni` is last. Diagnostics record only route
+  transport failure; `bootstrapNoSni` is last. Diagnostics record only route
   metadata.
 - Base: an API `429` or certificate mismatch is returned immediately, while
   `DirectOnly` uses the original strict HTTPS client without resolver work.
@@ -1080,7 +1080,7 @@ consumers.
 - ECH resolver tests cover TTL/revision invalidation, defensive result copies,
   uncancelled in-flight sharing, and cancellation that cannot poison the
   shared cache. Policy tests cover group preference, cross-host address
-  isolation, insecure-tier non-promotion, and failure invalidation.
+  isolation, bootstrap-tier non-promotion, and failure invalidation.
 - Pixiv image-host tests cover the serial ECH-only cold start, single-failure
   fallback, the cooldown schedule and its cap, reset on ECH success and on
   revision change, ECH as the last resort while cooling, and that origin
@@ -1114,13 +1114,21 @@ original hostname for the HTTP `Host` value, reuse the bounded fast route only
 for the known bootstrap host map as the last Automatic fallback, and walk the
 remaining undelivered kinds after a transport failure.
 
-The internal compatibility `insecureNoSni` tier intentionally omits SNI
-and certificate verification. It is the last Automatic fallback for the
-allowlisted Pixiv hosts in `PixivFastRouteStore`, forced on in production
-(`network_providers.dart:29`) with no user-facing switch, and does not
-rewrite URLs or the HTTP `Host` value. All other hosts and the earlier
-strict ladder tiers retain normal hostname and certificate verification.
-The fixed address map is bounded bootstrap state, not a generic proxy.
+The internal compatibility `bootstrapNoSni` tier omits SNI but keeps full
+chain and hostname verification. Pixiv's origin answers an SNI-less
+handshake with a certificate for its own names (`*.pixiv.net`,
+`oauth.secure.pixiv.net`, `*.pximg.net`), and verification happens only on
+the device, so it never changes the bytes on the wire or reachability. It is
+the last Automatic fallback for the allowlisted Pixiv hosts in
+`PixivFastRouteStore`, forced on in production (`network_providers.dart:29`)
+with no user-facing switch, and does not rewrite URLs or the HTTP `Host`
+value. A certificate mismatch on it is terminal. The fixed address map is
+bounded bootstrap state, not a generic proxy.
+
+**Wrong**: any route with `verifyCertificates: false`.
+`RhttpClientFactory.settingsFor` is the only `TlsSettings` construction site
+and always passes `true`; a tier that only works without verification is
+reaching the wrong server and must fail visibly.
 
 ---
 
