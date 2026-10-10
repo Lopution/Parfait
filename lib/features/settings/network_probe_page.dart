@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../app/widgets/app_top_bar.dart';
 import '../../core/network/compat/network_contracts.dart';
@@ -20,9 +21,6 @@ import '../../l10n/lookup.dart';
 import 'settings_helpers.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/clipboard.dart';
-
-/// Same string as the About page (pubspec `version: 0.1.0`).
-const _kAppVersion = '0.1.0';
 
 String _probeText(BuildContext context, String key) {
   return l10nLookup(context.l10n, key);
@@ -94,18 +92,21 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
 
   NetworkAccessPolicy get _policy => ref.read(networkAccessPolicyProvider);
 
-  NetworkProbeEnvironment _probeEnvironment() {
-    final dohEnabled = ref.read(dohEnabledProvider);
+  Future<NetworkProbeEnvironment> _probeEnvironment() async {
+    // Read providers before the await: the page may be gone afterwards.
+    final policy = _policy;
+    final dohEndpoints = ref.read(dohEnabledProvider)
+        ? List<String>.from(ref.read(dohEndpointsProvider))
+        : const <String>[];
+    final package = await PackageInfo.fromPlatform();
     return NetworkProbeEnvironment(
       probedAtUtc: DateTime.now().toUtc(),
-      appVersion: _kAppVersion,
+      appVersion: '${package.version}+${package.buildNumber}',
       operatingSystem: Platform.operatingSystem,
       operatingSystemVersion: Platform.operatingSystemVersion,
-      networkMode: _policy.mode.name,
-      dohEndpoints: dohEnabled
-          ? List<String>.from(ref.read(dohEndpointsProvider))
-          : const [],
-      echFrontHost: _policy.echFrontHost,
+      networkMode: policy.mode.name,
+      dohEndpoints: dohEndpoints,
+      echFrontHost: policy.echFrontHost,
     );
   }
 
@@ -116,8 +117,8 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
       _finished.clear();
       _errors.clear();
     });
-    final environment = _probeEnvironment();
     try {
+      final environment = await _probeEnvironment();
       await Future.wait([
         for (final target in _targets)
           _runOne(target, environment).catchError((Object error) {
