@@ -23,11 +23,16 @@ List<WarmupStep> androidChannelWarmupSteps() => [
 /// Runs [steps] one by one, each only after the app has drawn no frame for
 /// [quietFor], so their main-thread stall falls on a still screen instead of
 /// a scroll or a route transition.
+///
+/// The pause is short on purpose. Launch holds the screen still for about a
+/// second while the first feed loads, and both steps fit in it. On a device
+/// trace a one-second threshold never fired: the user kept the screen moving
+/// from launch on, and both stalls landed mid-use, in a page push.
 Future<void> warmUpWhenQuiet(
   List<WarmupStep> steps, {
   SchedulerBinding? binding,
-  Duration quietFor = const Duration(seconds: 1),
-  Duration poll = const Duration(milliseconds: 250),
+  Duration quietFor = const Duration(milliseconds: 300),
+  Duration poll = const Duration(milliseconds: 100),
 }) async {
   final scheduler = binding ?? SchedulerBinding.instance;
   for (final step in steps) {

@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/platform/native_warmup.dart';
 
 void main() {
-  testWidgets('each step waits for a second without frames', (tester) async {
+  testWidgets('each step waits for a short pause without frames', (
+    tester,
+  ) async {
     final calls = <int>[];
     final animation = AnimationController(
       vsync: tester,
@@ -23,9 +25,9 @@ void main() {
 
     // Let the animation finish; from its last frame on only fake time passes.
     await tester.pumpAndSettle();
-    await tester.binding.delayed(const Duration(milliseconds: 1250));
+    await tester.binding.delayed(const Duration(milliseconds: 450));
     expect(calls, [1]);
-    await tester.binding.delayed(const Duration(milliseconds: 1250));
+    await tester.binding.delayed(const Duration(milliseconds: 450));
     expect(calls, [1, 2]);
   });
 }
