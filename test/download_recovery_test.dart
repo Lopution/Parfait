@@ -816,6 +816,39 @@ void main() {
     await changesSubscription.cancel();
   });
 
+  test('a group made after a restart never joins a recovered one', () async {
+    // Group ids once restarted from 0 with every launch, so each launch's
+    // first download landed in the same group.
+    final store = MemoryDownloadRecoveryStore();
+    DownloadManager launch() => DownloadManager(
+      transport: _Transport(_Response(body: const [])),
+      sinkFactory: MemorySinkFactory(),
+      submissionContext: () => _context(),
+      recoveryStore: store,
+    );
+    final first = launch();
+    final before = first.submitGroup([_request()]);
+    await first.flushPersistence();
+    await first.dispose();
+
+    final second = launch();
+    addTearDown(second.dispose);
+    await second.recover();
+    final after = second.submitGroup([
+      DownloadRequest(
+        illustId: 901,
+        pageIndex: 0,
+        url: Uri.parse('https://i.pximg.net/img-original/img/901_p0.jpg'),
+        target: DownloadTarget.illustPage,
+      ),
+    ]);
+
+    expect(after.id, isNot(before.id));
+    expect(after.jobIds.single, isNot(before.jobIds.single));
+    expect(second.groupById(before.id)!.jobIds, before.jobIds);
+    expect(second.groupById(after.id)!.jobIds, after.jobIds);
+  });
+
   test('recovery keeps the newest record for one identity', () async {
     final request = _request();
     final oldSnapshot = DownloadSubmissionSnapshot(

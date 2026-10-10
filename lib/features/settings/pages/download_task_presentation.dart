@@ -217,9 +217,9 @@ String? downloadTaskSubtitle(DownloadTaskSnapshot task) {
   return null;
 }
 
-/// Group title (R4): a one-work group takes the work's title; a mixed set
-/// reads "Works by `artist`"; submissions without usable names fall back
-/// to the plain "batch · N items" copy.
+/// Group title (R4): a one-work group takes the work's title; a set by one
+/// artist reads "Works by `artist`"; anything else falls back to the plain
+/// "batch · N items" copy.
 String downloadGroupRowTitle(
   AppLocalizations l10n,
   List<DownloadTaskSnapshot> children,
@@ -232,7 +232,9 @@ String downloadGroupRowTitle(
       if (title != null && title.isNotEmpty) return title;
     } else {
       final artist = first?.artist;
-      if (artist != null && artist.isNotEmpty) {
+      if (artist != null &&
+          artist.isNotEmpty &&
+          children.every((task) => task.submission?.request.artist == artist)) {
         return l10n.downloadGroupAuthorTitle(artist);
       }
     }

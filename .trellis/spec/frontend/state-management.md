@@ -1450,7 +1450,10 @@ recovery diagnostics and in the Download Tasks page (`/downloads`,
 where `retryable` and `orphaned` jobs stay user-visible. A crash observed in
 `finalizing` is treated as `orphaned` rather than retried, because the output
 may already have become visible. Group membership is rebuilt from child
-snapshots before the recovered group status is exposed. HTTP `Retry-After` and the
+snapshots before the recovered group status is exposed, so group and job ids
+must be unique across launches, not just within one: they carry a random
+per-launch token next to the in-process sequence (sequence-only ids made
+every launch's first download join the same recovered group). HTTP `Retry-After` and the
 stable auth/rate/network/storage/permission/decode/resource failure classes
 are retained in the job snapshot without storing request headers or tokens.
 
