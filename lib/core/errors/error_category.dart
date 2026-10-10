@@ -50,6 +50,7 @@ enum ErrorCategory {
 /// bucket.
 ErrorCategory categorizeError(Object error) => switch (error) {
   ApiTimeout() || TimeoutException() => ErrorCategory.timeout,
+  ApiChallengeRequired() => ErrorCategory.network,
   ApiRateLimited() => ErrorCategory.rateLimited,
   ApiUnauthorized() => ErrorCategory.unauthorized,
   ApiHttpError(:final statusCode) => switch (statusCode) {

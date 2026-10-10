@@ -43,6 +43,16 @@ class ApiHttpError extends ApiError {
   String get message => 'http $statusCode${detail == null ? '' : ': $detail'}';
 }
 
+/// A third-party page returned a browser-managed verification challenge.
+/// Callers may offer an embedded browser fallback; this is kept separate from
+/// an ordinary HTTP error so a user is not shown a generic failure state.
+class ApiChallengeRequired extends ApiError {
+  const ApiChallengeRequired();
+
+  @override
+  String get message => 'browser challenge required';
+}
+
 /// Authentication failure after the refresh/retry protocol was exhausted,
 /// or an invalid refresh. The account needs re-authentication.
 class ApiUnauthorized extends ApiError {

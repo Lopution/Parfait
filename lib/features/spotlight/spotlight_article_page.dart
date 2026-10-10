@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert' show jsonDecode;
 import 'dart:ui' show Codec, ImmutableBuffer;
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +9,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:octo_image/octo_image.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/layout/content_widths.dart';
 import '../../app/motion/motion_tokens.dart';
@@ -18,8 +20,10 @@ import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/author_row.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../core/network/http_client_providers.dart';
+import '../../core/network/api_error.dart';
 import '../../core/share/share_service.dart';
 import '../../core/spotlight/spotlight_article_controller.dart';
+import '../../core/spotlight/article_parser.dart';
 import '../../core/spotlight/spotlight_models.dart';
 import '../../core/spotlight/spotlight_store.dart';
 import '../../l10n/context.dart';
@@ -90,53 +94,282 @@ class SpotlightArticlePage extends ConsumerWidget {
       ),
       body: async.when(
         loading: () => const FeedLoading(),
-        error: (error, _) => FeedError(
-          title: context.l10n.spotlightArticleLoadFailed,
-          error: error,
-          retryLabel: context.l10n.retry,
-          onRetry: () => ref.invalidate(
-            spotlightArticleBodyProvider((id: articleId, url: _url)),
-          ),
-        ),
+        error: (error, _) => error is ApiChallengeRequired
+            ? _SpotlightChallengeRecovery(
+                url: _url,
+                contentBuilder: (body) => _articleBody(context, body),
+              )
+            : FeedError(
+                title: context.l10n.spotlightArticleLoadFailed,
+                error: error,
+                retryLabel: context.l10n.retry,
+                onRetry: () => ref.invalidate(
+                  spotlightArticleBodyProvider((id: articleId, url: _url)),
+                ),
+              ),
         // Article-width cap (a ContentWidths role, not a breakpoint): the
         // column stays top-centered and readable on wide surfaces while
         // narrow phones keep full width.
-        data: (body) => Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: ContentWidths.article),
-            child: ListView(
-              key: PageStorageKey('spotlight-article-$articleId'),
-              padding: const EdgeInsets.fromLTRB(
-                FuncSpacing.lg,
-                FuncSpacing.sm,
-                FuncSpacing.lg,
-                FuncSpacing.xxl,
+        data: (body) => _articleBody(context, body),
+      ),
+    );
+  }
+
+  Widget _articleBody(BuildContext context, SpotlightArticleBody body) => Align(
+    alignment: Alignment.topCenter,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: ContentWidths.article),
+      child: ListView(
+        key: PageStorageKey('spotlight-article-$articleId'),
+        padding: const EdgeInsets.fromLTRB(
+          FuncSpacing.lg,
+          FuncSpacing.sm,
+          FuncSpacing.lg,
+          FuncSpacing.xxl,
+        ),
+        children: [
+          if (body.title.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: FuncSpacing.sm),
+              child: SelectableText(
+                body.title,
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
-              children: [
-                if (body.title.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: FuncSpacing.sm),
-                    child: SelectableText(
-                      body.title,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
+            ),
+          if (body.description != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: FuncSpacing.md),
+              child: SelectableText(
+                body.description!,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          for (final block in body.blocks) _SpotlightBlockView(block: block),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Runs a pixivision Cloudflare challenge in the browser engine. The first
+/// 15 seconds keep the WebView at one pixel while the native article remains
+/// the visible surface. If the managed challenge needs a tap or checkbox, the
+/// same controller is promoted to a full-page interactive view.
+class _SpotlightChallengeRecovery extends StatefulWidget {
+  const _SpotlightChallengeRecovery({
+    required this.url,
+    required this.contentBuilder,
+  });
+
+  final String url;
+  final Widget Function(SpotlightArticleBody body) contentBuilder;
+
+  @override
+  State<_SpotlightChallengeRecovery> createState() =>
+      _SpotlightChallengeRecoveryState();
+}
+
+class _SpotlightChallengeRecoveryState
+    extends State<_SpotlightChallengeRecovery> {
+  static const _automaticTimeout = Duration(seconds: 15);
+
+  late WebViewController _controller;
+  Timer? _timeout;
+  Timer? _inspectionTimer;
+  SpotlightArticleBody? _body;
+  Object? _failure;
+  var _interactive = false;
+  var _attempt = 0;
+  var _inspectionInFlight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _begin();
+  }
+
+  @override
+  void dispose() {
+    _timeout?.cancel();
+    _inspectionTimer?.cancel();
+    super.dispose();
+  }
+
+  void _begin() {
+    _timeout?.cancel();
+    _inspectionTimer?.cancel();
+    _interactive = false;
+    _failure = null;
+    _body = null;
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (_) => unawaited(_inspectDocument()),
+          onWebResourceError: (error) {
+            if (error.isForMainFrame == false) return;
+            _setFailure(error.description);
+          },
+        ),
+      );
+    _timeout = Timer(_automaticTimeout, () {
+      if (!mounted || _body != null || _failure != null) return;
+      setState(() => _interactive = true);
+    });
+    _inspectionTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      unawaited(_inspectDocument());
+    });
+    unawaited(_loadDocument());
+  }
+
+  Future<void> _loadDocument() async {
+    try {
+      await _controller.loadRequest(Uri.parse(widget.url));
+    } on Object catch (error) {
+      _setFailure(error);
+    }
+  }
+
+  Future<void> _inspectDocument() async {
+    if (!mounted || _body != null || _inspectionInFlight) return;
+    _inspectionInFlight = true;
+    try {
+      final result = await _controller.runJavaScriptReturningResult(
+        'document.documentElement.outerHTML',
+      );
+      final html = _decodeJavaScriptString(result);
+      // A challenge document can finish several times while its script swaps
+      // frames. Only the rendered article is accepted as a successful hand-off.
+      if (html.contains('_cf_chl_opt') || !html.contains('<article')) return;
+      final body = parseSpotlightArticle(html);
+      if (!mounted) return;
+      _timeout?.cancel();
+      _inspectionTimer?.cancel();
+      SpotlightWebSession.markVerified();
+      setState(() => _body = body);
+    } on Object {
+      // The WebView can be between documents while a challenge redirects;
+      // keep polling until the timeout promotes it to the interactive state.
+    } finally {
+      _inspectionInFlight = false;
+    }
+  }
+
+  String _decodeJavaScriptString(Object result) {
+    if (result is! String) return '$result';
+    try {
+      final decoded = jsonDecode(result);
+      return decoded is String ? decoded : result;
+    } on FormatException {
+      return result;
+    }
+  }
+
+  void _setFailure(Object error) {
+    if (!mounted || _body != null || _failure != null) return;
+    _timeout?.cancel();
+    _inspectionTimer?.cancel();
+    setState(() => _failure = error);
+  }
+
+  void _retry() {
+    setState(() {
+      _attempt++;
+      _begin();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final body = _body;
+    if (body != null) return widget.contentBuilder(body);
+
+    final failure = _failure;
+    if (failure != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(FuncSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.public_off,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: FuncSpacing.md),
+              Text(
+                context.l10n.spotlightChallengeFailed,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: FuncSpacing.md),
+              StateActionButton(label: context.l10n.retry, onPressed: _retry),
+              TextButton.icon(
+                icon: const Icon(Icons.open_in_new),
+                label: Text(context.l10n.openInBrowser),
+                onPressed: () => unawaited(
+                  launchUrl(
+                    Uri.parse(widget.url),
+                    mode: LaunchMode.externalApplication,
                   ),
-                if (body.description != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: FuncSpacing.md),
-                    child: SelectableText(
-                      body.description!,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                for (final block in body.blocks)
-                  _SpotlightBlockView(block: block),
-              ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_interactive) {
+      return Column(
+        children: [
+          Material(
+            color: Theme.of(context).colorScheme.surfaceContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(FuncSpacing.sm),
+              child: Text(
+                context.l10n.spotlightChallengeManual,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          Expanded(
+            child: WebViewWidget(
+              key: ValueKey(_attempt),
+              controller: _controller,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Stack(
+      children: [
+        const FeedLoading(),
+        Positioned(
+          left: -1,
+          top: -1,
+          width: 1,
+          height: 1,
+          child: Opacity(
+            opacity: 0,
+            child: WebViewWidget(
+              key: ValueKey(_attempt),
+              controller: _controller,
             ),
           ),
         ),
-      ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: FuncSpacing.xl,
+          child: Text(
+            context.l10n.spotlightChallengeVerifying,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      ],
     );
   }
 }

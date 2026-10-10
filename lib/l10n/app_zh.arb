@@ -1485,6 +1485,9 @@
     "description": "Search guide: trailing link of the Spotlight section header; opens the full Spotlight list."
   },
   "spotlightArticleLoadFailed": "文章加载失败",
+  "spotlightChallengeVerifying": "正在通过 pixivision 验证…",
+  "spotlightChallengeManual": "pixivision 需要人工验证，请完成下方验证",
+  "spotlightChallengeFailed": "pixivision 当前需要验证或代理",
   "spotlightCategoryAll": "全部",
   "spotlightCategoryIllust": "插画",
   "spotlightCategoryManga": "漫画",

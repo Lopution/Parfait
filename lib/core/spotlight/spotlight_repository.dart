@@ -93,6 +93,14 @@ class PixivSpotlightRepository {
       },
     );
     if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
+    if (response.statusCode == 403 &&
+        response.headers.entries.any(
+          (entry) =>
+              entry.key.toLowerCase() == 'cf-mitigated' &&
+              entry.value.toLowerCase().trim() == 'challenge',
+        )) {
+      throw const ApiChallengeRequired();
+    }
     if (response.statusCode != 200) {
       throw ApiHttpError(response.statusCode, 'spotlight article fetch failed');
     }

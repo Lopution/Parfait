@@ -177,6 +177,7 @@ Future<GoRouter> pumpArticle(
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+    SpotlightWebSession.resetForTesting();
     // Images on the page start the network policy's connectivity watch;
     // unanswered, its replies land in whichever later test runs real async.
     answerConnectivityChannels();
@@ -320,6 +321,50 @@ void main() {
       );
       expect(requested, isFalse);
     });
+
+    test(
+      'maps a Cloudflare challenge separately from an ordinary 403',
+      () async {
+        final challengeClient = MockClient(
+          (_) async => http.Response(
+            '<html>challenge</html>',
+            403,
+            headers: {'Cf-Mitigated': 'challenge'},
+          ),
+        );
+        final (challengeContainer, _) = await makeSpotlightWorld(
+          webClient: challengeClient,
+        );
+        addTearDown(challengeContainer.dispose);
+
+        expect(
+          () => challengeContainer
+              .read(spotlightRepositoryProvider)
+              .fetchArticleHtml('https://www.pixivision.net/a/101'),
+          throwsA(isA<ApiChallengeRequired>()),
+        );
+
+        final ordinaryClient = MockClient(
+          (_) async => http.Response('<html>denied</html>', 403),
+        );
+        final (ordinaryContainer, _) = await makeSpotlightWorld(
+          webClient: ordinaryClient,
+        );
+        addTearDown(ordinaryContainer.dispose);
+        expect(
+          () => ordinaryContainer
+              .read(spotlightRepositoryProvider)
+              .fetchArticleHtml('https://www.pixivision.net/a/101'),
+          throwsA(
+            isA<ApiHttpError>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              403,
+            ),
+          ),
+        );
+      },
+    );
   });
 
   test('article body provider fetches and parses', () async {
@@ -342,6 +387,25 @@ void main() {
     expect(body.title, '特辑标题');
     expect(body.blocks, hasLength(4));
   });
+
+  test(
+    'a verified WebView session skips the plain HTTP article fetch',
+    () async {
+      SpotlightWebSession.markVerified();
+      addTearDown(SpotlightWebSession.resetForTesting);
+      final webClient = MockClient((_) async {
+        fail('the verified session must use the WebView cookie jar');
+      });
+      final (container, _) = await makeSpotlightWorld(webClient: webClient);
+      addTearDown(container.dispose);
+
+      const key = (id: 101, url: 'https://www.pixivision.net/a/101');
+      expect(
+        () => container.read(spotlightArticleBodyProvider(key).future),
+        throwsA(isA<ApiChallengeRequired>()),
+      );
+    },
+  );
 
   testWidgets('article page renders blocks and routes artwork links', (
     tester,

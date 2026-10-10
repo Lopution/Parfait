@@ -5195,6 +5195,24 @@ abstract class AppLocalizations {
   /// **'文章加载失败'**
   String get spotlightArticleLoadFailed;
 
+  /// No description provided for @spotlightChallengeVerifying.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在通过 pixivision 验证…'**
+  String get spotlightChallengeVerifying;
+
+  /// No description provided for @spotlightChallengeManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'pixivision 需要人工验证，请完成下方验证'**
+  String get spotlightChallengeManual;
+
+  /// No description provided for @spotlightChallengeFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'pixivision 当前需要验证或代理'**
+  String get spotlightChallengeFailed;
+
   /// No description provided for @spotlightCategoryAll.
   ///
   /// In zh, this message translates to:
