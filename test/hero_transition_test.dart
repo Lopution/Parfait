@@ -425,12 +425,12 @@ void main() {
         findsOneWidget,
       );
 
-      // Leaving, the action bar steps aside before the flight back can
-      // cover it.
+      // Leaving, the action bar stays put and goes with the page; the
+      // flight back is drawn above it.
       navigatorKey.currentState!.pop();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
-      expect(actionBar(), lessThan(1));
+      expect(actionBar(), 1);
       await tester.pumpAndSettle();
     });
   });

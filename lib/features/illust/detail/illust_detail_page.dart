@@ -282,14 +282,14 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     }
   }
 
+  /// The action bar rises once the page has landed. Leaving, it stays and
+  /// goes with the page: sliding it down on its own read as a second,
+  /// smaller exit under the page's fade.
   void _onRouteStatus(AnimationStatus status) {
-    if (status.isCompleted) {
-      _topBarEntrance.forward();
-      if (!_touchExploration) {
-        slideChrome(context, _barVisibility, hidden: false);
-      }
-    } else if (status == AnimationStatus.reverse && !_touchExploration) {
-      slideChrome(context, _barVisibility, hidden: true);
+    if (!status.isCompleted) return;
+    _topBarEntrance.forward();
+    if (!_touchExploration) {
+      slideChrome(context, _barVisibility, hidden: false);
     }
   }
 

@@ -306,15 +306,20 @@ void main() {
               observers: [HeroController()],
               onGenerateRoute: (_) => below = page(
                 Builder(
-                  builder: (context) => GestureDetector(
-                    onTap: () {
-                      pushed = page(
-                        hero('detail', const Offset(300, 500)),
-                        sharedElement: true,
-                      );
-                      Navigator.of(context).push(pushed);
-                    },
-                    child: hero('card', Offset.zero),
+                  builder: (context) => Stack(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          pushed = page(
+                            hero('detail', const Offset(300, 500)),
+                            sharedElement: true,
+                          );
+                          Navigator.of(context).push(pushed);
+                        },
+                        child: hero('card', Offset.zero),
+                      ),
+                      const Positioned(left: 0, top: 200, child: Text('still')),
+                    ],
                   ),
                 ),
               ),
@@ -324,9 +329,12 @@ void main() {
       ),
     );
     await tester.tap(find.text('card'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    // The page below is covered but does not move.
+    expect(below.secondaryAnimation!.value, inExclusiveRange(0, 1));
+    expect(tester.getTopLeft(find.text('still')), const Offset(0, 200));
     await tester.pumpAndSettle();
-    // The page below never plays its covered motion.
-    expect(below.secondaryAnimation!.value, 0);
 
     await _sendBackGestureMethod('startBackGesture', {
       'touchOffset': <double>[5.0, 300.0],
@@ -347,10 +355,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     // The Hero flies from the shrunken image back to the card, while the
-    // page below stays where it is.
+    // page below stays where it is and still counts as covered (so a
+    // branch root keeps its bottom bar under the leaving page).
     final flying = tester.getTopLeft(find.text('card'));
     expect(flying.dx, inExclusiveRange(0, 300));
     expect(flying.dy, inExclusiveRange(0, 500));
+    expect(tester.getTopLeft(find.text('still')), const Offset(0, 200));
+    expect(below.secondaryAnimation!.value, inExclusiveRange(0, 1));
     await tester.pumpAndSettle();
     expect(find.text('detail'), findsNothing);
     expect(tester.getTopLeft(find.text('card')), Offset.zero);

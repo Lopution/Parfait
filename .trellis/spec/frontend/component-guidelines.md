@@ -1159,9 +1159,13 @@ to `?? true`.
 A page opened with a Hero from the page below — a card into its detail
 (`heroImageUrl` set), a detail image into the viewer (`heroScope` set) —
 is a `FuncPage(sharedElement: true)`, whatever the style. It fades in and
-out (`pageCurve`) over a page below that holds still
-(`canTransitionTo` is false toward it, so the style's covered motion never
-runs), and the flying image is the only thing that moves. Sliding pages
+out (`pageCurve`) over a page below that holds still (the route's
+`delegatedTransition` is a per-route builder returning the child, which
+replaces the style's covered motion), and the flying image is the only
+thing that moves. Do not refuse the transition (`canTransitionTo` false)
+instead: the page below's secondary animation must still run, or a branch
+root counts as uncovered from the start of the pop and the shell's bottom
+bar appears at once over the leaving page and its action bar. Sliding pages
 under a flight read as two animations pulling apart. Heroes cannot follow
 a gesture-driven pop (`transitionOnUserGestures` stays false: the flight's
 start rect is fixed when it begins), so on Android the back gesture does
@@ -1730,8 +1734,8 @@ On the narrow layout, once content renders:
   The flight paints over the bar, so a detail opened from a card
   (`heroImageUrl` set) holds the bar at `entrance` 0 and fades it in over `MotionTokens.fast` once the
   route animation completes. The action bar likewise starts hidden and
-  rises on `slideChrome` at the landing, and slides away as soon as the
-  route reverses, so neither flight covers it. The route status is read
+  rises on `slideChrome` at the landing. Leaving, it stays and fades
+  with the page; the flight back is drawn above it. The route status is read
   after the first frame: before the push starts, the route's proxy
   animation reports a placeholder `completed`.
 
@@ -1758,7 +1762,7 @@ On the narrow layout, once content renders:
   prompt above the bar; the bar hides and returns and stays under
   touch exploration; page 1 runs under a see-through bar that draws in.
 - `hero_transition_test.dart`: mid-flight the top bar's `entrance` and
-  the action bar are 0, after landing 1; the action bar leaves as the pop
+  the action bar are 0, after landing 1; the action bar stays as the pop
   starts.
 - `priority_surface_semantics_test.dart`: the viewer counter and fit are
   named buttons.
