@@ -451,10 +451,10 @@ double _heroTopChrome(BuildContext? context, BuildContext heroContext) {
   final statusTop = media?.viewPadding.top ?? media?.padding.top ?? 0;
   final scaffold = heroContext.findAncestorWidgetOfExactType<Scaffold>();
   final appBar = scaffold?.appBar;
-  // A see-through bar over artwork hides nothing: the image lands under
-  // it and the status bar.
+  // A see-through toolbar over artwork hides nothing: the image lands
+  // under it. Its status strip stays opaque.
   if (appBar is AppTopBar && !appBar.occludesContent) {
-    return _pinnedHeaderChrome(heroContext, statusTop);
+    return statusTop + _pinnedHeaderChrome(heroContext, statusTop);
   }
   final appBarChrome = appBar is PreferredSizeWidget
       ? appBar.preferredSize.height

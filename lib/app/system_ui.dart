@@ -10,20 +10,14 @@ import 'theme/func_tokens.dart';
 
 /// Transparent status and navigation bars whose icons contrast with
 /// [background] — the brightness of what is painted under the bars.
-/// [statusBackground] overrides it for the status bar alone, for a page
-/// whose top shows artwork under a dark scrim.
-SystemUiOverlayStyle funcSystemBarsStyle(
-  Brightness background, {
-  Brightness? statusBackground,
-}) {
+SystemUiOverlayStyle funcSystemBarsStyle(Brightness background) {
   Brightness iconsOver(Brightness under) =>
       under == Brightness.dark ? Brightness.light : Brightness.dark;
-  final status = statusBackground ?? background;
   return SystemUiOverlayStyle(
     statusBarColor: FuncTokens.transparent,
     // iOS reads the *bar's* brightness and derives icon colour itself.
-    statusBarBrightness: status,
-    statusBarIconBrightness: iconsOver(status),
+    statusBarBrightness: background,
+    statusBarIconBrightness: iconsOver(background),
     systemNavigationBarColor: FuncTokens.transparent,
     systemNavigationBarIconBrightness: iconsOver(background),
     systemNavigationBarDividerColor: FuncTokens.transparent,

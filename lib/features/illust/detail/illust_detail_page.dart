@@ -47,9 +47,11 @@ import '../../../app/layout/app_breakpoints.dart';
 import '../../../app/layout/two_pane.dart';
 import '../../../app/widgets/smooth_wheel_scroll.dart';
 
-/// Short single-page artwork gets a stable reading slot on narrow screens.
-/// The image itself remains at its natural aspect ratio inside this slot.
-const _singlePageShortImageSlotFactor = 0.7;
+/// A short first illustration gets a stable reading slot on narrow screens,
+/// whether it stands alone or opens a set. The image itself remains at its
+/// natural aspect ratio inside this slot. Manga reads page after page, so
+/// its first page keeps its natural height.
+const _shortFirstImageSlotFactor = 0.7;
 
 class IllustDetailPage extends ConsumerStatefulWidget {
   const IllustDetailPage({
@@ -617,36 +619,46 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     final collapsible =
         entity.type == IllustType.illust && entity.pageCount > 1;
     final shownPages = collapsible && !_pagesExpanded ? 1 : entity.pageCount;
-    // Narrow layout: the artwork runs under the status bar and the
-    // see-through top bar, so overlays on it start below them, and the
-    // bar draws in as the first image leaves.
+    // Narrow layout: the artwork starts below the status bar, which the
+    // top bar keeps opaque, and runs under the see-through toolbar, so
+    // overlays on it start below the toolbar, and the bar draws in as the
+    // first image leaves.
     final viewport = MediaQuery.sizeOf(context);
     final useTwoPane = AppBreakpoints.useTwoPaneDetail(viewport.width);
+    final statusInset = useTwoPane ? 0.0 : MediaQuery.paddingOf(context).top;
     final topChrome = MediaQuery.paddingOf(context).top + kToolbarHeight;
     _topChromeExtent = useTwoPane ? 0 : topChrome;
     final naturalFirstImageExtent =
         viewport.width / entity.pageAspectRatioAt(0);
-    final firstImageExtent =
-        !useTwoPane && entity.pageCount == 1 && !entity.isUgoira
+    final slotsFirstImage =
+        !useTwoPane && entity.type == IllustType.illust && !entity.isUgoira;
+    // The slot only frames an image shown alone: below an expanded set's
+    // first page it would open a gap before page 2.
+    final aloneFirstImageExtent = slotsFirstImage
         ? math.max(
             naturalFirstImageExtent,
-            viewport.height * _singlePageShortImageSlotFactor,
+            viewport.height * _shortFirstImageSlotFactor,
           )
         : naturalFirstImageExtent;
-    final firstImageSlotHeight = firstImageExtent > naturalFirstImageExtent
-        ? firstImageExtent
-        : null;
+    final firstImageExtent = shownPages == 1
+        ? aloneFirstImageExtent
+        : naturalFirstImageExtent;
     _immersionStart = math.max(
       0,
-      firstImageExtent - topChrome - kToolbarHeight,
+      statusInset + firstImageExtent - topChrome - kToolbarHeight,
     );
     // Where a collapsed set ends: page 1's bottom just under the top bar.
-    final firstPageEnd = math.max(0.0, firstImageExtent - topChrome);
+    final firstPageEnd = math.max(
+      0.0,
+      statusInset + aloneFirstImageExtent - topChrome,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _updateImmersion();
     });
 
     final imageSlivers = <Widget>[
+      if (statusInset > 0)
+        SliverToBoxAdapter(child: SizedBox(height: statusInset)),
       if (entity.isUgoira)
         SliverToBoxAdapter(
           child: UgoiraViewer(
@@ -707,8 +719,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
                   onToggleSelect: () => _togglePageSelected(index),
                   onLongPress: _enterDownloadMode,
                   placeholderOnly: !detailReady && index > 0,
-                  overlayTopInset: index == 0 ? topChrome : 0,
-                  imageSlotHeight: index == 0 ? firstImageSlotHeight : null,
+                  overlayTopInset: index == 0 ? topChrome - statusInset : 0,
+                  imageSlotHeight: index == 0 && slotsFirstImage
+                      ? firstImageExtent
+                      : null,
                 ),
               ),
             ),

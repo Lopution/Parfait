@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/motion/hero_transition.dart';
+import '../../../../app/motion/motion_tokens.dart';
 import '../../../../app/motion/state_icon_switcher.dart';
 import '../../../../app/pixiv_image.dart';
 import '../../../../app/theme/func_tokens.dart';
@@ -52,9 +53,11 @@ class DetailPageImage extends ConsumerStatefulWidget {
   /// the selection badge sits below it.
   final double overlayTopInset;
 
-  /// Optional narrow-layout slot for a short first image. The Hero remains
-  /// inside the centered aspect-ratio box so its flight rect is the artwork,
-  /// rather than the empty space around it.
+  /// Optional narrow-layout slot for the first image: its natural height,
+  /// or more for a short image shown alone. The Hero remains inside the
+  /// centered aspect-ratio box so its flight rect is the artwork, rather
+  /// than the empty space around it. A new height springs from the old, so
+  /// expanding a set glides page 1 up instead of jumping.
   final double? imageSlotHeight;
 
   /// Detail-quality URL once the detail payload is merged. Preferring it
@@ -253,15 +256,23 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
     final slotHeight = widget.imageSlotHeight;
     if (slotHeight == null) return image;
 
-    return SizedBox(
-      width: double.infinity,
-      height: slotHeight,
-      child: Center(
-        child: AspectRatio(
-          aspectRatio: entity.pageAspectRatioAt(widget.index),
-          child: image,
-        ),
+    final (duration, curve) = MotionTokens.springCurve(
+      context,
+      MotionSpring.spatialFast,
+    );
+    final framed = Center(
+      child: AspectRatio(
+        aspectRatio: entity.pageAspectRatioAt(widget.index),
+        child: image,
       ),
+    );
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: slotHeight),
+      duration: duration,
+      curve: curve,
+      builder: (context, height, child) =>
+          SizedBox(width: double.infinity, height: height, child: child),
+      child: framed,
     );
   }
 

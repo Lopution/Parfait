@@ -47,11 +47,13 @@ class AppTopBar extends StatefulWidget implements PreferredSizeWidget {
   final ScrollNotificationPredicate notificationPredicate;
 
   /// For a page that opens on artwork under the bar (the body extends
-  /// behind it): 0 draws the bar transparent, its controls light on a dark
-  /// scrim with a shadow so they read on any image, the title hidden; 1 is
-  /// the normal bar. Values between fade one into the other. The edge line
-  /// shows only once the bar is fully drawn — until then the fading
-  /// surface is the edge. Null is the normal bar.
+  /// behind it): 0 draws the toolbar transparent, its controls light on a
+  /// dark scrim with a shadow so they read on any image, the title hidden;
+  /// 1 is the normal bar. Values between fade one into the other. The
+  /// status bar strip stays the page surface throughout, its icons
+  /// following the theme: the artwork starts below it rather than under
+  /// the clock. The edge line shows only once the bar is fully drawn —
+  /// until then the fading surface is the edge. Null is the normal bar.
   final ValueListenable<double>? immersion;
 
   /// Fades the whole bar in. A Hero flight that lands under a see-through
@@ -149,11 +151,21 @@ class _AppTopBarState extends State<AppTopBar> {
           : null,
     );
     final title = widget.title;
+    final statusInset = MediaQuery.paddingOf(context).top;
     return Stack(
       fit: StackFit.passthrough,
       children: [
         if (immersed)
+          Positioned(
+            left: 0,
+            top: 0,
+            right: 0,
+            height: statusInset,
+            child: ColoredBox(color: surface),
+          ),
+        if (immersed)
           Positioned.fill(
+            top: statusInset,
             child: IgnorePointer(
               child: Opacity(
                 opacity: 1 - drawn,
@@ -185,15 +197,10 @@ class _AppTopBarState extends State<AppTopBar> {
           foregroundColor: immersed ? controls : null,
           iconTheme: immersed ? iconTheme : null,
           actionsIconTheme: immersed ? iconTheme : null,
-          // Light status icons over the scrim until the surface is mostly
-          // drawn; the navigation bar keeps following the page.
+          // The status strip is the page surface, so its icons follow the
+          // theme like the navigation bar's.
           systemOverlayStyle: immersed
-              ? funcSystemBarsStyle(
-                  theme.brightness,
-                  statusBackground: drawn < 0.5
-                      ? Brightness.dark
-                      : theme.brightness,
-                )
+              ? funcSystemBarsStyle(theme.brightness)
               : null,
           notificationPredicate: widget.notificationPredicate,
         ),

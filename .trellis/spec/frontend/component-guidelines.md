@@ -1329,15 +1329,16 @@ Future<ImagePreloadResult> PixivImage.preload(
   letterboxes every non-matching page. Estimated-ratio boxes are placeholder
   real estate only: the slot must hold an estimated box until the decode
   lands, then let the real dimensions take over.
-- On a narrow detail route, a short single-page work (natural height below
-  `viewport.height * _singlePageShortImageSlotFactor`) receives a fixed
+- On a narrow detail route, a short first illustration (natural height
+  below `viewport.height * _shortFirstImageSlotFactor`, single or the first
+  of a set) receives a fixed
   `DetailPageImage.imageSlotHeight`; the image stays centered at its own
   `pageAspectRatioAt(0)` inside that slot. The Hero must remain inside the
   aspect-ratio box, with loading/error/placeholder surfaces using the same
   outer slot, so the flight rect contains the artwork and not the reserved
   empty space. The cold-load skeleton keeps its square image bone: before the
-  entity arrives neither the page count nor the ratio is known. Multi-page, ugoira, and two-pane layouts do not receive this
-  slot.
+  entity arrives neither the page count nor the ratio is known. Manga,
+  ugoira, and two-pane layouts do not receive this slot.
 - The decoded image cache must survive backgrounding: Android posts
   TRIM_MEMORY_UI_HIDDEN on every hide and the stock binding answers it with
   `imageCache.clear()`, which re-fades every artwork on resume. The app's
@@ -1643,23 +1644,34 @@ On the narrow layout, once content renders:
   notifications raised during build or layout are deferred to one
   post-frame notify; an anchor under a `LayoutBuilder` would otherwise
   mutate the prompt layout mid-`performLayout`.
-- **Immersive top.** The `Scaffold` extends its body behind the AppBar and
-  page 1 starts at y = 0, under the status bar. `AppTopBar(immersion:)` is
-  0 there: a transparent bar over an `imageControl` gradient scrim, light
-  controls with a soft shadow, light status-bar icons, no title. Over the
-  last `kToolbarHeight` before page 1 leaves the top the value runs to 1:
+- **Immersive top.** The `Scaffold` extends its body behind the AppBar;
+  page 1 starts below the status bar (a status-bar-high spacer leads the
+  narrow scroll), never under the clock. `AppTopBar(immersion:)` keeps the
+  status strip the page surface with theme-following icons at every value,
+  so content scrolling up disappears under it. At 0 the toolbar is
+  transparent over an `imageControl` gradient scrim (the toolbar only),
+  light controls with a soft shadow, no title. Over the last
+  `kToolbarHeight` before page 1 leaves the top the value runs to 1:
   surface alpha, control colour and the work's title fade in together.
   The `ScrollEdgeLine` stays off until the bar is fully drawn — while it
   fades, the surface itself is the edge, so two edges never stack. Overlays
-  on page 1 (selection badge, page pill) are inset by the status bar plus
-  toolbar height. A page whose only visible strip sits behind the status
-  bar and toolbar does not count as on screen, so the page count fades out
-  instead of hanging over the info. The two-pane layout and loading/error
-  states keep the opaque bar.
-- **Hero landing.** The flight lands under the see-through bar
-  (`occludesContent` false), not clipped below it. The flight paints over
-  the bar, so a detail opened from a card (`heroImageUrl` set) holds the
-  bar at `entrance` 0 and fades it in over `MotionTokens.fast` once the
+  on page 1 (selection badge) are inset by the toolbar height; the page
+  pill sits below status bar plus toolbar. A page whose only visible strip
+  sits behind the status bar and toolbar does not count as on screen, so
+  the page count fades out instead of hanging over the info. The two-pane
+  layout and loading/error states keep the opaque bar.
+- **First image slot.** On narrow screens a short first illustration —
+  single or the first of a set, not manga or ugoira — sits vertically
+  centered in a slot of 0.7 × the viewport height, at its natural ratio;
+  the Hero lands on the image, not the slot. Only an image shown alone
+  takes the slot: expanding a set springs page 1 (`spatialFast`) to its
+  natural height, so no gap opens before page 2, and folding springs it
+  back. Page 1 of an illustration always goes through the slot box (its
+  natural height when expanded or tall) so the toggle never remounts it.
+- **Hero landing.** The flight lands under the see-through toolbar
+  (`occludesContent` false), clipped only below the opaque status strip.
+  The flight paints over the bar, so a detail opened from a card
+  (`heroImageUrl` set) holds the bar at `entrance` 0 and fades it in over `MotionTokens.fast` once the
   route animation completes. The action bar likewise starts hidden and
   rises on `slideChrome` at the landing, and slides away as soon as the
   route reverses, so neither flight covers it. The route status is read

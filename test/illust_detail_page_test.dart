@@ -276,12 +276,12 @@ void main() {
     });
   });
 
-  group('narrow single-page image slot', () {
-    testWidgets('centers a short first image without changing its Hero rect', (
-      tester,
-    ) async {
+  group('narrow first image slot', () {
+    testWidgets('centers a short first image below the status bar without '
+        'changing its Hero rect', (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 24);
       addTearDown(tester.view.reset);
 
       final (container, _, _) = await makeWorld(
@@ -305,14 +305,13 @@ void main() {
         (widget) => widget is Hero && widget.tag == illustHeroTag('feed', 42),
       );
       final naturalHeight = 390 / (1600 / 900);
+      expect(slot.top, closeTo(24, 0.5));
       expect(slot.height, closeTo(844 * 0.7, 0.5));
       expect(tester.getRect(hero).height, closeTo(naturalHeight, 0.5));
       expect(tester.getRect(hero).center.dy, closeTo(slot.center.dy, 0.5));
     });
 
-    testWidgets('leaves a multi-page first image at its natural height', (
-      tester,
-    ) async {
+    testWidgets('gives the first image of a set the same slot', (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -347,9 +346,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // Collapsed, the set shows page 1 only.
       expect(
-        tester.getSize(find.byType(DetailPageImage)),
-        const Size(390, 219.375),
+        tester.getSize(find.byType(DetailPageImage)).height,
+        closeTo(844 * 0.7, 0.5),
       );
     });
   });
