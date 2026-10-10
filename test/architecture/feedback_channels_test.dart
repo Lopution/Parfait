@@ -132,8 +132,6 @@ const _durationCensus = <String, int>{
   // a request gate, not an animation.
   'lib/features/illust/detail/illust_detail_pager_page.dart': 1,
   'lib/features/illust/detail/ugoira_viewer.dart': 1,
-  // Cloudflare DOM polling interval: a WebView readiness check, not motion.
-  'lib/features/spotlight/spotlight_article_page.dart': 1,
   'lib/features/settings/pages/frame_probe_page.dart': 1,
 };
 

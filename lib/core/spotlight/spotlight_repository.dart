@@ -33,8 +33,9 @@ class PixivSpotlightRepository {
   static const _articleHost = 'www.pixivision.net';
 
   /// A desktop UA is required — pixivision serves a reduced document to the
-  /// Android app identity.
-  static const _desktopUserAgent =
+  /// Android app identity. The challenge WebView uses it too, so the
+  /// document it hands back is the one the article parser reads.
+  static const articleUserAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
@@ -72,22 +73,12 @@ class PixivSpotlightRepository {
     String? languageTag,
     CancelToken? cancelToken,
   }) async {
-    final Uri uri;
-    try {
-      uri = Uri.parse(url);
-    } on FormatException {
-      throw const ApiParseError('spotlight article url is malformed');
-    }
-    if (uri.scheme != 'https' || uri.host != _articleHost) {
-      throw const ApiParseError(
-        'spotlight article url must be a pixivision.net page',
-      );
-    }
+    final uri = articleUri(url);
     if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
     final response = await _webClient.get(
       uri,
       headers: {
-        'User-Agent': _desktopUserAgent,
+        'User-Agent': articleUserAgent,
         'Referer': 'https://$_articleHost/',
         'Accept-Language': languageTag ?? 'zh-CN',
       },
@@ -105,6 +96,23 @@ class PixivSpotlightRepository {
       throw ApiHttpError(response.statusCode, 'spotlight article fetch failed');
     }
     return response.body;
+  }
+
+  /// The only pages fetched for in-app rendering — over HTTP or in the
+  /// challenge WebView: https pages on www.pixivision.net.
+  static Uri articleUri(String url) {
+    final Uri uri;
+    try {
+      uri = Uri.parse(url);
+    } on FormatException {
+      throw const ApiParseError('spotlight article url is malformed');
+    }
+    if (uri.scheme != 'https' || uri.host != _articleHost) {
+      throw const ApiParseError(
+        'spotlight article url must be a pixivision.net page',
+      );
+    }
+    return uri;
   }
 
   bool validateArticlesCursor(

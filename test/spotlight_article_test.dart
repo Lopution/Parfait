@@ -177,7 +177,6 @@ Future<GoRouter> pumpArticle(
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-    SpotlightWebSession.resetForTesting();
     // Images on the page start the network policy's connectivity watch;
     // unanswered, its replies land in whichever later test runs real async.
     answerConnectivityChannels();
@@ -391,18 +390,23 @@ void main() {
   test(
     'a verified WebView session skips the plain HTTP article fetch',
     () async {
-      SpotlightWebSession.markVerified();
-      addTearDown(SpotlightWebSession.resetForTesting);
       final webClient = MockClient((_) async {
         fail('the verified session must use the WebView cookie jar');
       });
       final (container, _) = await makeSpotlightWorld(webClient: webClient);
       addTearDown(container.dispose);
+      container.read(spotlightWebSessionProvider.notifier).markVerified();
 
       const key = (id: 101, url: 'https://www.pixivision.net/a/101');
       expect(
         () => container.read(spotlightArticleBodyProvider(key).future),
         throwsA(isA<ApiChallengeRequired>()),
+      );
+      // The WebView only ever loads pixivision pages.
+      const foreign = (id: 101, url: 'https://example.com/a/101');
+      expect(
+        () => container.read(spotlightArticleBodyProvider(foreign).future),
+        throwsA(isA<ApiParseError>()),
       );
     },
   );
