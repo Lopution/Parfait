@@ -329,6 +329,20 @@ void main() {
     expect(find.descendant(of: row, matching: find.text('详情')), findsOneWidget);
   });
 
+  testWidgets('a group of one is a plain task row', (tester) async {
+    final (container, manager, _) = await makeDownloadWorld(
+      maxConcurrent: 1,
+      responses: [gatedResponse(Completer<void>())],
+    );
+    final group = manager.submitGroup([downloadRequest(1)]);
+    await _pumpPage(tester, container);
+    await pumpUntil(tester, () => manager.tasks.isNotEmpty);
+    await tester.pump();
+
+    expect(_groupHeader(group.id), findsNothing);
+    expect(_taskRows(), findsOneWidget);
+  });
+
   testWidgets('a collapsed group expands on tap and folds its children in', (
     tester,
   ) async {

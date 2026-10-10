@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:developer' show log;
 import '../network/pixiv_headers.dart';
 import 'dart:io';
+import 'dart:math' show Random;
 
 import '../network/compat/network_contracts.dart';
 import '../network/compat/segmented_fetch.dart';
@@ -101,6 +102,12 @@ class DownloadManager {
   Future<void> _persistenceTail = Future<void>.value();
   Future<DownloadRecoveryReport>? _recoveryInFlight;
   Object? _lastRecoveryError;
+
+  /// Sequence numbers restart with every process, while ids live on in the
+  /// recovery store: a per-launch token keeps a new group or job from
+  /// reusing the id of a recovered one (two downloads made in different
+  /// launches once merged into one group).
+  final String _launch = Random.secure().nextInt(1 << 32).toRadixString(36);
   var _nextSeq = 0;
   var _nextGroupSeq = 0;
   var _disposed = false;
@@ -188,7 +195,8 @@ class DownloadManager {
     final name = frozenName ?? inheritedName ?? request.displayName;
     validateDisplayName(name);
 
-    final id = 'download_${request.illustId}_${request.pageIndex}_$_nextSeq';
+    final id =
+        'download_${request.illustId}_${request.pageIndex}_${_launch}_$_nextSeq';
     _nextSeq++;
     final snapshot = DownloadSubmissionSnapshot(
       snapshotId: 'submission_$id',
@@ -233,7 +241,7 @@ class DownloadManager {
     if (requests.isEmpty) {
       throw ArgumentError('a download group must contain a request');
     }
-    final resolvedGroupId = 'download_group_${_nextGroupSeq++}';
+    final resolvedGroupId = 'download_group_${_launch}_${_nextGroupSeq++}';
     final ownerContext = context ?? _submissionContext?.call();
     final children = [
       for (final request in requests)

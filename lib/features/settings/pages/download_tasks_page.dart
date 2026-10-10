@@ -172,8 +172,8 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
   Future<void> _removeTasks(List<String> taskIds) async {
     final ids = taskIds.toSet();
     final emptied = [
-      for (final group in _manager.groups)
-        if (group.jobIds.isNotEmpty && group.jobIds.every(ids.contains)) group,
+      for (final group in _shownGroups)
+        if (group.jobIds.every(ids.contains)) group,
     ];
     await _removals.playExit([
       ...taskIds.map(_taskRowKey),
@@ -237,6 +237,14 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     return confirmed == true;
   }
 
+  /// Groups drawn with a header. A group of one (a one-page work's
+  /// download, or a group down to its last task) is just that task: it
+  /// takes a plain row, with no header to open first.
+  List<DownloadGroupSnapshot> get _shownGroups => [
+    for (final group in _manager.groups)
+      if (group.jobIds.length > 1) group,
+  ];
+
   /// Flatten the groups into the group list's entries (§3.1): a group
   /// contributes one header row plus its children only while expanded (D1),
   /// so expanding a several-hundred-item group still builds lazily.
@@ -258,7 +266,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
   @override
   Widget build(BuildContext context) {
     final tasks = _manager.tasks;
-    final groups = _manager.groups;
+    final groups = _shownGroups;
     final groupedJobIds = {for (final group in groups) ...group.jobIds};
     final groupEntries = _groupEntries(groups);
     // Grouped children render inside their group; a child must not appear
