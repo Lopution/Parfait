@@ -52,6 +52,25 @@ void main() {
     Rect toolbarRect(WidgetTester tester) =>
         tester.getRect(inBar(find.byType(Material)).first);
 
+    testWidgets('bottom inset and margin both clear the gesture area', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewPadding = const FakeViewPadding(bottom: 24);
+      tester.view.padding = const FakeViewPadding(bottom: 24);
+      addTearDown(tester.view.reset);
+
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+
+      expect(
+        toolbarRect(tester).bottom,
+        closeTo(844 - 24 - DetailActionBar.margin, 0.5),
+      );
+    });
+
     testWidgets('download shows the ring, then the saved state; its prompt '
         'rests above the bar', (tester) async {
       final (container, transport, _) = await makeWorld(

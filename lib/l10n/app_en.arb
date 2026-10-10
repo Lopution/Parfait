@@ -920,6 +920,7 @@
   "relatedLoadFailed": "Failed to load related works",
   "commentLoadMoreFailed": "Failed to load more comments",
   "commentNoResults": "No comments",
+  "commentDeletedUser": "Deleted user",
   "commentReplies": "Replies",
   "commentViewReplies": "{count, plural, one{View {count} reply} other{View {count} replies}}",
   "commentMoreActions": "More actions",

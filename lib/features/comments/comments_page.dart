@@ -73,7 +73,9 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
           ),
           CommentComposer(
             key: _composerKey,
-            replyTo: _replyTarget?.user.name,
+            replyTo: _replyTarget == null
+                ? null
+                : commentAuthorDisplayName(context, _replyTarget!.user),
             onCancelReply: () => setState(() => _replyTarget = null),
             sending: sending,
             onSend: (text) => _send(text: text, target: _replyTarget),
@@ -248,7 +250,9 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
           ),
           CommentComposer(
             key: _composerKey,
-            replyTo: replyTarget?.user.name,
+            replyTo: replyTarget == null
+                ? null
+                : commentAuthorDisplayName(context, replyTarget.user),
             onCancelReply: () => setState(() => _replyTarget = root),
             sending: sending,
             onSend: (text) => _send(text: text),

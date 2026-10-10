@@ -74,9 +74,16 @@ class UserEntity {
   /// responses only contain identity and relationship fields.
   final bool hasDetail;
 
-  factory UserEntity.fromUserJson(Map<String, dynamic> json) {
-    final id = requirePositiveInt(json['id'], 'user.id');
-    final name = requireString(json['name'], 'user.name');
+  factory UserEntity.fromUserJson(
+    Map<String, dynamic> json, {
+    bool allowDeleted = false,
+  }) {
+    final id = allowDeleted
+        ? _readCommentUserId(json['id'])
+        : requirePositiveInt(json['id'], 'user.id');
+    final name = allowDeleted
+        ? _readCommentUserName(json['name'])
+        : requireString(json['name'], 'user.name');
     final account = readOptionalString(json['account']) ?? '';
     final imageUrls = _map(json['profile_image_urls']);
     final visible =
@@ -255,6 +262,18 @@ class UserEntity {
 
   @override
   String toString() => 'UserEntity(${jsonEncode({'id': id, 'name': name})})';
+}
+
+int _readCommentUserId(Object? value) {
+  final parsed = value is int ? value : int.tryParse('$value');
+  if (parsed == null) throw const FormatException('user.id must be an integer');
+  return parsed > 0 ? parsed : 0;
+}
+
+/// A deleted author arrives with an empty or null name; both read as empty.
+String _readCommentUserName(Object? value) {
+  if (value == null || value is String) return (value as String?) ?? '';
+  throw const FormatException('user.name must be a string');
 }
 
 const _unset = Object();

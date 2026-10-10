@@ -134,6 +134,14 @@ state or action.
 - Entry animations keyed by list index replay whenever a refresh re-seats
   positions; identity-based state (played sets, element keys via
   `findChildIndexCallback`, `ValueKey(entity.id)`) must use the entity id.
+- `IllustFeedGrid` keeps `FeedItemExtent` unkeyed and puts
+  `ValueKey(entity.id)` on the inner card subtree. With
+  `flutter_staggered_grid_view` 0.7.0, keying the outer extent and wiring
+  `findChildIndexCallback` lets a refresh that replaces the first works leave
+  masonry index 0 without a `layoutOffset`, causing a null-check crash during
+  layout (a refresh, while scrolled, that moves works still on screen to the
+  head reproduces it); keep the keyed identity inside the extent and verify
+  that case in `responsive_layout_test.dart`.
 - A control painted over artwork uses `ImageOverlayButton` (icon actions) or
   the `FuncTokens.imageControl`/`onImageControl` pair (pill counters and
   other non-button chrome). A `filledTonal` button or a plain glyph sits on
@@ -1844,6 +1852,11 @@ static bool PullToRefresh.trigger(ScrollController controller);
   inside `PullToRefresh` subtrees, so non-feed pages (detail, settings,
   search) share the feed's feel. Do not reintroduce a
   `ClampingScrollPhysics` region.
+- Inside `PullToRefresh` a fling stops at either edge; only a drag
+  overscrolls. The header's `hitOver` is already off; the wrapper passes
+  `notLoadFooter: NotLoadFooter(hitOver: false)` because without `onLoad`
+  EasyRefresh copies `ClassicFooter`'s `hitOver: true`, and a fling into a
+  feed's end then sprang back up while the next page loaded.
 - A `NestedScrollView` does **not** inherit that behavior: its outer position
   is `widget.physics?.applyTo(Clamping) ?? ClampingScrollPhysics()`. Pass
   `physics: ScrollConfiguration.of(context).getScrollPhysics(context)`

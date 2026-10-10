@@ -182,7 +182,7 @@ class _PreviewTile extends StatelessWidget {
                 children: [
                   Flexible(
                     child: Text(
-                      comment.user.name,
+                      commentAuthorDisplayName(context, comment.user),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: textTheme.labelLarge,

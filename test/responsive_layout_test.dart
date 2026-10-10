@@ -73,4 +73,51 @@ void main() {
       expect(delegate.crossAxisCount, 2);
     },
   );
+
+  // Device crash in flutter_staggered_grid_view 0.7.0: a refresh that moves
+  // works still on screen to the head of the list, while the grid is
+  // scrolled, left the head child without a layout offset once the extent
+  // was keyed for findChildIndexCallback.
+  testWidgets('a refresh that moves visible works to the head lays out', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final before = [for (var id = 1; id <= 40; id++) id];
+    var ids = before;
+    late StateSetter refresh;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: replicaTheme(Brightness.light),
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            refresh = setState;
+            return Scaffold(
+              body: CustomScrollView(
+                slivers: [
+                  IllustFeedGrid(
+                    itemCount: ids.length,
+                    itemIds: ids,
+                    itemBuilder: (context, index) => SizedBox(
+                      height: 60 + (ids[index] * 37 % 7) * 30,
+                      child: Text('work ${ids[index]}'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1500));
+    await tester.pump();
+    refresh(() => ids = [25, 26, 27, 100, 101, ...before.take(24)]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+
+    expect(tester.takeException(), isNull);
+  });
 }

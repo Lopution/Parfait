@@ -8,6 +8,7 @@ import '../network/api_error.dart';
 import '../network/next_page_parser.dart';
 import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
+import '../log.dart';
 import 'comment_models.dart';
 import '../entity/json_read.dart';
 
@@ -194,16 +195,21 @@ class _PixivCommentRepository implements CommentRepository {
     final comments = <CommentEntity>[];
     for (final item in rawComments) {
       if (item is! Map<String, dynamic>) {
-        throw const FormatException('comments contains a non-object');
+        log('CommentRepository: skipped malformed comment item');
+        continue;
       }
-      comments.add(
-        CommentEntity.fromJson(
-          item,
-          workId: query.workId,
-          kind: query.kind,
-          rootCommentId: query.rootCommentId,
-        ),
-      );
+      try {
+        comments.add(
+          CommentEntity.fromJson(
+            item,
+            workId: query.workId,
+            kind: query.kind,
+            rootCommentId: query.rootCommentId,
+          ),
+        );
+      } on FormatException catch (error) {
+        log('CommentRepository: skipped malformed comment: ${error.message}');
+      }
     }
     final total = json['total_comments'];
     return CommentPage(

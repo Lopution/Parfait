@@ -2181,6 +2181,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commentNoResults => '暂无评论';
 
   @override
+  String get commentDeletedUser => '已注销用户';
+
+  @override
   String get commentReplies => '回复';
 
   @override

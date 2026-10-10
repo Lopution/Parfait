@@ -920,6 +920,7 @@
   "relatedLoadFailed": "関連作品の読み込みに失敗しました",
   "commentLoadMoreFailed": "コメントをさらに読み込めませんでした",
   "commentNoResults": "コメントはありません",
+  "commentDeletedUser": "退会したユーザー",
   "commentReplies": "返信",
   "commentViewReplies": "返信{count}件を表示",
   "commentMoreActions": "その他の操作",

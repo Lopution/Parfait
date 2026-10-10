@@ -920,6 +920,7 @@
   "relatedLoadFailed": "Не удалось загрузить похожие работы",
   "commentLoadMoreFailed": "Не удалось загрузить ещё комментарии",
   "commentNoResults": "Комментариев нет",
+  "commentDeletedUser": "Удалённый пользователь",
   "commentReplies": "Ответы",
   "commentViewReplies": "Ответы: {count}",
   "commentMoreActions": "Другие действия",
