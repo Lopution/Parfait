@@ -2259,6 +2259,11 @@ card or per image keep their dependencies narrow:
   - anything else pairs `FrameProbe.instance.enter` / `exit`.
 
   Both are no-ops unless `FrameProbe.available`.
+- A platform channel whose first call blocks the main thread for tens of
+  milliseconds is warmed in `androidChannelWarmupSteps`
+  (`native_warmup.dart`) and not left to its first use. Each step waits
+  for a 300 ms still, which launch provides while the first feed loads. A
+  device trace showed a one-second threshold never firing in active use.
 
 ### 7. Tests
 
