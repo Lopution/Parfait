@@ -208,10 +208,7 @@ class _PixivCommentRepository implements CommentRepository {
           ),
         );
       } on FormatException catch (error) {
-        log(
-          'CommentRepository: skipped malformed comment '
-          '(${error.runtimeType})',
-        );
+        log('CommentRepository: skipped malformed comment: ${error.message}');
       }
     }
     final total = json['total_comments'];

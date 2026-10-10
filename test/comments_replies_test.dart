@@ -220,11 +220,13 @@ void main() {
     () async {
       final deleted = _commentJson(103, userId: 0);
       (deleted['user'] as Map<String, dynamic>)['name'] = '';
+      final unnamed = _commentJson(106, userId: 0);
+      (unnamed['user'] as Map<String, dynamic>).remove('name');
       final malformed = _commentJson(104);
       (malformed['user'] as Map<String, dynamic>)['name'] = 42;
       final container = await _apiContainer(
         (request) async => _json({
-          'comments': [deleted, malformed, _commentJson(105)],
+          'comments': [deleted, unnamed, malformed, _commentJson(105)],
           'next_url': null,
         }),
       );
@@ -234,7 +236,11 @@ void main() {
           .read(commentRepositoryProvider)
           .fetchComments(50);
 
-      expect(page.comments.map((comment) => comment.id).toList(), [103, 105]);
+      expect(page.comments.map((comment) => comment.id).toList(), [
+        103,
+        106,
+        105,
+      ]);
       expect(page.comments.first.user.id, 0);
       expect(page.comments.first.user.name, isEmpty);
     },

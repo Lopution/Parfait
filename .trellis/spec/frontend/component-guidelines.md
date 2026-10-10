@@ -139,8 +139,9 @@ state or action.
   `flutter_staggered_grid_view` 0.7.0, keying the outer extent and wiring
   `findChildIndexCallback` lets a refresh that replaces the first works leave
   masonry index 0 without a `layoutOffset`, causing a null-check crash during
-  layout; keep the keyed identity inside the extent and verify the replacement
-  case in `responsive_layout_test.dart`.
+  layout (a refresh, while scrolled, that moves works still on screen to the
+  head reproduces it); keep the keyed identity inside the extent and verify
+  that case in `responsive_layout_test.dart`.
 - A control painted over artwork uses `ImageOverlayButton` (icon actions) or
   the `FuncTokens.imageControl`/`onImageControl` pair (pill counters and
   other non-button chrome). A `filledTonal` button or a plain glyph sits on

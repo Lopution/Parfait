@@ -1,8 +1,17 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/comments/comment_assets.dart';
+import '../../core/user/user_entity.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
+
+/// Returns the localized display name used by comment rows, previews and
+/// reply targets.
+/// Deleted authors can remain in the API response without a usable profile id.
+String commentAuthorDisplayName(BuildContext context, UserEntity user) {
+  final name = user.name.trim();
+  return name.isEmpty ? context.l10n.commentDeletedUser : name;
+}
 
 /// Renders beta56 `(emoji_name)` markers inline while leaving unknown markers
 /// as ordinary text. Raw comment content remains the source of truth.

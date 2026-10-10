@@ -13,7 +13,6 @@ import '../../core/auth/account_store.dart';
 import '../../core/entity/comment_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/novel/novel_store.dart';
-import '../../core/user/user_entity.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/widgets/comment_text.dart';
 import '../../app/widgets/inline_translation.dart';
@@ -170,13 +169,6 @@ class _Avatar extends StatelessWidget {
       child: PersonAvatar(imageUrl: comment.user.profileImageUrl, radius: 21),
     );
   }
-}
-
-/// Returns the localized display name used by comment rows and reply targets.
-/// Deleted authors can remain in the API response without a usable profile id.
-String commentAuthorDisplayName(BuildContext context, UserEntity user) {
-  final name = user.name.trim();
-  return name.isEmpty ? context.l10n.commentDeletedUser : name;
 }
 
 class _CommentBody extends StatelessWidget {

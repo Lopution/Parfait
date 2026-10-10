@@ -270,8 +270,9 @@ int _readCommentUserId(Object? value) {
   return parsed > 0 ? parsed : 0;
 }
 
+/// A deleted author arrives with an empty or null name; both read as empty.
 String _readCommentUserName(Object? value) {
-  if (value is String) return value;
+  if (value == null || value is String) return (value as String?) ?? '';
   throw const FormatException('user.name must be a string');
 }
 
