@@ -179,7 +179,7 @@ const testImageWorkerConfig = ImageWorkerConfig(
   networkIdentity: 'test-net',
   echFrontHost: 'cloudflare-ech.com',
   dohEndpoints: [],
-  insecureNoSniEnabled: true,
+  bootstrapNoSniEnabled: true,
 );
 
 /// A real [ImageWorker] whose isolates are in-process [ImageWorkerHost]s

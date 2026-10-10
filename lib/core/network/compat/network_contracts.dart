@@ -112,9 +112,10 @@ enum NetworkMode {
   directOnly,
 }
 
-/// The policy tiers. Each tier = DNS source × TLS presentation × certificate
-/// verification. Ordering in a ladder is per-destination-group, not global
-/// (API hosts are on Cloudflare anycast, image hosts on the origin).
+/// The policy tiers. Each tier = DNS source × TLS presentation; every tier
+/// verifies the certificate chain and hostname. Ordering in a ladder is
+/// per-destination-group, not global (API hosts are on Cloudflare anycast,
+/// image hosts on the origin).
 ///
 /// - [direct]: system DNS + real SNI + full verification (baseline)
 /// - [ech]: DoH addresses + ECH (real SNI encrypted, outer = ECH front) +
@@ -122,13 +123,17 @@ enum NetworkMode {
 /// - [dohRealSni]: DoH addresses + real SNI + full verification
 /// - [noSni]: DoH/fallback addresses + empty SNI + full verification
 ///   (origin hosts only: nginx routes by Host without SNI)
-/// - [insecureNoSni]: same as [noSni] but certificate verification OFF. The
-///   production provider uses this only as its internal compatibility fast
-///   tier; standalone policies may still opt into it as a fallback.
+/// - [bootstrapNoSni]: persisted or built-in Pixiv origin address + empty
+///   SNI + full verification. Pixiv's origin answers an SNI-less handshake
+///   with a certificate for its own names (`*.pixiv.net`,
+///   `oauth.secure.pixiv.net`, `*.pximg.net`), so verification costs nothing
+///   here: the bytes on the wire are the same either way. The production
+///   provider uses it as its internal compatibility fast tier; it is not
+///   exposed as a user setting.
 ///
-/// `certificateMismatch` stays terminal on strict tiers. The production fast
-/// tier is deliberately internal and is not exposed as a user setting.
-enum NetworkRouteKind { direct, ech, dohRealSni, noSni, insecureNoSni }
+/// `certificateMismatch` is terminal on every tier except [noSni] (see the
+/// ladder's retry rule).
+enum NetworkRouteKind { direct, ech, dohRealSni, noSni, bootstrapNoSni }
 
 enum NetworkIpFamily { ipv4, ipv6, unknown }
 
@@ -224,14 +229,15 @@ class NetworkRoute {
     ttl: ttl,
   );
 
-  /// Compatibility fast route: empty SNI + NO certificate verification.
-  factory NetworkRoute.insecureNoSni(
+  /// Compatibility fast route: known origin address + empty SNI + full
+  /// verification.
+  factory NetworkRoute.bootstrapNoSni(
     NetworkRevision revision,
     InternetAddress address, {
     DnsSource dnsSource = DnsSource.doh,
     Duration? ttl,
   }) => NetworkRoute._(
-    kind: NetworkRouteKind.insecureNoSni,
+    kind: NetworkRouteKind.bootstrapNoSni,
     revision: revision,
     address: address,
     dnsSource: dnsSource,
@@ -284,10 +290,8 @@ class NetworkRoute {
   bool get presentsRealSni => switch (kind) {
     NetworkRouteKind.direct || NetworkRouteKind.dohRealSni => true,
     NetworkRouteKind.ech => true, // encrypted by ECH, outer is the front
-    NetworkRouteKind.noSni || NetworkRouteKind.insecureNoSni => false,
+    NetworkRouteKind.noSni || NetworkRouteKind.bootstrapNoSni => false,
   };
-
-  bool get verifiesCertificates => kind != NetworkRouteKind.insecureNoSni;
 
   String get key => [
     revision.value,

@@ -67,7 +67,7 @@ void main() {
       final policy = NetworkAccessPolicy(
         resolver: resolver,
         fastRouteStore: store,
-        insecureNoSniEnabled: true,
+        bootstrapNoSniEnabled: true,
         clientFactory: (route, host, purpose) =>
             clients.putIfAbsent('${purpose.name}|$host', _RecordingClient.new),
       );
@@ -127,7 +127,7 @@ void main() {
       fastRouteStore: PixivFastRouteStore(
         preferences: SharedPreferencesAsync(),
       ),
-      insecureNoSniEnabled: true,
+      bootstrapNoSniEnabled: true,
       clientFactory: (route, host, _) {
         created.add((route: route, host: host));
         return _RecordingClient();
@@ -150,7 +150,7 @@ void main() {
     );
     expect(
       created.map((entry) => entry.route.kind),
-      everyElement(NetworkRouteKind.insecureNoSni),
+      everyElement(NetworkRouteKind.bootstrapNoSni),
     );
   });
 
@@ -161,7 +161,7 @@ void main() {
       fastRouteStore: PixivFastRouteStore(
         preferences: SharedPreferencesAsync(),
       ),
-      insecureNoSniEnabled: true,
+      bootstrapNoSniEnabled: true,
       clock: () => now,
     );
     addTearDown(policy.dispose);
@@ -185,20 +185,20 @@ void main() {
     expect(attempted, [
       NetworkRouteKind.dohRealSni,
       NetworkRouteKind.direct,
-      NetworkRouteKind.insecureNoSni,
+      NetworkRouteKind.bootstrapNoSni,
     ]);
 
     attempted.clear();
     await expectLater(run(), throwsA(isA<NetworkFailureException>()));
     expect(
       attempted,
-      isNot(contains(NetworkRouteKind.insecureNoSni)),
+      isNot(contains(NetworkRouteKind.bootstrapNoSni)),
       reason: 'the cooled fast address must not be tried again',
     );
 
     now = now.add(const Duration(seconds: 31));
     attempted.clear();
     await expectLater(run(), throwsA(isA<NetworkFailureException>()));
-    expect(attempted, contains(NetworkRouteKind.insecureNoSni));
+    expect(attempted, contains(NetworkRouteKind.bootstrapNoSni));
   });
 }

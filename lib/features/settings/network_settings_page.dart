@@ -653,7 +653,7 @@ class _EffectiveRoutesSectionState
       NetworkRouteKind.ech => context.l10n.networkProbeStepEch,
       NetworkRouteKind.dohRealSni => context.l10n.networkProbeStepDoh,
       NetworkRouteKind.noSni => context.l10n.networkProbeStepNoSni,
-      NetworkRouteKind.insecureNoSni => context.l10n.networkRouteKindCompat,
+      NetworkRouteKind.bootstrapNoSni => context.l10n.networkRouteKindCompat,
     };
   }
 

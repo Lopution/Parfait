@@ -38,7 +38,7 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
     ),
     dohEndpoints: dohEnabled ? endpoints : const [],
     echFrontHost: echFrontHost,
-    insecureNoSniEnabled: true,
+    bootstrapNoSniEnabled: true,
     fastRouteStore: ref.watch(fastRouteStoreProvider),
     routeKindStore: ref.watch(routeKindStoreProvider),
     mode: switch (mode) {

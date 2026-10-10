@@ -82,19 +82,42 @@ void main() {
       expect(tls.verifyCertificates, isTrue);
     });
 
-    test('insecureNoSni route: empty SNI + verification OFF', () {
-      final route = NetworkRoute.insecureNoSni(
+    test('bootstrapNoSni route: empty SNI + verification ON', () {
+      final route = NetworkRoute.bootstrapNoSni(
         _revision,
-        InternetAddress('210.140.139.129'),
+        InternetAddress('210.140.139.155'),
       );
       final settings = RhttpClientFactory.settingsFor(
         route,
-        destinationHost: 'i.pximg.net',
-        purpose: PixivDestinationPurpose.image,
+        destinationHost: 'app-api.pixiv.net',
+        purpose: PixivDestinationPurpose.appApi,
       );
       final tls = settings.tlsSettings!;
       expect(tls.sni, isFalse);
-      expect(tls.verifyCertificates, isFalse);
+      expect(tls.verifyCertificates, isTrue);
+    });
+
+    test('no route kind turns certificate verification off', () {
+      for (final kind in NetworkRouteKind.values) {
+        final route = NetworkRoute.remembered(
+          _revision,
+          kind,
+          kind == NetworkRouteKind.direct
+              ? null
+              : InternetAddress('210.140.139.155'),
+          echConfig: kind == NetworkRouteKind.ech ? const [0xfe, 0x0d] : null,
+        );
+        final settings = RhttpClientFactory.settingsFor(
+          route,
+          destinationHost: 'oauth.secure.pixiv.net',
+          purpose: PixivDestinationPurpose.oauth,
+        );
+        expect(
+          settings.tlsSettings!.verifyCertificates,
+          isTrue,
+          reason: '$kind',
+        );
+      }
     });
 
     test('throws on ECH route without config', () {
@@ -191,7 +214,7 @@ void main() {
           0x0d,
         ]),
         NetworkRoute.noSni(_revision, InternetAddress('210.140.139.129')),
-        NetworkRoute.insecureNoSni(
+        NetworkRoute.bootstrapNoSni(
           _revision,
           InternetAddress('210.140.139.129'),
         ),

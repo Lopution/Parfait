@@ -207,7 +207,7 @@ void main() {
         networkIdentity: testImageWorkerConfig.networkIdentity,
         echFrontHost: testImageWorkerConfig.echFrontHost,
         dohEndpoints: testImageWorkerConfig.dohEndpoints,
-        insecureNoSniEnabled: true,
+        bootstrapNoSniEnabled: true,
       ),
     );
 

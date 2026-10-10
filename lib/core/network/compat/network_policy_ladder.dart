@@ -48,7 +48,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// attempt, so no credential-free probe round trip is paid before data. If
   /// the attempt fails with a transport-level error that proves the request
   /// was never delivered, the ladder walks the remaining unused kinds (ECH
-  /// first on a cold start; `insecureNoSni` always last) and sends each
+  /// first on a cold start; `bootstrapNoSni` always last) and sends each
   /// unused kind at most once.
   /// [canReplay] selects the retry set: idempotent GET/HEAD/downloads also
   /// retry on timeout (a repeat is safe), while POST-family and the token
@@ -176,7 +176,8 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     // default vhost, which simply may not carry this hostname (a mirror on
     // shared hosting). Falling through to the real-SNI tier is the correct
     // answer — verification stays ON everywhere. Real-SNI mismatches and
-    // the insecure tier keep their terminal semantics.
+    // the bootstrap tier keep their terminal semantics: Pixiv's origin
+    // always presents its own certificate there, so a mismatch is suspect.
     if (kind == NetworkFailureKind.certificateMismatch &&
         route.kind == NetworkRouteKind.noSni) {
       return true;
@@ -227,7 +228,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
           remembered.isUsable(now, _revision.networkIdentity)) {
         final route = remembered.routeFor(_revision);
         if ((!_isFastRouteCooling(host, now) ||
-                route.kind != NetworkRouteKind.insecureNoSni) &&
+                route.kind != NetworkRouteKind.bootstrapNoSni) &&
             !(echCooling && route.kind == NetworkRouteKind.ech) &&
             !attemptedKinds.contains(route.kind) &&
             attemptedKeys.add(route.key)) {
@@ -249,7 +250,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       now: now,
     );
     final usablePreferredKind =
-        preferredKind == NetworkRouteKind.insecureNoSni &&
+        preferredKind == NetworkRouteKind.bootstrapNoSni &&
             !fastCompatibilityAvailable
         ? null
         : preferredKind;
@@ -258,24 +259,24 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     // Cloudflare hosts (API/OAuth) reach the ECH tier inside the wall while
     // plain SNI is RST; pixiv image hosts take ECH too, with their origin
     // addresses as the throttled stand-in. Mirrors reach the empty-SNI
-    // tier. The bootstrap tier (insecureNoSni) stays as the very last
+    // tier. The bootstrap tier (bootstrapNoSni) stays as the very last
     // fallback: if it happens to work on this network it is remembered and
-    // promoted by route/group memory after one success, but an unverified
+    // promoted by route/group memory after one success, but an unproven
     // address can never again cost the first N requests of a screen.
-    final hasInsecureFallback = fallbackTiers.contains(
-      NetworkRouteKind.insecureNoSni,
+    final hasBootstrapFallback = fallbackTiers.contains(
+      NetworkRouteKind.bootstrapNoSni,
     );
     final compatPrefer = _mode == NetworkMode.compatPrefer;
-    final insecureEligible =
-        hasInsecureFallback && !_isFastRouteCooling(host, now);
+    final bootstrapEligible =
+        hasBootstrapFallback && !_isFastRouteCooling(host, now);
     final kinds = <NetworkRouteKind>[
       ?usablePreferredKind,
-      ...fallbackTiers.where((kind) => kind != NetworkRouteKind.insecureNoSni),
+      ...fallbackTiers.where((kind) => kind != NetworkRouteKind.bootstrapNoSni),
       // compatPrefer walks every compatibility tier before touching direct —
       // the user already knows plain direct is blocked on this network.
-      if (compatPrefer && insecureEligible) NetworkRouteKind.insecureNoSni,
+      if (compatPrefer && bootstrapEligible) NetworkRouteKind.bootstrapNoSni,
       NetworkRouteKind.direct,
-      if (!compatPrefer && insecureEligible) NetworkRouteKind.insecureNoSni,
+      if (!compatPrefer && bootstrapEligible) NetworkRouteKind.bootstrapNoSni,
     ];
     // A cooling ECH tier goes last rather than away: the stand-in tiers
     // carry the request, but a network that blocks all of them still
@@ -454,7 +455,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     }
     _rememberRoute(host, winner.route, purpose: destination.purpose);
     _clearFastRouteCooldown(host, winner.route);
-    if (winner.route.kind == NetworkRouteKind.insecureNoSni &&
+    if (winner.route.kind == NetworkRouteKind.bootstrapNoSni &&
         winner.route.address != null) {
       unawaited(_refreshFastRoute(host, winner.route.address!));
     }
@@ -528,7 +529,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       route,
       purpose: destination.purpose,
     );
-    if (route.kind == NetworkRouteKind.insecureNoSni &&
+    if (route.kind == NetworkRouteKind.bootstrapNoSni &&
         fastRouteStore != null) {
       unawaited(_refreshFastRoute(destination.canonicalHost, route.address!));
     }
@@ -636,7 +637,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   }
 
   void _coolFastRoute(String host, NetworkRoute route) {
-    if (route.kind != NetworkRouteKind.insecureNoSni ||
+    if (route.kind != NetworkRouteKind.bootstrapNoSni ||
         !_fastCompatibilityEnabled) {
       return;
     }
@@ -644,7 +645,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   }
 
   void _clearFastRouteCooldown(String host, NetworkRoute route) {
-    if (route.kind == NetworkRouteKind.insecureNoSni) {
+    if (route.kind == NetworkRouteKind.bootstrapNoSni) {
       _fastRouteCooldownUntil.remove(host);
     }
   }
@@ -725,9 +726,9 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// SNI is RST) and ECH gives HTTP/2 multiplexing on one connection; pixiv
   /// image hosts are served in full by the ECH front too, and the plain
   /// empty-SNI tier on their origin addresses is only the throttled second
-  /// choice (see [_prefersEch]). The bootstrap tier (insecureNoSni) is
-  /// always last: it is unverified on a cold network and costs a connect
-  /// timeout when its address cannot be reached.
+  /// choice (see [_prefersEch]). The bootstrap tier (bootstrapNoSni) is
+  /// always last: its address is unproven on a cold network and costs a
+  /// connect timeout when it cannot be reached.
   List<NetworkRouteKind> _fallbackTiersFor(PixivDestination destination) {
     final purpose = destination.purpose;
     // Third-party image mirrors (preset/custom reverse proxies) are not
@@ -736,9 +737,8 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     // mirror. `noSni` leads the fallback because mirror domains are
     // SNI-blocked inside the wall, and a single-tenant reverse proxy
     // answers an empty-SNI handshake from a default vhost that still
-    // presents a valid certificate for the mirror name — verification
-    // stays ON (no insecureNoSni tier for mirrors: we must not switch off
-    // verification for a host the user configured themselves). A mirror
+    // presents a valid certificate for the mirror name (no bootstrapNoSni
+    // tier for mirrors: they have no known origin address). A mirror
     // whose default vhost does not cover the name fails the handshake
     // with a certificate mismatch, which `_retryEligible` advances past
     // on this tier; dohRealSni keeps the real-SNI escape hatch.
@@ -762,8 +762,8 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
             NetworkRouteKind.noSni,
             NetworkRouteKind.dohRealSni,
           ];
-    if (insecureNoSniEnabled) {
-      tiers.add(NetworkRouteKind.insecureNoSni);
+    if (bootstrapNoSniEnabled) {
+      tiers.add(NetworkRouteKind.bootstrapNoSni);
     }
     return tiers;
   }
@@ -778,7 +778,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       NetworkRouteKind.ech ||
       NetworkRouteKind.dohRealSni ||
       NetworkRouteKind.noSni => true,
-      NetworkRouteKind.insecureNoSni => _fastCompatibilityEnabled,
+      NetworkRouteKind.bootstrapNoSni => _fastCompatibilityEnabled,
       NetworkRouteKind.direct => false,
     };
   }
@@ -845,12 +845,12 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
           dnsSource: resolved.dnsSource,
           ttl: resolved.ttl,
         );
-      case NetworkRouteKind.insecureNoSni:
+      case NetworkRouteKind.bootstrapNoSni:
         final store = fastRouteStore;
         if (store != null) {
           final fastAddress = await store.addressFor(destination.canonicalHost);
           if (fastAddress == null) return null;
-          return NetworkRoute.insecureNoSni(
+          return NetworkRoute.bootstrapNoSni(
             _revision,
             fastAddress,
             dnsSource: DnsSource.doh,
@@ -858,7 +858,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
           );
         }
         final resolved = await resolveHost();
-        return NetworkRoute.insecureNoSni(
+        return NetworkRoute.bootstrapNoSni(
           _revision,
           resolved.addresses.first,
           dnsSource: resolved.dnsSource,

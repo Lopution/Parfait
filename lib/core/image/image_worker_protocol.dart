@@ -23,7 +23,7 @@ class ImageWorkerConfig {
     required this.networkIdentity,
     required this.echFrontHost,
     required this.dohEndpoints,
-    required this.insecureNoSniEnabled,
+    required this.bootstrapNoSniEnabled,
     this.learnedFastRoutes = const {},
     this.routeKinds = const {},
   });
@@ -55,7 +55,7 @@ class ImageWorkerConfig {
   /// Whether the compatibility transport tier is enabled; the app wiring
   /// always sets this, the flag is carried so the worker mirrors the
   /// wiring rather than hardcoding policy.
-  final bool insecureNoSniEnabled;
+  final bool bootstrapNoSniEnabled;
 
   /// Persisted host→address map from the main isolate's fast-route store
   /// (learned entries only — the compile-time bootstrap map is readable
@@ -73,7 +73,7 @@ class ImageWorkerConfig {
     'networkIdentity': networkIdentity,
     'echFrontHost': echFrontHost,
     'dohEndpoints': dohEndpoints,
-    'insecureNoSniEnabled': insecureNoSniEnabled,
+    'bootstrapNoSniEnabled': bootstrapNoSniEnabled,
     'learnedFastRoutes': learnedFastRoutes,
     'routeKinds': routeKinds,
   };
@@ -86,7 +86,7 @@ class ImageWorkerConfig {
       networkIdentity: json['networkIdentity'] as String,
       echFrontHost: json['echFrontHost'] as String,
       dohEndpoints: (json['dohEndpoints'] as List).cast<String>(),
-      insecureNoSniEnabled: json['insecureNoSniEnabled'] as bool,
+      bootstrapNoSniEnabled: json['bootstrapNoSniEnabled'] as bool,
       learnedFastRoutes: (json['learnedFastRoutes'] as Map? ?? const {}).cast(),
       routeKinds: (json['routeKinds'] as Map? ?? const {}).cast(),
     );

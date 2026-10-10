@@ -898,7 +898,7 @@ void main() {
       final order = <NetworkRouteKind>[];
       final policy = NetworkAccessPolicy(
         resolver: FakeResolver([InternetAddress('1.2.3.70')]),
-        insecureNoSniEnabled: true,
+        bootstrapNoSniEnabled: true,
         mode: mode,
         clientFactory: (route, canonicalHost, purpose) {
           order.add(route.kind);
@@ -917,14 +917,14 @@ void main() {
       return order;
     }
 
-    test('automatic keeps direct ahead of the insecure bootstrap', () async {
+    test('automatic keeps direct ahead of the bootstrap tier', () async {
       final order = await runExhaustingLadder(NetworkMode.automatic);
       // ECH yields no route without an ECH-capable resolver, so the
-      // observable ladder is DoH → direct → insecure bootstrap.
+      // observable ladder is DoH → direct → bootstrap tier.
       expect(order, [
         NetworkRouteKind.dohRealSni,
         NetworkRouteKind.direct,
-        NetworkRouteKind.insecureNoSni,
+        NetworkRouteKind.bootstrapNoSni,
       ]);
     });
 
@@ -932,7 +932,7 @@ void main() {
       final order = await runExhaustingLadder(NetworkMode.compatPrefer);
       expect(order, [
         NetworkRouteKind.dohRealSni,
-        NetworkRouteKind.insecureNoSni,
+        NetworkRouteKind.bootstrapNoSni,
         NetworkRouteKind.direct,
       ]);
     });

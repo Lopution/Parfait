@@ -279,7 +279,7 @@ class ImageWorkerHost {
     final policyInputsChanged =
         next.mode != previous.mode ||
         next.echFrontHost != previous.echFrontHost ||
-        next.insecureNoSniEnabled != previous.insecureNoSniEnabled ||
+        next.bootstrapNoSniEnabled != previous.bootstrapNoSniEnabled ||
         !_listEquals(next.dohEndpoints, previous.dohEndpoints) ||
         !_setEquals(allowlist, _allowlist);
     if (initial || policyInputsChanged) {
@@ -313,7 +313,7 @@ class ImageWorkerHost {
       mode: NetworkMode.values.byName(config.mode),
       revision: NetworkRevision(0, networkIdentity: config.networkIdentity),
       echFrontHost: config.echFrontHost,
-      insecureNoSniEnabled: config.insecureNoSniEnabled,
+      bootstrapNoSniEnabled: config.bootstrapNoSniEnabled,
       fastRouteStore: _fastRoutes,
       routeKindStore: _routeKinds,
       dohEndpoints: config.dohEndpoints,

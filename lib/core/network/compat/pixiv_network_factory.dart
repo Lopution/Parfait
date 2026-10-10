@@ -8,7 +8,7 @@ import 'network_policy.dart';
 /// A policy-aware `package:http` client. The business request is the route
 /// attempt: selection never pays for a separate probe. A
 /// retryable undelivered failure walks the remaining unused kinds (ECH
-/// first on a cold start; `insecureNoSni` always last). The request is
+/// first on a cold start; `bootstrapNoSni` always last). The request is
 /// freshly cloned for each attempt because package:http requests are
 /// single-use after finalize().
 class PixivPolicyHttpClient extends http.BaseClient {
