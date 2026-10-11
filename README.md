@@ -29,20 +29,24 @@ Parfait 用 Flutter 编写，界面遵循 Material Design 3，状态管理和路
 
 ## 截图
 
-<table align="center">
+<div style="overflow-x: auto;">
+
+<table align="center" width="960">
 <tr>
-<td align="center" width="25%"><img src=".github/readme/home.webp" width="200" alt="推荐"><br><b>推荐</b><br><sub>插画、漫画、小说与用户推荐</sub></td>
-<td align="center" width="25%"><img src=".github/readme/detail.webp" width="200" alt="作品详情"><br><b>作品详情</b><br><sub>下载、评论、收藏随手可达</sub></td>
-<td align="center" width="25%"><img src=".github/readme/search.webp" width="200" alt="搜索"><br><b>搜索</b><br><sub>特辑、热门标签，拍照反向搜图</sub></td>
-<td align="center" width="25%"><img src=".github/readme/profile.webp" width="200" alt="画师主页"><br><b>画师主页</b><br><sub>作品、收藏与关注一览</sub></td>
+<td align="center" width="240"><img src=".github/readme/home.webp" width="200" alt="推荐"><br><b>推荐</b><br><sub>插画、漫画、小说与用户推荐</sub></td>
+<td align="center" width="240"><img src=".github/readme/detail.webp" width="200" alt="作品详情"><br><b>作品详情</b><br><sub>下载、评论、收藏随手可达</sub></td>
+<td align="center" width="240"><img src=".github/readme/search.webp" width="200" alt="搜索"><br><b>搜索</b><br><sub>特辑、热门标签，拍照反向搜图</sub></td>
+<td align="center" width="240"><img src=".github/readme/profile.webp" width="200" alt="画师主页"><br><b>画师主页</b><br><sub>作品、收藏与关注一览</sub></td>
 </tr>
 <tr>
-<td align="center"><img src=".github/readme/ranking.webp" width="200" alt="排行"><br><b>排行</b><br><sub>每日、每周等榜单，可按日期回看</sub></td>
-<td align="center"><img src=".github/readme/novel.webp" width="200" alt="小说阅读"><br><b>小说阅读</b><br><sub>字号可调，一键翻译，显示阅读进度</sub></td>
-<td align="center"><img src=".github/readme/viewer.webp" width="200" alt="看图"><br><b>看图</b><br><sub>多页作品拖动跳页，保存与分享</sub></td>
-<td align="center"><img src=".github/readme/downloads.webp" width="200" alt="下载任务"><br><b>下载任务</b><br><sub>多页作品自动分组，进度一目了然</sub></td>
+<td align="center" width="240"><img src=".github/readme/ranking.webp" width="200" alt="排行"><br><b>排行</b><br><sub>每日、每周等榜单，可按日期回看</sub></td>
+<td align="center" width="240"><img src=".github/readme/novel.webp" width="200" alt="小说阅读"><br><b>小说阅读</b><br><sub>字号可调，一键翻译，显示阅读进度</sub></td>
+<td align="center" width="240"><img src=".github/readme/viewer.webp" width="200" alt="看图"><br><b>看图</b><br><sub>多页作品拖动跳页，保存与分享</sub></td>
+<td align="center" width="240"><img src=".github/readme/downloads.webp" width="200" alt="下载任务"><br><b>下载任务</b><br><sub>多页作品自动分组，进度一目了然</sub></td>
 </tr>
 </table>
+
+</div>
 
 ## 功能
 
@@ -181,6 +185,14 @@ Parfait 源自 git-xiaocao 的 Pixiv Func，基于其开源代码重写，并非
 - 邮箱：[fuyian533@gmail.com](mailto:fuyian533@gmail.com)
 
 <img src=".github/readme/qq-group.webp" width="280" alt="Parfait 交流群二维码，群号 167853962">
+
+## 🚩 友情链接
+
+感谢 LinuxDo 社区的支持！
+
+<a href="https://linux.do/" aria-label="LinuxDo 社区">
+  <img src="https://img.shields.io/badge/%E7%A4%BE%E5%8C%BA-LINUXDO-008ACB?style=for-the-badge&labelColor=555555" alt="LinuxDo 社区">
+</a>
 
 ## 尊重创作者
 
