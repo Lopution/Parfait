@@ -29,20 +29,24 @@ Parfait is written in Flutter with a Material Design 3 interface, using Riverpod
 
 ## Screenshots
 
-<table align="center">
+<div style="overflow-x: auto;">
+
+<table align="center" width="960">
 <tr>
-<td align="center" width="25%"><img src=".github/readme/home.webp" width="200" alt="Recommended"><br><b>Recommended</b><br><sub>Illustrations, manga, novels and users</sub></td>
-<td align="center" width="25%"><img src=".github/readme/detail.webp" width="200" alt="Artwork"><br><b>Artwork</b><br><sub>Download, comment and bookmark in reach</sub></td>
-<td align="center" width="25%"><img src=".github/readme/search.webp" width="200" alt="Search"><br><b>Search</b><br><sub>Features, trending tags, reverse image search</sub></td>
-<td align="center" width="25%"><img src=".github/readme/profile.webp" width="200" alt="Artist"><br><b>Artist</b><br><sub>Works, bookmarks and follows</sub></td>
+<td align="center" width="240"><img src=".github/readme/home.webp" width="200" alt="Recommended"><br><b>Recommended</b><br><sub>Illustrations, manga, novels and users</sub></td>
+<td align="center" width="240"><img src=".github/readme/detail.webp" width="200" alt="Artwork"><br><b>Artwork</b><br><sub>Download, comment and bookmark in reach</sub></td>
+<td align="center" width="240"><img src=".github/readme/search.webp" width="200" alt="Search"><br><b>Search</b><br><sub>Features, trending tags, reverse image search</sub></td>
+<td align="center" width="240"><img src=".github/readme/profile.webp" width="200" alt="Artist"><br><b>Artist</b><br><sub>Works, bookmarks and follows</sub></td>
 </tr>
 <tr>
-<td align="center"><img src=".github/readme/ranking.webp" width="200" alt="Rankings"><br><b>Rankings</b><br><sub>Daily, weekly and more, by date</sub></td>
-<td align="center"><img src=".github/readme/novel.webp" width="200" alt="Novel reader"><br><b>Novel reader</b><br><sub>Font size, translation, reading progress</sub></td>
-<td align="center"><img src=".github/readme/viewer.webp" width="200" alt="Viewer"><br><b>Viewer</b><br><sub>Scrub through pages, save and share</sub></td>
-<td align="center"><img src=".github/readme/downloads.webp" width="200" alt="Downloads"><br><b>Downloads</b><br><sub>Multi-page works grouped, progress at a glance</sub></td>
+<td align="center" width="240"><img src=".github/readme/ranking.webp" width="200" alt="Rankings"><br><b>Rankings</b><br><sub>Daily, weekly and more, by date</sub></td>
+<td align="center" width="240"><img src=".github/readme/novel.webp" width="200" alt="Novel reader"><br><b>Novel reader</b><br><sub>Font size, translation, reading progress</sub></td>
+<td align="center" width="240"><img src=".github/readme/viewer.webp" width="200" alt="Viewer"><br><b>Viewer</b><br><sub>Scrub through pages, save and share</sub></td>
+<td align="center" width="240"><img src=".github/readme/downloads.webp" width="200" alt="Downloads"><br><b>Downloads</b><br><sub>Multi-page works grouped, progress at a glance</sub></td>
 </tr>
 </table>
+
+</div>
 
 ## Features
 
@@ -178,6 +182,14 @@ Describe the problem and how to reproduce it in [Issues](https://github.com/Lopu
 
 - Bug reports and feature requests: [Issues](https://github.com/Lopution/Parfait/issues)
 - Email: [fuyian533@gmail.com](mailto:fuyian533@gmail.com)
+
+## 🚩 Friendly links
+
+Thanks to the LinuxDo community for the support!
+
+<a href="https://linux.do/" aria-label="LinuxDo community">
+  <img src="https://img.shields.io/badge/COMMUNITY-LINUXDO-008ACB?style=for-the-badge&labelColor=555555" alt="LinuxDo community">
+</a>
 
 ## Respect the creators
 
