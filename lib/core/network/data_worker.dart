@@ -1,6 +1,5 @@
 /// Pure data work — JSON decoding, entity mapping, snapshot encoding — run
-/// away from the UI isolate. See `frontend/state-management.md` (feed data
-/// pipeline).
+/// away from the UI isolate. See `backend/paging.md`.
 library;
 
 import 'dart:async';

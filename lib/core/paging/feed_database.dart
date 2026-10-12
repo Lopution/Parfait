@@ -1,7 +1,7 @@
 /// SQLite connection and schema owner for the local `feeds.db` database.
 /// [FeedDatabase] owns the lazy connection and factory choice; snapshot CRUD
 /// and eviction policy belongs to [FeedSnapshotStore]. Mirrors the
-/// [HistoryDatabase] pattern — see `database-guidelines.md`.
+/// [HistoryDatabase] pattern — see `backend/history.md`.
 library;
 
 import 'dart:io';

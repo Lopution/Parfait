@@ -1,6 +1,6 @@
 /// Snapshot-first illustration detail state and its repository boundary.
 /// The controller owns detail request state; [IllustStore] owns the merged
-/// entity. See `frontend/state-management.md`.
+/// entity. See `backend/stores.md`.
 library;
 
 import 'dart:async';

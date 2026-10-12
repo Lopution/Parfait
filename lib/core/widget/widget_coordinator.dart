@@ -1,6 +1,6 @@
 /// Foreground coordinator for the Android home-widget snapshot lifecycle.
 /// [WidgetCoordinator] owns account-bound generation passes; native code only
-/// renders the published snapshot. See `backend/android-channels.md`.
+/// renders the published snapshot. See `backend/home-widget.md`.
 library;
 
 import 'dart:async';

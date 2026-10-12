@@ -1,6 +1,6 @@
 /// Reverse-image input ownership, provider capability, and search flow state.
 /// [ReverseImageSearchController] owns the temporary input lifecycle while
-/// providers own their result protocol. See `frontend/state-management.md`.
+/// providers own their result protocol. See `backend/reverse-image.md`.
 library;
 
 import 'dart:async';

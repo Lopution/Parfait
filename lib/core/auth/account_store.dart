@@ -1,6 +1,6 @@
 /// Account state, OAuth hydration, and per-account credential lifecycle.
 /// [AccountStore] owns the observable account boundary; [CredentialStore]
-/// owns secure token storage. See `frontend/state-management.md`.
+/// owns secure token storage. See `backend/stores.md`.
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

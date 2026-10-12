@@ -1,6 +1,6 @@
 /// Route visibility observer used by history and other foreground work.
 /// The core navigation domain exposes observation only; route construction is
-/// owned by the app routes facade. See `frontend/directory-structure.md`.
+/// owned by the app routes facade. See `guides/architecture.md`.
 library;
 
 import 'package:material_ui/material_ui.dart';

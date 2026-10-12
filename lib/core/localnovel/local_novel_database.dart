@@ -1,7 +1,7 @@
 /// SQLite connection and schema owner for the local `local_novels.db`
 /// database. Mirrors [FeedDatabase]/[WatchLaterDatabase]: the database owns
 /// the lazy connection and factory choice; CRUD belongs to
-/// [LocalNovelRepository]. See `database-guidelines.md`.
+/// [LocalNovelRepository]. See `backend/history.md`.
 library;
 
 import 'dart:io';

@@ -1,7 +1,7 @@
 /// Row-level access for the `feed_snapshots` table owned by [FeedDatabase].
 /// A snapshot is the last-committed page-one view of one feed: ordered ids
 /// plus the JSON-encoded entities they resolve to, so a cold start can
-/// render content before the network answers. See `database-guidelines.md`.
+/// render content before the network answers.
 library;
 
 import 'dart:async';

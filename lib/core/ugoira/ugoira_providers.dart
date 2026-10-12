@@ -1,6 +1,6 @@
 /// Provider composition for ugoira metadata, media transport, and export.
 /// The ugoira domain owns animated-media resources; pages own playback views.
-/// See `frontend/state-management.md`.
+/// See `backend/images.md`.
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

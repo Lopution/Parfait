@@ -1,7 +1,7 @@
 /// SQLite connection and schema owner for the local `watchlater.db`
 /// database. Mirrors `history_database.dart`: [WatchLaterDatabase] owns the
 /// lazy connection and factory choice; CRUD belongs to
-/// [WatchLaterRepository]. See `database-guidelines.md`.
+/// [WatchLaterRepository]. See `backend/history.md`.
 library;
 
 import 'dart:io';

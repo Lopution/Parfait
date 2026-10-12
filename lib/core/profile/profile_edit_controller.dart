@@ -1,6 +1,6 @@
 /// Account-owned profile editing draft, submission, and commit state.
 /// [ProfileEditController] owns only the in-memory draft; confirmed data is
-/// handed to account/user stores. See `frontend/state-management.md`.
+/// handed to account/user stores. See `backend/profile-edit.md`.
 library;
 
 import 'dart:async';

@@ -1,0 +1,174 @@
+---
+prefix: PAGE
+applies_to:
+  - lib/features/profile/**
+  - lib/features/search/**
+  - lib/features/ranking/**
+  - lib/features/comments/**
+  - lib/features/settings/pages/download_tasks_page.dart
+  - lib/features/settings/pages/muted_items_page.dart
+  - lib/features/history/**
+  - lib/features/watchlater/**
+  - lib/features/spotlight/**
+  - lib/app/widgets/author_row.dart
+  - lib/app/widgets/expandable_text.dart
+  - lib/app/widgets/inline_translation.dart
+  - lib/app/widgets/selectable_tile.dart
+  - lib/app/widgets/sliver_surface_list.dart
+reviewed: 2026-10-12
+---
+
+# Page-specific rules
+
+## Contents
+
+- [Profile](#profile)
+- [Discovery](#discovery)
+- [Shared page pieces](#shared-page-pieces)
+- [Library and management lists](#library-and-management-lists)
+
+## Profile
+
+### PAGE-01 Profile tabs list only the work types a user has
+- **Rule:** The profile has one tab per work type with a count above zero
+  (illust, manga, novel, illust series), labelled with the name alone.
+  Each work list starts with its total. A preview snapshot without counters
+  keeps all four tabs; a tab that disappears on refresh falls back to the
+  first.
+- **Why:** Counts in labels widened the row past an equal share and
+  flipped it to scrolling once the detail loaded.
+- **Check:** `test/user_profile_test.dart` "work tabs follow the types a user has; each list shows its" "a profile without works opens on its first other tab" "a tab that disappears on refresh falls back to the first"
+- **Code:** `lib/features/profile/user_page.dart`
+
+### PAGE-02 Header controls stay mounted through the collapse
+- **Rule:** Back and overflow sit on the header's topmost layer and stay
+  mounted and tappable through the whole collapse, including the hand-off
+  between expanded and collapsed chrome.
+- **Why:** The back button vanished during the hand-off and the pop
+  animation.
+- **Check:** `test/user_profile_test.dart` "header back button stays mounted through the pop animation"
+- **Code:** `lib/features/profile/profile_header_delegate.dart`
+
+## Discovery
+
+### PAGE-03 A ranking date is part of the feed identity
+- **Rule:** A past ranking is the `date=yyyy-MM-dd` query parameter; a
+  missing, malformed or out-of-range date opens the latest. The picker
+  stops at yesterday in Japan. The family key is `(mode, date)` and a
+  cursor from another day is rejected. Only the latest ranking writes the
+  cold-start snapshot.
+- **Why:** Rankings publish in Japan time; a past day overwriting the
+  snapshot showed old rankings on the next launch.
+- **Check:** `test/ranking_feed_test.dart` "a cursor from another day is rejected" "only the latest ranking writes the cold-start snapshot" "the picker stops at yesterday in Japan"
+- **Code:** `lib/features/ranking`
+
+### PAGE-04 Search result types keep their own filters
+- **Rule:** A result type switch replaces the route with the new type's
+  query. The page holds one filter draft per work type for the search,
+  seeded from the saved defaults; a user query carries no filters.
+- **Why:** Switching illustration → user → illustration lost the
+  illustration filters.
+- **Check:** `test/search_result_page_test.dart` "each type switches to its own session filter set" "a user result route ignores stray filter params"
+- **Code:** `lib/features/search/search_result_page.dart`
+
+### PAGE-05 Recommended users omit hidden works
+- **Rule:** A recommended user's preview strip shows up to three works.
+  Works hidden by the local R-18/AI blocks or a mute are left out, never
+  shown blurred; a user with no visible works shows no strip. A malformed
+  preview payload fails the page.
+- **Why:** Blurred previews still exposed hidden content in a strip the
+  user did not open; silently dropped payloads hid parser bugs.
+- **Check:** `test/recommended_home_test.dart` "shows previews, skipping blocked and muted works"
+- **Code:** `lib/features/home`
+
+### PAGE-06 The Spotlight cover comes from the list entry
+- **Rule:** The article cover uses the list entry's pximg `thumbnailUrl`;
+  only a deep-linked article without a list entry falls back to the
+  page's own cover.
+- **Why:** The page's cover is an embed.pixiv.net card generated behind
+  Cloudflare outside the network policy; it failed intermittently on
+  device.
+- **Check:** `test/spotlight_article_test.dart` "the cover comes from the list entry on pximg"
+- **Code:** `lib/features/spotlight/spotlight_article_page.dart`
+
+## Shared page pieces
+
+### PAGE-07 An author link is the whole row
+- **Rule:** An author shown as a link is `AuthorRow`: the avatar and name
+  are one target of at least 48dp announced as one button; a trailing
+  follow button is a separate target. Never make only the name tappable.
+  Inside a card the card is the target and the byline stays plain.
+- **Why:** Name-only links were too small to hit.
+- **Check:** `test/author_row_test.dart` "the whole row is one 48dp target that opens the profile"
+- **Code:** `lib/app/widgets/author_row.dart`
+
+### PAGE-08 Long user text uses ExpandableText
+- **Rule:** Captions and descriptions use `ExpandableText`; text that fits
+  shows no toggle, and links stay tappable while collapsed.
+- **Why:** Hand-rolled folds showed a toggle on short text and broke
+  links.
+- **Check:** `test/expandable_text_test.dart` "a link stays tappable while collapsed"
+- **Code:** `lib/app/widgets/expandable_text.dart`
+
+### PAGE-09 Translations are transient and share one entry
+- **Rule:** Every "translate this text" entry uses `InlineTranslation` and
+  `TranslationPanel`. Entries: the caption heading (or title) on the
+  detail page, the novel info sheet title, the user introduction, the
+  comment ⋮ menu, the tag actions sheet, and the novel reader's bilingual
+  mode. A setup failure offers a button to translation settings.
+  Translations are never persisted and never replace the original.
+- **Why:** User decision, following Shaft.
+- **Check:** `test/illust_detail_actions_test.dart` "translate answers inside the menu, or points to settings", `test/comment_item_test.dart` "translate is disabled while a translation runs"
+- **Code:** `lib/app/widgets/inline_translation.dart`
+
+### PAGE-10 Comment actions: two text buttons and a menu
+- **Rule:** Reply and "view N replies" are `TextButton`s under the body
+  in an `OverflowBar`; translate and delete (own comments only) are in a
+  ⋮ `AppMenuButton`, not built when empty. No pill buttons.
+- **Why:** Pill buttons were below 48dp and crowded the row.
+- **Check:** `test/comment_item_test.dart` "own comment: the menu translates and deletes in danger color"
+- **Code:** `lib/features/comments`
+
+## Library and management lists
+
+### PAGE-11 Batch selection starts from a "manage" text button
+- **Rule:** A list with batch removal enters selection through a "manage"
+  `TextButton`, shown only when the list has entries. Selection swaps the
+  bar for `selectionAppBar`; back leaves selection before the page. Grid
+  entries use `SelectableTile`.
+- **Why:** An icon alone was unreadable in testing.
+- **Check:** `test/history_page_test.dart` "system back exits selection mode instead of popping"
+- **Code:** `lib/app/widgets/selectable_tile.dart`, `lib/app/widgets/selection_app_bar.dart`
+
+### PAGE-12 Removals return what Undo needs to restore positions
+- **Rule:** Removing never asks first: entries play their exit, the store
+  removes them in one write, and Undo puts them back in their old places.
+  `DownloadManager.dismissAll` removes finished task records (never files)
+  and `restore` re-inserts each at its old index, rebuilding emptied
+  groups. `WatchLaterStore.removeAll`/`restoreAll` restore nothing once
+  another account is current. Batch cancel still confirms.
+- **Why:** Undo that appended entries at the end, or restored into another
+  account, lost the user's order or leaked data.
+- **Check:** `test/download_tasks_page_test.dart` "clear completed leaves failures and is undone in place" "removing a finished group is undone with its header", `test/watch_later_store_test.dart` "removeAll is undone in the old order" "undo after an account switch restores nothing"
+- **Code:** `lib/core/download`, `lib/core/watchlater`
+
+### PAGE-13 Muted works are blurred and keep old backups readable
+- **Rule:** The muted items page shows muted works with a blurred
+  thumbnail. `MutedWork.fromJson` also reads the earlier bare ids, and a
+  backup import fills missing titles and thumbnails without counting a
+  mute change.
+- **Why:** The user hid those works; older stores and backups held bare
+  ids.
+- **Check:** `test/mute_store_test.dart` "work mutes stored as bare ids still load"
+- **Code:** `lib/features/settings/pages/muted_items_page.dart`, `lib/core/mute`
+
+### PAGE-14 Management lists are lazy rows on one surface per group
+- **Rule:** Management lists are two flat lazy lists (groups, ungrouped
+  items) keyed by task or group id. A group's rows share one
+  `SliverSurfaceList` container; never split a group into its own slivers
+  or reparent rows with `GlobalKey`s. Progress bars show only on
+  unfinished rows. A group of one is a plain row.
+- **Why:** Eager lists built hundreds of rows; reparented rows dropped
+  their ink and showed square corners mid-animation.
+- **Check:** `test/download_tasks_page_test.dart` "a five-hundred-item list only builds the visible rows" "a group of one is a plain task row"
+- **Code:** `lib/features/settings/pages/download_tasks_page.dart`, `lib/app/widgets/sliver_surface_list.dart`

@@ -1,6 +1,6 @@
 /// Persistence boundary for the offline action queue. The sqflite
 /// implementation lives on [FeedDatabase]; the in-memory variant keeps
-/// engine tests free of sqlite. See `database-guidelines.md`.
+/// engine tests free of sqlite.
 library;
 
 import 'package:meta/meta.dart';
