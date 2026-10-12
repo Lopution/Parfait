@@ -9,7 +9,7 @@ import 'series_models.dart';
 
 /// Account-scoped canonical illust-series map. Feeds keep ordered IDs and
 /// the series page reads the same entity, matching the IllustStore/NovelStore
-/// boundary (`frontend/state-management.md`).
+/// boundary (`backend/stores.md`).
 class IllustSeriesStore extends Notifier<Map<int, IllustSeriesEntity>> {
   @override
   Map<int, IllustSeriesEntity> build() {

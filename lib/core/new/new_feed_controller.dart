@@ -1,6 +1,6 @@
 /// Independent paged state for the New illustration and novel feeds.
 /// [NewFeedController] owns selector/cursor state; repositories parse pages.
-/// See `frontend/state-management.md`.
+/// See `backend/paging.md`.
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

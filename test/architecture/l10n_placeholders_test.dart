@@ -92,7 +92,8 @@ void main() {
       duplicates,
       isEmpty,
       reason:
-          'duplicate arb keys — the last copy silently wins:\n'
+          'ERR-05 duplicate arb keys — the last copy silently wins; keep '
+          'one:\n'
           '${duplicates.join('\n')}',
     );
   });
@@ -122,7 +123,8 @@ void main() {
       unlisted,
       isEmpty,
       reason:
-          'keys with a text placeholder must not carry diagnostics — drop '
+          'ERR-05 keys with a text placeholder must not carry diagnostics — '
+          'drop '
           'the placeholder (raw text goes behind ErrorDetails or into '
           'CrashLog) or allow-list the key with its reason:\n'
           '${unlisted.join('\n')}',
@@ -130,7 +132,9 @@ void main() {
     expect(
       stale,
       isEmpty,
-      reason: 'allow-list entries without a text placeholder: $stale',
+      reason:
+          'ERR-05 allow-list entries without a text placeholder — remove '
+          'them: $stale',
     );
   });
 }

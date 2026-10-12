@@ -53,7 +53,7 @@ void main() {
       counts,
       _listTileAllowList,
       reason:
-          'hand-written ListTile( outside the whitelist — use the shared '
+          'SET-03 hand-written ListTile( outside the whitelist — use the shared '
           'settings row components, or pin the new row here with a reason',
     );
   });
@@ -68,7 +68,7 @@ void main() {
     expect(
       hits,
       isEmpty,
-      reason: 'SettingsSection was removed — use SettingsGroup',
+      reason: 'SET-01 SettingsSection was removed — use SettingsGroup',
     );
   });
 }

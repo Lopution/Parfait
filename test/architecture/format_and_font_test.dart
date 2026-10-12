@@ -69,7 +69,11 @@ void main() {
       }.entries)
         if (src.toLowerCase().contains('montserrat')) '  $file',
     ];
-    expect(mentions, isEmpty, reason: 'Montserrat is gone:\n$mentions');
+    expect(
+      mentions,
+      isEmpty,
+      reason: 'THEME-02 Montserrat is gone — use the platform font:\n$mentions',
+    );
   });
 
   test('user-facing dates go through AppFormat', () {
@@ -82,7 +86,8 @@ void main() {
       violations,
       isEmpty,
       reason:
-          'format dates with AppFormat.date/relative; data formats go in '
+          'LAYOUT-06 format dates with AppFormat.date/relative; data '
+          'formats go in '
           '_dataDateFormats with a reason:\n${violations.join('\n')}',
     );
   });
@@ -92,7 +97,9 @@ void main() {
     expect(
       violations,
       isEmpty,
-      reason: 'format counts with AppFormat.count:\n${violations.join('\n')}',
+      reason:
+          'LAYOUT-06 format counts with AppFormat.count:\n'
+          '${violations.join('\n')}',
     );
   });
 
@@ -102,7 +109,8 @@ void main() {
       violations,
       isEmpty,
       reason:
-          'read Theme.of(context).colorScheme.primary so system colors '
+          'THEME-04 read Theme.of(context).colorScheme.primary so system '
+          'colors '
           'apply:\n${violations.join('\n')}',
     );
   });

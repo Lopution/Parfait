@@ -12,7 +12,7 @@ import 'hero_rect_clip.dart';
 
 /// Hero flight geometry shared by the feed cards and the detail page.
 /// The Hero tag and shuttle builder are the single artwork transition
-/// contract (component-guidelines.md "Detail Transition").
+/// contract (`frontend/transitions.md`).
 /// Detail page replicating beta56 illust.dart: images with download mode,
 /// author block, meta row, caption, tag chips (R2/R4/R5).
 String illustHeroTag(String scope, int illustId) =>

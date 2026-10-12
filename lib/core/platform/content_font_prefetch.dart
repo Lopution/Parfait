@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../log.dart';
 import 'platform_caps.dart';
 
 const _channel = MethodChannel('parfait/fonts');
@@ -18,7 +18,7 @@ void requestContentFontPrefetch() {
   if (!PlatformCaps.system().isAndroid) return;
   unawaited(
     _channel.invokeMethod<void>('prefetch').catchError((Object error) {
-      debugPrint('fonts: prefetch failed: $error');
+      log('fonts: prefetch failed: $error');
     }),
   );
 }

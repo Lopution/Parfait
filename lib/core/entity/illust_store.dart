@@ -1,6 +1,6 @@
 /// The canonical account-scoped illustration entity map and merge policy.
 /// [IllustStore] owns shared entity writes; feeds retain ordered IDs only.
-/// See `frontend/state-management.md`.
+/// See `backend/stores.md`.
 library;
 
 import 'package:clock/clock.dart';

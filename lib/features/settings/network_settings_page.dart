@@ -19,6 +19,7 @@ import '../../app/widgets/settings_load_error.dart';
 import '../../core/network/compat/network_contracts.dart'
     show NetworkRouteKind, NetworkRedirectException, PixivDestinationPurpose;
 import '../../core/image/image_worker_providers.dart';
+import '../../core/log.dart';
 import '../../core/network/compat/network_providers.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/settings_controller.dart';
@@ -640,7 +641,7 @@ class _EffectiveRoutesSectionState
     try {
       routes = await worker.routeSnapshot();
     } on Object catch (error) {
-      debugPrint('image worker routes unavailable: $error');
+      log('image worker routes unavailable: $error');
       routes = const {};
     }
     if (!mounted || refresh != _refreshes) return;

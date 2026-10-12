@@ -113,7 +113,7 @@ These files are fork validation tools rather than runtime API changes:
 `librhttp.so` delta was −1,539,000 bytes for arm64 and −884,944 bytes for
 armeabi-v7a. Keep `opt-level = 3` until the device wall-clock check covers
 listing and a large download; the measurement and adoption gate are recorded
-in `release-artifacts.md`.
+in `.trellis/spec/backend/rust-plugin.md`.
 
 ## Sync guide
 

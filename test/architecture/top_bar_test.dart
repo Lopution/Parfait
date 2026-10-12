@@ -20,6 +20,10 @@ void main() {
             _rawBar.hasMatch(entity.readAsStringSync()))
           entity.path,
     };
-    expect(hits, isEmpty, reason: 'use AppTopBar instead of AppBar');
+    expect(
+      hits,
+      isEmpty,
+      reason: 'NAV-18 raw AppBar in a page — use AppTopBar instead',
+    );
   });
 }

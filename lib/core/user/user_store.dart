@@ -1,6 +1,6 @@
 /// Canonical account-scoped user profiles and follow relationship state.
 /// [UserStore] owns user entities and [FollowStore] owns relationship
-/// mutations; profile/search widgets are consumers. See `frontend/state-management.md`.
+/// mutations; profile/search widgets are consumers. See `backend/stores.md`.
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';

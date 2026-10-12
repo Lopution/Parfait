@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../core/log.dart';
 import '../../core/settings/app_settings.dart';
 import 'haptics_driver.dart';
 
@@ -85,7 +86,7 @@ abstract final class AppHaptics {
       strength = _strength();
     } catch (error) {
       // An unreadable setting must not vibrate against the user's choice.
-      debugPrint('haptics: strength unreadable, staying silent: $error');
+      log('haptics: strength unreadable, staying silent: $error');
       return;
     }
     if (strength == HapticStrength.off) return;
@@ -105,7 +106,7 @@ abstract final class AppHaptics {
     } catch (error) {
       // Haptics are a redundant channel; a broken driver must never reach
       // the visual feedback path.
-      debugPrint('haptics: driver threw on ${role.name}: $error');
+      log('haptics: driver threw on ${role.name}: $error');
     }
   }
 

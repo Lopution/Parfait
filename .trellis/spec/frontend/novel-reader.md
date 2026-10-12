@@ -1,0 +1,79 @@
+---
+prefix: NOVEL
+applies_to:
+  - lib/features/novel/**
+  - lib/core/novel/**
+reviewed: 2026-10-12
+---
+
+# Novel markup and reader
+
+### NOVEL-01 Markup becomes typed tokens with visible fallbacks
+- **Rule:** `NovelMarkupParser` scans the body into sealed typed tokens
+  (text, newpage, chapter, ruby, jumps, images, unknown, budget exceeded)
+  that keep their raw text and attributes. Malformed or unknown markers
+  stay visible as raw text. Jumps go only to registry-allowed `pixivWeb`
+  URIs or positive pages; image tokens expose only validated ids, never a
+  URL or path. Body HTML is never executed.
+- **Why:** Regex stripping dropped content; a foreign jump URI or an image
+  path could have opened arbitrary pages or files.
+- **Check:** `test/novel_markup_hardening_test.dart` "novel markup produces typed tokens and visible fallbacks" "novel parser keeps raw attributes and reports malformed nesting"
+- **Code:** `lib/core/novel/novel_entity.dart`
+
+### NOVEL-02 Parsing and layout are bounded and cancellable
+- **Rule:** Source size, tokens, lines, pages and diagnostics have budgets;
+  overflow is an explicit budget state or a retryable error, never a
+  silently truncated body. Async work yields at chunk boundaries and
+  reports monotonic progress; cancellation is observable, never partial
+  success.
+- **Why:** Huge novels froze the UI isolate.
+- **Check:** `test/novel_markup_hardening_test.dart` "cancellable parser exposes cancellation instead of partial success" "document layout honors chapter/page boundaries and layout budget", `test/novel_reader_test.dart` "layout budget overflow renders a retryable error state"
+- **Code:** `lib/features/novel/novel_layout.dart`
+
+### NOVEL-03 Layouts commit through the reader gate, anchored by start
+- **Rule:** A layout commits only through `NovelReaderCommitGate` for the
+  current content version, chapter and generation. A commit restores the
+  start anchor of the page on screen at commit time, and jumps the
+  `PageController` only when the restored page differs.
+- **Why:** A late layout overwrote a newer one; restoring by page index
+  lost a swipe made while layout ran, and an unconditional jump cut the
+  swipe short.
+- **Check:** `test/novel_markup_hardening_test.dart` "reader gate rejects stale chapter and disposed layout results", `test/novel_reader_test.dart` "anchor notifications distinguish echoes from user turns"
+- **Code:** `lib/features/novel/novel_reader.dart`
+
+### NOVEL-04 Translations add lines, never characters
+- **Rule:** Bilingual reading lays each translation under its paragraph,
+  carrying the paragraph's id with both offsets at its end, so anchors,
+  progress and history never point into a translation. The stage
+  translates one page's missing paragraphs per batch; a failure turns the
+  mode off with a prompt. Translations live in memory only.
+- **Why:** Anchors pointing into translations broke restore after the mode
+  was turned off.
+- **Check:** `test/novel_reader_test.dart` "a translation lays out under its paragraph and moves no anchor", `test/novel_reader_stage_test.dart` "translate this page: translations under the paragraphs, on with each"
+- **Code:** `lib/features/novel/novel_bilingual.dart`, `lib/features/novel/novel_layout.dart`
+
+### NOVEL-05 Chrome state and rendered state are separate
+- **Rule:** The reader chrome runs on one stage-owned controller; the
+  user's intent and the rendered state are separate fields. The progress
+  hint exists only while the controller is dismissed.
+- **Why:** The hint painted under the exiting bottom bar.
+- **Check:** `test/novel_reader_chrome_test.dart` "the progress hint never overlaps the sliding bottom bar"
+- **Code:** `lib/features/novel/novel_reader_stage.dart`
+
+### NOVEL-06 The series fetch is held by watch, once per session
+- **Rule:** The series provider is an `autoDispose` family the stage keeps
+  alive with `ref.watch` in build, with `retry: (_, _) => null`. Only the
+  retry button refetches. The series strip keeps one height in every
+  state.
+- **Why:** A build-time `ref.listen` re-subscribed with a dispose gap and
+  refetched on every chrome toggle; a resizing strip jumped under the
+  bottom chrome.
+- **Check:** `test/novel_reader_chrome_test.dart` "the series fetch happens once across chrome toggles" "a failed series fetch shows localized text and retries"
+- **Code:** `lib/features/novel/novel_reader_stage.dart`
+
+### NOVEL-07 Opening and toggling never write reading history
+- **Rule:** Opening the reader and toggling sheets write nothing; a page
+  turn writes once; a restored record is not rewritten.
+- **Why:** Opening a novel overwrote the stored position with page 1.
+- **Check:** `test/novel_reader_stage_test.dart` "open and sheet toggles never write; a page turn writes once" "a stored record restores without being rewritten"
+- **Code:** `lib/features/novel/novel_reader_stage.dart`

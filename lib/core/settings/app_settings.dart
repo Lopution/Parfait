@@ -1,6 +1,6 @@
 /// Versioned non-secret settings values and their typed option mappings.
 /// [AppSettings] owns the persisted aggregate shape; consumers expose their
-/// own fine-grained providers. See `frontend/state-management.md`.
+/// own fine-grained providers. See `backend/settings-store.md`.
 library;
 
 import 'dart:ui';

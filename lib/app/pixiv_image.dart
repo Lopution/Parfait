@@ -18,6 +18,7 @@ import '../core/image/image_worker_protocol.dart';
 import '../core/image/image_worker_providers.dart';
 import '../core/image/lane_permit_gate.dart';
 import '../core/image/worker_image_provider.dart';
+import '../core/log.dart';
 import '../l10n/app_localizations.dart';
 import 'widgets/image_load_progress.dart';
 
@@ -532,7 +533,7 @@ class PixivImage extends ConsumerStatefulWidget {
           return;
         }
         failure = ImagePreloadResult.failed;
-        debugPrint('PixivImage.preload ${resolved.$1}: $error');
+        log('PixivImage.preload ${resolved.$1}: $error');
       },
     );
     // A failed image must not be recorded as decoded: the tier cache would

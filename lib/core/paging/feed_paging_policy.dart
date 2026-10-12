@@ -1,5 +1,4 @@
-/// Pace and budget of a feed's automatic paging. See
-/// `frontend/state-management.md` (feed paging).
+/// Pace and budget of a feed's automatic paging. See `backend/paging.md`.
 library;
 
 /// How fast and how far a feed pages on its own.

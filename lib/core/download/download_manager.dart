@@ -1,6 +1,6 @@
 /// Typed download jobs, streaming sinks, progress, and durable recovery.
 /// [DownloadManager] owns job lifecycle; platform sinks own final output.
-/// See `frontend/state-management.md` and `backend/directory-structure.md`.
+/// See `backend/downloads.md`.
 library;
 
 import 'dart:async';
