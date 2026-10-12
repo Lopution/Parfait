@@ -5,7 +5,7 @@ applies_to:
   - lib/core/auth/oauth_service.dart
   - lib/core/download/*transport*.dart
   - lib/core/image/image_worker_host.dart
-reviewed: 2026-10-12
+reviewed: 2026-10-13
 ---
 
 # Network policy, auth and transfers
@@ -43,19 +43,24 @@ reviewed: 2026-10-12
 
   | Group | Order |
   |---|---|
-  | API, OAuth, web (Cloudflare) | `ech`, `dohRealSni`, `direct`, `bootstrapNoSni` |
+  | API, OAuth, web (Cloudflare) | `ech`, `dohRealSni`, `direct` |
   | `i.pximg.net`, `s.pximg.net` | `ech`, `noSni`, `dohRealSni`, `direct`, `bootstrapNoSni` |
   | image mirrors | `noSni`, `dohRealSni`, `direct` |
 
-  `bootstrapNoSni` is always last cold and is allowlisted to the bundled
-  Pixiv address map; a failed fast address cools for 30 s. Memory
-  promotes the last successful kind per host and group, persisted per
-  network identity as a kind, never an address. Only cold mirror image
-  requests race two tiers.
+  `bootstrapNoSni` serves the pixiv image hosts only, is always last cold
+  and never becomes a group preference; a failed fast address cools for
+  30 s. Its address is the built-in one or the last one a `noSni` request
+  was served from; a DoH answer is never stored unproven. Memory promotes
+  the last successful kind per host and group, persisted per network
+  identity as a kind, never an address. Only cold mirror image requests
+  race two tiers.
 - **Why:** Plain DNS and SNI are blocked or poisoned on the user's
   networks; a failed bootstrap address without a cooldown delayed every
-  request.
-- **Check:** `test/restricted_compat_network_test.dart` "an empty GET prefers the strict tier over direct" "the bootstrap tier is never promoted across hosts", `test/network_fast_route_test.dart` "a failed fast address is cooled before the next request", `test/restricted_compat_image_test.dart` "a cold API GET stays serial — racing is image-only"
+  request. Pixiv's origin answers API, OAuth and web traffic that bypasses
+  Cloudflare with 403, which the ladder took for a working route, and a
+  DoH refresh stored Cloudflare addresses that reject a handshake without
+  SNI.
+- **Check:** `test/restricted_compat_network_test.dart` "an empty GET prefers the strict tier over direct", `test/network_fast_route_test.dart` "a failed fast address is cooled before the next request" "API, OAuth and web never reach the bootstrap tier" "only a noSni success teaches the bootstrap tier an address", `test/restricted_compat_image_test.dart` "a cold API GET stays serial — racing is image-only"
 - **Code:** `lib/core/network/compat/network_policy.dart`, `lib/core/network/compat/network_policy_ladder.dart`
 
 ### NET-04 Pixiv image hosts stay on ECH
@@ -88,7 +93,7 @@ reviewed: 2026-10-12
   HTTP answers, auth, parse, certificate and cancellation outcomes are
   surfaced, never re-sent.
 - **Why:** Re-sending a bookmark POST after a timeout could apply it twice.
-- **Check:** `test/restricted_compat_network_test.dart` "a timed-out POST is never replayed across routes" "HTTP, auth, certificate and cancellation responses do not fallback" "a failed fast-tier POST gives up without repeating the token exchange"
+- **Check:** `test/restricted_compat_network_test.dart` "a timed-out POST is never replayed across routes" "HTTP, auth, certificate and cancellation responses do not fallback" "a refused token exchange moves on and is sent exactly once"
 - **Code:** `lib/core/network/compat/network_policy_ladder.dart`
 
 ### NET-07 Certificates are always verified

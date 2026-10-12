@@ -1,8 +1,5 @@
 import 'dart:io';
 
-import 'network_contracts.dart';
-import 'secure_resolver.dart';
-
 /// Read/write contract for the compatibility-tier host-address memory.
 ///
 /// The interface exists so the image worker isolate can run the same
@@ -15,13 +12,6 @@ abstract interface class FastRouteMemory {
 
   /// Records [address] as a working address for [host].
   Future<void> remember(String host, InternetAddress address);
-
-  /// Best-effort refresh of [host]'s address through [resolver].
-  Future<void> refresh(
-    String host, {
-    required SecureResolver resolver,
-    required NetworkRevision revision,
-  });
 }
 
 /// Read/write contract for the per-network-identity route-kind hints.

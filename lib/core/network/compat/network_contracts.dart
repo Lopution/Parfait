@@ -123,13 +123,13 @@ enum NetworkMode {
 /// - [dohRealSni]: DoH addresses + real SNI + full verification
 /// - [noSni]: DoH/fallback addresses + empty SNI + full verification
 ///   (origin hosts only: nginx routes by Host without SNI)
-/// - [bootstrapNoSni]: persisted or built-in Pixiv origin address + empty
-///   SNI + full verification. Pixiv's origin answers an SNI-less handshake
-///   with a certificate for its own names (`*.pixiv.net`,
-///   `oauth.secure.pixiv.net`, `*.pximg.net`), so verification costs nothing
-///   here: the bytes on the wire are the same either way. The production
-///   provider uses it as its internal compatibility fast tier; it is not
-///   exposed as a user setting.
+/// - [bootstrapNoSni]: persisted or built-in origin address of a pixiv image
+///   host + empty SNI + full verification. The image origin answers an
+///   SNI-less handshake with its `*.pximg.net` certificate, so verification
+///   costs nothing here. API, OAuth and web hosts have no such tier: their
+///   origin answers traffic that bypasses Cloudflare with 403. The
+///   production provider uses it as its internal last-resort tier; it is
+///   not exposed as a user setting.
 ///
 /// `certificateMismatch` is terminal on every tier except [noSni] (see the
 /// ladder's retry rule).

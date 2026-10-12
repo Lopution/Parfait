@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/test_preferences.dart';
 
@@ -10,7 +9,6 @@ import 'package:http/http.dart' as http;
 import 'package:rhttp/rhttp.dart' as rhttp;
 import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
-import 'package:parfait/core/network/compat/network_fast_route_store.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/policy_download_transport.dart';
@@ -498,37 +496,6 @@ void main() {
     },
   );
 
-  test('the bootstrap tier is never promoted across hosts', () async {
-    final failed = FakeClient(failure: SocketException('Connection refused'));
-    final bootstrap = FakeClient(body: '{"route":"bootstrap"}');
-    final policy = NetworkAccessPolicy(
-      resolver: FakeResolver([InternetAddress('1.2.3.34')]),
-      bootstrapNoSniEnabled: true,
-      clientFactory: (route, canonicalHost, _) =>
-          route.kind == NetworkRouteKind.bootstrapNoSni ? bootstrap : failed,
-    );
-    addTearDown(policy.dispose);
-    final client = PixivPolicyHttpClient(
-      policy: policy,
-      purpose: PixivDestinationPurpose.appApi,
-    );
-
-    final response = await client.get(apiUri);
-    expect(response.statusCode, 200);
-    expect(
-      policy.rememberedRouteKind('app-api.pixiv.net'),
-      NetworkRouteKind.bootstrapNoSni,
-    );
-    expect(
-      policy.rememberedGroupRouteKind(
-        PixivDestinationPurpose.oauth,
-        'oauth.secure.pixiv.net',
-      ),
-      isNull,
-      reason: 'another host must still try its strict ladder first',
-    );
-  });
-
   test(
     'failed remembered route is invalidated without repeating its tier',
     () async {
@@ -871,91 +838,32 @@ void main() {
     },
   );
 
-  test(
-    'an OAuth POST reaches the fast tier only after the strict tiers fail',
-    () async {
-      final bootstrap = FakeClient(body: '{"ok":true}');
-      final nowhere = FakeClient(
-        failure: SocketException('Connection refused'),
-      );
-      final policy = NetworkAccessPolicy(
-        resolver: FakeEchResolver(
-          [InternetAddress('1.2.3.45')],
-          frontAddresses: [InternetAddress('1.2.3.46')],
-        ),
-        bootstrapNoSniEnabled: true,
-        fastRouteStore: PixivFastRouteStore(
-          preferences: SharedPreferencesAsync(),
-        ),
-        clientFactory: (route, canonicalHost, _) =>
-            route.kind == NetworkRouteKind.bootstrapNoSni ? bootstrap : nowhere,
-      );
-      addTearDown(policy.dispose);
-      final client = PixivPolicyHttpClient(
-        policy: policy,
-        purpose: PixivDestinationPurpose.oauth,
-      );
+  test('a refused token exchange moves on and is sent exactly once', () async {
+    final direct = FakeClient(body: '{"ok":true}');
+    final strict = FakeClient(failure: SocketException('Connection refused'));
+    final policy = NetworkAccessPolicy(
+      resolver: FakeEchResolver(
+        [InternetAddress('1.2.3.47')],
+        frontAddresses: [InternetAddress('1.2.3.48')],
+      ),
+      clientFactory: (route, canonicalHost, _) =>
+          route.kind == NetworkRouteKind.direct ? direct : strict,
+    );
+    addTearDown(policy.dispose);
+    final client = PixivPolicyHttpClient(
+      policy: policy,
+      purpose: PixivDestinationPurpose.oauth,
+    );
 
-      final response = await client.post(
-        Uri.parse('https://oauth.secure.pixiv.net/auth/token'),
-        body: const {'code': 'one-shot'},
-      );
+    final response = await client.post(
+      Uri.parse('https://oauth.secure.pixiv.net/auth/token'),
+      body: const {'code': 'one-shot'},
+    );
 
-      expect(response.statusCode, 200);
-      // ECH, DoH-real-SNI and direct all failed first; the unverified fast
-      // address is the last resort and gets the POST exactly once.
-      expect(
-        bootstrap.requests.map((request) => request.method),
-        ['POST'],
-        reason: 'the one-shot token exchange reaches the fast tier last, once',
-      );
-      expect(nowhere.requests, hasLength(3));
-    },
-  );
-
-  test(
-    'a failed fast-tier POST gives up without repeating the token exchange',
-    () async {
-      final bootstrap = FakeClient(
-        failure: SocketException('Connection reset'),
-      );
-      final direct = FakeClient(body: '{"ok":true}');
-      final strict = FakeClient(failure: SocketException('Connection refused'));
-      final policy = NetworkAccessPolicy(
-        resolver: FakeEchResolver(
-          [InternetAddress('1.2.3.47')],
-          frontAddresses: [InternetAddress('1.2.3.48')],
-        ),
-        bootstrapNoSniEnabled: true,
-        fastRouteStore: PixivFastRouteStore(
-          preferences: SharedPreferencesAsync(),
-        ),
-        clientFactory: (route, canonicalHost, _) => switch (route.kind) {
-          NetworkRouteKind.bootstrapNoSni => bootstrap,
-          NetworkRouteKind.direct => direct,
-          _ => strict,
-        },
-      );
-      addTearDown(policy.dispose);
-      final client = PixivPolicyHttpClient(
-        policy: policy,
-        purpose: PixivDestinationPurpose.oauth,
-      );
-
-      final response = await client.post(
-        Uri.parse('https://oauth.secure.pixiv.net/auth/token'),
-        body: const {'code': 'one-shot'},
-      );
-
-      expect(response.statusCode, 200);
-      expect(
-        bootstrap.requests,
-        isEmpty,
-        reason: 'the direct tier already answered; the fast tier is not tried',
-      );
-      expect(direct.requests.map((request) => request.method), [
-        'POST',
-      ], reason: 'the POST succeeds on the tier that can actually handle it');
-    },
-  );
+    expect(response.statusCode, 200);
+    expect(strict.requests, hasLength(2), reason: 'ECH, then DoH real SNI');
+    expect(direct.requests.map((request) => request.method), [
+      'POST',
+    ], reason: 'the POST succeeds on the tier that can actually handle it');
+  });
 }

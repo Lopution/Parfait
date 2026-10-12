@@ -7,37 +7,34 @@ import '../../settings/preference_keys.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'network_contracts.dart';
 import 'route_memory.dart';
 import 'secure_resolver.dart';
 
-/// Persists the last known public address for the Pixiv hosts used by the
-/// compatibility transport.
+/// Persists the last known public origin address of the Pixiv image hosts
+/// for the `bootstrapNoSni` tier.
 ///
 /// The address map is only a connection bootstrap. The request still carries
-/// the canonical Pixiv hostname as Host, and a successful request refreshes
-/// the map from DoH in the background. Keeping this tiny cache outside the
-/// route-memory TTL means the first request after an app restart does not pay
-/// for polluted system DNS or a route probe.
+/// the canonical Pixiv hostname as Host and verifies its certificate. An
+/// address is learned only after a `noSni` request was served from it, so a
+/// DoH answer that cannot complete an empty-SNI handshake is never stored.
+/// Keeping this tiny cache outside the route-memory TTL means the first
+/// request after an app restart does not pay for polluted system DNS.
 class PixivFastRouteStore implements FastRouteMemory {
   static const storageKey = PreferenceKeys.fastRoutes;
 
-  /// Compatibility bootstrap addresses, exposed read-only so a second
+  /// Built-in origin addresses, exposed read-only so a second
   /// [FastRouteMemory] (the image worker's in-memory store) can seed the
   /// same fallback values without touching SharedPreferences.
+  ///
+  /// Image hosts only: pixiv's origin answers API, OAuth and web traffic
+  /// that bypasses Cloudflare with 403, and their public DNS names resolve
+  /// to Cloudflare, which rejects a handshake without SNI. Persisted
+  /// entries for any other host are dropped on read.
   static final Map<String, InternetAddress> bootstrap = Map.unmodifiable({
-    PixivClientIdentity.appApiBase.host: InternetAddress('210.140.139.155'),
-    PixivClientIdentity.oauthHost: InternetAddress('210.140.139.155'),
-    // The web profile editor uses the same Pixiv/Cloudflare compatibility
-    // exit as the API. Keeping this host in the shared store avoids falling
-    // back to a polluted system-DNS request before the SPA save call.
-    PixivClientIdentity.webHost: InternetAddress('104.18.42.239'),
     for (final imageHost in PixivClientIdentity.downloadHosts)
       imageHost: InternetAddress('210.140.139.133'),
   });
 
-  /// Compatibility bootstrap addresses. They are fallback values only
-  /// and are replaced by a successful DoH refresh when the network permits it.
   static final Map<String, InternetAddress> _bootstrap = bootstrap;
 
   final SharedPreferencesAsync _preferences;
@@ -46,7 +43,6 @@ class PixivFastRouteStore implements FastRouteMemory {
     : _preferences = preferences;
   Future<Map<String, InternetAddress>>? _loadFuture;
   Future<void> _writeTail = Future<void>.value();
-  final Set<String> _refreshing = <String>{};
 
   @override
   Future<InternetAddress?> addressFor(String host) async {
@@ -75,30 +71,6 @@ class PixivFastRouteStore implements FastRouteMemory {
     });
     _writeTail = operation.then<void>((_) {}, onError: (_, _) {});
     return operation;
-  }
-
-  /// Refreshes one host at most once concurrently. This is intentionally
-  /// best-effort: an unavailable DoH endpoint must not delay or fail the
-  /// already successful business request.
-  @override
-  Future<void> refresh(
-    String host, {
-    required SecureResolver resolver,
-    required NetworkRevision revision,
-  }) async {
-    if (resolver is! DohResolver || !_refreshing.add(host)) return;
-    try {
-      final resolved = await resolver.resolve(host, revision: revision);
-      final address = resolved.addresses
-          .where(isPublicNetworkAddress)
-          .firstOrNull;
-      if (address != null) await remember(host, address);
-    } on Object {
-      // The cache is an acceleration layer. The active route remains valid
-      // when a background refresh is unavailable.
-    } finally {
-      _refreshing.remove(host);
-    }
   }
 
   /// The persisted addresses, without the bootstrap fallback — the seed of

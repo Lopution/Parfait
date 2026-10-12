@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import '../network/compat/network_contracts.dart';
 import '../network/compat/network_fast_route_store.dart';
 import '../network/compat/route_memory.dart';
 import '../network/compat/secure_resolver.dart';
@@ -11,9 +10,9 @@ import '../network/compat/secure_resolver.dart';
 /// off the main isolate, so the worker keeps learned routes in memory and
 /// reports every write through [onFastRouteLearned]/[onRouteKindLearned] —
 /// the client forwards them to the main isolate, which persists them into
-/// the real stores. Semantics (bootstrap fallback, public-address gate,
-/// per-host refresh dedupe) mirror `PixivFastRouteStore` so the worker's
-/// ladder makes the same decisions the main isolate's would.
+/// the real stores. Semantics (bootstrap fallback, host allowlist,
+/// public-address gate) mirror `PixivFastRouteStore` so the worker's ladder
+/// makes the same decisions the main isolate's would.
 ///
 /// `FastRouteMemory` and `RouteKindMemory` cannot live on one class — both
 /// declare `remember` with different signatures — so the worker carries a
@@ -23,7 +22,6 @@ class WorkerFastRouteMemory implements FastRouteMemory {
 
   final WorkerRouteMemoryState _state;
   final void Function(String host, String address)? onFastRouteLearned;
-  final Set<String> _refreshing = {};
 
   @override
   Future<InternetAddress?> addressFor(String host) async {
@@ -36,27 +34,6 @@ class WorkerFastRouteMemory implements FastRouteMemory {
     if (_state.fastRoutes[host]?.address == address.address) return;
     _state.fastRoutes[host] = address;
     onFastRouteLearned?.call(host, address.address);
-  }
-
-  @override
-  Future<void> refresh(
-    String host, {
-    required SecureResolver resolver,
-    required NetworkRevision revision,
-  }) async {
-    if (resolver is! DohResolver || !_refreshing.add(host)) return;
-    try {
-      final resolved = await resolver.resolve(host, revision: revision);
-      final address = resolved.addresses
-          .where(isPublicNetworkAddress)
-          .firstOrNull;
-      if (address != null) await remember(host, address);
-    } on Object {
-      // Acceleration layer only: the active route stays valid when a
-      // background refresh is unavailable.
-    } finally {
-      _refreshing.remove(host);
-    }
   }
 }
 

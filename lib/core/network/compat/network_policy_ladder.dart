@@ -200,8 +200,6 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   }) async {
     final host = destination.canonicalHost;
     final now = clock();
-    final fastCompatibilityAvailable =
-        _fastCompatibilityEnabled && !_isFastRouteCooling(host, now);
     final memory = _routeMemory[host];
     if (memory != null && !memory.isUsable(now, _revision.networkIdentity)) {
       _routeMemory.remove(host);
@@ -249,20 +247,15 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       destination.canonicalHost,
       now: now,
     );
-    final usablePreferredKind =
-        preferredKind == NetworkRouteKind.bootstrapNoSni &&
-            !fastCompatibilityAvailable
-        ? null
-        : preferredKind;
     final fallbackTiers = _fallbackTiersFor(destination);
     // Verified-fast-first ordering, driven by real-device probe data:
     // Cloudflare hosts (API/OAuth) reach the ECH tier inside the wall while
     // plain SNI is RST; pixiv image hosts take ECH too, with their origin
     // addresses as the throttled stand-in. Mirrors reach the empty-SNI
-    // tier. The bootstrap tier (bootstrapNoSni) stays as the very last
-    // fallback: if it happens to work on this network it is remembered and
-    // promoted by route/group memory after one success, but an unproven
-    // address can never again cost the first N requests of a screen.
+    // tier. The bootstrap tier (bootstrapNoSni, image hosts only) stays as
+    // the very last fallback: if it happens to work on this network its host
+    // remembers it after one success, but an unproven address can never
+    // again cost the first N requests of a screen.
     final hasBootstrapFallback = fallbackTiers.contains(
       NetworkRouteKind.bootstrapNoSni,
     );
@@ -270,7 +263,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     final bootstrapEligible =
         hasBootstrapFallback && !_isFastRouteCooling(host, now);
     final kinds = <NetworkRouteKind>[
-      ?usablePreferredKind,
+      ?preferredKind,
       ...fallbackTiers.where((kind) => kind != NetworkRouteKind.bootstrapNoSni),
       // compatPrefer walks every compatibility tier before touching direct —
       // the user already knows plain direct is blocked on this network.
@@ -304,11 +297,11 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         if (_isCancellation(error, cancelSignal)) {
           Error.throwWithStackTrace(error, stackTrace);
         }
-        _onTierUnavailable(destination, kind, usablePreferredKind);
+        _onTierUnavailable(destination, kind, preferredKind);
         continue;
       }
       if (route == null) {
-        _onTierUnavailable(destination, kind, usablePreferredKind);
+        _onTierUnavailable(destination, kind, preferredKind);
         continue;
       }
       if (!attemptedKeys.add(route.key)) {
@@ -455,10 +448,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     }
     _rememberRoute(host, winner.route, purpose: destination.purpose);
     _clearFastRouteCooldown(host, winner.route);
-    if (winner.route.kind == NetworkRouteKind.bootstrapNoSni &&
-        winner.route.address != null) {
-      unawaited(_refreshFastRoute(host, winner.route.address!));
-    }
+    _learnFastRoute(host, winner.route);
     // The loser keeps no memory and never reports back; drain its body so
     // the socket is reclaimed promptly, or record a late failure so the
     // diagnostics stay truthful.
@@ -529,23 +519,31 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       route,
       purpose: destination.purpose,
     );
-    if (route.kind == NetworkRouteKind.bootstrapNoSni &&
-        fastRouteStore != null) {
-      unawaited(_refreshFastRoute(destination.canonicalHost, route.address!));
-    }
+    _learnFastRoute(destination.canonicalHost, route);
     return result;
   }
 
-  Future<void> _refreshFastRoute(String host, InternetAddress address) async {
+  /// A `noSni` success proves its resolved address completes an empty-SNI
+  /// handshake with a certificate for [host], the bootstrap tier's own
+  /// condition, so the store learns it (the store ignores hosts outside its
+  /// map). A bootstrap success teaches nothing new: its address is already
+  /// stored or built in, and storing a built-in one would outlive a release
+  /// that changes it.
+  void _learnFastRoute(String host, NetworkRoute route) {
     final store = fastRouteStore;
-    if (store == null) return;
-    try {
-      await store.remember(host, address);
-      await store.refresh(host, resolver: _resolver, revision: _revision);
-    } on Object {
-      // Fast-route persistence is an acceleration layer; the active request
-      // has already completed and must not be changed by a cache write error.
+    final address = route.address;
+    if (store == null ||
+        address == null ||
+        route.kind != NetworkRouteKind.noSni) {
+      return;
     }
+    // An acceleration layer: the request has already completed and must not
+    // be changed by a cache write error.
+    unawaited(
+      store
+          .remember(host, address)
+          .catchError((Object error) => log('fast route for $host: $error')),
+    );
   }
 
   void _rememberRoute(
@@ -726,9 +724,9 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// SNI is RST) and ECH gives HTTP/2 multiplexing on one connection; pixiv
   /// image hosts are served in full by the ECH front too, and the plain
   /// empty-SNI tier on their origin addresses is only the throttled second
-  /// choice (see [_prefersEch]). The bootstrap tier (bootstrapNoSni) is
-  /// always last: its address is unproven on a cold network and costs a
-  /// connect timeout when it cannot be reached.
+  /// choice (see [_prefersEch]). The bootstrap tier (bootstrapNoSni, image
+  /// hosts only) is always last: its address is unproven on a cold network
+  /// and costs a connect timeout when it cannot be reached.
   List<NetworkRouteKind> _fallbackTiersFor(PixivDestination destination) {
     final purpose = destination.purpose;
     // Third-party image mirrors (preset/custom reverse proxies) are not
@@ -755,17 +753,18 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       PixivDestinationPurpose.pixivWeb => true,
       PixivDestinationPurpose.image => false,
     };
-    final tiers = isCloudflareHost
-        ? [NetworkRouteKind.ech, NetworkRouteKind.dohRealSni]
-        : [
-            NetworkRouteKind.ech,
-            NetworkRouteKind.noSni,
-            NetworkRouteKind.dohRealSni,
-          ];
-    if (bootstrapNoSniEnabled) {
-      tiers.add(NetworkRouteKind.bootstrapNoSni);
+    if (isCloudflareHost) {
+      // No bootstrap tier: pixiv's origin answers API, OAuth and web traffic
+      // that bypasses Cloudflare with 403, which this ladder would take for
+      // a working route.
+      return [NetworkRouteKind.ech, NetworkRouteKind.dohRealSni];
     }
-    return tiers;
+    return [
+      NetworkRouteKind.ech,
+      NetworkRouteKind.noSni,
+      NetworkRouteKind.dohRealSni,
+      if (bootstrapNoSniEnabled) NetworkRouteKind.bootstrapNoSni,
+    ];
   }
 
   /// Whether a success on [kind] may become [group]'s shared (and
@@ -778,8 +777,10 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       NetworkRouteKind.ech ||
       NetworkRouteKind.dohRealSni ||
       NetworkRouteKind.noSni => true,
-      NetworkRouteKind.bootstrapNoSni => _fastCompatibilityEnabled,
-      NetworkRouteKind.direct => false,
+      // The bootstrap tier serves image hosts only. Older versions persisted
+      // it as the API group's preference after pixiv's origin answered 403;
+      // seeding drops those entries here.
+      NetworkRouteKind.bootstrapNoSni || NetworkRouteKind.direct => false,
     };
   }
 

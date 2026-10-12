@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 
+import '../../log.dart';
 import '../pixiv_client_identity.dart';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
@@ -92,14 +93,15 @@ class NetworkAccessPolicy {
   /// ECH config for pixiv domains via this host; configurable in settings).
   final String echFrontHost;
 
-  /// Whether the `bootstrapNoSni` fallback tier exists. In production this
-  /// is enabled together with [fastRouteStore], which makes it the persisted
-  /// compatibility tier; tests and standalone callers opt in explicitly.
+  /// Whether the `bootstrapNoSni` fallback tier exists for pixiv's image
+  /// hosts. In production this is enabled together with [fastRouteStore],
+  /// which makes it the persisted compatibility tier; tests and standalone
+  /// callers opt in explicitly.
   final bool bootstrapNoSniEnabled;
 
-  /// Persisted compatibility-tier host addresses. When present, the
-  /// compatibility tier is attempted before the cold direct probe and does
-  /// not need a DNS lookup or a HEAD request.
+  /// Origin addresses of pixiv's image hosts for the bootstrap tier, so it
+  /// needs no DNS lookup. A `noSni` success teaches it the address it was
+  /// served from.
   final FastRouteMemory? fastRouteStore;
 
   /// Persists the winning route *kind* per network identity so the next
@@ -205,41 +207,20 @@ class NetworkAccessPolicy {
         _mode == NetworkMode.directOnly) {
       return;
     }
-    final targets = <({PixivDestinationPurpose purpose, String host})>[
-      (
-        purpose: PixivDestinationPurpose.appApi,
-        host: PixivClientIdentity.appApiBase.host,
-      ),
-      (
-        purpose: PixivDestinationPurpose.oauth,
-        host: PixivClientIdentity.oauthHost,
-      ),
-      (
-        purpose: PixivDestinationPurpose.pixivWeb,
-        host: PixivClientIdentity.webHost,
-      ),
-      for (final imageHost in PixivClientIdentity.downloadHosts)
-        (purpose: PixivDestinationPurpose.image, host: imageHost),
-    ];
-    for (final target in targets) {
+    // The bootstrap tier serves pixiv's image hosts only.
+    for (final host in PixivClientIdentity.downloadHosts) {
       if (_disposed) return;
-      final address = await store.addressFor(target.host);
+      final address = await store.addressFor(host);
       if (address == null) continue;
       clientFor(
-        target.purpose,
+        PixivDestinationPurpose.image,
         NetworkRoute.bootstrapNoSni(
           _revision,
           address,
           dnsSource: DnsSource.doh,
           ttl: _kRouteMemoryTtl,
         ),
-        target.host,
-      );
-      // Startup refresh: keep the bundled/persisted
-      // address available immediately, then update it without delaying the
-      // first screen or first business request.
-      unawaited(
-        store.refresh(target.host, resolver: _resolver, revision: _revision),
+        host,
       );
     }
   }
