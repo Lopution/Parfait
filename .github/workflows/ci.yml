@@ -71,25 +71,35 @@ jobs:
       - run: flutter analyze
 
   test:
-    name: test (shard ${{ matrix.shard }} of 6)
+    name: test (shard ${{ matrix.shard }} of ${{ strategy.job-total }})
     runs-on: ubuntu-latest
     strategy:
       # Let all shards finish so one failure does not hide the others'.
       fail-fast: false
       matrix:
-        # Keep in step with --total-shards below.
-        # Four shards measured ~4.6-5.0 min on the gate; six keep it under
-        # four minutes (the slowest shard decides the wall clock).
-        shard: [0, 1, 2, 3, 4, 5]
+        # Each shard runs whole test files (tool/test_shards.py), so it
+        # compiles only its own; --total-shards would split cases inside
+        # every file and make each shard compile the whole suite.
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v6
+      - name: Pick this shard's test files
+        run: |
+          python3 tool/test_shards.py --shards ${{ strategy.job-total }} --check
+          python3 tool/test_shards.py --shards ${{ strategy.job-total }} \
+            --index ${{ matrix.shard }} > "$RUNNER_TEMP/shard-files.txt"
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.47.2"
           channel: "stable"
           cache: true
       - run: flutter pub get --enforce-lockfile
-      - run: flutter test --total-shards 6 --shard-index ${{ matrix.shard }}
+      - name: Run this shard's test files
+        run: |
+          mapfile -t files < "$RUNNER_TEMP/shard-files.txt"
+          # No files would make flutter test run the whole tree.
+          test "${#files[@]}" -gt 0 || { echo "::error::empty shard"; exit 1; }
+          flutter test "${files[@]}"
 
   analyze-and-test:
     # The single check the ruleset requires. It aggregates analyze and every
