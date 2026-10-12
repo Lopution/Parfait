@@ -14,7 +14,7 @@ applies_to:
   - pubspec.yaml
   - pubspec.lock
   - rust-toolchain.toml
-reviewed: 2026-10-12
+reviewed: 2026-10-13
 ---
 
 # Release artifacts, updater and toolchain
@@ -124,6 +124,18 @@ reviewed: 2026-10-12
 - **Why:** A release shipped without a Windows build check.
 - **Check:** manual
 - **Code:** `.github/workflows/windows.yml`
+
+### REL-13 Dart-only PRs skip the APK build; main is the size backstop
+- **Rule:** User decision: on PRs, `android-release`, `android-size` and
+  `android-unit` run only when the `android` path filter matches (Android,
+  plugins, assets, pubspec, toolchain, workflows, the size script). Every
+  build-affecting push to `main` still builds, signs and size-checks the
+  APK. When that check fails on `main`, the next PR fixes it before
+  anything else merges. A script that a build job calls joins the filter.
+- **Why:** The release build set the PR wall clock at 7–9 minutes while
+  Dart changes almost never move the APK past its cap.
+- **Check:** manual
+- **Code:** `.github/workflows/ci.yml`
 
 ## Toolchain
 
