@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/log.dart';
 import '../../core/platform/platform_caps.dart';
 import '../../core/settings/app_settings.dart';
 
@@ -78,7 +79,7 @@ final class AndroidHapticsDriver implements HapticsDriver {
             'strength': strength.name,
           })
           .catchError((Object error) {
-            debugPrint('haptics: play ${role.name} failed: $error');
+            log('haptics: play ${role.name} failed: $error');
           }),
     );
   }

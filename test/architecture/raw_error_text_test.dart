@@ -88,7 +88,7 @@ void main() {
       violations,
       isEmpty,
       reason:
-          'raw error values near user-facing text — show a localized '
+          'ERR-02 raw error values near user-facing text — show a localized '
           'category via errorCategoryText/showErrorSnackBar and keep the '
           'original behind ErrorDetails or CrashLog:\n'
           '${violations.join('\n')}',

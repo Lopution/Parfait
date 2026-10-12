@@ -97,7 +97,8 @@ void main() {
       counts,
       _census,
       reason:
-          'a duration token is read without MotionTokens.resolve — wrap it, '
+          'MOTION-01 a duration token is read without MotionTokens.resolve '
+          '— wrap it, '
           'or pin the file in the census with a reason',
     );
   });
@@ -107,7 +108,8 @@ void main() {
       _rawReads(RegExp(r'MotionSpring\.\w+'), _springCall),
       isEmpty,
       reason:
-          'a MotionSpring is read directly — go through MotionTokens.spring '
+          'MOTION-03 a MotionSpring is read directly — go through '
+          'MotionTokens.spring '
           'or springCurve so the speed and the motion gate apply',
     );
   });

@@ -28,7 +28,9 @@ void main() {
     expect(
       hits,
       isEmpty,
-      reason: 'use tabs, SettingsMenuTile, a switch or buttons instead',
+      reason:
+          'NAV-17 segmented button in lib — use tabs, SettingsMenuTile, a '
+          'switch or buttons instead',
     );
   });
 }

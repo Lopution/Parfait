@@ -73,8 +73,9 @@ void main() {
       violations,
       isEmpty,
       reason:
-          'spacing/radius literals must resolve to FuncSpacing/FuncShape '
-          '(design §4.1); file-specific exceptions go in _allowList with a '
+          'THEME-12 spacing/radius literals must resolve to '
+          'FuncSpacing/FuncShape; file-specific exceptions go in _allowList '
+          'with a '
           'reason:\n${violations.join('\n')}',
     );
   });

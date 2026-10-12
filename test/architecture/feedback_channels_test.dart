@@ -16,6 +16,8 @@
 //     switching destinations is navigation, not a state change
 //   - `Clipboard.setData` inside lib/app + lib/features: only in
 //     lib/app/clipboard.dart (copyToClipboard: write, success haptic, toast)
+//   - `print(` / `debugPrint(` in lib/: only in lib/core/log.dart, the one
+//     diagnostics outlet that release builds compile out
 //   - raw overlay entries (showDialog / showModalBottomSheet / Cupertino
 //     variants / showMenu / framework pickers) outside
 //     lib/app/motion/app_overlays.dart: zero beyond the pinned
@@ -83,6 +85,8 @@ const _silentNavigationFiles = <String>{
 /// Owner file for UI clipboard writes. core/ keeps its own platform uses
 /// (share fallback, desktop transfer clipboard), which have no UI.
 const _clipboardOwner = 'lib/app/clipboard.dart';
+
+const _logOwner = 'lib/core/log.dart';
 
 /// Owner file for app modal overlays.
 const _overlaysOwner = 'lib/app/motion/app_overlays.dart';
@@ -175,7 +179,7 @@ void main() {
       material,
       isEmpty,
       reason:
-          'material SnackBar path in lib — use showAppSnackBar:\n'
+          'FB-04 material SnackBar path in lib — use showAppSnackBar:\n'
           '${material.entries.map((e) => '${e.key}: ${e.value.join(', ')}').join('\n')}',
     );
 
@@ -186,7 +190,7 @@ void main() {
       direct.difference(_promptHostCallSites),
       isEmpty,
       reason:
-          'unapproved direct prompt host access — '
+          'FB-04 unapproved direct prompt host access — '
           'prefer showAppSnackBar(context, ...)',
     );
   });
@@ -200,7 +204,7 @@ void main() {
       files,
       isEmpty,
       reason:
-          'raw haptics outside $_hapticsOwnerDir — '
+          'FB-10 raw haptics outside $_hapticsOwnerDir — '
           'use an AppHaptics role',
     );
   });
@@ -217,7 +221,7 @@ void main() {
       violations,
       isEmpty,
       reason:
-          'raw selection controls outside their wrappers (use '
+          'FB-12 raw selection controls outside their wrappers (use '
           'AppChoiceChip / AppSlider / SettingsControl / '
           'SettingsChoiceTile):\n${violations.join('\n')}',
     );
@@ -228,7 +232,11 @@ void main() {
       for (final file in _silentNavigationFiles)
         if (File(file).readAsStringSync().contains('AppHaptics')) file,
     ];
-    expect(noisy, isEmpty, reason: 'navigation must not play haptics');
+    expect(
+      noisy,
+      isEmpty,
+      reason: 'FB-10 navigation must not play haptics — remove AppHaptics',
+    );
   });
 
   test('UI clipboard writes go through copyToClipboard', () {
@@ -240,7 +248,21 @@ void main() {
       files.difference({_clipboardOwner}),
       isEmpty,
       reason:
-          'Clipboard.setData outside $_clipboardOwner — use copyToClipboard',
+          'FB-14 Clipboard.setData outside $_clipboardOwner — '
+          'use copyToClipboard',
+    );
+  });
+
+  test('diagnostics go through log()', () {
+    final files = _matches([
+      'lib',
+    ], RegExp(r'(?<![\w.])(?:print|debugPrint)\(')).keys.toSet();
+    expect(
+      files.difference({_logOwner}),
+      isEmpty,
+      reason:
+          'ERR-06 print/debugPrint outside $_logOwner — call log() from '
+          'lib/core/log.dart',
     );
   });
 
@@ -266,7 +288,8 @@ void main() {
       violations,
       isEmpty,
       reason:
-          'raw overlay entries outside $_overlaysOwner:\n'
+          'FB-02 raw overlay entries outside $_overlaysOwner — use '
+          'showAppDialog / showAppBottomSheet / AppMenuButton:\n'
           '${violations.join('\n')}',
     );
   });
@@ -283,7 +306,7 @@ void main() {
       hits.keys.toSet().difference({_systemUiOwner}),
       isEmpty,
       reason:
-          'raw system UI calls outside $_systemUiOwner: '
+          'SYS-01 raw system UI calls outside $_systemUiOwner: '
           '${hits.keys.toSet().difference({_systemUiOwner}).join(', ')} — '
           'use funcSystemBarsStyle / FuncSystemBars / setSystemUiMode',
     );
@@ -296,7 +319,9 @@ void main() {
     expect(
       files,
       _heroFiles,
-      reason: 'Hero callsites must stay in the shared illustHeroTag family',
+      reason:
+          'TRANS-07 Hero callsites must stay in the shared illustHeroTag '
+          'family — tag new Heroes with illustHeroTag or update the census',
     );
   });
 
@@ -313,8 +338,9 @@ void main() {
       counts,
       _durationCensus,
       reason:
-          'hard-coded ms durations outside the census — route animation '
-          'durations through MotionTokens or pin the non-motion use here',
+          'MOTION-01 hard-coded ms durations outside the census — route '
+          'animation durations through MotionTokens or pin the non-motion '
+          'use here',
     );
   });
 

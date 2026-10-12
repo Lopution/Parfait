@@ -1,4 +1,4 @@
-// Layering rules for lib/ (see .trellis/spec/frontend/directory-structure.md).
+// Layering rules for lib/ (see .trellis/spec/guides/architecture.md).
 //
 // Rules asserted on the import graph:
 //   R1  lib/core/** must not import lib/features/** or lib/app/**
@@ -74,94 +74,105 @@ String _featureOf(String path) {
 }
 
 void main() {
-  test('lib import graph respects layering rules (allow-list must shrink to empty)', () {
-    final files = _dartFiles(Directory.current.path);
-    final edges = <String>{}; // "from -> to"
-    final dataLayerFiles = <String>{};
-    final widgetFiles = <String>{};
+  test(
+    'lib import graph respects layering rules (allow-list must shrink to empty)',
+    () {
+      final files = _dartFiles(Directory.current.path);
+      final edges = <String>{}; // "from -> to"
+      final dataLayerFiles = <String>{};
+      final widgetFiles = <String>{};
 
-    final sharedWidgetPattern = RegExp(
-      r'^\s*class\s+_(?:\w*)(?:Tail|Error|Empty|Card|Status|Placeholder)\b',
-      multiLine: true,
-    );
+      final sharedWidgetPattern = RegExp(
+        r'^\s*class\s+_(?:\w*)(?:Tail|Error|Empty|Card|Status|Placeholder)\b',
+        multiLine: true,
+      );
 
-    for (final f in files) {
-      final src = File(f).readAsStringSync();
-      for (final m in _finalRegExp.allMatches(src)) {
-        final uri = m.group(1)!;
-        final to = _resolveUri(f, uri);
-        if (to != null && to.startsWith('lib/')) edges.add('$f -> $to');
-      }
-      for (final m in _partRegExp.allMatches(src)) {
-        final uri = m.group(1)!;
-        final to = _resolveUri(f, uri);
-        if (to != null && to.startsWith('lib/')) edges.add('$f -> $to');
-      }
-      if (f.startsWith('lib/features/')) {
-        if (RegExp(r'(?:repository|_controller|_models)\.dart$').hasMatch(f)) {
-          dataLayerFiles.add(f);
+      for (final f in files) {
+        final src = File(f).readAsStringSync();
+        for (final m in _finalRegExp.allMatches(src)) {
+          final uri = m.group(1)!;
+          final to = _resolveUri(f, uri);
+          if (to != null && to.startsWith('lib/')) edges.add('$f -> $to');
         }
-        if (sharedWidgetPattern.hasMatch(src)) {
-          widgetFiles.add(f);
+        for (final m in _partRegExp.allMatches(src)) {
+          final uri = m.group(1)!;
+          final to = _resolveUri(f, uri);
+          if (to != null && to.startsWith('lib/')) edges.add('$f -> $to');
+        }
+        if (f.startsWith('lib/features/')) {
+          if (RegExp(
+            r'(?:repository|_controller|_models)\.dart$',
+          ).hasMatch(f)) {
+            dataLayerFiles.add(f);
+          }
+          if (sharedWidgetPattern.hasMatch(src)) {
+            widgetFiles.add(f);
+          }
         }
       }
-    }
 
-    final violations = <String>{};
-    for (final e in edges) {
-      final parts = e.split(' -> ');
-      final from = parts[0];
-      final to = parts[1];
-      final fromLayer = _layerOf(from);
-      final toLayer = _layerOf(to);
-      if (fromLayer == 'core' && (toLayer == 'features' || toLayer == 'app')) {
-        violations.add(e);
-      } else if (fromLayer == 'features' && toLayer == 'features') {
-        final fa = _featureOf(from);
-        final fb = _featureOf(to);
-        if (fa != fb && to != 'lib/app/navigation/routes.dart') {
+      final violations = <String>{};
+      for (final e in edges) {
+        final parts = e.split(' -> ');
+        final from = parts[0];
+        final to = parts[1];
+        final fromLayer = _layerOf(from);
+        final toLayer = _layerOf(to);
+        if (fromLayer == 'core' &&
+            (toLayer == 'features' || toLayer == 'app')) {
           violations.add(e);
+        } else if (fromLayer == 'features' && toLayer == 'features') {
+          final fa = _featureOf(from);
+          final fb = _featureOf(to);
+          if (fa != fb && to != 'lib/app/navigation/routes.dart') {
+            violations.add(e);
+          }
+        } else if (fromLayer == 'app' && toLayer == 'features') {
+          if (from != 'lib/app/navigation/routes.dart') violations.add(e);
         }
-      } else if (fromLayer == 'app' && toLayer == 'features') {
-        if (from != 'lib/app/navigation/routes.dart') violations.add(e);
       }
-    }
 
-    final unlisted = violations.difference(_allowListedEdges);
-    final stale = _allowListedEdges.difference(violations);
-    final unlistedData = dataLayerFiles.difference(_allowListedDataFiles);
-    final unlistedWidgets = widgetFiles.difference(_allowListedWidgetFiles);
+      final unlisted = violations.difference(_allowListedEdges);
+      final stale = _allowListedEdges.difference(violations);
+      final unlistedData = dataLayerFiles.difference(_allowListedDataFiles);
+      final unlistedWidgets = widgetFiles.difference(_allowListedWidgetFiles);
 
-    expect(
-      unlisted,
-      isEmpty,
-      reason: 'Layering violations not allow-listed:\n${unlisted.join('\n')}',
-    );
-    expect(
-      unlistedData,
-      isEmpty,
-      reason:
-          'Data-layer files still under features/ not allow-listed:\n${unlistedData.join('\n')}',
-    );
-    expect(
-      unlistedWidgets,
-      isEmpty,
-      reason:
-          'Shared-component widgets in features/ not allow-listed:\n${unlistedWidgets.join('\n')}',
-    );
-    // Print remaining allow-list so the next refactor knows what to remove.
-    if (stale.isNotEmpty) {
+      expect(
+        unlisted,
+        isEmpty,
+        reason:
+            'ARCH-01 layering violations — import another feature through '
+            'lib/app/navigation/routes.dart, keep core free of app/features:\n'
+            '${unlisted.join('\n')}',
+      );
+      expect(
+        unlistedData,
+        isEmpty,
+        reason:
+            'ARCH-02 data-layer files under features/ — move them to '
+            'lib/core/<domain>/:\n${unlistedData.join('\n')}',
+      );
+      expect(
+        unlistedWidgets,
+        isEmpty,
+        reason:
+            'ARCH-02 shared-component widgets in features/ — use or extend '
+            'the lib/app/widgets/ component:\n${unlistedWidgets.join('\n')}',
+      );
+      // Print remaining allow-list so the next refactor knows what to remove.
+      if (stale.isNotEmpty) {
+        // ignore: avoid_print
+        print(
+          'Allow-list entries that no longer violate (remove them):\n${stale.join('\n')}',
+        );
+      }
       // ignore: avoid_print
       print(
-        'Allow-list entries that no longer violate (remove them):\n${stale.join('\n')}',
+        'Still allow-listed: ${_allowListedEdges.length} edges, '
+        '${_allowListedDataFiles.length} data files, ${_allowListedWidgetFiles.length} widget files.',
       );
-    }
-    // ignore: avoid_print
-    print(
-      'Still allow-listed: ${_allowListedEdges.length} edges, '
-      '${_allowListedDataFiles.length} data files, ${_allowListedWidgetFiles.length} widget files.',
-    );
-  });
+    },
+  );
 }
 
 String _layerOf(String path) {
