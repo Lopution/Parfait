@@ -151,7 +151,7 @@ Run the **Network probe** under **Me → Network** and adjust the network mode a
 <details>
 <summary>How does direct access work, and is it safe?</summary>
 
-The app tries several connection methods in turn (an ECH-encrypted handshake through Cloudflare, addresses resolved over encrypted DNS, connecting to pixiv's servers without SNI, and a plain system connection) and remembers the one that works. **Every method fully verifies the HTTPS certificate**: if the server is not pixiv's, the connection fails. These methods apply to pixiv's domains only and never to other traffic.
+The app tries several connection methods in turn (an ECH-encrypted handshake through Cloudflare, addresses resolved over encrypted DNS, connecting to pixiv's image servers without SNI, and a plain system connection) and remembers the one that works. **Every method fully verifies the HTTPS certificate**: if the server is not pixiv's, the connection fails. These methods apply to pixiv's domains only and never to other traffic.
 
 To use plain system connections only, set **Me → Network → Network mode** to **Direct only**. In mainland China you will then usually need your own proxy.
 

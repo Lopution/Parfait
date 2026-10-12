@@ -435,7 +435,7 @@ abstract class AppLocalizations {
   /// No description provided for @agreementNetworkBody.
   ///
   /// In zh, this message translates to:
-  /// **'在默认的「自动」网络模式下，访问 Pixiv 官方域名（API、登录、网页、图片）时，本应用会在以下连接方式中选择能用的一种，并记住成功的方式，之后优先使用：\n• 经 Cloudflare 的 ECH 加密握手连接；\n• 通过加密 DNS（默认 Cloudflare、Google）解析地址后连接，获取 ECH 配置时查询阿里云 DNS；\n• 不带 SNI 连接 Pixiv 图片服务器；\n• 系统直连；\n• 以上都失败时，不带 SNI 连接内置或上次可用的 Pixiv 地址。\n以上方式都会校验证书。\n\n如果只想使用系统直连，请在「设置 → 网络 → 网络模式」选择「仅直连」，这会关闭以上所有兼容连接。\n\n图片源默认为「自动」：在官方图片服务器与第三方镜像（i.pixiv.re、i.pixiv.nl、i.pixiv.cat）之间测速，使用最快的一个。经由镜像时，镜像运营方能看到你请求的图片地址和你的 IP 地址。可在「设置 → 浏览设置 → 图片源」固定为官方源。\n\n本应用不代理其他流量；网络可用性、接口变更与服务中断不由本应用保证。'**
+  /// **'在默认的「自动」网络模式下，访问 Pixiv 官方域名（API、登录、网页、图片）时，本应用会在以下连接方式中选择能用的一种，并记住成功的方式，之后优先使用：\n• 经 Cloudflare 的 ECH 加密握手连接；\n• 通过加密 DNS（默认 Cloudflare、Google）解析地址后连接，获取 ECH 配置时查询阿里云 DNS；\n• 不带 SNI 连接 Pixiv 图片服务器；\n• 系统直连；\n• 以上都失败时，图片请求不带 SNI 连接内置或上次可用的 Pixiv 图片服务器地址。\n以上方式都会校验证书。\n\n如果只想使用系统直连，请在「设置 → 网络 → 网络模式」选择「仅直连」，这会关闭以上所有兼容连接。\n\n图片源默认为「自动」：在官方图片服务器与第三方镜像（i.pixiv.re、i.pixiv.nl、i.pixiv.cat）之间测速，使用最快的一个。经由镜像时，镜像运营方能看到你请求的图片地址和你的 IP 地址。可在「设置 → 浏览设置 → 图片源」固定为官方源。\n\n本应用不代理其他流量；网络可用性、接口变更与服务中断不由本应用保证。'**
   String get agreementNetworkBody;
 
   /// No description provided for @agreementThirdPartyTitle.
