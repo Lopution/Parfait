@@ -2,7 +2,9 @@
 prefix: TEST
 applies_to:
   - test/**
-reviewed: 2026-10-12
+  - tool/test_shards.py
+  - dart_test.yaml
+reviewed: 2026-10-13
 ---
 
 # Tests
@@ -71,12 +73,17 @@ reviewed: 2026-10-12
 
 ## Test environment traps
 
-### TEST-06 Every test sets up its own state
-- **Rule:** `--total-shards` splits test cases, not files; no case relies
-  on an earlier case in the same file.
-- **Why:** Cases passed in file order and failed when sharded.
-- **Check:** manual
-- **Code:** `test`
+### TEST-06 CI shards whole files
+- **Rule:** CI gives each shard whole test files through
+  `tool/test_shards.py`; never use `flutter test --total-shards`. Every
+  file under `test/` ending in `_test.dart` lands in exactly one shard. A
+  case still sets up its own state, so `--plain-name` runs it alone.
+- **Why:** `--total-shards` splits cases inside every file, so each shard
+  compiled and loaded almost the whole suite and extra shards bought
+  little; case-level splitting also broke cases that relied on an earlier
+  one.
+- **Check:** `tool/test_shards.py`
+- **Code:** `tool/test_shards.py`, `.github/workflows/ci.yml`
 
 ### TEST-07 Loopback sockets retry; databases get their own path
 - **Rule:** A test that binds or connects to `127.0.0.1` wraps its body in
