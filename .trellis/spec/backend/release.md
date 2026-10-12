@@ -118,10 +118,13 @@ reviewed: 2026-10-13
 
 ### REL-09 Windows builds run on dispatch before a release
 - **Rule:** `windows.yml` runs on PRs touching Windows, plugins, pubspec,
-  the Rust toolchain or workflows, nightly on `main`, and on dispatch.
-  Pushes to `main` do not run it; dispatch it on the release ref before
-  publishing.
-- **Why:** A release shipped without a Windows build check.
+  the Rust toolchain or `windows.yml` itself, nightly on `main`, and on
+  dispatch. Pushes to `main` do not run it; dispatch it on the release ref
+  before publishing. A path joins its trigger only if the Windows build
+  reads it.
+- **Why:** A release shipped without a Windows build check; listing
+  `ci.yml` made every CI tweak wait 11 minutes for a build that does not
+  read it.
 - **Check:** manual
 - **Code:** `.github/workflows/windows.yml`
 
