@@ -51,7 +51,7 @@ reviewed: 2026-10-13
   are deleted in the same commit; no `skip:`. A replaced implementation's
   tests are rewritten in the same PR.
 - **Why:** Skipped tests kept asserting the old defect.
-- **Check:** manual
+- **Check:** `test/architecture/test_hygiene_test.dart` "no skipped cases"
 - **Code:** `test`
 
 ## Volume
@@ -65,11 +65,23 @@ reviewed: 2026-10-13
   copies of a case. Core logic (network, credentials, downloads, paging,
   parsing, persistence) and every fixed bug keep thorough coverage. A file
   over 1500 lines is split by feature, with shared fakes in
-  `test/helpers/`.
+  `test/helpers/`. A test file is named after the `lib/` module it covers;
+  a file of one or two cases joins its feature's file unless it is the
+  only test of its module.
 - **Why:** The suite doubled in a month, mostly with parameter assertions
-  and duplicated layers.
-- **Check:** manual
+  and duplicated layers; dozens of one-case files each cost a compile.
+- **Check:** `test/architecture/test_hygiene_test.dart` "test files stay under"
 - **Code:** `test`
+
+### TEST-10 A test double is defined once
+- **Rule:** Look in `test/helpers/` before writing a fake, stub or
+  recorder. A double a second file needs moves to `test/helpers/` and both
+  import it; a double that behaves differently gets a name that says how
+  (`_ThrowAfterWriteSink`, not a second `_FailingSink`).
+- **Why:** Eight copies of one account stub drifted apart, and a fix to
+  one copy left the others asserting the old behaviour.
+- **Check:** `test/architecture/test_hygiene_test.dart` "each test double is defined once"
+- **Code:** `test/helpers`
 
 ## Test environment traps
 
@@ -88,13 +100,15 @@ reviewed: 2026-10-13
 ### TEST-07 Loopback sockets retry; databases get their own path
 - **Rule:** A test that binds or connects to `127.0.0.1` wraps its body in
   a three-attempt `tolerant()` helper that resets per-attempt state, with
-  a raised timeout. A test reaching the history database injects
-  `HistoryDatabase` with a per-test `databasePath`.
+  a raised timeout, and its file is tagged `@Tags(['socket'])` so
+  `flutter test -x socket` can leave it out. A test reaching the history
+  database injects `HistoryDatabase` with a per-test `databasePath`.
 - **Why:** The WSL test VM drops about one in five loopback connections
   under full-suite load; the shared FFI default path produced
   `database is locked` between parallel files.
-- **Check:** `test/oauth_service_test.dart`
-- **Code:** `test/helpers/history_world.dart`
+- **Check:** `test/oauth_service_test.dart`,
+  `test/architecture/test_hygiene_test.dart` "socket tests carry the socket tag"
+- **Code:** `test/helpers/history_world.dart`, `dart_test.yaml`
 
 ### TEST-08 Riverpod providers that dispose or retry
 - **Rule:** Before awaiting an `autoDispose` provider's `.future`, hold a
@@ -121,3 +135,12 @@ reviewed: 2026-10-13
   the frame applied them.
 - **Check:** manual
 - **Code:** `test/helpers/prompt_host.dart`, `test/helpers/recording_haptics.dart`
+
+### TEST-11 Waits use fake time
+- **Rule:** No `sleep`. Advance time with `fakeAsync` or
+  `tester.pump(duration)`. A real-clock `Future.delayed` belongs only
+  inside `tester.runAsync` for real IO, in a bounded loop.
+- **Why:** A real wait makes a case slow on a fast machine and flaky on a
+  loaded one, and `sleep` also blocks the isolate the test drives.
+- **Check:** `test/architecture/test_hygiene_test.dart` "no real sleeps"
+- **Code:** `test`
