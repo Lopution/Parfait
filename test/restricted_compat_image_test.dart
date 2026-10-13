@@ -908,10 +908,10 @@ void main() {
       addTearDown(policy.dispose);
       final client = PixivPolicyHttpClient(
         policy: policy,
-        purpose: PixivDestinationPurpose.appApi,
+        purpose: PixivDestinationPurpose.image,
       );
       await expectLater(
-        client.get(Uri.parse('https://app-api.pixiv.net/v1/ping')),
+        client.get(Uri.parse('https://i.pximg.net/img-master/img/x_p0.jpg')),
         throwsA(anything),
       );
       return order;
@@ -920,8 +920,9 @@ void main() {
     test('automatic keeps direct ahead of the bootstrap tier', () async {
       final order = await runExhaustingLadder(NetworkMode.automatic);
       // ECH yields no route without an ECH-capable resolver, so the
-      // observable ladder is DoH → direct → bootstrap tier.
+      // observable ladder is the DoH tiers → direct → bootstrap tier.
       expect(order, [
+        NetworkRouteKind.noSni,
         NetworkRouteKind.dohRealSni,
         NetworkRouteKind.direct,
         NetworkRouteKind.bootstrapNoSni,
@@ -931,6 +932,7 @@ void main() {
     test('compatPrefer walks every compat tier before direct', () async {
       final order = await runExhaustingLadder(NetworkMode.compatPrefer);
       expect(order, [
+        NetworkRouteKind.noSni,
         NetworkRouteKind.dohRealSni,
         NetworkRouteKind.bootstrapNoSni,
         NetworkRouteKind.direct,
