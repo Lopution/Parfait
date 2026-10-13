@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
+import '../errors/no_retry.dart';
 import '../network/api_error.dart';
 import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
@@ -180,4 +181,4 @@ final serverDisplaySettingsProvider =
     AsyncNotifierProvider<
       ServerDisplaySettingsController,
       ServerDisplaySettings
-    >(ServerDisplaySettingsController.new);
+    >(ServerDisplaySettingsController.new, retry: noRetry);

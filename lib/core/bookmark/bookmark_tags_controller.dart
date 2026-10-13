@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
+import '../errors/no_retry.dart';
 import 'bookmark_models.dart';
 import 'bookmark_repository.dart';
 
@@ -115,4 +116,4 @@ final userBookmarkTagsProvider =
       _UserBookmarkTagsController,
       UserBookmarkTagsState,
       BookmarkTagQuery
-    >(_UserBookmarkTagsController.new);
+    >(_UserBookmarkTagsController.new, retry: noRetry);

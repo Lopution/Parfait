@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
 import '../entity/illust_entity.dart';
+import '../errors/no_retry.dart';
 import 'watch_later_database.dart';
 import 'watch_later_repository.dart';
 
@@ -94,4 +95,5 @@ class WatchLaterStore extends AsyncNotifier<List<WatchLaterEntry>> {
 final watchLaterStoreProvider =
     AsyncNotifierProvider<WatchLaterStore, List<WatchLaterEntry>>(
       WatchLaterStore.new,
+      retry: noRetry,
     );

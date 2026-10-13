@@ -231,7 +231,7 @@ void main() {
     );
   });
 
-  test('no usable account yields an unauthorized error state', () {
+  test('no usable account fails at once, without a retry backoff', () {
     fakeAsync((async) {
       late final ProviderContainer container;
       _world(
@@ -241,20 +241,20 @@ void main() {
       ).then((world) => container = world.$1);
       async.flushMicrotasks();
 
-      // `.future` stays pending while Riverpod's retry re-runs a failing
-      // build, so observe the AsyncError emission instead. The default
-      // retry backs off for about 38 s before it gives up; fake time skips
-      // the wait.
-      final errors = <Object?>[];
-      final sub = container.listen(serverDisplaySettingsProvider, (_, next) {
-        if (next case AsyncError<ServerDisplaySettings>(:final error)) {
-          errors.add(error);
-        }
-      }, fireImmediately: true);
+      final sub = container.listen(serverDisplaySettingsProvider, (_, _) {});
       addTearDown(sub.close);
+      // No timer fires: under Riverpod's default retry the state would
+      // still be loading here, and the account page would spin.
+      async.flushMicrotasks();
 
-      async.elapse(const Duration(minutes: 1));
-      expect(errors.first, isA<ApiUnauthorized>());
+      expect(
+        container.read(serverDisplaySettingsProvider),
+        isA<AsyncError<ServerDisplaySettings>>().having(
+          (state) => state.error,
+          'error',
+          isA<ApiUnauthorized>(),
+        ),
+      );
     });
   });
 

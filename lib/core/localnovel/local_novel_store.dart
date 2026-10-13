@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../errors/no_retry.dart';
 import 'local_novel_repository.dart';
 
 /// The directory imported TXT files are copied into; injectable so tests
@@ -65,4 +66,5 @@ class LocalNovelStore extends AsyncNotifier<List<LocalNovel>> {
 final localNovelStoreProvider =
     AsyncNotifierProvider<LocalNovelStore, List<LocalNovel>>(
       LocalNovelStore.new,
+      retry: noRetry,
     );

@@ -4,6 +4,7 @@ import 'shared_preferences.dart';
 
 import '../download/download_destination.dart';
 import '../download/naming_rule.dart';
+import '../errors/no_retry.dart';
 import '../reverse_image/reverse_image_engine.dart';
 import '../search/search_models.dart';
 import 'app_settings.dart';
@@ -192,6 +193,7 @@ final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
 
 final settingsProvider = AsyncNotifierProvider<SettingsController, AppSettings>(
   SettingsController.new,
+  retry: noRetry,
 );
 
 // Fine-grained typed providers are the only dependency surface consumers

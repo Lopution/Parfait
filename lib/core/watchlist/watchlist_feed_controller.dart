@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
+import '../errors/no_retry.dart';
 import 'watchlist_models.dart';
 import 'watchlist_repository.dart';
 import 'watchlist_store.dart';
@@ -109,4 +110,4 @@ final watchlistFeedProvider =
       _WatchlistFeedController,
       WatchlistFeedState,
       WatchlistType
-    >(_WatchlistFeedController.new);
+    >(_WatchlistFeedController.new, retry: noRetry);
