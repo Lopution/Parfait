@@ -42,6 +42,16 @@ abstract interface class ActionStore {
   /// none — never queued, already replayed, or running right now.
   Future<bool> deletePending(String owner, String dedupeKey);
 
+  /// Returns rows a killed process left `running` to pending, keeping
+  /// their attempt count. A row superseded by a newer pending intent of
+  /// the same owner + dedupe key is deleted instead. Only safe before this
+  /// process's first replay, when no row can be running for real.
+  Future<({int reset, int dropped})> recoverInterrupted();
+
+  /// When [owner]'s first pending row becomes ready, in epoch ms — 0 for a
+  /// row without backoff — or null when nothing is pending.
+  Future<int?> nextPendingAt(String owner);
+
   /// All rows of one owner, oldest first (tests/diagnostics).
   Future<List<StoredAction>> listFor(String owner);
 
@@ -125,6 +135,41 @@ final class SqliteActionStore implements ActionStore {
       whereArgs: [owner, dedupeKey, ActionStatus.pending.dbValue],
     );
     return deleted > 0;
+  }
+
+  @override
+  Future<({int reset, int dropped})> recoverInterrupted() async {
+    const table = FeedDatabase.actionTable;
+    final running = ActionStatus.running.dbValue;
+    final db = await _database.database;
+    return db.transaction((txn) async {
+      final dropped = await txn.rawDelete(
+        'DELETE FROM $table WHERE status = ? AND EXISTS ('
+        'SELECT 1 FROM $table AS newer '
+        'WHERE newer.owner = $table.owner '
+        'AND newer.dedupe_key = $table.dedupe_key '
+        'AND newer.status = ? AND newer.id > $table.id)',
+        [running, ActionStatus.pending.dbValue],
+      );
+      final reset = await txn.update(
+        table,
+        {'status': ActionStatus.pending.dbValue},
+        where: 'status = ?',
+        whereArgs: [running],
+      );
+      return (reset: reset, dropped: dropped);
+    });
+  }
+
+  @override
+  Future<int?> nextPendingAt(String owner) async {
+    final db = await _database.database;
+    final rows = await db.rawQuery(
+      'SELECT MIN(COALESCE(next_attempt_at, 0)) AS due '
+      'FROM ${FeedDatabase.actionTable} WHERE owner = ? AND status = ?',
+      [owner, ActionStatus.pending.dbValue],
+    );
+    return rows.single['due'] as int?;
   }
 
   @override
@@ -270,6 +315,39 @@ final class InMemoryActionStore implements ActionStore {
           row.status == ActionStatus.pending,
     );
     return _rows.length < before;
+  }
+
+  @override
+  Future<({int reset, int dropped})> recoverInterrupted() async {
+    bool superseded(StoredAction stale) => _rows.any(
+      (newer) =>
+          newer.owner == stale.owner &&
+          newer.dedupeKey == stale.dedupeKey &&
+          newer.status == ActionStatus.pending &&
+          newer.id > stale.id,
+    );
+    final before = _rows.length;
+    _rows.removeWhere(
+      (row) => row.status == ActionStatus.running && superseded(row),
+    );
+    var reset = 0;
+    for (var i = 0; i < _rows.length; i++) {
+      if (_rows[i].status != ActionStatus.running) continue;
+      _rows[i] = _rows[i].copyWith(status: ActionStatus.pending);
+      reset++;
+    }
+    return (reset: reset, dropped: before - _rows.length);
+  }
+
+  @override
+  Future<int?> nextPendingAt(String owner) async {
+    int? due;
+    for (final row in _rows) {
+      if (row.owner != owner || row.status != ActionStatus.pending) continue;
+      final ready = row.nextAttemptAt ?? 0;
+      if (due == null || ready < due) due = ready;
+    }
+    return due;
   }
 
   @override

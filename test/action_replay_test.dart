@@ -18,6 +18,7 @@ import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
 import 'package:parfait/core/mutation/mutation_models.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
+import 'package:parfait/core/network/network_restore_signal.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/user/follow_actions.dart';
 import 'package:parfait/core/user/follow_store.dart';
@@ -324,6 +325,27 @@ void main() {
       expect(entry.isPending, isFalse);
     },
   );
+
+  test('a network restore replays the queue inside its cooldown', () async {
+    final world = await _makeWorld();
+    addTearDown(world.container.dispose);
+    world.container.read(actionQueuePumpProvider);
+    world.fixture.failures['follow'] = http.ClientException('offline');
+    await world.container.read(followActionsProvider).toggle(7);
+    // A replay attempt while still offline starts the queue cooldown.
+    await world.container.read(actionQueueProvider).drain('100');
+    final offlineRequests = world.fixture.requests.length;
+
+    world.fixture.failures.remove('follow');
+    world.container.read(networkRestoreSignalProvider.notifier)
+      ..observe(offlineNetworkIdentity)
+      ..observe('wifi');
+    await pumpEventQueue();
+
+    expect(world.fixture.requests, hasLength(offlineRequests + 1));
+    expect(world.fixture.requests.last.url.path, '/v1/user/follow/add');
+    expect(await world.store.listFor('100'), isEmpty);
+  });
 
   test('queue rows never cross the account boundary', () async {
     final world = await _makeWorld();

@@ -1,7 +1,8 @@
 /// Riverpod wiring for the offline action queue: the store/queue providers,
 /// the replay handler registry, and the pump triggers that drive drains —
-/// startup, foreground resume, and every successful mutation (see §3 of the
-/// task design; deliberately no connectivity plugin).
+/// startup, account switch, foreground resume, network restore (the
+/// existing connectivity listener's [networkRestoreSignalProvider]) and
+/// every successful mutation. The queue's own wake timers cover the rest.
 library;
 
 import 'dart:async';
@@ -12,6 +13,8 @@ import '../auth/account_store.dart';
 import '../bookmark/bookmark_models.dart';
 import '../bookmark/bookmark_repository.dart';
 import '../bookmark/bookmark_store.dart';
+import '../log.dart';
+import '../network/network_restore_signal.dart';
 import '../paging/feed_snapshot_store.dart';
 import '../user/follow_models.dart';
 import '../user/follow_repository.dart';
@@ -29,20 +32,28 @@ final actionStoreProvider = Provider<ActionStore>((ref) {
 
 final actionQueueProvider = Provider<ActionQueue>((ref) {
   final queue = ActionQueue(store: ref.watch(actionStoreProvider));
+  ref.onDispose(queue.dispose);
   _registerMutationHandlers(ref, queue);
   return queue;
 });
 
 /// Pump on (re)build: at startup and whenever the signed-in account
-/// changes, the current owner's ready rows replay once. The app root also
-/// watches this provider so it stays alive for the session.
+/// changes, the current owner's ready rows replay once; a network restore
+/// drains them again without waiting out the cooldown. The account being
+/// left is parked so its wake never replays under the next account. The
+/// app root also watches this provider so it stays alive for the session.
 final actionQueuePumpProvider = Provider<void>((ref) {
-  ref.watch(actionQueueProvider);
+  final queue = ref.watch(actionQueueProvider);
   final accountId = ref.watch(
     accountStoreProvider.select((async) => async.value?.usableCurrent?.id),
   );
   if (accountId == null) return;
-  unawaited(ref.read(actionQueueProvider).drain(accountId));
+  ref.onDispose(() => queue.park(accountId));
+  ref.listen(networkRestoreSignalProvider, (_, _) {
+    log('action queue: network restored, retrying now');
+    unawaited(queue.retryNow(accountId));
+  });
+  unawaited(queue.drain(accountId));
 });
 
 /// Pumps the current owner's queue on demand — called after every
