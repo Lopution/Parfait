@@ -45,10 +45,14 @@ Not part of this fork (upstream features, out of scope):
   compiles the Kotlin sources and the `kotlin` extension sets the JVM target.
   Upstream 0.18.0 predates the app's AGP 9.1.1 setup, so this block must be
   re-applied after an upstream Android build-file refresh.
-- `rhttp/pubspec.yaml` pins `flutter_rust_bridge: 2.12.0` (no `^`) and the
-  app tracks `rhttp/pubspec.lock`. Dart lock had resolved 2.13.0 while
-  generated `frb_generated.dart` and Cargo stay on 2.12.0;
+- `rhttp/pubspec.yaml` pins `flutter_rust_bridge: 2.13.0` (no `^`) and the
+  app tracks `rhttp/pubspec.lock`. A caret once let the Dart lock resolve a
+  newer release than the generated `frb_generated.dart` and Cargo;
   `tool/frb_check.sh` fails unless every source matches.
+- `rust/Cargo.toml` pins `rustls-platform-verifier = "=0.7.0"`. From 0.7.1
+  the Android AAR is no longer inside the `rustls-platform-verifier-android`
+  crate, where `rhttp/android/build.gradle.kts` reads it, but in a Maven
+  repository on GitHub.
 - App-root `rust-toolchain.toml` pins `1.98.0` with `rustfmt`/`clippy` and
   Android targets `aarch64` / `armv7` / `x86_64` / `i686` (debug cargokit
   also builds `android-x86`). It sits at the app root rather than next to
