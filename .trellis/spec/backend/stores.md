@@ -10,7 +10,7 @@ applies_to:
   - lib/core/watchlist/**
   - lib/core/auth/account_store.dart
   - lib/core/illust/**
-reviewed: 2026-10-12
+reviewed: 2026-10-13
 ---
 
 # Stores, mutations and the account boundary
@@ -114,6 +114,24 @@ reviewed: 2026-10-12
   `markRunning` claims only a still-pending row.
 - **Why:** A row dropped after `nextReady` read it replayed anyway.
 - **Check:** `test/action_queue_test.dart` "a dropped pending row never replays, even if already read", `test/watchlist_test.dart` "a tap on a queued watch takes the intent back"
+- **Code:** `lib/core/actionqueue`
+
+### STORE-13 The queue recovers interrupted replays and wakes itself
+- **Rule:** A queue's first drain (one queue per process) returns rows a
+  killed process left `running` to pending with their `attempt`; one with
+  a newer pending intent of the same key is deleted instead. After each
+  drain an owner keeps one wake timer, due at the later of the cooldown's
+  end and the first row backoff; an enqueue arms one cooldown. A network
+  restore clears the cooldown and drains. Leaving an account parks it:
+  the wake is cancelled and a running drain stops after its current row.
+  The pump follows the account with `ref.listen`: the app root only reads
+  it, and a provider nobody listens to is never rebuilt.
+- **Why:** A replay cut short by a kill stayed `running` and the intent
+  was lost; in the foreground nothing drained after a cooldown, a backoff
+  or a restore. A pump that watched the account returned before it had
+  loaded and was never rebuilt: no startup drain, and a wake replayed the
+  old account's rows under the next one.
+- **Check:** `test/action_queue_test.dart` "the first drain replays interrupted rows; newer intents win" "cooldown, backoff and a fresh enqueue wake the queue" "retryNow skips the cooldown; a parked owner stays asleep" "recoverInterrupted and nextPendingAt through sqlite", `test/action_replay_test.dart` "a network restore replays the queue inside its cooldown" "a cold start drains once the account has loaded" "a switched-away account never replays under the next"
 - **Code:** `lib/core/actionqueue`
 
 ### STORE-09 Remote snapshots never overwrite unsettled entries

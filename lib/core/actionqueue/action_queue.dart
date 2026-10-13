@@ -8,11 +8,19 @@
 ///   (a 429 `retryAfter` hint overrides the default).
 /// - [RetryScope.row] — 4xx/business/unknown rejections: only that row
 ///   backs off with a growing attempt counter; [maxAttempts] drops it.
+///
+/// Wake-ups: besides explicit drains (startup, account switch, resume,
+/// network restore, a successful mutation) the queue re-arms itself with
+/// one timer per owner — when the cooldown or the first row backoff ends,
+/// and one cooldown after an enqueue, since every enqueue follows a
+/// connectivity failure that no restore event may ever report.
 library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
+import '../log.dart';
 import '../network/api_error.dart';
 import 'action_models.dart';
 import 'action_store.dart';
@@ -48,6 +56,10 @@ final class ActionQueue {
   final Map<String, ActionHandler> _handlers = {};
   final Set<String> _draining = {};
   final Map<String, DateTime> _cooldownUntil = {};
+  final Map<String, Timer> _wakes = {};
+  final Set<String> _parked = {};
+  Future<void>? _recovery;
+  var _disposed = false;
 
   /// Cumulative counters since construction (replayed / dropped).
   final telemetry = ActionTelemetry();
@@ -65,7 +77,7 @@ final class ActionQueue {
     required String type,
     required String dedupeKey,
     required Map<String, Object?> payload,
-  }) {
+  }) async {
     final draft = StoredAction(
       id: 0,
       owner: owner,
@@ -76,7 +88,9 @@ final class ActionQueue {
       attempt: 0,
       createdAt: _now().millisecondsSinceEpoch,
     );
-    return _store.enqueue(draft);
+    final id = await _store.enqueue(draft);
+    if (!_wakes.containsKey(owner)) _wakeAt(owner, _now().add(cooldown));
+    return id;
   }
 
   /// Takes back [owner]'s queued intent under [dedupeKey]. False when no
@@ -86,29 +100,113 @@ final class ActionQueue {
     required String dedupeKey,
   }) => _store.deletePending(owner, dedupeKey);
 
-  /// Drains [owner]'s ready rows serially, oldest first. Re-entrant calls
-  /// are coalesced — a drain already in progress simply continues. A
-  /// queue-cooldown failure stops the drain until [cooldown] elapses.
+  /// Drains [owner]'s ready rows serially, oldest first, then arms the
+  /// owner's wake for whatever is left. Re-entrant calls are coalesced — a
+  /// drain already in progress simply continues. A queue-cooldown failure
+  /// stops the drain until [cooldown] elapses. The first drain of a queue
+  /// recovers rows a killed process left running (the queue is built once
+  /// per process). Drains a [park]ed owner again.
   Future<void> drain(String owner) async {
-    if (!_draining.add(owner)) return;
+    if (_disposed) return;
+    _parked.remove(owner);
     try {
-      while (true) {
-        final now = _now();
-        final blockedUntil = _cooldownUntil[owner];
-        if (blockedUntil != null && now.isBefore(blockedUntil)) return;
-        final action = await _store.nextReady(
-          owner,
-          now.millisecondsSinceEpoch,
-        );
-        if (action == null) return;
-        await _replay(action);
-        // A queue-cooldown failure returns immediately; a row retry or a
-        // success keeps the loop moving to the next ready row.
-        if (_cooldownUntil[owner]?.isAfter(_now()) ?? false) return;
-      }
+      await _recoverOnce();
+      await _drainExclusive(owner);
+    } on Object {
+      // The store closes together with the queue: a drain that dispose
+      // caught mid-flight has nothing left to report.
+      if (!_disposed) rethrow;
+    }
+  }
+
+  /// Clears [owner]'s cooldown and drains now: the device just regained a
+  /// network, so the failure the cooldown waits out is likely over. Row
+  /// backoffs stay — they follow rejections, not lost connectivity.
+  Future<void> retryNow(String owner) {
+    _cooldownUntil.remove(owner);
+    return drain(owner);
+  }
+
+  /// Stops waking [owner] after an account switch or sign-out: cancels its
+  /// wake and ends a running drain after the current row, so no row of
+  /// [owner] replays under another account's credentials.
+  void park(String owner) {
+    _parked.add(owner);
+    _wakes.remove(owner)?.cancel();
+  }
+
+  /// Cancels every wake; nothing drains or re-arms afterwards.
+  void dispose() {
+    _disposed = true;
+    for (final wake in _wakes.values) {
+      wake.cancel();
+    }
+    _wakes.clear();
+  }
+
+  Future<void> _drainExclusive(String owner) async {
+    if (!_draining.add(owner)) return;
+    _wakes.remove(owner)?.cancel();
+    try {
+      await _drainReady(owner);
+      await _scheduleWake(owner);
     } finally {
       _draining.remove(owner);
     }
+  }
+
+  Future<void> _drainReady(String owner) async {
+    while (!_disposed && !_parked.contains(owner)) {
+      final now = _now();
+      final blockedUntil = _cooldownUntil[owner];
+      if (blockedUntil != null && now.isBefore(blockedUntil)) return;
+      final action = await _store.nextReady(owner, now.millisecondsSinceEpoch);
+      if (action == null) return;
+      await _replay(action);
+      // A queue-cooldown failure returns immediately; a row retry or a
+      // success keeps the loop moving to the next ready row.
+      if (_cooldownUntil[owner]?.isAfter(_now()) ?? false) return;
+    }
+  }
+
+  /// Arms [owner]'s wake for the moment its queue can move again: the later
+  /// of the cooldown's end and the first pending row's backoff.
+  Future<void> _scheduleWake(String owner) async {
+    final due = await _store.nextPendingAt(owner);
+    _wakes.remove(owner)?.cancel();
+    if (due == null) return;
+    final cooldownEnd = _cooldownUntil[owner]?.millisecondsSinceEpoch ?? 0;
+    _wakeAt(
+      owner,
+      DateTime.fromMillisecondsSinceEpoch(math.max(due, cooldownEnd)),
+    );
+  }
+
+  void _wakeAt(String owner, DateTime at) {
+    if (_disposed || _parked.contains(owner)) return;
+    _wakes.remove(owner)?.cancel();
+    _wakes[owner] = Timer(at.difference(_now()), () {
+      _wakes.remove(owner);
+      log('action queue: wake-up drain');
+      unawaited(drain(owner));
+    });
+  }
+
+  /// Runs [ActionStore.recoverInterrupted] once per queue; a failed attempt
+  /// is retried by the next drain instead of being replayed to every caller.
+  Future<void> _recoverOnce() =>
+      _recovery ??= _recover().catchError((Object error, StackTrace stack) {
+        _recovery = null;
+        Error.throwWithStackTrace(error, stack);
+      });
+
+  Future<void> _recover() async {
+    final (:reset, :dropped) = await _store.recoverInterrupted();
+    if (reset + dropped == 0) return;
+    log(
+      'action queue: $reset interrupted row(s) back to pending, '
+      '$dropped superseded by a newer intent',
+    );
   }
 
   Future<void> _replay(StoredAction action) async {

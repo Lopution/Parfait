@@ -1,6 +1,7 @@
 import 'dart:collection';
 import 'dart:io';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -20,14 +21,16 @@ class _Clock {
 }
 
 class _Harness {
-  _Harness() {
-    store = InMemoryActionStore(now: clock.call);
+  /// [now] replaces the manual [clock], e.g. with a fake_async clock.
+  _Harness({DateTime Function()? now}) {
+    store = InMemoryActionStore(now: now ?? clock.call);
     queue = ActionQueue(
       store: store,
-      now: clock.call,
+      now: now ?? clock.call,
       cooldown: const Duration(seconds: 30),
       rowBackoff: const Duration(seconds: 10),
     );
+    addTearDown(queue.dispose);
   }
 
   final clock = _Clock();
@@ -231,6 +234,80 @@ void main() {
       expect(h.queue.telemetry.dropped, 1);
     });
 
+    test(
+      'the first drain replays interrupted rows; newer intents win',
+      () async {
+        final h = _Harness();
+        final interrupted = await h.add('acc', 't', 'k:1', 1);
+        final superseded = await h.add('acc', 't', 'k:2', 2);
+        // A previous process was killed mid-replay of both rows, then the
+        // user tapped k:2 again before this process drained.
+        await h.store.markRunning(interrupted);
+        await h.store.markRunning(superseded);
+        await h.add('acc', 't', 'k:2', 3);
+
+        h.register('t');
+        await h.queue.drain('acc');
+
+        expect(h.handled, ['t:1', 't:3']);
+        expect(await h.store.listFor('acc'), isEmpty);
+      },
+    );
+
+    test('cooldown, backoff and a fresh enqueue wake the queue', () {
+      fakeAsync((async) {
+        final h = _Harness(now: async.getClock(DateTime.utc(2026, 10)).now)
+          ..register('t');
+        h.failures['k:1'] = Queue.of([const ApiNetworkError('offline')]);
+        h.failures['k:2'] = Queue.of([const ApiHttpError(403)]);
+
+        // Nothing drains after an enqueue: it wakes one cooldown later.
+        h.add('acc', 't', 'k:1', 1);
+        async.elapse(const Duration(seconds: 29));
+        expect(h.handled, isEmpty);
+        async.elapse(const Duration(seconds: 1));
+        expect(h.handled, ['t:1'], reason: 'offline: queue cools down');
+
+        async.elapse(const Duration(seconds: 30));
+        expect(h.handled, ['t:1', 't:1'], reason: 'cooldown over: replayed');
+
+        h.add('acc', 't', 'k:2', 2);
+        async.flushMicrotasks();
+        h.queue.drain('acc');
+        async.flushMicrotasks();
+        expect(h.handled.last, 't:2', reason: 'rejected: row backs off 10s');
+        async.elapse(const Duration(seconds: 10));
+        expect(h.handled, ['t:1', 't:1', 't:2', 't:2']);
+      });
+    });
+
+    test('retryNow skips the cooldown; a parked owner stays asleep', () {
+      fakeAsync((async) {
+        final h = _Harness(now: async.getClock(DateTime.utc(2026, 10)).now)
+          ..register('t');
+        h.failures['k:1'] = Queue.of([
+          const ApiNetworkError('offline'),
+          const ApiNetworkError('offline'),
+        ]);
+        h.add('acc', 't', 'k:1', 1);
+        async.flushMicrotasks();
+        h.queue.drain('acc');
+        async.flushMicrotasks();
+        h.queue.retryNow('acc');
+        async.flushMicrotasks();
+        expect(h.handled, ['t:1', 't:1']);
+
+        // The account was switched away from: its wake must not fire.
+        h.queue.park('acc');
+        async.elapse(const Duration(minutes: 5));
+        expect(h.handled, hasLength(2));
+
+        h.queue.drain('acc');
+        async.flushMicrotasks();
+        expect(h.handled, hasLength(3), reason: 'an explicit drain resumes');
+      });
+    });
+
     test('re-entrant drain calls coalesce into the running drain', () async {
       final h = _Harness();
       h.queue.registerHandler('t', (action) async {
@@ -313,6 +390,35 @@ void main() {
 
       expect(await store.deletePending('acc', 'follow:7'), isTrue);
       expect(await store.listFor('acc'), isEmpty);
+    });
+
+    test('recoverInterrupted and nextPendingAt through sqlite', () async {
+      final queue = ActionQueue(store: store, now: DateTime.now);
+      addTearDown(queue.dispose);
+      Future<int> follow(int user, String type) => queue.enqueue(
+        owner: 'acc',
+        type: type,
+        dedupeKey: 'follow:$user',
+        payload: {'user': user},
+      );
+      final interrupted = await follow(7, 'follow.add');
+      final superseded = await follow(8, 'follow.add');
+      await store.markPending(interrupted, attempt: 2, nextAttemptAtMs: 5);
+      await store.markRunning(interrupted);
+      await store.markRunning(superseded);
+      final newer = await follow(8, 'follow.delete');
+
+      expect(await store.recoverInterrupted(), (reset: 1, dropped: 1));
+      final rows = await store.listFor('acc');
+      expect([for (final row in rows) row.id], [interrupted, newer]);
+      expect(rows.first.status, ActionStatus.pending);
+      expect(rows.first.attempt, 2);
+
+      expect(await store.nextPendingAt('acc'), 0, reason: 'newer is ready');
+      await store.delete(newer);
+      expect(await store.nextPendingAt('acc'), 5);
+      await store.markFailed(interrupted);
+      expect(await store.nextPendingAt('acc'), isNull);
     });
   });
 }

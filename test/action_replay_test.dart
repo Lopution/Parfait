@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
@@ -18,6 +19,7 @@ import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
 import 'package:parfait/core/mutation/mutation_models.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
+import 'package:parfait/core/network/network_restore_signal.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/user/follow_actions.dart';
 import 'package:parfait/core/user/follow_store.dart';
@@ -61,9 +63,12 @@ class _World {
   final InMemoryActionStore store;
 }
 
+/// [coldStartPump] reads the pump before the accounts load, the way
+/// `ParfaitApp.initState` does at process start.
 Future<_World> _makeWorld({
   _MutationFixture? fixture,
   InMemoryActionStore? store,
+  bool coldStartPump = false,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final resolvedFixture = fixture ?? _MutationFixture();
@@ -72,6 +77,10 @@ Future<_World> _makeWorld({
     ..seed(
       '100',
       const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
+    )
+    ..seed(
+      '200',
+      const Credential(accessToken: 'access-2', refreshToken: 'refresh-2'),
     );
   final clientRef = <PixivHttpClient?>[null];
   final container = ProviderContainer(
@@ -79,7 +88,10 @@ Future<_World> _makeWorld({
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(
         FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
+          accounts: const [
+            Account(id: '100', userId: 100, name: 'tester'),
+            Account(id: '200', userId: 200, name: 'second'),
+          ],
           currentId: '100',
         ),
       ),
@@ -105,6 +117,7 @@ Future<_World> _makeWorld({
     oauthService: container.read(oauthServiceProvider),
   );
   clientRef[0] = client;
+  if (coldStartPump) container.read(actionQueuePumpProvider);
   await container.read(accountStoreProvider.future);
   return _World(container, resolvedFixture, resolvedStore);
 }
@@ -324,6 +337,67 @@ void main() {
       expect(entry.isPending, isFalse);
     },
   );
+
+  test('a network restore replays the queue inside its cooldown', () async {
+    final world = await _makeWorld();
+    addTearDown(world.container.dispose);
+    world.container.read(actionQueuePumpProvider);
+    world.fixture.failures['follow'] = http.ClientException('offline');
+    await world.container.read(followActionsProvider).toggle(7);
+    // A replay attempt while still offline starts the queue cooldown.
+    await world.container.read(actionQueueProvider).drain('100');
+    final offlineRequests = world.fixture.requests.length;
+
+    world.fixture.failures.remove('follow');
+    world.container.read(networkRestoreSignalProvider.notifier)
+      ..observe(offlineNetworkIdentity)
+      ..observe('wifi');
+    await pumpEventQueue();
+
+    expect(world.fixture.requests, hasLength(offlineRequests + 1));
+    expect(world.fixture.requests.last.url.path, '/v1/user/follow/add');
+    expect(await world.store.listFor('100'), isEmpty);
+  });
+
+  test('a cold start drains once the account has loaded', () async {
+    final store = InMemoryActionStore();
+    final fixture = _MutationFixture()
+      ..failures['follow'] = http.ClientException('offline');
+    final first = await _makeWorld(fixture: fixture, store: store);
+    await first.container.read(followActionsProvider).toggle(7);
+    first.container.dispose();
+
+    fixture.failures.remove('follow');
+    final second = await _makeWorld(
+      fixture: fixture,
+      store: store,
+      coldStartPump: true,
+    );
+    addTearDown(second.container.dispose);
+    await pumpEventQueue();
+
+    expect(fixture.requests.last.url.path, '/v1/user/follow/add');
+    expect(await store.listFor('100'), isEmpty);
+  });
+
+  test('a switched-away account never replays under the next', () {
+    fakeAsync((async) {
+      late final _World world;
+      _makeWorld(coldStartPump: true).then((created) => world = created);
+      async.flushMicrotasks();
+      world.fixture.failures['follow'] = http.ClientException('offline');
+      world.container.read(followActionsProvider).toggle(7);
+      async.flushMicrotasks();
+      final offlineRequests = world.fixture.requests.length;
+
+      world.container.read(accountStoreProvider.notifier).switchAccount('200');
+      world.fixture.failures.remove('follow');
+      async.elapse(const Duration(minutes: 1));
+
+      expect(world.fixture.requests, hasLength(offlineRequests));
+      world.container.dispose();
+    });
+  });
 
   test('queue rows never cross the account boundary', () async {
     final world = await _makeWorld();
