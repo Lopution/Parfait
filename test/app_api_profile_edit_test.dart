@@ -13,30 +13,11 @@ import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/profile/app_api_profile_edit_repository.dart';
 import 'package:parfait/core/profile/profile_edit_models.dart';
-import 'package:parfait/core/user/user_entity.dart';
-import 'package:parfait/core/user/user_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/profile_world.dart';
 import 'helpers/test_preferences.dart';
-
-class _FakeUserRepository implements UserRepository {
-  UserEntity detail = const UserEntity(
-    id: 42,
-    name: 'tester',
-    account: 'tester',
-  );
-
-  @override
-  Future<UserEntity> fetchDetail(
-    int userId, {
-    CancelToken? cancelToken,
-  }) async => detail.copyWith(id: userId);
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError('not used by the profile edit adapter');
-}
 
 class _RecordedMultipart {
   _RecordedMultipart(this.request, this.body);
@@ -113,7 +94,7 @@ void main() {
     addTearDown(container.dispose);
     final repo = PixivAppApiProfileEditRepository(
       client: client,
-      userRepository: _FakeUserRepository(),
+      userRepository: FakeUserRepository(),
     );
     final capabilities = await repo.loadCapabilities(
       accountId: '100',
@@ -132,7 +113,7 @@ void main() {
     final sent = <_RecordedMultipart>[];
     final (client, container) = await _client(sent: sent);
     addTearDown(container.dispose);
-    final users = _FakeUserRepository();
+    final users = FakeUserRepository();
     final repo = PixivAppApiProfileEditRepository(
       client: client,
       userRepository: users,
@@ -166,7 +147,7 @@ void main() {
     addTearDown(container.dispose);
     final repo = PixivAppApiProfileEditRepository(
       client: client,
-      userRepository: _FakeUserRepository(),
+      userRepository: FakeUserRepository(),
     );
     final outcome = await repo.submit(
       _request(
@@ -194,7 +175,7 @@ void main() {
       addTearDown(container.dispose);
       final repo = PixivAppApiProfileEditRepository(
         client: client,
-        userRepository: _FakeUserRepository(),
+        userRepository: FakeUserRepository(),
       );
       final outcome = await repo.submit(
         _request(
@@ -232,7 +213,7 @@ void main() {
       addTearDown(container.dispose);
       final repo = PixivAppApiProfileEditRepository(
         client: client,
-        userRepository: _FakeUserRepository(),
+        userRepository: FakeUserRepository(),
       );
       final outcome = await repo.submit(_request(_textPatch()));
       expect(outcome, isA<ProfileEditSubmitFailure>());
@@ -245,7 +226,7 @@ void main() {
     addTearDown(container.dispose);
     final repo = PixivAppApiProfileEditRepository(
       client: client,
-      userRepository: _FakeUserRepository(),
+      userRepository: FakeUserRepository(),
     );
     final file = await File(
       '${Directory.systemTemp.path}/avatar_test_${DateTime.now().microsecondsSinceEpoch}.jpg',

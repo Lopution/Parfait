@@ -14,15 +14,7 @@ import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/illust_fixtures.dart';
-
-class _StubAccountStore extends AccountStore {
-  @override
-  Future<AccountState> build() async => const AccountState(
-    status: AccountStatus.ready,
-    accounts: [Account(id: 'account-a', userId: 1, name: 'tester')],
-    currentId: 'account-a',
-  );
-}
+import 'helpers/fake_account.dart';
 
 class _SettingsController extends SettingsController {
   _SettingsController({this.blockR18 = false, this.hideMuted = false});
@@ -105,7 +97,11 @@ ProviderContainer _container({required bool blockR18, bool hideMuted = false}) {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   return ProviderContainer(
     overrides: [
-      accountStoreProvider.overrideWith(_StubAccountStore.new),
+      accountStoreProvider.overrideWith(
+        () => StubAccountStore(
+          accounts: const [Account(id: 'account-a', userId: 1, name: 'tester')],
+        ),
+      ),
       settingsProvider.overrideWith(
         () => _SettingsController(blockR18: blockR18, hideMuted: hideMuted),
       ),

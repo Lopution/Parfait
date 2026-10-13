@@ -41,7 +41,7 @@ CaptionExporter _exporter(
 );
 
 class _FailingRawFactory implements RawDownloadSinkFactory {
-  final sink = _FailingSink();
+  final sink = _RejectingSink();
 
   @override
   Future<DownloadSink> beginRaw({
@@ -52,7 +52,7 @@ class _FailingRawFactory implements RawDownloadSinkFactory {
   }) async => sink;
 }
 
-class _FailingSink implements DownloadSink {
+class _RejectingSink implements DownloadSink {
   var aborted = false;
 
   @override

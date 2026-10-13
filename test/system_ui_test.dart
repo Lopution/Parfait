@@ -21,7 +21,6 @@ import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
-import 'package:parfait/core/settings/settings_repository.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
@@ -30,6 +29,7 @@ import 'helpers/image_network.dart';
 import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/fake_settings.dart';
 
 /// Mounts the root system-bar default exactly like app.dart's builder: the
 /// outermost widget inside the theme, reading the resolved brightness.
@@ -315,7 +315,7 @@ Future<void> _pumpApp(WidgetTester tester, AppSettings settings) async {
         ),
       ),
       settingsRepositoryProvider.overrideWithValue(
-        _MemorySettingsRepository(settings),
+        FakeSettingsRepository(settings),
       ),
       // The app's isolate worker answers outside fake time.
       dataWorkerProvider.overrideWithValue(const InlineDataWorker()),
@@ -346,16 +346,4 @@ Future<void> _pumpApp(WidgetTester tester, AppSettings settings) async {
     await tester.pump(const Duration(milliseconds: 300));
   }
   await tester.pumpAndSettle();
-}
-
-class _MemorySettingsRepository implements SettingsRepository {
-  _MemorySettingsRepository(this.value);
-
-  AppSettings value;
-
-  @override
-  Future<AppSettings> load() async => value;
-
-  @override
-  Future<void> save(AppSettings settings) async => value = settings;
 }

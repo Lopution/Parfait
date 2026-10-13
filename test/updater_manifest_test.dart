@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/updater/update_manifest.dart';
 import 'package:parfait/core/updater/update_service.dart';
+import 'helpers/updater_fakes.dart';
 
 void main() {
   group('UpdateManifest', () {
@@ -149,9 +150,9 @@ void main() {
     test('F-Droid capability never fetches a manifest or signature', () async {
       final transport = _FakeManifestTransport();
       final service = UpdateService(
-        platform: _FakePlatform(UpdateCapability.fdroid()),
+        platform: FakeUpdatePlatform(capability: UpdateCapability.fdroid()),
         manifestTransport: transport,
-        signatureVerifier: _FakeSignatureVerifier(valid: true),
+        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
       );
 
       final result = await service.check();
@@ -166,9 +167,9 @@ void main() {
         signature: base64Encode(List<int>.filled(64, 1)).codeUnits,
       );
       final service = UpdateService(
-        platform: _FakePlatform(UpdateCapability.github()),
+        platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
         manifestTransport: transport,
-        signatureVerifier: _FakeSignatureVerifier(valid: false),
+        signatureVerifier: FakeUpdateSignatureVerifier(valid: false),
       );
 
       final result = await service.check();
@@ -183,9 +184,9 @@ void main() {
         signature: base64Encode(List<int>.filled(64, 2)).codeUnits,
       );
       final service = UpdateService(
-        platform: _FakePlatform(UpdateCapability.github()),
+        platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
         manifestTransport: transport,
-        signatureVerifier: _FakeSignatureVerifier(valid: true),
+        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
       );
 
       final result = await service.check();
@@ -208,12 +209,12 @@ void main() {
           signature: base64Encode(List<int>.filled(64, 8)).codeUnits,
         );
         final service = UpdateService(
-          platform: _FakePlatform(
-            UpdateCapability.github(),
+          platform: FakeUpdatePlatform(
+            capability: UpdateCapability.github(),
             supportedAbis: const ['armeabi-v7a', 'arm64-v8a'],
           ),
           manifestTransport: transport,
-          signatureVerifier: _FakeSignatureVerifier(valid: true),
+          signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
         );
 
         final result = await service.check();
@@ -232,12 +233,12 @@ void main() {
         signature: base64Encode(List<int>.filled(64, 9)).codeUnits,
       );
       final service = UpdateService(
-        platform: _FakePlatform(
-          UpdateCapability.github(),
+        platform: FakeUpdatePlatform(
+          capability: UpdateCapability.github(),
           supportedAbis: const ['x86_64'],
         ),
         manifestTransport: transport,
-        signatureVerifier: _FakeSignatureVerifier(valid: true),
+        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
       );
 
       final result = await service.check();
@@ -254,13 +255,13 @@ void main() {
         signature: base64Encode(List<int>.filled(64, 10)).codeUnits,
       );
       final service = UpdateService(
-        platform: _FakePlatform(
-          UpdateCapability.github(),
+        platform: FakeUpdatePlatform(
+          capability: UpdateCapability.github(),
           version: '0.1.0',
           versionCode: 2001,
         ),
         manifestTransport: transport,
-        signatureVerifier: _FakeSignatureVerifier(valid: true),
+        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
       );
 
       final result = await service.check();
@@ -276,13 +277,13 @@ void main() {
         signature: base64Encode(List<int>.filled(64, 11)).codeUnits,
       );
       final service = UpdateService(
-        platform: _FakePlatform(
-          UpdateCapability.github(),
+        platform: FakeUpdatePlatform(
+          capability: UpdateCapability.github(),
           version: '0.1.0',
           versionCode: 2001,
         ),
         manifestTransport: transport,
-        signatureVerifier: _FakeSignatureVerifier(valid: true),
+        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
       );
 
       final result = await service.check();
@@ -298,9 +299,9 @@ void main() {
           manifestStatus: 429,
         );
         final service = UpdateService(
-          platform: _FakePlatform(UpdateCapability.github()),
+          platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
           manifestTransport: transport,
-          signatureVerifier: _FakeSignatureVerifier(valid: true),
+          signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
         );
 
         final result = await service.check();
@@ -318,9 +319,9 @@ void main() {
         signatureStatus: 429,
       );
       final service = UpdateService(
-        platform: _FakePlatform(UpdateCapability.github()),
+        platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
         manifestTransport: transport,
-        signatureVerifier: _FakeSignatureVerifier(valid: true),
+        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
       );
 
       final result = await service.check();
@@ -332,11 +333,11 @@ void main() {
 
     test('offline transport is reported as offline', () async {
       final service = UpdateService(
-        platform: _FakePlatform(UpdateCapability.github()),
+        platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
         manifestTransport: _FakeManifestTransport(
           manifestError: const SocketException('offline'),
         ),
-        signatureVerifier: _FakeSignatureVerifier(valid: true),
+        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
       );
 
       final result = await service.check();
@@ -347,12 +348,12 @@ void main() {
 
     test('signature transport failure is reported as offline', () async {
       final service = UpdateService(
-        platform: _FakePlatform(UpdateCapability.github()),
+        platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
         manifestTransport: _FakeManifestTransport(
           body: utf8.encode(jsonEncode(_manifestValue())),
           signatureError: const SocketException('offline'),
         ),
-        signatureVerifier: _FakeSignatureVerifier(valid: true),
+        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
       );
 
       final result = await service.check();
@@ -367,9 +368,9 @@ void main() {
         signature: utf8.encode('not-base64'),
       );
       final service = UpdateService(
-        platform: _FakePlatform(UpdateCapability.github()),
+        platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
         manifestTransport: transport,
-        signatureVerifier: _FakeSignatureVerifier(valid: true),
+        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
       );
 
       final result = await service.check();
@@ -390,9 +391,9 @@ void main() {
           signature: base64Encode(List<int>.filled(64, 3)).codeUnits,
         );
         final service = UpdateService(
-          platform: _FakePlatform(UpdateCapability.github()),
+          platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
           manifestTransport: transport,
-          signatureVerifier: _FakeSignatureVerifier(valid: true),
+          signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
         );
 
         final result = await service.check(channel: UpdateChannel.stable);
@@ -407,9 +408,9 @@ void main() {
       () async {
         final transport = _FakeManifestTransport(manifestStatus: 404);
         final service = UpdateService(
-          platform: _FakePlatform(UpdateCapability.github()),
+          platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
           manifestTransport: transport,
-          signatureVerifier: _FakeSignatureVerifier(valid: true),
+          signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
         );
 
         final result = await service.check();
@@ -429,9 +430,9 @@ void main() {
         signature: base64Encode(List<int>.filled(64, 4)).codeUnits,
       );
       final service = UpdateService(
-        platform: _FakePlatform(UpdateCapability.github()),
+        platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
         manifestTransport: transport,
-        signatureVerifier: _FakeSignatureVerifier(valid: true),
+        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
       );
 
       final result = await service.check();
@@ -448,9 +449,9 @@ void main() {
           body: List<int>.filled(updateManifestMaxBytes + 1, 0x78),
           signature: base64Encode(List<int>.filled(64, 5)).codeUnits,
         );
-        final verifier = _FakeSignatureVerifier(valid: true);
+        final verifier = FakeUpdateSignatureVerifier(valid: true);
         final service = UpdateService(
-          platform: _FakePlatform(UpdateCapability.github()),
+          platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
           manifestTransport: transport,
           signatureVerifier: verifier,
         );
@@ -474,9 +475,9 @@ void main() {
           signature: base64Encode(List<int>.filled(64, 6)).codeUnits,
         );
         final service = UpdateService(
-          platform: _FakePlatform(UpdateCapability.github()),
+          platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
           manifestTransport: transport,
-          signatureVerifier: _FakeSignatureVerifier(valid: true),
+          signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
         );
 
         final result = await service.check();
@@ -643,68 +644,4 @@ class _FakeManifestTransport implements UpdateManifestTransport {
       body: isManifest ? body : signature,
     );
   }
-}
-
-class _FakeSignatureVerifier implements UpdateSignatureVerifier {
-  _FakeSignatureVerifier({required this.valid});
-
-  final bool valid;
-  var calls = 0;
-
-  @override
-  Future<UpdateManifestVerification> verify({
-    required List<int> message,
-    required List<int> signature,
-  }) async {
-    calls++;
-    return valid
-        ? const UpdateManifestVerification.valid()
-        : const UpdateManifestVerification.invalid('signature_mismatch');
-  }
-}
-
-class _FakePlatform implements UpdatePlatform {
-  _FakePlatform(
-    this._capability, {
-    this.supportedAbis = const ['arm64-v8a', 'armeabi-v7a'],
-    this.version = '0.1.0',
-    this.versionCode = 1,
-  });
-
-  final UpdateCapability _capability;
-  final List<String> supportedAbis;
-  final String version;
-  final int versionCode;
-
-  @override
-  Future<UpdateCapability> capability() async => _capability;
-
-  @override
-  Future<UpdatePlatformInfo> info() async => UpdatePlatformInfo(
-    packageName: 'io.github.lopution.parfait',
-    version: version,
-    versionCode: versionCode,
-    signingCertificateSha256:
-        'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
-    supportedAbis: supportedAbis,
-  );
-
-  @override
-  Future<bool> deleteApk(String path) async => true;
-
-  @override
-  Future<UpdateManifestVerification> verifyManifestSignature({
-    required List<int> message,
-    required List<int> signature,
-  }) async => const UpdateManifestVerification.invalid('signature_mismatch');
-
-  @override
-  Future<UpdateInstallResult> installApk(String path) async =>
-      const UpdateInstallResult.failed('not used by check tests');
-
-  @override
-  Future<UpdateApkVerification> verifyApk({
-    required String path,
-    required UpdateReleaseAsset asset,
-  }) async => const UpdateApkVerification.invalid('not used by check tests');
 }

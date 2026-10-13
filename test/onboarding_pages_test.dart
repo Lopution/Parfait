@@ -16,32 +16,10 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/test_preferences.dart';
+import 'helpers/fake_settings.dart';
 
 /// Settings storage stub: serves a fixed snapshot and records writes so
 /// tests can assert `completeGuide()` really persisted.
-class _StubSettingsRepository implements SettingsRepository {
-  _StubSettingsRepository([AppSettings? initial])
-    : settings =
-          initial ??
-          const AppSettings(
-            guideCompleted: false,
-            languageTag: 'zh-CN',
-            themeCode: AppSettings.systemTheme,
-          );
-
-  AppSettings settings;
-  final saved = <AppSettings>[];
-
-  @override
-  Future<AppSettings> load() async => settings;
-
-  @override
-  Future<void> save(AppSettings next) async {
-    settings = next;
-    saved.add(next);
-  }
-}
-
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -64,7 +42,14 @@ void main() {
         child: ProviderScope(
           overrides: [
             settingsRepositoryProvider.overrideWithValue(
-              repository ?? _StubSettingsRepository(),
+              repository ??
+                  FakeSettingsRepository(
+                    const AppSettings(
+                      guideCompleted: false,
+                      languageTag: 'zh-CN',
+                      themeCode: AppSettings.systemTheme,
+                    ),
+                  ),
             ),
           ],
           child: MaterialApp(
@@ -123,7 +108,14 @@ void main() {
         ProviderScope(
           overrides: [
             settingsRepositoryProvider.overrideWithValue(
-              repository ?? _StubSettingsRepository(),
+              repository ??
+                  FakeSettingsRepository(
+                    const AppSettings(
+                      guideCompleted: false,
+                      languageTag: 'zh-CN',
+                      themeCode: AppSettings.systemTheme,
+                    ),
+                  ),
             ),
           ],
           child: MaterialApp.router(
@@ -171,7 +163,13 @@ void main() {
     testWidgets('language next completes the guide and opens login', (
       tester,
     ) async {
-      final repository = _StubSettingsRepository();
+      final repository = FakeSettingsRepository(
+        const AppSettings(
+          guideCompleted: false,
+          languageTag: 'zh-CN',
+          themeCode: AppSettings.systemTheme,
+        ),
+      );
       final r = await pumpFlow(
         tester,
         initialLocation: '/welcome/language',

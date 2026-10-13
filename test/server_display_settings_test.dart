@@ -12,11 +12,9 @@ import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/network/api_error.dart';
-import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
-import 'package:parfait/core/network/compat/secure_resolver.dart';
 import 'package:parfait/core/settings/server_display_settings.dart';
 import 'package:parfait/app/widgets/settings/settings_control.dart';
 import 'package:parfait/features/settings/pages/account_settings_page.dart';
@@ -27,24 +25,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
-
-class _StubResolver implements SecureResolver {
-  @override
-  Future<ResolvedHost> resolve(
-    String host, {
-    required NetworkRevision revision,
-    NetworkCancelSignal? cancelSignal,
-  }) async => ResolvedHost(
-    host: host,
-    addresses: [InternetAddress('93.184.216.34')],
-    dnsSource: DnsSource.system,
-    revision: revision,
-    ttl: const Duration(seconds: 30),
-  );
-
-  @override
-  Future<void> dispose() async {}
-}
+import 'helpers/settings_world.dart' show StubResolver;
 
 /// Maps `METHOD /path` to a response; a null entry yields 404 and a thrown
 /// value propagates as a transport failure.
@@ -97,7 +78,7 @@ Future<(ProviderContainer, _ApiScript)> _world(
       pixivNetworkFactoryProvider.overrideWithValue(
         PixivNetworkFactory(
           NetworkAccessPolicy(
-            resolver: _StubResolver(),
+            resolver: StubResolver([InternetAddress('93.184.216.34')]),
             clientFactory: (route, host, purpose) => script.asClient(),
           ),
         ),
@@ -324,7 +305,7 @@ void main() {
           pixivNetworkFactoryProvider.overrideWithValue(
             PixivNetworkFactory(
               NetworkAccessPolicy(
-                resolver: _StubResolver(),
+                resolver: StubResolver([InternetAddress('93.184.216.34')]),
                 clientFactory: (route, host, purpose) => script.asClient(),
               ),
             ),

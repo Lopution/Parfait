@@ -11,30 +11,12 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/fake_webview.dart';
 import 'helpers/test_preferences.dart';
 
 /// Minimal InAppWebView platform stub — no implementation registers on the
 /// Linux test host, so the page cannot build without one (same pattern as
 /// reverse_image_search_page_test.dart).
-class _FakeInAppWebViewPlatform extends InAppWebViewPlatform {
-  _FakeInAppWebViewWidget? lastWidget;
-
-  @override
-  PlatformInAppWebViewWidget createPlatformInAppWebViewWidget(
-    PlatformInAppWebViewWidgetCreationParams params,
-  ) => lastWidget = _FakeInAppWebViewWidget(params);
-}
-
-class _FakeInAppWebViewWidget extends PlatformInAppWebViewWidget {
-  _FakeInAppWebViewWidget(super.params) : super.implementation();
-
-  @override
-  Widget build(BuildContext context) => const SizedBox.expand();
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
-}
-
 /// Records the calls the page issues through the controller facade.
 class _FakePlatformController extends PlatformInAppWebViewController {
   _FakePlatformController(super.params) : super.implementation();
@@ -67,11 +49,11 @@ class _FakePlatformController extends PlatformInAppWebViewController {
 }
 
 void main() {
-  late _FakeInAppWebViewPlatform platform;
+  late FakeInAppWebViewPlatform platform;
 
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-    platform = _FakeInAppWebViewPlatform();
+    platform = FakeInAppWebViewPlatform();
     InAppWebViewPlatform.instance = platform;
   });
 

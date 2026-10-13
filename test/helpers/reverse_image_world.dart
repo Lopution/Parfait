@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/reverse_image/image_input.dart';
 import 'package:parfait/core/reverse_image/reverse_image_platform.dart';
 import 'package:parfait/core/reverse_image/reverse_image_provider.dart';
+
+export 'fake_webview.dart';
 
 /// Pumps until [finder] matches: the page copies and decodes the picked
 /// file on real IO, which only advances under `runAsync`.
@@ -54,26 +54,6 @@ class FakeReverseImagePlatform implements ReverseImageInputPlatform {
       source: ReverseImageInputSource.picker,
     );
   }
-}
-
-/// Minimal InAppWebView platform stub — the real implementations are
-/// Android/iOS/macOS/Windows only, so the widget cannot build in a Linux
-/// widget test without one.
-class FakeInAppWebViewPlatform extends InAppWebViewPlatform {
-  @override
-  PlatformInAppWebViewWidget createPlatformInAppWebViewWidget(
-    PlatformInAppWebViewWidgetCreationParams params,
-  ) => _FakeInAppWebViewWidget(params);
-}
-
-class _FakeInAppWebViewWidget extends PlatformInAppWebViewWidget {
-  _FakeInAppWebViewWidget(super.params) : super.implementation();
-
-  @override
-  Widget build(BuildContext context) => const SizedBox.expand();
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
 }
 
 class OutcomeReverseImageProvider implements ReverseImageProvider {

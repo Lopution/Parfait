@@ -8,6 +8,11 @@
 timeout: 60s
 
 tags:
+  # Files that bind or connect real sockets (loopback servers, TLS probes).
+  # `flutter test -x socket` leaves them out when the host network is
+  # degraded; test/architecture/test_hygiene_test.dart requires the tag.
+  socket:
+
   # UX review harness (test/review): scenes render the real app at device
   # size and films capture it frame by frame. The files do not end in
   # _test.dart, so a bare `flutter test` never runs them; tool/review.sh

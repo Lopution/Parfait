@@ -18,24 +18,7 @@ import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/user/follow_store.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-
-class _SwitchableAccountStore extends AccountStore {
-  _SwitchableAccountStore();
-
-  @override
-  Future<AccountState> build() async => _state('a');
-
-  void switchTo(String id) => state = AsyncData(_state(id));
-}
-
-AccountState _state(String currentId) => AccountState(
-  status: AccountStatus.ready,
-  accounts: const [
-    Account(id: 'a', userId: 10, name: 'A'),
-    Account(id: 'b', userId: 20, name: 'B'),
-  ],
-  currentId: currentId,
-);
+import 'helpers/fake_account.dart';
 
 class _BookmarkRepository implements BookmarkRepository {
   final requests = <String>[];
@@ -164,7 +147,14 @@ void main() {
   test('bookmark reverse operation supersedes the old response', () async {
     final container = ProviderContainer(
       overrides: [
-        accountStoreProvider.overrideWith(_SwitchableAccountStore.new),
+        accountStoreProvider.overrideWith(
+          () => StubAccountStore(
+            accounts: const [
+              Account(id: 'a', userId: 10, name: 'A'),
+              Account(id: 'b', userId: 20, name: 'B'),
+            ],
+          ),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -202,7 +192,14 @@ void main() {
       final repository = _BookmarkRepository();
       final container = ProviderContainer(
         overrides: [
-          accountStoreProvider.overrideWith(_SwitchableAccountStore.new),
+          accountStoreProvider.overrideWith(
+            () => StubAccountStore(
+              accounts: const [
+                Account(id: 'a', userId: 10, name: 'A'),
+                Account(id: 'b', userId: 20, name: 'B'),
+              ],
+            ),
+          ),
           bookmarkRepositoryProvider.overrideWithValue(repository),
         ],
       );
@@ -214,8 +211,8 @@ void main() {
       final old = container.read(bookmarkStoreProvider.notifier).entryOf(key)!;
       final operation = old.pending!;
 
-      (container.read(accountStoreProvider.notifier) as _SwitchableAccountStore)
-          .switchTo('b');
+      (container.read(accountStoreProvider.notifier) as StubAccountStore)
+          .switchCurrentTo('b');
       await Future<void>.delayed(Duration.zero);
       repository.gate.complete();
       await action;
@@ -246,7 +243,14 @@ void main() {
     () async {
       final container = ProviderContainer(
         overrides: [
-          accountStoreProvider.overrideWith(_SwitchableAccountStore.new),
+          accountStoreProvider.overrideWith(
+            () => StubAccountStore(
+              accounts: const [
+                Account(id: 'a', userId: 10, name: 'A'),
+                Account(id: 'b', userId: 20, name: 'B'),
+              ],
+            ),
+          ),
         ],
       );
       addTearDown(container.dispose);
@@ -272,7 +276,14 @@ void main() {
     () async {
       final container = ProviderContainer(
         overrides: [
-          accountStoreProvider.overrideWith(_SwitchableAccountStore.new),
+          accountStoreProvider.overrideWith(
+            () => StubAccountStore(
+              accounts: const [
+                Account(id: 'a', userId: 10, name: 'A'),
+                Account(id: 'b', userId: 20, name: 'B'),
+              ],
+            ),
+          ),
         ],
       );
       addTearDown(container.dispose);

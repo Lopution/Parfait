@@ -22,6 +22,104 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'dart:async';
+import 'package:parfait/core/entity/illust_entity.dart';
+import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/paging/feed_snapshot_store.dart';
+import 'package:parfait/core/profile/profile_models.dart';
+import 'package:parfait/features/profile/bookmark_tag_feed_page.dart';
+import 'package:parfait/features/profile/profile_illust_feed.dart';
+import 'package:parfait/app/widgets/feed/illust_card.dart';
+import 'package:parfait/l10n/app_localizations.dart';
+import 'helpers/memory_feed_snapshot_store.dart';
+
+class _RecordingUserRepository implements UserRepository {
+  final requests = <({int userId, UserRestrict restrict, String? tag})>[];
+
+  /// When set, every bookmark fetch awaits it — holds the feed's initial
+  /// load in flight.
+  Completer<void>? pendingFetch;
+
+  final works = [
+    _illust(1, 'Blue Sky', [
+      const IllustTag(name: '空', translatedName: 'blue'),
+    ]),
+    _illust(2, 'Sakura', [const IllustTag(name: '花')]),
+  ];
+
+  @override
+  Future<UserIllustPage> fetchBookmarks(
+    int userId, {
+    required UserRestrict restrict,
+    String? tag,
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async {
+    requests.add((userId: userId, restrict: restrict, tag: tag));
+    await pendingFetch?.future;
+    return UserIllustPage(illusts: works, nextUrl: null);
+  }
+
+  @override
+  bool validateBookmarksCursor(
+    int userId, {
+    required UserRestrict restrict,
+    String? tag,
+    required String cursor,
+  }) => false;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+IllustEntity _illust(int id, String title, List<IllustTag> tags) =>
+    IllustEntity(
+      id: id,
+      title: title,
+      type: IllustType.illust,
+      imageUrls: IllustImageUrls(
+        squareMedium: 'https://example.test/$id-square.png',
+        medium: 'https://example.test/$id-medium.png',
+        large: 'https://example.test/$id-large.png',
+      ),
+      caption: '',
+      user: const IllustUser(
+        id: 200,
+        name: 'artist',
+        account: 'artist',
+        profileImageUrl: null,
+      ),
+      tags: tags,
+      pageCount: 1,
+      width: 400,
+      height: 400,
+      xRestrict: 0,
+      aiType: 0,
+      isBookmarked: true,
+      totalView: 1,
+      totalBookmarks: 1,
+    );
+
+ProviderContainer _makeContainer(_RecordingUserRepository repository) =>
+    ProviderContainer(
+      overrides: [
+        accountStoreProvider.overrideWith(StubAccountStore.new),
+        feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
+        userRepositoryProvider.overrideWithValue(repository),
+        illustStoreProvider.overrideWithValue(IllustStore()),
+      ],
+    );
+
+Widget _testApp(ProviderContainer container, Widget home) =>
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp(
+        locale: const Locale('zh', 'CN'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: appLocalizationsDelegates,
+        home: home,
+      ),
+    );
 
 class _RecordedRequest {
   _RecordedRequest(this.method, this.uri, this.body);
@@ -432,6 +530,97 @@ void main() {
       'tags:100:public:next',
       'tags:100:public:next',
     ]);
+  });
+
+  group('bookmark tag feed page', () {
+    setUp(() {
+      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+    });
+
+    testWidgets('bookmark tag feed labels range and isolates hero scope', (
+      tester,
+    ) async {
+      final repository = _RecordingUserRepository();
+      final container = _makeContainer(repository);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        _testApp(
+          container,
+          const BookmarkTagFeedPage(
+            tag: 'draw',
+            restrict: BookmarkRestrict.private,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('draw'), findsOneWidget);
+      expect(find.text('私密'), findsOneWidget);
+      expect(repository.requests, [
+        (userId: 100, restrict: UserRestrict.private, tag: 'draw'),
+      ]);
+      final taggedScope = tester
+          .widget<IllustCard>(find.byType(IllustCard).first)
+          .heroScope;
+      expect(taggedScope, endsWith(':draw'));
+
+      await tester.pumpWidget(
+        _testApp(
+          container,
+          const ProfileIllustFeed(
+            feedKey: ProfileFeedKey(
+              userId: 100,
+              kind: ProfileFeedKind.bookmarks,
+              restrict: UserRestrict.private,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final untaggedScope = tester
+          .widget<IllustCard>(find.byType(IllustCard).first)
+          .heroScope;
+      expect(untaggedScope, endsWith(':'));
+      expect(untaggedScope, isNot(taggedScope));
+    });
+
+    testWidgets('bookmark tag filter only changes loaded works locally', (
+      tester,
+    ) async {
+      final repository = _RecordingUserRepository();
+      final container = _makeContainer(repository);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        _testApp(
+          container,
+          const BookmarkTagFeedPage(
+            tag: 'draw',
+            restrict: BookmarkRestrict.private,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final filter = find.byType(TextField);
+      await tester.enterText(filter, 'BLUE');
+      await tester.pump();
+      expect(find.text('Blue Sky'), findsOneWidget);
+      expect(find.text('Sakura'), findsNothing);
+      expect(repository.requests, hasLength(1));
+
+      await tester.enterText(filter, 'no matching work');
+      await tester.pump();
+      expect(find.text('已加载内容中无匹配'), findsOneWidget);
+      expect(repository.requests, hasLength(1));
+
+      await tester.enterText(filter, '');
+      await tester.pump();
+      expect(find.text('Blue Sky'), findsOneWidget);
+      expect(find.text('Sakura'), findsOneWidget);
+      expect(repository.requests, hasLength(1));
+    });
   });
 }
 

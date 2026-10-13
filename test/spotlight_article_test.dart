@@ -28,6 +28,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'helpers/connectivity_channels.dart';
 import 'helpers/image_network.dart';
+import 'helpers/illust_detail_page_support.dart' show RecordingShareService;
 import 'helpers/spotlight_world.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
@@ -71,22 +72,6 @@ const _featureHtml = '''
 ''';
 
 /// Records what the article page hands to the platform share boundary.
-class _RecordingShareService implements ShareService {
-  SharePayload? lastPayload;
-  Rect? lastOrigin;
-  ShareOutcome outcome = ShareOutcome.openedSheet;
-
-  @override
-  Future<ShareOutcome> share(
-    SharePayload payload, {
-    Rect? sharePositionOrigin,
-  }) async {
-    lastPayload = payload;
-    lastOrigin = sharePositionOrigin;
-    return outcome;
-  }
-}
-
 Future<GoRouter> pumpArticle(
   WidgetTester tester, {
   Size size = const Size(390, 844),
@@ -609,7 +594,7 @@ void main() {
     testWidgets('share hands the canonical payload to the share service', (
       tester,
     ) async {
-      final share = _RecordingShareService()
+      final share = RecordingShareService()
         ..outcome = ShareOutcome.copiedToClipboard;
       await pumpArticle(
         tester,

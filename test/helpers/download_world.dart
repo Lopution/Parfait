@@ -9,7 +9,7 @@ import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/download/pixiv_download_transport.dart'
-    show DownloadCancelledException;
+    show DownloadCancelledException, RawHop;
 
 import 'test_preferences.dart';
 
@@ -171,3 +171,64 @@ ScriptedResponse gatedResponse(Completer<void> gate, {int byte = 1}) =>
       ],
       completers: [gate],
     );
+
+/// A raw redirect hop with a scripted status, location and body; each
+/// body chunk can wait on its gate.
+class ScriptedHop implements RawHop {
+  ScriptedHop({
+    required this.statusCode,
+    String? location,
+    this.contentLength,
+    List<List<int>> bodyChunks = const [],
+    this.gates,
+  }) : _location = location,
+       _bodyChunks = bodyChunks;
+
+  @override
+  final int statusCode;
+  final String? _location;
+  @override
+  final int? contentLength;
+  final List<List<int>> _bodyChunks;
+  final List<Completer<void>>? gates;
+
+  var aborted = false;
+  var _listened = false;
+
+  @override
+  String? get locationHeader => _location;
+
+  @override
+  Stream<List<int>> get body {
+    if (_listened) {
+      throw StateError('hop body already consumed');
+    }
+    _listened = true;
+    final gates = this.gates;
+    late StreamController<List<int>> controller;
+    Future<void> pump() async {
+      for (var i = 0; i < _bodyChunks.length; i++) {
+        final gate = gates == null ? null : gates[i];
+        if (gate != null) {
+          await gate.future;
+        }
+        controller.add(_bodyChunks[i]);
+        await Future<void>.delayed(Duration.zero);
+      }
+      await controller.close();
+    }
+
+    controller = StreamController<List<int>>(
+      onListen: () {
+        unawaited(pump());
+      },
+    );
+    return controller.stream;
+  }
+
+  @override
+  Future<void> drain() async {}
+
+  @override
+  void abort() => aborted = true;
+}

@@ -1,36 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
-
-class _StubAccountStore extends AccountStore {
-  _StubAccountStore();
-
-  @override
-  Future<AccountState> build() async => _stateFor('100');
-
-  void switchCurrentTo(String id) {
-    state = AsyncData(_stateFor(id));
-  }
-}
-
-AccountState _stateFor(String currentId) => AccountState(
-  status: AccountStatus.ready,
-  accounts: const [
-    Account(id: '100', userId: 100, name: 'a'),
-    Account(id: '200', userId: 200, name: 'b'),
-  ],
-  currentId: currentId,
-);
+import 'helpers/fake_account.dart';
 
 void main() {
   late ProviderContainer container;
 
   setUp(() async {
     container = ProviderContainer(
-      overrides: [accountStoreProvider.overrideWith(_StubAccountStore.new)],
+      overrides: [
+        accountStoreProvider.overrideWith(
+          () => StubAccountStore(accounts: stubAccountPair),
+        ),
+      ],
     );
     addTearDown(container.dispose);
     await container.read(accountStoreProvider.future);
@@ -245,7 +229,7 @@ void main() {
       store().commit(op);
       expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isTrue);
 
-      (container.read(accountStoreProvider.notifier) as _StubAccountStore)
+      (container.read(accountStoreProvider.notifier) as StubAccountStore)
           .switchCurrentTo('200');
       container.invalidate(bookmarkStoreProvider);
 

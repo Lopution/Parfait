@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'helpers/settings_world.dart' show RecordingClient;
 import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:parfait/core/download/download_transport.dart';
@@ -15,20 +16,6 @@ import 'package:parfait/core/network/compat/route_kind_store.dart';
 import 'package:parfait/core/network/compat/secure_resolver.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-
-class _RecordingClient extends http.BaseClient {
-  final requests = <http.BaseRequest>[];
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    requests.add(request);
-    return http.StreamedResponse(
-      Stream<List<int>>.value(utf8.encode('{}')),
-      200,
-      request: request,
-    );
-  }
-}
 
 class _HandshakeFailingClient extends http.BaseClient {
   @override
@@ -70,13 +57,13 @@ void main() {
     () async {
       final resolver = _Resolver();
       final store = PixivFastRouteStore(preferences: SharedPreferencesAsync());
-      final clients = <String, _RecordingClient>{};
+      final clients = <String, RecordingClient>{};
       final policy = NetworkAccessPolicy(
         resolver: resolver,
         fastRouteStore: store,
         bootstrapNoSniEnabled: true,
         clientFactory: (route, host, purpose) =>
-            clients.putIfAbsent('${purpose.name}|$host', _RecordingClient.new),
+            clients.putIfAbsent('${purpose.name}|$host', RecordingClient.new),
       );
       final factory = PixivNetworkFactory(policy);
 
@@ -139,7 +126,7 @@ void main() {
       bootstrapNoSniEnabled: true,
       clientFactory: (route, host, _) {
         created.add((route: route, host: host));
-        return _RecordingClient();
+        return RecordingClient();
       },
     );
     addTearDown(policy.dispose);
@@ -202,7 +189,7 @@ void main() {
       ),
       routeKindStore: routeKinds,
       bootstrapNoSniEnabled: true,
-      clientFactory: (_, _, _) => _RecordingClient(),
+      clientFactory: (_, _, _) => RecordingClient(),
     );
     addTearDown(policy.dispose);
     await policy.warmUp();
@@ -247,7 +234,7 @@ void main() {
         clientFactory: (route, _, _) =>
             route.kind == NetworkRouteKind.noSni && !noSniWorks
             ? _HandshakeFailingClient()
-            : _RecordingClient(),
+            : RecordingClient(),
       );
       addTearDown(policy.dispose);
       await PixivNetworkFactory(policy)

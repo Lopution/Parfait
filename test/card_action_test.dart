@@ -18,24 +18,11 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/card_world.dart';
 import 'helpers/illust_fixtures.dart';
+import 'helpers/illust_detail_page_support.dart' show RecordingShareService;
 import 'helpers/prompt_host.dart';
 
 /// Records the payloads the card sheet hands to the platform share
 /// boundary — the system sheet itself is plugin territory.
-class _RecordingShareService implements ShareService {
-  SharePayload? lastPayload;
-  ShareOutcome outcome = ShareOutcome.openedSheet;
-
-  @override
-  Future<ShareOutcome> share(
-    SharePayload payload, {
-    Rect? sharePositionOrigin,
-  }) async {
-    lastPayload = payload;
-    return outcome;
-  }
-}
-
 Widget _cardApp(ProviderContainer container, Widget home) {
   return UncontrolledProviderScope(
     container: container,
@@ -203,7 +190,7 @@ void main() {
   testWidgets('share action hands the formatted payload to the share service', (
     tester,
   ) async {
-    final share = _RecordingShareService();
+    final share = RecordingShareService();
     final (container, _, _) = await makeCardWorld(shareService: share);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
@@ -222,7 +209,7 @@ void main() {
   testWidgets('share fallback to clipboard shows the copy confirmation', (
     tester,
   ) async {
-    final share = _RecordingShareService()
+    final share = RecordingShareService()
       ..outcome = ShareOutcome.copiedToClipboard;
     final (container, _, _) = await makeCardWorld(shareService: share);
     await mockNetworkImagesFor(() async {
