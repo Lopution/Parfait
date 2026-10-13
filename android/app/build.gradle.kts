@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "io.github.lopution.parfait"
-    // Flutter 3.47.2 defaults compileSdkVersion to 36; 37 is required by
+    // Flutter 3.47.7 defaults compileSdkVersion to 36; 37 is required by
     // androidx.core 1.19 and flutter_secure_storage 11. Revisit when flutter.compileSdkVersion reaches 37.
     compileSdk = 37
     ndkVersion = flutter.ndkVersion

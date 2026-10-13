@@ -7,7 +7,7 @@ applies_to:
   - lib/app/scroll_behavior.dart
   - lib/app/format/content_locale.dart
   - lib/features/**/*_page.dart
-reviewed: 2026-10-12
+reviewed: 2026-10-13
 ---
 
 # Feeds: states, grid, pull to refresh, skeletons
@@ -90,7 +90,8 @@ reviewed: 2026-10-12
 - **Rule:** Feeds refresh through `PullToRefresh`, with
   `clamping: false` for ordinary lists. A tab body inside a
   `NestedScrollView` passes `isNested: true` and has exactly one
-  `HeaderLocator` as its first item; nothing wraps the whole
+  `HeaderLocator` as its first item; its header is clamping, the only kind
+  EasyRefresh 4 accepts there. Nothing wraps the whole
   `NestedScrollView`.
 - **Why:** Per-page wrappers diverged; under clamping the reversed pull is
   not real overscroll, so the indicator stayed pinned while the list
@@ -143,15 +144,18 @@ reviewed: 2026-10-12
 
 ### FEED-12 NestedScrollView gets explicit physics and one inner tab
 - **Rule:** A `NestedScrollView` passes
-  `physics: ScrollConfiguration.of(context).getScrollPhysics(context)`.
-  Only the selected tab sits on the inner controller; unselected tabs park
-  on a controller of the same kind, and the `PrimaryScrollController` is
-  never `.none`.
+  `physics: ScrollConfiguration.of(context).getScrollPhysics(context)`,
+  and a nested `PullToRefresh` flings with `FuncScrollPhysics` on top of
+  EasyRefresh's nested physics, so outer and inner run the same
+  simulation. Only the selected tab sits on the inner controller;
+  unselected tabs park on a controller of the same kind, and the
+  `PrimaryScrollController` is never `.none`.
 - **Why:** Its outer position defaults to clamping, so the header stopped
-  short while the feed rolled on. Kept-alive tabs on one inner controller
-  were driven as one: a fling died at the header and hidden tabs dragged
-  along.
-- **Check:** `test/user_profile_test.dart` "a light upward fling never leaves the inner feed ahead of the header" "each tab scrolls on its own; re-tap rewinds only the selected one"
+  short while the feed rolled on; EasyRefresh 4's nested physics flings
+  with a clamping simulation and brought the same stop back. Kept-alive
+  tabs on one inner controller were driven as one: a fling died at the
+  header and hidden tabs dragged along.
+- **Check:** `test/user_profile_test.dart` "a light upward fling never leaves the inner feed ahead of the header" "a light pull-down while the header is collapsing keeps it expanding" "each tab scrolls on its own; re-tap rewinds only the selected one"
 - **Code:** `lib/features/profile/user_page.dart`
 
 ### FEED-13 Horizontal strips inside a feed opt out of the refresh physics

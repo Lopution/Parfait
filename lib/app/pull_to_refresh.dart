@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'haptics/app_haptics.dart';
 import 'motion/motion_tokens.dart';
+import 'scroll_behavior.dart';
 
 /// The shared pull-to-refresh wrapper used by feed pages.
 ///
@@ -13,7 +14,9 @@ import 'motion/motion_tokens.dart';
 /// the user reverses the pull, which leaves the icon stuck on screen while
 /// the list scrolls; without clamping the indicator retracts with the
 /// reverse gesture first, then the list starts moving — the expected
-/// pull-to-refresh behaviour.
+/// pull-to-refresh behaviour. Inside a NestedScrollView ([isNested])
+/// EasyRefresh 4 only takes a clamping header, and retracts it before the
+/// outer header collapses.
 class PullToRefresh extends StatefulWidget {
   const PullToRefresh({
     super.key,
@@ -116,7 +119,7 @@ class _PullToRefreshState extends State<PullToRefresh> {
         // now fades in only after a deliberate pull while the underlying
         // trigger/retract state remains owned by EasyRefresh.
         triggerOffset: _triggerOffset,
-        clamping: false,
+        clamping: isNested,
         position: isNested
             ? IndicatorPosition.locator
             : IndicatorPosition.above,
@@ -167,8 +170,45 @@ class _PullToRefreshState extends State<PullToRefresh> {
       scrollController: widget.scrollController,
       onRefresh: widget.onRefresh,
       isNested: isNested,
+      scrollBehaviorBuilder: isNested ? _nestedScrollBehavior : null,
       child: widget.child,
     );
+  }
+}
+
+ScrollBehavior _nestedScrollBehavior(ScrollPhysics? physics) =>
+    EasyRefresh.defaultScrollBehaviorBuilder(
+      physics == null ? null : _AppFlingPhysics(parent: physics),
+    );
+
+/// EasyRefresh's nested physics with the app's fling.
+///
+/// Inside a NestedScrollView EasyRefresh 4 flings with a
+/// [ClampingScrollSimulation], while every other list and the profile's
+/// outer scroll fling with [FuncScrollPhysics]. The coordinator runs one
+/// simulation per position, so the two disagree: a light pull-down on a
+/// collapsed profile stops in the feed instead of carrying on to expand
+/// the header. Everything else, including the refresh trigger the
+/// simulation call sets off, stays EasyRefresh's.
+class _AppFlingPhysics extends ScrollPhysics {
+  const _AppFlingPhysics({required ScrollPhysics super.parent});
+
+  static const _fling = FuncScrollPhysics(
+    parent: AlwaysScrollableScrollPhysics(),
+  );
+
+  @override
+  _AppFlingPhysics applyTo(ScrollPhysics? ancestor) =>
+      _AppFlingPhysics(parent: buildParent(ancestor)!);
+
+  @override
+  Simulation? createBallisticSimulation(
+    ScrollMetrics position,
+    double velocity,
+  ) {
+    final simulation = super.createBallisticSimulation(position, velocity);
+    if (simulation is! ClampingScrollSimulation) return simulation;
+    return _fling.createBallisticSimulation(position, velocity);
   }
 }
 

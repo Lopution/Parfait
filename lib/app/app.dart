@@ -237,7 +237,6 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
         reduce: settings.reduceMotion,
         speed: settings.animationSpeed,
       ),
-      // ignore: deprecated_member_use
       builder: (context, child) {
         final routeChild = child!;
         final content =
@@ -291,6 +290,9 @@ class AppChrome extends ConsumerWidget {
         speed: settings.animationSpeed,
         pressFeedback: settings.pressFeedback,
         transitionStyle: settings.pageTransitionStyle,
+        // octo_image, flutter_staggered_grid_view and the WebView plugins
+        // still build package:flutter/material widgets; the bridge hands
+        // them this theme until they move to material_ui.
         // ignore: deprecated_member_use
         child: MaterialUiCompatibilityBridge(
           child: TouchExplorationScope(

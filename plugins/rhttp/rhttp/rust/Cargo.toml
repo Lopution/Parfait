@@ -8,7 +8,7 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 chrono = "0.4.45"
-flutter_rust_bridge = { version = "=2.12.0", features = ["chrono"] }
+flutter_rust_bridge = { version = "=2.13.0", features = ["chrono"] }
 futures-util = "0.3.32"
 log = "0.4.32"
 rustls = { version = "0.23", default-features = false, features = [
@@ -22,12 +22,16 @@ tokio = { version = "1.52", features = ["rt-multi-thread", "net", "time", "sync"
 tokio-util = "0.7.18"
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-rustls-platform-verifier = "0.7"
+rustls-platform-verifier = "=0.7.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.22"
 ndk-context = "0.1"
-rustls-platform-verifier = "0.7"
+# Held at 0.7.0: from 0.7.1 the Android AAR is no longer inside the
+# rustls-platform-verifier-android crate, where android/build.gradle.kts
+# looks for it, but in a Maven repository on GitHub. Moving needs that
+# Gradle change and a check of the CRL fetching 0.7.1 turns on.
+rustls-platform-verifier = "=0.7.0"
 
 [dependencies.reqwest]
 version = "0.13.4"

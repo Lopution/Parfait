@@ -286,7 +286,6 @@ class NetworkRoute {
   };
 
   /// Whether this tier presents a real SNI in the ClientHello.
-  // ignore: avoid_positional_boolean_parameters
   bool get presentsRealSni => switch (kind) {
     NetworkRouteKind.direct || NetworkRouteKind.dohRealSni => true,
     NetworkRouteKind.ech => true, // encrypted by ECH, outer is the front

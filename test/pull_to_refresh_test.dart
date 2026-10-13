@@ -1,5 +1,4 @@
 import 'package:easy_refresh/easy_refresh.dart';
-import 'package:flutter/material.dart' as legacy_material;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/app/haptics/app_haptics.dart';
@@ -63,7 +62,7 @@ void main() {
     );
   }
 
-  final indicator = find.byType(legacy_material.RefreshProgressIndicator);
+  final indicator = find.byType(RefreshProgressIndicator);
 
   double scrollOffset(WidgetTester tester) =>
       tester.state<ScrollableState>(find.byType(Scrollable)).position.pixels;
