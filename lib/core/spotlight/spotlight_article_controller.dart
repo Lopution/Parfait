@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../errors/no_retry.dart';
 import '../settings/settings_controller.dart';
 import '../network/api_error.dart';
 import 'article_parser.dart';
@@ -38,6 +39,4 @@ final spotlightArticleBodyProvider = FutureProvider.autoDispose
           .read(spotlightRepositoryProvider)
           .fetchArticleHtml(key.url, languageTag: languageTag);
       return parseSpotlightArticle(html);
-      // The page shows the error with its own retry button; Riverpod's
-      // default retry would hold it in loading through the backoff.
-    }, retry: (_, _) => null);
+    }, retry: noRetry);

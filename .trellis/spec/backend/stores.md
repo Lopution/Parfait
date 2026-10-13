@@ -26,12 +26,16 @@ reviewed: 2026-10-13
 
 ### STORE-01 Providers behind an error state do not retry
 - **Rule:** A `FutureProvider` or throwing `AsyncNotifier` behind a page
-  with its own error state and retry button sets `retry: (_, _) => null`.
-  Controllers that catch into their state need nothing.
-- **Why:** Riverpod's default retry held the value in loading for about
-  40 s, so the page spun instead of showing its error.
-- **Check:** `test/novel_reader_chrome_test.dart` "a failed detail reaches the error state at once"
-- **Code:** `lib/core/novel`
+  with its own error state and retry button sets `retry: noRetry` and is
+  listed in `test/provider_retry_test.dart`. Controllers that catch into
+  their state need nothing; a provider read only through `.value` or
+  `hasError` keeps the default, which recovers by itself.
+- **Why:** Riverpod's default retry backs off ten times (about 38 s) and
+  keeps the value an `AsyncLoading` that `when` renders as loading, so
+  the account page, search trends, watchlists and bookmark tags spun
+  instead of showing their error.
+- **Check:** `test/provider_retry_test.dart` "providers behind an error state do not retry", `test/server_display_settings_test.dart` "no usable account fails at once, without a retry backoff", `test/novel_reader_chrome_test.dart` "a failed detail reaches the error state at once"
+- **Code:** `lib/core/errors/no_retry.dart`
 
 ### STORE-02 Entities have one canonical copy
 - **Rule:** Illusts, users, comments, bookmark and follow state live in

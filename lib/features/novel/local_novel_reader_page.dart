@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/format/app_format.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../core/errors/no_retry.dart';
 import '../../core/localnovel/local_novel_decoder.dart';
 import '../../core/localnovel/local_novel_repository.dart';
 import '../../core/localnovel/read_offset_anchor.dart';
@@ -25,9 +26,7 @@ final _localNovelContentProvider = FutureProvider.autoDispose
         throw StateError('local novel $localId not found');
       }
       return (novel, await File(novel.path).readAsString());
-      // A missing or unreadable file fails the same way again: show the
-      // error now instead of loading through Riverpod's retry backoff.
-    }, retry: (_, _) => null);
+    }, retry: noRetry);
 
 /// Local TXT reader — feeds the imported text into the shared
 /// [NovelReaderStage] as a synthetic [NovelEntity] and persists a

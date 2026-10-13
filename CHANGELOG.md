@@ -12,6 +12,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 没网时点的收藏、关注和追更，现在会在启动时和网络恢复时自动补发，不必切到后台或再做一次操作；补发失败后会在等待结束时自动重试，补发途中应用被关闭也不会丢失。
 - 应用运行中清除缓存，不再导致图片加载出错。
 - 在部分使用 PowerVR B 系列 GPU 的设备上，画面异常和卡顿的问题已修复。
+- 账号页的服务器显示设置、搜索页的热门标签、追更列表、收藏标签、稍后看、本地小说和应用设置加载失败时，立即显示错误和重试按钮，不再先转圈约 40 秒。
 
 ### 安全
 
@@ -23,6 +24,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - Bookmarks, follows and watchlist changes made offline are now sent at launch and as soon as the network is back, without leaving the app or tapping something else; a failed attempt retries once its wait is over, and closing the app mid-send no longer loses them.
 - Clearing the app's cache while it runs no longer makes images fail to load.
 - Fixed visual glitches and slowdowns on devices with PowerVR B-Series GPUs.
+- When the server display settings, search trends, watchlists, bookmark tags, Watch Later, local novels or the app settings fail to load, the error and its retry button now appear at once instead of after about 40 seconds of spinning.
 
 ### Security
 

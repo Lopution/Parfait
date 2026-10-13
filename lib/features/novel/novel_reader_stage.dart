@@ -13,6 +13,7 @@ import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/watchlist_toggle.dart';
 import '../../core/auth/account_store.dart';
+import '../../core/errors/no_retry.dart';
 import '../../core/log.dart';
 import '../../core/network/pixiv_http_client.dart';
 import '../../core/novel/novel_entity.dart';
@@ -948,9 +949,6 @@ void _showNovelPage(BuildContext context, int novelId) {
   openNovel(context, novelId);
 }
 
-// Riverpod's default retry would re-run the failed fetch on a backoff
-// and silently turn the error strip into data — the contract wants the
-// failure to stay until the user taps retry, so auto-retry is off.
 final _novelSeriesProvider = FutureProvider.autoDispose
     .family<NovelSeriesPage, int>((ref, seriesId) async {
       final token = CancelToken();
@@ -966,7 +964,7 @@ final _novelSeriesProvider = FutureProvider.autoDispose
         log('novel series $seriesId failed: $error');
         rethrow;
       }
-    }, retry: (_, _) => null);
+    }, retry: noRetry);
 
 /// Fixed strip height shared by every series-bar state — an
 /// [IconButton]'s minimum hit target. Loading, failure, missing-entry and

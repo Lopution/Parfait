@@ -15,6 +15,7 @@ import '../../app/widgets/tag_actions_sheet.dart';
 import '../../app/widgets/tag_chips.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/entity/illust_caption.dart';
+import '../../core/errors/no_retry.dart';
 import '../../core/history/history_models.dart';
 import '../../core/history/history_repository.dart';
 import '../../core/history/history_snapshot.dart';
@@ -43,10 +44,7 @@ final _novelDetailProvider = FutureProvider.autoDispose
       final entity = await repository.fetchDetail(novelId, cancelToken: token);
       ref.read(novelStoreProvider.notifier).mergeAll([entity]);
       return entity;
-      // No automatic retry: Riverpod's default retry keeps the provider
-      // loading through its backoff, so a failure never reached the error
-      // state and its retry button. The user retries from there.
-    }, retry: (_, _) => null);
+    }, retry: noRetry);
 
 class NovelPage extends ConsumerWidget {
   const NovelPage({super.key, required this.novelId});

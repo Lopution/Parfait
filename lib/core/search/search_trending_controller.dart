@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
 import '../entity/illust_store.dart';
+import '../errors/no_retry.dart';
 import '../network/pixiv_http_client.dart';
 import 'search_models.dart';
 import 'search_repository.dart';
@@ -54,4 +55,4 @@ final trendingTagsProvider =
         );
       }
       return tags;
-    });
+    }, retry: noRetry);
