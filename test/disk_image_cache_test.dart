@@ -87,6 +87,55 @@ void main() {
     expect(await dir.list().isEmpty, isTrue);
   });
 
+  test(
+    'a directory cleared while the app runs is recreated by the next write',
+    () async {
+      final dir = _freshDir();
+      final cache = DiskImageCache.open(dir);
+      await dir.delete(recursive: true);
+      const url = 'https://i.pximg.net/after-clear.jpg';
+      // The network body arrives after the temp file is opened.
+      Stream<List<int>> body() async* {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        yield _bytes(0, 10);
+      }
+
+      await cache
+          .store(url, body(), expectedLength: 10)
+          .timeout(const Duration(seconds: 5));
+      expect(await (await cache.lookup(url))!.readAsBytes(), _bytes(0, 10));
+    },
+  );
+
+  test(
+    'a write the cache cannot hold fails alone and lets go of the body',
+    () async {
+      final dir = _freshDir();
+      final cache = DiskImageCache.open(dir);
+      // A file where the directory was: nothing can be created under it.
+      await dir.delete(recursive: true);
+      File(dir.path).writeAsStringSync('');
+      addTearDown(() => File(dir.path).deleteSync());
+      var released = false;
+      final body = StreamController<List<int>>(onCancel: () => released = true);
+      final unhandled = <Object>[];
+      final outcome = Completer<Object?>();
+      runZonedGuarded(() {
+        cache
+            .store('https://i.pximg.net/nowhere.jpg', body.stream)
+            .then((_) => outcome.complete(null), onError: outcome.complete);
+      }, (error, _) => unhandled.add(error));
+      Timer(const Duration(milliseconds: 20), () => body.add(_bytes(0, 10)));
+      expect(
+        await outcome.future.timeout(const Duration(seconds: 5)),
+        isA<FileSystemException>(),
+      );
+      expect(released, isTrue);
+      // An uncaught error would end the worker isolate.
+      expect(unhandled, isEmpty);
+    },
+  );
+
   test('oldest entries are evicted once the size cap is exceeded', () async {
     final dir = _freshDir();
     final cache = DiskImageCache.open(dir, maxBytes: 1000);
