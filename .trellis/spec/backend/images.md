@@ -6,7 +6,7 @@ applies_to:
   - lib/app/pixiv_image.dart
   - lib/app/image_tier_cache.dart
   - lib/app/widgets/image_load_progress.dart
-reviewed: 2026-10-12
+reviewed: 2026-10-13
 ---
 
 # Image pipeline and animated media
@@ -65,6 +65,18 @@ reviewed: 2026-10-12
 - **Why:** Saving an image already on screen downloaded it again.
 - **Check:** `test/image_worker_test.dart` "a cache lookup starts the worker and answers from its disk"
 - **Code:** `lib/core/image/image_worker.dart`, `lib/core/download`
+
+### IMG-12 The worker writes files without an IOSink
+- **Rule:** Code in the image worker writes files through an awaited
+  `RandomAccessFile` (`open`, `writeFrom`, `close`), never
+  `File.openWrite`. `DiskImageCache.store` recreates its directory before
+  each write and cancels the body when it cannot write.
+- **Why:** An IOSink whose file cannot be opened reports the error as
+  uncaught and never completes its flush. An uncaught error is fatal in
+  the worker, so clearing the cache while the app ran killed the worker on
+  the next image.
+- **Check:** `test/disk_image_cache_test.dart` "a directory cleared while the app runs is recreated by the next write" "a write the cache cannot hold fails alone and lets go of the body"
+- **Code:** `lib/core/image/disk_image_cache.dart`
 
 ## Demand, lanes and retry
 

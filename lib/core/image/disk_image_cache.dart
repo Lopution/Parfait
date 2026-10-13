@@ -125,26 +125,38 @@ class DiskImageCache {
     final tmp = File(
       '${_filePath(key)}.tmp-${_clock().microsecondsSinceEpoch}',
     );
-    var written = 0;
-    IOSink? sink;
+    RandomAccessFile? file;
     try {
-      sink = tmp.openWrite();
+      // The system's "clear cache" can remove the directory while the app
+      // runs; recreate it rather than fail every write until the next
+      // launch.
+      await _dir.create(recursive: true);
+      // An explicit open with awaited writes, not an IOSink: a sink whose
+      // file cannot be opened reports the error as uncaught, which ends the
+      // worker isolate, and never completes its flush.
+      file = await tmp.open(mode: FileMode.write);
+    } on Object {
+      // Nothing was read: release the body and its connection.
+      await body.listen(null).cancel();
+      rethrow;
+    }
+    var written = 0;
+    try {
       await for (final chunk in body) {
         written += chunk.length;
-        sink.add(chunk);
+        await file.writeFrom(chunk);
       }
-      await sink.flush();
-      await sink.close();
-      sink = null;
+      await file.close();
+      file = null;
       if (expectedLength != null && expectedLength != written) {
         await tmp.delete();
         throw ImageCacheIncomplete(tmp.path, expectedLength, written);
       }
       await tmp.rename(_filePath(key));
     } on Object {
-      if (sink != null) {
+      if (file != null) {
         try {
-          await sink.close();
+          await file.close();
         } on Object {
           // Best-effort cleanup: the original error is the one that matters.
         }
