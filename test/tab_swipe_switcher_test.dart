@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:parfait/app/widgets/tab_swipe_switcher.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -78,5 +79,40 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(_tabIndex(tester, find.byType(RecommendedHomePage)), 1);
+  });
+
+  testWidgets('a new tab list drops the spring-back of the old one', (
+    tester,
+  ) async {
+    const vsync = TestVSync();
+    final long = TabController(length: 4, vsync: vsync, initialIndex: 3);
+    final short = TabController(length: 3, vsync: vsync, initialIndex: 1);
+    final current = ValueNotifier(long);
+    addTearDown(long.dispose);
+    addTearDown(short.dispose);
+    addTearDown(current.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder(
+          valueListenable: current,
+          builder: (context, controller, _) => TabSwipeSwitcher(
+            tabController: controller,
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ),
+    );
+
+    // A short drag springs back to the last tab; the list shrinks mid-way.
+    await tester.drag(
+      find.byType(TabSwipeSwitcher),
+      const Offset(40, 0),
+      touchSlopX: 18,
+    );
+    await tester.pump(const Duration(milliseconds: 16));
+    current.value = short;
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect((short.index, short.offset), (1, 0.0));
   });
 }

@@ -1068,11 +1068,23 @@ abstract class AppLocalizations {
   /// **'浏览设置'**
   String get browseSettings;
 
+  /// No description provided for @navigationSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'导航与布局'**
+  String get navigationSettings;
+
   /// No description provided for @settingsBrowseHint.
   ///
   /// In zh, this message translates to:
   /// **'本地屏蔽、图片画质'**
   String get settingsBrowseHint;
+
+  /// No description provided for @settingsNavigationHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'排行分类'**
+  String get settingsNavigationHint;
 
   /// No description provided for @downloadSettings.
   ///
@@ -3038,31 +3050,31 @@ abstract class AppLocalizations {
   /// No description provided for @rankingDayR18.
   ///
   /// In zh, this message translates to:
-  /// **'每日（R-18）'**
+  /// **'每日 R-18'**
   String get rankingDayR18;
 
   /// No description provided for @rankingDayMale.
   ///
   /// In zh, this message translates to:
-  /// **'每日（男性欢迎）'**
+  /// **'男性'**
   String get rankingDayMale;
 
   /// No description provided for @rankingDayMaleR18.
   ///
   /// In zh, this message translates to:
-  /// **'每日（男性欢迎 & R-18）'**
+  /// **'男性 R-18'**
   String get rankingDayMaleR18;
 
   /// No description provided for @rankingDayFemale.
   ///
   /// In zh, this message translates to:
-  /// **'每日（女性欢迎）'**
+  /// **'女性'**
   String get rankingDayFemale;
 
   /// No description provided for @rankingDayFemaleR18.
   ///
   /// In zh, this message translates to:
-  /// **'每日（女性欢迎 & R-18）'**
+  /// **'女性 R-18'**
   String get rankingDayFemaleR18;
 
   /// No description provided for @rankingWeek.
@@ -3074,37 +3086,37 @@ abstract class AppLocalizations {
   /// No description provided for @rankingWeekR18.
   ///
   /// In zh, this message translates to:
-  /// **'每周（R-18）'**
+  /// **'每周 R-18'**
   String get rankingWeekR18;
 
   /// No description provided for @rankingWeekOriginal.
   ///
   /// In zh, this message translates to:
-  /// **'每周（原创）'**
+  /// **'原创'**
   String get rankingWeekOriginal;
 
   /// No description provided for @rankingWeekRookie.
   ///
   /// In zh, this message translates to:
-  /// **'每周（新人）'**
+  /// **'新人'**
   String get rankingWeekRookie;
 
-  /// No description provided for @rankingWeekAi.
+  /// No description provided for @rankingAi.
   ///
   /// In zh, this message translates to:
-  /// **'每周（AI）'**
-  String get rankingWeekAi;
+  /// **'AI'**
+  String get rankingAi;
 
-  /// No description provided for @rankingWeekAiR18.
+  /// No description provided for @rankingAiR18.
   ///
   /// In zh, this message translates to:
-  /// **'每周（AI & R-18）'**
-  String get rankingWeekAiR18;
+  /// **'AI R-18'**
+  String get rankingAiR18;
 
   /// No description provided for @rankingWeekR18G.
   ///
   /// In zh, this message translates to:
-  /// **'每周（R-18G）'**
+  /// **'R-18G'**
   String get rankingWeekR18G;
 
   /// No description provided for @rankingMonth.
@@ -3112,6 +3124,48 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'每月'**
   String get rankingMonth;
+
+  /// No description provided for @rankingDayManga.
+  ///
+  /// In zh, this message translates to:
+  /// **'每日漫画'**
+  String get rankingDayManga;
+
+  /// No description provided for @rankingWeekManga.
+  ///
+  /// In zh, this message translates to:
+  /// **'每周漫画'**
+  String get rankingWeekManga;
+
+  /// No description provided for @rankingMonthManga.
+  ///
+  /// In zh, this message translates to:
+  /// **'每月漫画'**
+  String get rankingMonthManga;
+
+  /// No description provided for @rankingWeekRookieManga.
+  ///
+  /// In zh, this message translates to:
+  /// **'新人漫画'**
+  String get rankingWeekRookieManga;
+
+  /// No description provided for @rankingDayR18Manga.
+  ///
+  /// In zh, this message translates to:
+  /// **'每日漫画 R-18'**
+  String get rankingDayR18Manga;
+
+  /// No description provided for @rankingWeekR18Manga.
+  ///
+  /// In zh, this message translates to:
+  /// **'每周漫画 R-18'**
+  String get rankingWeekR18Manga;
+
+  /// No description provided for @rankingWeekR18GManga.
+  ///
+  /// In zh, this message translates to:
+  /// **'漫画 R-18G'**
+  String get rankingWeekR18GManga;
 
   /// No description provided for @rankingEmpty.
   ///
@@ -3148,6 +3202,144 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'加载更多失败'**
   String get rankingLoadMoreFailed;
+
+  /// No description provided for @rankingAllCategories.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部分类'**
+  String get rankingAllCategories;
+
+  /// Category sheet row that switches from the novel ranking to the illust ranking
+  ///
+  /// In zh, this message translates to:
+  /// **'插画排行'**
+  String get rankingIllust;
+
+  /// Date row of the category sheet while the latest ranking is shown
+  ///
+  /// In zh, this message translates to:
+  /// **'最新'**
+  String get rankingLatest;
+
+  /// No description provided for @rankingMyCategories.
+  ///
+  /// In zh, this message translates to:
+  /// **'我的分类'**
+  String get rankingMyCategories;
+
+  /// No description provided for @rankingEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑'**
+  String get rankingEdit;
+
+  /// No description provided for @rankingEditDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'完成'**
+  String get rankingEditDone;
+
+  /// No description provided for @rankingDragHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'长按拖动排序'**
+  String get rankingDragHint;
+
+  /// No description provided for @rankingHiddenCategories.
+  ///
+  /// In zh, this message translates to:
+  /// **'未显示'**
+  String get rankingHiddenCategories;
+
+  /// No description provided for @rankingHiddenEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'所有分类都已显示'**
+  String get rankingHiddenEmpty;
+
+  /// No description provided for @rankingRestoreDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复默认'**
+  String get rankingRestoreDefault;
+
+  /// No description provided for @rankingBlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'已在浏览设置中屏蔽'**
+  String get rankingBlocked;
+
+  /// No description provided for @rankingBlockedNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'置灰的分类已在浏览设置中屏蔽，不会显示'**
+  String get rankingBlockedNote;
+
+  /// No description provided for @rankingMoveToFront.
+  ///
+  /// In zh, this message translates to:
+  /// **'移到最前'**
+  String get rankingMoveToFront;
+
+  /// Screen-reader action that moves a category one place earlier
+  ///
+  /// In zh, this message translates to:
+  /// **'前移'**
+  String get rankingMoveEarlier;
+
+  /// Screen-reader action that moves a category one place later
+  ///
+  /// In zh, this message translates to:
+  /// **'后移'**
+  String get rankingMoveLater;
+
+  /// No description provided for @rankingHideCategory.
+  ///
+  /// In zh, this message translates to:
+  /// **'隐藏此分类'**
+  String get rankingHideCategory;
+
+  /// No description provided for @rankingShowCategory.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示此分类'**
+  String get rankingShowCategory;
+
+  /// No description provided for @rankingEditCategories.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑分类…'**
+  String get rankingEditCategories;
+
+  /// Empty R-18G ranking: the account has not enabled R-18G on pixiv web
+  ///
+  /// In zh, this message translates to:
+  /// **'需在 pixiv 网页设置中开启 R-18G 显示'**
+  String get rankingR18gHint;
+
+  /// No description provided for @rankingR18gOpenSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开 pixiv 设置'**
+  String get rankingR18gOpenSettings;
+
+  /// No description provided for @illustRankingCategories.
+  ///
+  /// In zh, this message translates to:
+  /// **'插画排行分类'**
+  String get illustRankingCategories;
+
+  /// No description provided for @novelRankingCategories.
+  ///
+  /// In zh, this message translates to:
+  /// **'小说排行分类'**
+  String get novelRankingCategories;
+
+  /// Settings row summary: how many ranking categories are shown
+  ///
+  /// In zh, this message translates to:
+  /// **'显示 {shown} 个，共 {total} 个'**
+  String rankingCategoriesShown(int shown, int total);
 
   /// No description provided for @profileBookmarked.
   ///

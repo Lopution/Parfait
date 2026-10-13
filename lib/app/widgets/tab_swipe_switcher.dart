@@ -36,6 +36,17 @@ class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
   bool get _ltr => Directionality.of(context) == TextDirection.ltr;
 
   @override
+  void didUpdateWidget(TabSwipeSwitcher oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.tabController == oldWidget.tabController) return;
+    // A new controller (the tab list changed): a settle in flight and the
+    // drag origin index the old list.
+    _settle?.stop();
+    _settleAnim = null;
+    _dragOrigin = _tc.index.toDouble();
+  }
+
+  @override
   void dispose() {
     _settle?.dispose();
     super.dispose();
@@ -157,7 +168,8 @@ class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
 }
 
 /// Tab bodies arranged side by side and driven by the tab controller's live
-/// animation. Each visited body stays mounted, preserving its scroll state.
+/// animation. Each visited body stays mounted, preserving its scroll state;
+/// a keyed body keeps it when the tabs are reordered.
 class TabSlideStack extends StatelessWidget {
   const TabSlideStack({
     super.key,
@@ -178,6 +190,10 @@ class TabSlideStack extends StatelessWidget {
       children: [
         for (var i = 0; i < children.length; i++)
           Offstage(
+            key: switch (children[i].key) {
+              final key? => ValueKey(key),
+              null => null,
+            },
             offstage: (i - position).abs() > 1.0,
             child: FractionalTranslation(
               translation: Offset(rtl ? position - i : i - position, 0),

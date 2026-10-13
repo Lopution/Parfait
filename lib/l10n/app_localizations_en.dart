@@ -545,7 +545,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get browseSettings => 'Browse settings';
 
   @override
+  String get navigationSettings => 'Navigation & layout';
+
+  @override
   String get settingsBrowseHint => 'Local blocking, image quality';
+
+  @override
+  String get settingsNavigationHint => 'Ranking categories';
 
   @override
   String get downloadSettings => 'Download settings';
@@ -1636,43 +1642,64 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rankingDay => 'Daily';
 
   @override
-  String get rankingDayR18 => 'Daily (R-18)';
+  String get rankingDayR18 => 'Daily R-18';
 
   @override
-  String get rankingDayMale => 'Daily (Male favorite)';
+  String get rankingDayMale => 'Male';
 
   @override
-  String get rankingDayMaleR18 => 'Daily (Male favorite & R-18)';
+  String get rankingDayMaleR18 => 'Male R-18';
 
   @override
-  String get rankingDayFemale => 'Daily (Female favorite)';
+  String get rankingDayFemale => 'Female';
 
   @override
-  String get rankingDayFemaleR18 => 'Daily (Female favorite & R-18)';
+  String get rankingDayFemaleR18 => 'Female R-18';
 
   @override
   String get rankingWeek => 'Weekly';
 
   @override
-  String get rankingWeekR18 => 'Weekly (R-18)';
+  String get rankingWeekR18 => 'Weekly R-18';
 
   @override
-  String get rankingWeekOriginal => 'Weekly (Original)';
+  String get rankingWeekOriginal => 'Original';
 
   @override
-  String get rankingWeekRookie => 'Weekly (Rookie)';
+  String get rankingWeekRookie => 'Rookie';
 
   @override
-  String get rankingWeekAi => 'Weekly (AI)';
+  String get rankingAi => 'AI';
 
   @override
-  String get rankingWeekAiR18 => 'Weekly (AI & R-18)';
+  String get rankingAiR18 => 'AI R-18';
 
   @override
-  String get rankingWeekR18G => 'Weekly (R-18G)';
+  String get rankingWeekR18G => 'R-18G';
 
   @override
   String get rankingMonth => 'Monthly';
+
+  @override
+  String get rankingDayManga => 'Daily manga';
+
+  @override
+  String get rankingWeekManga => 'Weekly manga';
+
+  @override
+  String get rankingMonthManga => 'Monthly manga';
+
+  @override
+  String get rankingWeekRookieManga => 'Rookie manga';
+
+  @override
+  String get rankingDayR18Manga => 'Daily manga R-18';
+
+  @override
+  String get rankingWeekR18Manga => 'Weekly manga R-18';
+
+  @override
+  String get rankingWeekR18GManga => 'Manga R-18G';
 
   @override
   String get rankingEmpty => 'No ranking content';
@@ -1695,6 +1722,79 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get rankingLoadMoreFailed => 'Failed to load more';
+
+  @override
+  String get rankingAllCategories => 'All categories';
+
+  @override
+  String get rankingIllust => 'Illustration ranking';
+
+  @override
+  String get rankingLatest => 'Latest';
+
+  @override
+  String get rankingMyCategories => 'My categories';
+
+  @override
+  String get rankingEdit => 'Edit';
+
+  @override
+  String get rankingEditDone => 'Done';
+
+  @override
+  String get rankingDragHint => 'Long-press and drag to reorder';
+
+  @override
+  String get rankingHiddenCategories => 'Hidden';
+
+  @override
+  String get rankingHiddenEmpty => 'Every category is shown';
+
+  @override
+  String get rankingRestoreDefault => 'Restore default';
+
+  @override
+  String get rankingBlocked => 'Blocked in browse settings';
+
+  @override
+  String get rankingBlockedNote =>
+      'Greyed-out categories are blocked in browse settings and stay hidden';
+
+  @override
+  String get rankingMoveToFront => 'Move to front';
+
+  @override
+  String get rankingMoveEarlier => 'Move earlier';
+
+  @override
+  String get rankingMoveLater => 'Move later';
+
+  @override
+  String get rankingHideCategory => 'Hide this category';
+
+  @override
+  String get rankingShowCategory => 'Show this category';
+
+  @override
+  String get rankingEditCategories => 'Edit categories…';
+
+  @override
+  String get rankingR18gHint =>
+      'Turn on R-18G in pixiv’s web settings to see this ranking';
+
+  @override
+  String get rankingR18gOpenSettings => 'Open pixiv settings';
+
+  @override
+  String get illustRankingCategories => 'Illustration ranking categories';
+
+  @override
+  String get novelRankingCategories => 'Novel ranking categories';
+
+  @override
+  String rankingCategoriesShown(int shown, int total) {
+    return '$shown of $total shown';
+  }
 
   @override
   String get profileBookmarked => 'Bookmarked';

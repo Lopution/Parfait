@@ -512,7 +512,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get browseSettings => '浏览设置';
 
   @override
+  String get navigationSettings => '导航与布局';
+
+  @override
   String get settingsBrowseHint => '本地屏蔽、图片画质';
+
+  @override
+  String get settingsNavigationHint => '排行分类';
 
   @override
   String get downloadSettings => '下载设置';
@@ -1553,43 +1559,64 @@ class AppLocalizationsZh extends AppLocalizations {
   String get rankingDay => '每日';
 
   @override
-  String get rankingDayR18 => '每日（R-18）';
+  String get rankingDayR18 => '每日 R-18';
 
   @override
-  String get rankingDayMale => '每日（男性欢迎）';
+  String get rankingDayMale => '男性';
 
   @override
-  String get rankingDayMaleR18 => '每日（男性欢迎 & R-18）';
+  String get rankingDayMaleR18 => '男性 R-18';
 
   @override
-  String get rankingDayFemale => '每日（女性欢迎）';
+  String get rankingDayFemale => '女性';
 
   @override
-  String get rankingDayFemaleR18 => '每日（女性欢迎 & R-18）';
+  String get rankingDayFemaleR18 => '女性 R-18';
 
   @override
   String get rankingWeek => '每周';
 
   @override
-  String get rankingWeekR18 => '每周（R-18）';
+  String get rankingWeekR18 => '每周 R-18';
 
   @override
-  String get rankingWeekOriginal => '每周（原创）';
+  String get rankingWeekOriginal => '原创';
 
   @override
-  String get rankingWeekRookie => '每周（新人）';
+  String get rankingWeekRookie => '新人';
 
   @override
-  String get rankingWeekAi => '每周（AI）';
+  String get rankingAi => 'AI';
 
   @override
-  String get rankingWeekAiR18 => '每周（AI & R-18）';
+  String get rankingAiR18 => 'AI R-18';
 
   @override
-  String get rankingWeekR18G => '每周（R-18G）';
+  String get rankingWeekR18G => 'R-18G';
 
   @override
   String get rankingMonth => '每月';
+
+  @override
+  String get rankingDayManga => '每日漫画';
+
+  @override
+  String get rankingWeekManga => '每周漫画';
+
+  @override
+  String get rankingMonthManga => '每月漫画';
+
+  @override
+  String get rankingWeekRookieManga => '新人漫画';
+
+  @override
+  String get rankingDayR18Manga => '每日漫画 R-18';
+
+  @override
+  String get rankingWeekR18Manga => '每周漫画 R-18';
+
+  @override
+  String get rankingWeekR18GManga => '漫画 R-18G';
 
   @override
   String get rankingEmpty => '暂无榜单内容';
@@ -1612,6 +1639,77 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get rankingLoadMoreFailed => '加载更多失败';
+
+  @override
+  String get rankingAllCategories => '全部分类';
+
+  @override
+  String get rankingIllust => '插画排行';
+
+  @override
+  String get rankingLatest => '最新';
+
+  @override
+  String get rankingMyCategories => '我的分类';
+
+  @override
+  String get rankingEdit => '编辑';
+
+  @override
+  String get rankingEditDone => '完成';
+
+  @override
+  String get rankingDragHint => '长按拖动排序';
+
+  @override
+  String get rankingHiddenCategories => '未显示';
+
+  @override
+  String get rankingHiddenEmpty => '所有分类都已显示';
+
+  @override
+  String get rankingRestoreDefault => '恢复默认';
+
+  @override
+  String get rankingBlocked => '已在浏览设置中屏蔽';
+
+  @override
+  String get rankingBlockedNote => '置灰的分类已在浏览设置中屏蔽，不会显示';
+
+  @override
+  String get rankingMoveToFront => '移到最前';
+
+  @override
+  String get rankingMoveEarlier => '前移';
+
+  @override
+  String get rankingMoveLater => '后移';
+
+  @override
+  String get rankingHideCategory => '隐藏此分类';
+
+  @override
+  String get rankingShowCategory => '显示此分类';
+
+  @override
+  String get rankingEditCategories => '编辑分类…';
+
+  @override
+  String get rankingR18gHint => '需在 pixiv 网页设置中开启 R-18G 显示';
+
+  @override
+  String get rankingR18gOpenSettings => '打开 pixiv 设置';
+
+  @override
+  String get illustRankingCategories => '插画排行分类';
+
+  @override
+  String get novelRankingCategories => '小说排行分类';
+
+  @override
+  String rankingCategoriesShown(int shown, int total) {
+    return '显示 $shown 个，共 $total 个';
+  }
 
   @override
   String get profileBookmarked => '收藏';

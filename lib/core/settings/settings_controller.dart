@@ -8,6 +8,7 @@ import '../errors/no_retry.dart';
 import '../reverse_image/reverse_image_engine.dart';
 import '../search/search_models.dart';
 import 'app_settings.dart';
+import 'arrangement.dart';
 import 'settings_repository.dart';
 
 /// Error raised after a settings mutation failed to persist.
@@ -161,6 +162,25 @@ class SettingsController extends AsyncNotifier<AppSettings> {
 
   Future<void> setDownloadCaption(bool enabled) =>
       _update((settings) => settings.copyWith(downloadCaption: enabled));
+
+  /// Null restores the default ranking categories.
+  Future<void> setIllustRankingArrangement(List<ArrangedEntry>? entries) =>
+      _update(
+        (settings) => settings.copyWith(illustRankingArrangement: entries),
+      );
+
+  Future<void> setNovelRankingArrangement(List<ArrangedEntry>? entries) =>
+      _update(
+        (settings) => settings.copyWith(novelRankingArrangement: entries),
+      );
+
+  Future<void> setIllustRankingLastMode(String apiValue) => _update(
+    (settings) => settings.copyWith(illustRankingLastMode: apiValue),
+  );
+
+  Future<void> setNovelRankingLastMode(String apiValue) => _update(
+    (settings) => settings.copyWith(novelRankingLastMode: apiValue),
+  );
 
   /// Whole-object replace used by backup import. Per-field validation
   /// already happened in [AppSettings.fromJson]; the write goes through

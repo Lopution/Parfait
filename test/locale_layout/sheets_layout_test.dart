@@ -7,11 +7,16 @@ import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/widgets/bookmark_switch_button.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/follow_switch_button.dart';
+import 'package:parfait/app/widgets/ranking_category_sheet.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/download/author_works_enumerator.dart';
+import 'package:parfait/core/illust/ranking_repository.dart';
+import 'package:parfait/core/ranking/ranking_catalog.dart';
 import 'package:parfait/core/search/search_models.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
+import 'package:parfait/l10n/context.dart';
 import 'package:parfait/features/profile/author_works_download_dialog.dart';
 import 'package:parfait/features/search/search_filter_sheet.dart';
 
@@ -19,9 +24,11 @@ import '../helpers/bookmark_world.dart';
 import '../helpers/card_world.dart';
 import '../helpers/download_world.dart';
 import '../helpers/fake_account.dart';
+import '../helpers/fake_settings.dart';
 import '../helpers/illust_fixtures.dart';
 import '../helpers/locale_layout.dart';
 import '../helpers/profile_world.dart';
+import '../helpers/settings_world.dart' show baseTestSettings;
 import '../helpers/test_preferences.dart';
 
 /// A page whose button calls [open]: the sheet lays out over a real route,
@@ -169,6 +176,62 @@ void main() {
       await _expectOpened(tester, locale, profile, find.text('open'));
     });
   }
+
+  localeLayoutMatrix('sheets: ranking categories', (
+    tester,
+    locale,
+    profile,
+  ) async {
+    await tester.pumpWidget(
+      localeLayoutApp(
+        locale: locale,
+        home: _Opener(
+          (context, ref) => showRankingCategorySheet(
+            context,
+            catalog: illustRankingCatalog,
+            page: RankingSheetPage(
+              tabs: () => (
+                modes: RankingMode.defaultArrangement.shown,
+                selected: RankingMode.weekRookie,
+              ),
+              onSelect: (_) {},
+              switchLabel: context.l10n.novelRanking,
+              switchIcon: Icons.menu_book_outlined,
+              onSwitch: () {},
+              dateLabel: context.l10n.rankingLatest,
+              onPickDate: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await _expectOpened(tester, locale, profile, find.text('open'));
+  });
+
+  // The editor holds every label at once; the R-18 block adds its note.
+  localeLayoutMatrix('sheets: ranking category editor', (
+    tester,
+    locale,
+    profile,
+  ) async {
+    await tester.pumpWidget(
+      localeLayoutApp(
+        locale: locale,
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(
+            FakeSettingsRepository(
+              baseTestSettings().copyWith(enableLocalBlockR18: true),
+            ),
+          ),
+        ],
+        home: _Opener(
+          (context, ref) =>
+              showRankingCategorySheet(context, catalog: illustRankingCatalog),
+        ),
+      ),
+    );
+    await _expectOpened(tester, locale, profile, find.text('open'));
+  });
 
   // Each outcome of the author works dialog: still counting, a capped
   // count to confirm, nothing to download, and a failed count.

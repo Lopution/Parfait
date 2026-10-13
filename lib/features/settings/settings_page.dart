@@ -34,6 +34,7 @@ export 'pages/download_destination_page.dart';
 export 'pages/download_tasks_page.dart';
 export 'pages/language_settings_page.dart';
 export 'pages/motion_settings_page.dart';
+export 'pages/navigation_settings_page.dart';
 export 'pages/theme_settings_page.dart';
 export 'pages/translate_settings_page.dart';
 
@@ -117,6 +118,7 @@ const settingsPageIcons = <SettingsPageRef, IconData>{
   SettingsPageRef.translate: Icons.translate,
   SettingsPageRef.motion: Icons.animation,
   SettingsPageRef.browse: Icons.image_outlined,
+  SettingsPageRef.navigation: Icons.dashboard_customize_outlined,
   SettingsPageRef.muted: Icons.block_outlined,
   SettingsPageRef.network: Icons.network_check,
   SettingsPageRef.download: Icons.download_outlined,
@@ -246,6 +248,10 @@ class _SettingsGroups extends ConsumerWidget {
               page(
                 SettingsPageRef.browse,
                 subtitle: Text(context.l10n.settingsBrowseHint),
+              ),
+              page(
+                SettingsPageRef.navigation,
+                subtitle: Text(context.l10n.settingsNavigationHint),
               ),
               page(
                 SettingsPageRef.muted,

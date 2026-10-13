@@ -25,6 +25,8 @@ import 'package:parfait/core/network/next_page_parser.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/core/illust/ranking_feed_controller.dart';
+import 'package:parfait/core/ranking/ranking_catalog.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
@@ -368,14 +370,14 @@ void main() {
 
         await tester.tap(find.byType(Tab).at(1));
         await tester.pumpAndSettle();
-        expect(router.state.uri.queryParameters['mode'], 'dayR18');
+        expect(router.state.uri.queryParameters['mode'], 'week');
         expect(router.state.uri.queryParameters['date'], '2025-10-01');
-        expect(fixture.requests.last.queryParameters['mode'], 'day_r18');
+        expect(fixture.requests.last.queryParameters['mode'], 'week');
         expect(fixture.requests.last.queryParameters['date'], '2025-10-01');
 
         await tester.tap(find.text('回到最新'));
         await tester.pumpAndSettle();
-        expect(router.state.uri.queryParameters['mode'], 'dayR18');
+        expect(router.state.uri.queryParameters['mode'], 'week');
         expect(router.state.uri.queryParameters.containsKey('date'), isFalse);
         expect(find.text('回到最新'), findsNothing);
         expect(
@@ -405,7 +407,10 @@ void main() {
 
       await mockNetworkImagesFor(() async {
         final router = await pumpRanking(tester, container, '/ranking');
-        await tester.tap(find.byTooltip('选择日期'));
+        // The date row of the category sheet.
+        await tester.tap(find.byTooltip('全部分类'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('选择日期'));
         await tester.pumpAndSettle();
 
         final picker = tester.widget<DatePickerDialog>(
@@ -472,14 +477,14 @@ void main() {
             .where((u) => u.queryParameters['mode'] == apiMode)
             .length;
 
-        // Tap path: day → dayR18. The strip animates (or snaps under
+        // Tap path: day → week. The strip animates (or snaps under
         // reduce) — either way the same mode lands and the durable
         // route value is written.
-        final dayR18Before = requestsFor('day_r18');
+        final weekBefore = requestsFor('week');
         await tester.tap(find.byType(Tab).at(1));
         await tester.pumpAndSettle();
-        expect(router.state.uri.queryParameters['mode'], 'dayR18');
-        expect(requestsFor('day_r18'), greaterThan(dayR18Before));
+        expect(router.state.uri.queryParameters['mode'], 'week');
+        expect(requestsFor('week'), greaterThan(weekBefore));
 
         // Drag path back: a committed rightward fling lands on the same
         // slot a tap would — same mode, same route write. The day feed
@@ -495,7 +500,7 @@ void main() {
         await tester.fling(strip, const Offset(-300, 0), 1200);
         await tester.pumpAndSettle();
         expect(tester.widget<TabSlideStack>(strip).controller.index, 1);
-        expect(router.state.uri.queryParameters['mode'], 'dayR18');
+        expect(router.state.uri.queryParameters['mode'], 'week');
       });
     });
   }
@@ -536,7 +541,7 @@ void main() {
         1200,
       );
       await tester.pumpAndSettle();
-      expect(router.state.uri.queryParameters['mode'], 'dayR18');
+      expect(router.state.uri.queryParameters['mode'], 'week');
       expect(cardRebuilds, 0);
     });
   });
@@ -574,6 +579,123 @@ void main() {
 
       expect(controller.offset, 0);
       expect(fixture.requests.length, requestsBefore);
+    });
+  });
+
+  group('category sheet', () {
+    Finder inSheet(String text) => find.descendant(
+      of: find.byType(BottomSheet),
+      matching: find.text(text),
+    );
+    TabController tabs(WidgetTester tester) =>
+        tester.widget<TabSlideStack>(find.byType(TabSlideStack)).controller;
+
+    testWidgets('an edit updates the tabs, keeps the category and saves', (
+      tester,
+    ) async {
+      final (container, _) = await _makeWorld();
+      await mockNetworkImagesFor(() async {
+        // R-18G is hidden by default: the link shows it first for the visit.
+        final router = pixivRouter('/ranking?mode=weekR18G');
+        setViewSize(tester, const Size(390, 844));
+        await tester.pumpWidget(
+          localizedRouterApp(router, container: container),
+        );
+        await tester.pumpAndSettle();
+        expect(tabs(tester).index, 0);
+
+        await tester.tap(find.byTooltip('全部分类'));
+        await tester.pumpAndSettle();
+        await tester.tap(inSheet('编辑'));
+        await tester.pumpAndSettle();
+        // A shown tile's tap hides it.
+        await tester.tap(inSheet('每日'));
+        await tester.pumpAndSettle();
+        expect(
+          container.read(illustRankingCatalog.arrangementProvider).hidden.first,
+          RankingMode.day,
+        );
+        expect(find.widgetWithText(Tab, '每日'), findsNothing);
+        expect(tabs(tester).index, 0, reason: 'R-18G still selected');
+        expect(router.state.uri.queryParameters['mode'], 'weekR18G');
+
+        // Shown, then hidden again: the selection moves to its neighbour,
+        // and the sheet lists the page's tabs, not the ones it opened with.
+        await tester.tap(inSheet('R-18G'));
+        await tester.pumpAndSettle();
+        expect(tabs(tester).index, 12);
+        await tester.tap(inSheet('R-18G'));
+        await tester.pumpAndSettle();
+        expect(router.state.uri.queryParameters['mode'], 'dayFemaleR18');
+        await tester.tap(inSheet('完成'));
+        await tester.pumpAndSettle();
+        expect(inSheet('R-18G'), findsNothing);
+
+        await tester.tap(inSheet('每月'));
+        await tester.pumpAndSettle();
+        expect(find.byType(BottomSheet), findsNothing);
+        expect(router.state.uri.queryParameters['mode'], 'month');
+        expect(tabs(tester).index, 1);
+      });
+    });
+
+    testWidgets('an edit made from another branch waits to write the route', (
+      tester,
+    ) async {
+      final (container, _) = await _makeWorld();
+      await mockNetworkImagesFor(() async {
+        final router = await _pumpRanking(tester, container);
+        router.go('/settings');
+        await tester.pumpAndSettle();
+        // Hides the category on screen in the background ranking page.
+        await illustRankingCatalog.saveArrangement(
+          container.read(settingsProvider.notifier),
+          RankingMode.defaultArrangement.hide(RankingMode.day),
+        );
+        await tester.pumpAndSettle();
+        expect(router.state.uri.path, '/settings');
+
+        await tester.tap(
+          find.descendant(
+            of: find.byType(FuncShellBottomNav),
+            matching: find.byIcon(AppIcons.ranking),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(router.state.uri.queryParameters['mode'], 'week');
+      });
+    });
+
+    testWidgets('a ranking opened without a mode lands on the last one', (
+      tester,
+    ) async {
+      final (container, fixture) = await _makeWorld();
+      await mockNetworkImagesFor(() async {
+        await _pumpRanking(tester, container);
+        await tester.tap(find.byType(Tab).at(1));
+        await tester.pumpAndSettle();
+        // Saved when the app leaves the screen, not on the switch.
+        expect(
+          container.read(settingsProvider).value!.illustRankingLastMode,
+          isNull,
+        );
+        tester.binding
+          ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+          ..handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+        await tester.pumpAndSettle();
+        expect(
+          container.read(settingsProvider).value!.illustRankingLastMode,
+          'week',
+        );
+        tester.binding
+          ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+          ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
+        await tester.pumpWidget(const SizedBox());
+        await _pumpRanking(tester, container);
+        expect(tabs(tester).index, 1);
+        expect(fixture.requests.last.queryParameters['mode'], 'week');
+      });
     });
   });
 }

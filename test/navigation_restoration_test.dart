@@ -197,7 +197,7 @@ void main() {
       tester.widget<RankingPage>(find.byType(RankingPage)).initialMode,
       RankingMode.week,
     );
-    await tester.tap(find.byType(Tab).at(7));
+    await tester.tap(find.byType(Tab).at(9));
     await tester.pumpAndSettle();
 
     expect(router.state.uri.path, '/ranking');

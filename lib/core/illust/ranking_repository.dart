@@ -6,26 +6,97 @@ import '../network/api_error.dart';
 import '../network/next_page_parser.dart';
 import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
+import '../ranking/ranking_category.dart';
+import '../settings/arrangement.dart';
 
-/// The fixed beta56 order is part of the visible contract. API values are
-/// explicit so a future enum reorder cannot silently change a request.
-enum RankingMode {
+/// `/v1/illust/ranking` modes (21, probed 2026-10-11). The tab order is
+/// [defaultArrangement] or the user's; API values are explicit so an enum
+/// reorder cannot silently change a request.
+enum RankingMode implements RankingCategory {
   day('day', 'rankingDay'),
-  dayR18('day_r18', 'rankingDayR18'),
-  dayMale('day_male', 'rankingDayMale'),
-  dayMaleR18('day_male_r18', 'rankingDayMaleR18'),
-  dayFemale('day_female', 'rankingDayFemale'),
-  dayFemaleR18('day_female_r18', 'rankingDayFemaleR18'),
   week('week', 'rankingWeek'),
-  weekR18('week_r18', 'rankingWeekR18'),
-  weekOriginal('week_original', 'rankingWeekOriginal'),
+  month('month', 'rankingMonth'),
   weekRookie('week_rookie', 'rankingWeekRookie'),
-  month('month', 'rankingMonth');
+  weekOriginal('week_original', 'rankingWeekOriginal'),
+  dayAi('day_ai', 'rankingAi', isAi: true),
+  dayMale('day_male', 'rankingDayMale'),
+  dayFemale('day_female', 'rankingDayFemale'),
+  dayR18('day_r18', 'rankingDayR18', rating: RankingRating.r18),
+  weekR18('week_r18', 'rankingWeekR18', rating: RankingRating.r18),
+  dayR18Ai(
+    'day_r18_ai',
+    'rankingAiR18',
+    rating: RankingRating.r18,
+    isAi: true,
+  ),
+  dayMaleR18('day_male_r18', 'rankingDayMaleR18', rating: RankingRating.r18),
+  dayFemaleR18(
+    'day_female_r18',
+    'rankingDayFemaleR18',
+    rating: RankingRating.r18,
+  ),
+  weekR18G('week_r18g', 'rankingWeekR18G', rating: RankingRating.r18g),
+  dayManga('day_manga', 'rankingDayManga'),
+  weekManga('week_manga', 'rankingWeekManga'),
+  monthManga('month_manga', 'rankingMonthManga'),
+  weekRookieManga('week_rookie_manga', 'rankingWeekRookieManga'),
+  dayR18Manga('day_r18_manga', 'rankingDayR18Manga', rating: RankingRating.r18),
+  weekR18Manga(
+    'week_r18_manga',
+    'rankingWeekR18Manga',
+    rating: RankingRating.r18,
+  ),
+  weekR18GManga(
+    'week_r18g_manga',
+    'rankingWeekR18GManga',
+    rating: RankingRating.r18g,
+  );
 
-  const RankingMode(this.apiValue, this.labelKey);
+  const RankingMode(
+    this.apiValue,
+    this.labelKey, {
+    this.rating = RankingRating.allAges,
+    this.isAi = false,
+  });
 
+  @override
   final String apiValue;
+  @override
   final String labelKey;
+  @override
+  final RankingRating rating;
+  @override
+  final bool isAi;
+
+  /// pixiv web's ranking order, all ages before R-18; R-18G and manga are
+  /// offered but hidden.
+  static const defaultArrangement = Arrangement<RankingMode>(
+    shown: [
+      day,
+      week,
+      month,
+      weekRookie,
+      weekOriginal,
+      dayAi,
+      dayMale,
+      dayFemale,
+      dayR18,
+      weekR18,
+      dayR18Ai,
+      dayMaleR18,
+      dayFemaleR18,
+    ],
+    hidden: [
+      weekR18G,
+      dayManga,
+      weekManga,
+      monthManga,
+      weekRookieManga,
+      dayR18Manga,
+      weekR18Manga,
+      weekR18GManga,
+    ],
+  );
 
   static RankingMode? fromApiValue(String value) {
     for (final mode in values) {

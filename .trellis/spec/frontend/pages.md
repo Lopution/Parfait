@@ -15,7 +15,7 @@ applies_to:
   - lib/app/widgets/inline_translation.dart
   - lib/app/widgets/selectable_tile.dart
   - lib/app/widgets/sliver_surface_list.dart
-reviewed: 2026-10-12
+reviewed: 2026-10-13
 ---
 
 # Page-specific rules
@@ -90,6 +90,23 @@ reviewed: 2026-10-12
   device.
 - **Check:** `test/spotlight_article_test.dart` "the cover comes from the list entry on pximg"
 - **Code:** `lib/features/spotlight/spotlight_article_page.dart`
+
+### PAGE-15 Ranking tabs are the user's categories minus the local block
+- **Rule:** Both ranking pages show the saved category arrangement minus
+  the local R-18 (with R-18G) and AI blocks, through one `RankingTabs`. A
+  route to a hidden category shows it first for that visit without saving
+  it; an edit keeps the category on screen or lands on its neighbour, and
+  the category sheet lists the page's live tabs. A page off screen writes
+  the new category into its route only once it shows again. The last
+  category viewed is saved when the app is hidden or the page closes,
+  never on each switch.
+- **Why:** User decision: 33 categories are too many to show at once, so
+  the user picks and orders them. An edit from the settings branch made
+  the background page replace the route and pulled the user back to the
+  ranking. Every settings write rebuilds the app root and its theme, so a
+  write per tab switch costs a frame on every switch.
+- **Check:** `test/ranking_categories_test.dart` "a hidden route category goes first; a blocked one does not" `test/ranking_feed_test.dart` "an edit updates the tabs, keeps the category and saves" "an edit made from another branch waits to write the route" "a ranking opened without a mode lands on the last one" `test/tab_swipe_switcher_test.dart` "a new tab list drops the spring-back of the old one"
+- **Code:** `lib/features/ranking/ranking_tabs.dart`, `lib/core/ranking`
 
 ## Shared page pieces
 

@@ -14,6 +14,7 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
     required this.labels,
     this.controller,
     this.onTap,
+    this.labelWrapper,
   });
 
   /// The labels, in tab order.
@@ -25,6 +26,9 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
   /// Passed through to [TabBar.onTap] unchanged — hosts that re-arm on a
   /// re-tap must not `animateTo` the already-selected index here.
   final ValueChanged<int>? onTap;
+
+  /// Wraps the label of the tab at an index, e.g. in a long-press menu.
+  final Widget Function(int index, Widget label)? labelWrapper;
 
   static const _labelPadding = EdgeInsets.symmetric(horizontal: FuncSpacing.md);
 
@@ -81,19 +85,22 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
           labelPadding: _labelPadding,
           onTap: onTap,
           tabs: [
-            for (final label in labels)
-              Tab(
-                child: Text(
-                  label,
-                  style: _tabular,
-                  softWrap: false,
-                  overflow: TextOverflow.fade,
-                ),
-              ),
+            for (final (index, label) in labels.indexed)
+              Tab(child: _label(index, label)),
           ],
         );
         return fits ? bar : ScrollEdgeFade(child: bar);
       },
     );
+  }
+
+  Widget _label(int index, String label) {
+    final text = Text(
+      label,
+      style: _tabular,
+      softWrap: false,
+      overflow: TextOverflow.fade,
+    );
+    return labelWrapper?.call(index, text) ?? text;
   }
 }

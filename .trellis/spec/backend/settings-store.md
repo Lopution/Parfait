@@ -5,7 +5,7 @@ applies_to:
   - lib/core/auth/credential_store.dart
   - lib/core/translation/**
   - lib/core/auth/account_transfer*.dart
-reviewed: 2026-10-12
+reviewed: 2026-10-13
 ---
 
 # Settings persistence and secrets
@@ -69,3 +69,16 @@ reviewed: 2026-10-12
   other secrets.
 - **Check:** `test/account_transfer_service_test.dart` "exported envelope carries only the account credential, never translation secrets"
 - **Code:** `lib/core/auth/account_transfer.dart`, `lib/core/auth/account_transfer_service.dart`
+
+### PREF-07 A user-ordered list is an Arrangement saved only when edited
+- **Rule:** Every list the user orders and hides (ranking categories, the
+  bottom bar) persists as `Arrangement` entries `[{id, visible}]` and
+  resolves through `Arrangement.resolve`: unknown and repeated ids are
+  skipped, items the payload lacks are appended with their default
+  visibility, and one item always stays shown. An arrangement equal to
+  the defaults is saved as null.
+- **Why:** User decision: one model for every customizable list. A saved
+  copy of the defaults would freeze them, so items a later version adds
+  or reorders by default would never reach users who never edited.
+- **Check:** `test/ranking_categories_test.dart` "unknown and repeated ids are skipped, unmentioned items appended" "a payload hiding every known item still shows one"
+- **Code:** `lib/core/settings/arrangement.dart`, `lib/core/ranking/ranking_catalog.dart`

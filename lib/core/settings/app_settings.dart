@@ -11,6 +11,7 @@ import '../download/download_destination.dart';
 import '../download/naming_rule.dart';
 import '../reverse_image/reverse_image_engine.dart';
 import '../search/search_models.dart';
+import 'arrangement.dart';
 import 'image_mirror.dart';
 
 export 'image_mirror.dart' show ImageSourceMode, ImageMirror;
@@ -250,6 +251,10 @@ class AppSettings {
     this.reverseImageEngine = ReverseImageEngine.sauceNao,
     this.searchIllustFilters = IllustSearchFilters.defaults,
     this.searchNovelFilters = NovelSearchFilters.defaults,
+    this.illustRankingArrangement,
+    this.novelRankingArrangement,
+    this.illustRankingLastMode,
+    this.novelRankingLastMode,
     this.schemaVersion = currentSchemaVersion,
   });
 
@@ -374,6 +379,17 @@ class AppSettings {
   final IllustSearchFilters searchIllustFilters;
   final NovelSearchFilters searchNovelFilters;
 
+  /// The user's ranking categories, every known mode by `apiValue` in
+  /// order with its visibility; null until edited (the default). Resolved
+  /// against the mode list by `Arrangement.resolve`.
+  final List<ArrangedEntry>? illustRankingArrangement;
+  final List<ArrangedEntry>? novelRankingArrangement;
+
+  /// The `apiValue` of the ranking category viewed last, where a ranking
+  /// opened without a mode lands.
+  final String? illustRankingLastMode;
+  final String? novelRankingLastMode;
+
   factory AppSettings.defaults() {
     return AppSettings(
       guideCompleted: false,
@@ -495,6 +511,26 @@ class AppSettings {
           : json.containsKey('searchFilters')
           ? NovelSearchFilters.fromJson(json['searchFilters'])
           : base.searchNovelFilters,
+      illustRankingArrangement: _arrangement(
+        json,
+        'illustRankingArrangement',
+        base.illustRankingArrangement,
+      ),
+      novelRankingArrangement: _arrangement(
+        json,
+        'novelRankingArrangement',
+        base.novelRankingArrangement,
+      ),
+      illustRankingLastMode: _nullableString(
+        json,
+        'illustRankingLastMode',
+        base.illustRankingLastMode,
+      ),
+      novelRankingLastMode: _nullableString(
+        json,
+        'novelRankingLastMode',
+        base.novelRankingLastMode,
+      ),
     );
   }
 
@@ -535,6 +571,10 @@ class AppSettings {
       'reverseImageEngine': reverseImageEngine.name,
       'searchIllustFilters': searchIllustFilters.toJson(),
       'searchNovelFilters': searchNovelFilters.toJson(),
+      'illustRankingArrangement': _encodeArrangement(illustRankingArrangement),
+      'novelRankingArrangement': _encodeArrangement(novelRankingArrangement),
+      'illustRankingLastMode': illustRankingLastMode,
+      'novelRankingLastMode': novelRankingLastMode,
     };
   }
 
@@ -671,6 +711,10 @@ class AppSettings {
     ReverseImageEngine? reverseImageEngine,
     IllustSearchFilters? searchIllustFilters,
     NovelSearchFilters? searchNovelFilters,
+    Object? illustRankingArrangement = _unset,
+    Object? novelRankingArrangement = _unset,
+    String? illustRankingLastMode,
+    String? novelRankingLastMode,
   }) {
     return AppSettings(
       schemaVersion: currentSchemaVersion,
@@ -725,6 +769,15 @@ class AppSettings {
       reverseImageEngine: reverseImageEngine ?? this.reverseImageEngine,
       searchIllustFilters: searchIllustFilters ?? this.searchIllustFilters,
       searchNovelFilters: searchNovelFilters ?? this.searchNovelFilters,
+      illustRankingArrangement: identical(illustRankingArrangement, _unset)
+          ? this.illustRankingArrangement
+          : illustRankingArrangement as List<ArrangedEntry>?,
+      novelRankingArrangement: identical(novelRankingArrangement, _unset)
+          ? this.novelRankingArrangement
+          : novelRankingArrangement as List<ArrangedEntry>?,
+      illustRankingLastMode:
+          illustRankingLastMode ?? this.illustRankingLastMode,
+      novelRankingLastMode: novelRankingLastMode ?? this.novelRankingLastMode,
     );
   }
 
@@ -745,6 +798,21 @@ class AppSettings {
     if (value is int && value >= 1 && value <= 10) return value;
     return fallback;
   }
+
+  static List<ArrangedEntry>? _arrangement(
+    Map<String, dynamic> json,
+    String key,
+    List<ArrangedEntry>? fallback,
+  ) {
+    if (!json.containsKey(key)) return fallback;
+    final value = json[key];
+    if (value == null) return null;
+    return Arrangement.decodeEntries(value) ?? fallback;
+  }
+
+  static List<Map<String, Object>>? _encodeArrangement(
+    List<ArrangedEntry>? entries,
+  ) => entries == null ? null : Arrangement.encodeEntries(entries);
 
   static String? _nullableString(
     Map<String, dynamic> json,

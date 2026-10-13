@@ -529,7 +529,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get browseSettings => 'ブラウズ設定';
 
   @override
+  String get navigationSettings => 'ナビゲーションとレイアウト';
+
+  @override
   String get settingsBrowseHint => 'ローカル非表示・画質';
+
+  @override
+  String get settingsNavigationHint => 'ランキングのカテゴリー';
 
   @override
   String get downloadSettings => 'ダウンロード設定';
@@ -1580,43 +1586,64 @@ class AppLocalizationsJa extends AppLocalizations {
   String get rankingDay => 'デイリー';
 
   @override
-  String get rankingDayR18 => 'デイリー (R-18)';
+  String get rankingDayR18 => 'デイリー R-18';
 
   @override
-  String get rankingDayMale => 'デイリー (男子に人気)';
+  String get rankingDayMale => '男子に人気';
 
   @override
-  String get rankingDayMaleR18 => 'デイリー (男子に人気 & R-18)';
+  String get rankingDayMaleR18 => '男子に人気 R-18';
 
   @override
-  String get rankingDayFemale => 'デイリー (女子に人気)';
+  String get rankingDayFemale => '女子に人気';
 
   @override
-  String get rankingDayFemaleR18 => 'デイリー (女子に人気 & R-18)';
+  String get rankingDayFemaleR18 => '女子に人気 R-18';
 
   @override
   String get rankingWeek => 'ウィークリー';
 
   @override
-  String get rankingWeekR18 => 'ウィークリー (R-18)';
+  String get rankingWeekR18 => 'ウィークリー R-18';
 
   @override
-  String get rankingWeekOriginal => 'ウィークリー (オリジナル)';
+  String get rankingWeekOriginal => 'オリジナル';
 
   @override
-  String get rankingWeekRookie => 'ウィークリー (ルーキー)';
+  String get rankingWeekRookie => 'ルーキー';
 
   @override
-  String get rankingWeekAi => 'ウィークリー (AI)';
+  String get rankingAi => 'AI';
 
   @override
-  String get rankingWeekAiR18 => 'ウィークリー (AI & R-18)';
+  String get rankingAiR18 => 'AI R-18';
 
   @override
-  String get rankingWeekR18G => 'ウィークリー (R-18G)';
+  String get rankingWeekR18G => 'R-18G';
 
   @override
   String get rankingMonth => 'マンスリー';
+
+  @override
+  String get rankingDayManga => 'マンガ・デイリー';
+
+  @override
+  String get rankingWeekManga => 'マンガ・ウィークリー';
+
+  @override
+  String get rankingMonthManga => 'マンガ・マンスリー';
+
+  @override
+  String get rankingWeekRookieManga => 'マンガ・ルーキー';
+
+  @override
+  String get rankingDayR18Manga => 'マンガ・デイリー R-18';
+
+  @override
+  String get rankingWeekR18Manga => 'マンガ・ウィークリー R-18';
+
+  @override
+  String get rankingWeekR18GManga => 'マンガ R-18G';
 
   @override
   String get rankingEmpty => 'ランキングの内容はありません';
@@ -1639,6 +1666,77 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get rankingLoadMoreFailed => '追加コンテンツの読み込みに失敗しました';
+
+  @override
+  String get rankingAllCategories => 'すべてのカテゴリー';
+
+  @override
+  String get rankingIllust => 'イラストランキング';
+
+  @override
+  String get rankingLatest => '最新';
+
+  @override
+  String get rankingMyCategories => 'マイカテゴリー';
+
+  @override
+  String get rankingEdit => '編集';
+
+  @override
+  String get rankingEditDone => '完了';
+
+  @override
+  String get rankingDragHint => '長押しでドラッグして並べ替え';
+
+  @override
+  String get rankingHiddenCategories => '非表示';
+
+  @override
+  String get rankingHiddenEmpty => 'すべてのカテゴリーを表示中';
+
+  @override
+  String get rankingRestoreDefault => 'デフォルトに戻す';
+
+  @override
+  String get rankingBlocked => '閲覧設定でブロック中';
+
+  @override
+  String get rankingBlockedNote => 'グレーのカテゴリーは閲覧設定でブロック中のため表示されません';
+
+  @override
+  String get rankingMoveToFront => '先頭に移動';
+
+  @override
+  String get rankingMoveEarlier => '前へ移動';
+
+  @override
+  String get rankingMoveLater => '後ろへ移動';
+
+  @override
+  String get rankingHideCategory => 'このカテゴリーを非表示';
+
+  @override
+  String get rankingShowCategory => 'このカテゴリーを表示';
+
+  @override
+  String get rankingEditCategories => 'カテゴリーを編集…';
+
+  @override
+  String get rankingR18gHint => 'pixiv のウェブ設定で R-18G の表示をオンにしてください';
+
+  @override
+  String get rankingR18gOpenSettings => 'pixiv の設定を開く';
+
+  @override
+  String get illustRankingCategories => 'イラストランキングのカテゴリー';
+
+  @override
+  String get novelRankingCategories => '小説ランキングのカテゴリー';
+
+  @override
+  String rankingCategoriesShown(int shown, int total) {
+    return '$total 件中 $shown 件を表示';
+  }
 
   @override
   String get profileBookmarked => 'ブックマーク';
