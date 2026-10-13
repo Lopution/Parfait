@@ -175,6 +175,27 @@ reviewed: 2026-10-13
 - **Check:** manual
 - **Code:** `rust-toolchain.toml`
 
+### REL-17 Dependency upgrades start from a risk table
+- **Rule:** Once a month, look at `flutter pub outdated` (app and plugin),
+  `cargo update --dry-run`, Flutter's stable hotfix notes, the latest
+  `deps-report` artifact and the open Dependabot alerts. An upgrade first
+  fills one row per dependency: from and to, what the changelogs say
+  (breaking, behaviour, security), where the app calls it, risk, and the
+  tests and device checks that verify it. Read changelogs and source, not
+  version numbers. One PR, one commit per layer (SDK and Dart packages,
+  Rust and FRB, each major package) so each reverts alone. A package that
+  cannot move goes to the user with options; a held version says why at
+  its pin. An alert on code the app runs exposed (network, TLS, parsing)
+  gets its own PR when it appears; otherwise the next upgrade closes it.
+  Dependabot does not see Gradle: check AndroidX by hand. Workflows pin
+  each action to a release's commit SHA with the version in a comment
+  (`uses: owner/action@<sha> # vX.Y.Z`); the monthly check moves them.
+- **Why:** Upgrades were judged by version numbers. A compatible
+  rustls-platform-verifier release would have broken the Android build,
+  and easy_refresh 4 changed the profile's fling.
+- **Check:** manual
+- **Code:** `pubspec.yaml`, `plugins/rhttp/rhttp/rust/Cargo.toml`, `.github/workflows/ci.yml`
+
 ## Process
 
 ### REL-14 Releases follow the checklist in `tool/RELEASE.md`

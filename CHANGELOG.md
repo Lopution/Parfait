@@ -11,12 +11,14 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 打开兼容通道时，API、登录和网页请求不再落到会被 pixiv 源站以 403 拒绝的无 SNI 连接；这条最后的兜底连接只用于图片。
 - 没网时点的收藏、关注和追更，现在会在启动时和网络恢复时自动补发，不必切到后台或再做一次操作；补发失败后会在等待结束时自动重试，补发途中应用被关闭也不会丢失。
 - 应用运行中清除缓存，不再导致图片加载出错。
+- 在部分使用 PowerVR B 系列 GPU 的设备上，画面异常和卡顿的问题已修复。
 
 ### Fixed
 
 - With the compatibility route on, API, login and web requests no longer fall back to a no-SNI connection that pixiv's origin rejects with 403; that last-resort connection now serves images only.
 - Bookmarks, follows and watchlist changes made offline are now sent at launch and as soon as the network is back, without leaving the app or tapping something else; a failed attempt retries once its wait is over, and closing the app mid-send no longer loses them.
 - Clearing the app's cache while it runs no longer makes images fail to load.
+- Fixed visual glitches and slowdowns on devices with PowerVR B-Series GPUs.
 
 ## [0.9.0] - 2026-10-10
 

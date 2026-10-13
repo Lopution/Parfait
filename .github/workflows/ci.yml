@@ -18,10 +18,10 @@ jobs:
       plugin: ${{ steps.filter.outputs.plugin }}
       deps: ${{ steps.filter.outputs.deps }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           # Fail-open design: enumerate paths that can affect artifacts, not
@@ -72,7 +72,7 @@ jobs:
   analyze:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: python3 tool/check_spec.py --self-test
       - run: python3 tool/check_spec.py
       - name: Test budget (spec TEST-05)
@@ -81,9 +81,9 @@ jobs:
         run: |
           git fetch --quiet --depth=1 origin "$BASE_REF"
           python3 tool/test_budget.py --base FETCH_HEAD --summary "$GITHUB_STEP_SUMMARY"
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: "3.47.2"
+          flutter-version: "3.47.7"
           channel: "stable"
           cache: true
       - run: flutter pub get --enforce-lockfile
@@ -102,15 +102,15 @@ jobs:
         # every file and make each shard compile the whole suite.
         shard: [0, 1, 2, 3, 4, 5]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Pick this shard's test files
         run: |
           python3 tool/test_shards.py --shards ${{ strategy.job-total }} --check
           python3 tool/test_shards.py --shards ${{ strategy.job-total }} \
             --index ${{ matrix.shard }} > "$RUNNER_TEMP/shard-files.txt"
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: "3.47.2"
+          flutter-version: "3.47.7"
           channel: "stable"
           cache: true
       - run: flutter pub get --enforce-lockfile
@@ -156,19 +156,19 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: "17"
           cache: gradle
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: "3.47.2"
+          flutter-version: "3.47.7"
           channel: "stable"
           cache: true
       - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           # cargokit builds into the rhttp Gradle project's buildDir/build
           # (cargo --target-dir), not rust/target.
@@ -220,14 +220,15 @@ jobs:
 
       - name: Report split APK sizes
         # Defaults = measured github split bytes + 1_000_000 headroom.
-        # armeabi-v7a re-baselined 2026-09-23 (25,895,753) — W4 viewer/
-        # series-flow AOT growth exhausted the 09-16 margin; arm64 stays
-        # on the 28,985,336 baseline. fdroid runs ~12 KB under.
+        # armeabi-v7a re-baselined 2026-10-13 (27,032,643) — the
+        # dependency refresh (image 4.12 encoders, Rust crates, Flutter
+        # 3.47.7) exhausted the 09-23 margin; arm64 (30,824,257) stays
+        # on the 09-24 baseline. fdroid runs ~12 KB under.
         # Repo vars override; the arm64 32_000_000 hard cap still
         # applies (stricter wins).
         env:
           PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '31042311' }}
-          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '26895753' }}
+          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '28032643' }}
         run: |
           python3 tool/apk_size_report.py \
             build/app/outputs/flutter-apk/app-arm64-v8a-github-release.apk \
@@ -252,14 +253,14 @@ jobs:
             -PPIXIV_RELEASE_KEYSTORE_PASSWORD="$PIXIV_RELEASE_KEYSTORE_PASSWORD" \
             -PPIXIV_RELEASE_KEY_ALIAS="$PIXIV_RELEASE_KEY_ALIAS" \
             -PPIXIV_RELEASE_KEY_PASSWORD="$PIXIV_RELEASE_KEY_PASSWORD"
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: github.event_name == 'push'
         continue-on-error: true
         with:
           name: github-analyze-size
           path: build/analyze-size/github
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: github-release-symbols
           path: build/symbols/github
@@ -277,19 +278,19 @@ jobs:
       github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: "17"
           cache: gradle
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: "3.47.2"
+          flutter-version: "3.47.7"
           channel: "stable"
           cache: true
       - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           # cargokit builds into the rhttp Gradle project's buildDir/build
           # (cargo --target-dir), not rust/target.
@@ -303,19 +304,20 @@ jobs:
             --obfuscate --split-debug-info=build/symbols/fdroid
       - name: Report split APK sizes
         # Defaults = measured github split bytes + 1_000_000 headroom.
-        # armeabi-v7a re-baselined 2026-09-23 (25,895,753) — W4 viewer/
-        # series-flow AOT growth exhausted the 09-16 margin; arm64 stays
-        # on the 28,985,336 baseline. fdroid runs ~12 KB under.
+        # armeabi-v7a re-baselined 2026-10-13 (27,032,643) — the
+        # dependency refresh (image 4.12 encoders, Rust crates, Flutter
+        # 3.47.7) exhausted the 09-23 margin; arm64 (30,824,257) stays
+        # on the 09-24 baseline. fdroid runs ~12 KB under.
         # Repo vars override; the arm64 32_000_000 hard cap still
         # applies (stricter wins).
         env:
           PIXIV_APK_MAX_BYTES_ARM64_V8A: ${{ vars.PIXIV_APK_MAX_BYTES_ARM64_V8A || '31042311' }}
-          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '26895753' }}
+          PIXIV_APK_MAX_BYTES_ARMEABI_V7A: ${{ vars.PIXIV_APK_MAX_BYTES_ARMEABI_V7A || '28032643' }}
         run: |
           python3 tool/apk_size_report.py \
             build/app/outputs/flutter-apk/app-arm64-v8a-fdroid-release.apk \
             build/app/outputs/flutter-apk/app-armeabi-v7a-fdroid-release.apk
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: fdroid-split-apks
           path: |
@@ -328,15 +330,15 @@ jobs:
     if: needs.changes.outputs.plugin == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: "3.47.2"
+          flutter-version: "3.47.7"
           channel: "stable"
           cache: true
       - run: rustup toolchain install
       - run: rustup show active-toolchain
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: plugins/rhttp/rhttp/rust
       - run: flutter pub get --enforce-lockfile
@@ -356,15 +358,15 @@ jobs:
     if: needs.changes.outputs.android == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: "17"
           cache: gradle
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: "3.47.2"
+          flutter-version: "3.47.7"
           channel: "stable"
           cache: true
       - run: flutter pub get --enforce-lockfile
@@ -378,10 +380,10 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v6
-      - uses: subosito/flutter-action@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
-          flutter-version: "3.47.2"
+          flutter-version: "3.47.7"
           channel: "stable"
           cache: true
       - run: rustup toolchain install
@@ -391,7 +393,7 @@ jobs:
           flutter pub outdated > deps-report/root-pub-outdated.txt 2>&1 || true
           (cd plugins/rhttp/rhttp && flutter pub outdated) > deps-report/plugin-pub-outdated.txt 2>&1 || true
           (cd plugins/rhttp/rhttp/rust && cargo update --dry-run) > deps-report/cargo-update-dry-run.txt 2>&1
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: deps-report
           path: deps-report/

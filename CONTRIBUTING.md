@@ -19,7 +19,7 @@ The app is written in Flutter with Riverpod for state. Direct access in mainland
 
 ## Requirements
 
-- Flutter **3.47.2** (stable), the version CI uses
+- Flutter **3.47.7** (stable), the version CI uses
 - Rust through [rustup](https://rustup.rs/); `rust-toolchain.toml` pins the toolchain and the Android targets, so `rustup toolchain install` in the repository root is enough
 - Android SDK with the NDK version Flutter selects, and JDK 17
 

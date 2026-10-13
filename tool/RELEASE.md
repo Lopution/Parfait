@@ -108,7 +108,7 @@ release goes through these steps in order:
 `release.yml` automates steps 1–4 below; use them when the workflow
 cannot run.
 
-1. Build the two split APKs: see above, `github` flavor. Flutter 3.47.2
+1. Build the two split APKs: see above, `github` flavor. Flutter 3.47.7
    names them `app-arm64-v8a-github-release.apk` and
    `app-armeabi-v7a-github-release.apk`.
 2. Check that both signer certificate fingerprints match:

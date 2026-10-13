@@ -126,6 +126,7 @@ final class _ScaledTextScaler extends TextScaler {
   double scale(double fontSize) => base.scale(fontSize) * factor;
 
   @override
+  // TextScaler still declares this getter; only base's own can forward it.
   // ignore: deprecated_member_use
   double get textScaleFactor => base.textScaleFactor * factor;
 
