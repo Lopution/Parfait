@@ -66,6 +66,8 @@ python3 tool/gen_l10n_lookup.py
 
 - Target `main`. It is protected: pull requests only, the `analyze-and-test` check must pass, and changes land as merge commits.
 - Keep a pull request focused, with one to three logical commits and clear English commit messages.
+- Title the pull request in [Conventional Commits](https://www.conventionalcommits.org/) form, like the commits (`fix(network): …`), and fill in the template. Its "User-facing change" line goes into [CHANGELOG.md](CHANGELOG.md) and the release notes, so write it for users.
+- Link the issue it resolves with `Closes #N`.
 - Rebase onto `main` before review. Resolve `pubspec.lock` or `Cargo.lock` conflicts by regenerating them (`flutter pub get`, `cargo update`), not by hand.
 - UI changes: include before/after screenshots in the pull request.
 

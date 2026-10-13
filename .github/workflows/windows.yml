@@ -44,7 +44,7 @@ jobs:
           workspaces: plugins/rhttp/rhttp/rust -> ../../../../build/windows/x64/plugins/rhttp/cargokit_build
       - run: flutter pub get --enforce-lockfile
       - run: flutter build windows --release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: parfait-windows-x64
           path: build/windows/x64/runner/Release

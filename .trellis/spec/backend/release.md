@@ -14,6 +14,8 @@ applies_to:
   - pubspec.yaml
   - pubspec.lock
   - rust-toolchain.toml
+  - CHANGELOG.md
+  - .github/pull_request_template.md
 reviewed: 2026-10-13
 ---
 
@@ -25,6 +27,7 @@ reviewed: 2026-10-13
 - [Updater](#updater)
 - [CI](#ci)
 - [Toolchain](#toolchain)
+- [Process](#process)
 
 ## Artifacts and signing
 
@@ -171,3 +174,41 @@ reviewed: 2026-10-13
   otherwise falls back to `stable`.
 - **Check:** manual
 - **Code:** `rust-toolchain.toml`
+
+## Process
+
+### REL-14 Releases follow the checklist in `tool/RELEASE.md`
+- **Rule:** User decision: a release ships when its features are
+  complete, not on a schedule. Version and `CHANGELOG.md` move in one PR;
+  that CHANGELOG section becomes the draft's notes before `release.yml`
+  runs, and the workflow pins the draft to the commit it built. The user
+  accepts the APK on a device before it is published; a large or risky
+  version is a pre-release first, which the in-app updater skips.
+- **Why:** v0.9.0's notes were first generated from developer-facing PR
+  titles, and a draft without a target tags whatever `main` holds when it
+  is published.
+- **Check:** manual
+- **Code:** `tool/RELEASE.md`, `.github/workflows/release.yml`
+
+### REL-15 Unfinished features stay hidden on `main`
+- **Rule:** A feature that lands over several PRs keeps its entry point
+  (route, tab, menu item, setting) hidden until the last one merges, so
+  every commit on `main` can be released. Hide the entry, not the code;
+  the PR that reveals it adds the CHANGELOG entry.
+- **Why:** Ranking categories and the bottom bar land in stages while a
+  hotfix may have to ship from `main` at any time.
+- **Check:** manual
+- **Code:** `lib/app`
+
+### REL-16 PRs follow the template; high-risk ones may get a second review
+- **Rule:** PR titles use Conventional Commits, like the commits. The
+  template's "User-facing change" (Chinese and English, or "none") feeds
+  `CHANGELOG.md`. User decision: an independent `codex review --base main`
+  is suggested for high-risk PRs (network and TLS, credentials and
+  accounts, persistence and migrations, downloads, release and signing,
+  CI workflows) and never required. Each finding is fixed or answered in
+  the PR's "Independent review" section.
+- **Why:** One agent wrote, checked and merged every change; the first
+  review caught a cross-account replay the tests had missed.
+- **Check:** manual
+- **Code:** `.github/pull_request_template.md`
