@@ -107,13 +107,12 @@ class _Verifier implements TransferCredentialVerifier {
 (ProviderContainer, AccountStore, FakeCredentialStore, _Metadata) _container() {
   final credentials = FakeCredentialStore();
   final metadata = _Metadata();
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(metadata),
     ],
   );
-  addTearDown(container.dispose);
   return (
     container,
     container.read(accountStoreProvider.notifier),

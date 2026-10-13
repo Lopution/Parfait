@@ -15,6 +15,15 @@ import 'package:parfait/core/network/compat/policy_download_transport.dart';
 
 import 'helpers/restricted_compat_support.dart';
 
+/// An app-API client over [policy], which the test disposes.
+PixivPolicyHttpClient _appApi(NetworkAccessPolicy policy) {
+  addTearDown(policy.dispose);
+  return PixivPolicyHttpClient(
+    policy: policy,
+    purpose: PixivDestinationPurpose.appApi,
+  );
+}
+
 void main() {
   installMemoryPreferences();
 
@@ -232,15 +241,12 @@ void main() {
     final direct = FakeClient(failure: SocketException('Connection refused'));
     final secureDns = FakeClient(body: '{"route":"secure-dns"}');
     final resolver = FakeResolver([InternetAddress('1.2.3.4')]);
-    final policy = NetworkAccessPolicy(
-      resolver: resolver,
-      clientFactory: (route, canonicalHost, _) =>
-          route.kind == NetworkRouteKind.direct ? direct : secureDns,
-    );
-    addTearDown(policy.dispose);
-    final client = PixivPolicyHttpClient(
-      policy: policy,
-      purpose: PixivDestinationPurpose.appApi,
+    final client = _appApi(
+      NetworkAccessPolicy(
+        resolver: resolver,
+        clientFactory: (route, canonicalHost, _) =>
+            route.kind == NetworkRouteKind.direct ? direct : secureDns,
+      ),
     );
 
     final response = await client.get(
@@ -268,11 +274,7 @@ void main() {
         resolver: resolver,
         clientFactory: (route, canonicalHost, purpose) => direct,
       );
-      addTearDown(policy.dispose);
-      final client = PixivPolicyHttpClient(
-        policy: policy,
-        purpose: PixivDestinationPurpose.appApi,
-      );
+      final client = _appApi(policy);
 
       final response = await client.get(apiUri);
 
@@ -289,15 +291,12 @@ void main() {
       final direct = FakeClient(failure: SocketException('Connection reset'));
       final secureDns = FakeClient(body: 'should-not-send');
       final resolver = FakeResolver([InternetAddress('1.2.3.5')]);
-      final policy = NetworkAccessPolicy(
-        resolver: resolver,
-        clientFactory: (route, canonicalHost, _) =>
-            route.kind == NetworkRouteKind.direct ? direct : secureDns,
-      );
-      addTearDown(policy.dispose);
-      final client = PixivPolicyHttpClient(
-        policy: policy,
-        purpose: PixivDestinationPurpose.appApi,
+      final client = _appApi(
+        NetworkAccessPolicy(
+          resolver: resolver,
+          clientFactory: (route, canonicalHost, _) =>
+              route.kind == NetworkRouteKind.direct ? direct : secureDns,
+        ),
       );
 
       final response = await client.post(
@@ -322,15 +321,12 @@ void main() {
       [InternetAddress('1.2.3.41')],
       frontAddresses: [InternetAddress('1.2.3.42')],
     );
-    final policy = NetworkAccessPolicy(
-      resolver: resolver,
-      clientFactory: (route, canonicalHost, purpose) =>
-          route.kind == NetworkRouteKind.bootstrapNoSni ? fallback : doh,
-    );
-    addTearDown(policy.dispose);
-    final client = PixivPolicyHttpClient(
-      policy: policy,
-      purpose: PixivDestinationPurpose.appApi,
+    final client = _appApi(
+      NetworkAccessPolicy(
+        resolver: resolver,
+        clientFactory: (route, canonicalHost, purpose) =>
+            route.kind == NetworkRouteKind.bootstrapNoSni ? fallback : doh,
+      ),
     );
 
     await expectLater(
@@ -357,18 +353,15 @@ void main() {
       [InternetAddress('1.2.3.20')],
       frontAddresses: [InternetAddress('1.2.3.21')],
     );
-    final policy = NetworkAccessPolicy(
-      resolver: resolver,
-      clientFactory: (route, canonicalHost, _) => switch (route.kind) {
-        NetworkRouteKind.ech => ech,
-        NetworkRouteKind.direct => direct,
-        _ => doh,
-      },
-    );
-    addTearDown(policy.dispose);
-    final client = PixivPolicyHttpClient(
-      policy: policy,
-      purpose: PixivDestinationPurpose.appApi,
+    final client = _appApi(
+      NetworkAccessPolicy(
+        resolver: resolver,
+        clientFactory: (route, canonicalHost, _) => switch (route.kind) {
+          NetworkRouteKind.ech => ech,
+          NetworkRouteKind.direct => direct,
+          _ => doh,
+        },
+      ),
     );
 
     final response = await client.post(
@@ -403,11 +396,7 @@ void main() {
       clientFactory: (route, canonicalHost, _) =>
           route.kind == NetworkRouteKind.direct ? direct : ech,
     );
-    addTearDown(policy.dispose);
-    final client = PixivPolicyHttpClient(
-      policy: policy,
-      purpose: PixivDestinationPurpose.appApi,
-    );
+    final client = _appApi(policy);
 
     await client.get(apiUri);
     expect(
@@ -516,11 +505,7 @@ void main() {
           _ => doh,
         },
       );
-      addTearDown(policy.dispose);
-      final client = PixivPolicyHttpClient(
-        policy: policy,
-        purpose: PixivDestinationPurpose.appApi,
-      );
+      final client = _appApi(policy);
 
       final response = await client.get(apiUri);
       expect(response.statusCode, 200);
@@ -647,15 +632,12 @@ void main() {
   test('policy rejects private addresses from an injected resolver', () async {
     final direct = FakeClient(failure: SocketException('Connection refused'));
     final secureDns = FakeClient(body: 'must-not-send');
-    final policy = NetworkAccessPolicy(
-      resolver: FakeResolver([InternetAddress('192.168.1.10')]),
-      clientFactory: (route, canonicalHost, _) =>
-          route.kind == NetworkRouteKind.direct ? direct : secureDns,
-    );
-    addTearDown(policy.dispose);
-    final client = PixivPolicyHttpClient(
-      policy: policy,
-      purpose: PixivDestinationPurpose.appApi,
+    final client = _appApi(
+      NetworkAccessPolicy(
+        resolver: FakeResolver([InternetAddress('192.168.1.10')]),
+        clientFactory: (route, canonicalHost, _) =>
+            route.kind == NetworkRouteKind.direct ? direct : secureDns,
+      ),
     );
 
     await expectLater(
@@ -671,15 +653,12 @@ void main() {
       final direct = GateFailureClient();
       final secureDns = FakeClient(body: 'must-not-send');
       final resolver = FakeResolver([InternetAddress('1.2.3.7')]);
-      final policy = NetworkAccessPolicy(
-        resolver: resolver,
-        clientFactory: (route, canonicalHost, _) =>
-            route.kind == NetworkRouteKind.dohRealSni ? direct : secureDns,
-      );
-      addTearDown(policy.dispose);
-      final client = PixivPolicyHttpClient(
-        policy: policy,
-        purpose: PixivDestinationPurpose.appApi,
+      final client = _appApi(
+        NetworkAccessPolicy(
+          resolver: resolver,
+          clientFactory: (route, canonicalHost, _) =>
+              route.kind == NetworkRouteKind.dohRealSni ? direct : secureDns,
+        ),
       );
       final abort = Completer<void>();
       final operation = client.send(
@@ -704,11 +683,7 @@ void main() {
       clientFactory: (route, canonicalHost, _) =>
           route.kind == NetworkRouteKind.direct ? direct : secureDns,
     );
-    addTearDown(policy.dispose);
-    final client = PixivPolicyHttpClient(
-      policy: policy,
-      purpose: PixivDestinationPurpose.appApi,
-    );
+    final client = _appApi(policy);
 
     // First request: the DoH tier answers; direct is never attempted.
     final first = await client.get(apiUri);
@@ -740,11 +715,7 @@ void main() {
         clientFactory: (route, canonicalHost, _) =>
             route.kind == NetworkRouteKind.direct ? direct : secureDns,
       );
-      addTearDown(policy.dispose);
-      final client = PixivPolicyHttpClient(
-        policy: policy,
-        purpose: PixivDestinationPurpose.appApi,
-      );
+      final client = _appApi(policy);
       await client.get(apiUri);
       expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isTrue);
 

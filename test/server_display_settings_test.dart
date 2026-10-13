@@ -18,14 +18,14 @@ import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
 import 'package:parfait/core/settings/server_display_settings.dart';
 import 'package:parfait/app/widgets/settings/settings_control.dart';
 import 'package:parfait/features/settings/pages/account_settings_page.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/settings_world.dart' show StubResolver;
+import 'helpers/localized_app.dart';
+import 'package:fake_async/fake_async.dart';
 
 /// Maps `METHOD /path` to a response; a null entry yields 404 and a thrown
 /// value propagates as a transport failure.
@@ -56,7 +56,7 @@ Future<(ProviderContainer, _ApiScript)> _world(
   String? currentId = '100',
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       ...accountProviderOverrides(
         metadataRepository: FakeAccountMetadataRepository(
@@ -103,7 +103,6 @@ void main() {
             http.Response('{"is_restricted_mode_enabled":true}', 200),
       }),
     );
-    addTearDown(container.dispose);
     final repository = container.read(serverDisplaySettingsRepositoryProvider);
 
     final settings = await repository.fetch();
@@ -134,7 +133,6 @@ void main() {
         },
       }),
     );
-    addTearDown(container.dispose);
     final repository = container.read(serverDisplaySettingsRepositoryProvider);
 
     expect(await repository.editAiShow(false), isFalse);
@@ -155,7 +153,6 @@ void main() {
             http.Response('{"unexpected":true}', 200),
       }),
     );
-    addTearDown(container.dispose);
     final repository = container.read(serverDisplaySettingsRepositoryProvider);
 
     await expectLater(repository.fetchAiShow(), throwsA(isA<ApiParseError>()));
@@ -167,7 +164,6 @@ void main() {
         'GET /v1/user/ai-show-settings': (_) => http.Response('', 500),
       }),
     );
-    addTearDown(container.dispose);
     final repository = container.read(serverDisplaySettingsRepositoryProvider);
 
     await expectLater(repository.fetchAiShow(), throwsA(isA<ApiHttpError>()));
@@ -192,7 +188,6 @@ void main() {
           },
         }),
       );
-      addTearDown(container.dispose);
 
       final initial = await container.read(
         serverDisplaySettingsProvider.future,
@@ -222,7 +217,6 @@ void main() {
             http.Response('{"error":"nope"}', 400),
       }),
     );
-    addTearDown(container.dispose);
 
     await container.read(serverDisplaySettingsProvider.future);
 
@@ -237,30 +231,31 @@ void main() {
     );
   });
 
-  test('no usable account yields an unauthorized error state', () async {
-    final (container, _) = await _world(
-      _ApiScript({}),
-      accounts: const [],
-      currentId: null,
-    );
-    addTearDown(container.dispose);
+  test('no usable account yields an unauthorized error state', () {
+    fakeAsync((async) {
+      late final ProviderContainer container;
+      _world(
+        _ApiScript({}),
+        accounts: const [],
+        currentId: null,
+      ).then((world) => container = world.$1);
+      async.flushMicrotasks();
 
-    // `.future` stays pending while Riverpod's retry re-runs a failing
-    // build, so observe the AsyncError emission instead.
-    final errors = <Object?>[];
-    final sub = container.listen(serverDisplaySettingsProvider, (_, next) {
-      if (next case AsyncError<ServerDisplaySettings>(:final error)) {
-        errors.add(error);
-      }
-    }, fireImmediately: true);
-    addTearDown(sub.close);
-    container.read(serverDisplaySettingsProvider);
+      // `.future` stays pending while Riverpod's retry re-runs a failing
+      // build, so observe the AsyncError emission instead. The default
+      // retry backs off for about 38 s before it gives up; fake time skips
+      // the wait.
+      final errors = <Object?>[];
+      final sub = container.listen(serverDisplaySettingsProvider, (_, next) {
+        if (next case AsyncError<ServerDisplaySettings>(:final error)) {
+          errors.add(error);
+        }
+      }, fireImmediately: true);
+      addTearDown(sub.close);
 
-    await Future.doWhile(() async {
-      await Future<void>.delayed(Duration.zero);
-      return errors.isEmpty;
+      async.elapse(const Duration(minutes: 1));
+      expect(errors.first, isA<ApiUnauthorized>());
     });
-    expect(errors.first, isA<ApiUnauthorized>());
   });
 
   testWidgets(
@@ -282,14 +277,11 @@ void main() {
             http.Response('{"error":"nope"}', 500),
       });
       SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           ...accountProviderOverrides(
-            metadataRepository: FakeAccountMetadataRepository(
-              accounts: const [
-                Account(id: '100', userId: 100, name: 'user100'),
-              ],
-              currentId: '100',
+            metadataRepository: FakeAccountMetadataRepository.signedIn(
+              const Account(id: '100', userId: 100, name: 'user100'),
             ),
             credentialStore: FakeCredentialStore(
               values: const {
@@ -312,18 +304,12 @@ void main() {
           ),
         ],
       );
-      addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedApp(
           container: container,
-          child: const MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: AccountSettingsPage(),
-          ),
+          builder: promptHostBuilder,
+          home: AccountSettingsPage(),
         ),
       );
       await tester.pumpAndSettle();

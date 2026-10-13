@@ -6,11 +6,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:parfait/core/actionqueue/action_bootstrap.dart';
 import 'package:parfait/core/actionqueue/action_store.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'fake_account.dart';
@@ -59,43 +54,9 @@ Future<(ProviderContainer, WatchlistFixture)> makeWatchlistWorld({
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final resolvedFixture = fixture ?? WatchlistFixture();
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient((request) async {
-            fail('refresh should not happen in watchlist page tests');
-          }),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client not wired yet');
-        return client;
-      }),
-      actionStoreProvider.overrideWithValue(InMemoryActionStore()),
-    ],
+  final container = await signedInApiContainer(
+    resolvedFixture.build(),
+    overrides: [actionStoreProvider.overrideWithValue(InMemoryActionStore())],
   );
-  final client = PixivHttpClient(
-    client: resolvedFixture.build(),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  clientRef[0] = client;
-  await container.read(accountStoreProvider.future);
   return (container, resolvedFixture);
 }

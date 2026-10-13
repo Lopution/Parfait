@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/layout/app_breakpoints.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
+import 'helpers/view_size.dart';
 
 void main() {
   test('illustColumnsFor derives columns from the available extent', () {
@@ -35,9 +36,7 @@ void main() {
       // Window is 800 logical px; the grid is embedded next to a fixed 400px
       // rail-like pane, so its content extent is ~400 — two columns, not the
       // four the window width would imply.
-      tester.view.physicalSize = const Size(800, 600);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setViewSize(tester, const Size(800, 600));
 
       await tester.pumpWidget(
         MaterialApp(
@@ -81,9 +80,7 @@ void main() {
   testWidgets('a refresh that moves visible works to the head lays out', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(400, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setViewSize(tester, const Size(400, 800));
 
     final before = [for (var id = 1; id <= 40; id++) id];
     var ids = before;

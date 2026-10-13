@@ -7,12 +7,9 @@ import 'package:go_router/go_router.dart';
 
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/touch_exploration_scope.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/app/widgets/home_branch_stack.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/platform/accessibility.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
@@ -20,15 +17,14 @@ import 'package:parfait/features/new/new_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/settings/settings_page.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
-
-const _account = Account(id: '100', userId: 100, name: 'tester');
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
 
 /// A split-screen phone height: the "me" dashboard at the root of the
 /// settings branch fits a full phone screen and only scrolls on a short
@@ -44,16 +40,10 @@ Future<GoRouter> _pumpHome(
   Stream<bool> touchExploration = const Stream.empty(),
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  tester.view.physicalSize = Size(width, height);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  final router = createPixivRouter(initialLocation: location);
-  addTearDown(router.dispose);
-  Widget app = MaterialApp.router(
-    localizationsDelegates: appLocalizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    locale: const Locale('zh', 'CN'),
-    routerConfig: router,
+  setViewSize(tester, Size(width, height));
+  final router = pixivRouter(location);
+  Widget app = localizedRouterApp(
+    router,
     builder: (context, child) => TouchExplorationScope(child: child!),
   );
   if (reduceMotion) {
@@ -62,17 +52,7 @@ Future<GoRouter> _pumpHome(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        ...accountProviderOverrides(
-          credentialStore: FakeCredentialStore(
-            values: const {
-              '100': Credential(accessToken: 'a-100', refreshToken: 'r-100'),
-            },
-          ),
-          metadataRepository: FakeAccountMetadataRepository(
-            accounts: const [_account],
-            currentId: '100',
-          ),
-        ),
+        ...signedInAccountOverrides(),
         touchExplorationProvider.overrideWith((ref) => touchExploration),
       ],
       child: app,

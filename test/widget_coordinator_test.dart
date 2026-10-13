@@ -91,7 +91,7 @@ _makeWorld({
   final gate = _Gate(hasWidget);
   late _CountingLoader loader;
   late WidgetCoordinator coordinator;
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(
@@ -115,7 +115,6 @@ _makeWorld({
       }),
     ],
   );
-  addTearDown(container.dispose);
   await container.read(accountStoreProvider.future);
   container.read(widgetFeedLoaderProvider);
   return (container, loader, container.read(widgetCoordinatorProvider), gate);

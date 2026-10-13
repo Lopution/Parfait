@@ -1,17 +1,15 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_series_section.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/series_world.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
 
 void main() {
   setUp(() {
@@ -22,7 +20,6 @@ void main() {
     tester,
   ) async {
     final (container, _) = await makeSeriesWorld();
-    addTearDown(container.dispose);
 
     final router = GoRouter(
       initialLocation: '/recommended',
@@ -52,17 +49,7 @@ void main() {
     addTearDown(router.dispose);
 
     await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp.router(
-            routerConfig: router,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-          ),
-        ),
-      );
+      await tester.pumpWidget(localizedRouterApp(router, container: container));
       await tester.pumpAndSettle();
 
       expect(find.text('series 55'), findsOneWidget);

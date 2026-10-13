@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -8,10 +7,9 @@ import 'package:http/testing.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/image_network.dart';
+import 'helpers/localized_app.dart';
 
 /// One URL per kind of image: an uncapped decode is recorded app-wide, and
 /// a capped request for a URL with one paints that instead.
@@ -54,15 +52,11 @@ Future<void> _pump(
   double size = 200,
 }) async {
   await tester.pumpWidget(
-    ProviderScope(
+    localizedApp(
       overrides: pipeline.overrides(),
-      child: MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh'),
-        home: Center(
-          child: SizedBox.square(dimension: size, child: pipeline.image),
-        ),
+      locale: const Locale('zh'),
+      home: Center(
+        child: SizedBox.square(dimension: size, child: pipeline.image),
       ),
     ),
   );

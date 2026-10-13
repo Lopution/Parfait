@@ -17,28 +17,22 @@ import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/user/follow_store.dart';
 import 'package:parfait/core/user/user_store.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/illust/recommended_feed_controller.dart';
 import 'package:parfait/core/illust/recommended_repository.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
 
 String _novelJson(int id) => jsonEncode({
   'id': id,
@@ -159,44 +153,12 @@ Future<(ProviderContainer, _ApiFixture)> _makeWorld({
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final fixture = _ApiFixture(illustCount: illustCount);
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
+  final container = await signedInApiContainer(
+    fixture.build(),
     overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
       feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient((request) async {
-            fail('refresh should not happen');
-          }),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client not wired yet');
-        return client;
-      }),
     ],
   );
-  final client = PixivHttpClient(
-    client: fixture.build(),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  clientRef[0] = client;
-  await container.read(accountStoreProvider.future);
   return (container, fixture);
 }
 
@@ -207,18 +169,12 @@ void main() {
 
   testWidgets('switching to manga requests content_type=manga', (tester) async {
     final (container, fixture) = await _makeWorld();
-    addTearDown(container.dispose);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedApp(
           container: container,
-          child: const MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: RecommendedHomePage(),
-          ),
+          builder: promptHostBuilder,
+          home: RecommendedHomePage(),
         ),
       );
       await tester.pump();
@@ -240,22 +196,13 @@ void main() {
     tester,
   ) async {
     final (container, fixture) = await _makeWorld();
-    addTearDown(container.dispose);
-    final router = createPixivRouter(
-      initialLocation: '/recommended?type=manga',
-    );
-    addTearDown(router.dispose);
+    final router = pixivRouter('/recommended?type=manga');
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedRouterApp(
+          router,
           container: container,
-          child: MaterialApp.router(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: router,
-          ),
+          builder: promptHostBuilder,
         ),
       );
       await tester.pump();
@@ -320,23 +267,13 @@ void main() {
       WidgetTester tester,
       ProviderContainer container,
     ) async {
-      final router = createPixivRouter(
-        initialLocation: '/recommended?type=user',
-      );
-      addTearDown(router.dispose);
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      final router = pixivRouter('/recommended?type=user');
+      setViewSize(tester, const Size(390, 844));
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedRouterApp(
+          router,
           container: container,
-          child: MaterialApp.router(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: router,
-          ),
+          builder: promptHostBuilder,
         ),
       );
       await tester.pump();
@@ -347,7 +284,6 @@ void main() {
 
     test('the feed keeps up to three preview works per user', () async {
       final (container, _) = await _makeWorld();
-      addTearDown(container.dispose);
 
       await container.read(
         recommendedFeedProvider((type: RecommendedContentType.user)).future,
@@ -366,7 +302,6 @@ void main() {
       tester,
     ) async {
       final (container, _) = await _makeWorld();
-      addTearDown(container.dispose);
       await container.read(settingsProvider.future);
       await container.read(settingsProvider.notifier).setLocalBlockR18(true);
       container.read(muteStoreProvider);
@@ -395,7 +330,6 @@ void main() {
 
     testWidgets('follow state comes from the follow store', (tester) async {
       final (container, _) = await _makeWorld();
-      addTearDown(container.dispose);
 
       await mockNetworkImagesFor(() async {
         await pumpUsers(tester, container);
@@ -430,25 +364,16 @@ void main() {
     tester,
   ) async {
     final (container, fixture) = await _makeWorld(illustCount: 24);
-    addTearDown(container.dispose);
-    final router = createPixivRouter(initialLocation: '/recommended');
-    addTearDown(router.dispose);
+    final router = pixivRouter('/recommended');
     // Compact viewport: at ≥600px the shell swaps the bottom bar for a
     // rail and FuncShellBottomNav leaves the tree.
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setViewSize(tester, const Size(390, 844));
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedRouterApp(
+          router,
           container: container,
-          child: MaterialApp.router(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: router,
-          ),
+          builder: promptHostBuilder,
         ),
       );
       await tester.pump();
@@ -486,18 +411,12 @@ void main() {
     tester,
   ) async {
     final (container, fixture) = await _makeWorld();
-    addTearDown(container.dispose);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedApp(
           container: container,
-          child: const MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: RecommendedHomePage(),
-          ),
+          builder: promptHostBuilder,
+          home: RecommendedHomePage(),
         ),
       );
       await tester.pump();
@@ -534,18 +453,12 @@ void main() {
     // page. Neither may reach a feed that is already on screen: on device
     // that rebuilt all of its cards inside the swipe frame.
     final (container, _) = await _makeWorld();
-    addTearDown(container.dispose);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedApp(
           container: container,
-          child: const MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: RecommendedHomePage(),
-          ),
+          builder: promptHostBuilder,
+          home: RecommendedHomePage(),
         ),
       );
       await tester.pump();

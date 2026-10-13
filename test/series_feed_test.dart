@@ -6,20 +6,19 @@ import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
 import 'package:parfait/core/series/illust_series_context_controller.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/series/series_feed_controller.dart';
 import 'package:parfait/core/series/series_recent_open_store.dart';
 import 'package:parfait/core/series/series_store.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/series_world.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/pixiv_router.dart';
 
 void main() {
   setUp(() {
@@ -33,7 +32,6 @@ void main() {
     'illust series feed loads page one and commits entities plus detail',
     () async {
       final (container, fixture) = await makeSeriesWorld();
-      addTearDown(container.dispose);
 
       final state = await container.read(illustSeriesFeedProvider(55).future);
 
@@ -54,7 +52,6 @@ void main() {
 
   test('illust series feed paginates with the last_order cursor', () async {
     final (container, fixture) = await makeSeriesWorld();
-    addTearDown(container.dispose);
 
     await container.read(illustSeriesFeedProvider(55).future);
     await container.read(illustSeriesFeedProvider(55).notifier).loadMore();
@@ -73,7 +70,6 @@ void main() {
       final (container, fixture) = await makeSeriesWorld(
         fixture: SeriesFixture()..mismatchedSeriesId = 56,
       );
-      addTearDown(container.dispose);
 
       final state = await container.read(illustSeriesFeedProvider(55).future);
 
@@ -89,7 +85,6 @@ void main() {
 
   test('user series feed stores series ids and merges the store', () async {
     final (container, fixture) = await makeSeriesWorld();
-    addTearDown(container.dispose);
 
     final state = await container.read(userSeriesFeedProvider(7).future);
     expect(state.ids, [55, 56]);
@@ -110,7 +105,6 @@ void main() {
 
   test('illust series context merges detail and neighbour illusts', () async {
     final (container, _) = await makeSeriesWorld();
-    addTearDown(container.dispose);
 
     final context = await container.read(
       illustSeriesContextProvider(910).future,
@@ -128,7 +122,6 @@ void main() {
 
   test('non-series work resolves to a null context', () async {
     final (container, _) = await makeSeriesWorld();
-    addTearDown(container.dispose);
 
     final context = await container.read(
       illustSeriesContextProvider(42).future,
@@ -143,21 +136,8 @@ void main() {
     ProviderContainer container, {
     int seriesId = 55,
   }) async {
-    final router = createPixivRouter(
-      initialLocation: '/recommended/series/$seriesId',
-    );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
+    final router = pixivRouter('/recommended/series/$seriesId');
+    await tester.pumpWidget(localizedRouterApp(router, container: container));
     await tester.pumpAndSettle();
   }
 
@@ -165,7 +145,6 @@ void main() {
     tester,
   ) async {
     final (container, _) = await makeSeriesWorld();
-    addTearDown(container.dispose);
     // The session memory recorded part 2 (illust 911); the detail payload
     // independently carries first=901 and latest=912.
     container

@@ -164,7 +164,7 @@ void main() {
         databasePath: '${dir.path}/local_novels.db',
       );
       addTearDown(database.close);
-      container = ProviderContainer(
+      container = ProviderContainer.test(
         overrides: [
           localNovelDatabaseProvider.overrideWithValue(database),
           localNovelDirectoryProvider.overrideWithValue(() async => dir),
@@ -173,7 +173,6 @@ void main() {
           ),
         ],
       );
-      addTearDown(container.dispose);
     });
 
     tearDown(() async {

@@ -21,6 +21,8 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'helpers/connectivity_channels.dart';
 import 'helpers/reverse_image_world.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/image_headers.dart';
 
 void main() {
   late Directory directory;
@@ -203,7 +205,7 @@ void main() {
     tester,
   ) async {
     final webp = File('${directory.path}/image.webp')
-      ..writeAsBytesSync(_webpHeader(64, 64));
+      ..writeAsBytesSync(webpHeader(64, 64));
     final webpPlatform = FakeReverseImagePlatform(webp, mimeType: 'image/webp');
     await _pumpPage(
       tester,
@@ -305,7 +307,7 @@ void main() {
   ) async {
     // A WebP: IQDB cannot take it, so after SauceNAO comes Ascii2D's turn.
     final webp = File('${directory.path}/image.webp')
-      ..writeAsBytesSync(_webpHeader(64, 64));
+      ..writeAsBytesSync(webpHeader(64, 64));
     await _pumpPage(
       tester,
       platform: FakeReverseImagePlatform(webp, mimeType: 'image/webp'),
@@ -449,10 +451,7 @@ Future<void> _pumpPushedPage(
 }) async {
   await tester.pumpWidget(
     ProviderScope(
-      child: MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+      child: localizedApp(
         home: _PushedHost(platform: platform, providers: providers),
       ),
     ),
@@ -513,44 +512,6 @@ class _FakeArmer implements ReverseImageUploadArmer {
     disarmCount++;
   }
 }
-
-// Same minimal RIFF/WEBP (VP8 lossy) fixture the IQDB provider test uses.
-List<int> _webpHeader(int width, int height) => [
-  0x52,
-  0x49,
-  0x46,
-  0x46,
-  14 & 0xff,
-  0,
-  0,
-  0,
-  0x57,
-  0x45,
-  0x42,
-  0x50,
-  0x56,
-  0x50,
-  0x38,
-  0x20,
-  14 & 0xff,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0x9d,
-  0x01,
-  0x2a,
-  0,
-  width & 0xff,
-  (width >> 8) & 0xff,
-  height & 0xff,
-  (height >> 8) & 0xff,
-];
 
 /// A provider whose search never finishes on its own — [blocker] lets a
 /// test decide when (or whether) the in-flight search resolves.

@@ -8,7 +8,6 @@ import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/settings/settings_repository.dart';
 import 'package:parfait/features/login/login_page.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -21,6 +20,8 @@ import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/fake_settings.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
 
 /// Clipboard import stub whose result future the test controls, so the
 /// busy state can be observed deterministically.
@@ -56,9 +57,7 @@ void main() {
     Locale? locale,
     List<Override> extraOverrides = const [],
   }) async {
-    tester.view.physicalSize = size;
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setViewSize(tester, size);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -77,11 +76,9 @@ void main() {
         ],
         child: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
-          child: MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
+          child: localizedApp(
             locale: locale ?? const Locale('zh', 'CN'),
+            builder: promptHostBuilder,
             home: LoginPage(
               isFirst: isFirst,
               onRegister: onRegister,

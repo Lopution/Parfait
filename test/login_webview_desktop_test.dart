@@ -1,18 +1,16 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/features/login/login_webview_desktop_page.dart';
 import 'package:parfait/features/login/login_webview_error_card.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/fake_webview.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
 
 /// Minimal InAppWebView platform stub — no implementation registers on the
 /// Linux test host, so the page cannot build without one (same pattern as
@@ -69,16 +67,11 @@ void main() {
     );
 
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: accountProviderOverrides(),
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: LoginWebViewDesktopPage(
-            oauthService: OAuthService(exchangeTimeout: Duration.zero),
-            create: create,
-          ),
+        home: LoginWebViewDesktopPage(
+          oauthService: OAuthService(exchangeTimeout: Duration.zero),
+          create: create,
         ),
       ),
     );

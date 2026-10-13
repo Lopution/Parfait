@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/scroll_behavior.dart';
+import 'helpers/view_size.dart';
 
 const _page = Size(400, 800);
 
@@ -14,9 +15,7 @@ Future<GlobalKey<NavigatorState>> _pumpPage(
   required Future<void> Function(BuildContext context) open,
   bool disableAnimations = false,
 }) async {
-  tester.view.physicalSize = _page;
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
+  setViewSize(tester, _page);
   final navigatorKey = GlobalKey<NavigatorState>();
   await tester.pumpWidget(
     MediaQuery(
@@ -172,9 +171,7 @@ void main() {
     };
     for (final MapEntry(key: kind, value: content) in contents.entries) {
       testWidgets(kind, (tester) async {
-        tester.view.physicalSize = _page;
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
+        setViewSize(tester, _page);
         await tester.pumpWidget(
           MaterialApp(
             scrollBehavior: const FuncScrollBehavior(),

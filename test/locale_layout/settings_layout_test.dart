@@ -66,9 +66,8 @@ List<Override> _overrides(
     credentialStore: FakeCredentialStore(
       values: const {'100': Credential(accessToken: 'a', refreshToken: 'r')},
     ),
-    metadataRepository: FakeAccountMetadataRepository(
-      accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-      currentId: '100',
+    metadataRepository: FakeAccountMetadataRepository.signedIn(
+      const Account(id: '100', userId: 100, name: 'tester'),
     ),
   ),
 ];

@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:octo_image/octo_image.dart';
 
@@ -9,20 +8,14 @@ import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/image/image_worker.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
+import 'helpers/localized_app.dart';
 
 /// These tests look at how an image is set up; nothing loads.
 late ImageWorker _worker;
 
-Widget _host(Widget child) => ProviderScope(
+Widget _host(Widget child) => localizedApp(
   overrides: [imageWorkerProvider.overrideWithValue(_worker)],
-  child: MaterialApp(
-    localizationsDelegates: appLocalizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    locale: const Locale('zh', 'CN'),
-    home: Scaffold(body: child),
-  ),
+  home: Scaffold(body: child),
 );
 
 /// The layout width the image on screen was given.

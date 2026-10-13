@@ -14,7 +14,6 @@ import 'helpers/test_preferences.dart';
 
 Future<PixivSpotlightRepository> _repo(SpotlightFixture fixture) async {
   final (container, _) = await makeSpotlightWorld(fixture: fixture);
-  addTearDown(container.dispose);
   return container.read(spotlightRepositoryProvider);
 }
 

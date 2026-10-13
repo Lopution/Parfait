@@ -2,12 +2,9 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/widgets/expandable_text.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'helpers/localized_app.dart';
 
-Widget _host(Widget child) => MaterialApp(
-  locale: const Locale('zh'),
-  supportedLocales: const [Locale('zh')],
-  localizationsDelegates: appLocalizationsDelegates,
+Widget _host(Widget child) => localizedApp(
   home: Scaffold(
     body: SingleChildScrollView(child: SizedBox(width: 300, child: child)),
   ),

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -200,7 +199,7 @@ Future<ProviderContainer> makeProfileWorld({
       '200': Credential(accessToken: 'access-2', refreshToken: 'refresh-2'),
     },
   );
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       feedSnapshotStoreProvider.overrideWithValue(feedSnapshots),
@@ -229,7 +228,6 @@ Future<ProviderContainer> makeProfileWorld({
     ],
   );
   await container.read(accountStoreProvider.future);
-  addTearDown(container.dispose);
   return container;
 }
 

@@ -34,6 +34,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/pixiv_router.dart';
 
 class _StaticSearchRepository implements SearchRepository {
   const _StaticSearchRepository();
@@ -95,9 +96,8 @@ Widget _routerApp(
             ),
           },
         ),
-        metadataRepository: FakeAccountMetadataRepository(
-          accounts: const [Account(id: 'account', userId: 1, name: 'tester')],
-          currentId: 'account',
+        metadataRepository: FakeAccountMetadataRepository.signedIn(
+          const Account(id: 'account', userId: 1, name: 'tester'),
         ),
       ),
       oauthServiceProvider.overrideWithValue(
@@ -141,10 +141,7 @@ void main() {
   testWidgets('restores the active search branch and its nested route', (
     tester,
   ) async {
-    final router = createPixivRouter(
-      initialLocation: '/search/input?q=cat&type=illust',
-    );
-    addTearDown(router.dispose);
+    final router = pixivRouter('/search/input?q=cat&type=illust');
 
     await tester.pumpWidget(
       _routerApp(router, searchRepository: const _StaticSearchRepository()),
@@ -184,10 +181,7 @@ void main() {
   testWidgets('replaces and restores the selected ranking mode', (
     tester,
   ) async {
-    final router = createPixivRouter(
-      initialLocation: '/ranking?mode=week&date=2025-10-01',
-    );
-    addTearDown(router.dispose);
+    final router = pixivRouter('/ranking?mode=week&date=2025-10-01');
 
     await tester.pumpWidget(
       _routerApp(
@@ -237,10 +231,7 @@ void main() {
   testWidgets('replaces and restores the recommended content type', (
     tester,
   ) async {
-    final router = createPixivRouter(
-      initialLocation: '/recommended?type=manga',
-    );
-    addTearDown(router.dispose);
+    final router = pixivRouter('/recommended?type=manga');
 
     await tester.pumpWidget(
       _routerApp(
@@ -287,10 +278,9 @@ void main() {
   testWidgets('restores the bookmark tag feed tag and restrict', (
     tester,
   ) async {
-    final router = createPixivRouter(
-      initialLocation: '/recommended/bookmarks/tag?tag=cat&restrict=private',
+    final router = pixivRouter(
+      '/recommended/bookmarks/tag?tag=cat&restrict=private',
     );
-    addTearDown(router.dispose);
 
     await tester.pumpWidget(
       _routerApp(
@@ -321,8 +311,7 @@ void main() {
   });
 
   testWidgets('restores a representative feed offset', (tester) async {
-    final router = createPixivRouter(initialLocation: '/search');
-    addTearDown(router.dispose);
+    final router = pixivRouter('/search');
 
     await tester.pumpWidget(
       _routerApp(
@@ -365,8 +354,7 @@ void main() {
   testWidgets('viewer page replacement survives route restoration', (
     tester,
   ) async {
-    final router = createPixivRouter(initialLocation: '/recommended');
-    addTearDown(router.dispose);
+    final router = pixivRouter('/recommended');
 
     await tester.pumpWidget(
       _routerApp(
@@ -418,8 +406,7 @@ void main() {
     ('/settings/motion', MotionSettingsPage),
   ]) {
     testWidgets('restores $path on the settings stack', (tester) async {
-      final router = createPixivRouter(initialLocation: path);
-      addTearDown(router.dispose);
+      final router = pixivRouter(path);
 
       await tester.pumpWidget(_routerApp(router));
       await tester.pump();

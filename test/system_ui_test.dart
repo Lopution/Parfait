@@ -22,14 +22,13 @@ import 'package:parfait/core/network/compat/pixiv_network_factory.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/image_network.dart';
 import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/fake_settings.dart';
+import 'helpers/localized_app.dart';
 
 /// Mounts the root system-bar default exactly like app.dart's builder: the
 /// outermost widget inside the theme, reading the resolved brightness.
@@ -38,16 +37,13 @@ Widget _app({
   GlobalKey<NavigatorState>? navigatorKey,
   Widget? home,
 }) {
-  return MaterialApp(
-    navigatorKey: navigatorKey,
-    theme: theme,
-    localizationsDelegates: appLocalizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    locale: const Locale('zh', 'CN'),
+  return localizedApp(
     builder: (context, routeChild) => FuncSystemBars(
       background: Theme.of(context).brightness,
       child: routeChild ?? const SizedBox.shrink(),
     ),
+    theme: theme,
+    navigatorKey: navigatorKey,
     home: home ?? const Scaffold(body: SizedBox.expand()),
   );
 }
@@ -156,10 +152,7 @@ void main() {
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         withStalledImages(
-          MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
+          localizedApp(
             theme: replicaTheme(Brightness.light),
             home: const ImageViewerPage(
               urls: ['https://i.pximg.net/1/original.jpg'],
@@ -230,11 +223,8 @@ void main() {
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         withStalledImages(
-          MaterialApp(
+          localizedApp(
             navigatorKey: navigatorKey,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
             home: const Scaffold(body: SizedBox.expand()),
           ),
         ),
@@ -301,7 +291,7 @@ Future<void> _pumpApp(WidgetTester tester, AppSettings settings) async {
     (call) async => false,
   );
 
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       ...accountProviderOverrides(
         credentialStore: FakeCredentialStore(
@@ -309,9 +299,8 @@ Future<void> _pumpApp(WidgetTester tester, AppSettings settings) async {
             '100': Credential(accessToken: 'a', refreshToken: 'r'),
           },
         ),
-        metadataRepository: FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 't')],
-          currentId: '100',
+        metadataRepository: FakeAccountMetadataRepository.signedIn(
+          const Account(id: '100', userId: 100, name: 't'),
         ),
       ),
       settingsRepositoryProvider.overrideWithValue(
@@ -335,7 +324,6 @@ Future<void> _pumpApp(WidgetTester tester, AppSettings settings) async {
       ),
     ],
   );
-  addTearDown(container.dispose);
 
   await tester.pumpWidget(
     UncontrolledProviderScope(container: container, child: const ParfaitApp()),

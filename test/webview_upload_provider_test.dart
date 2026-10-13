@@ -6,6 +6,7 @@ import 'package:parfait/core/reverse_image/image_input.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
 import 'package:parfait/core/reverse_image/reverse_image_provider.dart';
 import 'package:parfait/core/reverse_image/webview_upload_provider.dart';
+import 'helpers/image_headers.dart';
 
 void main() {
   late Directory tempDirectory;
@@ -14,7 +15,7 @@ void main() {
   setUp(() async {
     tempDirectory = Directory.systemTemp.createTempSync('web-upload-');
     final file = File('${tempDirectory.path}/image.png')
-      ..writeAsBytesSync(_pngHeader(64, 64));
+      ..writeAsBytesSync(pngHeader(64, 64));
     input = await OwnedReverseImageInput.open(
       path: file.path,
       source: ReverseImageInputSource.picker,
@@ -104,17 +105,3 @@ void main() {
     expect(provider.capability.enabled, isTrue);
   });
 }
-
-List<int> _pngHeader(int width, int height) => [
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, //
-  0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, //
-  (width >> 24) & 0xff,
-  (width >> 16) & 0xff,
-  (width >> 8) & 0xff,
-  width & 0xff, //
-  (height >> 24) & 0xff,
-  (height >> 16) & 0xff,
-  (height >> 8) & 0xff,
-  height & 0xff, //
-  8, 6, 0, 0, 0, 0, 0, 0, 0,
-];

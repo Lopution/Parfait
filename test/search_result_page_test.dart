@@ -1,20 +1,19 @@
 import 'dart:async';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/features/search/search_field_button.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/search_world.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
 
 Future<GoRouter> _pumpRouter(
   WidgetTester tester, {
@@ -23,24 +22,17 @@ Future<GoRouter> _pumpRouter(
 }) async {
   // The input page reads the search history from preferences.
   installMemoryPreferences();
-  final router = createPixivRouter(initialLocation: initialLocation);
-  addTearDown(router.dispose);
+  final router = pixivRouter(initialLocation);
   // Wide surface: the whole chip row fits, so every chip is on screen.
-  tester.view.physicalSize = const Size(1400, 800);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
+  setViewSize(tester, const Size(1400, 800));
   await tester.pumpWidget(
-    ProviderScope(
+    localizedRouterApp(
+      router,
       overrides: [
         searchRepositoryProvider.overrideWithValue(FakeSearchRepository()),
       ],
-      child: MaterialApp.router(
-        builder: promptHostBuilder,
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: locale,
-        routerConfig: router,
-      ),
+      locale: locale,
+      builder: promptHostBuilder,
     ),
   );
   await tester.pump();

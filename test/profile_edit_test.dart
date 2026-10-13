@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/core/auth/account.dart';
@@ -20,16 +21,73 @@ import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/core/user/user_store.dart';
 import 'package:parfait/features/profile/profile_edit_page.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/image_headers.dart';
+import 'helpers/view_size.dart';
 
-ProfileEditState _stateOf(
-  ProviderContainer container,
-  ProfileEditSession session,
-) => container.read(profileEditControllerProvider(session));
+ProfileCapabilities _appApi([
+  Iterable<ProfileField> fields = ProfileField.values,
+]) => ProfileCapabilities(
+  editableFields: fields,
+  channel: ProfileEditChannel.appApi,
+);
+
+ProfileEditSession _session(
+  ProfileEditRepository repository, {
+  ProfileEditOwner Function() readOwner = _owner,
+  Future<void> Function(UserEntity user)? onConfirmed,
+}) => ProfileEditSession(
+  repository: repository,
+  owner: _owner(),
+  readOwner: readOwner,
+  initialUser: _user(),
+  onConfirmed: onConfirmed ?? (_) async {},
+);
+
+/// A container whose profile editor runs the real controller.
+ProviderContainer _editorContainer() {
+  final container = ProviderContainer.test(
+    overrides: [
+      profileEditControllerProvider.overrideWith2(
+        (arguments) => ProfileEditController(arguments),
+      ),
+    ],
+  );
+  return container;
+}
+
+/// [session]'s controller after its first load.
+Future<ProfileEditController> _loaded(
+  ProfileEditSession session, [
+  ProviderContainer? container,
+]) async {
+  final controller = (container ?? _editorContainer()).read(
+    profileEditControllerProvider(session).notifier,
+  );
+  await controller.load();
+  return controller;
+}
+
+/// A container signed in to account 42, as the page finds it in production.
+ProviderContainer _signedInContainer([List<Override> overrides = const []]) {
+  final container = ProviderContainer.test(
+    overrides: [
+      ...accountProviderOverrides(
+        credentialStore: FakeCredentialStore(
+          values: const {'42': Credential(accessToken: 'a', refreshToken: 'r')},
+        ),
+        metadataRepository: FakeAccountMetadataRepository.signedIn(
+          const Account(id: '42', userId: 42, name: 'tester'),
+        ),
+      ),
+      ...overrides,
+    ],
+  );
+  return container;
+}
 
 void main() {
   installMemoryPreferences();
@@ -87,7 +145,7 @@ void main() {
 
   test('verification pending never commits effective user metadata', () async {
     final repository = _FakeRepository(
-      capabilities: ProfileCapabilities(
+      ProfileCapabilities(
         editableFields: {ProfileField.displayName},
         channel: ProfileEditChannel.appApi,
         verification: ProfileVerificationRequirement.emailConfirmation,
@@ -98,75 +156,35 @@ void main() {
       ),
     );
     var committed = 0;
-    final session = ProfileEditSession(
-      repository: repository,
-      owner: _owner(),
-      readOwner: () => _owner(),
-      initialUser: _user(),
-      onConfirmed: (_) async => committed++,
-    );
-    final container = ProviderContainer(
-      overrides: [
-        profileEditControllerProvider.overrideWith2(
-          (arguments) => ProfileEditController(arguments),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-    final controller = container.read(
-      profileEditControllerProvider(session).notifier,
-    );
+    final session = _session(repository, onConfirmed: (_) async => committed++);
+    final controller = await _loaded(session);
 
-    await controller.load();
     controller.updateText(ProfileField.displayName, 'pending name');
     await controller.submit();
 
-    expect(
-      _stateOf(container, session).status,
-      ProfileEditStatus.verificationPending,
-    );
+    expect(controller.state.status, ProfileEditStatus.verificationPending);
     expect(committed, 0);
-    expect(_stateOf(container, session).draft!.base.displayName, 'old name');
-    expect(
-      _stateOf(container, session).draft!.values.displayName,
-      'pending name',
-    );
+    expect(controller.state.draft!.base.displayName, 'old name');
+    expect(controller.state.draft!.values.displayName, 'pending name');
   });
 
   test('confirmed response commits only after the ownership check', () async {
     final changed = _user().copyWith(name: 'confirmed name');
     final repository = _FakeRepository(
-      capabilities: ProfileCapabilities(
-        editableFields: {ProfileField.displayName},
-        channel: ProfileEditChannel.appApi,
-      ),
+      _appApi({ProfileField.displayName}),
       outcome: ProfileEditConfirmed(changed),
     );
     UserEntity? committed;
-    final session = ProfileEditSession(
-      repository: repository,
-      owner: _owner(),
-      readOwner: () => _owner(),
-      initialUser: _user(),
+    final session = _session(
+      repository,
       onConfirmed: (user) async => committed = user,
     );
-    final container = ProviderContainer(
-      overrides: [
-        profileEditControllerProvider.overrideWith2(
-          (arguments) => ProfileEditController(arguments),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-    final controller = container.read(
-      profileEditControllerProvider(session).notifier,
-    );
+    final controller = await _loaded(session);
 
-    await controller.load();
     controller.updateText(ProfileField.displayName, 'confirmed name');
     await controller.submit();
 
-    expect(_stateOf(container, session).status, ProfileEditStatus.confirmed);
+    expect(controller.state.status, ProfileEditStatus.confirmed);
     expect(committed?.name, 'confirmed name');
     expect(repository.requests.single.patch.textFields, {
       ProfileField.displayName: 'confirmed name',
@@ -176,45 +194,26 @@ void main() {
   test('late confirmed response after account switch cannot commit', () async {
     final response = Completer<ProfileEditOutcome>();
     final repository = _FakeRepository(
-      capabilities: ProfileCapabilities(
-        editableFields: {ProfileField.displayName},
-        channel: ProfileEditChannel.appApi,
-      ),
+      _appApi({ProfileField.displayName}),
       deferredOutcome: response,
     );
     var active = _owner();
     var committed = 0;
-    final session = ProfileEditSession(
-      repository: repository,
-      owner: active,
+    final session = _session(
+      repository,
       readOwner: () => active,
-      initialUser: _user(),
       onConfirmed: (_) async => committed++,
     );
-    final container = ProviderContainer(
-      overrides: [
-        profileEditControllerProvider.overrideWith2(
-          (arguments) => ProfileEditController(arguments),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-    final controller = container.read(
-      profileEditControllerProvider(session).notifier,
-    );
+    final controller = await _loaded(session);
 
-    await controller.load();
     controller.updateText(ProfileField.displayName, 'account A');
     final submit = controller.submit();
     active = const ProfileEditOwner(accountId: 'account-b');
     response.complete(ProfileEditConfirmed(_user().copyWith(name: 'wrong')));
     await submit;
 
-    expect(_stateOf(container, session).status, ProfileEditStatus.failure);
-    expect(
-      _stateOf(container, session).failure?.code,
-      ProfileEditFailureCode.staleOwner,
-    );
+    expect(controller.state.status, ProfileEditStatus.failure);
+    expect(controller.state.failure?.code, ProfileEditFailureCode.staleOwner);
     expect(committed, 0);
   });
 
@@ -222,33 +221,16 @@ void main() {
     'current password is cleared from the submit request lifecycle',
     () async {
       final repository = _FakeRepository(
-        capabilities: ProfileCapabilities(
+        ProfileCapabilities(
           editableFields: {ProfileField.displayName},
           channel: ProfileEditChannel.appApi,
           requiresCurrentPassword: true,
         ),
         outcome: ProfileEditConfirmed(_user().copyWith(name: 'saved')),
       );
-      final session = ProfileEditSession(
-        repository: repository,
-        owner: _owner(),
-        readOwner: () => _owner(),
-        initialUser: _user(),
-        onConfirmed: (_) async {},
-      );
-      final container = ProviderContainer(
-        overrides: [
-          profileEditControllerProvider.overrideWith2(
-            (arguments) => ProfileEditController(arguments),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-      final controller = container.read(
-        profileEditControllerProvider(session).notifier,
-      );
+      final session = _session(repository);
+      final controller = await _loaded(session);
 
-      await controller.load();
       controller.updateText(ProfileField.displayName, 'saved');
       await controller.submit(currentPassword: 'do-not-log-me');
 
@@ -265,75 +247,26 @@ void main() {
   test(
     'unsupported dirty fields stay visible and never reach the repository',
     () async {
-      final repository = _FakeRepository(
-        capabilities: ProfileCapabilities(
-          editableFields: {ProfileField.displayName},
-          channel: ProfileEditChannel.appApi,
-        ),
-        outcome: ProfileEditConfirmed(_user()),
-      );
-      final session = ProfileEditSession(
-        repository: repository,
-        owner: _owner(),
-        readOwner: () => _owner(),
-        initialUser: _user(),
-        onConfirmed: (_) async {},
-      );
-      final container = ProviderContainer(
-        overrides: [
-          profileEditControllerProvider.overrideWith2(
-            (arguments) => ProfileEditController(arguments),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-      final controller = container.read(
-        profileEditControllerProvider(session).notifier,
-      );
+      final repository = _FakeRepository(_appApi({ProfileField.displayName}));
+      final session = _session(repository);
+      final controller = await _loaded(session);
 
-      await controller.load();
       controller.updateText(ProfileField.comment, 'unsupported change');
       await controller.submit();
 
-      expect(_stateOf(container, session).status, ProfileEditStatus.ready);
+      expect(controller.state.status, ProfileEditStatus.ready);
       expect(controller.state.fieldErrors[ProfileField.comment], isNotNull);
-      expect(
-        _stateOf(container, session).draft!.values.comment,
-        'unsupported change',
-      );
+      expect(controller.state.draft!.values.comment, 'unsupported change');
       expect(repository.requests, isEmpty);
     },
   );
 
   test('cancel releases selected images and leaves no stale path', () async {
     var cleanupCount = 0;
-    final repository = _FakeRepository(
-      capabilities: ProfileCapabilities(
-        editableFields: {ProfileField.avatar},
-        channel: ProfileEditChannel.appApi,
-      ),
-      outcome: ProfileEditConfirmed(_user()),
-    );
-    final session = ProfileEditSession(
-      repository: repository,
-      owner: _owner(),
-      readOwner: () => _owner(),
-      initialUser: _user(),
-      onConfirmed: (_) async {},
-    );
-    final container = ProviderContainer(
-      overrides: [
-        profileEditControllerProvider.overrideWith2(
-          (arguments) => ProfileEditController(arguments),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-    final controller = container.read(
-      profileEditControllerProvider(session).notifier,
-    );
+    final repository = _FakeRepository(_appApi({ProfileField.avatar}));
+    final session = _session(repository);
+    final controller = await _loaded(session);
 
-    await controller.load();
     await controller.selectImage(
       ProfileField.avatar,
       ProfileImageSelection(
@@ -347,7 +280,7 @@ void main() {
     );
     await controller.cancel();
 
-    expect(_stateOf(container, session).status, ProfileEditStatus.canceled);
+    expect(controller.state.status, ProfileEditStatus.canceled);
     expect(controller.state.draft, isNull);
     expect(cleanupCount, 1);
   });
@@ -357,13 +290,12 @@ void main() {
     () async {
       final metadata = FakeAccountMetadataRepository();
       final credentials = FakeCredentialStore();
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           accountMetadataRepositoryProvider.overrideWithValue(metadata),
           credentialStoreProvider.overrideWithValue(credentials),
         ],
       );
-      addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       final accountStore = container.read(accountStoreProvider.notifier);
       await accountStore.upsertAccount(
@@ -392,7 +324,7 @@ void main() {
       final directory = await Directory.systemTemp.createTemp('profile-image-');
       addTearDown(() => directory.delete(recursive: true));
       final file = File('${directory.path}/avatar.png')
-        ..writeAsBytesSync(_pngHeader(320, 240));
+        ..writeAsBytesSync(pngHeader(320, 240));
       final platform = _ImagePlatform(file);
 
       final selection = await ProfileImagePreprocessor.prepare(
@@ -417,43 +349,16 @@ void main() {
   testWidgets('renders beta56 field order and asks before leaving dirty form', (
     tester,
   ) async {
-    final repository = _FakeRepository(
-      capabilities: ProfileCapabilities(
-        editableFields: ProfileField.values,
-        channel: ProfileEditChannel.appApi,
-      ),
-      outcome: ProfileEditConfirmed(_user()),
-    );
-    final session = ProfileEditSession(
-      repository: repository,
-      owner: _owner(),
-      readOwner: () => _owner(),
-      initialUser: _user(),
-      onConfirmed: (_) async {},
-    );
-    final container = ProviderContainer(
-      overrides: [
-        profileEditControllerProvider.overrideWith2(
-          (arguments) => ProfileEditController(arguments),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-    final controller = container.read(
-      profileEditControllerProvider(session).notifier,
-    );
-    await controller.load();
+    final repository = _FakeRepository(_appApi());
+    final session = _session(repository);
+    final container = _editorContainer();
+    await _loaded(session, container);
 
     await tester.pumpWidget(
-      UncontrolledProviderScope(
+      localizedApp(
         container: container,
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('en', 'US'),
-
-          home: ProfileEditPage(userId: 42, session: session),
-        ),
+        locale: const Locale('en', 'US'),
+        home: ProfileEditPage(userId: 42, session: session),
       ),
     );
     await tester.pumpAndSettle();
@@ -507,43 +412,19 @@ void main() {
       WidgetTester tester,
       ProfileCapabilities capabilities,
     ) async {
-      tester.view.physicalSize = const Size(800, 1600);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setViewSize(tester, const Size(800, 1600));
       platform = _CountingImagePlatform();
-      final session = ProfileEditSession(
-        repository: _FakeRepository(
-          capabilities: capabilities,
-          outcome: ProfileEditConfirmed(_user()),
-        ),
-        owner: _owner(),
-        readOwner: () => _owner(),
-        initialUser: _user(),
-        onConfirmed: (_) async {},
-      );
-      final container = ProviderContainer(
-        overrides: [
-          profileEditControllerProvider.overrideWith2(
-            (arguments) => ProfileEditController(arguments),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-      await container
-          .read(profileEditControllerProvider(session).notifier)
-          .load();
+      final session = _session(_FakeRepository(capabilities));
+      final container = _editorContainer();
+      await _loaded(session, container);
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedApp(
           container: container,
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('en', 'US'),
-            home: ProfileEditPage(
-              userId: 42,
-              session: session,
-              imagePlatform: platform,
-            ),
+          locale: const Locale('en', 'US'),
+          home: ProfileEditPage(
+            userId: 42,
+            session: session,
+            imagePlatform: platform,
           ),
         ),
       );
@@ -599,43 +480,17 @@ void main() {
   testWidgets('production init keeps the auto-dispose controller alive', (
     tester,
   ) async {
-    final repository = _FakeRepository(
-      capabilities: ProfileCapabilities(
-        editableFields: ProfileField.values,
-        channel: ProfileEditChannel.appApi,
-      ),
-      outcome: ProfileEditConfirmed(_user()),
-    );
-    final container = ProviderContainer(
-      overrides: [
-        ...accountProviderOverrides(
-          credentialStore: FakeCredentialStore(
-            values: const {
-              '42': Credential(accessToken: 'a', refreshToken: 'r'),
-            },
-          ),
-          metadataRepository: FakeAccountMetadataRepository(
-            accounts: const [Account(id: '42', userId: 42, name: 'tester')],
-            currentId: '42',
-          ),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-
     await tester.pumpWidget(
       UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
+        container: _signedInContainer(),
+        // No session: the page resolves the account asynchronously and
+        // builds the editing session itself, exactly like production.
+        child: localizedApp(
           locale: const Locale('en', 'US'),
-          // No session: the page resolves the account asynchronously and
-          // builds the editing session itself, exactly like production.
           home: ProfileEditPage(
             userId: 42,
             initialUser: _user(),
-            repository: repository,
+            repository: _FakeRepository(_appApi()),
           ),
         ),
       ),
@@ -654,41 +509,15 @@ void main() {
     tester,
   ) async {
     final users = _FlakyUserRepository(_user());
-    final container = ProviderContainer(
-      overrides: [
-        ...accountProviderOverrides(
-          credentialStore: FakeCredentialStore(
-            values: const {
-              '42': Credential(accessToken: 'a', refreshToken: 'r'),
-            },
-          ),
-          metadataRepository: FakeAccountMetadataRepository(
-            accounts: const [Account(id: '42', userId: 42, name: 'tester')],
-            currentId: '42',
-          ),
-        ),
-        userRepositoryProvider.overrideWithValue(users),
-      ],
-    );
-    addTearDown(container.dispose);
-
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('en', 'US'),
-          home: ProfileEditPage(
-            userId: 42,
-            repository: _FakeRepository(
-              capabilities: ProfileCapabilities(
-                editableFields: ProfileField.values,
-                channel: ProfileEditChannel.appApi,
-              ),
-              outcome: ProfileEditConfirmed(_user()),
-            ),
-          ),
+      localizedApp(
+        container: _signedInContainer([
+          userRepositoryProvider.overrideWithValue(users),
+        ]),
+        locale: const Locale('en', 'US'),
+        home: ProfileEditPage(
+          userId: 42,
+          repository: _FakeRepository(_appApi()),
         ),
       ),
     );
@@ -716,14 +545,14 @@ UserEntity _user() => const UserEntity(
 ProfileEditOwner _owner() => const ProfileEditOwner(accountId: 'account-a');
 
 class _FakeRepository implements ProfileEditRepository {
-  _FakeRepository({
-    required this.capabilities,
-    this.outcome,
+  _FakeRepository(
+    this.capabilities, {
+    ProfileEditOutcome? outcome,
     this.deferredOutcome,
-  });
+  }) : outcome = outcome ?? ProfileEditConfirmed(_user());
 
   final ProfileCapabilities capabilities;
-  final ProfileEditOutcome? outcome;
+  final ProfileEditOutcome outcome;
   final Completer<ProfileEditOutcome>? deferredOutcome;
   final requests = <ProfileSubmitRequest>[];
 
@@ -749,7 +578,7 @@ class _FakeRepository implements ProfileEditRepository {
     requests.add(request);
     final deferred = deferredOutcome;
     if (deferred != null) return deferred.future;
-    return Future.value(outcome!);
+    return Future.value(outcome);
   }
 }
 
@@ -787,33 +616,6 @@ class _ImagePlatform implements ReverseImageInputPlatform {
   @override
   Future<ReverseImageInputReference?> pickImage() async => null;
 }
-
-List<int> _pngHeader(int width, int height) => [
-  0x89,
-  0x50,
-  0x4e,
-  0x47,
-  0x0d,
-  0x0a,
-  0x1a,
-  0x0a,
-  0,
-  0,
-  0,
-  13,
-  0x49,
-  0x48,
-  0x44,
-  0x52,
-  (width >> 24) & 0xff,
-  (width >> 16) & 0xff,
-  (width >> 8) & 0xff,
-  width & 0xff,
-  (height >> 24) & 0xff,
-  (height >> 16) & 0xff,
-  (height >> 8) & 0xff,
-  height & 0xff,
-];
 
 /// Fails the first detail fetch like a dropped connection, then answers.
 class _FlakyUserRepository implements UserRepository {

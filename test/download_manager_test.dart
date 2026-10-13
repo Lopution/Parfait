@@ -36,6 +36,22 @@ DownloadRequest request({
   target: target,
 );
 
+/// A manager over [transport] with in-memory sinks unless [sinks] is given,
+/// disposed when the test ends.
+DownloadManager _manager(
+  DownloadTransport transport, {
+  DownloadSinkFactory? sinks,
+  DownloadRecoveryStore? recoveryStore,
+}) {
+  final manager = DownloadManager(
+    transport: transport,
+    sinkFactory: sinks ?? MemorySinkFactory(),
+    recoveryStore: recoveryStore,
+  );
+  addTearDown(manager.dispose);
+  return manager;
+}
+
 void main() {
   installMemoryPreferences();
   group('DownloadRequest normalization (R4)', () {
@@ -138,8 +154,7 @@ void main() {
           ),
         );
       }
-      final manager = DownloadManager(transport: transport, sinkFactory: sinks);
-      addTearDown(manager.dispose);
+      final manager = _manager(transport, sinks: sinks);
 
       for (var i = 0; i < 5; i++) {
         manager.submit(request(pageIndex: i));
@@ -174,11 +189,7 @@ void main() {
           ],
         ),
       );
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: MemorySinkFactory(),
-      );
-      addTearDown(manager.dispose);
+      final manager = _manager(transport);
 
       final first = manager.submit(request());
       final again = manager.submit(
@@ -210,8 +221,7 @@ void main() {
         ),
       );
       final sinks = MemorySinkFactory();
-      final manager = DownloadManager(transport: transport, sinkFactory: sinks);
-      addTearDown(manager.dispose);
+      final manager = _manager(transport, sinks: sinks);
 
       manager.submit(request());
       await _Watcher(manager).pumpUntilTerminal();
@@ -313,11 +323,7 @@ void main() {
           ],
         ),
       );
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: MemorySinkFactory(),
-      );
-      addTearDown(manager.dispose);
+      final manager = _manager(transport);
       manager.submit(request());
       await _Watcher(manager).pumpUntilTerminal();
       expect(manager.tasks.single.totalBytes, isNull);
@@ -340,8 +346,7 @@ void main() {
         );
       }
       final sinks = MemorySinkFactory();
-      final manager = DownloadManager(transport: transport, sinkFactory: sinks);
-      addTearDown(manager.dispose);
+      final manager = _manager(transport, sinks: sinks);
 
       final events = <DownloadEvent>[];
       final sub = manager.events.listen(events.add);
@@ -400,11 +405,7 @@ void main() {
           ),
         );
         final sinks = MemorySinkFactory();
-        final manager = DownloadManager(
-          transport: transport,
-          sinkFactory: sinks,
-        );
-        addTearDown(manager.dispose);
+        final manager = _manager(transport, sinks: sinks);
 
         final events = <DownloadEvent>[];
         final sub = manager.events.listen(events.add);
@@ -436,11 +437,7 @@ void main() {
 
     test('retry is a no-op for unknown or non-failed tasks (R5)', () {
       final transport = FakeTransport();
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: MemorySinkFactory(),
-      );
-      addTearDown(manager.dispose);
+      final manager = _manager(transport);
       expect(manager.retry('missing'), isNull);
       final task = manager.submit(request());
       expect(
@@ -522,12 +519,7 @@ void main() {
           ),
         ]);
       final recovery = MemoryDownloadRecoveryStore();
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: MemorySinkFactory(),
-        recoveryStore: recovery,
-      );
-      addTearDown(manager.dispose);
+      final manager = _manager(transport, recoveryStore: recovery);
 
       final first = manager.submitGroup([request()]);
       await _Watcher(manager).pumpUntilTerminal();
@@ -544,11 +536,9 @@ void main() {
 
     test('a repeated live group submission creates no second group', () async {
       final gate = Completer<void>();
-      final manager = DownloadManager(
-        transport: FakeTransport()..responses.add(gatedResponse(gate)),
-        sinkFactory: MemorySinkFactory(),
+      final manager = _manager(
+        FakeTransport()..responses.add(gatedResponse(gate)),
       );
-      addTearDown(manager.dispose);
 
       final first = manager.submitGroup([request()]);
       await Future<void>.delayed(Duration.zero);
@@ -625,12 +615,7 @@ void main() {
             ),
           ]);
         final recovery = MemoryDownloadRecoveryStore();
-        final manager = DownloadManager(
-          transport: transport,
-          sinkFactory: MemorySinkFactory(),
-          recoveryStore: recovery,
-        );
-        addTearDown(manager.dispose);
+        final manager = _manager(transport, recoveryStore: recovery);
         final group = manager.submitGroup([
           request(pageIndex: 0),
           request(pageIndex: 1),
@@ -680,11 +665,7 @@ void main() {
             completers: [gate],
           ),
         );
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: MemorySinkFactory(),
-      );
-      addTearDown(manager.dispose);
+      final manager = _manager(transport);
       final snapshot = manager.submit(request());
       for (
         var i = 0;
@@ -726,11 +707,7 @@ void main() {
             completers: [gate],
           ),
         ]);
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: MemorySinkFactory(),
-      );
-      addTearDown(manager.dispose);
+      final manager = _manager(transport);
       manager.submit(request(pageIndex: 0));
       manager.submit(request(pageIndex: 1));
       for (
@@ -777,12 +754,7 @@ void main() {
         );
       }
       final recovery = MemoryDownloadRecoveryStore();
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: MemorySinkFactory(),
-        recoveryStore: recovery,
-      );
-      addTearDown(manager.dispose);
+      final manager = _manager(transport, recoveryStore: recovery);
       manager.submitGroup([
         request(pageIndex: 0),
         request(pageIndex: 1),
@@ -881,11 +853,7 @@ void main() {
           ),
         );
       }
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: MemorySinkFactory(),
-      );
-      addTearDown(manager.dispose);
+      final manager = _manager(transport);
       final coordinator = IllustDownloadCoordinator(manager);
 
       final single = await coordinator.downloadPage(
@@ -921,11 +889,7 @@ void main() {
           ),
         );
       }
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: MemorySinkFactory(),
-      );
-      addTearDown(manager.dispose);
+      final manager = _manager(transport);
       final coordinator = IllustDownloadCoordinator(manager);
 
       final all = await coordinator.downloadAllPages(
@@ -948,11 +912,7 @@ void main() {
     });
 
     test('rejects unsafe URLs before queueing (R4/R7)', () async {
-      final manager = DownloadManager(
-        transport: FakeTransport(),
-        sinkFactory: MemorySinkFactory(),
-      );
-      addTearDown(manager.dispose);
+      final manager = _manager(FakeTransport());
       final coordinator = IllustDownloadCoordinator(manager);
       final work = parseIllust(illustJson(1));
       await expectLater(

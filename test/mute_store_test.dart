@@ -5,15 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/mute/mute_models.dart';
 import 'package:parfait/core/mute/mute_predicate.dart';
 import 'package:parfait/core/mute/mute_store.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -81,43 +76,7 @@ Future<World> _makeWorld({
     ..listUsers = listUsers
     ..listStatus = listStatus
     ..editStatus = editStatus;
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient((request) async {
-            fail('refresh should not happen in this test');
-          }),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client not wired yet');
-        return client;
-      }),
-    ],
-  );
-  clientRef[0] = PixivHttpClient(
-    client: fixture.build(),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  await container.read(accountStoreProvider.future);
-  addTearDown(container.dispose);
+  final container = await signedInApiContainer(fixture.build());
   return (container, fixture, prefs);
 }
 

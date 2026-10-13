@@ -9,11 +9,8 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/navigation/func_page.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/home_branch_stack.dart';
-import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/settings/app_settings.dart';
-import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/profile/profile_edit_controller.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/profile/profile_edit_models.dart';
@@ -21,13 +18,12 @@ import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/features/profile/profile_edit_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
-
-const _account = Account(id: '100', userId: 100, name: 'tester');
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
 
 Future<void> _sendBackGestureMethod(
   String method, [
@@ -40,6 +36,21 @@ Future<void> _sendBackGestureMethod(
       .handlePlatformMessage('flutter/backgesture', data, (_) {});
 }
 
+/// Android's predictive back, starting at the left edge.
+Future<void> _startBackGesture() => _sendBackGestureMethod('startBackGesture', {
+  'touchOffset': <double>[5.0, 300.0],
+  'progress': 0.0,
+  'swipeEdge': 0,
+});
+
+/// The predictive back swipe, 100 px in, at [progress].
+Future<void> _dragBackGesture(double progress) =>
+    _sendBackGestureMethod('updateBackGestureProgress', {
+      'touchOffset': <double>[100.0, 300.0],
+      'progress': progress,
+      'swipeEdge': 0,
+    });
+
 Finder _sharedElementTransition() => find.byWidgetPredicate(
   (widget) => widget.runtimeType.toString().contains(
     'PredictiveBackSharedElementPageTransition',
@@ -47,13 +58,15 @@ Finder _sharedElementTransition() => find.byWidgetPredicate(
 );
 
 /// Pumps a bare Navigator whose initial route is a [FuncPage]; the page's
-/// button pushes a second FuncPage and hands the route back through the
-/// return value.
+/// button pushes a second FuncPage showing [second] and hands the route back
+/// through the return value, settled unless [settle] is false.
 Future<PageRoute<void>> _pushSecondPage(
   WidgetTester tester, {
   Duration duration = const Duration(milliseconds: 800),
   PageTransitionStyle transitionStyle = PageTransitionStyle.system,
   Widget? home,
+  Widget second = const Text('page b'),
+  bool settle = true,
 }) async {
   late final PageRoute<void> pushed;
   late BuildContext rootContext;
@@ -76,7 +89,7 @@ Future<PageRoute<void>> _pushSecondPage(
               Builder(
                 builder: (context) => TextButton(
                   onPressed: () {
-                    pushed = page(const Text('page b'));
+                    pushed = page(second);
                     Navigator.of(context).push(pushed);
                   },
                   child: home ?? const Text('page a'),
@@ -89,6 +102,10 @@ Future<PageRoute<void>> _pushSecondPage(
     ),
   );
   await tester.tap(find.text('page a'));
+  if (!settle) {
+    await tester.pump();
+    return pushed;
+  }
   await tester.pumpAndSettle();
   expect(find.text('page b'), findsOneWidget);
   return pushed;
@@ -106,17 +123,9 @@ Future<GoRouter> _pumpHome(
   String location = '/recommended',
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  tester.view.physicalSize = const Size(390, 844);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  final router = createPixivRouter(initialLocation: location);
-  addTearDown(router.dispose);
-  Widget app = MaterialApp.router(
-    localizationsDelegates: appLocalizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    locale: const Locale('en', 'US'),
-    routerConfig: router,
-  );
+  setViewSize(tester, const Size(390, 844));
+  final router = pixivRouter(location);
+  Widget app = localizedRouterApp(router, locale: const Locale('en', 'US'));
   if (reduceMotion || speed != null || transitionStyle != null) {
     app = MotionScope(
       reduce: reduceMotion,
@@ -126,22 +135,7 @@ Future<GoRouter> _pumpHome(
     );
   }
   await tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        ...accountProviderOverrides(
-          credentialStore: FakeCredentialStore(
-            values: const {
-              '100': Credential(accessToken: 'a-100', refreshToken: 'r-100'),
-            },
-          ),
-          metadataRepository: FakeAccountMetadataRepository(
-            accounts: const [_account],
-            currentId: '100',
-          ),
-        ),
-      ],
-      child: app,
-    ),
+    ProviderScope(overrides: [...signedInAccountOverrides()], child: app),
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
@@ -205,20 +199,12 @@ void main() {
   testWidgets('the back gesture drives the route and commits', (tester) async {
     final route = await _pushSecondPage(tester);
 
-    await _sendBackGestureMethod('startBackGesture', {
-      'touchOffset': <double>[5.0, 300.0],
-      'progress': 0.0,
-      'swipeEdge': 0,
-    });
+    await _startBackGesture();
     await tester.pump();
     expect(_sharedElementTransition(), findsWidgets);
     expect(route.animation!.value, 1.0);
 
-    await _sendBackGestureMethod('updateBackGestureProgress', {
-      'touchOffset': <double>[100.0, 300.0],
-      'progress': 0.35,
-      'swipeEdge': 0,
-    });
+    await _dragBackGesture(0.35);
     await tester.pump();
     expect(route.animation!.value, moreOrLessEquals(0.65));
 
@@ -231,17 +217,9 @@ void main() {
   testWidgets('cancelling the gesture restores the route', (tester) async {
     final route = await _pushSecondPage(tester);
 
-    await _sendBackGestureMethod('startBackGesture', {
-      'touchOffset': <double>[5.0, 300.0],
-      'progress': 0.0,
-      'swipeEdge': 0,
-    });
+    await _startBackGesture();
     await tester.pump();
-    await _sendBackGestureMethod('updateBackGestureProgress', {
-      'touchOffset': <double>[100.0, 300.0],
-      'progress': 0.3,
-      'swipeEdge': 0,
-    });
+    await _dragBackGesture(0.3);
     await tester.pump();
     expect(route.animation!.value, lessThan(1.0));
 
@@ -336,16 +314,8 @@ void main() {
     expect(tester.getTopLeft(find.text('still')), const Offset(0, 200));
     await tester.pumpAndSettle();
 
-    await _sendBackGestureMethod('startBackGesture', {
-      'touchOffset': <double>[5.0, 300.0],
-      'progress': 0.0,
-      'swipeEdge': 0,
-    });
-    await _sendBackGestureMethod('updateBackGestureProgress', {
-      'touchOffset': <double>[100.0, 300.0],
-      'progress': 1.0,
-      'swipeEdge': 0,
-    });
+    await _startBackGesture();
+    await _dragBackGesture(1.0);
     await tester.pump();
     // The gesture shrinks the page; it does not scrub the route.
     expect(pushed.animation!.value, 1.0);
@@ -386,42 +356,13 @@ void main() {
   testWidgets('the entering page stays live while a transition runs', (
     tester,
   ) async {
-    late final PageRoute<void> pushed;
-    late BuildContext rootContext;
     final probe = ValueNotifier<double>(0);
     addTearDown(probe.dispose);
-    PageRoute<void> page(Widget child) =>
-        FuncPage<void>(
-              transitionDuration: const Duration(milliseconds: 800),
-              reverseTransitionDuration: const Duration(milliseconds: 800),
-              child: child,
-            ).createRoute(rootContext)
-            as PageRoute<void>;
-    await tester.pumpWidget(
-      Directionality(
-        textDirection: TextDirection.ltr,
-        child: Builder(
-          builder: (context) {
-            rootContext = context;
-            return Navigator(
-              onGenerateRoute: (_) => page(
-                Builder(
-                  builder: (context) => TextButton(
-                    onPressed: () {
-                      pushed = page(_TickerProbe(seen: probe));
-                      Navigator.of(context).push(pushed);
-                    },
-                    child: const Text('page a'),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
+    final pushed = await _pushSecondPage(
+      tester,
+      second: _TickerProbe(seen: probe),
+      settle: false,
     );
-    await tester.tap(find.text('page a'));
-    await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     expect(pushed.animation!.isAnimating, isTrue);
     // No disabled TickerMode wraps the pushed page mid-transition, and its
@@ -461,17 +402,9 @@ void main() {
     // a visible marker that it did NOT take the gesture below.
     expect(find.byType(HistoryPage, skipOffstage: false), findsNWidgets(2));
 
-    await _sendBackGestureMethod('startBackGesture', {
-      'touchOffset': <double>[5.0, 300.0],
-      'progress': 0.0,
-      'swipeEdge': 0,
-    });
+    await _startBackGesture();
     await tester.pump();
-    await _sendBackGestureMethod('updateBackGestureProgress', {
-      'touchOffset': <double>[100.0, 300.0],
-      'progress': 0.35,
-      'swipeEdge': 0,
-    });
+    await _dragBackGesture(0.35);
     await tester.pump();
     expect(branch1Route.animation!.value, moreOrLessEquals(0.65));
     expect(branch0Route.animation!.value, 1.0);
@@ -511,17 +444,9 @@ void main() {
     expect(find.byType(MePage), findsOneWidget);
     final meRoute = _routeOf(tester, find.byType(MePage));
 
-    await _sendBackGestureMethod('startBackGesture', {
-      'touchOffset': <double>[5.0, 300.0],
-      'progress': 0.0,
-      'swipeEdge': 0,
-    });
+    await _startBackGesture();
     await tester.pump();
-    await _sendBackGestureMethod('updateBackGestureProgress', {
-      'touchOffset': <double>[100.0, 300.0],
-      'progress': 0.35,
-      'swipeEdge': 0,
-    });
+    await _dragBackGesture(0.35);
     await tester.pump();
     expect(meRoute.animation!.value, moreOrLessEquals(0.65));
     expect(historyRoute.animation!.value, 1.0);
@@ -555,45 +480,37 @@ void main() {
         initialUser: user,
         onConfirmed: (_) async {},
       );
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           profileEditControllerProvider.overrideWith2(
             (arguments) => ProfileEditController(arguments),
           ),
         ],
       );
-      addTearDown(container.dispose);
       await container
           .read(profileEditControllerProvider(session).notifier)
           .load();
 
       late BuildContext rootContext;
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedApp(
           container: container,
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('en', 'US'),
-            home: Builder(
-              builder: (context) {
-                rootContext = context;
-                return Scaffold(
-                  body: TextButton(
-                    onPressed: () => Navigator.of(context).push<void>(
-                      FuncPage<void>(
-                            child: ProfileEditPage(
-                              userId: 42,
-                              session: session,
-                            ),
-                          ).createRoute(rootContext)
-                          as PageRoute<void>,
-                    ),
-                    child: const Text('open'),
+          locale: const Locale('en', 'US'),
+          home: Builder(
+            builder: (context) {
+              rootContext = context;
+              return Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.of(context).push<void>(
+                    FuncPage<void>(
+                          child: ProfileEditPage(userId: 42, session: session),
+                        ).createRoute(rootContext)
+                        as PageRoute<void>,
                   ),
-                );
-              },
-            ),
+                  child: const Text('open'),
+                ),
+              );
+            },
           ),
         ),
       );
@@ -615,11 +532,7 @@ void main() {
 
       // PopScope(canPop: false) marks the route doNotPop, so the gesture
       // never starts: no predictive-back transition, no animation.
-      await _sendBackGestureMethod('startBackGesture', {
-        'touchOffset': <double>[5.0, 300.0],
-        'progress': 0.0,
-        'swipeEdge': 0,
-      });
+      await _startBackGesture();
       await tester.pump();
       expect(_sharedElementTransition(), findsNothing);
       expect(editRoute.animation!.value, 1.0);

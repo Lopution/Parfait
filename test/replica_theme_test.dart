@@ -88,8 +88,7 @@ void main() {
     }
 
     Future<SystemColorSchemes?> read() {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+      final container = ProviderContainer.test();
       return container.read(systemColorSchemesProvider.future);
     }
 

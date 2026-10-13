@@ -1,4 +1,3 @@
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -10,11 +9,11 @@ import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/features/profile/author_works_download_dialog.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/download_world.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
 
 /// Serves scripted works pages per type, in order.
 class _PagedWorksRepository implements UserRepository {
@@ -141,21 +140,15 @@ void main() {
           ]),
         sinkFactory: MemorySinkFactory(),
       );
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [downloadManagerProvider.overrideWithValue(manager)],
       );
-      addTearDown(container.dispose);
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedApp(
           container: container,
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: const [Locale('zh')],
-            locale: const Locale('zh'),
-            home: AuthorWorksDownloadDialog(
-              userId: 9,
-              enumerator: AuthorWorksEnumerator(repository),
-            ),
+          home: AuthorWorksDownloadDialog(
+            userId: 9,
+            enumerator: AuthorWorksEnumerator(repository),
           ),
         ),
       );

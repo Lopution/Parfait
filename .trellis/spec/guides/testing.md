@@ -59,18 +59,25 @@ reviewed: 2026-10-13
 ### TEST-05 The suite stays within its budget
 - **Rule:** User decision: `test/` holds at most 60,000 Dart code lines
   (blank and comment lines excluded; `test/review/` and `test/fixtures/`
-  not counted). Raising the cap needs the user's consent. A UI change
-  ships one or two tests of its key behaviour; layout, colour, spacing and
-  copy are checked with review screenshots. No per-locale or per-variant
-  copies of a case. Core logic (network, credentials, downloads, paging,
-  parsing, persistence) and every fixed bug keep thorough coverage. A file
-  over 1500 lines is split by feature, with shared fakes in
-  `test/helpers/`. A test file is named after the `lib/` module it covers;
-  a file of one or two cases joins its feature's file unless it is the
-  only test of its module.
+  not counted), the cap in `tool/test_budget.json`. Only the user raises
+  it; an agent asks and never edits the cap itself, including when
+  `lib/` has grown 10% past `lib_at_cap` and the report asks for a
+  review. A change that needs room makes it in this order: dedupe or
+  table-drive repeated cases; drop UI tests of colour, spacing, order or
+  copy; drop tests of removed code; drop a duplicated layer. Tests of
+  core logic, fixed bugs and security are never deleted for room. A UI
+  change ships one or two tests of its key behaviour; layout, colour,
+  spacing and copy are checked with review screenshots. No per-locale or
+  per-variant copies of a case. Core logic (network, credentials,
+  downloads, paging, parsing, persistence) and every fixed bug keep
+  thorough coverage. A file over 1500 lines is split by feature, with
+  shared fakes in `test/helpers/`. A test file is named after the `lib/`
+  module it covers; a file of one or two cases joins its feature's file
+  unless it is the only test of its module.
 - **Why:** The suite doubled in a month, mostly with parameter assertions
   and duplicated layers; dozens of one-case files each cost a compile.
-- **Check:** `test/architecture/test_hygiene_test.dart` "test files stay under"
+  It was 61,126 lines when the cap was set, already over it.
+- **Check:** `tool/test_budget.py`, `test/architecture/test_hygiene_test.dart` "test files stay under"
 - **Code:** `test`
 
 ### TEST-10 A test double is defined once

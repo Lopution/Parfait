@@ -90,7 +90,7 @@ Future<void> _waitUntil(bool Function() condition) async {
   throw StateError('condition did not become true');
 }
 
-ProviderContainer _container() => ProviderContainer(
+ProviderContainer _container() => ProviderContainer.test(
   overrides: [
     accountStoreProvider.overrideWith(
       () => StubAccountStore(
@@ -104,7 +104,7 @@ void main() {
   test(
     'local filtering uses incoming entities before the commit callback',
     () async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           accountStoreProvider.overrideWith(
             () => StubAccountStore(
@@ -116,7 +116,6 @@ void main() {
           settingsProvider.overrideWith(_BlockingSettingsController.new),
         ],
       );
-      addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       await container.read(settingsProvider.future);
 
@@ -132,7 +131,6 @@ void main() {
     'refresh wins over a late append and drops its entity/cursor commit',
     () async {
       final container = _container();
-      addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       final provider = _deferredFeedProvider('recommended:illust');
       final controller = container.read(provider.notifier);
@@ -227,7 +225,6 @@ void main() {
     'active append commits same-ID updates and keeps server order',
     () async {
       final container = _container();
-      addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       final provider = _deferredFeedProvider('ranking:day');
       final controller = container.read(provider.notifier);
@@ -293,7 +290,6 @@ void main() {
     'duplicate next cursor fails before entity commit or cursor advance',
     () async {
       final container = _container();
-      addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       final provider = _deferredFeedProvider('new:following:illust');
       final controller = container.read(provider.notifier);
@@ -340,10 +336,9 @@ void main() {
         Account(id: 'account-b', userId: 2, name: 'tester 2'),
       ],
     );
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [accountStoreProvider.overrideWith(() => accountStore)],
     );
-    addTearDown(container.dispose);
     await container.read(accountStoreProvider.future);
     final provider = _deferredFeedProvider('profile:illust:42');
     final controller = container.read(provider.notifier);

@@ -1,20 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:network_image_mock/network_image_mock.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/app/widgets/novel_entry.dart';
 import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/user/user_entity.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/pixiv_router.dart';
 
 NovelEntity _novel(
   int id, {
@@ -36,12 +34,7 @@ NovelEntity _novel(
   totalBookmarks: totalBookmarks,
 );
 
-Widget _host(Widget child) => MaterialApp(
-  localizationsDelegates: appLocalizationsDelegates,
-  supportedLocales: const [Locale('zh')],
-  locale: const Locale('zh'),
-  home: Scaffold(body: child),
-);
+Widget _host(Widget child) => localizedApp(home: Scaffold(body: child));
 
 void main() {
   setUp(() {
@@ -90,27 +83,13 @@ void main() {
     // real router and route facades drive navigation. Network-backed
     // providers fail fast inside the test host — this test only asserts
     // the facade wiring, not the destination page's content.
-    final router = createPixivRouter(initialLocation: '/recommended');
-    addTearDown(router.dispose);
+    final router = pixivRouter('/recommended');
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        ProviderScope(
-          overrides: accountProviderOverrides(
-            credentialStore: FakeCredentialStore(
-              values: const {
-                '100': Credential(accessToken: 'a-100', refreshToken: 'r-100'),
-              },
-            ),
-            metadataRepository: FakeAccountMetadataRepository(
-              accounts: const [Account(id: '100', userId: 100, name: 't')],
-              currentId: '100',
-            ),
-          ),
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: const [Locale('zh')],
-            locale: const Locale('zh'),
-            routerConfig: router,
+        localizedRouterApp(
+          router,
+          overrides: signedInAccountOverrides(
+            const Account(id: '100', userId: 100, name: 't'),
           ),
         ),
       );

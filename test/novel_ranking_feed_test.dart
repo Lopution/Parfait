@@ -5,11 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/core/novel/novel_ranking_feed_controller.dart';
 import 'package:parfait/core/novel/novel_repository.dart';
@@ -19,25 +14,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'helpers/fake_account.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/test_preferences.dart';
-
-Map<String, dynamic> _novel(int id) => {
-  'id': id,
-  'title': 'novel ranking $id',
-  'caption': '',
-  'restrict': 0,
-  'x_restrict': 0,
-  'image_urls': {'medium': 'https://i.pximg.net/$id/m.png'},
-  'tags': <Object>[],
-  'text_length': 1200,
-  'user': {
-    'id': 99,
-    'name': 'author',
-    'account': 'author',
-    'profile_image_urls': {'medium': 'https://i.pximg.net/u.png'},
-  },
-  'is_bookmarked': false,
-  'visible': true,
-};
+import 'helpers/illust_fixtures.dart';
 
 class _RankingFixture {
   final requests = <Uri>[];
@@ -53,7 +30,10 @@ class _RankingFixture {
     final date = request.url.queryParameters['date'];
     return http.Response(
       jsonEncode({
-        'novels': [for (var id = start; id < start + 2; id++) _novel(id)],
+        'novels': [
+          for (var id = start; id < start + 2; id++)
+            novelJson(id, title: 'novel ranking $id'),
+        ],
         'next_url': isFirst
             ? 'https://app-api.pixiv.net/v1/novel/ranking'
                   '?filter=for_android&mode=$nextMode'
@@ -71,44 +51,12 @@ Future<(ProviderContainer, _RankingFixture)> _makeWorld({
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final activeFixture = fixture ?? _RankingFixture();
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
+  final container = await signedInApiContainer(
+    activeFixture.client(),
     overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
       feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient((request) async {
-            fail('refresh should not happen in ranking fixture');
-          }),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client not wired yet');
-        return client;
-      }),
     ],
   );
-  final client = PixivHttpClient(
-    client: activeFixture.client(),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  clientRef[0] = client;
-  await container.read(accountStoreProvider.future);
   return (container, activeFixture);
 }
 
@@ -119,7 +67,6 @@ void main() {
 
   test('each mode has independent first page and load-more state', () async {
     final (container, fixture) = await _makeWorld();
-    addTearDown(container.dispose);
 
     final day = await container.read(
       novelRankingFeedProvider((mode: NovelRankingMode.day, date: null)).future,
@@ -166,7 +113,6 @@ void main() {
 
   test('entities land in the novel store under ranking ids', () async {
     final (container, _) = await _makeWorld();
-    addTearDown(container.dispose);
 
     await container.read(
       novelRankingFeedProvider((mode: NovelRankingMode.day, date: null)).future,
@@ -180,7 +126,6 @@ void main() {
     final (container, _) = await _makeWorld(
       fixture: (_RankingFixture()..mismatchedNextMode = NovelRankingMode.week),
     );
-    addTearDown(container.dispose);
 
     final state = await container.read(
       novelRankingFeedProvider((mode: NovelRankingMode.day, date: null)).future,
@@ -205,7 +150,6 @@ void main() {
 
     test('a past day is requested and paged with its date', () async {
       final (container, fixture) = await _makeWorld();
-      addTearDown(container.dispose);
       final provider = novelRankingFeedProvider((
         mode: NovelRankingMode.day,
         date: pastDay,
@@ -222,7 +166,6 @@ void main() {
 
     test('a cursor from another day is rejected', () async {
       final (container, _) = await _makeWorld();
-      addTearDown(container.dispose);
       final repository = container.read(novelRepositoryProvider);
       const base = 'https://app-api.pixiv.net/v1/novel/ranking?mode=day';
 

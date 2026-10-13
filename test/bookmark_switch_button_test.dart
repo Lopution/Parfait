@@ -17,8 +17,8 @@ import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
 import 'package:parfait/app/widgets/bookmark_switch_button.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/localized_app.dart';
 
 Future<(ProviderContainer, RecordingBookmarkRepository)> _pump(
   WidgetTester tester, {
@@ -26,27 +26,20 @@ Future<(ProviderContainer, RecordingBookmarkRepository)> _pump(
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final repository = RecordingBookmarkRepository();
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       accountStoreProvider.overrideWith(StubAccountStore.new),
       bookmarkRepositoryProvider.overrideWithValue(repository),
     ],
   );
-  addTearDown(container.dispose);
   await tester.pumpWidget(
-    UncontrolledProviderScope(
+    localizedApp(
       container: container,
-      child: MaterialApp(
-        builder: promptHostBuilder,
-        locale: const Locale('zh', 'CN'),
-        supportedLocales: const [Locale('zh', 'CN')],
-        localizationsDelegates: appLocalizationsDelegates,
-        home: Scaffold(
-          body: Center(
-            child:
-                child ??
-                const BookmarkSwitchButton(illustId: 1, title: 'work 1'),
-          ),
+      builder: promptHostBuilder,
+      home: Scaffold(
+        body: Center(
+          child:
+              child ?? const BookmarkSwitchButton(illustId: 1, title: 'work 1'),
         ),
       ),
     ),

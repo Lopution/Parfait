@@ -5,12 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/network/http_client_providers.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'fake_account.dart';
@@ -86,44 +81,12 @@ Future<(ProviderContainer, SpotlightFixture)> makeSpotlightWorld({
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final activeFixture = fixture ?? SpotlightFixture();
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
+  final container = await signedInApiContainer(
+    activeFixture.client(),
     overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient((request) async {
-            fail('refresh should not happen in the spotlight fixture');
-          }),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client not wired yet');
-        return client;
-      }),
       if (webClient != null)
         thirdPartyHttpClientProvider.overrideWithValue(webClient),
     ],
   );
-  final client = PixivHttpClient(
-    client: activeFixture.client(),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  clientRef[0] = client;
-  await container.read(accountStoreProvider.future);
   return (container, activeFixture);
 }

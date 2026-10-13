@@ -9,10 +9,9 @@ import 'package:parfait/core/novel/reader_settings.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:parfait/features/novel/novel_reader.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
 
 void main() {
   group('NovelReaderSettings', () {
@@ -178,10 +177,7 @@ void main() {
     var restoredPage = -1;
 
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+      localizedApp(
         home: Scaffold(
           body: NovelReader(
             novel: _novel(text),

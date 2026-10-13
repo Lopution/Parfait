@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,12 +10,13 @@ import 'package:parfait/core/settings/settings_repository.dart';
 import 'package:parfait/features/onboarding/language_page.dart';
 import 'package:parfait/features/onboarding/user_agreement_page.dart';
 import 'package:parfait/features/onboarding/welcome_page.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/test_preferences.dart';
 import 'helpers/fake_settings.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
 
 /// Settings storage stub: serves a fixed snapshot and records writes so
 /// tests can assert `completeGuide()` really persisted.
@@ -34,12 +34,11 @@ void main() {
     Locale? locale,
     ScrollBehavior? scrollBehavior,
   }) async {
-    tester.view.physicalSize = size;
-    tester.view.devicePixelRatio = 1;
+    setViewSize(tester, size);
     await tester.pumpWidget(
       MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
-        child: ProviderScope(
+        child: localizedApp(
           overrides: [
             settingsRepositoryProvider.overrideWithValue(
               repository ??
@@ -52,13 +51,9 @@ void main() {
                   ),
             ),
           ],
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: locale ?? const Locale('zh', 'CN'),
-            scrollBehavior: scrollBehavior,
-            home: page,
-          ),
+          locale: locale ?? const Locale('zh', 'CN'),
+          scrollBehavior: scrollBehavior,
+          home: page,
         ),
       ),
     );
@@ -99,13 +94,12 @@ void main() {
     }) async {
       // Comfortable phone viewport — every control on screen without
       // scrolling; the matrix group owns the short-viewport assertions.
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setViewSize(tester, const Size(390, 844));
       final r = router(initialLocation);
       addTearDown(r.dispose);
       await tester.pumpWidget(
-        ProviderScope(
+        localizedRouterApp(
+          r,
           overrides: [
             settingsRepositoryProvider.overrideWithValue(
               repository ??
@@ -118,12 +112,6 @@ void main() {
                   ),
             ),
           ],
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: r,
-          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -190,7 +178,6 @@ void main() {
 
   group('user agreement', () {
     testWidgets('a drag on a paragraph scrolls the whole page', (tester) async {
-      addTearDown(tester.view.reset);
       final zh = lookupAppLocalizations(const Locale('zh'));
       // The app's always-scrollable bouncing physics used to leak into each
       // paragraph's own Scrollable, letting it drag on its own.

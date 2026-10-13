@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/app/layout/content_widths.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/scrollable_form_shell.dart';
+import 'helpers/view_size.dart';
 
 /// The acceptance matrix from the ui-consistency gate: narrowest realistic
 /// portrait, a common phone, both breakpoints, an expanded desktop window
@@ -54,9 +55,7 @@ void main() {
     for (final size in _viewports) {
       testWidgets('shell keeps the primary action reachable at '
           '${size.width}x${size.height} @${scale}x', (tester) async {
-        tester.view.physicalSize = size;
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
+        setViewSize(tester, size);
 
         await tester.pumpWidget(_wrap(child: _shell(), textScale: scale));
         await tester.pumpAndSettle();

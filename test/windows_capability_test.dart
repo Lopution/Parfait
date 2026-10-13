@@ -23,7 +23,7 @@ import 'package:parfait/core/updater/update_platform.dart';
 const _windows = PlatformCaps(isWindows: true);
 const _android = PlatformCaps(isAndroid: true);
 
-ProviderContainer _container(PlatformCaps caps) => ProviderContainer(
+ProviderContainer _container(PlatformCaps caps) => ProviderContainer.test(
   overrides: [platformCapsProvider.overrideWithValue(caps)],
 );
 

@@ -1,53 +1,25 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/credential.dart';
-
-const _account = Account(id: '100', userId: 100, name: 'tester');
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
 
 Future<GoRouter> _pumpHome(
   WidgetTester tester, {
   String location = '/recommended',
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  tester.view.physicalSize = const Size(390, 844);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  final router = createPixivRouter(initialLocation: location);
-  addTearDown(router.dispose);
+  setViewSize(tester, const Size(390, 844));
+  final router = pixivRouter(location);
   await tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        ...accountProviderOverrides(
-          credentialStore: FakeCredentialStore(
-            values: const {
-              '100': Credential(accessToken: 'a-100', refreshToken: 'r-100'),
-            },
-          ),
-          metadataRepository: FakeAccountMetadataRepository(
-            accounts: const [_account],
-            currentId: '100',
-          ),
-        ),
-      ],
-      child: MaterialApp.router(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-        routerConfig: router,
-      ),
-    ),
+    localizedRouterApp(router, overrides: [...signedInAccountOverrides()]),
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));

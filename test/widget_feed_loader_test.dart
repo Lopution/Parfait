@@ -150,7 +150,7 @@ _makeWorld({
     );
   }
 
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(
@@ -205,7 +205,6 @@ void main() {
 
   test('writes a renderable snapshot filtering R-18 covers', () async {
     final (container, loader, store, _) = await _makeWorld();
-    addTearDown(container.dispose);
     final result = await loader.load();
     expect(result.outcome, WidgetFeedOutcome.written);
     final snapshot = store.read();
@@ -234,7 +233,6 @@ void main() {
 
   test('credential missing clears render state', () async {
     final (container, loader, store, _) = await _makeWorld();
-    addTearDown(container.dispose);
     // Same shape as reauth-required: metadata exists, secret is gone.
     await container.read(credentialStoreProvider).delete('100');
     final result = await loader.load();
@@ -244,7 +242,6 @@ void main() {
 
   test('auth failure clears render state (no stale artwork)', () async {
     final (container, loader, store, transports) = await _makeWorld();
-    addTearDown(container.dispose);
     transports.pageBehavior = 401;
     final result = await loader.load();
     expect(result.outcome, WidgetFeedOutcome.authRequired);
@@ -253,7 +250,6 @@ void main() {
 
   test('transient network failure keeps same-account last-good', () async {
     final (container, loader, store, transports) = await _makeWorld();
-    addTearDown(container.dispose);
     // Establish a last-good snapshot first.
     expect((await loader.load()).written, isTrue);
     final lastGood = store.read()!;
@@ -269,7 +265,6 @@ void main() {
 
   test('single cover failure keeps last-good and reports transient', () async {
     final (container, loader, store, transports) = await _makeWorld();
-    addTearDown(container.dispose);
     expect((await loader.load()).written, isTrue);
     final lastGood = store.read()!;
     transports.coverStatus = 404;
@@ -307,7 +302,6 @@ void main() {
           Account(id: '200', userId: 200, name: 'user200'),
         ],
       );
-      addTearDown(container.dispose);
       expect((await loader.load()).written, isTrue);
       final previous = store.read()!;
       transports._firstCoverStarted = false;
@@ -327,7 +321,6 @@ void main() {
     final (container, loader, store, transports) = await _makeWorld(
       cachedImage: (_) async => cached,
     );
-    addTearDown(container.dispose);
 
     final result = await loader.load();
     expect(result.outcome, WidgetFeedOutcome.written);
@@ -346,7 +339,6 @@ void main() {
       cachedImage: (url) async =>
           url.contains('c1_') ? null : File('${dir.path}/evicted'),
     );
-    addTearDown(container.dispose);
 
     final result = await loader.load();
     expect(result.outcome, WidgetFeedOutcome.written);
@@ -359,7 +351,6 @@ void main() {
 
   test('oversize cover is rejected as transient', () async {
     final (container, loader, _, transports) = await _makeWorld();
-    addTearDown(container.dispose);
     transports.coverBytes = List.filled(widgetImageMaxBytes + 1, 1);
     final result = await loader.load();
     expect(result.outcome, WidgetFeedOutcome.transientFailure);
@@ -369,7 +360,6 @@ void main() {
     'account revision from credential revision lands in the snapshot',
     () async {
       final (container, loader, store, _) = await _makeWorld();
-      addTearDown(container.dispose);
       await loader.load();
       expect(store.read()!.accountKey, hasLength(16));
       expect(store.read()!.accountKey, isNot(contains('100')));
@@ -380,7 +370,6 @@ void main() {
     final (container, loader, store, transports) = await _makeWorld(
       blockAI: true,
     );
-    addTearDown(container.dispose);
     transports.pageBehavior = _pageBody([
       _illustJson(1, aiType: 2),
       _illustJson(3),
@@ -394,7 +383,6 @@ void main() {
     final (container, loader, store, transports) = await _makeWorld(
       muteState: const MuteState(tags: {'blocked-tag'}),
     );
-    addTearDown(container.dispose);
     transports.pageBehavior = _pageBody([
       _illustJson(1, tags: const ['blocked-tag']),
       _illustJson(3, tags: const ['safe']),
@@ -408,7 +396,6 @@ void main() {
     final (container, loader, store, transports) = await _makeWorld(
       blockAI: true,
     );
-    addTearDown(container.dispose);
     transports.pageSequence = [
       _pageBody([
         _illustJson(1, aiType: 2),
@@ -428,7 +415,6 @@ void main() {
       final (container, loader, store, transports) = await _makeWorld(
         blockAI: true,
       );
-      addTearDown(container.dispose);
       transports.pageSequence = [
         _pageBody([_illustJson(1, aiType: 2), _illustJson(2, xRestrict: 1)]),
       ];
@@ -445,7 +431,6 @@ void main() {
       final (container, loader, store, transports) = await _makeWorld(
         blockAI: true,
       );
-      addTearDown(container.dispose);
       transports.pageSequence = [
         for (var offset = 0; offset < widgetFilterMaxRefillPages + 2; offset++)
           _pageBody([

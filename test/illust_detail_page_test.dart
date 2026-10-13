@@ -25,12 +25,12 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'helpers/detail_world.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'helpers/prompt_host.dart';
 
 import 'helpers/illust_detail_page_support.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
 
 void main() {
   installMemoryPreferences();
@@ -67,20 +67,14 @@ void main() {
 
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
-            UncontrolledProviderScope(
+            localizedApp(
               container: container,
-              child: MaterialApp(
-                builder: promptHostBuilder,
-                localizationsDelegates: appLocalizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                locale: const Locale('zh', 'CN'),
-
-                home: IllustDetailPage(
-                  illustId: 42,
-                  initialEntity: entity,
-                  heroScope: 'profile:42:bookmarks:illust:public',
-                  heroImageUrl: 'https://i.pximg.net/feed/42/medium.jpg',
-                ),
+              builder: promptHostBuilder,
+              home: IllustDetailPage(
+                illustId: 42,
+                initialEntity: entity,
+                heroScope: 'profile:42:bookmarks:illust:public',
+                heroImageUrl: 'https://i.pximg.net/feed/42/medium.jpg',
               ),
             ),
           );
@@ -240,9 +234,7 @@ void main() {
   group('info block layout (R1)', () {
     /// A tall surface builds the whole info block below the two pages.
     void useTallSurface(WidgetTester tester) {
-      tester.view.physicalSize = const Size(800, 4000);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setViewSize(tester, const Size(800, 4000));
     }
 
     testWidgets('a long caption collapses and expands; a short one does not', (
@@ -305,10 +297,8 @@ void main() {
 
     testWidgets('centers a short first image below the status bar without '
         'changing its Hero rect', (tester) async {
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
+      setViewSize(tester, const Size(390, 844));
       tester.view.padding = const FakeViewPadding(top: 24);
-      addTearDown(tester.view.reset);
 
       final (container, _, _) = await makeWorld(
         detailOverrides: {
@@ -349,9 +339,7 @@ void main() {
     });
 
     testWidgets('gives the first image of a set the same slot', (tester) async {
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setViewSize(tester, const Size(390, 844));
 
       final (container, _, _) = await makeWorld(
         detailOverrides: {
@@ -412,9 +400,7 @@ void main() {
       required String type,
       Size surface = const Size(800, 4000),
     }) async {
-      tester.view.physicalSize = surface;
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setViewSize(tester, surface);
       final json = illustJson(
         42,
         pageCount: 3,

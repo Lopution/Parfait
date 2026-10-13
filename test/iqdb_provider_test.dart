@@ -8,6 +8,7 @@ import 'package:parfait/core/reverse_image/image_input.dart';
 import 'package:parfait/core/reverse_image/iqdb_provider.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
 import 'package:parfait/core/reverse_image/reverse_image_provider.dart';
+import 'helpers/image_headers.dart';
 
 void main() {
   late Directory tempDirectory;
@@ -16,7 +17,7 @@ void main() {
   setUp(() async {
     tempDirectory = Directory.systemTemp.createTempSync('iqdb-');
     final file = File('${tempDirectory.path}/image.png')
-      ..writeAsBytesSync(_pngHeader(64, 64));
+      ..writeAsBytesSync(pngHeader(64, 64));
     input = await _open(file.path, 'image/png');
   });
 
@@ -69,7 +70,7 @@ void main() {
       final provider = IqdbWebViewProvider(client: client);
       // IQDB documents JPEG/PNG/GIF only; webp is valid globally but not here.
       final webp = File('${tempDirectory.path}/image.webp')
-        ..writeAsBytesSync(_webpHeader(64, 64));
+        ..writeAsBytesSync(webpHeader(64, 64));
       final webpInput = await _open(webp.path, 'image/webp');
       addTearDown(webpInput.dispose);
 
@@ -254,33 +255,3 @@ ReverseImageInputInfo _info({
   width: width,
   height: height,
 );
-
-List<int> _pngHeader(int width, int height) => [
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, //
-  0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, //
-  (width >> 24) & 0xff,
-  (width >> 16) & 0xff,
-  (width >> 8) & 0xff,
-  width & 0xff, //
-  (height >> 24) & 0xff,
-  (height >> 16) & 0xff,
-  (height >> 8) & 0xff,
-  height & 0xff, //
-  8, 6, 0, 0, 0, 0, 0, 0, 0,
-];
-
-// Minimal RIFF/WEBP (VP8 lossy) header the input validator accepts: it reads
-// the 9d 01 2a start code at file offset 26 and LE16 dimensions at 30/32, so
-// the VP8 payload is padded accordingly (total file length must be >= 34).
-List<int> _webpHeader(int width, int height) => [
-  0x52, 0x49, 0x46, 0x46, // 'RIFF'
-  14 & 0xff, 0, 0, 0, // RIFF size (payload + 6)
-  0x57, 0x45, 0x42, 0x50, // 'WEBP'
-  0x56, 0x50, 0x38, 0x20, // 'VP8 '
-  14 & 0xff, 0, 0, 0, // chunk size
-  0, 0, 0, 0, 0, 0, // frame tag + padding (offset 20-25)
-  0x9d, 0x01, 0x2a, // start code (offset 26-28)
-  0, // offset 29
-  width & 0xff, (width >> 8) & 0xff, // offset 30-31
-  height & 0xff, (height >> 8) & 0xff, // offset 32-33
-];

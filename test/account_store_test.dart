@@ -108,7 +108,7 @@ class _SpyHistoryRepository extends HistoryRepository {
 makeContainer() {
   final credentials = InMemoryCredentialStore();
   final metadata = InMemoryMetadataRepository();
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(metadata),
@@ -117,7 +117,6 @@ makeContainer() {
       historyRepositoryProvider.overrideWithValue(_SpyHistoryRepository()),
     ],
   );
-  addTearDown(container.dispose);
   return (container, credentials, metadata);
 }
 
@@ -365,14 +364,13 @@ void main() {
       final credentials = InMemoryCredentialStore();
       final metadata = InMemoryMetadataRepository();
       final history = _SpyHistoryRepository();
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           credentialStoreProvider.overrideWithValue(credentials),
           accountMetadataRepositoryProvider.overrideWithValue(metadata),
           historyRepositoryProvider.overrideWithValue(history),
         ],
       );
-      addTearDown(container.dispose);
 
       final store = container.read(accountStoreProvider.notifier);
       await container.read(accountStoreProvider.future);

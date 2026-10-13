@@ -6,15 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/comments/comment_actions.dart';
 import 'package:parfait/core/comments/comment_assets.dart';
 import 'package:parfait/core/comments/comment_feed_controller.dart';
@@ -23,12 +20,10 @@ import 'package:parfait/core/comments/comment_repository.dart';
 import 'package:parfait/core/comments/comment_store.dart';
 import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/entity/comment_entity.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/features/comments/comment_input.dart';
 import 'package:parfait/features/comments/comment_item.dart';
 import 'package:parfait/features/comments/comments_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/context.dart';
 import 'package:parfait/app/motion/removal.dart';
 
@@ -38,51 +33,19 @@ import 'helpers/recording_haptics.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 
 Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler,
 ) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  final credentials = FakeCredentialStore(
-    values: const {
-      'account': Credential(
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
-      ),
-    },
+  final container = await signedInApiContainer(
+    MockClient(handler),
+    account: const Account(id: 'account', userId: 10, name: 'tester'),
   );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: 'account', userId: 10, name: 'tester')],
-          currentId: 'account',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient(
-            (_) async => throw StateError('refresh is not expected'),
-          ),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client is not wired');
-        return client;
-      }),
-    ],
-  );
-  final client = PixivHttpClient(
-    client: MockClient(handler),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  clientRef[0] = client;
-  await container.read(accountStoreProvider.future);
   return container;
 }
 
@@ -119,6 +82,26 @@ Map<String, dynamic> _commentJson(
 
 /// The reply text button of every comment row (zh).
 Finder _replyButton() => find.widgetWithText(TextButton, '回复');
+
+/// The signed-in comment world, over [repository] when given.
+List<Override> _signedIn([CommentRepository? repository]) => [
+  accountStoreProvider.overrideWith(commentsAccountStore),
+  if (repository != null)
+    commentRepositoryProvider.overrideWithValue(repository),
+];
+
+/// The real comments route of work 1, signed in over a fake repository.
+Future<void> _pumpCommentsRoute(WidgetTester tester) async {
+  await tester.pumpWidget(
+    localizedRouterApp(
+      pixivRouter('/recommended/illust/1/comments'),
+      overrides: _signedIn(FakeCommentRepository()),
+      builder: promptHostBuilder,
+    ),
+  );
+  await tester.pump();
+  await tester.pump();
+}
 
 void main() {
   // Stamp cells are PixivImages, which read settings; shards run single
@@ -188,7 +171,6 @@ void main() {
           return http.Response('unexpected path', 404);
       }
     });
-    addTearDown(container.dispose);
     final repository = container.read(commentRepositoryProvider);
 
     final rootPage = await repository.fetchComments(50);
@@ -230,7 +212,6 @@ void main() {
           'next_url': null,
         }),
       );
-      addTearDown(container.dispose);
 
       final page = await container
           .read(commentRepositoryProvider)
@@ -277,7 +258,6 @@ void main() {
           return http.Response('unexpected path', 404);
       }
     });
-    addTearDown(container.dispose);
     final repository = container.read(commentRepositoryProvider);
 
     final page = await repository.fetchComments(
@@ -309,7 +289,6 @@ void main() {
     final container = await _apiContainer(
       (_) async => _json({'comments': <Object?>[], 'next_url': null}),
     );
-    addTearDown(container.dispose);
     final repository = container.read(commentRepositoryProvider);
     const root = CommentFeedQuery.root(workId: 50);
     const replies = CommentFeedQuery.replies(workId: 50, rootCommentId: 100);
@@ -351,10 +330,7 @@ void main() {
   test(
     'store deduplicates shared comments and updates the correct thread',
     () async {
-      final container = ProviderContainer(
-        overrides: [accountStoreProvider.overrideWith(commentsAccountStore)],
-      );
-      addTearDown(container.dispose);
+      final container = ProviderContainer.test(overrides: _signedIn());
       await container.read(accountStoreProvider.future);
       final store = container.read(commentStoreProvider.notifier);
       final rootQuery = const CommentFeedQuery.root(workId: 1);
@@ -401,13 +377,9 @@ void main() {
     'comment feed keeps root and reply page IDs in the shared store',
     () async {
       final repository = FakeCommentRepository();
-      final container = ProviderContainer(
-        overrides: [
-          accountStoreProvider.overrideWith(commentsAccountStore),
-          commentRepositoryProvider.overrideWithValue(repository),
-        ],
+      final container = ProviderContainer.test(
+        overrides: _signedIn(repository),
       );
-      addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
 
       const root = CommentFeedQuery.root(workId: 1);
@@ -429,10 +401,7 @@ void main() {
   test(
     'late send completion is dropped and root delete clears descendants',
     () async {
-      final container = ProviderContainer(
-        overrides: [accountStoreProvider.overrideWith(commentsAccountStore)],
-      );
-      addTearDown(container.dispose);
+      final container = ProviderContainer.test(overrides: _signedIn());
       await container.read(accountStoreProvider.future);
       final store = container.read(commentStoreProvider.notifier);
       final rootQuery = const CommentFeedQuery.root(workId: 1);
@@ -463,13 +432,9 @@ void main() {
     'actions do not publish before API success and enforce owner delete',
     () async {
       final repository = FakeCommentRepository();
-      final container = ProviderContainer(
-        overrides: [
-          accountStoreProvider.overrideWith(commentsAccountStore),
-          commentRepositoryProvider.overrideWithValue(repository),
-        ],
+      final container = ProviderContainer.test(
+        overrides: _signedIn(repository),
       );
-      addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       final action = container.read(commentActionsProvider);
       final result = sampleComment(20);
@@ -525,11 +490,8 @@ void main() {
     final sent = <int>[];
     await tester.pumpWidget(
       withStalledImages(
-        MaterialApp(
+        localizedApp(
           builder: promptHostBuilder,
-          locale: const Locale('zh', 'CN'),
-          supportedLocales: const [Locale('zh', 'CN')],
-          localizationsDelegates: appLocalizationsDelegates,
           home: Scaffold(
             resizeToAvoidBottomInset: false,
             body: CommentComposer(
@@ -582,27 +544,7 @@ void main() {
   testWidgets('comments page renders the root feed and opens its thread', (
     tester,
   ) async {
-    final router = createPixivRouter(
-      initialLocation: '/recommended/illust/1/comments',
-    );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          accountStoreProvider.overrideWith(commentsAccountStore),
-          commentRepositoryProvider.overrideWithValue(FakeCommentRepository()),
-        ],
-        child: MaterialApp.router(
-          builder: promptHostBuilder,
-          locale: const Locale('zh', 'CN'),
-          supportedLocales: const [Locale('zh', 'CN')],
-          localizationsDelegates: appLocalizationsDelegates,
-          routerConfig: router,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+    await _pumpCommentsRoute(tester);
 
     expect(find.text('comment 11'), findsOneWidget);
     expect(find.widgetWithText(TextButton, '查看 1 条回复'), findsOneWidget);
@@ -618,33 +560,9 @@ void main() {
       // a focused field + IME must never translate the page's main
       // controls — the composer reserves the keyboard extent itself.
       installMemoryPreferences();
-      tester.view.physicalSize = const Size(600, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setViewSize(tester, const Size(600, 844));
 
-      final router = createPixivRouter(
-        initialLocation: '/recommended/illust/1/comments',
-      );
-      addTearDown(router.dispose);
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            accountStoreProvider.overrideWith(commentsAccountStore),
-            commentRepositoryProvider.overrideWithValue(
-              FakeCommentRepository(),
-            ),
-          ],
-          child: MaterialApp.router(
-            builder: promptHostBuilder,
-            locale: const Locale('zh', 'CN'),
-            supportedLocales: const [Locale('zh', 'CN')],
-            localizationsDelegates: appLocalizationsDelegates,
-            routerConfig: router,
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
+      await _pumpCommentsRoute(tester);
       expect(find.text('comment 11'), findsOneWidget);
 
       // The pushed page's own Scaffold is the one that must stay out of
@@ -689,15 +607,8 @@ void main() {
     },
   );
 
-  Widget composerApp(Widget home) => withStalledImages(
-    MaterialApp(
-      builder: promptHostBuilder,
-      locale: const Locale('zh', 'CN'),
-      supportedLocales: const [Locale('zh', 'CN')],
-      localizationsDelegates: appLocalizationsDelegates,
-      home: home,
-    ),
-  );
+  Widget composerApp(Widget home) =>
+      withStalledImages(localizedApp(builder: promptHostBuilder, home: home));
 
   Widget bareComposer() => Scaffold(
     // Same contract as the real pages: the Scaffold stays out of insets so
@@ -895,10 +806,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          accountStoreProvider.overrideWith(commentsAccountStore),
-          commentRepositoryProvider.overrideWithValue(repo),
-        ],
+        overrides: _signedIn(repo),
         child: composerApp(const CommentsPage(workId: 1)),
       ),
     );
@@ -912,10 +820,7 @@ void main() {
   }) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          accountStoreProvider.overrideWith(commentsAccountStore),
-          commentRepositoryProvider.overrideWithValue(repo),
-        ],
+        overrides: _signedIn(repo),
         child: composerApp(
           CommentRepliesPage(
             workId: 1,
@@ -1002,10 +907,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          accountStoreProvider.overrideWith(commentsAccountStore),
-          commentRepositoryProvider.overrideWithValue(FakeCommentRepository()),
-        ],
+        overrides: _signedIn(FakeCommentRepository()),
         child: composerApp(const CommentsPage(workId: 1)),
       ),
     );

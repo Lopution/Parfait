@@ -1,13 +1,12 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/core/download/naming_rule.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/settings/pages/download_settings_page.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/settings_world.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
 
 void main() {
   late FakeSettingsRepository repository;
@@ -22,18 +21,11 @@ void main() {
       ),
     );
     // Tall surface so the lazily-built template section exists.
-    tester.view.physicalSize = const Size(800, 4000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setViewSize(tester, const Size(800, 4000));
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: DownloadSettingsPage(),
-        ),
+        home: DownloadSettingsPage(),
       ),
     );
     await tester.pumpAndSettle();

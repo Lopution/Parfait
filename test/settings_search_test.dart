@@ -1,12 +1,10 @@
 import 'dart:async';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/settings/settings_action_tile.dart';
 import 'package:parfait/app/widgets/settings/settings_anchor.dart';
@@ -25,12 +23,14 @@ import 'package:parfait/features/settings/network_settings_page.dart';
 import 'package:parfait/features/settings/settings_catalog.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/settings_world.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
 
 /// Each settings page that holds catalog entries. The settings index holds
 /// the top-level page entries.
@@ -61,9 +61,8 @@ List<Override> _overrides() => [
     credentialStore: FakeCredentialStore(
       values: const {'100': Credential(accessToken: 'a', refreshToken: 'r')},
     ),
-    metadataRepository: FakeAccountMetadataRepository(
-      accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-      currentId: '100',
+    metadataRepository: FakeAccountMetadataRepository.signedIn(
+      const Account(id: '100', userId: 100, name: 'tester'),
     ),
   ),
 ];
@@ -141,19 +140,12 @@ void main() {
     for (final MapEntry(key: ref, value: page) in _pages.entries) {
       testWidgets(ref?.name ?? 'settings index', (tester) async {
         // Tall enough that the lazy lists build every row.
-        tester.view.physicalSize = const Size(800, 8000);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
+        setViewSize(tester, const Size(800, 8000));
         await tester.pumpWidget(
-          ProviderScope(
+          localizedApp(
             overrides: _overrides(),
-            child: MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-              home: page,
-            ),
+            builder: promptHostBuilder,
+            home: page,
           ),
         );
         for (var i = 0; i < 10; i++) {
@@ -271,21 +263,13 @@ void main() {
   testWidgets('a result opens its page with the setting revealed and marked', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final router = createPixivRouter(initialLocation: settingsIndexPath);
-    addTearDown(router.dispose);
+    setViewSize(tester, const Size(390, 844));
+    final router = pixivRouter(settingsIndexPath);
     await tester.pumpWidget(
-      ProviderScope(
+      localizedRouterApp(
+        router,
         overrides: _overrides(),
-        child: MaterialApp.router(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
+        builder: promptHostBuilder,
       ),
     );
     await tester.pumpAndSettle();
@@ -329,21 +313,13 @@ void main() {
   });
 
   testWidgets('back from a result returns to the search', (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final router = createPixivRouter(initialLocation: settingsIndexPath);
-    addTearDown(router.dispose);
+    setViewSize(tester, const Size(390, 844));
+    final router = pixivRouter(settingsIndexPath);
     await tester.pumpWidget(
-      ProviderScope(
+      localizedRouterApp(
+        router,
         overrides: _overrides(),
-        child: MaterialApp.router(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
+        builder: promptHostBuilder,
       ),
     );
     await tester.pumpAndSettle();

@@ -105,7 +105,6 @@ void main() {
     profile,
   ) async {
     final (container, _) = await makeSeriesWorld();
-    addTearDown(container.dispose);
     await _pumpChecked(
       tester,
       locale,
@@ -131,7 +130,6 @@ void main() {
       fixture: SeriesFixture()
         ..caption = List.filled(30, 'a long series caption').join(' '),
     );
-    addTearDown(container.dispose);
     container
         .read(seriesRecentOpenStoreProvider.notifier)
         .record(
@@ -228,7 +226,6 @@ void main() {
     final (container, _) = await makeSpotlightWorld(
       fixture: SpotlightFixture()..firstPageSize = 5,
     );
-    addTearDown(container.dispose);
     await _pumpChecked(
       tester,
       locale,
@@ -258,7 +255,6 @@ void main() {
     profile,
   ) async {
     final (container, _) = await makeSpotlightWorld();
-    addTearDown(container.dispose);
     await _pumpChecked(
       tester,
       locale,

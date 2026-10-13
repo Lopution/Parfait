@@ -8,22 +8,16 @@ import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_models.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/history/history_page.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/history_world.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
 
-Widget _app(ProviderContainer container) => UncontrolledProviderScope(
-  container: container,
-  child: MaterialApp(
-    localizationsDelegates: appLocalizationsDelegates,
-    supportedLocales: const [Locale('zh')],
-    locale: const Locale('zh'),
-    home: const HistoryPage(),
-  ),
-);
+Widget _app(ProviderContainer container) =>
+    localizedApp(container: container, home: const HistoryPage());
 
 Future<ProviderContainer> _seedPage(
   WidgetTester tester,
@@ -32,9 +26,7 @@ Future<ProviderContainer> _seedPage(
 }) async {
   // Phone-sized surface: the confirm sheet's 0.35-height fraction box
   // overflows on the 800x600 default viewport and pushes the buttons out.
-  tester.view.physicalSize = const Size(390, 844);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
+  setViewSize(tester, const Size(390, 844));
   late ProviderContainer container;
   await tester.runAsync(() async {
     final repository = await openHistoryRepository(records);

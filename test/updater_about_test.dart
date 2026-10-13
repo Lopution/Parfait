@@ -5,12 +5,11 @@ import 'package:parfait/core/settings/shared_preferences.dart';
 import 'package:parfait/core/updater/update_providers.dart';
 import 'package:parfait/core/updater/update_service.dart';
 import 'package:parfait/features/settings/settings_page.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/updater_fakes.dart';
+import 'helpers/localized_app.dart';
 
 void main() {
   Future<void> pumpAbout(WidgetTester tester, {UpdateService? service}) async {
@@ -24,17 +23,12 @@ void main() {
     tester.view.physicalSize = const Size(800, 2400);
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [
           updateServiceProvider.overrideWith((ref) async => effectiveService),
         ],
-        child: MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: const AboutSettingsPage(),
-        ),
+        builder: promptHostBuilder,
+        home: const AboutSettingsPage(),
       ),
     );
     await tester.pumpAndSettle();
@@ -56,20 +50,14 @@ void main() {
       platform: _FdroidPlatform(),
     );
     installMemoryPreferences();
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [updateServiceProvider.overrideWith((ref) async => service)],
     );
-    addTearDown(container.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(
+      localizedApp(
         container: container,
-        child: MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: const AboutSettingsPage(),
-        ),
+        builder: promptHostBuilder,
+        home: const AboutSettingsPage(),
       ),
     );
     await tester.pumpAndSettle();

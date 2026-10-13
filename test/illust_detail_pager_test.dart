@@ -10,12 +10,13 @@ import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_fixtures.dart';
 import 'helpers/detail_world.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
 
 Future<void> _pumpPager(
   WidgetTester tester,
@@ -24,22 +25,12 @@ Future<void> _pumpPager(
   required int initialId,
   Size surface = const Size(390, 844),
 }) async {
-  tester.view.physicalSize = surface;
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
+  setViewSize(tester, surface);
   await mockNetworkImagesFor(() async {
     await tester.pumpWidget(
-      UncontrolledProviderScope(
+      localizedApp(
         container: container,
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: IllustDetailPagerPage(
-            source: source,
-            initialIllustId: initialId,
-          ),
-        ),
+        home: IllustDetailPagerPage(source: source, initialIllustId: initialId),
       ),
     );
     await tester.pumpAndSettle();
@@ -357,21 +348,10 @@ void main() {
     container.read(illustStoreProvider).mergeAll([
       for (final id in [41, 42, 43]) parseIllust(illustJson(id)),
     ]);
-    final router = createPixivRouter(initialLocation: '/recommended');
-    addTearDown(router.dispose);
+    final router = pixivRouter('/recommended');
     final source = IllustPagerSource()..update(const [41, 42, 43]);
     await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: router,
-          ),
-        ),
-      );
+      await tester.pumpWidget(localizedRouterApp(router, container: container));
       await tester.pump();
       unawaited(
         router.push<void>(
@@ -402,21 +382,10 @@ void main() {
     container.read(illustStoreProvider).mergeAll([
       for (final id in [42, 43]) parseIllust(illustJson(id)),
     ]);
-    final router = createPixivRouter(initialLocation: '/recommended');
-    addTearDown(router.dispose);
+    final router = pixivRouter('/recommended');
     final source = IllustPagerSource()..update(const [42, 43]);
     await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: router,
-          ),
-        ),
-      );
+      await tester.pumpWidget(localizedRouterApp(router, container: container));
       await tester.pump();
     });
     // push()'s future only completes when the route pops — don't await

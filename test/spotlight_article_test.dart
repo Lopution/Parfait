@@ -22,8 +22,6 @@ import 'package:parfait/features/spotlight/spotlight_article_page.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/connectivity_channels.dart';
@@ -32,6 +30,8 @@ import 'helpers/illust_detail_page_support.dart' show RecordingShareService;
 import 'helpers/spotlight_world.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
 
 const _articleHtml = '''
 <!DOCTYPE html>
@@ -80,9 +80,7 @@ Future<GoRouter> pumpArticle(
   List<Override> extraOverrides = const [],
   List<SpotlightArticle> entries = const [],
 }) async {
-  tester.view.physicalSize = size;
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
+  setViewSize(tester, size);
 
   final router = GoRouter(
     initialLocation: '/recommended',
@@ -115,7 +113,6 @@ Future<GoRouter> pumpArticle(
         ),
   );
   final (container, _) = await makeSpotlightWorld(webClient: webClient);
-  addTearDown(container.dispose);
   container.read(spotlightArticleStoreProvider.notifier).mergeAll(entries);
 
   await mockNetworkImagesFor(() async {
@@ -124,16 +121,11 @@ Future<GoRouter> pumpArticle(
         container: container,
         // A nested scope carries test-only overrides (e.g. the share
         // boundary) without rebuilding the fixture container.
-        child: ProviderScope(
+        child: localizedRouterApp(
+          router,
           overrides: extraOverrides,
-          child: MaterialApp.router(
-            builder: promptHostBuilder,
-            routerConfig: router,
-            scrollBehavior: const FuncScrollBehavior(),
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-          ),
+          builder: promptHostBuilder,
+          scrollBehavior: const FuncScrollBehavior(),
         ),
       ),
     );
@@ -257,7 +249,6 @@ void main() {
         return http.Response('<article></article>', 200);
       });
       final (container, _) = await makeSpotlightWorld(webClient: webClient);
-      addTearDown(container.dispose);
 
       final html = await container
           .read(spotlightRepositoryProvider)
@@ -280,7 +271,6 @@ void main() {
         return http.Response('', 200);
       });
       final (container, _) = await makeSpotlightWorld(webClient: webClient);
-      addTearDown(container.dispose);
 
       expect(
         () => container
@@ -304,7 +294,6 @@ void main() {
         final (challengeContainer, _) = await makeSpotlightWorld(
           webClient: challengeClient,
         );
-        addTearDown(challengeContainer.dispose);
 
         expect(
           () => challengeContainer
@@ -319,7 +308,6 @@ void main() {
         final (ordinaryContainer, _) = await makeSpotlightWorld(
           webClient: ordinaryClient,
         );
-        addTearDown(ordinaryContainer.dispose);
         expect(
           () => ordinaryContainer
               .read(spotlightRepositoryProvider)
@@ -345,7 +333,6 @@ void main() {
       ),
     );
     final (container, _) = await makeSpotlightWorld(webClient: webClient);
-    addTearDown(container.dispose);
 
     const key = (id: 101, url: 'https://www.pixivision.net/a/101');
     // autoDispose: an active listener keeps the provider alive while the
@@ -364,7 +351,6 @@ void main() {
         fail('the verified session must use the WebView cookie jar');
       });
       final (container, _) = await makeSpotlightWorld(webClient: webClient);
-      addTearDown(container.dispose);
       container.read(spotlightWebSessionProvider.notifier).markVerified();
 
       const key = (id: 101, url: 'https://www.pixivision.net/a/101');
@@ -392,7 +378,6 @@ void main() {
       ),
     );
     final (container, _) = await makeSpotlightWorld(webClient: webClient);
-    addTearDown(container.dispose);
 
     final router = GoRouter(
       initialLocation: '/recommended',
@@ -418,15 +403,10 @@ void main() {
 
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedRouterApp(
+          router,
           container: container,
-          child: MaterialApp.router(
-            builder: promptHostBuilder,
-            routerConfig: router,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-          ),
+          builder: promptHostBuilder,
         ),
       );
       await tester.pumpAndSettle();

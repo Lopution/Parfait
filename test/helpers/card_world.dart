@@ -2,15 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/share/share_service.dart';
 import 'package:parfait/core/watchlater/watch_later_database.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
@@ -150,45 +144,13 @@ Future<CardWorld> makeCardWorld({ShareService? shareService}) async {
   final fixture = CardApiFixture();
   final repository = MemoryWatchLaterRepository();
 
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
+  final container = await signedInApiContainer(
+    fixture.build(),
     overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient((request) async {
-            fail('refresh should not happen in this test');
-          }),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client not wired yet');
-        return client;
-      }),
       watchLaterRepositoryProvider.overrideWithValue(repository),
       if (shareService != null)
         shareServiceProvider.overrideWithValue(shareService),
     ],
   );
-  clientRef[0] = PixivHttpClient(
-    client: fixture.build(),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  await container.read(accountStoreProvider.future);
-  addTearDown(container.dispose);
   return (container, fixture, repository);
 }

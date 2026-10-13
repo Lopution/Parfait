@@ -18,13 +18,12 @@ const _key = BookmarkKey(BookmarkEntityType.illust, 1);
 Future<(ProviderContainer, RecordingBookmarkRepository)> _world() async {
   installMemoryPreferences();
   final repository = RecordingBookmarkRepository();
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       accountStoreProvider.overrideWith(StubAccountStore.new),
       bookmarkRepositoryProvider.overrideWithValue(repository),
     ],
   );
-  addTearDown(container.dispose);
   await container.read(accountStoreProvider.future);
   return (container, repository);
 }

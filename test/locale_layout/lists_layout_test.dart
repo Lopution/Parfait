@@ -161,7 +161,6 @@ void main() {
           },
       ];
     final (container, _) = await makeWatchlistWorld(fixture: fixture);
-    addTearDown(container.dispose);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         localeLayoutApp(
@@ -186,7 +185,6 @@ void main() {
           ),
       ]);
       final container = await makeHistoryWorld(repository);
-      addTearDown(container.dispose);
       await tester.pumpWidget(
         localeLayoutApp(
           locale: locale,

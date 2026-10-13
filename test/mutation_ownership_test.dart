@@ -145,7 +145,7 @@ void main() {
   });
 
   test('bookmark reverse operation supersedes the old response', () async {
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [
         accountStoreProvider.overrideWith(
           () => StubAccountStore(
@@ -157,7 +157,6 @@ void main() {
         ),
       ],
     );
-    addTearDown(container.dispose);
     await container.read(accountStoreProvider.future);
     final store = container.read(bookmarkStoreProvider.notifier);
     const key = BookmarkKey(BookmarkEntityType.illust, 42);
@@ -190,7 +189,7 @@ void main() {
     'account switch cancels owner and rejects a late bookmark response',
     () async {
       final repository = _BookmarkRepository();
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           accountStoreProvider.overrideWith(
             () => StubAccountStore(
@@ -203,7 +202,6 @@ void main() {
           bookmarkRepositoryProvider.overrideWithValue(repository),
         ],
       );
-      addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       const key = BookmarkKey(BookmarkEntityType.illust, 42);
       final action = container.read(bookmarkActionsProvider).toggle(key);
@@ -241,7 +239,7 @@ void main() {
   test(
     'follow and comments operations carry the same account boundary',
     () async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           accountStoreProvider.overrideWith(
             () => StubAccountStore(
@@ -253,7 +251,6 @@ void main() {
           ),
         ],
       );
-      addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
 
       final follow = container.read(followStoreProvider.notifier).beginAdd(7)!;
@@ -274,7 +271,7 @@ void main() {
   test(
     'comment mutation status distinguishes cancel, failure and confirm',
     () async {
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [
           accountStoreProvider.overrideWith(
             () => StubAccountStore(
@@ -286,7 +283,6 @@ void main() {
           ),
         ],
       );
-      addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       final store = container.read(commentStoreProvider.notifier);
 

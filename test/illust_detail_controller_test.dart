@@ -6,11 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/illust/illust_detail_controller.dart';
 import 'package:parfait/core/search/search_feed_controller.dart';
@@ -29,48 +24,13 @@ Future<ProviderContainer> makeContainer(
   Future<http.Response> Function(http.Request request)? webHandler,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
+  final container = await signedInApiContainer(
+    MockClient(handler),
     overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient(
-            (request) async =>
-                throw StateError('refresh must not happen in these tests'),
-          ),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) {
-          throw StateError('client not wired yet');
-        }
-        return client;
-      }),
       if (webHandler != null)
         illustDetailWebClientProvider.overrideWithValue(MockClient(webHandler)),
     ],
   );
-  final client = PixivHttpClient(
-    client: MockClient(handler),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  clientRef[0] = client;
-  await container.read(accountStoreProvider.future);
   return container;
 }
 
@@ -102,7 +62,6 @@ void main() {
         'illust': illustJson(42, pageCount: 2, withMetaPages: true),
       });
     });
-    addTearDown(container.dispose);
 
     final state = await container.read(
       illustDetailControllerProvider(42).future,
@@ -137,7 +96,6 @@ void main() {
           });
         },
       );
-      addTearDown(container.dispose);
       container.read(illustStoreProvider).mergeAll([
         parseIllust(illustJson(50, pageCount: 3, withMetaPages: true)),
       ]);
@@ -173,7 +131,6 @@ void main() {
         }),
         webHandler: (request) async => http.Response('forbidden', 403),
       );
-      addTearDown(container.dispose);
 
       final state = await container.read(
         illustDetailControllerProvider(51).future,
@@ -195,7 +152,6 @@ void main() {
         return okJson({'error': false, 'body': <dynamic>[]});
       },
     );
-    addTearDown(container.dispose);
 
     final state = await container.read(
       illustDetailControllerProvider(52).future,
@@ -211,7 +167,6 @@ void main() {
         await Future<void>.delayed(const Duration(seconds: 30));
         return okJson({'illust': illustJson(7)});
       });
-      addTearDown(container.dispose);
 
       // Seed the store snapshot: the page renders this while loading.
       container.read(illustStoreProvider).mergeAll([
@@ -238,7 +193,6 @@ void main() {
     final container = await makeContainer((request) async {
       return http.Response('not found', 404);
     });
-    addTearDown(container.dispose);
     final state = await container.read(
       illustDetailControllerProvider(9).future,
     );
@@ -249,7 +203,6 @@ void main() {
     final container = await makeContainer((request) async {
       return okJson({'illust': illustJson(11, visible: false)});
     });
-    addTearDown(container.dispose);
     final state = await container.read(
       illustDetailControllerProvider(11).future,
     );
@@ -262,7 +215,6 @@ void main() {
       final container = await makeContainer((request) async {
         throw http.ClientException('offline');
       });
-      addTearDown(container.dispose);
       container.read(illustStoreProvider).mergeAll([
         parseIllust(illustJson(5, bookmarked: true)),
       ]);
@@ -293,7 +245,6 @@ void main() {
             ),
           });
         });
-        addTearDown(container.dispose);
         container.read(illustStoreProvider).mergeAll([
           parseIllust(
             illustJson(7, withMetaSinglePage: true, caption: 'caption'),
@@ -326,7 +277,6 @@ void main() {
       attempts++;
       throw http.ClientException('offline');
     });
-    addTearDown(container.dispose);
     final controller = container.read(
       illustDetailControllerProvider(6).notifier,
     );
@@ -358,7 +308,6 @@ void main() {
           'next_url': null,
         });
       });
-      addTearDown(container.dispose);
 
       final state = await container.read(
         searchFeedProvider(

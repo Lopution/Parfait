@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/app.dart';
@@ -19,13 +18,13 @@ import 'package:parfait/features/ranking/ranking_page.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/test_preferences.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
 
 /// Answers [initial] and never delivers a new intent.
 class _FixedIntentSource implements AndroidIntentSource {
@@ -59,26 +58,18 @@ Widget _homeApp({AndroidIntentSource? intentSource, Locale? locale}) {
     accounts: _signedInSnapshot.accounts,
     currentId: _signedInSnapshot.currentId,
   );
-  return ProviderScope(
+  return localizedRouterApp(
+    router,
     overrides: [
       ...accountProviderOverrides(
         credentialStore: credentials,
         metadataRepository: metadata,
       ),
     ],
-    child: MaterialApp.router(
-      localizationsDelegates: appLocalizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: locale ?? const Locale('zh', 'CN'),
-      routerConfig: router,
-      builder: (context, child) => promptHostBuilder(
-        context,
-        ExternalIntentBridge(
-          router: router,
-          intentSource: source,
-          child: child!,
-        ),
-      ),
+    locale: locale ?? const Locale('zh', 'CN'),
+    builder: (context, child) => promptHostBuilder(
+      context,
+      ExternalIntentBridge(router: router, intentSource: source, child: child!),
     ),
   );
 }
@@ -90,9 +81,7 @@ Future<void> _pumpHome(
 }) async {
   // Pin a compact surface so the shell renders the bottom navigation bar
   // rather than the wide NavigationRail.
-  tester.view.physicalSize = const Size(390, 844);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
+  setViewSize(tester, const Size(390, 844));
   await tester.pumpWidget(_homeApp(intentSource: intentSource, locale: locale));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));

@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/tag_chips.dart';
 import 'package:parfait/core/search/search_history.dart';
 import 'package:parfait/core/search/search_models.dart';
@@ -11,12 +10,12 @@ import 'package:parfait/core/search/search_shortcut.dart';
 import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/features/search/search_page.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/prompt_host.dart';
 import 'helpers/search_world.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/pixiv_router.dart';
 
 Future<GoRouter> _pumpInput(
   WidgetTester tester, {
@@ -27,22 +26,16 @@ Future<GoRouter> _pumpInput(
   installMemoryPreferences({
     if (history.isNotEmpty) PreferenceKeys.searchHistory: history,
   });
-  final router = createPixivRouter(initialLocation: location);
-  addTearDown(router.dispose);
+  final router = pixivRouter(location);
   await tester.pumpWidget(
-    ProviderScope(
+    localizedRouterApp(
+      router,
       overrides: [
         searchRepositoryProvider.overrideWithValue(
           repository ?? FakeSearchRepository(),
         ),
       ],
-      child: MaterialApp.router(
-        builder: promptHostBuilder,
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-        routerConfig: router,
-      ),
+      builder: promptHostBuilder,
     ),
   );
   // The input owns a focused TextField whose cursor schedules a persistent
@@ -138,8 +131,7 @@ void main() {
 
     // Each container reads the same in-memory store, like an app restart.
     ProviderContainer makeContainer() {
-      final created = ProviderContainer();
-      addTearDown(created.dispose);
+      final created = ProviderContainer.test();
       return created;
     }
 
