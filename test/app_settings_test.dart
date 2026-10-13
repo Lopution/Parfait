@@ -62,6 +62,27 @@ void main() {
     expect(settings.translateIndex, 1);
   });
 
+  test('ranking arrangements round-trip; a damaged one falls back', () {
+    final saved = baseTestSettings().copyWith(
+      illustRankingArrangement: [(id: 'week', visible: true)],
+      illustRankingLastMode: 'week',
+    );
+    final json = jsonDecode(jsonEncode(saved.toJson())) as Map<String, Object?>;
+    final restored = AppSettings.fromJson(json, fallback: baseTestSettings());
+    expect(restored.illustRankingArrangement, [(id: 'week', visible: true)]);
+    expect(restored.illustRankingLastMode, 'week');
+    expect(restored.novelRankingArrangement, isNull);
+
+    final damaged = AppSettings.fromJson({
+      'illustRankingArrangement': 'broken',
+      'novelRankingArrangement': null,
+      'illustRankingLastMode': 3,
+    }, fallback: saved);
+    expect(damaged.illustRankingArrangement, saved.illustRankingArrangement);
+    expect(damaged.novelRankingArrangement, isNull, reason: 'null resets');
+    expect(damaged.illustRankingLastMode, 'week');
+  });
+
   test('legacy individual keys migrate to the versioned JSON key', () async {
     final preferences = SharedPreferencesAsync();
     await preferences.setBool(

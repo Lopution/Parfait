@@ -9,6 +9,8 @@ import '../network/api_error.dart';
 import '../network/next_page_parser.dart';
 import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
+import '../ranking/ranking_category.dart';
+import '../settings/arrangement.dart';
 import 'novel_entity.dart';
 import 'novel_webview_text.dart';
 
@@ -56,24 +58,73 @@ class NovelSeriesPage {
 /// embedded pixiv bootstrap object (the same source every working client
 /// uses), so [fetchDetail] always merges both responses. A missing or
 /// malformed webview payload is an error, never a silent empty body.
-/// `/v1/novel/ranking` modes (9 modes).
-/// The fixed order is part of the visible contract; API values are explicit
-/// so an enum reorder cannot silently change a request.
-enum NovelRankingMode {
+/// `/v1/novel/ranking` modes (12, probed 2026-10-12; the API rejects
+/// `month` and `week_original`). The tab order is [defaultArrangement] or
+/// the user's; API values are explicit so an enum reorder cannot silently
+/// change a request.
+enum NovelRankingMode implements RankingCategory {
   day('day', 'rankingDay'),
+  week('week', 'rankingWeek'),
+  weekRookie('week_rookie', 'rankingWeekRookie'),
+  weekAi('week_ai', 'rankingAi', isAi: true),
   dayMale('day_male', 'rankingDayMale'),
   dayFemale('day_female', 'rankingDayFemale'),
-  week('week', 'rankingWeek'),
-  weekAi('week_ai', 'rankingWeekAi'),
-  weekAiR18('week_ai_r18', 'rankingWeekAiR18'),
-  dayR18('day_r18', 'rankingDayR18'),
-  weekR18('week_r18', 'rankingWeekR18'),
-  weekR18G('week_r18g', 'rankingWeekR18G');
+  dayR18('day_r18', 'rankingDayR18', rating: RankingRating.r18),
+  weekR18('week_r18', 'rankingWeekR18', rating: RankingRating.r18),
+  weekAiR18(
+    'week_ai_r18',
+    'rankingAiR18',
+    rating: RankingRating.r18,
+    isAi: true,
+  ),
+  dayMaleR18('day_male_r18', 'rankingDayMaleR18', rating: RankingRating.r18),
+  dayFemaleR18(
+    'day_female_r18',
+    'rankingDayFemaleR18',
+    rating: RankingRating.r18,
+  ),
+  weekR18G('week_r18g', 'rankingWeekR18G', rating: RankingRating.r18g);
 
-  const NovelRankingMode(this.apiValue, this.labelKey);
+  const NovelRankingMode(
+    this.apiValue,
+    this.labelKey, {
+    this.rating = RankingRating.allAges,
+    this.isAi = false,
+  });
 
+  @override
   final String apiValue;
+  @override
   final String labelKey;
+  @override
+  final RankingRating rating;
+  @override
+  final bool isAi;
+
+  /// Same order as the illust ranking; R-18G is offered but hidden.
+  static const defaultArrangement = Arrangement<NovelRankingMode>(
+    shown: [
+      day,
+      week,
+      weekRookie,
+      weekAi,
+      dayMale,
+      dayFemale,
+      dayR18,
+      weekR18,
+      weekAiR18,
+      dayMaleR18,
+      dayFemaleR18,
+    ],
+    hidden: [weekR18G],
+  );
+
+  static NovelRankingMode? fromApiValue(String value) {
+    for (final mode in values) {
+      if (mode.apiValue == value) return mode;
+    }
+    return null;
+  }
 }
 
 abstract interface class _NovelRepository {

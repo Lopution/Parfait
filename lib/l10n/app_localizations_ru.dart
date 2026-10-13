@@ -546,7 +546,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get browseSettings => 'Настройки просмотра';
 
   @override
+  String get navigationSettings => 'Навигация и макет';
+
+  @override
   String get settingsBrowseHint => 'Локальное скрытие, качество изображений';
+
+  @override
+  String get settingsNavigationHint => 'Категории рейтинга';
 
   @override
   String get downloadSettings => 'Настройки загрузки';
@@ -1628,46 +1634,67 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get rankingDay => 'Ежедневно';
+  String get rankingDay => 'День';
 
   @override
-  String get rankingDayR18 => 'Ежедневно (R-18)';
+  String get rankingDayR18 => 'День R-18';
 
   @override
-  String get rankingDayMale => 'Ежедневно (Мужчины)';
+  String get rankingDayMale => 'Мужчины';
 
   @override
-  String get rankingDayMaleR18 => 'Ежедневно (Мужчины & R-18)';
+  String get rankingDayMaleR18 => 'Мужчины R-18';
 
   @override
-  String get rankingDayFemale => 'Ежедневно (Женщины)';
+  String get rankingDayFemale => 'Женщины';
 
   @override
-  String get rankingDayFemaleR18 => 'Ежедневно (Женщины & R-18)';
+  String get rankingDayFemaleR18 => 'Женщины R-18';
 
   @override
-  String get rankingWeek => 'Еженедельно';
+  String get rankingWeek => 'Неделя';
 
   @override
-  String get rankingWeekR18 => 'Еженедельно (R-18)';
+  String get rankingWeekR18 => 'Неделя R-18';
 
   @override
-  String get rankingWeekOriginal => 'Еженедельно (Оригинальное)';
+  String get rankingWeekOriginal => 'Оригинал';
 
   @override
-  String get rankingWeekRookie => 'Еженедельно (Дебют)';
+  String get rankingWeekRookie => 'Дебют';
 
   @override
-  String get rankingWeekAi => 'Еженедельно (AI)';
+  String get rankingAi => 'AI';
 
   @override
-  String get rankingWeekAiR18 => 'Еженедельно (AI и R-18)';
+  String get rankingAiR18 => 'AI R-18';
 
   @override
-  String get rankingWeekR18G => 'Еженедельно (R-18G)';
+  String get rankingWeekR18G => 'R-18G';
 
   @override
-  String get rankingMonth => 'Ежемесячно';
+  String get rankingMonth => 'Месяц';
+
+  @override
+  String get rankingDayManga => 'Манга · день';
+
+  @override
+  String get rankingWeekManga => 'Манга · неделя';
+
+  @override
+  String get rankingMonthManga => 'Манга · месяц';
+
+  @override
+  String get rankingWeekRookieManga => 'Манга · дебют';
+
+  @override
+  String get rankingDayR18Manga => 'Манга · день R-18';
+
+  @override
+  String get rankingWeekR18Manga => 'Манга · неделя R-18';
+
+  @override
+  String get rankingWeekR18GManga => 'Манга R-18G';
 
   @override
   String get rankingEmpty => 'Нет содержимого рейтинга';
@@ -1690,6 +1717,79 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get rankingLoadMoreFailed => 'Не удалось загрузить ещё';
+
+  @override
+  String get rankingAllCategories => 'Все категории';
+
+  @override
+  String get rankingIllust => 'Рейтинг иллюстраций';
+
+  @override
+  String get rankingLatest => 'Последний';
+
+  @override
+  String get rankingMyCategories => 'Мои категории';
+
+  @override
+  String get rankingEdit => 'Изменить';
+
+  @override
+  String get rankingEditDone => 'Готово';
+
+  @override
+  String get rankingDragHint =>
+      'Удерживайте и перетащите, чтобы изменить порядок';
+
+  @override
+  String get rankingHiddenCategories => 'Скрытые';
+
+  @override
+  String get rankingHiddenEmpty => 'Показаны все категории';
+
+  @override
+  String get rankingRestoreDefault => 'По умолчанию';
+
+  @override
+  String get rankingBlocked => 'Скрыто в настройках просмотра';
+
+  @override
+  String get rankingBlockedNote =>
+      'Серые категории скрыты в настройках просмотра';
+
+  @override
+  String get rankingMoveToFront => 'В начало';
+
+  @override
+  String get rankingMoveEarlier => 'Переместить раньше';
+
+  @override
+  String get rankingMoveLater => 'Переместить позже';
+
+  @override
+  String get rankingHideCategory => 'Скрыть категорию';
+
+  @override
+  String get rankingShowCategory => 'Показать категорию';
+
+  @override
+  String get rankingEditCategories => 'Изменить категории…';
+
+  @override
+  String get rankingR18gHint => 'Включите показ R-18G в веб-настройках pixiv';
+
+  @override
+  String get rankingR18gOpenSettings => 'Открыть настройки pixiv';
+
+  @override
+  String get illustRankingCategories => 'Категории рейтинга иллюстраций';
+
+  @override
+  String get novelRankingCategories => 'Категории рейтинга новелл';
+
+  @override
+  String rankingCategoriesShown(int shown, int total) {
+    return 'Показано $shown из $total';
+  }
 
   @override
   String get profileBookmarked => 'Закладки';

@@ -175,7 +175,9 @@
   "languageSettings": "语言",
   "translateSettings": "翻译",
   "browseSettings": "浏览设置",
+  "navigationSettings": "导航与布局",
   "settingsBrowseHint": "本地屏蔽、图片画质",
+  "settingsNavigationHint": "排行分类",
   "downloadSettings": "下载设置",
   "historySettings": "历史记录",
   "historyRecordLocal": "记录本地浏览历史",
@@ -780,19 +782,26 @@
     }
   },
   "rankingDay": "每日",
-  "rankingDayR18": "每日（R-18）",
-  "rankingDayMale": "每日（男性欢迎）",
-  "rankingDayMaleR18": "每日（男性欢迎 & R-18）",
-  "rankingDayFemale": "每日（女性欢迎）",
-  "rankingDayFemaleR18": "每日（女性欢迎 & R-18）",
+  "rankingDayR18": "每日 R-18",
+  "rankingDayMale": "男性",
+  "rankingDayMaleR18": "男性 R-18",
+  "rankingDayFemale": "女性",
+  "rankingDayFemaleR18": "女性 R-18",
   "rankingWeek": "每周",
-  "rankingWeekR18": "每周（R-18）",
-  "rankingWeekOriginal": "每周（原创）",
-  "rankingWeekRookie": "每周（新人）",
-  "rankingWeekAi": "每周（AI）",
-  "rankingWeekAiR18": "每周（AI & R-18）",
-  "rankingWeekR18G": "每周（R-18G）",
+  "rankingWeekR18": "每周 R-18",
+  "rankingWeekOriginal": "原创",
+  "rankingWeekRookie": "新人",
+  "rankingAi": "AI",
+  "rankingAiR18": "AI R-18",
+  "rankingWeekR18G": "R-18G",
   "rankingMonth": "每月",
+  "rankingDayManga": "每日漫画",
+  "rankingWeekManga": "每周漫画",
+  "rankingMonthManga": "每月漫画",
+  "rankingWeekRookieManga": "新人漫画",
+  "rankingDayR18Manga": "每日漫画 R-18",
+  "rankingWeekR18Manga": "每周漫画 R-18",
+  "rankingWeekR18GManga": "漫画 R-18G",
   "rankingEmpty": "暂无榜单内容",
   "rankingPickDate": "选择日期",
   "@rankingPickDate": {
@@ -820,6 +829,55 @@
     }
   },
   "rankingLoadMoreFailed": "加载更多失败",
+  "rankingAllCategories": "全部分类",
+  "rankingIllust": "插画排行",
+  "@rankingIllust": {
+    "description": "Category sheet row that switches from the novel ranking to the illust ranking"
+  },
+  "rankingLatest": "最新",
+  "@rankingLatest": {
+    "description": "Date row of the category sheet while the latest ranking is shown"
+  },
+  "rankingMyCategories": "我的分类",
+  "rankingEdit": "编辑",
+  "rankingEditDone": "完成",
+  "rankingDragHint": "长按拖动排序",
+  "rankingHiddenCategories": "未显示",
+  "rankingHiddenEmpty": "所有分类都已显示",
+  "rankingRestoreDefault": "恢复默认",
+  "rankingBlocked": "已在浏览设置中屏蔽",
+  "rankingBlockedNote": "置灰的分类已在浏览设置中屏蔽，不会显示",
+  "rankingMoveToFront": "移到最前",
+  "rankingMoveEarlier": "前移",
+  "@rankingMoveEarlier": {
+    "description": "Screen-reader action that moves a category one place earlier"
+  },
+  "rankingMoveLater": "后移",
+  "@rankingMoveLater": {
+    "description": "Screen-reader action that moves a category one place later"
+  },
+  "rankingHideCategory": "隐藏此分类",
+  "rankingShowCategory": "显示此分类",
+  "rankingEditCategories": "编辑分类…",
+  "rankingR18gHint": "需在 pixiv 网页设置中开启 R-18G 显示",
+  "@rankingR18gHint": {
+    "description": "Empty R-18G ranking: the account has not enabled R-18G on pixiv web"
+  },
+  "rankingR18gOpenSettings": "打开 pixiv 设置",
+  "illustRankingCategories": "插画排行分类",
+  "novelRankingCategories": "小说排行分类",
+  "rankingCategoriesShown": "显示 {shown} 个，共 {total} 个",
+  "@rankingCategoriesShown": {
+    "description": "Settings row summary: how many ranking categories are shown",
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "profileBookmarked": "收藏",
   "profileFollowing": "关注",
   "profileFans": "粉丝",

@@ -435,6 +435,7 @@ class _SettingsList extends StatelessWidget {
     SettingsPageRef.translate,
     SettingsPageRef.motion,
     SettingsPageRef.browse,
+    SettingsPageRef.navigation,
     SettingsPageRef.muted,
     SettingsPageRef.network,
     SettingsPageRef.download,

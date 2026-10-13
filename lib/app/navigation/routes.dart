@@ -237,13 +237,12 @@ class _SecondaryAnimationSnapshotGate extends StatelessWidget {
 int _pathId(GoRouterState state, String name) =>
     int.parse(state.pathParameters[name]!);
 
-RankingMode _rankingMode(String? raw) => RankingMode.values.firstWhere(
-  (mode) => mode.name == raw,
-  orElse: () => RankingMode.day,
-);
+/// `?mode=` of the ranking routes; null (absent or unknown) lets the page
+/// open on the last category viewed.
+RankingMode? _rankingMode(String? raw) => RankingMode.values.asNameMap()[raw];
 
-NovelRankingMode _novelRankingMode(String? raw) => NovelRankingMode.values
-    .firstWhere((mode) => mode.name == raw, orElse: () => NovelRankingMode.day);
+NovelRankingMode? _novelRankingMode(String? raw) =>
+    NovelRankingMode.values.asNameMap()[raw];
 
 /// `?date=` of the ranking routes: anything but a pickable past day is the
 /// latest ranking.
@@ -911,6 +910,15 @@ List<RouteBase> _settingsSubRoutes(
           _settingsPage(context, state, observer, const MotionSettingsPage()),
     ),
     GoRoute(
+      path: 'navigation',
+      pageBuilder: (context, state) => _settingsPage(
+        context,
+        state,
+        observer,
+        const NavigationSettingsPage(),
+      ),
+    ),
+    GoRoute(
       path: 'download',
       pageBuilder: (context, state) =>
           _settingsPage(context, state, observer, const DownloadSettingsPage()),
@@ -1463,6 +1471,18 @@ Future<void> openNovel(BuildContext context, int novelId) async {
 
 Future<void> openNovelRanking(BuildContext context) async {
   await _push(context, '${_currentStackRoot(context)}/novel-ranking');
+}
+
+/// From the novel ranking to the illust ranking without stacking a second
+/// page: a novel ranking pushed from the ranking root pops back to it; one
+/// in another stack (a link) goes to the ranking branch.
+void openIllustRanking(BuildContext context) {
+  final router = GoRouter.of(context);
+  if (_currentStackRoot(context) == '/ranking' && router.canPop()) {
+    router.pop();
+  } else {
+    router.go('/ranking');
+  }
 }
 
 Future<void> openNewNovels(BuildContext context) async {

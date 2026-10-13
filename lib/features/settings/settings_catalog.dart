@@ -17,6 +17,7 @@ enum SettingsPageRef implements SettingsEntry {
   translate('/settings/translate', 'translateSettings'),
   motion('/settings/motion', 'motionSettings'),
   browse('/settings/browse', 'browseSettings'),
+  navigation('/settings/navigation', 'navigationSettings'),
   muted('/settings/muted', 'mutedItemsSettings'),
   network('/settings/network', 'networkSettings'),
   networkProbe(
@@ -141,6 +142,11 @@ enum Setting implements SettingsEntry {
     'viewQuality',
     optionKeys: ['qualityLarge', 'qualityOriginal'],
   ),
+  illustRankingCategories(
+    SettingsPageRef.navigation,
+    'illustRankingCategories',
+  ),
+  novelRankingCategories(SettingsPageRef.navigation, 'novelRankingCategories'),
   mutedTags(SettingsPageRef.muted, 'mutedTagsSection'),
   mutedUsers(SettingsPageRef.muted, 'mutedUsersSection'),
   mutedWorks(SettingsPageRef.muted, 'mutedWorksSection'),

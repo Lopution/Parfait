@@ -5,40 +5,29 @@ import '../../app/theme/func_semantic_tokens.dart';
 import '../../core/illust/ranking_repository.dart';
 import '../../l10n/context.dart';
 
-/// App-bar action that opens the ranking date picker. Days outside pixiv's
-/// ranking history (before the first ranking, today or later in Japan)
-/// cannot be picked.
-class RankingDateButton extends StatelessWidget {
-  const RankingDateButton({
-    super.key,
-    required this.date,
-    required this.onChanged,
-  });
-
-  /// The ranking day on screen; null is the latest.
-  final DateTime? date;
-  final ValueChanged<DateTime> onChanged;
-
-  Future<void> _pick(BuildContext context) async {
-    final lastDate = rankingLastDate();
-    final picked = await showDatePicker(
-      context: context,
-      firstDate: rankingFirstDate,
-      lastDate: lastDate,
-      initialDate: date ?? lastDate,
-    );
-    if (picked != null) onChanged(picked);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: context.l10n.rankingPickDate,
-      onPressed: () => _pick(context),
-      icon: const Icon(Icons.calendar_month_outlined),
-    );
-  }
+/// Opens the ranking date picker on [date] (null is the latest). Days
+/// outside pixiv's ranking history (before the first ranking, today or
+/// later in Japan) cannot be picked.
+Future<void> pickRankingDate(
+  BuildContext context, {
+  required DateTime? date,
+  required ValueChanged<DateTime> onPicked,
+}) async {
+  final lastDate = rankingLastDate();
+  final picked = await showDatePicker(
+    context: context,
+    firstDate: rankingFirstDate,
+    lastDate: lastDate,
+    initialDate: date ?? lastDate,
+  );
+  if (picked != null) onPicked(picked);
 }
+
+/// The sheet's date row value: "latest" or the ranking day on screen.
+String rankingDateText(BuildContext context, DateTime? date) => switch (date) {
+  null => context.l10n.rankingLatest,
+  final date => AppFormat.date(context, date),
+};
 
 /// The bar under the mode tabs while a past ranking is shown: which day it
 /// is, and the way back to the latest ranking. It sits at the top of the

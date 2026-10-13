@@ -21,6 +21,7 @@ void main() {
     'network-advanced': '/settings/network/advanced',
     'frame-probe': '/settings/frame-probe',
     'browse': '/settings/browse',
+    'navigation': '/settings/navigation',
     'motion': '/settings/motion',
     'download': '/settings/download',
     'download-destination': '/settings/download/destination',

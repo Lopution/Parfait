@@ -41,7 +41,7 @@ void main() {
   testShot('novel/ranking', location: '/recommended/novel-ranking');
   testShot(
     'novel/ranking-male',
-    location: '/recommended/novel-ranking?mode=day_male',
+    location: '/recommended/novel-ranking?mode=dayMale',
   );
   testShot('novel/new', location: '/recommended/new-novels');
   testShot('novel/new-all', location: '/recommended/new-novels?scope=all');
