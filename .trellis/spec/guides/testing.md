@@ -101,14 +101,18 @@ reviewed: 2026-10-13
 - **Rule:** A test that binds or connects to `127.0.0.1` wraps its body in
   a three-attempt `tolerant()` helper that resets per-attempt state, with
   a raised timeout, and its file is tagged `@Tags(['socket'])` so
-  `flutter test -x socket` can leave it out. A test reaching the history
-  database injects `HistoryDatabase` with a per-test `databasePath`.
+  `flutter test -x socket` can leave it out. `test/flutter_test_config.dart`
+  gives each test file its own default databases directory; a test that
+  reads or writes history still injects `HistoryDatabase` with a per-test
+  `databasePath`.
 - **Why:** The WSL test VM drops about one in five loopback connections
-  under full-suite load; the shared FFI default path produced
-  `database is locked` between parallel files.
+  under full-suite load. Pages that open an app database at its default
+  path shared one FFI directory across parallel files and failed with
+  `database is locked` whenever CI sharding put two of them together.
 - **Check:** `test/oauth_service_test.dart`,
   `test/architecture/test_hygiene_test.dart` "socket tests carry the socket tag"
-- **Code:** `test/helpers/history_world.dart`, `dart_test.yaml`
+- **Code:** `test/flutter_test_config.dart`,
+  `test/helpers/history_world.dart`, `dart_test.yaml`
 
 ### TEST-08 Riverpod providers that dispose or retry
 - **Rule:** Before awaiting an `autoDispose` provider's `.future`, hold a
