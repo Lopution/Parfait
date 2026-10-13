@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/material.dart' as legacy_material;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -263,18 +262,12 @@ void main() {
         await tester.pump(const Duration(milliseconds: 16));
       }
       // The pull's own indicator shows the refresh in flight.
-      expect(
-        find.byType(legacy_material.RefreshProgressIndicator),
-        findsOneWidget,
-      );
+      expect(find.byType(RefreshProgressIndicator), findsOneWidget);
       expect(repository.requests.length, requestsBefore + 1);
 
       repository.pendingFetch!.complete();
       await tester.pumpAndSettle();
-      expect(
-        find.byType(legacy_material.RefreshProgressIndicator),
-        findsNothing,
-      );
+      expect(find.byType(RefreshProgressIndicator), findsNothing);
       expect(controller.offset, 0);
 
       // The in-page scope re-tap follows the same rule.
