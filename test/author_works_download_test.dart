@@ -16,7 +16,8 @@ import 'helpers/download_world.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
 
-class _FakeUserRepository implements UserRepository {
+/// Serves scripted works pages per type, in order.
+class _PagedWorksRepository implements UserRepository {
   final pages = <UserWorkType, List<UserIllustPage>>{
     UserWorkType.illust: [],
     UserWorkType.manga: [],
@@ -66,7 +67,7 @@ IllustEntity _work(int id, {String type = 'illust', int pageCount = 1}) =>
 void main() {
   group('AuthorWorksEnumerator', () {
     test('walks illust then manga cursors and skips ugoira', () async {
-      final repository = _FakeUserRepository()
+      final repository = _PagedWorksRepository()
         ..script(UserWorkType.illust, [
           _page([_work(1), _work(2, type: 'ugoira')], next: 'next-illust'),
           _page([_work(3)]),
@@ -92,7 +93,7 @@ void main() {
     });
 
     test('stops at the hard cap and reports truncation', () async {
-      final repository = _FakeUserRepository()
+      final repository = _PagedWorksRepository()
         ..script(UserWorkType.illust, [
           for (var page = 0; page < 40; page++)
             _page([
@@ -106,7 +107,7 @@ void main() {
     });
 
     test('propagates the cancel token to in-flight requests', () async {
-      final repository = _FakeUserRepository()
+      final repository = _PagedWorksRepository()
         ..script(UserWorkType.illust, [
           _page([_work(1)]),
         ])
@@ -124,7 +125,7 @@ void main() {
   group('AuthorWorksDownloadDialog', () {
     Future<(ProviderContainer, DownloadManager)> pumpDialog(
       WidgetTester tester,
-      _FakeUserRepository repository,
+      _PagedWorksRepository repository,
     ) async {
       installMemoryPreferences();
       final manager = DownloadManager(
@@ -165,7 +166,7 @@ void main() {
     testWidgets('confirm submits one group covering every page', (
       tester,
     ) async {
-      final repository = _FakeUserRepository()
+      final repository = _PagedWorksRepository()
         ..script(UserWorkType.illust, [
           _page([_work(1), _work(2, pageCount: 2)]),
         ])
@@ -191,7 +192,7 @@ void main() {
     testWidgets('cancel during enumeration pops without submitting', (
       tester,
     ) async {
-      final repository = _FakeUserRepository()
+      final repository = _PagedWorksRepository()
         ..script(UserWorkType.illust, [
           _page([_work(1)]),
         ])

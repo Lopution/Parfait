@@ -10,13 +10,14 @@ import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/updater_fakes.dart';
 
 void main() {
   Future<void> pumpAbout(WidgetTester tester, {UpdateService? service}) async {
     final effectiveService =
         service ??
         UpdateService(
-          manifestTransport: _UnusedTransport(),
+          manifestTransport: UnusedManifestTransport(),
           platform: _FdroidPlatform(),
         );
     // Tall enough that the update block below the about rows is built.
@@ -51,7 +52,7 @@ void main() {
 
   testWidgets('seven version taps unlock developer options', (tester) async {
     final service = UpdateService(
-      manifestTransport: _UnusedTransport(),
+      manifestTransport: UnusedManifestTransport(),
       platform: _FdroidPlatform(),
     );
     installMemoryPreferences();
@@ -167,7 +168,7 @@ class _StubUpdateService extends UpdateService {
     this.applyResult,
     this.lastCheckResult,
   }) : super(
-         manifestTransport: _UnusedTransport(),
+         manifestTransport: UnusedManifestTransport(),
          platform: _FdroidPlatform(),
        );
 
@@ -263,9 +264,4 @@ class _FdroidPlatform implements UpdatePlatform {
 
   @override
   Future<bool> deleteApk(String path) => throw StateError('not used');
-}
-
-class _UnusedTransport implements UpdateManifestTransport {
-  @override
-  Future<UpdateHttpResponse> fetch(Uri uri) => throw StateError('not used');
 }

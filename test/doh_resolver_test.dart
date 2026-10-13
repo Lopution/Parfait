@@ -20,7 +20,7 @@ class _FakeDohServer {
   late final InternetAddress ip;
 
   /// The hostname the endpoint URL carries (e.g. `dns.alidns.com`); when set,
-  /// [_FakeClient] matches on it in addition to [ip].
+  /// [_DohServerClient] matches on it in addition to [ip].
   String? host;
   final int statusCode;
   final int rcode;
@@ -166,8 +166,8 @@ List<int> _aRecord(int id, String name, InternetAddress ip, {int ttl = 60}) {
   return out;
 }
 
-class _FakeClient extends http.BaseClient {
-  _FakeClient(this.servers);
+class _DohServerClient extends http.BaseClient {
+  _DohServerClient(this.servers);
 
   final List<_FakeDohServer> servers;
   final requests = <http.Request>[];
@@ -193,7 +193,7 @@ const _revision = NetworkRevision(0);
 void main() {
   test('resolves a host to its public address via DoH wire format', () async {
     final server = _FakeDohServer(address: '1.1.1.1');
-    final client = _FakeClient([server]);
+    final client = _DohServerClient([server]);
     final resolver = DohResolver(
       endpointUrls: ['https://1.1.1.1/dns-query'],
       client: client,
@@ -235,7 +235,7 @@ void main() {
       final server = _FakeDohServer(address: '1.1.1.1')..ttl = 30;
       final resolver = DohResolver(
         endpointUrls: ['https://1.1.1.1/dns-query'],
-        client: _FakeClient([server]),
+        client: _DohServerClient([server]),
         clock: () => now,
       );
       addTearDown(resolver.dispose);
@@ -264,7 +264,7 @@ void main() {
     final server = _FakeDohServer(address: '1.1.1.1')..block = gate;
     final resolver = DohResolver(
       endpointUrls: ['https://1.1.1.1/dns-query'],
-      client: _FakeClient([server]),
+      client: _DohServerClient([server]),
     );
     addTearDown(resolver.dispose);
 
@@ -282,7 +282,7 @@ void main() {
   test('fails over to the next endpoint in order', () async {
     final broken = _FakeDohServer(address: '1.1.1.1', statusCode: 503);
     final healthy = _FakeDohServer(address: '8.8.8.8');
-    final client = _FakeClient([broken, healthy]);
+    final client = _DohServerClient([broken, healthy]);
     final resolver = DohResolver(
       endpointUrls: ['https://1.1.1.1/dns-query', 'https://8.8.8.8/dns-query'],
       client: client,
@@ -303,7 +303,7 @@ void main() {
   });
 
   test('all endpoints down raises SecureResolutionException', () async {
-    final client = _FakeClient([
+    final client = _DohServerClient([
       _FakeDohServer(address: '1.1.1.1', statusCode: 500),
       _FakeDohServer(address: '8.8.8.8', statusCode: 500),
     ]);
@@ -323,7 +323,7 @@ void main() {
     final nxdomain = _FakeDohServer(address: '1.1.1.1', rcode: 3);
     final resolver = DohResolver(
       endpointUrls: ['https://1.1.1.1/dns-query'],
-      client: _FakeClient([nxdomain]),
+      client: _DohServerClient([nxdomain]),
     );
     addTearDown(resolver.dispose);
 
@@ -339,7 +339,7 @@ void main() {
     server.block = gate;
     final resolver = DohResolver(
       endpointUrls: ['https://1.1.1.1/dns-query'],
-      client: _FakeClient([server]),
+      client: _DohServerClient([server]),
     );
     addTearDown(resolver.dispose);
     final cancel = _TestCancelSignal();
@@ -356,7 +356,7 @@ void main() {
 
   test('unresolvable hosts are rejected before any network I/O', () async {
     final server = _FakeDohServer(address: '1.1.1.1');
-    final client = _FakeClient([server]);
+    final client = _DohServerClient([server]);
     final resolver = DohResolver(
       endpointUrls: ['https://1.1.1.1/dns-query'],
       client: client,
@@ -385,7 +385,7 @@ void main() {
       await policy.dispose();
       final resolver = DohResolver(
         endpointUrls: ['https://1.1.1.1/dns-query'],
-        client: _FakeClient([server]),
+        client: _DohServerClient([server]),
       );
       final scoped = NetworkAccessPolicy(resolver: resolver);
       addTearDown(scoped.dispose);
@@ -415,7 +415,7 @@ void main() {
       ..delay = const Duration(milliseconds: 200);
     final resolver = DohResolver(
       endpointUrls: ['https://1.1.1.1/dns-query'],
-      client: _FakeClient([server]),
+      client: _DohServerClient([server]),
       requestTimeout: const Duration(milliseconds: 20),
     );
     addTearDown(resolver.dispose);
@@ -475,7 +475,7 @@ void main() {
         final resolver = DohResolver(
           endpointUrls: ['https://1.1.1.1/dns-query'],
           echEndpointUrls: ['https://dns.alidns.com/dns-query'],
-          client: _FakeClient([echServer, aServer]),
+          client: _DohServerClient([echServer, aServer]),
         );
         addTearDown(resolver.dispose);
 
@@ -503,7 +503,7 @@ void main() {
         ..httpsTtl = 120;
       final resolver = DohResolver(
         endpointUrls: ['https://1.1.1.1/dns-query'],
-        client: _FakeClient([server]),
+        client: _DohServerClient([server]),
       );
       addTearDown(resolver.dispose);
 
@@ -526,7 +526,7 @@ void main() {
         ..httpsTtl = 3600 * 24 * 30;
       final resolver = DohResolver(
         endpointUrls: ['https://1.1.1.1/dns-query'],
-        client: _FakeClient([huge]),
+        client: _DohServerClient([huge]),
       );
       addTearDown(resolver.dispose);
 
@@ -545,7 +545,7 @@ void main() {
         ..httpsTtl = 30;
       final resolver = DohResolver(
         endpointUrls: ['https://1.1.1.1/dns-query'],
-        client: _FakeClient([server]),
+        client: _DohServerClient([server]),
         clock: () => now,
       );
       addTearDown(resolver.dispose);
@@ -573,7 +573,7 @@ void main() {
         ..httpsEchRdata = _echRdata([1, 2, 3]);
       final resolver = DohResolver(
         endpointUrls: ['https://1.1.1.1/dns-query'],
-        client: _FakeClient([server]),
+        client: _DohServerClient([server]),
       );
       addTearDown(resolver.dispose);
 
@@ -593,7 +593,7 @@ void main() {
         ..block = gate;
       final resolver = DohResolver(
         endpointUrls: ['https://1.1.1.1/dns-query'],
-        client: _FakeClient([server]),
+        client: _DohServerClient([server]),
       );
       addTearDown(resolver.dispose);
 
@@ -621,7 +621,7 @@ void main() {
           ..httpsEchRdata = _echRdata([1, 2, 3]);
         final resolver = DohResolver(
           endpointUrls: ['https://1.1.1.1/dns-query'],
-          client: _FakeClient([server]),
+          client: _DohServerClient([server]),
         );
         addTearDown(resolver.dispose);
 
@@ -645,7 +645,7 @@ void main() {
         final server = _FakeDohServer(address: '1.1.1.1'); // httpsEchRdata null
         final resolver = DohResolver(
           endpointUrls: ['https://1.1.1.1/dns-query'],
-          client: _FakeClient([server]),
+          client: _DohServerClient([server]),
         );
         addTearDown(resolver.dispose);
 
@@ -665,7 +665,7 @@ void main() {
           'https://1.1.1.1/dns-query',
           'https://8.8.8.8/dns-query',
         ],
-        client: _FakeClient([broken, healthy]),
+        client: _DohServerClient([broken, healthy]),
       );
       addTearDown(resolver.dispose);
 
@@ -684,7 +684,7 @@ void main() {
       server.block = gate;
       final resolver = DohResolver(
         endpointUrls: ['https://1.1.1.1/dns-query'],
-        client: _FakeClient([server]),
+        client: _DohServerClient([server]),
       );
       addTearDown(resolver.dispose);
       final cancel = _TestCancelSignal();
@@ -722,7 +722,7 @@ void main() {
 Future<void> _expectTtl(_FakeDohServer server, Duration expected) async {
   final resolver = DohResolver(
     endpointUrls: ['https://1.1.1.1/dns-query'],
-    client: _FakeClient([server]),
+    client: _DohServerClient([server]),
   );
   addTearDown(resolver.dispose);
   final result = await resolver.resolve(

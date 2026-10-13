@@ -5,12 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/watchlater/watch_later_database.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
 import 'package:parfait/core/watchlater/watch_later_store.dart';
+import 'helpers/fake_account.dart';
 
 IllustEntity _illust(int id, {String title = 'work'}) => IllustEntity(
   id: id,
@@ -51,22 +51,6 @@ IllustEntity _illust(int id, {String title = 'work'}) => IllustEntity(
   visible: true,
   createDate: '2026-09-01T00:00:00+09:00',
 );
-
-class _StubAccountStore extends AccountStore {
-  @override
-  Future<AccountState> build() async => const AccountState(
-    status: AccountStatus.ready,
-    accounts: [
-      Account(id: '100', userId: 100, name: 'a'),
-      Account(id: '200', userId: 200, name: 'b'),
-    ],
-    currentId: '100',
-  );
-
-  /// Switches without the metadata repository or network session.
-  void select(String accountId) =>
-      state = AsyncData(state.requireValue.copyWith(currentId: accountId));
-}
 
 void main() {
   setUpAll(sqfliteFfiInit);
@@ -140,7 +124,9 @@ void main() {
     setUp(() async {
       container = ProviderContainer(
         overrides: [
-          accountStoreProvider.overrideWith(_StubAccountStore.new),
+          accountStoreProvider.overrideWith(
+            () => StubAccountStore(accounts: stubAccountPair),
+          ),
           watchLaterDatabaseProvider.overrideWithValue(database),
         ],
       );
@@ -201,8 +187,8 @@ void main() {
       final store = container.read(watchLaterStoreProvider.notifier);
       final removal = await store.removeAll([1]);
 
-      (container.read(accountStoreProvider.notifier) as _StubAccountStore)
-          .select('200');
+      (container.read(accountStoreProvider.notifier) as StubAccountStore)
+          .switchCurrentTo('200');
       await container.read(watchLaterStoreProvider.future);
       expect(await store.restoreAll(removal!), isFalse);
       expect(await repository.list('100'), isEmpty);

@@ -12,15 +12,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
-
-class _StubAccountStore extends AccountStore {
-  @override
-  Future<AccountState> build() async => const AccountState(
-    status: AccountStatus.ready,
-    accounts: [Account(id: 'account-a', userId: 1, name: 'tester')],
-    currentId: 'account-a',
-  );
-}
+import 'helpers/fake_account.dart';
 
 class _BlockR18Settings extends SettingsController {
   @override
@@ -84,7 +76,13 @@ void _withFeed(
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
     final container = ProviderContainer(
       overrides: [
-        accountStoreProvider.overrideWith(_StubAccountStore.new),
+        accountStoreProvider.overrideWith(
+          () => StubAccountStore(
+            accounts: const [
+              Account(id: 'account-a', userId: 1, name: 'tester'),
+            ],
+          ),
+        ),
         if (blockR18) settingsProvider.overrideWith(_BlockR18Settings.new),
       ],
     );

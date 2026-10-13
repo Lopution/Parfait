@@ -10,8 +10,9 @@ import 'package:parfait/core/user/user_entity.dart';
 import 'fake_account.dart';
 
 /// The comments' signed-in account: user 10 owns the sample comments.
-StubAccountStore commentsAccountStore() =>
-    StubAccountStore(const Account(id: 'account', userId: 10, name: 'tester'));
+StubAccountStore commentsAccountStore() => StubAccountStore(
+  accounts: const [Account(id: 'account', userId: 10, name: 'tester')],
+);
 
 CommentEntity sampleComment(
   int id, {

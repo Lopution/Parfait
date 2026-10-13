@@ -17,7 +17,7 @@ reviewed: 2026-10-12
   deleting the source data. One damaged field never resets the others.
 - **Why:** Deleting the source on migration lost settings when a later
   build had to roll back.
-- **Check:** `test/settings_test.dart` "corrupt fields fall back independently and valid fields survive" "legacy individual keys migrate to the versioned JSON key"
+- **Check:** `test/app_settings_test.dart` "corrupt fields fall back independently and valid fields survive" "legacy individual keys migrate to the versioned JSON key"
 - **Code:** `lib/core/settings/settings_repository.dart`, `lib/core/settings/app_settings.dart`
 
 ### PREF-02 A failed write keeps the previous value visible
@@ -26,7 +26,7 @@ reviewed: 2026-10-12
   surfaces `SettingsWriteException`.
 - **Why:** Optimistic publication showed a setting as saved when it was
   not.
-- **Check:** `test/settings_test.dart` "controller serializes writes and exposes the old value on failure"
+- **Check:** `test/app_settings_test.dart` "controller serializes writes and exposes the old value on failure"
 - **Code:** `lib/core/settings/settings_controller.dart`
 
 ### PREF-03 Each secret family has its own store and never enters settings
@@ -37,7 +37,7 @@ reviewed: 2026-10-12
   them takes effect on the next call. `toString` redacts the secret.
 - **Why:** A secret cached in a provider survived "clear"; a shared
   namespace exported one family with another.
-- **Check:** `test/settings_test.dart` "plain settings JSON never contains translation credentials", `test/translation_service_test.dart` "never exposes secrets in toString", `test/account_store_test.dart` "credential toString is redacted"
+- **Check:** `test/app_settings_test.dart` "plain settings JSON never contains translation credentials", `test/translation_service_test.dart` "never exposes secrets in toString", `test/account_store_test.dart` "credential toString is redacted"
 - **Code:** `lib/core/auth/credential_store.dart`, `lib/core/translation/translation_credentials.dart`
 
 ### PREF-04 Remote credentials travel over HTTPS only

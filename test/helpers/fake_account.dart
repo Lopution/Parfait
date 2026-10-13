@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 
 import 'package:parfait/core/auth/account.dart';
@@ -71,19 +72,37 @@ List<Override> accountProviderOverrides({
   ];
 }
 
-/// An [AccountStore] that is ready with [account] signed in, for tests that
-/// need a current account but none of the stores behind the real one.
+/// An [AccountStore] that is ready with [accounts] signed in and
+/// [currentId] (the first account by default) current, for tests that need
+/// accounts but none of the stores behind the real one.
 class StubAccountStore extends AccountStore {
-  StubAccountStore([
-    this.account = const Account(id: '100', userId: 100, name: 'a'),
-  ]);
+  StubAccountStore({
+    this.accounts = const [Account(id: '100', userId: 100, name: 'a')],
+    String? currentId,
+  }) : _initialId = currentId ?? accounts.first.id;
 
-  final Account account;
+  final List<Account> accounts;
+  final String _initialId;
 
   @override
-  Future<AccountState> build() async => AccountState(
-    status: AccountStatus.ready,
-    accounts: [account],
-    currentId: account.id,
-  );
+  Future<AccountState> build() async => _ready(_initialId);
+
+  /// Makes [accountId] current without the metadata repository or a
+  /// network session.
+  void switchCurrentTo(String accountId, {int credentialRevision = 0}) =>
+      state = AsyncData(_ready(accountId, credentialRevision));
+
+  AccountState _ready(String currentId, [int credentialRevision = 0]) =>
+      AccountState(
+        status: AccountStatus.ready,
+        accounts: accounts,
+        currentId: currentId,
+        credentialRevision: credentialRevision,
+      );
 }
+
+/// Two signed-in accounts, '100' and '200', for account-switch tests.
+const stubAccountPair = [
+  Account(id: '100', userId: 100, name: 'a'),
+  Account(id: '200', userId: 200, name: 'b'),
+];

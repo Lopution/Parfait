@@ -1,27 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/series/series_models.dart';
 import 'package:parfait/core/series/series_store.dart';
-
-class _StubAccountStore extends AccountStore {
-  @override
-  Future<AccountState> build() async => _stateFor('100');
-
-  void switchCurrentTo(String id) {
-    state = AsyncData(_stateFor(id));
-  }
-}
-
-AccountState _stateFor(String currentId) => AccountState(
-  status: AccountStatus.ready,
-  accounts: const [
-    Account(id: '100', userId: 100, name: 'a'),
-    Account(id: '200', userId: 200, name: 'b'),
-  ],
-  currentId: currentId,
-);
+import 'helpers/fake_account.dart';
 
 IllustSeriesEntity _series(
   int id, {
@@ -52,7 +34,11 @@ void main() {
 
   setUp(() async {
     container = ProviderContainer(
-      overrides: [accountStoreProvider.overrideWith(_StubAccountStore.new)],
+      overrides: [
+        accountStoreProvider.overrideWith(
+          () => StubAccountStore(accounts: stubAccountPair),
+        ),
+      ],
     );
     addTearDown(container.dispose);
     await container.read(accountStoreProvider.future);
@@ -108,7 +94,7 @@ void main() {
     store().mergeAll([_series(1)]);
     expect(store().get(1), isNotNull);
 
-    (container.read(accountStoreProvider.notifier) as _StubAccountStore)
+    (container.read(accountStoreProvider.notifier) as StubAccountStore)
         .switchCurrentTo('200');
     container.invalidate(illustSeriesStoreProvider);
 

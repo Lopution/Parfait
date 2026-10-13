@@ -13,46 +13,12 @@ import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 
 import 'helpers/illust_fixtures.dart';
+import 'helpers/fake_account.dart';
 
 IllustEntity _illust(int id, {String? title}) {
   final json = illustJson(id);
   if (title != null) json['title'] = title;
   return parseIllust(json);
-}
-
-class _StubAccountStore extends AccountStore {
-  @override
-  Future<AccountState> build() async => const AccountState(
-    status: AccountStatus.ready,
-    accounts: [Account(id: 'account-a', userId: 1, name: 'tester')],
-    currentId: 'account-a',
-  );
-}
-
-class _SwitchableAccountStore extends AccountStore {
-  @override
-  Future<AccountState> build() async => const AccountState(
-    status: AccountStatus.ready,
-    accounts: [
-      Account(id: 'account-a', userId: 1, name: 'tester'),
-      Account(id: 'account-b', userId: 2, name: 'tester 2'),
-    ],
-    currentId: 'account-a',
-  );
-
-  void switchToB() {
-    state = const AsyncData(
-      AccountState(
-        status: AccountStatus.ready,
-        accounts: [
-          Account(id: 'account-a', userId: 1, name: 'tester'),
-          Account(id: 'account-b', userId: 2, name: 'tester 2'),
-        ],
-        currentId: 'account-b',
-        credentialRevision: 1,
-      ),
-    );
-  }
 }
 
 class _DeferredFeedController extends PagedFeedController {
@@ -125,7 +91,13 @@ Future<void> _waitUntil(bool Function() condition) async {
 }
 
 ProviderContainer _container() => ProviderContainer(
-  overrides: [accountStoreProvider.overrideWith(_StubAccountStore.new)],
+  overrides: [
+    accountStoreProvider.overrideWith(
+      () => StubAccountStore(
+        accounts: const [Account(id: 'account-a', userId: 1, name: 'tester')],
+      ),
+    ),
+  ],
 );
 
 void main() {
@@ -134,7 +106,13 @@ void main() {
     () async {
       final container = ProviderContainer(
         overrides: [
-          accountStoreProvider.overrideWith(_StubAccountStore.new),
+          accountStoreProvider.overrideWith(
+            () => StubAccountStore(
+              accounts: const [
+                Account(id: 'account-a', userId: 1, name: 'tester'),
+              ],
+            ),
+          ),
           settingsProvider.overrideWith(_BlockingSettingsController.new),
         ],
       );
@@ -356,7 +334,12 @@ void main() {
   );
 
   test('account switch fences a late response and rebuilds the feed', () async {
-    final accountStore = _SwitchableAccountStore();
+    final accountStore = StubAccountStore(
+      accounts: const [
+        Account(id: 'account-a', userId: 1, name: 'tester'),
+        Account(id: 'account-b', userId: 2, name: 'tester 2'),
+      ],
+    );
     final container = ProviderContainer(
       overrides: [accountStoreProvider.overrideWith(() => accountStore)],
     );
@@ -377,7 +360,7 @@ void main() {
     addTearDown(feedSubscription.close);
     await _waitUntil(() => controller.requests.length == 1);
     final oldContext = controller.requests.single;
-    accountStore.switchToB();
+    accountStore.switchCurrentTo('account-b', credentialRevision: 1);
     await _waitUntil(() => controller.requests.length == 2);
     final newContext = controller.requests[1];
     expect(newContext.accountId, 'account-b');

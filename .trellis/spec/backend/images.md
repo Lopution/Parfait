@@ -134,5 +134,5 @@ reviewed: 2026-10-12
   an unfinished export becomes `orphaned`.
 - **Why:** Quantization on the UI isolate froze the app; a synthetic GIF
   URL in the download queue retried forever.
-- **Check:** `test/ugoira_test.dart` "GIF quantization runs through the bounded worker and is decodable" "cancellation aborts only the owned pending output", `test/ugoira_recovery_test.dart` "interrupted Ugoira output is orphaned and its owned pending row is cleaned"
+- **Check:** `test/ugoira_test.dart` "GIF quantization runs through the bounded worker and is decodable" "cancellation aborts only the owned pending output", `test/download_recovery_test.dart` "interrupted Ugoira output is orphaned and its owned pending row is cleaned"
 - **Code:** `lib/core/ugoira/ugoira_export.dart`, `lib/core/ugoira/ugoira_recovery.dart`

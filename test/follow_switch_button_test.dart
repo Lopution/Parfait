@@ -8,7 +8,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/widgets/follow_switch_button.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/user/follow_models.dart';
 import 'package:parfait/core/user/follow_repository.dart';
 import 'package:parfait/core/auth/account.dart';
@@ -23,41 +22,7 @@ import 'helpers/fake_account.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
-
-/// Network boundary stand-in; [error] makes the next mutation fail and
-/// [gate] holds mutations in flight.
-class _FakeFollowRepository implements FollowRepository {
-  final calls = <String>[];
-  Object? error;
-  Completer<void>? gate;
-
-  @override
-  Future<void> add(
-    int userId, {
-    FollowRestrict restrict = FollowRestrict.public,
-    CancelToken? cancelToken,
-  }) async {
-    await gate?.future;
-    if (error case final error?) throw error;
-    calls.add('add $userId ${restrict.name}');
-  }
-
-  @override
-  Future<void> delete(int userId, {CancelToken? cancelToken}) async {
-    await gate?.future;
-    if (error case final error?) throw error;
-    calls.add('delete $userId');
-  }
-
-  @override
-  Future<FollowRestrict?> fetchRestrict(
-    int userId, {
-    CancelToken? cancelToken,
-  }) async {
-    calls.add('restrict $userId');
-    return FollowRestrict.public;
-  }
-}
+import 'helpers/profile_world.dart';
 
 Future<ProviderContainer> _world({FollowRepository? follows}) async {
   installMemoryPreferences();
@@ -151,7 +116,7 @@ void main() {
     tester,
   ) async {
     final haptics = recordHaptics();
-    final follows = _FakeFollowRepository();
+    final follows = FakeFollowRepository();
     final container = await _world(follows: follows);
     await _pump(
       tester,
@@ -163,18 +128,18 @@ void main() {
 
     await tester.tap(find.byType(FollowSwitchButton));
     await tester.pumpAndSettle();
-    expect(follows.calls, ['add 7 public']);
+    expect(follows.requests, ['add:7:public']);
     expect(haptics.roles, [HapticRole.select]);
 
     // The throttle reads the wall clock; let the light lane re-arm.
     await tester.runAsync(() => Future<void>.delayed(AppHaptics.lightInterval));
     await tester.tap(find.byType(FollowSwitchButton));
     await tester.pumpAndSettle();
-    expect(follows.calls, ['add 7 public', 'delete 7']);
+    expect(follows.requests, ['add:7:public', 'delete:7']);
     expect(haptics.roles, [HapticRole.select, HapticRole.select]);
 
     await tester.runAsync(() => Future<void>.delayed(AppHaptics.lightInterval));
-    follows.error = StateError('boom');
+    follows.failure = StateError('boom');
     await tester.tap(find.byType(FollowSwitchButton));
     await tester.pumpAndSettle();
     expect(haptics.roles, [
@@ -187,7 +152,7 @@ void main() {
 
   testWidgets('the button flips before the server answers and rolls back on '
       'failure', (tester) async {
-    final follows = _FakeFollowRepository();
+    final follows = FakeFollowRepository();
     final container = await _world(follows: follows);
     await _pump(
       tester,
@@ -197,7 +162,7 @@ void main() {
       ),
     );
     final gate = follows.gate = Completer<void>();
-    follows.error = StateError('boom');
+    follows.failure = StateError('boom');
 
     await tester.tap(find.byType(FollowSwitchButton));
     await tester.pump();
@@ -218,7 +183,7 @@ void main() {
 
   testWidgets('long press opens the follow sheet once', (tester) async {
     final haptics = recordHaptics();
-    final follows = _FakeFollowRepository();
+    final follows = FakeFollowRepository();
     final container = await _world(follows: follows);
     await _pump(
       tester,
@@ -244,7 +209,7 @@ void main() {
   testWidgets('the sheet offers direct actions for each follow state', (
     tester,
   ) async {
-    final follows = _FakeFollowRepository();
+    final follows = FakeFollowRepository();
     final container = await _world(follows: follows);
     await _pump(
       tester,
@@ -284,7 +249,7 @@ void main() {
     }
     await tester.tap(action('私密关注'));
     await tester.pumpAndSettle();
-    expect(follows.calls, ['add 7 private']);
+    expect(follows.requests, ['add:7:private']);
     expect(restrict(), FollowRestrict.private);
 
     // Followed privately: make public or unfollow.
@@ -293,7 +258,7 @@ void main() {
     expect(action('取消关注'), findsOneWidget);
     await tester.tap(action('改为公开关注'));
     await tester.pumpAndSettle();
-    expect(follows.calls.last, 'add 7 public');
+    expect(follows.requests.last, 'add:7:public');
     expect(restrict(), FollowRestrict.public);
 
     // Followed publicly: make private or unfollow — with Undo.
@@ -302,10 +267,10 @@ void main() {
     expect(action('改为私密关注'), findsOneWidget);
     await tester.tap(action('取消关注'));
     await tester.pumpAndSettle();
-    expect(follows.calls.last, 'delete 7');
+    expect(follows.requests.last, 'delete:7');
     await tester.tap(promptAction('撤销'));
     await tester.pumpAndSettle();
-    expect(follows.calls.last, 'add 7 public');
+    expect(follows.requests.last, 'add:7:public');
     expect(container.read(followStoreProvider)[7]?.followed, isTrue);
   });
 }

@@ -11,6 +11,8 @@ import 'package:parfait/core/download/pixiv_download_transport.dart';
 import 'package:parfait/core/updater/update_download.dart';
 import 'package:parfait/core/updater/update_manifest.dart';
 import 'package:parfait/core/updater/update_service.dart';
+import 'helpers/updater_fakes.dart';
+import 'helpers/download_world.dart';
 
 void main() {
   late Directory directory;
@@ -28,7 +30,7 @@ void main() {
     () async {
       final bytes = <int>[1, 2, 3, 4];
       final release = _release(bytes);
-      final platform = _FakePlatform();
+      final platform = FakeUpdatePlatform();
       final manager = DownloadManager(
         transport: _BytesTransport(bytes),
         sinkFactory: UpdateFileSinkFactory(directory),
@@ -63,7 +65,7 @@ void main() {
     );
     final coordinator = UpdateDownloadCoordinator(
       manager: manager,
-      platform: _FakePlatform(),
+      platform: FakeUpdatePlatform(),
       directory: directory,
       stateStore: MemoryUpdateDownloadStateStore(),
     );
@@ -86,7 +88,7 @@ void main() {
       );
       final coordinator = UpdateDownloadCoordinator(
         manager: manager,
-        platform: _FakePlatform(),
+        platform: FakeUpdatePlatform(),
         directory: directory,
         stateStore: MemoryUpdateDownloadStateStore(),
       );
@@ -107,7 +109,7 @@ void main() {
     'apply requires explicit confirmation and never silently installs',
     () async {
       final release = _release(<int>[1, 2, 3, 4]);
-      final platform = _FakePlatform();
+      final platform = FakeUpdatePlatform();
       final downloader = _FakeDownloader(
         const UpdateApplyResult(
           status: UpdateApplyStatus.downloaded,
@@ -115,7 +117,7 @@ void main() {
         ),
       );
       final service = UpdateService(
-        manifestTransport: _UnusedTransport(),
+        manifestTransport: UnusedManifestTransport(),
         platform: platform,
         signatureVerifier: _AlwaysValidSignature(),
         downloader: downloader,
@@ -133,7 +135,7 @@ void main() {
     'confirmed apply reuses a verified recovery before starting a download',
     () async {
       final release = _release(<int>[1, 2, 3, 4]);
-      final platform = _FakePlatform();
+      final platform = FakeUpdatePlatform();
       final downloader = _FakeDownloader(
         const UpdateApplyResult(
           status: UpdateApplyStatus.downloaded,
@@ -141,7 +143,7 @@ void main() {
         ),
       );
       final service = UpdateService(
-        manifestTransport: _UnusedTransport(),
+        manifestTransport: UnusedManifestTransport(),
         platform: platform,
         signatureVerifier: _AlwaysValidSignature(),
         downloader: downloader,
@@ -161,8 +163,8 @@ void main() {
       const UpdateApplyResult(status: UpdateApplyStatus.failed),
     );
     final service = UpdateService(
-      manifestTransport: _UnusedTransport(),
-      platform: _FakePlatform(),
+      manifestTransport: UnusedManifestTransport(),
+      platform: FakeUpdatePlatform(),
       signatureVerifier: _AlwaysValidSignature(),
       downloader: downloader,
     );
@@ -174,7 +176,7 @@ void main() {
 
   test('installer exception fails and cleans the verified APK', () async {
     final release = _release(<int>[1, 2, 3, 4]);
-    final platform = _FakePlatform(
+    final platform = FakeUpdatePlatform(
       installError: const UpdatePlatformException('installer_unavailable'),
     );
     final downloader = _FakeDownloader(
@@ -184,7 +186,7 @@ void main() {
       ),
     );
     final service = UpdateService(
-      manifestTransport: _UnusedTransport(),
+      manifestTransport: UnusedManifestTransport(),
       platform: platform,
       signatureVerifier: _AlwaysValidSignature(),
       downloader: downloader,
@@ -222,7 +224,8 @@ void main() {
 
   test('strict updater transport rejects a redirect to a non-APK URL', () async {
     final transport = _ScriptedUpdaterTransport([
-      _ScriptedHop(
+      ScriptedHop(
+        contentLength: 0,
         statusCode: 302,
         location: 'https://github.com/Lopution/Parfait/releases/latest/notes',
       ),
@@ -245,12 +248,13 @@ void main() {
     'strict updater transport accepts the GitHub CDN opaque asset path',
     () async {
       final transport = _ScriptedUpdaterTransport([
-        _ScriptedHop(
+        ScriptedHop(
+          contentLength: 0,
           statusCode: 302,
           location:
               'https://objects.githubusercontent.com/github-production-release-asset-2e65be/opaque-token',
         ),
-        _ScriptedHop(statusCode: 200),
+        ScriptedHop(contentLength: 0, statusCode: 200),
       ]);
       addTearDown(transport.dispose);
 
@@ -272,12 +276,13 @@ void main() {
       // The chain measured on 2026-09-07: github.com 302 -> one hop to
       // release-assets.githubusercontent.com whose path has no .apk suffix.
       final transport = _ScriptedUpdaterTransport([
-        _ScriptedHop(
+        ScriptedHop(
+          contentLength: 0,
           statusCode: 302,
           location:
               'https://release-assets.githubusercontent.com/github-production-release-asset/1347042509/0f4d2c1e-0000-4000-8000-000000000000',
         ),
-        _ScriptedHop(statusCode: 200),
+        ScriptedHop(contentLength: 0, statusCode: 200),
       ]);
       addTearDown(transport.dispose);
 
@@ -295,12 +300,13 @@ void main() {
 
   test('strict updater transport accepts a GitHub release redirect hop', () async {
     final transport = _ScriptedUpdaterTransport([
-      _ScriptedHop(
+      ScriptedHop(
+        contentLength: 0,
         statusCode: 302,
         location:
             'https://github.com/Lopution/Parfait/releases/download/v0.1.1/app.apk',
       ),
-      _ScriptedHop(statusCode: 200),
+      ScriptedHop(contentLength: 0, statusCode: 200),
     ]);
     addTearDown(transport.dispose);
 
@@ -400,54 +406,6 @@ class _BytesResponse implements DownloadResponse {
   Future<void> close() async {}
 }
 
-class _FakePlatform implements UpdatePlatform {
-  _FakePlatform({this.installError});
-
-  final Object? installError;
-  var installCalls = 0;
-  var verifyCalls = 0;
-
-  @override
-  Future<UpdateCapability> capability() async =>
-      const UpdateCapability.github();
-
-  @override
-  Future<UpdatePlatformInfo> info() async => const UpdatePlatformInfo(
-    packageName: updatePackageName,
-    version: '0.1.0',
-    versionCode: 1,
-    signingCertificateSha256:
-        'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
-    supportedAbis: ['arm64-v8a', 'armeabi-v7a'],
-  );
-
-  @override
-  Future<UpdateManifestVerification> verifyManifestSignature({
-    required List<int> message,
-    required List<int> signature,
-  }) async => const UpdateManifestVerification.valid();
-
-  @override
-  Future<UpdateApkVerification> verifyApk({
-    required String path,
-    required UpdateReleaseAsset asset,
-  }) async {
-    verifyCalls++;
-    return const UpdateApkVerification.valid();
-  }
-
-  @override
-  Future<UpdateInstallResult> installApk(String path) async {
-    installCalls++;
-    final error = installError;
-    if (error != null) throw error;
-    return const UpdateInstallResult.started();
-  }
-
-  @override
-  Future<bool> deleteApk(String path) async => true;
-}
-
 class _FakeDownloader implements UpdateApkDownloader {
   _FakeDownloader(this.result);
 
@@ -489,17 +447,11 @@ class _AlwaysValidSignature implements UpdateSignatureVerifier {
   }) async => const UpdateManifestVerification.valid();
 }
 
-class _UnusedTransport implements UpdateManifestTransport {
-  @override
-  Future<UpdateHttpResponse> fetch(Uri uri) =>
-      throw StateError('check transport should not be used');
-}
-
 class _ScriptedUpdaterTransport extends HttpDownloadTransport {
   _ScriptedUpdaterTransport(this.hops)
     : super(allowedHosts: kUpdateDownloadHosts, strictUrlPolicy: true);
 
-  final List<_ScriptedHop> hops;
+  final List<ScriptedHop> hops;
 
   @override
   Future<RawHop> openHop(
@@ -507,28 +459,4 @@ class _ScriptedUpdaterTransport extends HttpDownloadTransport {
     Map<String, String> headers,
     DownloadCancelToken cancelToken,
   ) async => hops.removeAt(0);
-}
-
-class _ScriptedHop implements RawHop {
-  _ScriptedHop({required this.statusCode, this.location});
-
-  @override
-  final int statusCode;
-
-  final String? location;
-
-  @override
-  String? get locationHeader => location;
-
-  @override
-  int? get contentLength => 0;
-
-  @override
-  Stream<List<int>> get body => Stream<List<int>>.value(const []);
-
-  @override
-  Future<void> drain() async {}
-
-  @override
-  void abort() {}
 }

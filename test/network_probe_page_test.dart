@@ -6,26 +6,10 @@ import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/network_probe.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
-import 'package:parfait/core/settings/settings_repository.dart';
 import 'package:parfait/features/settings/network_probe_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
-
-class _FakeRepository implements SettingsRepository {
-  AppSettings value = const AppSettings(
-    guideCompleted: true,
-    languageTag: 'zh-CN',
-    themeCode: AppSettings.systemTheme,
-  );
-
-  @override
-  Future<AppSettings> load() async => value;
-
-  @override
-  Future<void> save(AppSettings settings) async {
-    value = settings;
-  }
-}
+import 'helpers/fake_settings.dart';
 
 Widget _wrap(Widget child) {
   return MaterialApp(
@@ -96,7 +80,15 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          settingsRepositoryProvider.overrideWithValue(_FakeRepository()),
+          settingsRepositoryProvider.overrideWithValue(
+            FakeSettingsRepository(
+              const AppSettings(
+                guideCompleted: true,
+                languageTag: 'zh-CN',
+                themeCode: AppSettings.systemTheme,
+              ),
+            ),
+          ),
         ],
         child: MaterialApp(
           localizationsDelegates: appLocalizationsDelegates,

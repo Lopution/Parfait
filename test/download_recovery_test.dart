@@ -15,6 +15,7 @@ import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/download/pixiv_download_transport.dart';
 import 'package:parfait/core/platform/android_platform_interfaces.dart';
+import 'package:parfait/core/ugoira/ugoira_recovery.dart';
 
 DownloadRequest _request({int pageIndex = 0}) => DownloadRequest(
   illustId: 900,
@@ -1053,6 +1054,74 @@ void main() {
     expect(retried.displayName, '42_100x200_123_p0');
     expect(sinkFactory.names, ['42_100x200_123_p0']);
   });
+
+  group('ugoira recovery', () {
+    test(
+      'interrupted Ugoira output is orphaned and its owned pending row is cleaned',
+      () async {
+        final store = MemoryDownloadRecoveryStore();
+        final factory = _RecoverySinkFactory(
+          pending: [
+            const PendingMediaStoreItem(
+              id: 71,
+              ownerId: 'ugoira-output-ugoira-1',
+              displayName: '1.gif',
+            ),
+            const PendingMediaStoreItem(
+              id: 72,
+              ownerId: 'ugoira-output-unknown',
+              displayName: 'unknown.gif',
+            ),
+            const PendingMediaStoreItem(
+              id: 73,
+              ownerId: 'output-download-1',
+              displayName: 'download.jpg',
+            ),
+          ],
+        );
+        final submission = DownloadSubmissionSnapshot(
+          snapshotId: 'submission-ugoira-1',
+          jobId: 'ugoira-1',
+          groupId: 'group-1',
+          request: DownloadRequest(
+            illustId: 1,
+            pageIndex: 0,
+            url: Uri.parse('https://i.pximg.net/img-ugoira-export/1.gif'),
+            target: DownloadTarget.ugoiraGif,
+          ),
+          accountId: 'account-a',
+          submittedAt: DateTime.utc(2026, 8, 28),
+        );
+        final owner = const DownloadOutputOwner(
+          ownerId: 'ugoira-output-ugoira-1',
+          jobId: 'ugoira-1',
+          accountId: 'account-a',
+        );
+        await store.upsert(
+          DownloadRecoveryRecord(
+            jobId: 'ugoira-1',
+            dedupeKey: 'ugoira/ugoira-1',
+            snapshot: submission,
+            owner: owner,
+            status: DownloadStatus.finalizing,
+            pendingMediaStoreId: 71,
+          ),
+        );
+
+        final report = await recoverUgoiraExports(
+          store: store,
+          sinkFactory: factory,
+        );
+
+        expect(report.orphanedJobIds, ['ugoira-1']);
+        expect(report.orphanedPendingOutputIds, [72]);
+        expect(factory.cleaned, [71]);
+        final recovered = (await store.load()).single;
+        expect(recovered.status, DownloadStatus.orphaned);
+        expect(recovered.pendingMediaStoreId, isNull);
+      },
+    );
+  });
 }
 
 class _NameRecordingSinkFactory extends MemorySinkFactory {
@@ -1066,5 +1135,49 @@ class _NameRecordingSinkFactory extends MemorySinkFactory {
   }) {
     names.add(displayName);
     return super.begin(request, displayName, destination: destination);
+  }
+}
+
+class _RecoverySinkFactory
+    implements
+        DownloadSinkFactory,
+        OwnedDownloadSinkFactory,
+        RecoverableDownloadSinkFactory {
+  _RecoverySinkFactory({required List<PendingMediaStoreItem> pending})
+    : _pending = pending;
+
+  final List<PendingMediaStoreItem> _pending;
+  final cleaned = <int>[];
+
+  @override
+  Future<DownloadSink> begin(
+    DownloadRequest request,
+    String displayName, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) async => MemorySink();
+
+  @override
+  Future<DownloadSink> beginOwned(
+    DownloadRequest request,
+    String displayName,
+    DownloadOutputOwner owner, {
+    DownloadDestination destination = DownloadDestination.builtin,
+  }) => begin(request, displayName, destination: destination);
+
+  @override
+  Future<List<PendingMediaStoreItem>> listPending() async => _pending;
+
+  @override
+  Future<bool> cleanupPending(
+    int id, {
+    required DownloadOutputOwner owner,
+  }) async {
+    final index = _pending.indexWhere(
+      (item) => item.id == id && item.ownerId == owner.ownerId,
+    );
+    if (index < 0) return false;
+    _pending.removeAt(index);
+    cleaned.add(id);
+    return true;
   }
 }

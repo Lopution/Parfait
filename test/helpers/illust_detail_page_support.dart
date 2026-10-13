@@ -24,6 +24,8 @@ class RecordingShareService implements ShareService {
   final List<SharePayload> payloads = [];
   ShareOutcome outcome = ShareOutcome.openedSheet;
 
+  SharePayload? get lastPayload => payloads.lastOrNull;
+
   @override
   Future<ShareOutcome> share(
     SharePayload payload, {

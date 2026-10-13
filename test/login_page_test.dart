@@ -20,6 +20,7 @@ import 'package:parfait/core/auth/account_transfer_service.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/fake_settings.dart';
 
 /// Clipboard import stub whose result future the test controls, so the
 /// busy state can be observed deterministically.
@@ -38,27 +39,6 @@ class _ControlledTransferService implements AccountTransferService {
 }
 
 /// Settings storage stub: serves a fixed snapshot and records writes.
-class _StubSettingsRepository implements SettingsRepository {
-  _StubSettingsRepository([AppSettings? initial])
-    : settings =
-          initial ??
-          const AppSettings(
-            guideCompleted: true,
-            languageTag: 'zh-CN',
-            themeCode: AppSettings.systemTheme,
-          );
-
-  AppSettings settings;
-
-  @override
-  Future<AppSettings> load() async => settings;
-
-  @override
-  Future<void> save(AppSettings next) async {
-    settings = next;
-  }
-}
-
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -84,7 +64,14 @@ void main() {
         overrides: [
           ...accountProviderOverrides(),
           settingsRepositoryProvider.overrideWithValue(
-            repository ?? _StubSettingsRepository(),
+            repository ??
+                FakeSettingsRepository(
+                  const AppSettings(
+                    guideCompleted: true,
+                    languageTag: 'zh-CN',
+                    themeCode: AppSettings.systemTheme,
+                  ),
+                ),
           ),
           ...extraOverrides,
         ],

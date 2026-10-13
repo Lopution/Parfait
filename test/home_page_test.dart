@@ -27,8 +27,9 @@ import 'helpers/prompt_host.dart';
 import 'helpers/test_preferences.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 
-class _ScriptedIntentSource implements AndroidIntentSource {
-  const _ScriptedIntentSource(this.initial);
+/// Answers [initial] and never delivers a new intent.
+class _FixedIntentSource implements AndroidIntentSource {
+  const _FixedIntentSource(this.initial);
 
   final AndroidIntentResult initial;
 
@@ -47,9 +48,7 @@ const _signedInSnapshot = AccountMetadataSnapshot(
 Widget _homeApp({AndroidIntentSource? intentSource, Locale? locale}) {
   final source =
       intentSource ??
-      const _ScriptedIntentSource(
-        IgnoredAndroidIntent('test: no android intent'),
-      );
+      const _FixedIntentSource(IgnoredAndroidIntent('test: no android intent'));
   final router = createPixivRouter(initialLocation: '/recommended');
   final credentials = FakeCredentialStore(
     values: const {
@@ -188,7 +187,7 @@ void main() {
   ) async {
     await _pumpHome(
       tester,
-      intentSource: const _ScriptedIntentSource(
+      intentSource: const _FixedIntentSource(
         RoutedAndroidIntent(UserRoute(123)),
       ),
     );

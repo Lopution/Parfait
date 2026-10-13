@@ -21,27 +21,15 @@ import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
-import 'package:parfait/core/settings/settings_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/fake_settings.dart';
 
 const String _apiHost = 'app-api.pixiv.net';
 const String _api = 'https://$_apiHost/v1/illust/recommended?offset=0';
 const _avatar = 'https://i.pximg.net/170.jpg';
-
-class _SettingsRepository implements SettingsRepository {
-  _SettingsRepository(this.value);
-
-  AppSettings value;
-
-  @override
-  Future<AppSettings> load() async => value;
-
-  @override
-  Future<void> save(AppSettings settings) async => value = settings;
-}
 
 /// Mutable fixture shared between the transports and the assertions.
 class _Fixture {
@@ -208,7 +196,7 @@ void main() {
 
   test('pixivHttpClientProvider follows settings.languageTag (R6)', () async {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-    final repository = _SettingsRepository(
+    final repository = FakeSettingsRepository(
       const AppSettings(
         guideCompleted: true,
         languageTag: 'ja',

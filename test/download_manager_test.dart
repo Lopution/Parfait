@@ -1004,7 +1004,7 @@ void main() {
     );
 
     test('sink failures abort the pending item, never finalize', () async {
-      final failingSinkFactory = _FailingSinkFactory();
+      final failingSinkFactory = _ThrowAfterWriteSinkFactory();
       final manager = DownloadManager(
         transport: FakeTransport()
           ..responses.add(
@@ -1107,11 +1107,11 @@ void main() {
     test('follows allowlisted redirects and streams the body', () async {
       final transport = _ScriptedTransport(
         hops: [
-          _ScriptedHop(
+          ScriptedHop(
             statusCode: 302,
             location: 'https://i.pximg.net/real.jpg',
           ),
-          _ScriptedHop(
+          ScriptedHop(
             statusCode: 200,
             contentLength: 5,
             bodyChunks: [
@@ -1137,7 +1137,7 @@ void main() {
     test('refuses cross-host redirects', () async {
       final transport = _ScriptedTransport(
         hops: [
-          _ScriptedHop(
+          ScriptedHop(
             statusCode: 302,
             location: 'https://evil.example.com/pwned.jpg',
           ),
@@ -1162,7 +1162,7 @@ void main() {
     test('refuses http redirects when https is required', () async {
       final transport = _ScriptedTransport(
         hops: [
-          _ScriptedHop(
+          ScriptedHop(
             statusCode: 302,
             location: 'http://i.pximg.net/downgrade.jpg',
           ),
@@ -1186,7 +1186,7 @@ void main() {
 
     test('rejects redirect without location and redirect loops', () async {
       final noLocation = _ScriptedTransport(
-        hops: [_ScriptedHop(statusCode: 302)],
+        hops: [ScriptedHop(statusCode: 302)],
       );
       await expectLater(
         noLocation.open(
@@ -1200,8 +1200,8 @@ void main() {
       final loop = _ScriptedTransport(
         maxRedirects: 1,
         hops: [
-          _ScriptedHop(statusCode: 302, location: 'https://i.pximg.net/b.jpg'),
-          _ScriptedHop(statusCode: 302, location: 'https://i.pximg.net/c.jpg'),
+          ScriptedHop(statusCode: 302, location: 'https://i.pximg.net/b.jpg'),
+          ScriptedHop(statusCode: 302, location: 'https://i.pximg.net/c.jpg'),
         ],
       );
       await expectLater(
@@ -1222,7 +1222,7 @@ void main() {
 
     test('surfaces non-2xx statuses without following', () async {
       final transport = _ScriptedTransport(
-        hops: [_ScriptedHop(statusCode: 404)],
+        hops: [ScriptedHop(statusCode: 404)],
       );
       await expectLater(
         transport.open(
@@ -1236,7 +1236,7 @@ void main() {
 
     test('cancel before open throws immediately', () async {
       final transport = _ScriptedTransport(
-        hops: [_ScriptedHop(statusCode: 200)],
+        hops: [ScriptedHop(statusCode: 200)],
       );
       final token = DownloadCancelToken()..cancel();
       await expectLater(
@@ -1256,7 +1256,7 @@ void main() {
 
     test('cancel mid-stream terminates the consumer and aborts', () async {
       final gate = Completer<void>();
-      final hop = _ScriptedHop(
+      final hop = ScriptedHop(
         statusCode: 200,
         contentLength: 10,
         bodyChunks: [
@@ -1292,7 +1292,7 @@ void main() {
 }
 
 class _ScriptedTransport extends HttpDownloadTransport {
-  _ScriptedTransport({required List<_ScriptedHop> hops, int? maxRedirects})
+  _ScriptedTransport({required List<ScriptedHop> hops, int? maxRedirects})
     : _pending = List.of(hops),
       super(
         httpClient: IOClient(HttpClient()),
@@ -1302,7 +1302,7 @@ class _ScriptedTransport extends HttpDownloadTransport {
     // The inherited pooled client is never used by the override below.
   }
 
-  final List<_ScriptedHop> _pending;
+  final List<ScriptedHop> _pending;
   final opened = <String>[];
 
   @override
@@ -1316,66 +1316,7 @@ class _ScriptedTransport extends HttpDownloadTransport {
   }
 }
 
-class _ScriptedHop implements RawHop {
-  _ScriptedHop({
-    required this.statusCode,
-    String? location,
-    this.contentLength,
-    List<List<int>> bodyChunks = const [],
-    this.gates,
-  }) : _location = location,
-       _bodyChunks = bodyChunks;
-
-  @override
-  final int statusCode;
-  final String? _location;
-  @override
-  final int? contentLength;
-  final List<List<int>> _bodyChunks;
-  final List<Completer<void>>? gates;
-
-  var aborted = false;
-  var _listened = false;
-
-  @override
-  String? get locationHeader => _location;
-
-  @override
-  Stream<List<int>> get body {
-    if (_listened) {
-      throw StateError('hop body already consumed');
-    }
-    _listened = true;
-    final gates = this.gates;
-    late StreamController<List<int>> controller;
-    Future<void> pump() async {
-      for (var i = 0; i < _bodyChunks.length; i++) {
-        final gate = gates == null ? null : gates[i];
-        if (gate != null) {
-          await gate.future;
-        }
-        controller.add(_bodyChunks[i]);
-        await Future<void>.delayed(Duration.zero);
-      }
-      await controller.close();
-    }
-
-    controller = StreamController<List<int>>(
-      onListen: () {
-        unawaited(pump());
-      },
-    );
-    return controller.stream;
-  }
-
-  @override
-  Future<void> drain() async {}
-
-  @override
-  void abort() => aborted = true;
-}
-
-class _FailingSinkFactory implements DownloadSinkFactory {
+class _ThrowAfterWriteSinkFactory implements DownloadSinkFactory {
   MemorySink? lastSink;
 
   @override
@@ -1386,12 +1327,12 @@ class _FailingSinkFactory implements DownloadSinkFactory {
   }) async {
     final inner = MemorySink();
     lastSink = inner;
-    return _FailingSink(inner);
+    return _ThrowAfterWriteSink(inner);
   }
 }
 
-class _FailingSink implements DownloadSink {
-  _FailingSink(this.inner);
+class _ThrowAfterWriteSink implements DownloadSink {
+  _ThrowAfterWriteSink(this.inner);
 
   final MemorySink inner;
 
