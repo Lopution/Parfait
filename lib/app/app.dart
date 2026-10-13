@@ -90,9 +90,9 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     // resume path re-checks the gate so a widget added while the app is
     // running is picked up without a restart.
     unawaited(ref.read(widgetCoordinatorProvider).start());
-    // Constructing the pump provider registers the replay handlers and
-    // drains the current account's queued mutations once at startup; the
-    // resumed hook below repeats it whenever the app returns foreground.
+    // Constructing the pump provider registers the replay handlers and its
+    // account listener, which drains each account's queued mutations as it
+    // becomes current; the resumed hook below repeats it on foreground.
     ref.read(actionQueuePumpProvider);
     // R2: one delayed background update check per throttle window.
     // Failure and no-update stay silent.

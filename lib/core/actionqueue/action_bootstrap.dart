@@ -37,23 +37,36 @@ final actionQueueProvider = Provider<ActionQueue>((ref) {
   return queue;
 });
 
-/// Pump on (re)build: at startup and whenever the signed-in account
-/// changes, the current owner's ready rows replay once; a network restore
-/// drains them again without waiting out the cooldown. The account being
-/// left is parked so its wake never replays under the next account. The
-/// app root also watches this provider so it stays alive for the session.
+/// Drains the current account's queue whenever an account becomes current
+/// (startup included) and again on a network restore, without waiting out
+/// the cooldown. The account being left is parked so its wake never
+/// replays under the next account. Everything hangs off `ref.listen`: the
+/// app root only reads this provider once, and a provider nobody listens
+/// to is never rebuilt when a watched value changes.
 final actionQueuePumpProvider = Provider<void>((ref) {
   final queue = ref.watch(actionQueueProvider);
-  final accountId = ref.watch(
-    accountStoreProvider.select((async) => async.value?.usableCurrent?.id),
-  );
-  if (accountId == null) return;
-  ref.onDispose(() => queue.park(accountId));
-  ref.listen(networkRestoreSignalProvider, (_, _) {
-    log('action queue: network restored, retrying now');
-    unawaited(queue.retryNow(accountId));
+  String? current;
+  ref.onDispose(() {
+    final owner = current;
+    if (owner != null) queue.park(owner);
   });
-  unawaited(queue.drain(accountId));
+  ref.listen(networkRestoreSignalProvider, (_, _) {
+    final owner = current;
+    if (owner == null) return;
+    log('action queue: network restored, retrying now');
+    unawaited(queue.retryNow(owner));
+  });
+  ref.listen(
+    accountStoreProvider.select((async) => async.value?.usableCurrent?.id),
+    (_, next) {
+      final previous = current;
+      if (next == previous) return;
+      if (previous != null) queue.park(previous);
+      current = next;
+      if (next != null) unawaited(queue.drain(next));
+    },
+    fireImmediately: true,
+  );
 });
 
 /// Pumps the current owner's queue on demand — called after every
