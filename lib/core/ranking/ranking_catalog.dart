@@ -41,20 +41,24 @@ final class RankingCatalog<M extends RankingCategory> {
   /// The user's arrangement; the default until settings have loaded.
   late final Provider<Arrangement<M>> arrangementProvider = Provider((ref) {
     final saved = ref.watch(
-      settingsProvider.select((async) => switch (async.value) {
-        final settings? => _saved(settings),
-        null => null,
-      }),
+      settingsProvider.select(
+        (async) => switch (async.value) {
+          final settings? => _saved(settings),
+          null => null,
+        },
+      ),
     );
     return Arrangement.resolve(defaults, saved, _fromApiValue);
   });
 
   late final Provider<M?> lastViewedProvider = Provider((ref) {
     final apiValue = ref.watch(
-      settingsProvider.select((async) => switch (async.value) {
-        final settings? => _lastViewed(settings),
-        null => null,
-      }),
+      settingsProvider.select(
+        (async) => switch (async.value) {
+          final settings? => _lastViewed(settings),
+          null => null,
+        },
+      ),
     );
     return apiValue == null ? null : _fromApiValue(apiValue);
   });

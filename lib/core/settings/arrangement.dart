@@ -98,7 +98,8 @@ class Arrangement<T> {
       listEquals(other.hidden, hidden);
 
   @override
-  int get hashCode => Object.hash(Object.hashAll(shown), Object.hashAll(hidden));
+  int get hashCode =>
+      Object.hash(Object.hashAll(shown), Object.hashAll(hidden));
 
   /// Tolerant read of a persisted list (spec PREF-01): a malformed entry is
   /// skipped; anything but a list is null, the default arrangement.

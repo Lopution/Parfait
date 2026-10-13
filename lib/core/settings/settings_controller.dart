@@ -174,13 +174,11 @@ class SettingsController extends AsyncNotifier<AppSettings> {
         (settings) => settings.copyWith(novelRankingArrangement: entries),
       );
 
-  Future<void> setIllustRankingLastMode(String apiValue) => _update(
-    (settings) => settings.copyWith(illustRankingLastMode: apiValue),
-  );
+  Future<void> setIllustRankingLastMode(String apiValue) =>
+      _update((settings) => settings.copyWith(illustRankingLastMode: apiValue));
 
-  Future<void> setNovelRankingLastMode(String apiValue) => _update(
-    (settings) => settings.copyWith(novelRankingLastMode: apiValue),
-  );
+  Future<void> setNovelRankingLastMode(String apiValue) =>
+      _update((settings) => settings.copyWith(novelRankingLastMode: apiValue));
 
   /// Whole-object replace used by backup import. Per-field validation
   /// already happened in [AppSettings.fromJson]; the write goes through

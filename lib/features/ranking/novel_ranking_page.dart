@@ -99,7 +99,8 @@ class _NovelRankingModeBody extends ConsumerWidget {
           return rankingEmpty(
             context,
             feedKey.mode,
-            () => ref.read(novelRankingFeedProvider(feedKey).notifier).refresh(),
+            () =>
+                ref.read(novelRankingFeedProvider(feedKey).notifier).refresh(),
           );
         }
 

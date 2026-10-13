@@ -23,12 +23,7 @@ enum RankingMode implements RankingCategory {
   dayFemale('day_female', 'rankingDayFemale'),
   dayR18('day_r18', 'rankingDayR18', rating: RankingRating.r18),
   weekR18('week_r18', 'rankingWeekR18', rating: RankingRating.r18),
-  dayR18Ai(
-    'day_r18_ai',
-    'rankingAiR18',
-    rating: RankingRating.r18,
-    isAi: true,
-  ),
+  dayR18Ai('day_r18_ai', 'rankingAiR18', rating: RankingRating.r18, isAi: true),
   dayMaleR18('day_male_r18', 'rankingDayMaleR18', rating: RankingRating.r18),
   dayFemaleR18(
     'day_female_r18',
