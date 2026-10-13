@@ -27,30 +27,89 @@ DownloadRequest _request({int pageIndex = 0}) => DownloadRequest(
 DownloadSubmissionContext _context({String accountId = 'account-a'}) =>
     DownloadSubmissionContext(accountId: accountId);
 
-DownloadRecoveryRecord _recoveryRecord(
-  int index, {
-  required DownloadStatus status,
+DownloadRecoveryRecord _record(
+  String jobId, {
+  DownloadRequest? request,
+  String? groupId,
+  DownloadStatus status = DownloadStatus.running,
+  DateTime? submittedAt,
+  int? pendingMediaStoreId,
+  String? finalUri,
 }) {
-  final request = _request(pageIndex: index);
   final snapshot = DownloadSubmissionSnapshot(
-    snapshotId: 'submission-$index',
-    jobId: 'job-$index',
-    groupId: null,
-    request: request,
+    snapshotId: 'submission-$jobId',
+    jobId: jobId,
+    groupId: groupId,
+    request: request ?? _request(),
     accountId: 'account-a',
-    submittedAt: DateTime.utc(2026, 9, 1).add(Duration(minutes: index)),
+    submittedAt: submittedAt ?? DateTime.utc(2026, 8, 28),
   );
   return DownloadRecoveryRecord(
-    jobId: snapshot.jobId,
-    dedupeKey: request.dedupeKey,
+    jobId: jobId,
+    dedupeKey: snapshot.request.dedupeKey,
     snapshot: snapshot,
     owner: DownloadOutputOwner(
-      ownerId: 'output-$index',
-      jobId: snapshot.jobId,
+      ownerId: 'output-$jobId',
+      jobId: jobId,
       accountId: snapshot.accountId,
     ),
     status: status,
+    pendingMediaStoreId: pendingMediaStoreId,
+    finalUri: finalUri,
   );
+}
+
+DownloadRecoveryRecord _recoveryRecord(
+  int index, {
+  required DownloadStatus status,
+}) => _record(
+  'job-$index',
+  request: _request(pageIndex: index),
+  status: status,
+  submittedAt: DateTime.utc(2026, 9, 1).add(Duration(minutes: index)),
+);
+
+/// `{author_id}`/`{w}`/`{h}` come from submission-time metadata that a
+/// recovery record never persists.
+DownloadRequest _customNamedRequest() => DownloadRequest(
+  illustId: 123,
+  pageIndex: 0,
+  url: Uri.parse('https://i.pximg.net/img-original/img/123_p0.jpg'),
+  target: DownloadTarget.illustPage,
+  namingRule: const NamingRule(
+    preset: NamingPreset.custom,
+    template: '{author_id}_{w}x{h}_{id}_p{page}',
+  ),
+  authorId: 42,
+  width: 100,
+  height: 200,
+);
+
+Future<MemoryDownloadRecoveryStore> _storeWith(
+  List<DownloadRecoveryRecord> records,
+) async {
+  final store = MemoryDownloadRecoveryStore();
+  for (final record in records) {
+    await store.upsert(record);
+  }
+  return store;
+}
+
+/// A manager submitting for [accountId], disposed when the test ends.
+DownloadManager _manager({
+  DownloadRecoveryStore? store,
+  DownloadSinkFactory? sinks,
+  DownloadTransport? transport,
+  String accountId = 'account-a',
+}) {
+  final manager = DownloadManager(
+    transport: transport ?? _Transport(_Response()),
+    sinkFactory: sinks ?? MemorySinkFactory(),
+    submissionContext: () => _context(accountId: accountId),
+    recoveryStore: store,
+  );
+  addTearDown(manager.dispose);
+  return manager;
 }
 
 class _Response implements DownloadResponse, DownloadResponseMetadata {
@@ -180,25 +239,9 @@ void main() {
       SharedPreferencesAsyncPlatform.instance = memoryPreferences();
       final preferences = SharedPreferencesAsync();
       final store = PreferencesDownloadRecoveryStore(preferences: preferences);
-      final request = _request();
-      final snapshot = DownloadSubmissionSnapshot(
-        snapshotId: 'submission-round-trip',
-        jobId: 'job-round-trip',
-        groupId: null,
-        request: request,
-        accountId: 'account-a',
-        submittedAt: DateTime.utc(2026, 8, 28),
-      );
       await store.upsert(
-        DownloadRecoveryRecord(
-          jobId: snapshot.jobId,
-          dedupeKey: request.dedupeKey,
-          snapshot: snapshot,
-          owner: const DownloadOutputOwner(
-            ownerId: 'output-round-trip',
-            jobId: 'job-round-trip',
-            accountId: 'account-a',
-          ),
+        _record(
+          'job-round-trip',
           status: DownloadStatus.finalizing,
           pendingMediaStoreId: 41,
         ),
@@ -298,7 +341,7 @@ void main() {
     () async {
       final gate = Completer<void>();
       final sink = _FinalizeGateSink(gate);
-      final manager = DownloadManager(
+      final manager = _manager(
         transport: _Transport(
           _Response(
             body: const [
@@ -306,10 +349,8 @@ void main() {
             ],
           ),
         ),
-        sinkFactory: _FinalizeGateSinkFactory(sink),
-        submissionContext: () => _context(),
+        sinks: _FinalizeGateSinkFactory(sink),
       );
-      addTearDown(manager.dispose);
 
       final events = <DownloadEvent>[];
       final subscription = manager.events.listen(events.add);
@@ -338,10 +379,8 @@ void main() {
       preset: NamingPreset.custom,
       template: '{artist}_{title}_{id}_p{page}.{ext}',
     );
-    final snapshot = DownloadSubmissionSnapshot(
-      snapshotId: 'submission-naming',
-      jobId: 'job-naming',
-      groupId: null,
+    final record = _record(
+      'job-naming',
       request: DownloadRequest(
         illustId: 901,
         pageIndex: 3,
@@ -354,19 +393,6 @@ void main() {
         totalPages: 6,
         thumbnailUrl: 'https://i.pximg.net/901/p3/s.jpg',
       ),
-      accountId: 'account-a',
-      submittedAt: DateTime.utc(2026, 9, 3),
-    );
-    final record = DownloadRecoveryRecord(
-      jobId: snapshot.jobId,
-      dedupeKey: snapshot.request.dedupeKey,
-      snapshot: snapshot,
-      owner: const DownloadOutputOwner(
-        ownerId: 'output-naming',
-        jobId: 'job-naming',
-        accountId: 'account-a',
-      ),
-      status: DownloadStatus.running,
     );
 
     final restored = DownloadRecoveryRecord.fromJson(
@@ -386,10 +412,8 @@ void main() {
   });
 
   test('records without display fields still recover', () {
-    final snapshot = DownloadSubmissionSnapshot(
-      snapshotId: 'submission-legacy',
-      jobId: 'job-legacy',
-      groupId: null,
+    final record = _record(
+      'job-legacy',
       request: DownloadRequest(
         illustId: 902,
         pageIndex: 0,
@@ -397,19 +421,6 @@ void main() {
         target: DownloadTarget.illustPage,
         title: 'title',
       ),
-      accountId: 'account-a',
-      submittedAt: DateTime.utc(2026, 9, 3),
-    );
-    final record = DownloadRecoveryRecord(
-      jobId: snapshot.jobId,
-      dedupeKey: snapshot.request.dedupeKey,
-      snapshot: snapshot,
-      owner: const DownloadOutputOwner(
-        ownerId: 'output-legacy',
-        jobId: 'job-legacy',
-        accountId: 'account-a',
-      ),
-      status: DownloadStatus.running,
     );
 
     // A record written before the display fields existed carries neither
@@ -433,13 +444,11 @@ void main() {
   });
 
   test('classifies rate limiting and preserves Retry-After', () async {
-    final manager = DownloadManager(
+    final manager = _manager(
       transport: _Transport(
         _Response(statusCode: 429, headers: const {'retry-after': '12'}),
       ),
-      sinkFactory: MemorySinkFactory(),
     );
-    addTearDown(manager.dispose);
 
     final task = manager.submit(_request());
     await _pumpUntil(
@@ -452,11 +461,7 @@ void main() {
   });
 
   test('transport errors after cancellation keep the task canceled', () async {
-    final manager = DownloadManager(
-      transport: _CancelErrorTransport(),
-      sinkFactory: MemorySinkFactory(),
-    );
-    addTearDown(manager.dispose);
+    final manager = _manager(transport: _CancelErrorTransport());
 
     final task = manager.submit(_request());
     await _pumpUntil(
@@ -474,31 +479,7 @@ void main() {
   });
 
   test('recovery only exposes same-owner pending work as retryable', () async {
-    final request = _request();
-    final snapshot = DownloadSubmissionSnapshot(
-      snapshotId: 'submission-1',
-      jobId: 'job-1',
-      groupId: null,
-      request: request,
-      accountId: 'account-a',
-      submittedAt: DateTime.utc(2026, 8, 28),
-    );
-    final store = MemoryDownloadRecoveryStore();
-    await store.upsert(
-      DownloadRecoveryRecord(
-        jobId: 'job-1',
-        dedupeKey: request.dedupeKey,
-        snapshot: snapshot,
-        owner: const DownloadOutputOwner(
-          ownerId: 'output-job-1',
-          jobId: 'job-1',
-          accountId: 'account-a',
-        ),
-        status: DownloadStatus.running,
-        pendingMediaStoreId: 17,
-      ),
-    );
-
+    final store = await _storeWith([_record('job-1', pendingMediaStoreId: 17)]);
     final transport = _Transport(
       _Response(
         body: const [
@@ -506,13 +487,7 @@ void main() {
         ],
       ),
     );
-    final manager = DownloadManager(
-      transport: transport,
-      sinkFactory: MemorySinkFactory(),
-      submissionContext: () => _context(),
-      recoveryStore: store,
-    );
-    addTearDown(manager.dispose);
+    final manager = _manager(store: store, transport: transport);
 
     final report = await manager.recover();
     expect(report.retryableJobIds, ['job-1']);
@@ -520,34 +495,14 @@ void main() {
     expect(manager.taskById('job-1')!.submission!.accountId, 'account-a');
     expect(transport.opens, 0, reason: 'recovery requires an explicit retry');
 
-    final otherStore = MemoryDownloadRecoveryStore();
-    await otherStore.upsert(
-      DownloadRecoveryRecord(
-        jobId: 'job-2',
-        dedupeKey: request.dedupeKey,
-        snapshot: snapshot.copyWith(jobId: 'job-2'),
-        owner: const DownloadOutputOwner(
-          ownerId: 'output-job-2',
-          jobId: 'job-2',
-          accountId: 'account-a',
-        ),
+    final otherStore = await _storeWith([
+      _record(
+        'job-2',
         status: DownloadStatus.finalizing,
         pendingMediaStoreId: 18,
       ),
-    );
-    final otherManager = DownloadManager(
-      transport: _Transport(
-        _Response(
-          body: const [
-            [1],
-          ],
-        ),
-      ),
-      sinkFactory: MemorySinkFactory(),
-      submissionContext: () => _context(accountId: 'account-b'),
-      recoveryStore: otherStore,
-    );
-    addTearDown(otherManager.dispose);
+    ]);
+    final otherManager = _manager(store: otherStore, accountId: 'account-b');
     await otherManager.recover();
     expect(otherManager.taskById('job-2')!.status, DownloadStatus.orphaned);
   });
@@ -555,30 +510,13 @@ void main() {
   test(
     'finalizing recovery becomes orphaned instead of retrying post-process',
     () async {
-      final request = _request();
-      final snapshot = DownloadSubmissionSnapshot(
-        snapshotId: 'submission-finalizing',
-        jobId: 'job-finalizing',
-        groupId: null,
-        request: request,
-        accountId: 'account-a',
-        submittedAt: DateTime.utc(2026, 8, 28),
-      );
-      final store = MemoryDownloadRecoveryStore();
-      await store.upsert(
-        DownloadRecoveryRecord(
-          jobId: 'job-finalizing',
-          dedupeKey: request.dedupeKey,
-          snapshot: snapshot,
-          owner: const DownloadOutputOwner(
-            ownerId: 'output-job-finalizing',
-            jobId: 'job-finalizing',
-            accountId: 'account-a',
-          ),
+      final store = await _storeWith([
+        _record(
+          'job-finalizing',
           status: DownloadStatus.finalizing,
           pendingMediaStoreId: 34,
         ),
-      );
+      ]);
       final sinks = _RecoverableSinkFactory([
         const PendingMediaStoreItem(
           id: 34,
@@ -586,13 +524,7 @@ void main() {
           displayName: '900_p0.jpg',
         ),
       ]);
-      final manager = DownloadManager(
-        transport: _Transport(_Response()),
-        sinkFactory: sinks,
-        submissionContext: () => _context(),
-        recoveryStore: store,
-      );
-      addTearDown(manager.dispose);
+      final manager = _manager(store: store, sinks: sinks);
       final events = <DownloadEvent>[];
       final subscription = manager.events.listen(events.add);
 
@@ -614,29 +546,9 @@ void main() {
   test(
     'restart scan cleans only recorded owners and reports unknown rows',
     () async {
-      final request = _request(pageIndex: 2);
-      final snapshot = DownloadSubmissionSnapshot(
-        snapshotId: 'submission-scan',
-        jobId: 'job-scan',
-        groupId: null,
-        request: request,
-        accountId: 'account-a',
-        submittedAt: DateTime.utc(2026, 8, 28),
-      );
-      final store = MemoryDownloadRecoveryStore();
-      await store.upsert(
-        DownloadRecoveryRecord(
-          jobId: 'job-scan',
-          dedupeKey: request.dedupeKey,
-          snapshot: snapshot,
-          owner: const DownloadOutputOwner(
-            ownerId: 'output-job-scan',
-            jobId: 'job-scan',
-            accountId: 'account-a',
-          ),
-          status: DownloadStatus.running,
-        ),
-      );
+      final store = await _storeWith([
+        _record('job-scan', request: _request(pageIndex: 2)),
+      ]);
       final sinks = _RecoverableSinkFactory([
         const PendingMediaStoreItem(
           id: 31,
@@ -654,13 +566,7 @@ void main() {
           displayName: 'legacy.jpg',
         ),
       ]);
-      final manager = DownloadManager(
-        transport: _Transport(_Response()),
-        sinkFactory: sinks,
-        submissionContext: () => _context(),
-        recoveryStore: store,
-      );
-      addTearDown(manager.dispose);
+      final manager = _manager(store: store, sinks: sinks);
 
       final report = await manager.recover();
 
@@ -672,30 +578,9 @@ void main() {
   );
 
   test('recovery reports a platform owner-cleanup refusal', () async {
-    final request = _request();
-    final snapshot = DownloadSubmissionSnapshot(
-      snapshotId: 'submission-refused',
-      jobId: 'job-refused',
-      groupId: null,
-      request: request,
-      accountId: 'account-a',
-      submittedAt: DateTime.utc(2026, 8, 28),
-    );
-    final store = MemoryDownloadRecoveryStore();
-    await store.upsert(
-      DownloadRecoveryRecord(
-        jobId: snapshot.jobId,
-        dedupeKey: request.dedupeKey,
-        snapshot: snapshot,
-        owner: const DownloadOutputOwner(
-          ownerId: 'output-job-refused',
-          jobId: 'job-refused',
-          accountId: 'account-a',
-        ),
-        status: DownloadStatus.running,
-        pendingMediaStoreId: 44,
-      ),
-    );
+    final store = await _storeWith([
+      _record('job-refused', pendingMediaStoreId: 44),
+    ]);
     final sinks = _RecoverableSinkFactory(const [
       PendingMediaStoreItem(
         id: 44,
@@ -703,13 +588,7 @@ void main() {
         displayName: '900_p0.jpg',
       ),
     ], cleanupSucceeds: false);
-    final manager = DownloadManager(
-      transport: _Transport(_Response()),
-      sinkFactory: sinks,
-      submissionContext: () => _context(),
-      recoveryStore: store,
-    );
-    addTearDown(manager.dispose);
+    final manager = _manager(store: store, sinks: sinks);
 
     final report = await manager.recover();
 
@@ -721,12 +600,7 @@ void main() {
   test(
     'group submission gives every child the same immutable group boundary',
     () {
-      final manager = DownloadManager(
-        transport: _Transport(_Response(body: const [])),
-        sinkFactory: MemorySinkFactory(),
-        submissionContext: () => _context(),
-      );
-      addTearDown(manager.dispose);
+      final manager = _manager();
 
       final group = manager.submitGroup([_request(), _request(pageIndex: 1)]);
       expect(group.jobIds, hasLength(2));
@@ -747,60 +621,18 @@ void main() {
   );
 
   test('restart recovery reconstructs a group from child snapshots', () async {
-    final groupId = 'group-restart';
-    final firstRequest = _request();
-    final secondRequest = _request(pageIndex: 1);
-    final firstSnapshot = DownloadSubmissionSnapshot(
-      snapshotId: 'submission-group-1',
-      jobId: 'job-group-1',
-      groupId: groupId,
-      request: firstRequest,
-      accountId: 'account-a',
-      submittedAt: DateTime.utc(2026, 8, 28),
-    );
-    final secondSnapshot = DownloadSubmissionSnapshot(
-      snapshotId: 'submission-group-2',
-      jobId: 'job-group-2',
-      groupId: groupId,
-      request: secondRequest,
-      accountId: 'account-a',
-      submittedAt: DateTime.utc(2026, 8, 28),
-    );
-    final store = MemoryDownloadRecoveryStore();
-    await store.upsert(
-      DownloadRecoveryRecord(
-        jobId: firstSnapshot.jobId,
-        dedupeKey: firstRequest.dedupeKey,
-        snapshot: firstSnapshot,
-        owner: const DownloadOutputOwner(
-          ownerId: 'output-job-group-1',
-          jobId: 'job-group-1',
-          accountId: 'account-a',
-        ),
-        status: DownloadStatus.running,
-      ),
-    );
-    await store.upsert(
-      DownloadRecoveryRecord(
-        jobId: secondSnapshot.jobId,
-        dedupeKey: secondRequest.dedupeKey,
-        snapshot: secondSnapshot,
-        owner: const DownloadOutputOwner(
-          ownerId: 'output-job-group-2',
-          jobId: 'job-group-2',
-          accountId: 'account-a',
-        ),
+    const groupId = 'group-restart';
+    final store = await _storeWith([
+      _record('job-group-1', groupId: groupId),
+      _record(
+        'job-group-2',
+        request: _request(pageIndex: 1),
+        groupId: groupId,
         status: DownloadStatus.succeeded,
         finalUri: 'content://media/external/images/media/2',
       ),
-    );
-    final manager = DownloadManager(
-      transport: _Transport(_Response()),
-      sinkFactory: MemorySinkFactory(),
-      submissionContext: () => _context(),
-      recoveryStore: store,
-    );
-    addTearDown(manager.dispose);
+    ]);
+    final manager = _manager(store: store);
     var changes = 0;
     final changesSubscription = manager.changes.listen((_) => changes++);
 
@@ -851,57 +683,19 @@ void main() {
   });
 
   test('recovery keeps the newest record for one identity', () async {
-    final request = _request();
-    final oldSnapshot = DownloadSubmissionSnapshot(
-      snapshotId: 'submission-old',
-      jobId: 'job-old',
-      groupId: 'group-old',
-      request: request,
-      accountId: 'account-a',
-      submittedAt: DateTime.utc(2026, 9, 1),
-    );
-    final newSnapshot = DownloadSubmissionSnapshot(
-      snapshotId: 'submission-new',
-      jobId: 'job-new',
-      groupId: 'group-new',
-      request: request,
-      accountId: 'account-a',
-      submittedAt: DateTime.utc(2026, 9, 1, 0, 1),
-    );
-    final store = MemoryDownloadRecoveryStore();
-    await store.upsert(
-      DownloadRecoveryRecord(
-        jobId: oldSnapshot.jobId,
-        dedupeKey: request.dedupeKey,
-        snapshot: oldSnapshot,
-        owner: const DownloadOutputOwner(
-          ownerId: 'output-old',
-          jobId: 'job-old',
-          accountId: 'account-a',
-        ),
-        status: DownloadStatus.running,
+    final store = await _storeWith([
+      _record(
+        'job-old',
+        groupId: 'group-old',
+        submittedAt: DateTime.utc(2026, 9, 1),
       ),
-    );
-    await store.upsert(
-      DownloadRecoveryRecord(
-        jobId: newSnapshot.jobId,
-        dedupeKey: request.dedupeKey,
-        snapshot: newSnapshot,
-        owner: const DownloadOutputOwner(
-          ownerId: 'output-new',
-          jobId: 'job-new',
-          accountId: 'account-a',
-        ),
-        status: DownloadStatus.running,
+      _record(
+        'job-new',
+        groupId: 'group-new',
+        submittedAt: DateTime.utc(2026, 9, 1, 0, 1),
       ),
-    );
-    final manager = DownloadManager(
-      transport: _Transport(_Response()),
-      sinkFactory: MemorySinkFactory(),
-      submissionContext: () => _context(),
-      recoveryStore: store,
-    );
-    addTearDown(manager.dispose);
+    ]);
+    final manager = _manager(store: store);
 
     final report = await manager.recover();
 
@@ -915,38 +709,10 @@ void main() {
   });
 
   test('a custom-template file name survives recovery unchanged', () {
-    // `{author_id}`/`{w}`/`{h}` come from submission-time metadata that the
-    // record never persists; the frozen serialized name must be used.
-    final request = DownloadRequest(
-      illustId: 123,
-      pageIndex: 0,
-      url: Uri.parse('https://i.pximg.net/img-original/img/123_p0.jpg'),
-      target: DownloadTarget.illustPage,
-      namingRule: const NamingRule(
-        preset: NamingPreset.custom,
-        template: '{author_id}_{w}x{h}_{id}_p{page}',
-      ),
-      authorId: 42,
-      width: 100,
-      height: 200,
-    );
-    final snapshot = DownloadSubmissionSnapshot(
-      snapshotId: 'submission-name',
-      jobId: 'job-name',
-      groupId: null,
-      request: request,
-      accountId: 'account-a',
-      submittedAt: DateTime.utc(2026, 9, 1),
-    );
-    final record = DownloadRecoveryRecord(
-      jobId: snapshot.jobId,
-      dedupeKey: request.dedupeKey,
-      snapshot: snapshot,
-      owner: DownloadOutputOwner(
-        ownerId: 'output-name',
-        jobId: snapshot.jobId,
-        accountId: snapshot.accountId,
-      ),
+    // The frozen serialized name must be used.
+    final record = _record(
+      'job-name',
+      request: _customNamedRequest(),
       status: DownloadStatus.queued,
     );
 
@@ -989,47 +755,17 @@ void main() {
   test('retrying a recovered task writes the stored name', () async {
     // The recovered request lacks `{author_id}`/`{w}`/`{h}`, so a retry that
     // recomputed the name would hand the sink `_x_123_p0`.
-    final request = DownloadRequest(
-      illustId: 123,
-      pageIndex: 0,
-      url: Uri.parse('https://i.pximg.net/img-original/img/123_p0.jpg'),
-      target: DownloadTarget.illustPage,
-      namingRule: const NamingRule(
-        preset: NamingPreset.custom,
-        template: '{author_id}_{w}x{h}_{id}_p{page}',
-      ),
-      authorId: 42,
-      width: 100,
-      height: 200,
-    );
-    final snapshot = DownloadSubmissionSnapshot(
-      snapshotId: 'submission-retry',
-      jobId: 'job-retry',
-      groupId: null,
-      request: request,
-      accountId: 'account-a',
-      submittedAt: DateTime.utc(2026, 9, 1),
-    );
-    final record = DownloadRecoveryRecord(
-      jobId: snapshot.jobId,
-      dedupeKey: request.dedupeKey,
-      snapshot: snapshot,
-      owner: DownloadOutputOwner(
-        ownerId: 'output-retry',
-        jobId: snapshot.jobId,
-        accountId: snapshot.accountId,
-      ),
-      status: DownloadStatus.running,
-    );
-    final store = MemoryDownloadRecoveryStore();
-    await store.upsert(
+    final record = _record('job-retry', request: _customNamedRequest());
+    final store = await _storeWith([
       DownloadRecoveryRecord.fromJson(
         (jsonDecode(jsonEncode(record.toJson())) as Map)
             .cast<String, dynamic>(),
       ),
-    );
+    ]);
     final sinkFactory = _NameRecordingSinkFactory();
-    final manager = DownloadManager(
+    final manager = _manager(
+      store: store,
+      sinks: sinkFactory,
       transport: _Transport(
         _Response(
           body: const [
@@ -1037,11 +773,7 @@ void main() {
           ],
         ),
       ),
-      sinkFactory: sinkFactory,
-      submissionContext: () => _context(),
-      recoveryStore: store,
     );
-    addTearDown(manager.dispose);
 
     await manager.recover();
     expect(manager.taskById('job-retry')!.displayName, '42_100x200_123_p0');

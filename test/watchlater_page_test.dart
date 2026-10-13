@@ -6,23 +6,17 @@ import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/selectable_tile.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
 import 'package:parfait/features/watchlater/watchlater_page.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/card_world.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/localized_app.dart';
 
 Widget _app(ProviderContainer container) {
-  return UncontrolledProviderScope(
+  return localizedApp(
     container: container,
-    child: MaterialApp(
-      builder: promptHostBuilder,
-      localizationsDelegates: appLocalizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('zh', 'CN'),
-      home: const WatchLaterPage(),
-    ),
+    builder: promptHostBuilder,
+    home: const WatchLaterPage(),
   );
 }
 

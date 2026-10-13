@@ -9,14 +9,13 @@ void main() {
   late ProviderContainer container;
 
   setUp(() async {
-    container = ProviderContainer(
+    container = ProviderContainer.test(
       overrides: [
         accountStoreProvider.overrideWith(
           () => StubAccountStore(accounts: stubAccountPair),
         ),
       ],
     );
-    addTearDown(container.dispose);
     await container.read(accountStoreProvider.future);
   });
 

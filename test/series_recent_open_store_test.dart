@@ -11,8 +11,7 @@ void main() {
 
   setUp(() {
     installMemoryPreferences();
-    container = ProviderContainer();
-    addTearDown(container.dispose);
+    container = ProviderContainer.test();
   });
 
   SeriesRecentOpenStore store() =>

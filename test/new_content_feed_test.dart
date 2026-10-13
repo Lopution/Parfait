@@ -11,7 +11,6 @@ import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/app/icons/app_icons.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
@@ -20,8 +19,6 @@ import 'package:parfait/core/new/new_feed_models.dart';
 import 'package:parfait/core/new/new_feed_repository.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/features/new/new_page.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 import 'package:http/testing.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -29,25 +26,9 @@ import 'helpers/fake_account.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
-
-Map<String, dynamic> _novelJson(int id) => {
-  'id': id,
-  'title': 'novel $id',
-  'caption': '',
-  'restrict': 0,
-  'x_restrict': 0,
-  'image_urls': {'medium': 'https://i.pximg.net/$id/m.png'},
-  'tags': <Object>[],
-  'text_length': 1200,
-  'user': {
-    'id': 99,
-    'name': 'author',
-    'account': 'author',
-    'profile_image_urls': {'medium': 'https://i.pximg.net/u.png'},
-  },
-  'is_bookmarked': false,
-  'visible': true,
-};
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
 
 class _FakeNewFeedRepository implements NewFeedRepository {
   _FakeNewFeedRepository({this.illustCount = 0, this.novelCount = 0});
@@ -95,7 +76,7 @@ class _FakeNewFeedRepository implements NewFeedRepository {
     return NewNovelPage(
       novels: [
         for (var i = 0; i < novelCount; i++)
-          NovelEntity.fromJson(_novelJson(2000 + i)),
+          NovelEntity.fromJson(novelJson(2000 + i)),
       ],
       nextUrl: null,
     );
@@ -127,14 +108,13 @@ Future<(ProviderContainer, _FakeNewFeedRepository)> _makeWorld({
       '100',
       const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
     );
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
       accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
+        FakeAccountMetadataRepository.signedIn(
+          const Account(id: '100', userId: 100, name: 'tester'),
         ),
       ),
       oauthServiceProvider.overrideWithValue(
@@ -152,22 +132,12 @@ Future<(ProviderContainer, _FakeNewFeedRepository)> _makeWorld({
 }
 
 Widget _routerApp(ProviderContainer container, GoRouter router) {
-  return UncontrolledProviderScope(
-    container: container,
-    child: MaterialApp.router(
-      localizationsDelegates: appLocalizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('zh', 'CN'),
-      routerConfig: router,
-    ),
-  );
+  return localizedRouterApp(router, container: container);
 }
 
 /// Compact viewport: ≥600px swaps the bottom bar for a rail.
 void _phone(WidgetTester tester) {
-  tester.view.physicalSize = const Size(390, 844);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
+  setViewSize(tester, const Size(390, 844));
 }
 
 const _followingIllust = NewFeedKey(
@@ -176,15 +146,7 @@ const _followingIllust = NewFeedKey(
 );
 
 Widget _app(ProviderContainer container, {NewPage? page}) {
-  return UncontrolledProviderScope(
-    container: container,
-    child: MaterialApp(
-      localizationsDelegates: appLocalizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('zh', 'CN'),
-      home: page ?? const NewPage(),
-    ),
-  );
+  return localizedApp(container: container, home: page ?? const NewPage());
 }
 
 void main() {
@@ -207,7 +169,6 @@ void main() {
     tester,
   ) async {
     final (container, repository) = await _makeWorld(illustCount: 24);
-    addTearDown(container.dispose);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(_app(container));
       await tester.pump();
@@ -238,9 +199,7 @@ void main() {
     tester,
   ) async {
     final (container, repository) = await _makeWorld(illustCount: 24);
-    addTearDown(container.dispose);
-    final router = createPixivRouter(initialLocation: '/new');
-    addTearDown(router.dispose);
+    final router = pixivRouter('/new');
     _phone(tester);
 
     await mockNetworkImagesFor(() async {
@@ -277,9 +236,7 @@ void main() {
     tester,
   ) async {
     final (container, repository) = await _makeWorld(illustCount: 24);
-    addTearDown(container.dispose);
-    final router = createPixivRouter(initialLocation: '/new');
-    addTearDown(router.dispose);
+    final router = pixivRouter('/new');
     _phone(tester);
 
     await mockNetworkImagesFor(() async {
@@ -334,9 +291,7 @@ void main() {
       illustCount: 24,
       novelCount: 3,
     );
-    addTearDown(container.dispose);
-    final router = createPixivRouter(initialLocation: '/new?scope=everyone');
-    addTearDown(router.dispose);
+    final router = pixivRouter('/new?scope=everyone');
     _phone(tester);
 
     await mockNetworkImagesFor(() async {

@@ -11,23 +11,27 @@ import 'package:parfait/core/reverse_image/reverse_image_controller.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
 import 'package:parfait/core/reverse_image/reverse_image_platform.dart';
 import 'package:parfait/core/reverse_image/reverse_image_provider.dart';
+import 'helpers/image_headers.dart';
 
-ReverseImageFlowState _stateOf(
-  ProviderContainer container,
+const _picked = ReverseImageInputReference(
+  contentUri: 'content://share/1',
+  mimeType: 'image/png',
+  sizeBytes: 128,
+  hasReadUriPermission: true,
+  source: ReverseImageInputSource.picker,
+);
+
+/// [session]'s flow controller, kept alive for the whole test.
+ReverseImageSearchController _flowController(
   ReverseImageSearchSession session,
-) => container.read(reverseImageSearchControllerProvider(session));
-
-ProviderContainer _flowContainer(ReverseImageSearchSession session) {
-  final container = ProviderContainer();
-  addTearDown(container.dispose);
+) {
+  final container = ProviderContainer.test();
+  final provider = reverseImageSearchControllerProvider(session);
   // Keep the autoDispose family member alive for the whole test: a bare
   // container.read would dispose it at the first await gap and reset state.
-  final sub = container.listen(
-    reverseImageSearchControllerProvider(session),
-    (_, _) {},
-  );
+  final sub = container.listen(provider, (_, _) {});
   addTearDown(sub.close);
-  return container;
+  return container.read(provider.notifier);
 }
 
 void main() {
@@ -37,13 +41,26 @@ void main() {
     tempDirectory = Directory.systemTemp.createTempSync('reverse-image-');
   });
 
+  // A single-engine flow over a 12×8 PNG in the temp directory.
+  (ReverseImageSearchController, _FakeReverseImageInputPlatform, File) flowOver(
+    ReverseImageProvider provider,
+  ) {
+    final file = File('${tempDirectory.path}/image.png')
+      ..writeAsBytesSync(pngHeader(12, 8));
+    final platform = _FakeReverseImageInputPlatform(file);
+    final controller = _flowController(
+      ReverseImageSearchSession.single(platform: platform, provider: provider),
+    );
+    return (controller, platform, file);
+  }
+
   tearDown(() {
     if (tempDirectory.existsSync()) tempDirectory.deleteSync(recursive: true);
   });
 
   test('validates a real PNG header and bounded dimensions', () async {
     final file = File('${tempDirectory.path}/image.bin')
-      ..writeAsBytesSync(_pngHeader(320, 240));
+      ..writeAsBytesSync(pngHeader(320, 240));
 
     final input = await OwnedReverseImageInput.open(
       path: file.path,
@@ -61,7 +78,7 @@ void main() {
 
   test('rejects a MIME declaration that does not match the file bytes', () {
     final file = File('${tempDirectory.path}/image.png')
-      ..writeAsBytesSync(_pngHeader(1, 1));
+      ..writeAsBytesSync(pngHeader(1, 1));
 
     expect(
       () => OwnedReverseImageInput.open(
@@ -82,7 +99,7 @@ void main() {
 
   test('rejects a pixel bomb before any full image decode', () async {
     final file = File('${tempDirectory.path}/bomb.png')
-      ..writeAsBytesSync(_pngHeader(100000, 100000));
+      ..writeAsBytesSync(pngHeader(100000, 100000));
 
     await expectLater(
       OwnedReverseImageInput.open(
@@ -104,7 +121,7 @@ void main() {
   test('owned input cleanup is idempotent and path-free in errors', () async {
     final deleted = <String>[];
     final file = File('${tempDirectory.path}/image.png')
-      ..writeAsBytesSync(_pngHeader(1, 1));
+      ..writeAsBytesSync(pngHeader(1, 1));
     final input = await OwnedReverseImageInput.open(
       path: file.path,
       source: ReverseImageInputSource.picker,
@@ -139,7 +156,7 @@ void main() {
       reason: 'structured provider credentials and terms are not approved',
     );
     final file = File('${tempDirectory.path}/image.png')
-      ..writeAsBytesSync(_pngHeader(1, 1));
+      ..writeAsBytesSync(pngHeader(1, 1));
     final input = await OwnedReverseImageInput.open(
       path: file.path,
       source: ReverseImageInputSource.picker,
@@ -159,16 +176,13 @@ void main() {
 
   test('permission loss fails before copying the shared input', () async {
     final file = File('${tempDirectory.path}/image.png')
-      ..writeAsBytesSync(_pngHeader(1, 1));
+      ..writeAsBytesSync(pngHeader(1, 1));
     final platform = _FakeReverseImageInputPlatform(file);
     final sessionController = ReverseImageSearchSession.single(
       platform: platform,
       provider: UnavailableReverseImageProvider(reason: 'not approved'),
     );
-    final containerController = _flowContainer(sessionController);
-    final controller = containerController.read(
-      reverseImageSearchControllerProvider(sessionController).notifier,
-    );
+    final controller = _flowController(sessionController);
 
     await controller.prepare(
       const ReverseImageInputReference(
@@ -180,12 +194,9 @@ void main() {
       ),
     );
 
+    expect(controller.state.status, ReverseImageFlowStatus.failure);
     expect(
-      _stateOf(containerController, sessionController).status,
-      ReverseImageFlowStatus.failure,
-    );
-    expect(
-      _stateOf(containerController, sessionController).failure?.code,
+      controller.state.failure?.code,
       ReverseImageInputFailureCode.missingReadPermission,
     );
     expect(platform.copyCount, 0);
@@ -193,72 +204,30 @@ void main() {
   });
 
   test('cancel and rate limit both clean the owned input', () async {
-    final file = File('${tempDirectory.path}/image.png')
-      ..writeAsBytesSync(_pngHeader(12, 8));
-    final platform = _FakeReverseImageInputPlatform(file);
-    final sessionController = ReverseImageSearchSession.single(
-      platform: platform,
-      provider: _OutcomeProvider(
-        const ReverseImageSearchFailure(
-          code: ReverseImageProviderFailureCode.rateLimited,
-          message: 'provider is rate limited',
-          retryable: true,
-        ),
-      ),
+    const rateLimited = ReverseImageSearchFailure(
+      code: ReverseImageProviderFailureCode.rateLimited,
+      message: 'provider is rate limited',
+      retryable: true,
     );
-    final containerController = _flowContainer(sessionController);
-    final controller = containerController.read(
-      reverseImageSearchControllerProvider(sessionController).notifier,
-    );
-    const reference = ReverseImageInputReference(
-      contentUri: 'content://share/1',
-      mimeType: 'image/png',
-      sizeBytes: 128,
-      hasReadUriPermission: true,
-      source: ReverseImageInputSource.picker,
+    final (controller, platform, file) = flowOver(
+      _OutcomeProvider(rateLimited),
     );
 
-    await controller.prepare(reference);
+    await controller.prepare(_picked);
     await controller.cancel();
-    expect(
-      _stateOf(containerController, sessionController).status,
-      ReverseImageFlowStatus.canceled,
-    );
+    expect(controller.state.status, ReverseImageFlowStatus.canceled);
     expect(platform.deletedPaths, [file.path]);
 
-    final retryPlatform = _FakeReverseImageInputPlatform(file);
-    final sessionRetryController = ReverseImageSearchSession.single(
-      platform: retryPlatform,
-      provider: _OutcomeProvider(
-        const ReverseImageSearchFailure(
-          code: ReverseImageProviderFailureCode.rateLimited,
-          message: 'provider is rate limited',
-          retryable: true,
-        ),
-      ),
+    final (retryController, retryPlatform, _) = flowOver(
+      _OutcomeProvider(rateLimited),
     );
-    final containerRetryController = _flowContainer(sessionRetryController);
-    final retryController = containerRetryController.read(
-      reverseImageSearchControllerProvider(sessionRetryController).notifier,
-    );
-    await retryController.prepare(reference);
+    await retryController.prepare(_picked);
     await retryController.search();
 
-    expect(
-      _stateOf(containerRetryController, sessionRetryController).status,
-      ReverseImageFlowStatus.failure,
-    );
-    expect(
-      _stateOf(containerRetryController, sessionRetryController).failure?.code,
-      ReverseImageProviderFailureCode.rateLimited,
-    );
-    expect(
-      _stateOf(
-        containerRetryController,
-        sessionRetryController,
-      ).failure?.retryable,
-      isTrue,
-    );
+    final failed = retryController.state;
+    expect(failed.status, ReverseImageFlowStatus.failure);
+    expect(failed.failure?.code, ReverseImageProviderFailureCode.rateLimited);
+    expect(failed.failure?.retryable, isTrue);
     // The image is kept across an engine failure so the user can retry or
     // switch engines; cancel still cleans it up.
     expect(retryPlatform.deletedPaths, isEmpty);
@@ -267,12 +236,8 @@ void main() {
   });
 
   test('rate-limit retryAfter is preserved on the flow failure', () async {
-    final file = File('${tempDirectory.path}/image.png')
-      ..writeAsBytesSync(_pngHeader(12, 8));
-    final platform = _FakeReverseImageInputPlatform(file);
-    final sessionController = ReverseImageSearchSession.single(
-      platform: platform,
-      provider: _OutcomeProvider(
+    final (controller, platform, file) = flowOver(
+      _OutcomeProvider(
         const ReverseImageSearchFailure(
           code: ReverseImageProviderFailureCode.rateLimited,
           message: 'provider is rate limited',
@@ -281,72 +246,37 @@ void main() {
         ),
       ),
     );
-    final containerController = _flowContainer(sessionController);
-    final controller = containerController.read(
-      reverseImageSearchControllerProvider(sessionController).notifier,
-    );
-    const reference = ReverseImageInputReference(
-      contentUri: 'content://share/1',
-      mimeType: 'image/png',
-      sizeBytes: 128,
-      hasReadUriPermission: true,
-      source: ReverseImageInputSource.picker,
-    );
 
-    await controller.prepare(reference);
+    await controller.prepare(_picked);
     await controller.search();
 
+    expect(controller.state.status, ReverseImageFlowStatus.failure);
     expect(
-      _stateOf(containerController, sessionController).status,
-      ReverseImageFlowStatus.failure,
-    );
-    expect(
-      _stateOf(containerController, sessionController).failure?.code,
+      controller.state.failure?.code,
       ReverseImageProviderFailureCode.rateLimited,
     );
-    expect(
-      _stateOf(containerController, sessionController).failure?.retryAfter,
-      const Duration(seconds: 27),
-    );
+    expect(controller.state.failure?.retryAfter, const Duration(seconds: 27));
     // Failure keeps the owned input so the same image can retry elsewhere.
     expect(platform.deletedPaths, isEmpty);
   });
 
   test('a webview success keeps the image until the flow ends', () async {
-    final file = File('${tempDirectory.path}/image.png')
-      ..writeAsBytesSync(_pngHeader(12, 8));
-    final platform = _FakeReverseImageInputPlatform(file);
-    final sessionController = ReverseImageSearchSession.single(
-      platform: platform,
-      provider: _OutcomeProvider(
+    final (controller, platform, file) = flowOver(
+      _OutcomeProvider(
         const ReverseImageSearchWebView(
           html: '<html><body>results</body></html>',
           observedAt: 'test',
         ),
       ),
     );
-    final containerController = _flowContainer(sessionController);
-    final controller = containerController.read(
-      reverseImageSearchControllerProvider(sessionController).notifier,
-    );
-    const reference = ReverseImageInputReference(
-      contentUri: 'content://share/1',
-      mimeType: 'image/png',
-      sizeBytes: 128,
-      hasReadUriPermission: true,
-      source: ReverseImageInputSource.picker,
-    );
 
-    await controller.prepare(reference);
+    await controller.prepare(_picked);
     await controller.search();
 
-    expect(
-      _stateOf(containerController, sessionController).status,
-      ReverseImageFlowStatus.success,
-    );
-    expect(_stateOf(containerController, sessionController).webView, isNotNull);
+    expect(controller.state.status, ReverseImageFlowStatus.success);
+    expect(controller.state.webView, isNotNull);
     // Kept for another engine; released exactly once when the flow ends.
-    expect(_stateOf(containerController, sessionController).input, isNotNull);
+    expect(controller.state.input, isNotNull);
     expect(platform.deletedPaths, isEmpty);
     await controller.cancel();
     await controller.cancel();
@@ -356,16 +286,8 @@ void main() {
   test(
     'picker and SEND references share preparation and terminal cleanup',
     () async {
-      final file = File('${tempDirectory.path}/image.png')
-        ..writeAsBytesSync(_pngHeader(12, 8));
-      final platform = _FakeReverseImageInputPlatform(file);
-      final sessionController = ReverseImageSearchSession.single(
-        platform: platform,
-        provider: UnavailableReverseImageProvider(reason: 'not approved'),
-      );
-      final containerController = _flowContainer(sessionController);
-      final controller = containerController.read(
-        reverseImageSearchControllerProvider(sessionController).notifier,
+      final (controller, platform, file) = flowOver(
+        UnavailableReverseImageProvider(reason: 'not approved'),
       );
       const reference = ReverseImageInputReference(
         contentUri: 'content://share/1',
@@ -376,17 +298,11 @@ void main() {
       );
 
       await controller.prepare(reference);
-      expect(
-        _stateOf(containerController, sessionController).status,
-        ReverseImageFlowStatus.ready,
-      );
+      expect(controller.state.status, ReverseImageFlowStatus.ready);
       await controller.search();
+      expect(controller.state.status, ReverseImageFlowStatus.failure);
       expect(
-        _stateOf(containerController, sessionController).status,
-        ReverseImageFlowStatus.failure,
-      );
-      expect(
-        _stateOf(containerController, sessionController).failure?.code,
+        controller.state.failure?.code,
         ReverseImageProviderFailureCode.providerUnavailable,
       );
       // Failure keeps the image; the owned file is released on dispose.
@@ -396,7 +312,7 @@ void main() {
 
   test('a failed engine keeps the input and switches to another', () async {
     final file = File('${tempDirectory.path}/image.png')
-      ..writeAsBytesSync(_pngHeader(12, 8));
+      ..writeAsBytesSync(pngHeader(12, 8));
     final platform = _FakeReverseImageInputPlatform(file);
     final failing = _OutcomeProvider(
       const ReverseImageSearchFailure(
@@ -412,21 +328,11 @@ void main() {
         ReverseImageEngine.iqdb: succeeding,
       },
     );
-    final container = _flowContainer(session);
-    final controller = container.read(
-      reverseImageSearchControllerProvider(session).notifier,
-    );
-    const reference = ReverseImageInputReference(
-      contentUri: 'content://share/1',
-      mimeType: 'image/png',
-      sizeBytes: 128,
-      hasReadUriPermission: true,
-      source: ReverseImageInputSource.picker,
-    );
+    final controller = _flowController(session);
 
-    await controller.prepare(reference);
+    await controller.prepare(_picked);
     await controller.search();
-    var state = _stateOf(container, session);
+    var state = controller.state;
     expect(state.status, ReverseImageFlowStatus.failure);
     expect(state.engine, ReverseImageEngine.sauceNao);
     expect(state.input, isNotNull);
@@ -437,12 +343,12 @@ void main() {
     expect(platform.deletedPaths, isEmpty);
 
     await controller.selectEngine(ReverseImageEngine.iqdb);
-    state = _stateOf(container, session);
+    state = controller.state;
     expect(state.status, ReverseImageFlowStatus.ready);
     expect(state.engine, ReverseImageEngine.iqdb);
 
     await controller.search();
-    state = _stateOf(container, session);
+    state = controller.state;
     expect(state.status, ReverseImageFlowStatus.success);
     // A no-match keeps the image so a third engine can still be tried.
     expect(state.input, isNotNull);
@@ -473,10 +379,7 @@ void main() {
         ),
       },
     );
-    final container = _flowContainer(session);
-    final controller = container.read(
-      reverseImageSearchControllerProvider(session).notifier,
-    );
+    final controller = _flowController(session);
     await controller.prepare(
       const ReverseImageInputReference(
         contentUri: 'content://share/1',
@@ -486,19 +389,19 @@ void main() {
         source: ReverseImageInputSource.picker,
       ),
     );
-    expect(_stateOf(container, session).nextEngine, ReverseImageEngine.ascii2d);
+    expect(controller.state.nextEngine, ReverseImageEngine.ascii2d);
 
     await controller.search();
     // SauceNAO came back empty; IQDB cannot take WebP.
-    expect(_stateOf(container, session).nextEngine, ReverseImageEngine.ascii2d);
+    expect(controller.state.nextEngine, ReverseImageEngine.ascii2d);
     await controller.searchNextEngine();
-    var state = _stateOf(container, session);
+    var state = controller.state;
     expect(state.engine, ReverseImageEngine.ascii2d);
     expect(state.status, ReverseImageFlowStatus.failure);
     expect(state.nextEngine, ReverseImageEngine.tinEye);
 
     await controller.searchNextEngine();
-    state = _stateOf(container, session);
+    state = controller.state;
     expect(state.engine, ReverseImageEngine.tinEye);
     expect(state.noMatchEngines, {
       ReverseImageEngine.sauceNao,
@@ -511,7 +414,7 @@ void main() {
     'a challenge falls back to the engine upload form in the browser',
     () async {
       final file = File('${tempDirectory.path}/image.png')
-        ..writeAsBytesSync(_pngHeader(12, 8));
+        ..writeAsBytesSync(pngHeader(12, 8));
       final platform = _FakeReverseImageInputPlatform(file);
       final armer = _RecordingUploadArmer();
       final session = ReverseImageSearchSession.single(
@@ -524,27 +427,16 @@ void main() {
           ),
         ),
       );
-      final container = _flowContainer(session);
-      final controller = container.read(
-        reverseImageSearchControllerProvider(session).notifier,
-      );
-      await controller.prepare(
-        const ReverseImageInputReference(
-          contentUri: 'content://share/1',
-          mimeType: 'image/png',
-          sizeBytes: 128,
-          hasReadUriPermission: true,
-          source: ReverseImageInputSource.picker,
-        ),
-      );
+      final controller = _flowController(session);
+      await controller.prepare(_picked);
       await controller.search();
       expect(
-        _stateOf(container, session).failure?.code,
+        controller.state.failure?.code,
         ReverseImageProviderFailureCode.challenge,
       );
 
       await controller.searchInBrowser();
-      final state = _stateOf(container, session);
+      final state = controller.state;
       expect(state.status, ReverseImageFlowStatus.success);
       expect(state.webUpload?.engine, ReverseImageEngine.sauceNao);
       expect(
@@ -568,10 +460,7 @@ void main() {
         platform: platform,
         provider: _OutcomeProvider(const ReverseImageSearchSuccess()),
       );
-      final container = _flowContainer(session);
-      final controller = container.read(
-        reverseImageSearchControllerProvider(session).notifier,
-      );
+      final controller = _flowController(session);
       await controller.prepare(
         ReverseImageInputReference(
           contentUri: 'content://share/1',
@@ -582,7 +471,7 @@ void main() {
         ),
       );
 
-      final state = _stateOf(container, session);
+      final state = controller.state;
       expect(state.status, ReverseImageFlowStatus.ready);
       final input = state.input!;
       expect((input.width, input.height), (2048, 1024));
@@ -595,19 +484,16 @@ void main() {
 
   test('selectEngine without a held image only moves the selection', () async {
     final file = File('${tempDirectory.path}/image.png')
-      ..writeAsBytesSync(_pngHeader(12, 8));
+      ..writeAsBytesSync(pngHeader(12, 8));
     final platform = _FakeReverseImageInputPlatform(file);
     final session = ReverseImageSearchSession(
       platform: platform,
       providers: const {},
     );
-    final container = _flowContainer(session);
-    final controller = container.read(
-      reverseImageSearchControllerProvider(session).notifier,
-    );
+    final controller = _flowController(session);
 
     await controller.selectEngine(ReverseImageEngine.iqdb);
-    final state = _stateOf(container, session);
+    final state = controller.state;
     expect(state.engine, ReverseImageEngine.iqdb);
     expect(state.status, ReverseImageFlowStatus.idle);
   });
@@ -616,7 +502,7 @@ void main() {
     'a missing engine in the map is an explicit unavailable failure',
     () async {
       final file = File('${tempDirectory.path}/image.png')
-        ..writeAsBytesSync(_pngHeader(12, 8));
+        ..writeAsBytesSync(pngHeader(12, 8));
       final platform = _FakeReverseImageInputPlatform(file);
       final session = ReverseImageSearchSession(
         platform: platform,
@@ -626,24 +512,13 @@ void main() {
           ),
         },
       );
-      final container = _flowContainer(session);
-      final controller = container.read(
-        reverseImageSearchControllerProvider(session).notifier,
-      );
-      await controller.prepare(
-        const ReverseImageInputReference(
-          contentUri: 'content://share/1',
-          mimeType: 'image/png',
-          sizeBytes: 128,
-          hasReadUriPermission: true,
-          source: ReverseImageInputSource.picker,
-        ),
-      );
+      final controller = _flowController(session);
+      await controller.prepare(_picked);
 
       await controller.selectEngine(ReverseImageEngine.ascii2d);
       await controller.search();
 
-      final state = _stateOf(container, session);
+      final state = controller.state;
       expect(state.status, ReverseImageFlowStatus.failure);
       expect(
         state.failure?.code,
@@ -655,7 +530,7 @@ void main() {
 
   test('a web-upload outcome arms the file and keeps it owned', () async {
     final file = File('${tempDirectory.path}/image.png')
-      ..writeAsBytesSync(_pngHeader(12, 8));
+      ..writeAsBytesSync(pngHeader(12, 8));
     final platform = _FakeReverseImageInputPlatform(file);
     final armer = _RecordingUploadArmer();
     final session = ReverseImageSearchSession.single(
@@ -672,22 +547,11 @@ void main() {
       initialEngine: ReverseImageEngine.ascii2d,
       uploadArmer: armer,
     );
-    final container = _flowContainer(session);
-    final controller = container.read(
-      reverseImageSearchControllerProvider(session).notifier,
-    );
-    await controller.prepare(
-      const ReverseImageInputReference(
-        contentUri: 'content://share/1',
-        mimeType: 'image/png',
-        sizeBytes: 128,
-        hasReadUriPermission: true,
-        source: ReverseImageInputSource.picker,
-      ),
-    );
+    final controller = _flowController(session);
+    await controller.prepare(_picked);
     await controller.search();
 
-    final state = _stateOf(container, session);
+    final state = controller.state;
     expect(state.status, ReverseImageFlowStatus.success);
     expect(armer.armedPaths, [file.path]);
     expect(state.webUpload?.armedUri, 'content://armed/1');
@@ -703,7 +567,7 @@ void main() {
     'an arming failure is a visible engine failure keeping the input',
     () async {
       final file = File('${tempDirectory.path}/image.png')
-        ..writeAsBytesSync(_pngHeader(12, 8));
+        ..writeAsBytesSync(pngHeader(12, 8));
       final platform = _FakeReverseImageInputPlatform(file);
       final armer = _RecordingUploadArmer(failArm: true);
       final session = ReverseImageSearchSession.single(
@@ -720,22 +584,11 @@ void main() {
         initialEngine: ReverseImageEngine.tinEye,
         uploadArmer: armer,
       );
-      final container = _flowContainer(session);
-      final controller = container.read(
-        reverseImageSearchControllerProvider(session).notifier,
-      );
-      await controller.prepare(
-        const ReverseImageInputReference(
-          contentUri: 'content://share/1',
-          mimeType: 'image/png',
-          sizeBytes: 128,
-          hasReadUriPermission: true,
-          source: ReverseImageInputSource.picker,
-        ),
-      );
+      final controller = _flowController(session);
+      await controller.prepare(_picked);
       await controller.search();
 
-      final state = _stateOf(container, session);
+      final state = controller.state;
       expect(state.status, ReverseImageFlowStatus.failure);
       expect(state.engine, ReverseImageEngine.tinEye);
       expect(state.engineFailures, contains(ReverseImageEngine.tinEye));
@@ -744,19 +597,11 @@ void main() {
   );
 
   group('stopSearch', () {
-    const reference = ReverseImageInputReference(
-      contentUri: 'content://share/1',
-      mimeType: 'image/png',
-      sizeBytes: 128,
-      hasReadUriPermission: true,
-      source: ReverseImageInputSource.picker,
-    );
-
     test(
       'stopping a running search returns to ready and keeps the image',
       () async {
         final file = File('${tempDirectory.path}/image.png')
-          ..writeAsBytesSync(_pngHeader(12, 8));
+          ..writeAsBytesSync(pngHeader(12, 8));
         final platform = _FakeReverseImageInputPlatform(file);
         final provider = _OutcomeProvider(const ReverseImageSearchSuccess())
           ..blocker = Completer<ReverseImageSearchOutcome>();
@@ -764,21 +609,15 @@ void main() {
           platform: platform,
           provider: provider,
         );
-        final container = _flowContainer(session);
-        final controller = container.read(
-          reverseImageSearchControllerProvider(session).notifier,
-        );
+        final controller = _flowController(session);
 
-        await controller.prepare(reference);
+        await controller.prepare(_picked);
         unawaited(controller.search());
         await Future<void>.delayed(Duration.zero);
-        expect(
-          _stateOf(container, session).status,
-          ReverseImageFlowStatus.searching,
-        );
+        expect(controller.state.status, ReverseImageFlowStatus.searching);
 
         await controller.stopSearch();
-        var state = _stateOf(container, session);
+        var state = controller.state;
         expect(state.status, ReverseImageFlowStatus.ready);
         expect(state.input, isNotNull);
         // The image must survive the stop so the user can retry.
@@ -788,7 +627,7 @@ void main() {
         provider.blocker!.complete(const ReverseImageSearchSuccess());
         await Future<void>.delayed(Duration.zero);
         await Future<void>.delayed(Duration.zero);
-        state = _stateOf(container, session);
+        state = controller.state;
         expect(state.status, ReverseImageFlowStatus.ready);
         expect(state.input, isNotNull);
         expect(platform.deletedPaths, isEmpty);
@@ -799,74 +638,56 @@ void main() {
       'stopping during prepare returns to idle and drops the late copy',
       () async {
         final file = File('${tempDirectory.path}/image.png')
-          ..writeAsBytesSync(_pngHeader(12, 8));
+          ..writeAsBytesSync(pngHeader(12, 8));
         final platform = _FakeReverseImageInputPlatform(file)
           ..copyBlocker = Completer<String>();
         final session = ReverseImageSearchSession.single(
           platform: platform,
           provider: _OutcomeProvider(const ReverseImageSearchSuccess()),
         );
-        final container = _flowContainer(session);
-        final controller = container.read(
-          reverseImageSearchControllerProvider(session).notifier,
-        );
+        final controller = _flowController(session);
 
-        unawaited(controller.prepare(reference));
+        unawaited(controller.prepare(_picked));
         await Future<void>.delayed(Duration.zero);
-        expect(
-          _stateOf(container, session).status,
-          ReverseImageFlowStatus.preparing,
-        );
+        expect(controller.state.status, ReverseImageFlowStatus.preparing);
 
         await controller.stopSearch();
-        expect(
-          _stateOf(container, session).status,
-          ReverseImageFlowStatus.idle,
-        );
+        expect(controller.state.status, ReverseImageFlowStatus.idle);
 
         // The late copy result is discarded — and its file cleaned up —
         // instead of reviving the flow.
         platform.copyBlocker!.complete(file.path);
         await Future<void>.delayed(Duration.zero);
         await Future<void>.delayed(Duration.zero);
-        expect(
-          _stateOf(container, session).status,
-          ReverseImageFlowStatus.idle,
-        );
+        expect(controller.state.status, ReverseImageFlowStatus.idle);
         expect(platform.deletedPaths, [file.path]);
       },
     );
 
     test('stopping during pick discards the late picker result', () async {
       final file = File('${tempDirectory.path}/image.png')
-        ..writeAsBytesSync(_pngHeader(12, 8));
+        ..writeAsBytesSync(pngHeader(12, 8));
       final platform = _FakeReverseImageInputPlatform(file)
         ..pickBlocker = Completer<ReverseImageInputReference?>();
       final session = ReverseImageSearchSession.single(
         platform: platform,
         provider: _OutcomeProvider(const ReverseImageSearchSuccess()),
       );
-      final container = _flowContainer(session);
-      final controller = container.read(
-        reverseImageSearchControllerProvider(session).notifier,
-      );
+      final controller = _flowController(session);
 
       unawaited(controller.pick());
       await Future<void>.delayed(Duration.zero);
-      expect(
-        _stateOf(container, session).status,
-        ReverseImageFlowStatus.picking,
-      );
+      expect(controller.state.status, ReverseImageFlowStatus.picking);
 
       await controller.stopSearch();
-      expect(_stateOf(container, session).status, ReverseImageFlowStatus.idle);
+      expect(controller.state.status, ReverseImageFlowStatus.idle);
 
       // The picker answering after the stop must not start a prepare —
       // the stale generation throws the reference away.
-      platform.pickBlocker!.complete(reference);
+      platform.pickBlocker!.complete(_picked);
       await Future<void>.delayed(Duration.zero);
       await Future<void>.delayed(Duration.zero);
-      expect(_stateOf(container, session).status, ReverseImageFlowStatus.idle);
+      expect(controller.state.status, ReverseImageFlowStatus.idle);
       expect(platform.copyCount, 0);
     });
   });
@@ -952,25 +773,6 @@ class _OutcomeProvider implements ReverseImageProvider {
     return outcome;
   }
 }
-
-Uint8List _pngHeader(int width, int height) {
-  final bytes = BytesBuilder();
-  bytes.add(const [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-  bytes.add(_be32(13));
-  bytes.add(const [0x49, 0x48, 0x44, 0x52]);
-  bytes.add(_be32(width));
-  bytes.add(_be32(height));
-  bytes.add(const [8, 6, 0, 0, 0]);
-  bytes.add(const [0, 0, 0, 0]);
-  return bytes.takeBytes();
-}
-
-List<int> _be32(int value) => [
-  (value >> 24) & 0xff,
-  (value >> 16) & 0xff,
-  (value >> 8) & 0xff,
-  value & 0xff,
-];
 
 /// A VP8X WebP header: RIFF, WEBP, the chunk, then 24-bit sizes minus one.
 Uint8List _webpHeader(int width, int height) {

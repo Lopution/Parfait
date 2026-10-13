@@ -190,20 +190,33 @@ class _DohServerClient extends http.BaseClient {
 
 const _revision = NetworkRevision(0);
 
+/// A resolver asking [endpoints] in order through [client], disposed when
+/// the test ends.
+DohResolver _resolver(
+  http.Client client, [
+  List<String> endpoints = const ['https://1.1.1.1/dns-query'],
+]) {
+  final resolver = DohResolver(endpointUrls: endpoints, client: client);
+  addTearDown(resolver.dispose);
+  return resolver;
+}
+
+/// The two lookups most tests make, at [_revision].
+extension on DohResolver {
+  Future<ResolvedHost> pixiv() =>
+      resolve('app-api.pixiv.net', revision: _revision);
+
+  Future<EchConfigResult> ech() =>
+      lookupEchConfig('cloudflare-ech.com', revision: _revision);
+}
+
 void main() {
   test('resolves a host to its public address via DoH wire format', () async {
     final server = _FakeDohServer(address: '1.1.1.1');
     final client = _DohServerClient([server]);
-    final resolver = DohResolver(
-      endpointUrls: ['https://1.1.1.1/dns-query'],
-      client: client,
-    );
-    addTearDown(resolver.dispose);
+    final resolver = _resolver(client);
 
-    final result = await resolver.resolve(
-      'app-api.pixiv.net',
-      revision: _revision,
-    );
+    final result = await resolver.pixiv();
 
     expect(result.addresses.single.address, server.ip.address);
     expect(result.dnsSource, DnsSource.doh);
@@ -240,21 +253,15 @@ void main() {
       );
       addTearDown(resolver.dispose);
 
-      final first = await resolver.resolve(
-        'app-api.pixiv.net',
-        revision: _revision,
-      );
-      final cached = await resolver.resolve(
-        'app-api.pixiv.net',
-        revision: _revision,
-      );
+      final first = await resolver.pixiv();
+      final cached = await resolver.pixiv();
 
       expect(cached.addresses.single.address, '1.1.1.1');
       expect(identical(first.addresses, cached.addresses), isFalse);
       expect(server.requests, hasLength(1));
 
       now = base.add(const Duration(seconds: 31));
-      await resolver.resolve('app-api.pixiv.net', revision: _revision);
+      await resolver.pixiv();
       expect(server.requests, hasLength(2));
     },
   );
@@ -262,14 +269,10 @@ void main() {
   test('concurrent address lookups share one wire query', () async {
     final gate = Completer<void>();
     final server = _FakeDohServer(address: '1.1.1.1')..block = gate;
-    final resolver = DohResolver(
-      endpointUrls: ['https://1.1.1.1/dns-query'],
-      client: _DohServerClient([server]),
-    );
-    addTearDown(resolver.dispose);
+    final resolver = _resolver(_DohServerClient([server]));
 
-    final first = resolver.resolve('app-api.pixiv.net', revision: _revision);
-    final second = resolver.resolve('app-api.pixiv.net', revision: _revision);
+    final first = resolver.pixiv();
+    final second = resolver.pixiv();
     await Future<void>.delayed(Duration.zero);
     expect(server.requests, hasLength(1));
 
@@ -283,16 +286,12 @@ void main() {
     final broken = _FakeDohServer(address: '1.1.1.1', statusCode: 503);
     final healthy = _FakeDohServer(address: '8.8.8.8');
     final client = _DohServerClient([broken, healthy]);
-    final resolver = DohResolver(
-      endpointUrls: ['https://1.1.1.1/dns-query', 'https://8.8.8.8/dns-query'],
-      client: client,
-    );
-    addTearDown(resolver.dispose);
+    final resolver = _resolver(client, [
+      'https://1.1.1.1/dns-query',
+      'https://8.8.8.8/dns-query',
+    ]);
 
-    final result = await resolver.resolve(
-      'app-api.pixiv.net',
-      revision: _revision,
-    );
+    final result = await resolver.pixiv();
     expect(result.addresses.single.address, healthy.ip.address);
     expect(broken.requests, hasLength(1));
     // The failing endpoint is remembered and temporarily skipped.
@@ -307,28 +306,23 @@ void main() {
       _FakeDohServer(address: '1.1.1.1', statusCode: 500),
       _FakeDohServer(address: '8.8.8.8', statusCode: 500),
     ]);
-    final resolver = DohResolver(
-      endpointUrls: ['https://1.1.1.1/dns-query', 'https://8.8.8.8/dns-query'],
-      client: client,
-    );
-    addTearDown(resolver.dispose);
+    final resolver = _resolver(client, [
+      'https://1.1.1.1/dns-query',
+      'https://8.8.8.8/dns-query',
+    ]);
 
     await expectLater(
-      resolver.resolve('app-api.pixiv.net', revision: _revision),
+      resolver.pixiv(),
       throwsA(isA<SecureResolutionException>()),
     );
   });
 
   test('non-OK rcode is rejected as a resolution failure', () async {
     final nxdomain = _FakeDohServer(address: '1.1.1.1', rcode: 3);
-    final resolver = DohResolver(
-      endpointUrls: ['https://1.1.1.1/dns-query'],
-      client: _DohServerClient([nxdomain]),
-    );
-    addTearDown(resolver.dispose);
+    final resolver = _resolver(_DohServerClient([nxdomain]));
 
     await expectLater(
-      resolver.resolve('app-api.pixiv.net', revision: _revision),
+      resolver.pixiv(),
       throwsA(isA<SecureResolutionException>()),
     );
   });
@@ -337,11 +331,7 @@ void main() {
     final server = _FakeDohServer(address: '1.1.1.1');
     final gate = Completer<void>();
     server.block = gate;
-    final resolver = DohResolver(
-      endpointUrls: ['https://1.1.1.1/dns-query'],
-      client: _DohServerClient([server]),
-    );
-    addTearDown(resolver.dispose);
+    final resolver = _resolver(_DohServerClient([server]));
     final cancel = _TestCancelSignal();
     final query = resolver.resolve(
       'app-api.pixiv.net',
@@ -357,11 +347,7 @@ void main() {
   test('unresolvable hosts are rejected before any network I/O', () async {
     final server = _FakeDohServer(address: '1.1.1.1');
     final client = _DohServerClient([server]);
-    final resolver = DohResolver(
-      endpointUrls: ['https://1.1.1.1/dns-query'],
-      client: client,
-    );
-    addTearDown(resolver.dispose);
+    final resolver = _resolver(client);
 
     await expectLater(
       resolver.resolve('127.0.0.1', revision: _revision),
@@ -420,10 +406,7 @@ void main() {
     );
     addTearDown(resolver.dispose);
 
-    await expectLater(
-      resolver.resolve('app-api.pixiv.net', revision: _revision),
-      throwsA(isA<TimeoutException>()),
-    );
+    await expectLater(resolver.pixiv(), throwsA(isA<TimeoutException>()));
   });
 
   test('oversized responses are rejected', () async {
@@ -437,7 +420,7 @@ void main() {
     addTearDown(resolver.dispose);
 
     await expectLater(
-      resolver.resolve('app-api.pixiv.net', revision: _revision),
+      resolver.pixiv(),
       throwsA(isA<SecureResolutionException>()),
     );
   });
@@ -479,21 +462,12 @@ void main() {
         );
         addTearDown(resolver.dispose);
 
-        final result = await resolver.lookupEchConfig(
-          'cloudflare-ech.com',
-          revision: _revision,
-        );
+        final result = await resolver.ech();
 
         expect(result.echConfig, [0xfe, 0x0d]);
         // The ECH query went to the alidns endpoint, while the A-record query
         // still uses the original endpoint list.
-        expect(
-          (await resolver.resolve(
-            'app-api.pixiv.net',
-            revision: _revision,
-          )).addresses.single.address,
-          '1.1.1.1',
-        );
+        expect((await resolver.pixiv()).addresses.single.address, '1.1.1.1');
       },
     );
 
@@ -501,16 +475,9 @@ void main() {
       final server = _FakeDohServer(address: '1.1.1.1')
         ..httpsEchRdata = _echRdata([0xfe, 0x0d, 1, 2, 3])
         ..httpsTtl = 120;
-      final resolver = DohResolver(
-        endpointUrls: ['https://1.1.1.1/dns-query'],
-        client: _DohServerClient([server]),
-      );
-      addTearDown(resolver.dispose);
+      final resolver = _resolver(_DohServerClient([server]));
 
-      final result = await resolver.lookupEchConfig(
-        'cloudflare-ech.com',
-        revision: _revision,
-      );
+      final result = await resolver.ech();
 
       expect(result.echConfig, [0xfe, 0x0d, 1, 2, 3]);
       expect(result.ttl, const Duration(seconds: 120));
@@ -524,16 +491,9 @@ void main() {
       final huge = _FakeDohServer(address: '1.1.1.1')
         ..httpsEchRdata = _echRdata([1])
         ..httpsTtl = 3600 * 24 * 30;
-      final resolver = DohResolver(
-        endpointUrls: ['https://1.1.1.1/dns-query'],
-        client: _DohServerClient([huge]),
-      );
-      addTearDown(resolver.dispose);
+      final resolver = _resolver(_DohServerClient([huge]));
 
-      final result = await resolver.lookupEchConfig(
-        'cloudflare-ech.com',
-        revision: _revision,
-      );
+      final result = await resolver.ech();
       expect(result.ttl, const Duration(minutes: 10));
     });
 
@@ -550,34 +510,24 @@ void main() {
       );
       addTearDown(resolver.dispose);
 
-      final first = await resolver.lookupEchConfig(
-        'cloudflare-ech.com',
-        revision: _revision,
-      );
+      final first = await resolver.ech();
       first.echConfig[0] = 99;
-      final cached = await resolver.lookupEchConfig(
-        'cloudflare-ech.com',
-        revision: _revision,
-      );
+      final cached = await resolver.ech();
 
       expect(cached.echConfig, [1, 2, 3]);
       expect(server.requests, hasLength(1));
 
       now = base.add(const Duration(seconds: 31));
-      await resolver.lookupEchConfig('cloudflare-ech.com', revision: _revision);
+      await resolver.ech();
       expect(server.requests, hasLength(2));
     });
 
     test('revision change invalidates ECH config cache', () async {
       final server = _FakeDohServer(address: '1.1.1.1')
         ..httpsEchRdata = _echRdata([1, 2, 3]);
-      final resolver = DohResolver(
-        endpointUrls: ['https://1.1.1.1/dns-query'],
-        client: _DohServerClient([server]),
-      );
-      addTearDown(resolver.dispose);
+      final resolver = _resolver(_DohServerClient([server]));
 
-      await resolver.lookupEchConfig('cloudflare-ech.com', revision: _revision);
+      await resolver.ech();
       await resolver.lookupEchConfig(
         'cloudflare-ech.com',
         revision: const NetworkRevision(8, networkIdentity: 'cellular'),
@@ -591,20 +541,10 @@ void main() {
       final server = _FakeDohServer(address: '1.1.1.1')
         ..httpsEchRdata = _echRdata([1, 2, 3])
         ..block = gate;
-      final resolver = DohResolver(
-        endpointUrls: ['https://1.1.1.1/dns-query'],
-        client: _DohServerClient([server]),
-      );
-      addTearDown(resolver.dispose);
+      final resolver = _resolver(_DohServerClient([server]));
 
-      final first = resolver.lookupEchConfig(
-        'cloudflare-ech.com',
-        revision: _revision,
-      );
-      final second = resolver.lookupEchConfig(
-        'cloudflare-ech.com',
-        revision: _revision,
-      );
+      final first = resolver.ech();
+      final second = resolver.ech();
       await Future<void>.delayed(Duration.zero);
       expect(server.requests, hasLength(1));
 
@@ -619,21 +559,14 @@ void main() {
       () async {
         final server = _FakeDohServer(address: '1.1.1.1')
           ..httpsEchRdata = _echRdata([1, 2, 3]);
-        final resolver = DohResolver(
-          endpointUrls: ['https://1.1.1.1/dns-query'],
-          client: _DohServerClient([server]),
-        );
-        addTearDown(resolver.dispose);
+        final resolver = _resolver(_DohServerClient([server]));
 
         await resolver.lookupEchConfig(
           'cloudflare-ech.com',
           revision: _revision,
           cancelSignal: _TestCancelSignal(),
         );
-        await resolver.lookupEchConfig(
-          'cloudflare-ech.com',
-          revision: _revision,
-        );
+        await resolver.ech();
 
         expect(server.requests, hasLength(1));
       },
@@ -643,14 +576,10 @@ void main() {
       'no ech SvcParam → SecureResolutionException (no silent fallback)',
       () async {
         final server = _FakeDohServer(address: '1.1.1.1'); // httpsEchRdata null
-        final resolver = DohResolver(
-          endpointUrls: ['https://1.1.1.1/dns-query'],
-          client: _DohServerClient([server]),
-        );
-        addTearDown(resolver.dispose);
+        final resolver = _resolver(_DohServerClient([server]));
 
         await expectLater(
-          resolver.lookupEchConfig('cloudflare-ech.com', revision: _revision),
+          resolver.ech(),
           throwsA(isA<SecureResolutionException>()),
         );
       },
@@ -669,10 +598,7 @@ void main() {
       );
       addTearDown(resolver.dispose);
 
-      final result = await resolver.lookupEchConfig(
-        'cloudflare-ech.com',
-        revision: _revision,
-      );
+      final result = await resolver.ech();
       expect(result.echConfig, [9, 9]);
       expect(broken.requests, hasLength(1));
     });
@@ -682,11 +608,7 @@ void main() {
         ..httpsEchRdata = _echRdata([1]);
       final gate = Completer<void>();
       server.block = gate;
-      final resolver = DohResolver(
-        endpointUrls: ['https://1.1.1.1/dns-query'],
-        client: _DohServerClient([server]),
-      );
-      addTearDown(resolver.dispose);
+      final resolver = _resolver(_DohServerClient([server]));
       final cancel = _TestCancelSignal();
       final query = resolver.lookupEchConfig(
         'cloudflare-ech.com',
@@ -709,7 +631,7 @@ void main() {
       gate.complete();
       await Future<void>.delayed(Duration.zero);
 
-      await resolver.lookupEchConfig('cloudflare-ech.com', revision: _revision);
+      await resolver.ech();
       expect(
         server.requests,
         hasLength(2),
@@ -720,15 +642,8 @@ void main() {
 }
 
 Future<void> _expectTtl(_FakeDohServer server, Duration expected) async {
-  final resolver = DohResolver(
-    endpointUrls: ['https://1.1.1.1/dns-query'],
-    client: _DohServerClient([server]),
-  );
-  addTearDown(resolver.dispose);
-  final result = await resolver.resolve(
-    'app-api.pixiv.net',
-    revision: _revision,
-  );
+  final resolver = _resolver(_DohServerClient([server]));
+  final result = await resolver.pixiv();
   expect(result.ttl, expected);
 }
 

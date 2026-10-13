@@ -5,10 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/pull_to_refresh.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/recording_haptics.dart';
+import 'helpers/localized_app.dart';
 
 void main() {
   Widget buildSubject({
@@ -30,11 +29,7 @@ void main() {
         child: list,
       );
     }
-    return MaterialApp(
-      localizationsDelegates: appLocalizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('zh', 'CN'),
-
+    return localizedApp(
       home: Scaffold(
         body: PullToRefresh(onRefresh: onRefresh, child: list),
       ),
@@ -42,11 +37,7 @@ void main() {
   }
 
   Widget buildNestedSubject({required Future<void> Function() onRefresh}) {
-    return MaterialApp(
-      localizationsDelegates: appLocalizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('zh', 'CN'),
-
+    return localizedApp(
       home: Scaffold(
         body: NestedScrollView(
           headerSliverBuilder: (context, innerBoxIsScrolled) => [

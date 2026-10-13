@@ -27,14 +27,14 @@ import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/profile/profile_skeleton.dart';
 import 'package:parfait/features/profile/user_series_feed.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/image_network.dart';
 import 'helpers/bookmark_world.dart';
 import 'helpers/profile_world.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
 
 class _FakeOutboundUrlOpener implements OutboundUrlOpener {
   final requests = <String>[];
@@ -93,21 +93,21 @@ Future<void> _pumpProfile(
   WidgetTester tester,
   ProviderContainer container, {
   int userId = 42,
+  ScrollBehavior? scrollBehavior,
 }) async {
   await tester.pumpWidget(
-    UncontrolledProviderScope(
+    localizedApp(
       container: container,
-      child: MaterialApp(
-        builder: promptHostBuilder,
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-        home: UserPage(userId: userId),
-      ),
+      builder: promptHostBuilder,
+      scrollBehavior: scrollBehavior,
+      home: UserPage(userId: userId),
     ),
   );
   await tester.pumpAndSettle();
 }
+
+List<IllustEntity> _works(int count) =>
+    List.generate(count, (index) => _illust(index + 1));
 
 List<String> _tabLabels(WidgetTester tester) => [
   for (final tab in tester.widget<TabBar>(find.byType(TabBar)).tabs)
@@ -235,12 +235,8 @@ void main() {
         await mockNetworkImagesFor(() async {
           await tester.pumpWidget(
             withStalledImages(
-              MaterialApp(
+              localizedApp(
                 builder: promptHostBuilder,
-                localizationsDelegates: appLocalizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                locale: const Locale('zh', 'CN'),
-
                 home: Scaffold(
                   body: CustomScrollView(
                     key: ValueKey(user.profileImageUrl ?? 'placeholder'),
@@ -316,12 +312,8 @@ void main() {
     (tester) async {
       final controller = ScrollController();
       await tester.pumpWidget(
-        MaterialApp(
+        localizedApp(
           builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-
           home: Scaffold(
             body: CustomScrollView(
               controller: controller,
@@ -432,11 +424,8 @@ void main() {
       ),
     );
     await tester.pumpWidget(
-      MaterialApp(
+      localizedApp(
         builder: promptHostBuilder,
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
         home: Builder(
           builder: (context) => Scaffold(
             body: Center(
@@ -491,11 +480,8 @@ void main() {
         ),
       );
       await tester.pumpWidget(
-        MaterialApp(
+        localizedApp(
           builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
           home: Builder(
             builder: (context) => Scaffold(
               body: Center(
@@ -547,19 +533,7 @@ void main() {
       );
       final container = await makeProfileWorld(users: repository);
       container.read(userStoreProvider.notifier).mergeAll([sampleUser(42)]);
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: const UserPage(userId: 42),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
+      await _pumpProfile(tester, container);
 
       expect(find.byType(MaterialBanner), findsOneWidget);
       expect(
@@ -643,15 +617,10 @@ void main() {
       bookmarks: bookmarks,
     );
     await tester.pumpWidget(
-      UncontrolledProviderScope(
+      localizedApp(
         container: container,
-        child: MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: MePage(onEditProfile: () {}),
-        ),
+        builder: promptHostBuilder,
+        home: MePage(onEditProfile: () {}),
       ),
     );
     await tester.pumpAndSettle();
@@ -800,32 +769,24 @@ void main() {
   });
 
   testWidgets('header height tracks the drag without jumps', (tester) async {
-    tester.view.physicalSize = const Size(360, 640);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final repository = FakeUserRepository(
-      works: List.generate(30, (index) => _illust(index + 1)),
-    );
+    setViewSize(tester, const Size(360, 640));
+    final repository = FakeUserRepository(works: _works(30));
     final container = await makeProfileWorld(users: repository);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedApp(
           container: container,
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('ru'),
-            builder: (context, child) => promptHostBuilder(
-              context,
-              MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: const TextScaler.linear(2)),
-                child: child!,
-              ),
+          locale: const Locale('ru'),
+          builder: (context, child) => promptHostBuilder(
+            context,
+            MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
             ),
-            home: const UserPage(userId: 42),
           ),
+          home: const UserPage(userId: 42),
         ),
       );
       await tester.pumpAndSettle();
@@ -913,29 +874,16 @@ void main() {
   testWidgets(
     'a light upward fling never leaves the inner feed ahead of the header',
     (tester) async {
-      tester.view.physicalSize = const Size(360, 640);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setViewSize(tester, const Size(360, 640));
       for (final speed in [300.0, 600.0]) {
-        final repository = FakeUserRepository(
-          works: List.generate(30, (index) => _illust(index + 1)),
-        );
+        final repository = FakeUserRepository(works: _works(30));
         final container = await makeProfileWorld(users: repository);
         await mockNetworkImagesFor(() async {
-          await tester.pumpWidget(
-            UncontrolledProviderScope(
-              container: container,
-              child: MaterialApp(
-                builder: promptHostBuilder,
-                localizationsDelegates: appLocalizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                locale: const Locale('zh', 'CN'),
-                scrollBehavior: const FuncScrollBehavior(),
-                home: const UserPage(userId: 42),
-              ),
-            ),
+          await _pumpProfile(
+            tester,
+            container,
+            scrollBehavior: const FuncScrollBehavior(),
           );
-          await tester.pumpAndSettle();
 
           final outer = outerPosition(tester);
           final inner = activeFeedPosition(tester);
@@ -989,28 +937,15 @@ void main() {
   testWidgets(
     'a light pull-down while the header is collapsing keeps it expanding',
     (tester) async {
-      tester.view.physicalSize = const Size(360, 640);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      final repository = FakeUserRepository(
-        works: List.generate(30, (index) => _illust(index + 1)),
-      );
+      setViewSize(tester, const Size(360, 640));
+      final repository = FakeUserRepository(works: _works(30));
       final container = await makeProfileWorld(users: repository);
       await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-              scrollBehavior: const FuncScrollBehavior(),
-              home: const UserPage(userId: 42),
-            ),
-          ),
+        await _pumpProfile(
+          tester,
+          container,
+          scrollBehavior: const FuncScrollBehavior(),
         );
-        await tester.pumpAndSettle();
 
         final outer = outerPosition(tester);
         final inner = activeFeedPosition(tester);
@@ -1052,28 +987,15 @@ void main() {
   );
 
   testWidgets('a pull at the very top still pulls to refresh', (tester) async {
-    tester.view.physicalSize = const Size(360, 640);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final repository = FakeUserRepository(
-      works: List.generate(30, (index) => _illust(index + 1)),
-    );
+    setViewSize(tester, const Size(360, 640));
+    final repository = FakeUserRepository(works: _works(30));
     final container = await makeProfileWorld(users: repository);
     await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            scrollBehavior: const FuncScrollBehavior(),
-            home: const UserPage(userId: 42),
-          ),
-        ),
+      await _pumpProfile(
+        tester,
+        container,
+        scrollBehavior: const FuncScrollBehavior(),
       );
-      await tester.pumpAndSettle();
 
       final outer = outerPosition(tester);
       expect(outer.pixels, 0);
@@ -1098,55 +1020,13 @@ void main() {
   testWidgets(
     'same work tab tap returns both profile scroll positions to top',
     (tester) async {
-      final repository = FakeUserRepository(
-        works: List.generate(36, (index) => _illust(index + 1)),
-      );
+      final repository = FakeUserRepository(works: _works(36));
       final container = await makeProfileWorld(users: repository);
       await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-              home: const UserPage(userId: 42),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
+        await _pumpProfile(tester, container);
 
-        final outerScrollable = find
-            .descendant(
-              of: find.byKey(const ValueKey('profile-nested-scroll')),
-              matching: find.byWidgetPredicate(
-                (widget) =>
-                    widget is Scrollable &&
-                    widget.axisDirection == AxisDirection.down,
-              ),
-            )
-            .first;
-        final innerScrollable = find
-            .descendant(
-              of: find.byKey(
-                const PageStorageKey(
-                  ProfileFeedKey(
-                    userId: 42,
-                    kind: ProfileFeedKind.work,
-                    workType: UserWorkType.illust,
-                  ),
-                ),
-              ),
-              matching: find.byWidgetPredicate(
-                (widget) =>
-                    widget is Scrollable &&
-                    widget.axisDirection == AxisDirection.down,
-              ),
-            )
-            .first;
-        final outer = tester.state<ScrollableState>(outerScrollable).position;
-        final inner = tester.state<ScrollableState>(innerScrollable).position;
+        final outer = outerPosition(tester);
+        final inner = activeFeedPosition(tester);
         expect(outer.maxScrollExtent, greaterThan(0));
         expect(inner.maxScrollExtent, greaterThan(0));
 
@@ -1170,24 +1050,12 @@ void main() {
     'each tab scrolls on its own; re-tap rewinds only the selected one',
     (tester) async {
       final repository = FakeUserRepository(
-        works: List.generate(36, (index) => _illust(index + 1)),
+        works: _works(36),
         bookmarks: List.generate(36, (index) => _illust(100 + index)),
       );
       final container = await makeProfileWorld(users: repository);
       await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-              home: const UserPage(userId: 42),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
+        await _pumpProfile(tester, container);
 
         // A tab switched away from is kept alive offstage.
         ScrollPosition innerOf(ProfileFeedKey key) {
@@ -1260,24 +1128,19 @@ void main() {
       // Push the page so canPop is true — the skeleton's BackButton is a
       // real affordance, not a dead icon.
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedApp(
           container: container,
-          child: MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: Builder(
-              builder: (context) => Scaffold(
-                body: Center(
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const UserPage(userId: 42),
-                      ),
+          builder: promptHostBuilder,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const UserPage(userId: 42),
                     ),
-                    child: const Text('open'),
                   ),
+                  child: const Text('open'),
                 ),
               ),
             ),
@@ -1328,19 +1191,7 @@ void main() {
       users: FakeUserRepository(detail: user),
       outboundUrlOpener: opener,
     );
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: const UserPage(userId: 42),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _pumpProfile(tester, container);
     await tester.tap(
       find.descendant(of: find.byType(TabBar), matching: find.text('关于')),
     );
@@ -1373,19 +1224,7 @@ void main() {
         worksFailure: ApiNetworkError(StateError('offline')),
       );
       final container = await makeProfileWorld(users: repository);
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: const UserPage(userId: 42),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
+      await _pumpProfile(tester, container);
 
       // The work feed's first page request failed, but the query context —
       // the tabs and the header action row — stays mounted (parent §6 gate:

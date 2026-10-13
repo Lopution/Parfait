@@ -1,13 +1,9 @@
 import 'dart:convert';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/illust/related_illust_repository.dart';
@@ -24,31 +20,8 @@ http.Response _ok(Map<String, dynamic> body) => http.Response(
 );
 
 Future<PixivRelatedIllustRepository> _repo(MockClient client) async {
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  final container = ProviderContainer(
-    overrides: [
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      credentialStoreProvider.overrideWithValue(credentials),
-    ],
-  );
-  addTearDown(container.dispose);
-  final pixiv = PixivHttpClient(
-    client: client,
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  await container.read(accountStoreProvider.future);
-  return PixivRelatedIllustRepository(pixiv);
+  final container = await signedInApiContainer(client);
+  return PixivRelatedIllustRepository(container.read(pixivHttpClientProvider));
 }
 
 void main() {

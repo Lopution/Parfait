@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:parfait/app/external_intent_bridge.dart';
 import 'package:parfait/app/navigation/routes.dart';
@@ -14,13 +13,12 @@ import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/platform/intent_router.dart';
 import 'package:parfait/features/login/login_page.dart';
 import 'package:parfait/features/search/reverse_image_search_page.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/localized_app.dart';
 
 class _ScriptedIntentSource implements AndroidIntentSource {
   _ScriptedIntentSource(this.initial);
@@ -53,26 +51,17 @@ Widget _app(GoRouter router, _ScriptedIntentSource source) {
     accounts: _signedInSnapshot.accounts,
     currentId: _signedInSnapshot.currentId,
   );
-  return ProviderScope(
+  return localizedRouterApp(
+    router,
     overrides: [
       ...accountProviderOverrides(
         credentialStore: credentials,
         metadataRepository: metadata,
       ),
     ],
-    child: MaterialApp.router(
-      localizationsDelegates: appLocalizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('zh', 'CN'),
-      routerConfig: router,
-      builder: (context, child) => promptHostBuilder(
-        context,
-        ExternalIntentBridge(
-          router: router,
-          intentSource: source,
-          child: child!,
-        ),
-      ),
+    builder: (context, child) => promptHostBuilder(
+      context,
+      ExternalIntentBridge(router: router, intentSource: source, child: child!),
     ),
   );
 }

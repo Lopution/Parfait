@@ -8,21 +8,16 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/features/illust/detail/widgets/page_image.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/illust_fixtures.dart';
 import 'helpers/image_network.dart';
 import 'helpers/detail_world.dart';
+import 'helpers/localized_app.dart';
 
 const _url = 'https://i.pximg.net/img-master/progress.jpg';
 
-Widget _app(Widget child) => MaterialApp(
-  localizationsDelegates: appLocalizationsDelegates,
-  supportedLocales: AppLocalizations.supportedLocales,
-  locale: const Locale('zh'),
-  home: child,
-);
+Widget _app(Widget child) =>
+    localizedApp(locale: const Locale('zh'), home: child);
 
 Finder get _ring => find.byType(CircularProgressIndicator);
 
@@ -170,7 +165,6 @@ void main() {
       final (container, _, _) = await makeWorld(
         extraOverrides: transfer.overrides,
       );
-      addTearDown(container.dispose);
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,

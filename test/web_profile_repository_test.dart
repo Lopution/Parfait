@@ -26,6 +26,18 @@ class _FakeSession implements WebProfileSession {
   }
 }
 
+const _sessionCookie = 'PHPSESSID=0123456789abcdef0123456789abcdef01234567';
+
+/// Renames account a's user 1 to NewName.
+ProfileSubmitRequest _renameRequest() => ProfileSubmitRequest(
+  patch: ProfilePatch(
+    accountId: 'a',
+    userId: 1,
+    textFields: {ProfileField.displayName: 'NewName'},
+    images: const {},
+  ),
+);
+
 void main() {
   group('hasWebProfileSession', () {
     test('empty/null cookie is not a session', () {
@@ -69,9 +81,7 @@ void main() {
     test('with a session -> web channel with the five fields', () async {
       final repo = PixivWebProfileEditRepository(
         userRepository: _StubUserRepository(),
-        session: _FakeSession(
-          'PHPSESSID=0123456789abcdef0123456789abcdef01234567',
-        ),
+        session: _FakeSession(_sessionCookie),
       );
       final capabilities = await repo.loadCapabilities(
         accountId: 'a',
@@ -92,16 +102,7 @@ void main() {
         userRepository: _StubUserRepository(),
         session: _FakeSession(null),
       );
-      final outcome = await repo.submit(
-        ProfileSubmitRequest(
-          patch: ProfilePatch(
-            accountId: 'a',
-            userId: 1,
-            textFields: {ProfileField.displayName: 'NewName'},
-            images: const {},
-          ),
-        ),
-      );
+      final outcome = await repo.submit(_renameRequest());
       expect(outcome, isA<ProfileEditSubmitFailure>());
       final failure = outcome as ProfileEditSubmitFailure;
       expect(failure.code, ProfileEditFailureCode.unavailable);
@@ -207,9 +208,7 @@ void main() {
         ]);
         final repository = PixivWebProfileEditRepository(
           userRepository: _StubUserRepository(),
-          session: _FakeSession(
-            'PHPSESSID=0123456789abcdef0123456789abcdef01234567',
-          ),
+          session: _FakeSession(_sessionCookie),
           httpClient: client,
         );
 
@@ -271,22 +270,11 @@ void main() {
         ]);
         final repository = PixivWebProfileEditRepository(
           userRepository: _StubUserRepository(),
-          session: _FakeSession(
-            'PHPSESSID=0123456789abcdef0123456789abcdef01234567',
-          ),
+          session: _FakeSession(_sessionCookie),
           httpClient: client,
         );
 
-        final outcome = await repository.submit(
-          ProfileSubmitRequest(
-            patch: ProfilePatch(
-              accountId: 'a',
-              userId: 1,
-              textFields: {ProfileField.displayName: 'NewName'},
-              images: const {},
-            ),
-          ),
-        );
+        final outcome = await repository.submit(_renameRequest());
 
         expect(outcome, isA<ProfileEditSubmitFailure>());
         expect(
@@ -299,7 +287,6 @@ void main() {
     test(
       'keeps the local draft when App API refresh fails after save',
       () async {
-        const cookie = 'PHPSESSID=0123456789abcdef0123456789abcdef01234567';
         final client = _RecordingWebClient([
           const _QueuedWebResponse(
             200,
@@ -324,21 +311,12 @@ void main() {
         );
         final repository = PixivWebProfileEditRepository(
           userRepository: users,
-          session: _FakeSession(cookie),
+          session: _FakeSession(_sessionCookie),
           httpClient: client,
         );
         await repository.loadDraft(accountId: 'a', userId: 1);
 
-        final outcome = await repository.submit(
-          ProfileSubmitRequest(
-            patch: ProfilePatch(
-              accountId: 'a',
-              userId: 1,
-              textFields: {ProfileField.displayName: 'NewName'},
-              images: const {},
-            ),
-          ),
-        );
+        final outcome = await repository.submit(_renameRequest());
 
         expect(outcome, isA<ProfileEditConfirmed>());
         final confirmed = outcome as ProfileEditConfirmed;
@@ -355,24 +333,12 @@ void main() {
       final token = CancelToken()..cancel();
       final repository = PixivWebProfileEditRepository(
         userRepository: _StubUserRepository(),
-        session: _FakeSession(
-          'PHPSESSID=0123456789abcdef0123456789abcdef01234567',
-        ),
+        session: _FakeSession(_sessionCookie),
         httpClient: _RecordingWebClient(const []),
       );
 
       await expectLater(
-        repository.submit(
-          ProfileSubmitRequest(
-            patch: ProfilePatch(
-              accountId: 'a',
-              userId: 1,
-              textFields: {ProfileField.displayName: 'NewName'},
-              images: const {},
-            ),
-          ),
-          cancelToken: token,
-        ),
+        repository.submit(_renameRequest(), cancelToken: token),
         throwsA(isA<ApiCancelled>()),
       );
     });
@@ -380,23 +346,12 @@ void main() {
     test('request abort is rethrown as ApiCancelled', () async {
       final repository = PixivWebProfileEditRepository(
         userRepository: _StubUserRepository(),
-        session: _FakeSession(
-          'PHPSESSID=0123456789abcdef0123456789abcdef01234567',
-        ),
+        session: _FakeSession(_sessionCookie),
         httpClient: _AbortingWebClient(),
       );
 
       await expectLater(
-        repository.submit(
-          ProfileSubmitRequest(
-            patch: ProfilePatch(
-              accountId: 'a',
-              userId: 1,
-              textFields: {ProfileField.displayName: 'NewName'},
-              images: const {},
-            ),
-          ),
-        ),
+        repository.submit(_renameRequest()),
         throwsA(isA<ApiCancelled>()),
       );
     });

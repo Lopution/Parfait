@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/core/auth/account.dart';
@@ -16,11 +15,10 @@ import 'package:parfait/features/onboarding/user_agreement_page.dart';
 import 'package:parfait/features/onboarding/welcome_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'dart:async';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
 
 class _StaticMetadataRepository implements AccountMetadataRepository {
   const _StaticMetadataRepository(this.snapshot, {this.corrupt = false});
@@ -48,9 +46,22 @@ class _PendingMetadataRepository implements AccountMetadataRepository {
   Future<void> save(List<Account> accounts, String? currentId) async {}
 }
 
+const _guided = AppSettings(
+  guideCompleted: true,
+  languageTag: 'zh-CN',
+  themeCode: AppSettings.systemTheme,
+);
+
+const _signedIn = AccountMetadataSnapshot(
+  accounts: [Account(id: '100', userId: 100, name: 'tester')],
+  currentId: '100',
+);
+
 Widget _wrap({
-  required AppSettings settings,
-  required AccountMetadataSnapshot snapshot,
+  AppSettings settings = _guided,
+  AccountMetadataSnapshot snapshot = const AccountMetadataSnapshot(
+    accounts: [],
+  ),
   bool brokenStore = false,
   bool corruptMetadata = false,
   String? initialLocation,
@@ -62,7 +73,8 @@ Widget _wrap({
         initialLocation ??
         (settings.guideCompleted ? '/recommended' : '/welcome'),
   );
-  return ProviderScope(
+  return localizedRouterApp(
+    router,
     overrides: [
       credentialStoreProvider.overrideWithValue(
         brokenStore
@@ -87,17 +99,11 @@ Widget _wrap({
                   )),
       ),
     ],
-    child: MaterialApp.router(
-      localizationsDelegates: appLocalizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('zh', 'CN'),
-      routerConfig: router,
-      builder: (context, child) => StartupGate(
-        settings: settings,
-        router: router,
-        settingsPending: settingsPending,
-        child: child!,
-      ),
+    builder: (context, child) => StartupGate(
+      settings: settings,
+      router: router,
+      settingsPending: settingsPending,
+      child: child!,
     ),
   );
 }
@@ -122,12 +128,7 @@ void main() {
   });
 
   testWidgets('guide not completed shows the welcome shell', (tester) async {
-    await tester.pumpWidget(
-      _wrap(
-        settings: AppSettings.defaults(),
-        snapshot: const AccountMetadataSnapshot(accounts: []),
-      ),
-    );
+    await tester.pumpWidget(_wrap(settings: AppSettings.defaults()));
 
     expect(find.byType(WelcomePage), findsOneWidget);
     expect(find.text('感谢使用 Parfait'), findsOneWidget);
@@ -137,16 +138,7 @@ void main() {
   testWidgets('guide completed without an account shows the login page', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _wrap(
-        settings: const AppSettings(
-          guideCompleted: true,
-          languageTag: 'zh-CN',
-          themeCode: AppSettings.systemTheme,
-        ),
-        snapshot: const AccountMetadataSnapshot(accounts: []),
-      ),
-    );
+    await tester.pumpWidget(_wrap());
     await tester.pumpAndSettle();
 
     expect(find.byType(LoginPage), findsOneWidget);
@@ -157,12 +149,6 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         _wrap(
-          settings: const AppSettings(
-            guideCompleted: true,
-            languageTag: 'zh-CN',
-            themeCode: AppSettings.systemTheme,
-          ),
-          snapshot: const AccountMetadataSnapshot(accounts: []),
           initialLocation: '/login',
           metadataRepository: _PendingMetadataRepository(),
         ),
@@ -179,18 +165,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      _wrap(
-        settings: const AppSettings(
-          guideCompleted: true,
-          languageTag: 'zh-CN',
-          themeCode: AppSettings.systemTheme,
-        ),
-        snapshot: const AccountMetadataSnapshot(
-          accounts: [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-        initialLocation: '/splash',
-      ),
+      _wrap(snapshot: _signedIn, initialLocation: '/splash'),
     );
     // The pending surface is the neutral splash — never WelcomePage.
     expect(find.byType(SplashPage), findsOneWidget);
@@ -204,19 +179,7 @@ void main() {
   testWidgets('guide completed with a usable account shows home', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _wrap(
-        settings: const AppSettings(
-          guideCompleted: true,
-          languageTag: 'zh-CN',
-          themeCode: AppSettings.systemTheme,
-        ),
-        snapshot: const AccountMetadataSnapshot(
-          accounts: [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-    );
+    await tester.pumpWidget(_wrap(snapshot: _signedIn));
     await tester.pumpAndSettle();
 
     expect(find.byType(HomePage), findsOneWidget);
@@ -229,11 +192,6 @@ void main() {
   ) async {
     await tester.pumpWidget(
       _wrap(
-        settings: const AppSettings(
-          guideCompleted: true,
-          languageTag: 'zh-CN',
-          themeCode: AppSettings.systemTheme,
-        ),
         snapshot: const AccountMetadataSnapshot(
           accounts: [
             Account(
@@ -255,20 +213,7 @@ void main() {
   testWidgets('unreadable credentials fall back to the re-auth flow', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      _wrap(
-        settings: const AppSettings(
-          guideCompleted: true,
-          languageTag: 'zh-CN',
-          themeCode: AppSettings.systemTheme,
-        ),
-        snapshot: const AccountMetadataSnapshot(
-          accounts: [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-        brokenStore: true,
-      ),
-    );
+    await tester.pumpWidget(_wrap(snapshot: _signedIn, brokenStore: true));
     await tester.pumpAndSettle();
 
     // Keystore failure degrades the account to re-auth required; the gate
@@ -282,7 +227,8 @@ void main() {
   ) async {
     final router = createPixivRouter(initialLocation: '/login');
     await tester.pumpWidget(
-      ProviderScope(
+      localizedRouterApp(
+        router,
         overrides: [
           credentialStoreProvider.overrideWithValue(
             FakeCredentialStore(values: const {}),
@@ -291,21 +237,8 @@ void main() {
             FakeAccountMetadataRepository(),
           ),
         ],
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-          builder: (context, child) => StartupGate(
-            settings: const AppSettings(
-              guideCompleted: true,
-              languageTag: 'zh-CN',
-              themeCode: AppSettings.systemTheme,
-            ),
-            router: router,
-            child: child!,
-          ),
-        ),
+        builder: (context, child) =>
+            StartupGate(settings: _guided, router: router, child: child!),
       ),
     );
     await tester.pumpAndSettle();
@@ -329,17 +262,7 @@ void main() {
   });
 
   testWidgets('corrupt metadata surfaces a retryable error', (tester) async {
-    await tester.pumpWidget(
-      _wrap(
-        settings: const AppSettings(
-          guideCompleted: true,
-          languageTag: 'zh-CN',
-          themeCode: AppSettings.systemTheme,
-        ),
-        snapshot: const AccountMetadataSnapshot(accounts: []),
-        corruptMetadata: true,
-      ),
-    );
+    await tester.pumpWidget(_wrap(corruptMetadata: true));
     await tester.pumpAndSettle();
 
     expect(find.text('读取账号状态失败'), findsOneWidget);

@@ -147,20 +147,18 @@ void main() {
       'follow button (${followed ? 'followed' : 'not followed'})',
       (tester, locale, profile) async {
         installMemoryPreferences();
-        final container = ProviderContainer(
+        final container = ProviderContainer.test(
           overrides: accountProviderOverrides(
             credentialStore: FakeCredentialStore(
               values: const {
                 '100': Credential(accessToken: 'a', refreshToken: 'r'),
               },
             ),
-            metadataRepository: FakeAccountMetadataRepository(
-              accounts: const [Account(id: '100', userId: 100, name: 'me')],
-              currentId: '100',
+            metadataRepository: FakeAccountMetadataRepository.signedIn(
+              const Account(id: '100', userId: 100, name: 'me'),
             ),
           ),
         );
-        addTearDown(container.dispose);
         await container.read(accountStoreProvider.future);
         if (followed) {
           final follows = container.read(followStoreProvider.notifier);

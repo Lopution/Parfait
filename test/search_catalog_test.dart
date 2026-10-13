@@ -8,18 +8,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/icons/app_icons.dart';
-import 'package:parfait/app/navigation/routes.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/entity/illust_store.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/search/search_autocomplete_controller.dart';
 import 'package:parfait/core/search/search_feed_controller.dart';
@@ -32,14 +28,14 @@ import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/search_world.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
 
 Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler, {
@@ -47,55 +43,16 @@ Future<ProviderContainer> _apiContainer(
   List<Override> extraOverrides = const [],
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  final credentials = FakeCredentialStore(
-    values: const {
-      'account': Credential(
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
-      ),
-    },
+  return signedInApiContainer(
+    MockClient(handler),
+    account: Account(
+      id: 'account',
+      userId: 8,
+      name: 'tester',
+      isPremium: accountIsPremium,
+    ),
+    overrides: extraOverrides,
   );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: [
-            Account(
-              id: 'account',
-              userId: 8,
-              name: 'tester',
-              isPremium: accountIsPremium,
-            ),
-          ],
-          currentId: 'account',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient(
-            (_) async => throw StateError('refresh is not expected'),
-          ),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client is not wired');
-        return client;
-      }),
-      ...extraOverrides,
-    ],
-  );
-  final client = PixivHttpClient(
-    client: MockClient(handler),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  clientRef[0] = client;
-  await container.read(accountStoreProvider.future);
-  return container;
 }
 
 http.Response _json(Map<String, dynamic> value) => http.Response(
@@ -112,51 +69,67 @@ void main() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
-  test('premium gendered sort stays on the full search endpoint', () async {
-    final container = await _apiContainer((request) async {
-      expect(request.url.path, '/v1/search/illust');
-      expect(request.url.queryParameters['sort'], 'popular_male_desc');
-      return _json({
-        'illusts': [illustJson(63)],
-        'next_url': null,
-      });
-    }, accountIsPremium: true);
-    addTearDown(container.dispose);
-
-    final page = await container
-        .read(searchRepositoryProvider)
-        .searchIllust(
-          const IllustSearchQuery(
-            keyword: 'cat',
-            filters: IllustSearchFilters(sort: SearchSort.popularMaleDesc),
+  Future<GoRouter> pumpSearchRouter(
+    WidgetTester tester,
+    String location, [
+    FakeSearchRepository? repository,
+  ]) async {
+    final router = pixivRouter(location);
+    await tester.pumpWidget(
+      localizedRouterApp(
+        router,
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(
+            repository ?? FakeSearchRepository(),
           ),
-        );
-    expect(page.illusts.single.id, 63);
-  });
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    return router;
+  }
 
-  test('non-premium gendered sort reroutes to popular-preview', () async {
-    final container = await _apiContainer((request) async {
-      expect(request.url.path, '/v1/search/popular-preview/illust');
-      expect(request.url.queryParameters.containsKey('sort'), isFalse);
-      return _json({'illusts': <Object?>[], 'next_url': null});
-    });
-    addTearDown(container.dispose);
+  // Popular and gendered sorts need premium: without it a search reroutes to
+  // popular-preview, which orders by popularity itself and rejects `sort`.
+  const full = '/v1/search/illust';
+  const preview = '/v1/search/popular-preview/illust';
+  for (final (sort, premium, path, wireSort) in [
+    (SearchSort.popularDesc, true, full, 'popular_desc'),
+    (SearchSort.popularMaleDesc, true, full, 'popular_male_desc'),
+    (SearchSort.popularDesc, false, preview, null),
+    (SearchSort.popularFemaleDesc, false, preview, null),
+  ]) {
+    test(
+      '${premium ? '' : 'non-'}premium ${sort.name} search calls $path',
+      () async {
+        final container = await _apiContainer((request) async {
+          expect(request.url.path, path);
+          expect(request.url.queryParameters['sort'], wireSort);
+          expect(request.url.queryParameters['word'], 'cat');
+          return _json({
+            'illusts': [illustJson(61)],
+            'next_url': null,
+          });
+        }, accountIsPremium: premium);
 
-    await container
-        .read(searchRepositoryProvider)
-        .searchIllust(
-          const IllustSearchQuery(
-            keyword: 'cat',
-            filters: IllustSearchFilters(sort: SearchSort.popularFemaleDesc),
-          ),
-        );
-  });
+        final page = await container
+            .read(searchRepositoryProvider)
+            .searchIllust(
+              IllustSearchQuery(
+                keyword: 'cat',
+                filters: IllustSearchFilters(sort: sort),
+              ),
+            );
+        expect(page.illusts.single.id, 61);
+      },
+    );
+  }
 
   test('search cursors accept the new filter parameters', () async {
     final container = await _apiContainer(
       (request) async => _json({'illusts': <Object?>[], 'next_url': null}),
     );
-    addTearDown(container.dispose);
     final repository = container.read(searchRepositoryProvider);
 
     final cursor =
@@ -249,7 +222,6 @@ void main() {
           _ => http.Response('unexpected path', 404),
         };
       });
-      addTearDown(container.dispose);
       final repository = container.read(searchRepositoryProvider);
       final illust = await repository.searchIllust(
         const IllustSearchQuery(keyword: 'cat'),
@@ -302,56 +274,6 @@ void main() {
   );
 
   test(
-    'non-premium popular sort reroutes to the popular-preview endpoint',
-    () async {
-      final container = await _apiContainer((request) async {
-        expect(request.url.path, '/v1/search/popular-preview/illust');
-        // The preview endpoint orders by popularity implicitly — sending a
-        // sort parameter is rejected.
-        expect(request.url.queryParameters.containsKey('sort'), isFalse);
-        expect(request.url.queryParameters['word'], 'cat');
-        return _json({
-          'illusts': [illustJson(61)],
-          'next_url': null,
-        });
-      });
-      addTearDown(container.dispose);
-
-      final page = await container
-          .read(searchRepositoryProvider)
-          .searchIllust(
-            const IllustSearchQuery(
-              keyword: 'cat',
-              filters: IllustSearchFilters(sort: SearchSort.popularDesc),
-            ),
-          );
-      expect(page.illusts.single.id, 61);
-    },
-  );
-
-  test('premium popular sort stays on the full search endpoint', () async {
-    final container = await _apiContainer((request) async {
-      expect(request.url.path, '/v1/search/illust');
-      expect(request.url.queryParameters['sort'], 'popular_desc');
-      return _json({
-        'illusts': [illustJson(62)],
-        'next_url': null,
-      });
-    }, accountIsPremium: true);
-    addTearDown(container.dispose);
-
-    final page = await container
-        .read(searchRepositoryProvider)
-        .searchIllust(
-          const IllustSearchQuery(
-            keyword: 'cat',
-            filters: IllustSearchFilters(sort: SearchSort.popularDesc),
-          ),
-        );
-    expect(page.illusts.single.id, 62);
-  });
-
-  test(
     'non-premium popular novel search uses the novel preview endpoint',
     () async {
       final container = await _apiContainer((request) async {
@@ -359,7 +281,6 @@ void main() {
         expect(request.url.queryParameters.containsKey('sort'), isFalse);
         return _json({'novels': <Object?>[], 'next_url': null});
       });
-      addTearDown(container.dispose);
 
       await container
           .read(searchRepositoryProvider)
@@ -385,7 +306,6 @@ void main() {
         ],
       });
     });
-    addTearDown(container.dispose);
 
     final suggestions = await container
         .read(searchRepositoryProvider)
@@ -404,10 +324,9 @@ void main() {
           illusts: [parseIllust(illustJson(42))],
           nextUrl: null,
         );
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [searchRepositoryProvider.overrideWithValue(repository)],
       );
-      addTearDown(container.dispose);
 
       final query = const IllustSearchQuery(keyword: 'cat');
       final state = await container.read(searchFeedProvider(query).future);
@@ -429,10 +348,9 @@ void main() {
           ],
           nextUrl: null,
         );
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [searchRepositoryProvider.overrideWithValue(repository)],
       );
-      addTearDown(container.dispose);
 
       // bookmark_num_min is Premium-only on the wire — the client-side
       // predicate must still drop low-bookmark works on free accounts.
@@ -496,10 +414,9 @@ void main() {
         ],
         nextUrl: null,
       );
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [searchRepositoryProvider.overrideWithValue(repository)],
     );
-    addTearDown(container.dispose);
 
     // The client-side predicates run against the incoming page entities —
     // the same bookmark/AI rule as the illust feed, via novel_ai_type.
@@ -598,10 +515,7 @@ void main() {
   ) async {
     SearchFilterSheetResult? result;
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+      localizedApp(
         home: ProviderScope(
           child: Builder(
             builder: (context) => Scaffold(
@@ -664,10 +578,7 @@ void main() {
     ) async {
       SearchFilterSheetResult? result;
       await tester.pumpWidget(
-        MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
+        localizedApp(
           home: ProviderScope(
             child: Builder(
               builder: (context) => Scaffold(
@@ -755,20 +666,7 @@ void main() {
 
   testWidgets('the guide camera opens reverse image search; the novel tab '
       'searches novels', (tester) async {
-    final repository = FakeSearchRepository();
-    final router = createPixivRouter(initialLocation: '/search');
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
+    final router = await pumpSearchRouter(tester, '/search');
     await tester.pumpAndSettle();
     // The full-width reverse-image button is gone; the camera replaces it.
     expect(find.byType(FilledButton), findsNothing);
@@ -792,22 +690,7 @@ void main() {
   testWidgets('search input keeps its geometry when the IME opens', (
     tester,
   ) async {
-    final repository = FakeSearchRepository();
-    final router = createPixivRouter(initialLocation: '/search/input');
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+    await pumpSearchRouter(tester, '/search/input');
 
     expect(find.byType(SearchInputPage), findsOneWidget);
     final scaffold = tester.widget<Scaffold>(
@@ -830,31 +713,16 @@ void main() {
         () => VisibilityDetectorController.instance.updateInterval = interval,
       );
       final haptics = recordHaptics();
-      final repository = FakeSearchRepository();
-      final router = createPixivRouter(initialLocation: '/search');
-      addTearDown(router.dispose);
       await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-            child: MaterialApp.router(
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-              routerConfig: router,
-            ),
-          ),
-        );
-        await tester.pump();
-        await tester.pump();
+        final router = await pumpSearchRouter(tester, '/search');
         await tester.tap(find.widgetWithText(Tab, tab));
         await tester.pumpAndSettle();
 
         await tester.longPress(find.text('#风景').hitTestable());
         await tester.pump();
+        expect(router.state.uri.path, '/search/illust/901');
       });
       expect(haptics.roles, [HapticRole.longPress]);
-      expect(router.state.uri.path, '/search/illust/901');
     });
   }
 
@@ -862,19 +730,12 @@ void main() {
     testWidgets('$count trending tags show $shown: whole rows only', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(360, 1600);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setViewSize(tester, const Size(360, 1600));
       final repository = FakeSearchRepository(trendingTagCount: count);
       await tester.pumpWidget(
-        ProviderScope(
+        localizedApp(
           overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-          child: const MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: SearchHomePage(),
-          ),
+          home: SearchHomePage(),
         ),
       );
       await tester.pump();
@@ -895,15 +756,9 @@ void main() {
     final repository = FakeSearchRepository();
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        ProviderScope(
+        localizedApp(
           overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-          child: const MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-
-            home: SearchHomePage(),
-          ),
+          home: SearchHomePage(),
         ),
       );
       await tester.pump();
@@ -924,23 +779,8 @@ void main() {
   testWidgets('U2: tapping a trending tag still searches that tag', (
     tester,
   ) async {
-    final repository = FakeSearchRepository();
-    final router = createPixivRouter(initialLocation: '/search');
-    addTearDown(router.dispose);
     await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: router,
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
+      await pumpSearchRouter(tester, '/search');
 
       // Adding the image must not turn the primary tap into "open the work".
       await tester.tap(find.text('#风景'));
@@ -959,19 +799,13 @@ void main() {
 
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        ProviderScope(
+        localizedApp(
           overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-
-            home: ValueListenableBuilder<bool>(
-              valueListenable: showSearch,
-              builder: (context, visible, _) => visible
-                  ? const SearchHomePage()
-                  : const Scaffold(body: SizedBox.shrink()),
-            ),
+          home: ValueListenableBuilder<bool>(
+            valueListenable: showSearch,
+            builder: (context, visible, _) => visible
+                ? const SearchHomePage()
+                : const Scaffold(body: SizedBox.shrink()),
           ),
         ),
       );
@@ -994,63 +828,19 @@ void main() {
   testWidgets('result route parameters round-trip every filter field', (
     tester,
   ) async {
-    final repository = FakeSearchRepository();
-    final router = createPixivRouter(
-      initialLocation:
-          '/search/results?q=cat&type=illust&target=exact_match_for_tags'
-          '&sort=date_asc&duration=within_last_week&start=2026-08-01'
-          '&end=2026-08-27&ai=exclude&bmin=100&bmax=5000&ratio=portrait'
-          '&ct=manga&wmin=1024&wmax=4096&hmin=768&hmax=2160',
+    await pumpSearchRouter(
+      tester,
+      '/search/results?q=cat&type=illust&target=exact_match_for_tags'
+      '&sort=date_asc&duration=within_last_week&start=2026-08-01'
+      '&end=2026-08-27&ai=exclude&bmin=100&bmax=5000&ratio=portrait'
+      '&ct=manga&wmin=1024&wmax=4096&hmin=768&hmax=2160',
     );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
 
     final page = tester.widget<SearchResultPage>(find.byType(SearchResultPage));
     final query = page.query as IllustSearchQuery;
-    const expected = IllustSearchFilters(
-      target: SearchTarget.exactMatchForTags,
-      sort: SearchSort.dateAsc,
-      duration: SearchDuration.week,
-      aiFilter: SearchAiFilter.exclude,
-      bookmarkMin: 100,
-      bookmarkMax: 5000,
-      ratio: SearchRatioPattern.portrait,
-      contentType: SearchContentType.manga,
-      widthMin: 1024,
-      widthMax: 4096,
-      heightMin: 768,
-      heightMax: 2160,
-    );
-    final filters = query.filters;
-    expect(filters.target, expected.target);
-    expect(filters.sort, expected.sort);
-    expect(filters.duration, expected.duration);
-    expect(filters.startDate, DateTime(2026, 8, 1));
-    expect(filters.endDate, DateTime(2026, 8, 27));
-    expect(filters.aiFilter, expected.aiFilter);
-    expect(filters.bookmarkMin, expected.bookmarkMin);
-    expect(filters.bookmarkMax, expected.bookmarkMax);
-    expect(filters.ratio, expected.ratio);
-    expect(filters.contentType, expected.contentType);
-    expect(filters.widthMin, expected.widthMin);
-    expect(filters.widthMax, expected.widthMax);
-    expect(filters.heightMin, expected.heightMin);
-    expect(filters.heightMax, expected.heightMax);
-
-    // The decoded route describes the same feed identity as a query built
-    // in code — cache keys must agree or restoration would fork the feed.
+    // Every field decodes, and the route describes the same feed identity as
+    // a query built in code: cache keys must agree or restoration would fork
+    // the feed.
     final built = IllustSearchQuery(
       keyword: 'cat',
       filters: IllustSearchFilters(
@@ -1070,33 +860,19 @@ void main() {
         heightMax: 2160,
       ),
     );
+    expect(query, built);
     expect(query.cacheKey, built.cacheKey);
   });
 
   testWidgets('malformed filter values fall back to defaults per field', (
     tester,
   ) async {
-    final repository = FakeSearchRepository();
-    final router = createPixivRouter(
-      initialLocation:
-          '/search/results?q=cat&type=illust&sort=nonsense&ai=bogus'
-          '&bmin=abc&ct=not-a-type&ratio=diagonal&start=not-a-date'
-          '&wmin=-5&hmin=900&hmax=600',
+    await pumpSearchRouter(
+      tester,
+      '/search/results?q=cat&type=illust&sort=nonsense&ai=bogus'
+      '&bmin=abc&ct=not-a-type&ratio=diagonal&start=not-a-date'
+      '&wmin=-5&hmin=900&hmax=600',
     );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
 
     final page = tester.widget<SearchResultPage>(find.byType(SearchResultPage));
     final filters = (page.query as IllustSearchQuery).filters;
@@ -1119,41 +895,18 @@ void main() {
     tester,
   ) async {
     final repository = FakeSearchRepository(trendingTagCount: 30);
-    final router = createPixivRouter(initialLocation: '/search');
-    addTearDown(router.dispose);
+    final router = pixivRouter('/search');
     // Compact viewport: at ≥600px the shell swaps the bottom bar for a
     // rail and FuncShellBottomNav leaves the tree.
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setViewSize(tester, const Size(390, 844));
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        ProviderScope(
+        localizedRouterApp(
+          router,
           overrides: [
             searchRepositoryProvider.overrideWithValue(repository),
-            ...accountProviderOverrides(
-              credentialStore: FakeCredentialStore(
-                values: const {
-                  '100': Credential(
-                    accessToken: 'a-100',
-                    refreshToken: 'r-100',
-                  ),
-                },
-              ),
-              metadataRepository: FakeAccountMetadataRepository(
-                accounts: const [
-                  Account(id: '100', userId: 100, name: 'tester'),
-                ],
-                currentId: '100',
-              ),
-            ),
+            ...signedInAccountOverrides(),
           ],
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: router,
-          ),
         ),
       );
       await tester.pump();
@@ -1188,24 +941,10 @@ void main() {
   testWidgets('the result title reopens the input prefilled with the query', (
     tester,
   ) async {
-    final repository = FakeSearchRepository();
-    final router = createPixivRouter(
-      initialLocation: '/search/results?q=%E9%A3%8E%E6%99%AF&type=illust',
+    final router = await pumpSearchRouter(
+      tester,
+      '/search/results?q=%E9%A3%8E%E6%99%AF&type=illust',
     );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
 
     expect(find.byType(SearchResultPage), findsOneWidget);
     await tester.tap(find.text('风景'));
@@ -1224,24 +963,7 @@ void main() {
   testWidgets('an empty result keeps the header and offers modify-search', (
     tester,
   ) async {
-    final repository = FakeSearchRepository();
-    final router = createPixivRouter(
-      initialLocation: '/search/results?q=nothing&type=illust',
-    );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+    await pumpSearchRouter(tester, '/search/results?q=nothing&type=illust');
     await tester.pumpAndSettle();
 
     // Query context stays visible on the empty surface, and the page
@@ -1260,30 +982,13 @@ void main() {
   testWidgets('the filter summary row chips and clears active filters', (
     tester,
   ) async {
-    final repository = FakeSearchRepository();
-    final router = createPixivRouter(
-      initialLocation:
-          '/search/results?q=cat&type=illust&sort=date_asc&bmin=100',
-    );
-    addTearDown(router.dispose);
     // Wide surface: the AppBar-bottom chip row fits without scrolling, so
     // the trailing reset chip's centre is a clean tap target.
-    tester.view.physicalSize = const Size(1100, 700);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
+    setViewSize(tester, const Size(1100, 700));
+    final router = await pumpSearchRouter(
+      tester,
+      '/search/results?q=cat&type=illust&sort=date_asc&bmin=100',
     );
-    await tester.pump();
-    await tester.pump();
     await tester.pumpAndSettle();
 
     // Active fields surface as chips next to the persistent clear entry.

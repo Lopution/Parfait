@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/core/network/compat/network_contracts.dart';
@@ -7,15 +6,11 @@ import 'package:parfait/core/network/compat/network_probe.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/settings/network_probe_page.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'helpers/fake_settings.dart';
+import 'helpers/localized_app.dart';
 
 Widget _wrap(Widget child) {
-  return MaterialApp(
-    localizationsDelegates: appLocalizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    locale: const Locale('zh', 'CN'),
+  return localizedApp(
     home: Scaffold(body: SingleChildScrollView(child: child)),
   );
 }
@@ -78,7 +73,7 @@ void main() {
 
   testWidgets('probe page states results are not persisted', (tester) async {
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
             FakeSettingsRepository(
@@ -90,12 +85,7 @@ void main() {
             ),
           ),
         ],
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: const NetworkProbePage(),
-        ),
+        home: const NetworkProbePage(),
       ),
     );
     await tester.pump();

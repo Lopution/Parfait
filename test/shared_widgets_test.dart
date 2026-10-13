@@ -7,14 +7,12 @@ import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/network_restore_signal.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'helpers/localized_app.dart';
 
 void main() {
   group('retry on network restore (HCI 9)', () {
     test('only the way back from no network counts as a restore', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+      final container = ProviderContainer.test();
       final signal = container.read(networkRestoreSignalProvider.notifier);
       int restores() => container.read(networkRestoreSignalProvider);
 
@@ -32,17 +30,13 @@ void main() {
       WidgetTester tester,
       Widget state,
     ) async {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+      final container = ProviderContainer.test();
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedApp(
           container: container,
-          child: MaterialApp(
-            theme: replicaTheme(Brightness.light),
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: Scaffold(body: state),
-          ),
+          locale: null,
+          theme: replicaTheme(Brightness.light),
+          home: Scaffold(body: state),
         ),
       );
       return container;
@@ -153,11 +147,9 @@ void main() {
   ) async {
     var continued = 0;
     await tester.pumpWidget(
-      MaterialApp(
-        theme: replicaTheme(Brightness.light),
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
+      localizedApp(
         locale: const Locale('en'),
+        theme: replicaTheme(Brightness.light),
         home: Scaffold(
           body: FeedTail(
             feed: const PagedFeedState(

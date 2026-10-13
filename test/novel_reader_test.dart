@@ -13,6 +13,7 @@ import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:parfait/features/novel/novel_reader.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
+import 'helpers/localized_app.dart';
 
 void main() {
   test(
@@ -181,11 +182,7 @@ void main() {
     final handle = NovelReaderHandle();
     var pages = 0;
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-
+      localizedApp(
         home: Scaffold(
           body: NovelReader(
             novel: _novel('reader ' * 400),
@@ -223,10 +220,7 @@ void main() {
   ) async {
     final handle = NovelReaderHandle();
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
+      localizedApp(
         home: Scaffold(
           body: NovelReader(novel: _novel('reader ' * 400), handle: handle),
         ),
@@ -313,10 +307,7 @@ void main() {
     final engine = _CountingLayoutEngine();
     await tester.pumpWidget(
       ProviderScope(
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
+        child: localizedApp(
           home: Scaffold(
             body: NovelReader(
               novel: _novel('reader ' * 400),
@@ -352,10 +343,7 @@ void main() {
     final handle = NovelReaderHandle();
     await tester.pumpWidget(
       ProviderScope(
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
+        child: localizedApp(
           home: Scaffold(
             body: NovelReader(
               novel: _novel('reader ' * 400),

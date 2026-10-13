@@ -62,17 +62,14 @@ Future<ProviderContainer> makeHistoryWorld(
     );
   }
   final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(
         signedOut
             ? FakeAccountMetadataRepository()
-            : FakeAccountMetadataRepository(
-                accounts: const [
-                  Account(id: '100', userId: 100, name: 'tester'),
-                ],
-                currentId: '100',
+            : FakeAccountMetadataRepository.signedIn(
+                const Account(id: '100', userId: 100, name: 'tester'),
               ),
       ),
       historyRepositoryProvider.overrideWithValue(repository),

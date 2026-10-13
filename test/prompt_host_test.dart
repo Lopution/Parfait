@@ -15,10 +15,10 @@ import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/app/widgets/prompt_anchor.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
 import 'package:parfait/core/platform/accessibility.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/prompt_host.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
 
 const _screen = Size(390, 844);
 
@@ -45,9 +45,7 @@ class _ScaledTimeouts implements AppAccessibility {
 }
 
 void _useScreen(WidgetTester tester, [Size size = _screen]) {
-  tester.view.physicalSize = size;
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
+  setViewSize(tester, size);
 }
 
 Widget _app({
@@ -56,13 +54,7 @@ Widget _app({
   List<Override> overrides = const [],
   bool reduceMotion = false,
 }) {
-  Widget app = MaterialApp(
-    localizationsDelegates: appLocalizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    locale: const Locale('zh', 'CN'),
-    builder: builder,
-    home: home,
-  );
+  Widget app = localizedApp(builder: builder, home: home);
   if (reduceMotion) app = MotionScope(reduce: true, child: app);
   return ProviderScope(overrides: overrides, child: app);
 }

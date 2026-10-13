@@ -218,8 +218,7 @@ void main() {
       'auto winner flip keeps factory stable and shared policy alive',
       () async {
         installMemoryPreferences();
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
+        final container = ProviderContainer.test();
         final policy = container.read(networkAccessPolicyProvider);
         final f1 = container.read(pixivNetworkFactoryProvider);
         container
@@ -249,8 +248,7 @@ void main() {
 
     test('mirror rewrite applies the winner lazily per request', () async {
       installMemoryPreferences();
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
+      final container = ProviderContainer.test();
       final factory = container.read(pixivNetworkFactoryProvider);
       container.read(autoImageSourceWinnerProvider.notifier).set('i.pixiv.re');
       // Default source is auto → mirror rewrites i.pximg.net to the winner.

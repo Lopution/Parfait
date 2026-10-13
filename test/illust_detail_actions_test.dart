@@ -32,6 +32,7 @@ import 'helpers/test_preferences.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_detail_page_support.dart';
+import 'helpers/view_size.dart';
 
 void main() {
   installMemoryPreferences();
@@ -55,11 +56,9 @@ void main() {
     testWidgets('bottom inset and margin both clear the gesture area', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
+      setViewSize(tester, const Size(390, 844));
       tester.view.viewPadding = const FakeViewPadding(bottom: 24);
       tester.view.padding = const FakeViewPadding(bottom: 24);
-      addTearDown(tester.view.reset);
 
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
@@ -554,9 +553,7 @@ void main() {
 
   group('two-pane layout (width >= 1200)', () {
     testWidgets('splits into image pager and meta column', (tester) async {
-      tester.view.physicalSize = const Size(1400, 900);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setViewSize(tester, const Size(1400, 900));
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container);
       expect(find.byType(TwoPane), findsOneWidget);
@@ -570,9 +567,7 @@ void main() {
     });
 
     testWidgets('arrow keys page the image pane', (tester) async {
-      tester.view.physicalSize = const Size(1400, 900);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+      setViewSize(tester, const Size(1400, 900));
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);

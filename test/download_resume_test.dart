@@ -367,6 +367,48 @@ class _CleanupSpyFactory extends _ResumableFactory
   }
 }
 
+/// Starts a 30-byte download whose body stalls after ten bytes, and pauses
+/// (or cancels) it there.
+Future<(DownloadManager, DownloadTaskSnapshot)> _interrupted(
+  _Transport transport,
+  DownloadSinkFactory sinks, {
+  bool cancel = false,
+}) async {
+  final gate = Completer<void>();
+  transport.responses.add(
+    _Scripted(
+      contentLength: 30,
+      chunks: [List.filled(10, 1), List.filled(10, 2)],
+      gates: [_done(), gate],
+    ),
+  );
+  final manager = DownloadManager(
+    transport: transport,
+    sinkFactory: sinks,
+    submissionContext: _context,
+  );
+  addTearDown(manager.dispose);
+  final task = manager.submit(_request());
+  await _pumpUntil(() => manager.taskById(task.id)?.receivedBytes == 10);
+  await (cancel ? manager.cancel(task.id) : manager.pause(task.id));
+  gate.complete();
+  final landed = cancel ? DownloadStatus.canceled : DownloadStatus.retryable;
+  await _pumpUntil(() => manager.taskById(task.id)?.status == landed);
+  return (manager, task);
+}
+
+/// Retries [id] and waits for the retry to succeed.
+Future<DownloadTaskSnapshot> _retried(
+  DownloadManager manager,
+  String id,
+) async {
+  final retried = manager.retry(id)!;
+  await _pumpUntil(
+    () => manager.taskById(retried.id)?.status == DownloadStatus.succeeded,
+  );
+  return manager.taskById(retried.id)!;
+}
+
 void main() {
   installMemoryPreferences();
 
@@ -374,28 +416,7 @@ void main() {
     test('pause preserves bytes and lands retryable with an anchor', () async {
       final transport = _Transport();
       final factory = _ResumableFactory();
-      final gate = Completer<void>();
-      transport.responses.add(
-        _Scripted(
-          contentLength: 30,
-          chunks: [List.filled(10, 1), List.filled(10, 2), List.filled(10, 3)],
-          gates: [_done(), gate, _done()],
-        ),
-      );
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: factory,
-        submissionContext: _context,
-      );
-      addTearDown(manager.dispose);
-
-      final task = manager.submit(_request());
-      await _pumpUntil(() => manager.taskById(task.id)?.receivedBytes == 10);
-      await manager.pause(task.id);
-      gate.complete();
-      await _pumpUntil(
-        () => manager.taskById(task.id)?.status == DownloadStatus.retryable,
-      );
+      final (manager, task) = await _interrupted(transport, factory);
 
       final paused = manager.taskById(task.id)!;
       expect(paused.failureKind, DownloadFailureKind.paused);
@@ -408,28 +429,7 @@ void main() {
     test('retry sends Range and appends on 206', () async {
       final transport = _Transport();
       final factory = _ResumableFactory();
-      final gate = Completer<void>();
-      transport.responses.add(
-        _Scripted(
-          contentLength: 30,
-          chunks: [List.filled(10, 1), List.filled(10, 2), List.filled(10, 3)],
-          gates: [_done(), gate, _done()],
-        ),
-      );
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: factory,
-        submissionContext: _context,
-      );
-      addTearDown(manager.dispose);
-
-      final task = manager.submit(_request());
-      await _pumpUntil(() => manager.taskById(task.id)?.receivedBytes == 10);
-      await manager.pause(task.id);
-      gate.complete();
-      await _pumpUntil(
-        () => manager.taskById(task.id)?.status == DownloadStatus.retryable,
-      );
+      final (manager, task) = await _interrupted(transport, factory);
 
       transport.responses.add(
         _Scripted(
@@ -438,10 +438,7 @@ void main() {
           chunks: [List.filled(10, 2), List.filled(10, 3)],
         ),
       );
-      final retried = manager.retry(task.id)!;
-      await _pumpUntil(
-        () => manager.taskById(retried.id)?.status == DownloadStatus.succeeded,
-      );
+      final retried = await _retried(manager, task.id);
 
       expect(transport.opens.last['Range'], 'bytes=10-');
       expect(factory.store.files.values.single, [
@@ -449,7 +446,7 @@ void main() {
         ...List.filled(10, 2),
         ...List.filled(10, 3),
       ]);
-      final done = manager.taskById(retried.id)!;
+      final done = retried;
       expect(done.receivedBytes, 30);
       expect(done.totalBytes, 30);
       expect(done.resumeAnchor, isNull);
@@ -460,82 +457,33 @@ void main() {
       () async {
         final transport = _Transport();
         final factory = _ResumableFactory();
-        final gate = Completer<void>();
-        transport.responses.add(
-          _Scripted(
-            contentLength: 30,
-            chunks: [List.filled(10, 1), List.filled(10, 2)],
-            gates: [_done(), gate],
-          ),
-        );
-        final manager = DownloadManager(
-          transport: transport,
-          sinkFactory: factory,
-          submissionContext: _context,
-        );
-        addTearDown(manager.dispose);
-
-        final task = manager.submit(_request());
-        await _pumpUntil(() => manager.taskById(task.id)?.receivedBytes == 10);
-        await manager.pause(task.id);
-        gate.complete();
-        await _pumpUntil(
-          () => manager.taskById(task.id)?.status == DownloadStatus.retryable,
-        );
+        final (manager, task) = await _interrupted(transport, factory);
 
         transport.responses.addAll([
           // The server ignores Range and answers a full body.
           _Scripted(contentLength: 20),
           _Scripted(contentLength: 20, chunks: [List.filled(20, 9)]),
         ]);
-        final retried = manager.retry(task.id)!;
-        await _pumpUntil(
-          () =>
-              manager.taskById(retried.id)?.status == DownloadStatus.succeeded,
-        );
+        final retried = await _retried(manager, task.id);
 
         // The resumed sink was aborted (stale partial deleted); a fresh sink
         // took the full 200 body.
         expect(factory.sinks[1].aborted, isTrue);
         expect(factory.store.files.values.single, List.filled(20, 9));
-        expect(manager.taskById(retried.id)!.receivedBytes, 20);
+        expect(retried.receivedBytes, 20);
       },
     );
 
     test('416 discards the anchor and reopens without Range', () async {
       final transport = _Transport();
       final factory = _ResumableFactory();
-      final gate = Completer<void>();
-      transport.responses.add(
-        _Scripted(
-          contentLength: 30,
-          chunks: [List.filled(10, 1), List.filled(10, 2)],
-          gates: [_done(), gate],
-        ),
-      );
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: factory,
-        submissionContext: _context,
-      );
-      addTearDown(manager.dispose);
-
-      final task = manager.submit(_request());
-      await _pumpUntil(() => manager.taskById(task.id)?.receivedBytes == 10);
-      await manager.pause(task.id);
-      gate.complete();
-      await _pumpUntil(
-        () => manager.taskById(task.id)?.status == DownloadStatus.retryable,
-      );
+      final (manager, task) = await _interrupted(transport, factory);
 
       transport.responses.addAll([
         _Scripted(statusCode: 416),
         _Scripted(contentLength: 20, chunks: [List.filled(20, 5)]),
       ]);
-      final retried = manager.retry(task.id)!;
-      await _pumpUntil(
-        () => manager.taskById(retried.id)?.status == DownloadStatus.succeeded,
-      );
+      await _retried(manager, task.id);
 
       expect(transport.opens.length, 3);
       expect(transport.opens[1]['Range'], 'bytes=10-');
@@ -577,10 +525,7 @@ void main() {
           chunks: [List.filled(20, 7)],
         ),
       );
-      final retried = manager.retry(task.id)!;
-      await _pumpUntil(
-        () => manager.taskById(retried.id)?.status == DownloadStatus.succeeded,
-      );
+      await _retried(manager, task.id);
       expect(transport.opens.last['Range'], 'bytes=10-');
       expect(factory.store.files.values.single.length, 30);
     });
@@ -590,39 +535,14 @@ void main() {
       () async {
         final transport = _Transport();
         final factory = _ResumableFactory();
-        final gate = Completer<void>();
-        transport.responses.add(
-          _Scripted(
-            contentLength: 30,
-            chunks: [List.filled(10, 1), List.filled(10, 2)],
-            gates: [_done(), gate],
-          ),
-        );
-        final manager = DownloadManager(
-          transport: transport,
-          sinkFactory: factory,
-          submissionContext: _context,
-        );
-        addTearDown(manager.dispose);
-
-        final task = manager.submit(_request());
-        await _pumpUntil(() => manager.taskById(task.id)?.receivedBytes == 10);
-        await manager.pause(task.id);
-        gate.complete();
-        await _pumpUntil(
-          () => manager.taskById(task.id)?.status == DownloadStatus.retryable,
-        );
+        final (manager, task) = await _interrupted(transport, factory);
         // External actor truncated the preserved output.
         factory.store.files.values.single.removeLast();
 
         transport.responses.add(
           _Scripted(contentLength: 30, chunks: [List.filled(30, 4)]),
         );
-        final retried = manager.retry(task.id)!;
-        await _pumpUntil(
-          () =>
-              manager.taskById(retried.id)?.status == DownloadStatus.succeeded,
-        );
+        await _retried(manager, task.id);
 
         expect(transport.opens.length, 2);
         expect(transport.opens.last.containsKey('Range'), isFalse);
@@ -633,27 +553,10 @@ void main() {
     test('cancel still deletes output even on a resumable sink', () async {
       final transport = _Transport();
       final factory = _ResumableFactory();
-      final gate = Completer<void>();
-      transport.responses.add(
-        _Scripted(
-          contentLength: 30,
-          chunks: [List.filled(10, 1), List.filled(10, 2)],
-          gates: [_done(), gate],
-        ),
-      );
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: factory,
-        submissionContext: _context,
-      );
-      addTearDown(manager.dispose);
-
-      final task = manager.submit(_request());
-      await _pumpUntil(() => manager.taskById(task.id)?.receivedBytes == 10);
-      await manager.cancel(task.id);
-      gate.complete();
-      await _pumpUntil(
-        () => manager.taskById(task.id)?.status == DownloadStatus.canceled,
+      final (manager, task) = await _interrupted(
+        transport,
+        factory,
+        cancel: true,
       );
 
       final canceled = manager.taskById(task.id)!;
@@ -665,28 +568,7 @@ void main() {
     test('pause on a non-resumable sink still lands retryable', () async {
       final transport = _Transport();
       final sinks = MemorySinkFactory();
-      final gate = Completer<void>();
-      transport.responses.add(
-        _Scripted(
-          contentLength: 30,
-          chunks: [List.filled(10, 1), List.filled(10, 2)],
-          gates: [_done(), gate],
-        ),
-      );
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: sinks,
-        submissionContext: _context,
-      );
-      addTearDown(manager.dispose);
-
-      final task = manager.submit(_request());
-      await _pumpUntil(() => manager.taskById(task.id)?.receivedBytes == 10);
-      await manager.pause(task.id);
-      gate.complete();
-      await _pumpUntil(
-        () => manager.taskById(task.id)?.status == DownloadStatus.retryable,
-      );
+      final (manager, task) = await _interrupted(transport, sinks);
 
       expect(manager.taskById(task.id)!.resumeAnchor, isNull);
       expect(sinks.sinks.single.aborted, isTrue);
@@ -694,10 +576,7 @@ void main() {
       transport.responses.add(
         _Scripted(contentLength: 30, chunks: [List.filled(30, 8)]),
       );
-      final retried = manager.retry(task.id)!;
-      await _pumpUntil(
-        () => manager.taskById(retried.id)?.status == DownloadStatus.succeeded,
-      );
+      await _retried(manager, task.id);
       expect(transport.opens.last.containsKey('Range'), isFalse);
     });
   });

@@ -21,6 +21,15 @@ import 'package:parfait/core/settings/image_mirror.dart';
 
 import 'helpers/restricted_compat_support.dart';
 
+/// An image client over [policy], which the test disposes.
+PixivPolicyHttpClient _imageClient(NetworkAccessPolicy policy) {
+  addTearDown(policy.dispose);
+  return PixivPolicyHttpClient(
+    policy: policy,
+    purpose: PixivDestinationPurpose.image,
+  );
+}
+
 void main() {
   installMemoryPreferences();
 
@@ -213,11 +222,7 @@ void main() {
           _ => FakeClient(failure: SocketException('Connection refused')),
         },
       );
-      addTearDown(policy.dispose);
-      final client = PixivPolicyHttpClient(
-        policy: policy,
-        purpose: PixivDestinationPurpose.image,
-      );
+      final client = _imageClient(policy);
 
       await client.get(Uri.parse('https://i.pximg.net/a.jpg'));
       expect(
@@ -273,11 +278,7 @@ void main() {
                 : FakeClient(body: 'ok');
           },
         );
-        addTearDown(policy.dispose);
-        final client = PixivPolicyHttpClient(
-          policy: policy,
-          purpose: PixivDestinationPurpose.image,
-        );
+        final client = _imageClient(policy);
 
         final response = await client.get(
           Uri.parse('https://i.pixiv.re/a.jpg'),
@@ -313,11 +314,7 @@ void main() {
               : FakeClient(failure: certError);
         },
       );
-      addTearDown(policy.dispose);
-      final client = PixivPolicyHttpClient(
-        policy: policy,
-        purpose: PixivDestinationPurpose.image,
-      );
+      final client = _imageClient(policy);
 
       await expectLater(
         client.get(Uri.parse('https://i.pixiv.re/a.jpg')),
@@ -394,11 +391,7 @@ void main() {
             _ => realSni,
           },
         );
-        addTearDown(policy.dispose);
-        final client = PixivPolicyHttpClient(
-          policy: policy,
-          purpose: PixivDestinationPurpose.image,
-        );
+        final client = _imageClient(policy);
 
         final response = await client.get(imageUri);
 
@@ -466,11 +459,7 @@ void main() {
         clientFactory: (route, _, _) =>
             route.kind == NetworkRouteKind.direct ? direct : failing,
       );
-      addTearDown(policy.dispose);
-      final client = PixivPolicyHttpClient(
-        policy: policy,
-        purpose: PixivDestinationPurpose.image,
-      );
+      final client = _imageClient(policy);
 
       final response = await client.get(imageUri);
 
@@ -859,11 +848,7 @@ void main() {
           (_) => FakeClient(failure: const SocketException('refused')),
         );
         policy.onImageHostExhausted = exhausted.add;
-        addTearDown(policy.dispose);
-        final client = PixivPolicyHttpClient(
-          policy: policy,
-          purpose: PixivDestinationPurpose.image,
-        );
+        final client = _imageClient(policy);
 
         await expectLater(
           client.get(Uri.parse('https://i.pixiv.re/img/a.jpg')),
@@ -879,11 +864,7 @@ void main() {
         (_) => FakeClient(failure: const SocketException('refused')),
       );
       policy.onImageHostExhausted = exhausted.add;
-      addTearDown(policy.dispose);
-      final client = PixivPolicyHttpClient(
-        policy: policy,
-        purpose: PixivDestinationPurpose.image,
-      );
+      final client = _imageClient(policy);
 
       await expectLater(
         client.get(Uri.parse('https://i.pximg.net/img/a.jpg')),
@@ -905,11 +886,7 @@ void main() {
           return FakeClient(failure: const SocketException('refused'));
         },
       );
-      addTearDown(policy.dispose);
-      final client = PixivPolicyHttpClient(
-        policy: policy,
-        purpose: PixivDestinationPurpose.image,
-      );
+      final client = _imageClient(policy);
       await expectLater(
         client.get(Uri.parse('https://i.pximg.net/img-master/img/x_p0.jpg')),
         throwsA(anything),

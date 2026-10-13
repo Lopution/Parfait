@@ -1,20 +1,14 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/entity/illust_store.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_action_bar.dart';
@@ -289,50 +283,14 @@ void main() {
       );
       final sinks = MemorySinkFactory();
       final manager = DownloadManager(transport: transport, sinkFactory: sinks);
-      final credentials = FakeCredentialStore()
-        ..seed(
-          '100',
-          const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-        );
-      final clientRef = <PixivHttpClient?>[null];
-      final container = ProviderContainer(
-        overrides: [
-          downloadManagerProvider.overrideWithValue(manager),
-          credentialStoreProvider.overrideWithValue(credentials),
-          accountMetadataRepositoryProvider.overrideWithValue(
-            FakeAccountMetadataRepository(
-              accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-              currentId: '100',
-            ),
-          ),
-          oauthServiceProvider.overrideWithValue(
-            OAuthService(
-              client: MockClient(
-                (request) async =>
-                    throw StateError('refresh must not happen here'),
-              ),
-            ),
-          ),
-          pixivHttpClientProvider.overrideWith((ref) {
-            final client = clientRef[0];
-            if (client == null) throw StateError('not wired');
-            return client;
-          }),
-        ],
-      );
-      final client = PixivHttpClient(
-        client: MockClient(
+      final container = await signedInApiContainer(
+        MockClient(
           (request) async => okJson({
             'illust': illustJson(42, pageCount: 2, withMetaPages: true),
           }),
         ),
-        accountStore: container.read(accountStoreProvider.notifier),
-        credentialStore: credentials,
-        oauthService: container.read(oauthServiceProvider),
+        overrides: [downloadManagerProvider.overrideWithValue(manager)],
       );
-      clientRef[0] = client;
-      await container.read(accountStoreProvider.future);
-      addTearDown(container.dispose);
       await pumpDetail(tester, container);
 
       // Enter the selection mode, pick page 0, submit — the task itself

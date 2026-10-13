@@ -1,5 +1,4 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,12 +15,11 @@ import 'helpers/image_network.dart';
 import 'helpers/detail_world.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'helpers/prompt_host.dart';
 
 import 'helpers/illust_detail_page_support.dart';
+import 'helpers/localized_app.dart';
 
 // §7 screen-reader representative paths — the three priority surfaces
 // (author header, artwork viewer, comment composer). These are widget-tree
@@ -30,15 +28,14 @@ import 'helpers/illust_detail_page_support.dart';
 // not imply the AT path was exercised.
 
 Widget _host(Widget child) {
-  return withStalledImages(
-    MaterialApp(
-      locale: const Locale('zh', 'CN'),
-      supportedLocales: const [Locale('zh', 'CN')],
-      localizationsDelegates: appLocalizationsDelegates,
-      home: Scaffold(body: child),
-    ),
-  );
+  return withStalledImages(localizedApp(home: Scaffold(body: child)));
 }
+
+double _scale(WidgetTester tester) => tester
+    .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+    .transformationController!
+    .value
+    .getMaxScaleOnAxis();
 
 void main() {
   installMemoryPreferences();
@@ -57,6 +54,58 @@ void main() {
     // between tests so one test's hidden chrome cannot leak into the next.
     setUp(debugResetViewerSession);
 
+    const twoPages = [
+      'https://i.pximg.net/1/original.jpg',
+      'https://i.pximg.net/2/original.jpg',
+    ];
+
+    /// Pumps a viewer over [urls] and lets its first frame settle in.
+    Future<void> pumpViewer(
+      WidgetTester tester, {
+      List<String> urls = twoPages,
+      int initialPage = 0,
+    }) async {
+      await tester.pumpWidget(
+        withStalledImages(
+          localizedApp(
+            builder: promptHostBuilder,
+            home: ImageViewerPage(urls: urls, initialPage: initialPage),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    // System-back tests need the viewer pushed as a *second* route —
+    // `handlePopRoute` -> maybePop refuses to pop the last route (the OS
+    // would take over), so a stub home sits underneath.
+    Future<void> pumpPushedViewer(
+      WidgetTester tester, {
+      List<String> urls = const ['https://i.pximg.net/1/original.jpg'],
+    }) async {
+      await tester.pumpWidget(
+        withStalledImages(
+          localizedApp(
+            builder: promptHostBuilder,
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ImageViewerPage(urls: urls),
+                    ),
+                  ),
+                  child: const Text('open-viewer'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open-viewer'));
+      await tester.pumpAndSettle();
+    }
+
     testWidgets('zoomed viewer keeps vertical gestures for image pan', (
       tester,
     ) async {
@@ -64,12 +113,9 @@ void main() {
         final navigatorKey = GlobalKey<NavigatorState>();
         await tester.pumpWidget(
           withStalledImages(
-            MaterialApp(
+            localizedApp(
               builder: promptHostBuilder,
               navigatorKey: navigatorKey,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
               home: const SizedBox.shrink(),
             ),
           ),
@@ -101,25 +147,7 @@ void main() {
 
     testWidgets('a lone tap hides and restores the chrome', (tester) async {
       await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          withStalledImages(
-            MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-
-              home: ImageViewerPage(
-                urls: [
-                  'https://i.pximg.net/1/original.jpg',
-                  'https://i.pximg.net/2/original.jpg',
-                ],
-                initialPage: 1,
-              ),
-            ),
-          ),
-        );
-        await tester.pump();
+        await pumpViewer(tester, initialPage: 1);
         expectViewerChrome(tester, visible: true);
 
         // Tap the media area — chrome fades out (mounted but opacity 0).
@@ -141,23 +169,12 @@ void main() {
       'scrubbing jumps to the target page without building crossed pages',
       (tester) async {
         await mockNetworkImagesFor(() async {
-          await tester.pumpWidget(
-            withStalledImages(
-              MaterialApp(
-                builder: promptHostBuilder,
-                localizationsDelegates: appLocalizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                locale: const Locale('zh', 'CN'),
-                home: ImageViewerPage(
-                  urls: [
-                    for (var i = 0; i < 5; i++)
-                      'https://i.pximg.net/$i/original.jpg',
-                  ],
-                ),
-              ),
-            ),
+          await pumpViewer(
+            tester,
+            urls: [
+              for (var i = 0; i < 5; i++) 'https://i.pximg.net/$i/original.jpg',
+            ],
           );
-          await tester.pump();
           expect(find.byKey(const ValueKey('viewer-page-2')), findsNothing);
 
           final scrubber = find.byKey(const Key('viewer-page-scrubber'));
@@ -183,24 +200,7 @@ void main() {
       'route swaps (revision ①)',
       (tester) async {
         await mockNetworkImagesFor(() async {
-          await tester.pumpWidget(
-            withStalledImages(
-              MaterialApp(
-                builder: promptHostBuilder,
-                localizationsDelegates: appLocalizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                locale: const Locale('zh', 'CN'),
-
-                home: ImageViewerPage(
-                  urls: [
-                    'https://i.pximg.net/1/original.jpg',
-                    'https://i.pximg.net/2/original.jpg',
-                  ],
-                ),
-              ),
-            ),
-          );
-          await tester.pump();
+          await pumpViewer(tester);
 
           await tester.tap(find.byType(PageView));
           await tester.pump(const Duration(milliseconds: 400));
@@ -219,24 +219,7 @@ void main() {
 
           // A route swap (replaceImageViewerPage builds a fresh widget on a
           // new route) keeps the session flag too.
-          await tester.pumpWidget(
-            withStalledImages(
-              MaterialApp(
-                builder: promptHostBuilder,
-                localizationsDelegates: appLocalizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                locale: const Locale('zh', 'CN'),
-
-                home: ImageViewerPage(
-                  urls: [
-                    'https://i.pximg.net/1/original.jpg',
-                    'https://i.pximg.net/2/original.jpg',
-                  ],
-                  initialPage: 1,
-                ),
-              ),
-            ),
-          );
+          await pumpViewer(tester, initialPage: 1);
           await tester.pumpAndSettle();
           expectViewerChrome(tester, visible: false);
         });
@@ -247,28 +230,12 @@ void main() {
       'double-tap runs the fit<->2.5 zoom cycle without toggling chrome',
       (tester) async {
         await mockNetworkImagesFor(() async {
-          await tester.pumpWidget(
-            withStalledImages(
-              MaterialApp(
-                builder: promptHostBuilder,
-                localizationsDelegates: appLocalizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                locale: const Locale('zh', 'CN'),
-
-                home: ImageViewerPage(
-                  urls: ['https://i.pximg.net/1/original.jpg'],
-                ),
-              ),
-            ),
+          await pumpViewer(
+            tester,
+            urls: ['https://i.pximg.net/1/original.jpg'],
           );
-          await tester.pump();
 
-          double scale() => tester
-              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
-              .transformationController!
-              .value
-              .getMaxScaleOnAxis();
-          expect(scale(), 1.0);
+          expect(_scale(tester), 1.0);
 
           // fit → 2.5. The second tap must land inside the double-tap
           // window (>= kDoubleTapMinTime, < kDoubleTapTimeout).
@@ -276,7 +243,7 @@ void main() {
           await tester.pump(const Duration(milliseconds: 80));
           await tester.tap(find.byType(PageView));
           await tester.pumpAndSettle();
-          expect(scale(), closeTo(2.5, 0.01));
+          expect(_scale(tester), closeTo(2.5, 0.01));
           expectViewerChrome(tester, visible: true);
 
           // 2.5 → fit
@@ -284,7 +251,7 @@ void main() {
           await tester.pump(const Duration(milliseconds: 80));
           await tester.tap(find.byType(PageView));
           await tester.pumpAndSettle();
-          expect(scale(), closeTo(1.0, 0.01));
+          expect(_scale(tester), closeTo(1.0, 0.01));
         });
       },
     );
@@ -294,27 +261,10 @@ void main() {
       'zooms, the next tap toggles chrome again',
       (tester) async {
         await mockNetworkImagesFor(() async {
-          await tester.pumpWidget(
-            withStalledImages(
-              MaterialApp(
-                builder: promptHostBuilder,
-                localizationsDelegates: appLocalizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                locale: const Locale('zh', 'CN'),
-
-                home: ImageViewerPage(
-                  urls: ['https://i.pximg.net/1/original.jpg'],
-                ),
-              ),
-            ),
+          await pumpViewer(
+            tester,
+            urls: ['https://i.pximg.net/1/original.jpg'],
           );
-          await tester.pump();
-
-          double scale() => tester
-              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
-              .transformationController!
-              .value
-              .getMaxScaleOnAxis();
 
           // A lone tap resolves only after the double-tap window; pump past
           // ~kDoubleTapTimeout before asserting the chrome toggle.
@@ -322,14 +272,14 @@ void main() {
           await tester.pump(const Duration(milliseconds: 400));
           await tester.pumpAndSettle();
           expectViewerChrome(tester, visible: false);
-          expect(scale(), 1.0);
+          expect(_scale(tester), 1.0);
 
           // Double-tap zooms without touching the chrome.
           await tester.tap(find.byType(PageView));
           await tester.pump(const Duration(milliseconds: 80));
           await tester.tap(find.byType(PageView));
           await tester.pumpAndSettle();
-          expect(scale(), closeTo(2.5, 0.01));
+          expect(_scale(tester), closeTo(2.5, 0.01));
           expectViewerChrome(tester, visible: false);
 
           // The following lone tap toggles chrome again — the disambiguation
@@ -349,21 +299,15 @@ void main() {
       );
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          UncontrolledProviderScope(
+          localizedApp(
             container: container,
-            child: MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-
-              home: ImageViewerPage(
-                urls: [
-                  'https://i.pximg.net/1/original.jpg',
-                  'https://i.pximg.net/2/original.jpg',
-                ],
-                entity: entity,
-              ),
+            builder: promptHostBuilder,
+            home: ImageViewerPage(
+              urls: [
+                'https://i.pximg.net/1/original.jpg',
+                'https://i.pximg.net/2/original.jpg',
+              ],
+              entity: entity,
             ),
           ),
         );
@@ -385,21 +329,15 @@ void main() {
       );
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          UncontrolledProviderScope(
+          localizedApp(
             container: container,
-            child: MaterialApp(
-              builder: promptHostBuilder,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-
-              home: ImageViewerPage(
-                urls: [
-                  'https://i.pximg.net/1/original.jpg',
-                  'https://i.pximg.net/2/original.jpg',
-                ],
-                entity: entity,
-              ),
+            builder: promptHostBuilder,
+            home: ImageViewerPage(
+              urls: [
+                'https://i.pximg.net/1/original.jpg',
+                'https://i.pximg.net/2/original.jpg',
+              ],
+              entity: entity,
             ),
           ),
         );
@@ -442,31 +380,7 @@ void main() {
       'explicit exits pop imperatively even while zoomed (Esc + back button)',
       (tester) async {
         await mockNetworkImagesFor(() async {
-          await tester.pumpWidget(
-            withStalledImages(
-              MaterialApp(
-                builder: promptHostBuilder,
-                localizationsDelegates: appLocalizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                locale: const Locale('zh', 'CN'),
-                home: Builder(
-                  builder: (context) => TextButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => ImageViewerPage(
-                          urls: ['https://i.pximg.net/1/original.jpg'],
-                        ),
-                      ),
-                    ),
-                    child: const Text('open'),
-                  ),
-                ),
-              ),
-            ),
-          );
-          await tester.pump();
-          await tester.tap(find.text('open'));
-          await tester.pumpAndSettle();
+          await pumpPushedViewer(tester);
           expect(find.byType(ImageViewerPage), findsOneWidget);
 
           // Zoom in, then Esc — the route pops directly (imperative pop
@@ -479,7 +393,7 @@ void main() {
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await tester.pumpAndSettle();
           expect(find.byType(ImageViewerPage), findsNothing);
-          expect(find.text('open'), findsOneWidget);
+          expect(find.text('open-viewer'), findsOneWidget);
         });
       },
     );
@@ -488,30 +402,7 @@ void main() {
       'keyboard: arrows page, +/- zooms, 0 resets, F toggles chrome',
       (tester) async {
         await mockNetworkImagesFor(() async {
-          await tester.pumpWidget(
-            withStalledImages(
-              MaterialApp(
-                builder: promptHostBuilder,
-                localizationsDelegates: appLocalizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                locale: const Locale('zh', 'CN'),
-
-                home: ImageViewerPage(
-                  urls: [
-                    'https://i.pximg.net/1/original.jpg',
-                    'https://i.pximg.net/2/original.jpg',
-                  ],
-                ),
-              ),
-            ),
-          );
-          await tester.pump();
-
-          double scale() => tester
-              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
-              .transformationController!
-              .value
-              .getMaxScaleOnAxis();
+          await pumpViewer(tester);
 
           // Arrows page forward/back.
           await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
@@ -524,10 +415,10 @@ void main() {
           // +/- zoom in place, 0 resets.
           await tester.sendKeyEvent(LogicalKeyboardKey.equal);
           await tester.pumpAndSettle();
-          expect(scale(), greaterThan(1.0));
+          expect(_scale(tester), greaterThan(1.0));
           await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
           await tester.pumpAndSettle();
-          expect(scale(), closeTo(1.0, 0.01));
+          expect(_scale(tester), closeTo(1.0, 0.01));
 
           // F toggles the chrome.
           await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
@@ -544,31 +435,8 @@ void main() {
       'mouse wheel zooms the active page; shift+wheel turns the page',
       (tester) async {
         await mockNetworkImagesFor(() async {
-          await tester.pumpWidget(
-            withStalledImages(
-              MaterialApp(
-                builder: promptHostBuilder,
-                localizationsDelegates: appLocalizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                locale: const Locale('zh', 'CN'),
-
-                home: ImageViewerPage(
-                  urls: [
-                    'https://i.pximg.net/1/original.jpg',
-                    'https://i.pximg.net/2/original.jpg',
-                  ],
-                ),
-              ),
-            ),
-          );
-          await tester.pump();
+          await pumpViewer(tester);
           final center = tester.getCenter(find.byType(PageView));
-
-          double scale() => tester
-              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
-              .transformationController!
-              .value
-              .getMaxScaleOnAxis();
 
           // Wheel-up zooms in around the pointer; wheel-down zooms back.
           await tester.sendEventToBinding(
@@ -578,7 +446,7 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          expect(scale(), greaterThan(1.0));
+          expect(_scale(tester), greaterThan(1.0));
           // The pager must not consume the wheel event — still page 1.
           expect(find.text('1 / 2'), findsOneWidget);
           await tester.sendEventToBinding(
@@ -588,7 +456,7 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          expect(scale(), closeTo(1.0, 0.01));
+          expect(_scale(tester), closeTo(1.0, 0.01));
 
           // Shift+wheel pages instead of zooming.
           await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
@@ -605,61 +473,22 @@ void main() {
       },
     );
 
-    // System-back tests need the viewer pushed as a *second* route —
-    // `handlePopRoute` -> maybePop refuses to pop the last route (the OS
-    // would take over), so a stub home sits underneath.
-    Future<void> pumpPushedViewer(
-      WidgetTester tester, {
-      List<String> urls = const ['https://i.pximg.net/1/original.jpg'],
-    }) async {
-      await tester.pumpWidget(
-        withStalledImages(
-          MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: Builder(
-              builder: (context) => Scaffold(
-                body: TextButton(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => ImageViewerPage(urls: urls),
-                    ),
-                  ),
-                  child: const Text('open-viewer'),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.tap(find.text('open-viewer'));
-      await tester.pumpAndSettle();
-    }
-
     testWidgets('system back while zoomed resets to fit and keeps the route', (
       tester,
     ) async {
       await mockNetworkImagesFor(() async {
         await pumpPushedViewer(tester);
 
-        double scale() => tester
-            .widget<InteractiveViewer>(find.byType(InteractiveViewer))
-            .transformationController!
-            .value
-            .getMaxScaleOnAxis();
-
         await tester.tap(find.byType(PageView));
         await tester.pump(const Duration(milliseconds: 80));
         await tester.tap(find.byType(PageView));
         await tester.pumpAndSettle();
-        expect(scale(), greaterThan(1.0));
+        expect(_scale(tester), greaterThan(1.0));
 
         await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
         // Zoom reset; the route stayed.
-        expect(scale(), closeTo(1.0, 0.01));
+        expect(_scale(tester), closeTo(1.0, 0.01));
         expect(find.byType(ImageViewerPage), findsOneWidget);
 
         // Now at fit — the next system back leaves the route.
@@ -688,21 +517,15 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          double scale() => tester
-              .widget<InteractiveViewer>(find.byType(InteractiveViewer))
-              .transformationController!
-              .value
-              .getMaxScaleOnAxis();
-
           await tester.tap(find.byType(PageView));
           await tester.pump(const Duration(milliseconds: 80));
           await tester.tap(find.byType(PageView));
           await tester.pumpAndSettle();
-          expect(scale(), greaterThan(1.0));
+          expect(_scale(tester), greaterThan(1.0));
 
           await tester.binding.handlePopRoute();
           await tester.pumpAndSettle();
-          expect(scale(), closeTo(1.0, 0.01));
+          expect(_scale(tester), closeTo(1.0, 0.01));
           expect(find.byType(ImageViewerPage), findsOneWidget);
         });
       },

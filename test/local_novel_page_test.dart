@@ -14,19 +14,14 @@ import 'package:parfait/core/localnovel/local_novel_repository.dart';
 import 'package:parfait/core/localnovel/local_novel_store.dart';
 import 'package:parfait/features/novel/local_novel_reader_page.dart';
 import 'package:parfait/features/localnovel/local_novels_page.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/app/motion/removal.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
 
-Widget _app(Widget child) => MaterialApp(
-  localizationsDelegates: appLocalizationsDelegates,
-  supportedLocales: AppLocalizations.supportedLocales,
-  home: child,
-);
+Widget _app(Widget child) => localizedApp(locale: null, home: child);
 
 /// Alternates real-async waits (file/db IO) with frames until [finder]
 /// appears — `pumpAndSettle` cannot be used because the loading spinner
@@ -91,7 +86,7 @@ void main() {
       factory: databaseFactoryFfiNoIsolate,
       databasePath: '${dir.path}/local_novels.db',
     );
-    container = ProviderContainer(
+    container = ProviderContainer.test(
       overrides: [
         localNovelDatabaseProvider.overrideWithValue(database),
         localNovelDirectoryProvider.overrideWithValue(() async => dir),
@@ -103,7 +98,6 @@ void main() {
         ),
       ],
     );
-    addTearDown(container.dispose);
   });
 
   tearDown(() async {
@@ -147,14 +141,7 @@ void main() {
     );
     addTearDown(router.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp.router(
-          routerConfig: router,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-        ),
-      ),
+      localizedRouterApp(router, container: container, locale: null),
     );
     await _pumpUntil(tester, find.text('Tap Story'));
 

@@ -71,3 +71,23 @@ Map<String, dynamic> illustJson(
 
 IllustEntity parseIllust(Map<String, dynamic> json) =>
     IllustEntity.fromJson(jsonDecode(jsonEncode(json)) as Map<String, dynamic>);
+
+/// Canonical feed-list novel JSON.
+Map<String, dynamic> novelJson(int id, {String? title}) => {
+  'id': id,
+  'title': title ?? 'novel $id',
+  'caption': '',
+  'restrict': 0,
+  'x_restrict': 0,
+  'image_urls': {'medium': 'https://i.pximg.net/$id/m.png'},
+  'tags': <Object>[],
+  'text_length': 1200,
+  'user': {
+    'id': 99,
+    'name': 'author',
+    'account': 'author',
+    'profile_image_urls': {'medium': 'https://i.pximg.net/u.png'},
+  },
+  'is_bookmarked': false,
+  'visible': true,
+};

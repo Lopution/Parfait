@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/widgets/app_menu_button.dart';
+import 'helpers/view_size.dart';
 
 const _entries = [
   AppMenuEntry(value: 'share', label: 'Share', icon: Icons.share_outlined),
@@ -55,9 +56,7 @@ Future<void> _pump(
   bool disableAnimations = false,
   Size size = const Size(400, 800),
 }) async {
-  tester.view.physicalSize = size;
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
+  setViewSize(tester, size);
   await tester.pumpWidget(
     MediaQuery(
       data: MediaQueryData(size: size, disableAnimations: disableAnimations),
@@ -119,9 +118,7 @@ void main() {
 
   testWidgets('back closes the menu before the page', (tester) async {
     final navigatorKey = GlobalKey<NavigatorState>();
-    tester.view.physicalSize = const Size(400, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setViewSize(tester, const Size(400, 800));
     await tester.pumpWidget(
       MaterialApp(
         navigatorKey: navigatorKey,

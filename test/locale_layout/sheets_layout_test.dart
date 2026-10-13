@@ -70,13 +70,12 @@ void main() {
         ],
         nextUrl: null,
       );
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [
         accountStoreProvider.overrideWith(StubAccountStore.new),
         bookmarkRepositoryProvider.overrideWithValue(repository),
       ],
     );
-    addTearDown(container.dispose);
     await container.read(accountStoreProvider.future);
     await tester.pumpWidget(
       localeLayoutApp(

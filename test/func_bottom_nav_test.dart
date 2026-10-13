@@ -2,24 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:parfait/app/navigation/home_shell_metrics.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
-
-const _account = Account(id: '100', userId: 100, name: 'tester');
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
 
 /// A split-screen phone height: the "me" dashboard at the root of the
 /// settings branch fits a full phone screen and only scrolls on a short
@@ -34,33 +29,13 @@ Future<GoRouter> _pumpHome(
   String location = '/settings',
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  tester.view.physicalSize = const Size(390, _screenHeight);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  final router = createPixivRouter(initialLocation: location);
-  addTearDown(router.dispose);
+  setViewSize(tester, const Size(390, _screenHeight));
+  final router = pixivRouter(location);
   await tester.pumpWidget(
-    ProviderScope(
-      overrides: [
-        ...accountProviderOverrides(
-          credentialStore: FakeCredentialStore(
-            values: const {
-              '100': Credential(accessToken: 'a-100', refreshToken: 'r-100'),
-            },
-          ),
-          metadataRepository: FakeAccountMetadataRepository(
-            accounts: const [_account],
-            currentId: '100',
-          ),
-        ),
-      ],
-      child: MaterialApp.router(
-        builder: promptHostBuilder,
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-        routerConfig: router,
-      ),
+    localizedRouterApp(
+      router,
+      overrides: [...signedInAccountOverrides()],
+      builder: promptHostBuilder,
     ),
   );
   await tester.pump();

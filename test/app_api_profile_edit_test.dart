@@ -39,7 +39,7 @@ Future<(PixivHttpClient, ProviderContainer)> _client({
       headers: {'content-type': 'application/json'},
     );
   });
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       credentialStoreProvider.overrideWithValue(
         FakeCredentialStore()..seed(
@@ -48,9 +48,8 @@ Future<(PixivHttpClient, ProviderContainer)> _client({
         ),
       ),
       accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
+        FakeAccountMetadataRepository.signedIn(
+          const Account(id: '100', userId: 100, name: 'tester'),
         ),
       ),
       oauthServiceProvider.overrideWithValue(
@@ -91,7 +90,6 @@ void main() {
 
   test('capabilities advertise the app-api channel and fields', () async {
     final (client, container) = await _client(sent: []);
-    addTearDown(container.dispose);
     final repo = PixivAppApiProfileEditRepository(
       client: client,
       userRepository: FakeUserRepository(),
@@ -112,7 +110,6 @@ void main() {
   test('submit posts multipart user_name to v1/user/profile/edit', () async {
     final sent = <_RecordedMultipart>[];
     final (client, container) = await _client(sent: sent);
-    addTearDown(container.dispose);
     final users = FakeUserRepository();
     final repo = PixivAppApiProfileEditRepository(
       client: client,
@@ -144,7 +141,6 @@ void main() {
   test('empty patch fails as invalid without touching the network', () async {
     final sent = <_RecordedMultipart>[];
     final (client, container) = await _client(sent: sent);
-    addTearDown(container.dispose);
     final repo = PixivAppApiProfileEditRepository(
       client: client,
       userRepository: FakeUserRepository(),
@@ -172,7 +168,6 @@ void main() {
     () async {
       final sent = <_RecordedMultipart>[];
       final (client, container) = await _client(sent: sent);
-      addTearDown(container.dispose);
       final repo = PixivAppApiProfileEditRepository(
         client: client,
         userRepository: FakeUserRepository(),
@@ -210,7 +205,6 @@ void main() {
           },
         }),
       );
-      addTearDown(container.dispose);
       final repo = PixivAppApiProfileEditRepository(
         client: client,
         userRepository: FakeUserRepository(),
@@ -223,7 +217,6 @@ void main() {
   test('avatar patch sends a profile_image file part', () async {
     final sent = <_RecordedMultipart>[];
     final (client, container) = await _client(sent: sent);
-    addTearDown(container.dispose);
     final repo = PixivAppApiProfileEditRepository(
       client: client,
       userRepository: FakeUserRepository(),

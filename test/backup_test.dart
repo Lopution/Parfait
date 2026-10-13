@@ -25,13 +25,12 @@ import 'package:parfait/core/platform/saf_tree.dart';
 import 'package:parfait/core/settings/preference_keys.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/settings/pages/backup_settings_page.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/localized_app.dart';
 
 /// Records every `/v1/mute/edit` body; `/v1/mute/list` answers from
 /// [listTags]/[listUsers]. Mirrors the mute_store_test fixture.
@@ -162,7 +161,7 @@ Future<_World> _world({
   }
 
   final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       ...accountProviderOverrides(
         metadataRepository: FakeAccountMetadataRepository(
@@ -190,7 +189,6 @@ Future<_World> _world({
     oauthService: container.read(oauthServiceProvider),
   );
   await container.read(accountStoreProvider.future);
-  addTearDown(container.dispose);
 
   final dir = await Directory.systemTemp.createTemp('pixiv-backup-test-');
   addTearDown(() => dir.delete(recursive: true));
@@ -634,20 +632,15 @@ void main() {
     }) async {
       final service = _FakeBackupService();
       await tester.pumpWidget(
-        ProviderScope(
+        localizedApp(
           overrides: [
             backupServiceProvider.overrideWithValue(service),
             backupFilePickerProvider.overrideWithValue(() async => fileBytes),
           ],
-          child: MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: MediaQuery(
-              data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
-              child: const BackupSettingsPage(),
-            ),
+          builder: promptHostBuilder,
+          home: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+            child: const BackupSettingsPage(),
           ),
         ),
       );

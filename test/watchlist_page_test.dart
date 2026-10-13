@@ -6,20 +6,15 @@ import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
 import 'package:parfait/app/widgets/watchlist_toggle.dart';
 import 'package:parfait/features/watchlist/watchlist_page.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/watchlist_world.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
 
-Widget _app(Widget child) => MaterialApp(
-  builder: promptHostBuilder,
-  localizationsDelegates: appLocalizationsDelegates,
-  supportedLocales: AppLocalizations.supportedLocales,
-  home: child,
-);
+Widget _app(Widget child) =>
+    localizedApp(locale: null, builder: promptHostBuilder, home: child);
 
 void main() {
   setUp(() {
@@ -49,7 +44,6 @@ void main() {
         },
       ];
     final (container, _) = await makeWatchlistWorld(fixture: fixture);
-    addTearDown(container.dispose);
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -83,7 +77,6 @@ void main() {
         },
       ];
     final (container, _) = await makeWatchlistWorld(fixture: fixture);
-    addTearDown(container.dispose);
     // A cursor equal to the latest id means "all caught up".
     await container
         .read(watchlistReadCursorProvider)
@@ -103,7 +96,6 @@ void main() {
     tester,
   ) async {
     final (container, fixture) = await makeWatchlistWorld();
-    addTearDown(container.dispose);
     const key = WatchlistKey(WatchlistType.manga, 9);
 
     await tester.pumpWidget(

@@ -7,6 +7,18 @@ import 'package:parfait/core/updater/update_manifest.dart';
 import 'package:parfait/core/updater/update_service.dart';
 import 'helpers/updater_fakes.dart';
 
+/// Checks for an update over [transport] on [platform] (GitHub builds by
+/// default), with a signature that verifies unless [signed] is false.
+Future<UpdateCheckResult> _check(
+  UpdateManifestTransport transport, {
+  FakeUpdatePlatform? platform,
+  bool signed = true,
+}) => UpdateService(
+  platform: platform ?? FakeUpdatePlatform(),
+  manifestTransport: transport,
+  signatureVerifier: FakeUpdateSignatureVerifier(valid: signed),
+).check();
+
 void main() {
   group('UpdateManifest', () {
     test('rejects unknown schema before release fields are trusted', () {
@@ -149,13 +161,10 @@ void main() {
   group('UpdateService.check', () {
     test('F-Droid capability never fetches a manifest or signature', () async {
       final transport = _FakeManifestTransport();
-      final service = UpdateService(
+      final result = await _check(
+        transport,
         platform: FakeUpdatePlatform(capability: UpdateCapability.fdroid()),
-        manifestTransport: transport,
-        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
       );
-
-      final result = await service.check();
 
       expect(result.status, UpdateCheckStatus.disabled);
       expect(transport.requested, isEmpty);
@@ -166,13 +175,7 @@ void main() {
         body: utf8.encode(jsonEncode(_manifestValue())),
         signature: base64Encode(List<int>.filled(64, 1)).codeUnits,
       );
-      final service = UpdateService(
-        platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
-        manifestTransport: transport,
-        signatureVerifier: FakeUpdateSignatureVerifier(valid: false),
-      );
-
-      final result = await service.check();
+      final result = await _check(transport, signed: false);
 
       expect(result.status, UpdateCheckStatus.invalid);
       expect(result.release, isNull);
@@ -208,16 +211,13 @@ void main() {
           body: utf8.encode(jsonEncode(_manifestValue())),
           signature: base64Encode(List<int>.filled(64, 8)).codeUnits,
         );
-        final service = UpdateService(
+        final result = await _check(
+          transport,
           platform: FakeUpdatePlatform(
             capability: UpdateCapability.github(),
             supportedAbis: const ['armeabi-v7a', 'arm64-v8a'],
           ),
-          manifestTransport: transport,
-          signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
         );
-
-        final result = await service.check();
 
         expect(result.status, UpdateCheckStatus.available);
         expect(
@@ -232,16 +232,13 @@ void main() {
         body: utf8.encode(jsonEncode(_manifestValue())),
         signature: base64Encode(List<int>.filled(64, 9)).codeUnits,
       );
-      final service = UpdateService(
+      final result = await _check(
+        transport,
         platform: FakeUpdatePlatform(
           capability: UpdateCapability.github(),
           supportedAbis: const ['x86_64'],
         ),
-        manifestTransport: transport,
-        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
       );
-
-      final result = await service.check();
 
       expect(result.status, UpdateCheckStatus.invalid);
       expect(result.errorCode, 'abi_unsupported');
@@ -254,17 +251,14 @@ void main() {
         body: utf8.encode(jsonEncode(value)),
         signature: base64Encode(List<int>.filled(64, 10)).codeUnits,
       );
-      final service = UpdateService(
+      final result = await _check(
+        transport,
         platform: FakeUpdatePlatform(
           capability: UpdateCapability.github(),
           version: '0.1.0',
           versionCode: 2001,
         ),
-        manifestTransport: transport,
-        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
       );
-
-      final result = await service.check();
 
       expect(result.status, UpdateCheckStatus.noUpdate);
       expect(result.errorCode, 'up_to_date');
@@ -276,17 +270,14 @@ void main() {
         body: utf8.encode(jsonEncode(value)),
         signature: base64Encode(List<int>.filled(64, 11)).codeUnits,
       );
-      final service = UpdateService(
+      final result = await _check(
+        transport,
         platform: FakeUpdatePlatform(
           capability: UpdateCapability.github(),
           version: '0.1.0',
           versionCode: 2001,
         ),
-        manifestTransport: transport,
-        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
       );
-
-      final result = await service.check();
 
       expect(result.status, UpdateCheckStatus.available);
     });
@@ -298,13 +289,7 @@ void main() {
           body: utf8.encode(jsonEncode(_manifestValue())),
           manifestStatus: 429,
         );
-        final service = UpdateService(
-          platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
-          manifestTransport: transport,
-          signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
-        );
-
-        final result = await service.check();
+        final result = await _check(transport);
 
         expect(result.status, UpdateCheckStatus.rateLimited);
         expect(result.release, isNull);
@@ -318,13 +303,7 @@ void main() {
         signature: base64Encode(List<int>.filled(64, 7)).codeUnits,
         signatureStatus: 429,
       );
-      final service = UpdateService(
-        platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
-        manifestTransport: transport,
-        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
-      );
-
-      final result = await service.check();
+      final result = await _check(transport);
 
       expect(result.status, UpdateCheckStatus.rateLimited);
       expect(result.errorCode, 'signature_rate_limited');
@@ -332,31 +311,21 @@ void main() {
     });
 
     test('offline transport is reported as offline', () async {
-      final service = UpdateService(
-        platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
-        manifestTransport: _FakeManifestTransport(
-          manifestError: const SocketException('offline'),
-        ),
-        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
+      final result = await _check(
+        _FakeManifestTransport(manifestError: const SocketException('offline')),
       );
-
-      final result = await service.check();
 
       expect(result.status, UpdateCheckStatus.offline);
       expect(result.errorCode, 'network');
     });
 
     test('signature transport failure is reported as offline', () async {
-      final service = UpdateService(
-        platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
-        manifestTransport: _FakeManifestTransport(
+      final result = await _check(
+        _FakeManifestTransport(
           body: utf8.encode(jsonEncode(_manifestValue())),
           signatureError: const SocketException('offline'),
         ),
-        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
       );
-
-      final result = await service.check();
 
       expect(result.status, UpdateCheckStatus.offline);
       expect(result.errorCode, 'network');
@@ -367,13 +336,7 @@ void main() {
         body: utf8.encode(jsonEncode(_manifestValue())),
         signature: utf8.encode('not-base64'),
       );
-      final service = UpdateService(
-        platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
-        manifestTransport: transport,
-        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
-      );
-
-      final result = await service.check();
+      final result = await _check(transport);
 
       expect(result.status, UpdateCheckStatus.invalid);
       expect(result.errorCode, 'signature_format');
@@ -407,13 +370,7 @@ void main() {
       'manifest 404 means no published release yet, not a failure',
       () async {
         final transport = _FakeManifestTransport(manifestStatus: 404);
-        final service = UpdateService(
-          platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
-          manifestTransport: transport,
-          signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
-        );
-
-        final result = await service.check();
+        final result = await _check(transport);
 
         expect(result.status, UpdateCheckStatus.noUpdate);
         expect(result.errorCode, 'manifest_not_published');
@@ -429,13 +386,7 @@ void main() {
         body: utf8.encode(jsonEncode(value)),
         signature: base64Encode(List<int>.filled(64, 4)).codeUnits,
       );
-      final service = UpdateService(
-        platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
-        manifestTransport: transport,
-        signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
-      );
-
-      final result = await service.check();
+      final result = await _check(transport);
 
       expect(result.status, UpdateCheckStatus.invalid);
       expect(result.errorCode, 'channel');
@@ -474,13 +425,7 @@ void main() {
           body: utf8.encode(jsonEncode(value)),
           signature: base64Encode(List<int>.filled(64, 6)).codeUnits,
         );
-        final service = UpdateService(
-          platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
-          manifestTransport: transport,
-          signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
-        );
-
-        final result = await service.check();
+        final result = await _check(transport);
 
         expect(result.status, UpdateCheckStatus.invalid);
         expect(result.errorCode, 'asset_identity_mismatch');

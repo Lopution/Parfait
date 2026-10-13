@@ -139,7 +139,7 @@ _makeWorld({
     },
   );
 
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(
@@ -164,6 +164,24 @@ _makeWorld({
   return (container, client, credentials, f);
 }
 
+/// A client over [transport] for the world's account, as a test that needs
+/// its own transport builds one.
+PixivHttpClient _clientOver(
+  ProviderContainer container,
+  http.Client transport, {
+  DataWorker dataWorker = const InlineDataWorker(),
+}) => PixivHttpClient(
+  client: transport,
+  accountStore: container.read(accountStoreProvider.notifier),
+  credentialStore: FakeCredentialStore(
+    values: const {
+      '100': Credential(accessToken: 'old-access', refreshToken: 'old-refresh'),
+    },
+  ),
+  oauthService: container.read(oauthServiceProvider),
+  dataWorker: dataWorker,
+);
+
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -173,7 +191,6 @@ void main() {
     'requests carry centralized identity headers and bearer token',
     () async {
       final (container, client, _, fixture) = await _makeWorld();
-      addTearDown(container.dispose);
 
       await client.getJson(Uri.parse(_api));
 
@@ -187,7 +204,6 @@ void main() {
 
   test('languageTag ja is sent as Accept-Language', () async {
     final (container, client, _, fixture) = await _makeWorld(languageTag: 'ja');
-    addTearDown(container.dispose);
 
     await client.getJson(Uri.parse(_api));
 
@@ -204,7 +220,7 @@ void main() {
       ),
     );
     final credentials = FakeCredentialStore();
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [
         settingsRepositoryProvider.overrideWithValue(repository),
         credentialStoreProvider.overrideWithValue(credentials),
@@ -222,7 +238,6 @@ void main() {
         ),
       ],
     );
-    addTearDown(container.dispose);
     await container.read(settingsProvider.future);
 
     expect(container.read(pixivHttpClientProvider).languageTag, 'ja');
@@ -237,7 +252,6 @@ void main() {
     'pre-import verification can use a supplied token without switching stores',
     () async {
       final (container, client, credentials, fixture) = await _makeWorld();
-      addTearDown(container.dispose);
 
       await client.getJsonWithCredential(
         Uri.parse(_api),
@@ -258,7 +272,6 @@ void main() {
 
   test('pre-import verification rejects a non-App-API destination', () async {
     final (container, client, _, fixture) = await _makeWorld();
-    addTearDown(container.dispose);
 
     await expectLater(
       client.getJsonWithCredential(
@@ -281,7 +294,6 @@ void main() {
       final (container, client, _, fixtureF) = await _makeWorld(
         fixture: fixture,
       );
-      addTearDown(container.dispose);
 
       await expectLater(
         client.getJsonWithCredential(
@@ -305,7 +317,6 @@ void main() {
       final (container, client, credentials, _) = await _makeWorld(
         fixture: fixture..rejectStaleSeed = true,
       );
-      addTearDown(container.dispose);
 
       final results = await Future.wait([
         for (var i = 0; i < 20; i++)
@@ -325,7 +336,6 @@ void main() {
   test('concurrent identical GETs share one transport flight', () async {
     final fixture = _Fixture(apiDelay: const Duration(milliseconds: 20));
     final (container, client, _, fixtureF) = await _makeWorld(fixture: fixture);
-    addTearDown(container.dispose);
 
     await Future.wait([
       client.getJson(Uri.parse(_api)),
@@ -339,7 +349,6 @@ void main() {
     // Everything is rejected, even the refreshed token.
     final fixture = _Fixture(rejectAll: true);
     final (container, client, _, _) = await _makeWorld(fixture: fixture);
-    addTearDown(container.dispose);
 
     await expectLater(
       client.getJson(Uri.parse(_api)),
@@ -357,7 +366,6 @@ void main() {
   test('a refresh fills in the account avatar', () async {
     final fixture = _Fixture(rejectStaleSeed: true);
     final (container, client, _, _) = await _makeWorld(fixture: fixture);
-    addTearDown(container.dispose);
     Account current() =>
         container.read(accountStoreProvider).requireValue.current!;
     expect(current().profileImageUrl, isNull);
@@ -381,7 +389,6 @@ void main() {
         ),
       ],
     );
-    addTearDown(container.dispose);
 
     await client.getJson(Uri.parse(_api));
 
@@ -401,7 +408,6 @@ void main() {
     () async {
       final fixture = _Fixture(refreshStatus: 400, rejectStaleSeed: true);
       final (container, client, _, _) = await _makeWorld(fixture: fixture);
-      addTearDown(container.dispose);
 
       await expectLater(
         client.getJson(Uri.parse(_api)),
@@ -432,7 +438,6 @@ void main() {
     test('a refresh $label keeps the account signed in', () async {
       final fixture = _Fixture(refreshStatus: status, rejectStaleSeed: true);
       final (container, client, _, _) = await _makeWorld(fixture: fixture);
-      addTearDown(container.dispose);
 
       await expectLater(client.getJson(Uri.parse(_api)), throwsA(errorType));
       expect(
@@ -449,7 +454,6 @@ void main() {
   test('an unreachable token endpoint keeps the account signed in', () async {
     final fixture = _Fixture(rejectStaleSeed: true)..refreshUnreachable = true;
     final (container, client, _, _) = await _makeWorld(fixture: fixture);
-    addTearDown(container.dispose);
 
     await expectLater(
       client.getJson(Uri.parse(_api)),
@@ -474,7 +478,6 @@ void main() {
       final (container, client, _, fixtureF) = await _makeWorld(
         fixture: fixture,
       );
-      addTearDown(container.dispose);
 
       final body = await client.getJson(Uri.parse(_api));
       expect(body['ok'], isTrue);
@@ -494,7 +497,6 @@ void main() {
       final (container, client, _, fixtureF) = await _makeWorld(
         fixture: fixture,
       );
-      addTearDown(container.dispose);
 
       await expectLater(
         client.post(
@@ -520,7 +522,6 @@ void main() {
       final (container, client, _, fixtureF) = await _makeWorld(
         fixture: fixture,
       );
-      addTearDown(container.dispose);
 
       final response = await client.post(
         Uri.parse('https://$_apiHost/v2/illust/bookmark/add'),
@@ -552,7 +553,6 @@ void main() {
     // maxRetries = 1: refresh + one replay, then the second 401 is final.
     final fixture = _Fixture(rejectAll: true);
     final (container, client, _, fixtureF) = await _makeWorld(fixture: fixture);
-    addTearDown(container.dispose);
 
     await expectLater(
       client.post(
@@ -576,7 +576,6 @@ void main() {
     final fixture = _Fixture(rejectStaleSeed: true, plain400: true)
       ..staleRejectionStatus = 400;
     final (container, client, _, fixtureF) = await _makeWorld(fixture: fixture);
-    addTearDown(container.dispose);
 
     await expectLater(
       client.getJson(Uri.parse(_api)),
@@ -588,22 +587,12 @@ void main() {
 
   test('429 maps to rate limited with the retry-after hint', () async {
     final (container, _, _, _) = await _makeWorld();
-    addTearDown(container.dispose);
-    final rateLimited = PixivHttpClient(
-      client: MockClient(
+    final rateLimited = _clientOver(
+      container,
+      MockClient(
         (request) async =>
             http.Response('limited', 429, headers: {'retry-after': '7'}),
       ),
-      accountStore: container.read(accountStoreProvider.notifier),
-      credentialStore: FakeCredentialStore(
-        values: const {
-          '100': Credential(
-            accessToken: 'old-access',
-            refreshToken: 'old-refresh',
-          ),
-        },
-      ),
-      oauthService: container.read(oauthServiceProvider),
     );
 
     await expectLater(
@@ -622,26 +611,16 @@ void main() {
     var now = DateTime(2026, 10, 8, 12);
     await withClock(Clock(() => now), () async {
       final (container, _, _, _) = await _makeWorld();
-      addTearDown(container.dispose);
       var limited = true;
       final requests = <String>[];
-      final client = PixivHttpClient(
-        client: MockClient((request) async {
+      final client = _clientOver(
+        container,
+        MockClient((request) async {
           requests.add(request.method);
           return limited
               ? http.Response('limited', 429)
               : http.Response('{}', 200);
         }),
-        accountStore: container.read(accountStoreProvider.notifier),
-        credentialStore: FakeCredentialStore(
-          values: const {
-            '100': Credential(
-              accessToken: 'old-access',
-              refreshToken: 'old-refresh',
-            ),
-          },
-        ),
-        oauthService: container.read(oauthServiceProvider),
       );
 
       await expectLater(
@@ -671,19 +650,9 @@ void main() {
 
   test('server errors map to ApiHttpError without retry', () async {
     final (container, _, _, _) = await _makeWorld();
-    addTearDown(container.dispose);
-    final failing = PixivHttpClient(
-      client: MockClient((request) async => http.Response('boom', 500)),
-      accountStore: container.read(accountStoreProvider.notifier),
-      credentialStore: FakeCredentialStore(
-        values: const {
-          '100': Credential(
-            accessToken: 'old-access',
-            refreshToken: 'old-refresh',
-          ),
-        },
-      ),
-      oauthService: container.read(oauthServiceProvider),
+    final failing = _clientOver(
+      container,
+      MockClient((request) async => http.Response('boom', 500)),
     );
 
     await expectLater(
@@ -696,21 +665,9 @@ void main() {
 
   test('non-JSON responses map to a parse error', () async {
     final (container, _, _, _) = await _makeWorld();
-    addTearDown(container.dispose);
-    final parseErrorClient = PixivHttpClient(
-      client: MockClient(
-        (request) async => http.Response('not json at all', 200),
-      ),
-      accountStore: container.read(accountStoreProvider.notifier),
-      credentialStore: FakeCredentialStore(
-        values: const {
-          '100': Credential(
-            accessToken: 'old-access',
-            refreshToken: 'old-refresh',
-          ),
-        },
-      ),
-      oauthService: container.read(oauthServiceProvider),
+    final parseErrorClient = _clientOver(
+      container,
+      MockClient((request) async => http.Response('not json at all', 200)),
     );
 
     await expectLater(
@@ -721,23 +678,13 @@ void main() {
 
   test('bodies decode and map on the data worker unchanged', () async {
     final (container, _, _, _) = await _makeWorld();
-    addTearDown(container.dispose);
     final worker = IsolateDataWorker();
     addTearDown(worker.close);
-    PixivHttpClient clientReturning(String body) => PixivHttpClient(
-      client: MockClient(
+    PixivHttpClient clientReturning(String body) => _clientOver(
+      container,
+      MockClient(
         (request) async => http.Response.bytes(utf8.encode(body), 200),
       ),
-      accountStore: container.read(accountStoreProvider.notifier),
-      credentialStore: FakeCredentialStore(
-        values: const {
-          '100': Credential(
-            accessToken: 'old-access',
-            refreshToken: 'old-refresh',
-          ),
-        },
-      ),
-      oauthService: container.read(oauthServiceProvider),
       dataWorker: worker,
     );
     final illusts = [
@@ -765,21 +712,11 @@ void main() {
 
   test('transport failures map to network errors and stay failures', () async {
     final (container, _, _, _) = await _makeWorld();
-    addTearDown(container.dispose);
-    final failing = PixivHttpClient(
-      client: MockClient((request) async {
+    final failing = _clientOver(
+      container,
+      MockClient((request) async {
         throw http.ClientException('certificate verify failed');
       }),
-      accountStore: container.read(accountStoreProvider.notifier),
-      credentialStore: FakeCredentialStore(
-        values: const {
-          '100': Credential(
-            accessToken: 'old-access',
-            refreshToken: 'old-refresh',
-          ),
-        },
-      ),
-      oauthService: container.read(oauthServiceProvider),
     );
 
     await expectLater(
@@ -794,7 +731,6 @@ void main() {
       fixture: fixture,
       requestTimeout: const Duration(milliseconds: 30),
     );
-    addTearDown(container.dispose);
 
     await expectLater(
       client.getJson(Uri.parse(_api)),
@@ -804,7 +740,6 @@ void main() {
 
   test('cancellation before send throws ApiCancelled', () async {
     final (container, client, _, _) = await _makeWorld();
-    addTearDown(container.dispose);
     final token = CancelToken()..cancel();
 
     await expectLater(
@@ -819,7 +754,6 @@ void main() {
       final (container, client, _, _) = await _makeWorld(
         fixture: _Fixture(apiDelay: const Duration(milliseconds: 500)),
       );
-      addTearDown(container.dispose);
       final token = CancelToken();
 
       final request = client.getJson(Uri.parse(_api), cancelToken: token);
@@ -833,7 +767,6 @@ void main() {
   test('error objects never embed tokens or authorization material', () async {
     final fixture = _Fixture(refreshStatus: 400, rejectStaleSeed: true);
     final (container, client, _, _) = await _makeWorld(fixture: fixture);
-    addTearDown(container.dispose);
 
     Object? caught;
     try {

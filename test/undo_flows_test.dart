@@ -9,13 +9,13 @@ import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
 import 'package:parfait/core/user/follow_models.dart';
 import 'package:parfait/core/user/follow_store.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/bookmark_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/profile_world.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/localized_app.dart';
 
 const _bookmarkKey = BookmarkKey(BookmarkEntityType.illust, 1);
 
@@ -28,16 +28,11 @@ Future<void> _pumpPushed(
 ) async {
   final navigator = GlobalKey<NavigatorState>();
   await tester.pumpWidget(
-    UncontrolledProviderScope(
+    localizedApp(
       container: container,
-      child: MaterialApp(
-        builder: promptHostBuilder,
-        navigatorKey: navigator,
-        locale: const Locale('zh', 'CN'),
-        supportedLocales: const [Locale('zh', 'CN')],
-        localizationsDelegates: appLocalizationsDelegates,
-        home: const Scaffold(body: SizedBox.expand()),
-      ),
+      builder: promptHostBuilder,
+      navigatorKey: navigator,
+      home: const Scaffold(body: SizedBox.expand()),
     ),
   );
   navigator.currentState!.push(
@@ -65,13 +60,12 @@ void main() {
         restrict: BookmarkRestrict.private,
         tags: [BookmarkTagFacet(name: 'kept', isRegistered: true)],
       );
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [
         accountStoreProvider.overrideWith(StubAccountStore.new),
         bookmarkRepositoryProvider.overrideWithValue(repository),
       ],
     );
-    addTearDown(container.dispose);
     await container.read(accountStoreProvider.future);
     container
         .read(bookmarkStoreProvider.notifier)

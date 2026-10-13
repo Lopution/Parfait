@@ -11,8 +11,7 @@ import 'package:parfait/core/ugoira/ugoira_repository.dart';
 import 'package:parfait/core/ugoira/ugoira_zip.dart';
 import 'package:parfait/features/illust/detail/ugoira_viewer.dart';
 import 'package:visibility_detector/visibility_detector.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
+import 'helpers/localized_app.dart';
 
 void main() {
   installMemoryPreferences();
@@ -24,13 +23,9 @@ void main() {
     (tester) async {
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          const ProviderScope(
-            child: MaterialApp(
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: Locale('zh', 'CN'),
-
-              home: Scaffold(
+          ProviderScope(
+            child: localizedApp(
+              home: const Scaffold(
                 body: UgoiraViewer(
                   illustId: 42,
                   previewUrl: 'https://i.pximg.net/42/large.jpg',
@@ -70,13 +65,7 @@ void main() {
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
       withStalledImages(
-        MaterialApp(
-          navigatorKey: navigatorKey,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: const SizedBox.shrink(),
-        ),
+        localizedApp(navigatorKey: navigatorKey, home: const SizedBox.shrink()),
       ),
     );
     navigatorKey.currentState!.push<void>(
@@ -113,10 +102,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       withStalledImages(
-        const MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
+        localizedApp(
           home: Scaffold(
             body: UgoiraViewer(
               illustId: 42,
@@ -138,23 +124,18 @@ void main() {
 
   Future<void> pumpFailingViewer(WidgetTester tester, Object failure) async {
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [
           ugoiraRepositoryProvider.overrideWithValue(
             _FailingUgoiraRepository(failure),
           ),
         ],
-        child: const MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: Scaffold(
-            body: UgoiraViewer(
-              illustId: 42,
-              previewUrl: 'https://i.pximg.net/42/large.jpg',
-              width: 800,
-              height: 600,
-            ),
+        home: Scaffold(
+          body: UgoiraViewer(
+            illustId: 42,
+            previewUrl: 'https://i.pximg.net/42/large.jpg',
+            width: 800,
+            height: 600,
           ),
         ),
       ),

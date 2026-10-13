@@ -125,10 +125,9 @@ Future<(ProviderContainer, DownloadManager, FakeTransport)> makeDownloadWorld({
     sinkFactory: MemorySinkFactory(),
     maxConcurrent: maxConcurrent,
   );
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [downloadManagerProvider.overrideWithValue(manager)],
   );
-  addTearDown(container.dispose);
   return (container, manager, transport);
 }
 

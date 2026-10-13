@@ -8,13 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:octo_image/octo_image.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/network/api_error.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/features/home/recommended/recommended_illust_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -23,12 +18,11 @@ import 'package:parfait/core/illust/recommended_feed_controller.dart';
 import 'package:parfait/core/illust/recommended_illust_controller.dart';
 import 'package:parfait/core/illust/recommended_repository.dart'
     show RecommendedContentType;
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
 
 String _illustJson(int id, {bool bookmarked = false}) => jsonEncode({
   'id': id,
@@ -111,51 +105,13 @@ Future<(ProviderContainer, _ApiFixture)> makeWorld({
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final fixture = _ApiFixture(nextUrlOverride: nextUrlOverride);
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient((request) async {
-            fail('refresh should not happen in this test');
-          }),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) {
-          throw StateError('client not wired yet');
-        }
-        return client;
-      }),
-    ],
-  );
-  final client = PixivHttpClient(
-    client: failApi
+  final container = await signedInApiContainer(
+    failApi
         ? MockClient((request) async {
             throw http.ClientException('network unreachable');
           })
         : fixture.build(),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
   );
-  clientRef[0] = client;
-  // Hydrate the account store so the client has a usable account.
-  await container.read(accountStoreProvider.future);
   return (container, fixture);
 }
 
@@ -166,7 +122,6 @@ void main() {
 
   test('initial load fetches real-shaped pages and merges the store', () async {
     final (container, _) = await makeWorld();
-    addTearDown(container.dispose);
 
     final controller = container.read(
       recommendedIllustControllerProvider.notifier,
@@ -184,7 +139,6 @@ void main() {
 
   test('load-more deduplicates across pages and reaches exhausted', () async {
     final (container, fixture) = await makeWorld();
-    addTearDown(container.dispose);
 
     final controller = container.read(
       recommendedIllustControllerProvider.notifier,
@@ -207,7 +161,6 @@ void main() {
       nextUrlOverride:
           'https://evil.example.com/v1/illust/recommended?offset=1',
     );
-    addTearDown(container.dispose);
 
     final controller = container.read(
       recommendedIllustControllerProvider.notifier,
@@ -236,11 +189,6 @@ void main() {
     'novel recommended follows a next_url with a rewritten filter',
     () async {
       SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-      final credentials = FakeCredentialStore()
-        ..seed(
-          '100',
-          const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-        );
       var pageRequests = 0;
       final transport = MockClient((request) async {
         pageRequests += 1;
@@ -249,26 +197,7 @@ void main() {
           jsonEncode({
             'novels': [
               for (var id = first ? 1 : 3; id < (first ? 3 : 5); id++)
-                {
-                  'id': id,
-                  'title': 'recommended novel $id',
-                  'caption': '',
-                  'restrict': 0,
-                  'x_restrict': 0,
-                  'image_urls': {'medium': 'https://i.pximg.net/$id/m.png'},
-                  'tags': <Object>[],
-                  'text_length': 1200,
-                  'user': {
-                    'id': 99,
-                    'name': 'author',
-                    'account': 'author',
-                    'profile_image_urls': {
-                      'medium': 'https://i.pximg.net/u.png',
-                    },
-                  },
-                  'is_bookmarked': false,
-                  'visible': true,
-                },
+                novelJson(id, title: 'recommended novel $id'),
             ],
             'next_url': first
                 ? 'https://app-api.pixiv.net/v1/novel/recommended'
@@ -279,38 +208,7 @@ void main() {
           headers: {'content-type': 'application/json'},
         );
       });
-      final clientRef = <PixivHttpClient?>[null];
-      final container = ProviderContainer(
-        overrides: [
-          credentialStoreProvider.overrideWithValue(credentials),
-          accountMetadataRepositoryProvider.overrideWithValue(
-            FakeAccountMetadataRepository(
-              accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-              currentId: '100',
-            ),
-          ),
-          oauthServiceProvider.overrideWithValue(
-            OAuthService(
-              client: MockClient((request) async {
-                fail('refresh should not happen in this test');
-              }),
-            ),
-          ),
-          pixivHttpClientProvider.overrideWith((ref) {
-            final client = clientRef[0];
-            if (client == null) throw StateError('client not wired yet');
-            return client;
-          }),
-        ],
-      );
-      addTearDown(container.dispose);
-      clientRef[0] = PixivHttpClient(
-        client: transport,
-        accountStore: container.read(accountStoreProvider.notifier),
-        credentialStore: credentials,
-        oauthService: container.read(oauthServiceProvider),
-      );
-      await container.read(accountStoreProvider.future);
+      final container = await signedInApiContainer(transport);
 
       const key = (type: RecommendedContentType.novel);
       final first = await container.read(recommendedFeedProvider(key).future);
@@ -332,7 +230,6 @@ void main() {
 
   test('initial network failure surfaces a retryable error state', () async {
     final (container, _) = await makeWorld(failApi: true);
-    addTearDown(container.dispose);
 
     final state = await container.read(
       recommendedIllustControllerProvider.future,
@@ -352,7 +249,6 @@ void main() {
 
   test('refresh failure keeps existing content and cursor', () async {
     final (container, _) = await makeWorld();
-    addTearDown(container.dispose);
 
     final controller = container.read(
       recommendedIllustControllerProvider.notifier,
@@ -375,22 +271,15 @@ void main() {
 
   testWidgets('IllustCard hands quality changes off gaplessly', (tester) async {
     final (container, _) = await makeWorld();
-    addTearDown(container.dispose);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedApp(
           container: container,
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-
-            home: Scaffold(
-              body: SizedBox(
-                width: 300,
-                child: IllustCard(
-                  entity: parseIllust(illustJson(10, width: 800, height: 1200)),
-                ),
+          home: Scaffold(
+            body: SizedBox(
+              width: 300,
+              child: IllustCard(
+                entity: parseIllust(illustJson(10, width: 800, height: 1200)),
               ),
             ),
           ),
@@ -414,20 +303,14 @@ void main() {
     final entity = parseIllust(illustJson(8));
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedApp(
           container: container,
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-
-            home: SingleChildScrollView(
-              child: Column(
-                children: [
-                  IllustCard(entity: entity, heroScope: 'ranking:day'),
-                  IllustCard(entity: entity, heroScope: 'search:blue-archive'),
-                ],
-              ),
+          home: SingleChildScrollView(
+            child: Column(
+              children: [
+                IllustCard(entity: entity, heroScope: 'ranking:day'),
+                IllustCard(entity: entity, heroScope: 'search:blue-archive'),
+              ],
             ),
           ),
         ),
@@ -444,7 +327,6 @@ void main() {
 
   testWidgets('appending a page leaves the built cards alone', (tester) async {
     final (container, _) = await makeWorld();
-    addTearDown(container.dispose);
     Element bodyOf(int id) {
       Element? body;
       tester
@@ -455,15 +337,7 @@ void main() {
 
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: RecommendedIllustPage(),
-          ),
-        ),
+        localizedApp(container: container, home: RecommendedIllustPage()),
       );
       await tester.pumpAndSettle();
       final before = bodyOf(1).widget;

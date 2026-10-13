@@ -1,6 +1,5 @@
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,12 +9,11 @@ import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:parfait/features/novel/novel_reader_stage.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
 
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/localized_app.dart';
 
 /// Stage-level test with a recording progress binding: pins the D1 write
 /// gate — only user-committed turns reach `save`.
@@ -291,31 +289,26 @@ Widget _stageApp(
   ThemeData? theme,
   TranslationTransport? translation,
 }) {
-  return ProviderScope(
+  return localizedApp(
     overrides: [
       if (preferences != null)
         sharedPreferencesProvider.overrideWithValue(preferences),
       if (translation != null)
         translationServiceProvider.overrideWithValue(translation),
     ],
-    child: MaterialApp(
-      builder: promptHostBuilder,
-      theme: theme,
-      localizationsDelegates: appLocalizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('zh', 'CN'),
-      home: Scaffold(
-        body: NovelReaderStage(
-          spec: NovelReaderStageSpec(
-            novel:
-                novel ??
-                (chapters
-                    ? _novelWithChapters()
-                    : _novel(text ?? 'reader ' * 400)),
-            infoTooltip: 'info',
-            infoSheet: (context) => const Text('info sheet'),
-            progress: binding,
-          ),
+    builder: promptHostBuilder,
+    theme: theme,
+    home: Scaffold(
+      body: NovelReaderStage(
+        spec: NovelReaderStageSpec(
+          novel:
+              novel ??
+              (chapters
+                  ? _novelWithChapters()
+                  : _novel(text ?? 'reader ' * 400)),
+          infoTooltip: 'info',
+          infoSheet: (context) => const Text('info sheet'),
+          progress: binding,
         ),
       ),
     ),

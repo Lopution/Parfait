@@ -3,18 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/app_tab_bar.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
 
 Widget _host(
   List<String> labels, {
   double textScale = 1,
   ValueChanged<int>? onTap,
 }) {
-  return MaterialApp(
+  return localizedApp(
     theme: replicaTheme(Brightness.light),
-    locale: const Locale('zh'),
-    localizationsDelegates: appLocalizationsDelegates,
-    supportedLocales: const [Locale('zh')],
     home: MediaQuery(
       data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
       child: Scaffold(
@@ -35,9 +33,7 @@ Future<void> _pumpBar(
   double textScale = 1,
   ValueChanged<int>? onTap,
 }) async {
-  tester.view.physicalSize = const Size(411, 800);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
+  setViewSize(tester, const Size(411, 800));
   await tester.pumpWidget(_host(labels, textScale: textScale, onTap: onTap));
   await tester.pump();
 }

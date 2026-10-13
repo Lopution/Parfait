@@ -11,15 +11,11 @@ import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/entity/illust_store.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/widgets/tab_swipe_switcher.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
@@ -29,12 +25,13 @@ import 'package:parfait/core/network/next_page_parser.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/core/illust/ranking_feed_controller.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
 
 Map<String, dynamic> _illust(int id) => {
   'id': id,
@@ -94,9 +91,8 @@ class _RankingFixture {
     if (blockResponses) await release.future;
     final mode = request.url.queryParameters['mode']!;
     final isFirst = request.url.queryParameters['offset'] == null;
-    final accountOffset = request.headers['authorization'] == 'Bearer access-2'
-        ? 100
-        : 0;
+    final accountOffset =
+        request.headers['authorization'] == 'Bearer access-200' ? 100 : 0;
     final start = accountOffset + (isFirst ? 1 : 3);
     final nextMode = mismatchedNextMode?.apiValue ?? mode;
     // Pixiv echoes a past ranking's date into next_url.
@@ -125,57 +121,39 @@ Future<(ProviderContainer, _RankingFixture)> _makeWorld({
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final activeFixture = fixture ?? _RankingFixture();
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    )
-    ..seed(
-      '200',
-      const Credential(accessToken: 'access-2', refreshToken: 'refresh-2'),
-    );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
+  final container = await signedInApiContainer(
+    activeFixture.client(),
+    others: [
+      if (twoAccounts) const Account(id: '200', userId: 200, name: 'second'),
+    ],
     overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
       feedSnapshotStoreProvider.overrideWithValue(
         snapshots ?? MemoryFeedSnapshotStore(),
       ),
       // Snapshot writes encode inline so a test can await them.
       dataWorkerProvider.overrideWithValue(const InlineDataWorker()),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: [
-            const Account(id: '100', userId: 100, name: 'tester'),
-            if (twoAccounts)
-              const Account(id: '200', userId: 200, name: 'second'),
-          ],
-          currentId: '100',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient((request) async {
-            fail('refresh should not happen in ranking fixture');
-          }),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client not wired yet');
-        return client;
-      }),
     ],
   );
-  final client = PixivHttpClient(
-    client: activeFixture.client(),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  clientRef[0] = client;
-  await container.read(accountStoreProvider.future);
   return (container, activeFixture);
+}
+
+/// The ranking route on a compact phone, settled.
+Future<GoRouter> _pumpRanking(
+  WidgetTester tester,
+  ProviderContainer container, {
+  TransitionBuilder? builder,
+}) async {
+  // Compact viewport: at ≥600px the shell swaps the bottom bar for a rail
+  // and FuncShellBottomNav leaves the tree.
+  setViewSize(tester, const Size(390, 844));
+  final router = pixivRouter('/ranking');
+  await tester.pumpWidget(
+    localizedRouterApp(router, container: container, builder: builder),
+  );
+  await tester.pump();
+  await tester.pump();
+  await tester.pumpAndSettle();
+  return router;
 }
 
 void main() {
@@ -185,7 +163,6 @@ void main() {
 
   test('each mode has independent first page and load-more state', () async {
     final (container, fixture) = await _makeWorld();
-    addTearDown(container.dispose);
 
     final day = await container.read(
       rankingFeedControllerProvider((mode: RankingMode.day, date: null)).future,
@@ -230,7 +207,6 @@ void main() {
     final (container, _) = await _makeWorld(
       fixture: (_RankingFixture()..mismatchedNextMode = RankingMode.week),
     );
-    addTearDown(container.dispose);
 
     final state = await container.read(
       rankingFeedControllerProvider((mode: RankingMode.day, date: null)).future,
@@ -254,7 +230,6 @@ void main() {
     'account switching resets the mode controller and entity store',
     () async {
       final (container, fixture) = await _makeWorld(twoAccounts: true);
-      addTearDown(container.dispose);
 
       final provider = rankingFeedControllerProvider((
         mode: RankingMode.day,
@@ -279,7 +254,6 @@ void main() {
 
     test('a past day is requested and paged with its date', () async {
       final (container, fixture) = await _makeWorld();
-      addTearDown(container.dispose);
       final provider = rankingFeedControllerProvider((
         mode: RankingMode.day,
         date: pastDay,
@@ -332,7 +306,6 @@ void main() {
     test('only the latest ranking writes the cold-start snapshot', () async {
       final snapshots = MemoryFeedSnapshotStore();
       final (container, _) = await _makeWorld(snapshots: snapshots);
-      addTearDown(container.dispose);
 
       await container.read(
         rankingFeedControllerProvider((
@@ -369,22 +342,9 @@ void main() {
       ProviderContainer container,
       String location,
     ) async {
-      final router = createPixivRouter(initialLocation: location);
-      addTearDown(router.dispose);
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: router,
-          ),
-        ),
-      );
+      final router = pixivRouter(location);
+      setViewSize(tester, const Size(390, 844));
+      await tester.pumpWidget(localizedRouterApp(router, container: container));
       await tester.pump();
       await tester.pump();
       await tester.pumpAndSettle();
@@ -395,7 +355,6 @@ void main() {
       tester,
     ) async {
       final (container, fixture) = await _makeWorld();
-      addTearDown(container.dispose);
 
       await mockNetworkImagesFor(() async {
         final router = await pumpRanking(
@@ -429,7 +388,6 @@ void main() {
     for (final raw in ['2999-01-01', '2007-09-12', '2025-13-01', 'yesterday']) {
       testWidgets('date=$raw opens the latest ranking', (tester) async {
         final (container, fixture) = await _makeWorld();
-        addTearDown(container.dispose);
 
         await mockNetworkImagesFor(() async {
           await pumpRanking(tester, container, '/ranking?mode=day&date=$raw');
@@ -444,7 +402,6 @@ void main() {
 
     testWidgets('the picker stops at yesterday in Japan', (tester) async {
       final (container, _) = await _makeWorld();
-      addTearDown(container.dispose);
 
       await mockNetworkImagesFor(() async {
         final router = await pumpRanking(tester, container, '/ranking');
@@ -473,7 +430,6 @@ void main() {
   test('cancel returns an active feed to idle without an error', () async {
     final fixture = _RankingFixture()..blockResponses = true;
     final (container, _) = await _makeWorld(fixture: fixture);
-    addTearDown(container.dispose);
 
     final future = container.read(
       rankingFeedControllerProvider((mode: RankingMode.day, date: null)).future,
@@ -502,30 +458,13 @@ void main() {
       final (container, fixture) = await _makeWorld(
         fixture: _RankingFixture(itemsPerPage: 4),
       );
-      addTearDown(container.dispose);
-      final router = createPixivRouter(initialLocation: '/ranking');
-      addTearDown(router.dispose);
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-
       await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: MaterialApp.router(
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-              routerConfig: router,
-              builder: (context, child) =>
-                  MotionScope(reduce: reduce, child: child!),
-            ),
-          ),
+        final router = await _pumpRanking(
+          tester,
+          container,
+          builder: (context, child) =>
+              MotionScope(reduce: reduce, child: child!),
         );
-        await tester.pump();
-        await tester.pump();
-        await tester.pumpAndSettle();
 
         // Neighbour warm-up can interleave requests, so assert on the
         // request the landing produced (not merely the last one).
@@ -568,28 +507,8 @@ void main() {
     final (container, _) = await _makeWorld(
       fixture: _RankingFixture(itemsPerPage: 4),
     );
-    addTearDown(container.dispose);
-    final router = createPixivRouter(initialLocation: '/ranking');
-    addTearDown(router.dispose);
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
     await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: router,
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
+      final router = await _pumpRanking(tester, container);
       // The test host is desktop: SmoothWheelScroll leaves wheel mode on
       // the first pointer down and rebuilds its scrollable once. Spend that
       // on a short drag that does not commit.
@@ -628,30 +547,8 @@ void main() {
     final (container, fixture) = await _makeWorld(
       fixture: _RankingFixture(itemsPerPage: 24),
     );
-    addTearDown(container.dispose);
-    final router = createPixivRouter(initialLocation: '/ranking');
-    addTearDown(router.dispose);
-    // Compact viewport: at ≥600px the shell swaps the bottom bar for a
-    // rail and FuncShellBottomNav leaves the tree.
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-
     await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: router,
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
+      await _pumpRanking(tester, container);
 
       final feedView = find.descendant(
         of: find.byType(RankingPage),

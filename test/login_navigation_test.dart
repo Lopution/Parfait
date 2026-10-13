@@ -16,11 +16,10 @@ import 'package:parfait/features/login/login_page.dart';
 import 'package:parfait/features/login/login_webview_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
 
 /// Minimal WebView platform stub so pages can build in widget tests.
 class _FakeWebViewPlatform extends WebViewPlatform {
@@ -197,17 +196,12 @@ void main() {
     (tester) async {
       final service = OAuthService(exchangeTimeout: Duration.zero);
       await tester.pumpWidget(
-        ProviderScope(
+        localizedApp(
           overrides: [
             ...accountProviderOverrides(),
             oauthServiceProvider.overrideWithValue(service),
           ],
-          child: MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: LoginWebViewPage(oauthService: service),
-          ),
+          home: LoginWebViewPage(oauthService: service),
         ),
       );
       await tester.pumpAndSettle();
@@ -254,17 +248,12 @@ void main() {
   ) async {
     final service = OAuthService(exchangeTimeout: Duration.zero);
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [
           ...accountProviderOverrides(),
           oauthServiceProvider.overrideWithValue(service),
         ],
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: LoginWebViewPage(oauthService: service),
-        ),
+        home: LoginWebViewPage(oauthService: service),
       ),
     );
     await tester.pumpAndSettle();
@@ -300,18 +289,12 @@ void main() {
   Future<OAuthService> pumpLoginPage(WidgetTester tester) async {
     final service = OAuthService(exchangeTimeout: Duration.zero);
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [
           ...accountProviderOverrides(),
           oauthServiceProvider.overrideWithValue(service),
         ],
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-
-          home: LoginWebViewPage(oauthService: service),
-        ),
+        home: LoginWebViewPage(oauthService: service),
       ),
     );
     await tester.pumpAndSettle();
@@ -436,17 +419,12 @@ void main() {
   ) async {
     final service = _SpyOAuthService();
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [
           ...accountProviderOverrides(),
           oauthServiceProvider.overrideWithValue(service),
         ],
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: LoginWebViewPage(oauthService: service),
-        ),
+        home: LoginWebViewPage(oauthService: service),
       ),
     );
     await tester.pumpAndSettle();
@@ -484,21 +462,16 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [
           ...accountProviderOverrides(),
           oauthServiceProvider.overrideWithValue(
             OAuthService(exchangeTimeout: Duration.zero),
           ),
         ],
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          home: LoginWebViewPage(
-            create: true,
-            oauthService: OAuthService(exchangeTimeout: Duration.zero),
-          ),
+        home: LoginWebViewPage(
+          create: true,
+          oauthService: OAuthService(exchangeTimeout: Duration.zero),
         ),
       ),
     );
@@ -588,7 +561,7 @@ void main() {
     final policy = NetworkAccessPolicy();
     addTearDown(policy.dispose);
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [
           networkAccessPolicyProvider.overrideWithValue(policy),
           ...accountProviderOverrides(),
@@ -596,12 +569,7 @@ void main() {
             OAuthService(exchangeTimeout: Duration.zero),
           ),
         ],
-        child: const MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: LoginPage(),
-        ),
+        home: LoginPage(),
       ),
     );
     await tester.pumpAndSettle();
@@ -624,12 +592,7 @@ void main() {
           OAuthService(exchangeTimeout: Duration.zero),
         ),
       ],
-      child: const MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: Locale('zh', 'CN'),
-        home: LoginPage(),
-      ),
+      child: localizedApp(home: LoginPage()),
     );
 
     testWidgets('retry performs a real second read and recovers', (

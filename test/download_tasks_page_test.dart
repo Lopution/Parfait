@@ -23,6 +23,7 @@ import 'helpers/download_world.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/localized_app.dart';
 
 Future<void> _pumpPage(WidgetTester tester, ProviderContainer container) async {
   await tester.pumpWidget(
@@ -307,10 +308,9 @@ void main() {
     final report = await manager.recover();
     expect(report.retryableJobIds, ['job-7']);
     expect(manager.taskById('job-7')!.failureKind, isNull);
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [downloadManagerProvider.overrideWithValue(manager)],
     );
-    addTearDown(container.dispose);
 
     await _pumpPage(tester, container);
 
@@ -590,15 +590,10 @@ void main() {
       );
       addTearDown(router.dispose);
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedRouterApp(
+          router,
           container: container,
-          child: MaterialApp.router(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: const [Locale('zh')],
-            locale: const Locale('zh'),
-            routerConfig: router,
-          ),
+          builder: promptHostBuilder,
         ),
       );
       await tester.pump();

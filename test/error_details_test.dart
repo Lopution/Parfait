@@ -7,17 +7,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/widgets/errors/error_details.dart';
 import 'package:parfait/core/errors/error_category.dart';
 import 'package:parfait/core/logging/crash_log.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/context.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/localized_app.dart';
 
 Widget _host(Widget child) {
-  return MaterialApp(
+  return localizedApp(
     builder: promptHostBuilder,
-    localizationsDelegates: appLocalizationsDelegates,
-    supportedLocales: AppLocalizations.supportedLocales,
-    locale: const Locale('zh', 'CN'),
     home: Scaffold(body: Center(child: child)),
   );
 }

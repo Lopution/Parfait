@@ -25,22 +25,31 @@ void main() {
     if (directory.existsSync()) await directory.delete(recursive: true);
   });
 
+  // A coordinator downloading through [transport] into the test directory.
+  UpdateDownloadCoordinator coordinatorOver(
+    DownloadTransport transport, [
+    FakeUpdatePlatform? platform,
+  ]) {
+    final manager = DownloadManager(
+      transport: transport,
+      sinkFactory: UpdateFileSinkFactory(directory),
+    );
+    addTearDown(manager.dispose);
+    return UpdateDownloadCoordinator(
+      manager: manager,
+      platform: platform ?? FakeUpdatePlatform(),
+      directory: directory,
+      stateStore: MemoryUpdateDownloadStateStore(),
+    );
+  }
+
   test(
     'streams APK to an owned file and verifies exact size/hash/signer',
     () async {
       final bytes = <int>[1, 2, 3, 4];
       final release = _release(bytes);
       final platform = FakeUpdatePlatform();
-      final manager = DownloadManager(
-        transport: _BytesTransport(bytes),
-        sinkFactory: UpdateFileSinkFactory(directory),
-      );
-      final coordinator = UpdateDownloadCoordinator(
-        manager: manager,
-        platform: platform,
-        directory: directory,
-        stateStore: MemoryUpdateDownloadStateStore(),
-      );
+      final coordinator = coordinatorOver(_BytesTransport(bytes), platform);
 
       final result = await coordinator.download(release);
 
@@ -48,7 +57,6 @@ void main() {
       expect(result.path, isNotNull);
       expect(File(result.path!).readAsBytesSync(), bytes);
       expect(platform.verifyCalls, 1);
-      await manager.dispose();
     },
   );
 
@@ -59,39 +67,20 @@ void main() {
       3,
       4,
     ], expectedHash: List.filled(64, '0').join());
-    final manager = DownloadManager(
-      transport: _BytesTransport(<int>[1, 2, 3, 4]),
-      sinkFactory: UpdateFileSinkFactory(directory),
-    );
-    final coordinator = UpdateDownloadCoordinator(
-      manager: manager,
-      platform: FakeUpdatePlatform(),
-      directory: directory,
-      stateStore: MemoryUpdateDownloadStateStore(),
-    );
+    final coordinator = coordinatorOver(_BytesTransport(<int>[1, 2, 3, 4]));
 
     final result = await coordinator.download(release);
 
     expect(result.status, UpdateApplyStatus.failed);
     expect(result.errorCode, 'apk_hash_mismatch');
     expect(directory.listSync(), isEmpty);
-    await manager.dispose();
   });
 
   test(
     'cancel stops the active updater download and removes its APK',
     () async {
       final transport = _BlockingTransport();
-      final manager = DownloadManager(
-        transport: transport,
-        sinkFactory: UpdateFileSinkFactory(directory),
-      );
-      final coordinator = UpdateDownloadCoordinator(
-        manager: manager,
-        platform: FakeUpdatePlatform(),
-        directory: directory,
-        stateStore: MemoryUpdateDownloadStateStore(),
-      );
+      final coordinator = coordinatorOver(transport);
       final download = coordinator.download(_release(<int>[1, 2, 3, 4]));
 
       await transport.opened.future;
@@ -101,7 +90,6 @@ void main() {
 
       expect(result.status, UpdateApplyStatus.canceled);
       expect(directory.listSync(), isEmpty);
-      await manager.dispose();
     },
   );
 
@@ -110,18 +98,8 @@ void main() {
     () async {
       final release = _release(<int>[1, 2, 3, 4]);
       final platform = FakeUpdatePlatform();
-      final downloader = _FakeDownloader(
-        const UpdateApplyResult(
-          status: UpdateApplyStatus.downloaded,
-          path: '/owned/update.apk',
-        ),
-      );
-      final service = UpdateService(
-        manifestTransport: UnusedManifestTransport(),
-        platform: platform,
-        signatureVerifier: _AlwaysValidSignature(),
-        downloader: downloader,
-      );
+      final downloader = _downloaded();
+      final service = _service(downloader, platform);
 
       final result = await service.apply(release);
 
@@ -136,18 +114,8 @@ void main() {
     () async {
       final release = _release(<int>[1, 2, 3, 4]);
       final platform = FakeUpdatePlatform();
-      final downloader = _FakeDownloader(
-        const UpdateApplyResult(
-          status: UpdateApplyStatus.downloaded,
-          path: '/owned/update.apk',
-        ),
-      );
-      final service = UpdateService(
-        manifestTransport: UnusedManifestTransport(),
-        platform: platform,
-        signatureVerifier: _AlwaysValidSignature(),
-        downloader: downloader,
-      );
+      final downloader = _downloaded();
+      final service = _service(downloader, platform);
 
       final result = await service.apply(release, confirmed: true);
 
@@ -162,12 +130,7 @@ void main() {
     final downloader = _FakeDownloader(
       const UpdateApplyResult(status: UpdateApplyStatus.failed),
     );
-    final service = UpdateService(
-      manifestTransport: UnusedManifestTransport(),
-      platform: FakeUpdatePlatform(),
-      signatureVerifier: _AlwaysValidSignature(),
-      downloader: downloader,
-    );
+    final service = _service(downloader);
 
     await service.cancel();
 
@@ -179,18 +142,8 @@ void main() {
     final platform = FakeUpdatePlatform(
       installError: const UpdatePlatformException('installer_unavailable'),
     );
-    final downloader = _FakeDownloader(
-      const UpdateApplyResult(
-        status: UpdateApplyStatus.downloaded,
-        path: '/owned/update.apk',
-      ),
-    );
-    final service = UpdateService(
-      manifestTransport: UnusedManifestTransport(),
-      platform: platform,
-      signatureVerifier: _AlwaysValidSignature(),
-      downloader: downloader,
-    );
+    final downloader = _downloaded();
+    final service = _service(downloader, platform);
 
     final result = await service.apply(release, confirmed: true);
 
@@ -222,105 +175,73 @@ void main() {
     );
   });
 
-  test('strict updater transport rejects a redirect to a non-APK URL', () async {
-    final transport = _ScriptedUpdaterTransport([
-      ScriptedHop(
-        contentLength: 0,
-        statusCode: 302,
-        location: 'https://github.com/Lopution/Parfait/releases/latest/notes',
-      ),
-    ]);
-    addTearDown(transport.dispose);
-
-    expect(
-      transport.open(
-        Uri.parse(
-          'https://github.com/Lopution/Parfait/releases/download/v0.1.1/app.apk',
-        ),
-        headers: const {},
-        cancelToken: DownloadCancelToken(),
-      ),
-      throwsA(isA<DownloadTransportException>()),
-    );
-  });
-
   test(
-    'strict updater transport accepts the GitHub CDN opaque asset path',
+    'strict updater transport rejects a redirect to a non-APK URL',
     () async {
       final transport = _ScriptedUpdaterTransport([
         ScriptedHop(
           contentLength: 0,
           statusCode: 302,
-          location:
-              'https://objects.githubusercontent.com/github-production-release-asset-2e65be/opaque-token',
+          location: 'https://github.com/Lopution/Parfait/releases/latest/notes',
         ),
-        ScriptedHop(contentLength: 0, statusCode: 200),
       ]);
       addTearDown(transport.dispose);
 
-      final response = await transport.open(
-        Uri.parse(
-          'https://github.com/Lopution/Parfait/releases/download/v0.1.1/app.apk',
-        ),
-        headers: const {},
-        cancelToken: DownloadCancelToken(),
-      );
-
-      expect(response.statusCode, 200);
+      expect(_openApk(transport), throwsA(isA<DownloadTransportException>()));
     },
   );
 
-  test(
-    'strict updater transport accepts the measured release-assets CDN hop',
-    () async {
-      // The chain measured on 2026-09-07: github.com 302 -> one hop to
-      // release-assets.githubusercontent.com whose path has no .apk suffix.
+  for (final (name, location) in [
+    (
+      'the GitHub CDN opaque asset path',
+      'https://objects.githubusercontent.com/github-production-release-asset-2e65be/opaque-token',
+    ),
+    // The chain measured on 2026-09-07: github.com 302 -> one hop to
+    // release-assets.githubusercontent.com whose path has no .apk suffix.
+    (
+      'the measured release-assets CDN hop',
+      'https://release-assets.githubusercontent.com/github-production-release-asset/1347042509/0f4d2c1e-0000-4000-8000-000000000000',
+    ),
+    ('a GitHub release redirect hop', _apkUrl),
+  ]) {
+    test('strict updater transport accepts $name', () async {
       final transport = _ScriptedUpdaterTransport([
-        ScriptedHop(
-          contentLength: 0,
-          statusCode: 302,
-          location:
-              'https://release-assets.githubusercontent.com/github-production-release-asset/1347042509/0f4d2c1e-0000-4000-8000-000000000000',
-        ),
+        ScriptedHop(contentLength: 0, statusCode: 302, location: location),
         ScriptedHop(contentLength: 0, statusCode: 200),
       ]);
       addTearDown(transport.dispose);
 
-      final response = await transport.open(
-        Uri.parse(
-          'https://github.com/Lopution/Parfait/releases/download/v0.1.1/app.apk',
-        ),
-        headers: const {},
-        cancelToken: DownloadCancelToken(),
-      );
+      expect((await _openApk(transport)).statusCode, 200);
+    });
+  }
+}
 
-      expect(response.statusCode, 200);
-    },
-  );
+const _apkUrl =
+    'https://github.com/Lopution/Parfait/releases/download/v0.1.1/app.apk';
 
-  test('strict updater transport accepts a GitHub release redirect hop', () async {
-    final transport = _ScriptedUpdaterTransport([
-      ScriptedHop(
-        contentLength: 0,
-        statusCode: 302,
-        location:
-            'https://github.com/Lopution/Parfait/releases/download/v0.1.1/app.apk',
-      ),
-      ScriptedHop(contentLength: 0, statusCode: 200),
-    ]);
-    addTearDown(transport.dispose);
-
-    final response = await transport.open(
-      Uri.parse(
-        'https://github.com/Lopution/Parfait/releases/download/v0.1.1/app.apk',
-      ),
+Future<DownloadResponse> _openApk(DownloadTransport transport) =>
+    transport.open(
+      Uri.parse(_apkUrl),
       headers: const {},
       cancelToken: DownloadCancelToken(),
     );
 
-    expect(response.statusCode, 200);
-  });
-}
+UpdateService _service(
+  _FakeDownloader downloader, [
+  FakeUpdatePlatform? platform,
+]) => UpdateService(
+  manifestTransport: UnusedManifestTransport(),
+  platform: platform ?? FakeUpdatePlatform(),
+  signatureVerifier: _AlwaysValidSignature(),
+  downloader: downloader,
+);
+
+_FakeDownloader _downloaded() => _FakeDownloader(
+  const UpdateApplyResult(
+    status: UpdateApplyStatus.downloaded,
+    path: '/owned/update.apk',
+  ),
+);
 
 UpdateRelease _release(List<int> bytes, {String? expectedHash}) {
   final hash = expectedHash ?? sha256.convert(bytes).toString();

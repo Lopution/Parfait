@@ -12,28 +12,22 @@ import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/share/share_service.dart';
 import 'package:parfait/features/settings/pages/muted_items_page.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 
 import 'helpers/recording_haptics.dart';
 import 'helpers/card_world.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/illust_detail_page_support.dart' show RecordingShareService;
 import 'helpers/prompt_host.dart';
+import 'helpers/localized_app.dart';
 
 /// Records the payloads the card sheet hands to the platform share
 /// boundary — the system sheet itself is plugin territory.
 Widget _cardApp(ProviderContainer container, Widget home) {
-  return UncontrolledProviderScope(
+  return localizedApp(
     container: container,
-    child: MaterialApp(
-      builder: promptHostBuilder,
-      localizationsDelegates: appLocalizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('zh', 'CN'),
-      home: Scaffold(
-        body: Center(child: SizedBox(width: 300, child: home)),
-      ),
+    builder: promptHostBuilder,
+    home: Scaffold(
+      body: Center(child: SizedBox(width: 300, child: home)),
     ),
   );
 }

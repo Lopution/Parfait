@@ -10,13 +10,8 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:parfait/core/network/data_worker.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/illust/illust_snapshot_codec.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/novel/novel_ranking_feed_controller.dart';
 import 'package:parfait/core/novel/novel_repository.dart';
 import 'package:parfait/core/novel/novel_store.dart';
@@ -27,25 +22,6 @@ import 'package:parfait/core/paging/paged_feed_controller.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
-
-Map<String, dynamic> _novelJson(int id) => {
-  'id': id,
-  'title': 'novel $id',
-  'caption': '',
-  'restrict': 0,
-  'x_restrict': 0,
-  'image_urls': {'medium': 'https://i.pximg.net/$id/m.png'},
-  'tags': <Object>[],
-  'text_length': 1200,
-  'user': {
-    'id': 99,
-    'name': 'author',
-    'account': 'author',
-    'profile_image_urls': {'medium': 'https://i.pximg.net/u.png'},
-  },
-  'is_bookmarked': false,
-  'visible': true,
-};
 
 /// Minimal entity payload in the NovelSnapshotCodec schema.
 Map<String, Object?> _novelSnapshotJson(int id) => {
@@ -92,7 +68,7 @@ class _RankingFixture {
     final start = isFirst ? 1 : 3;
     return http.Response(
       jsonEncode({
-        'novels': [for (var id = start; id < start + 2; id++) _novelJson(id)],
+        'novels': [for (var id = start; id < start + 2; id++) novelJson(id)],
         'next_url': isFirst
             ? 'https://app-api.pixiv.net/v1/novel/ranking'
                   '?filter=for_android&mode=day&offset=30'
@@ -128,33 +104,9 @@ Future<_World> _makeWorld() async {
     factory: databaseFactoryFfi,
     databasePath: path.join(directory.path, 'feeds.db'),
   );
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
+  final container = await signedInApiContainer(
+    fixture.client(),
     overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient((request) async {
-            fail('refresh should not happen in snapshot fixture');
-          }),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client not wired yet');
-        return client;
-      }),
       feedSnapshotStoreProvider.overrideWithValue(
         FeedSnapshotStore(database: database),
       ),
@@ -163,14 +115,6 @@ Future<_World> _makeWorld() async {
       dataWorkerProvider.overrideWithValue(const InlineDataWorker()),
     ],
   );
-  final client = PixivHttpClient(
-    client: fixture.client(),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  clientRef[0] = client;
-  await container.read(accountStoreProvider.future);
   return _World(container, fixture, database, directory);
 }
 

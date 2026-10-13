@@ -121,10 +121,9 @@ void main() {
     () async {
       final repository = FakeSettingsRepository(baseTestSettings())
         ..writeDelay = const Duration(milliseconds: 2);
-      final container = ProviderContainer(
+      final container = ProviderContainer.test(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
       );
-      addTearDown(container.dispose);
       final controller = container.read(settingsProvider.notifier);
       await container.read(settingsProvider.future);
 
@@ -155,10 +154,9 @@ void main() {
 
   test('setSearchFilters persists each type set independently', () async {
     final repository = FakeSettingsRepository(baseTestSettings());
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
     );
-    addTearDown(container.dispose);
     await container.read(settingsProvider.future);
 
     const illust = IllustSearchFilters(

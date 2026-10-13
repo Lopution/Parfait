@@ -12,10 +12,6 @@ import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/system_ui.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/novel/reader_settings.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
@@ -29,6 +25,7 @@ import 'package:parfait/app/widgets/feed/feed_states.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
 
 Future<ProviderContainer> _apiContainer({
   Map<String, Object> preferences = const {},
@@ -39,40 +36,8 @@ Future<ProviderContainer> _apiContainer({
   bool detailFails = false,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences(preferences);
-  final credentials = FakeCredentialStore(
-    values: const {
-      'account': Credential(
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
-      ),
-    },
-  );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: 'account', userId: 10, name: 'tester')],
-          currentId: 'account',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient(
-            (_) async => throw StateError('refresh is not expected'),
-          ),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client is not wired');
-        return client;
-      }),
-    ],
-  );
-  clientRef[0] = PixivHttpClient(
-    client: MockClient((request) async {
+  final container = await signedInApiContainer(
+    MockClient((request) async {
       if (request.url.path == '/v2/novel/detail') {
         await detailGate?.future;
         if (detailFails) return http.Response('{}', 503);
@@ -137,11 +102,8 @@ Object.defineProperty(window, 'pixiv', {value: {
       }
       return http.Response('not found', 404);
     }),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
+    account: const Account(id: 'account', userId: 10, name: 'tester'),
   );
-  await container.read(accountStoreProvider.future);
   return container;
 }
 
@@ -159,29 +121,38 @@ Future<void> _settleReader(WidgetTester tester) async {
   }
 }
 
-/// Mounts [NovelPage] and lets detail + webview + the async pagination
-/// land. Chrome still starts hidden; reveal it with a center tap.
+/// Mounts [NovelPage] (pushed over a host page when [pushed]) and lets the
+/// detail and webview fetches and the first layout pass land.
+Future<void> _mountReader(
+  WidgetTester tester,
+  ProviderContainer container, {
+  bool pushed = false,
+}) async {
+  await mockNetworkImagesFor(() async {
+    await tester.pumpWidget(
+      localizedApp(
+        container: container,
+        home: pushed ? const _Host() : const NovelPage(novelId: 1),
+      ),
+    );
+    if (pushed) {
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+    }
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+  });
+}
+
+/// [_mountReader], then waits out the async pagination. Chrome still starts
+/// hidden; reveal it with a center tap.
 Future<void> _openReader(
   WidgetTester tester,
   ProviderContainer container,
 ) async {
-  await mockNetworkImagesFor(() async {
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: NovelPage(novelId: 1),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(milliseconds: 300));
-    await _settleReader(tester);
-  });
+  await _mountReader(tester, container);
+  await mockNetworkImagesFor(() => _settleReader(tester));
 }
 
 Map<String, Object> _seriesNovel(int id, String title) => {
@@ -212,24 +183,7 @@ void main() {
     tester,
   ) async {
     final container = await _apiContainer();
-    addTearDown(container.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: NovelPage(novelId: 1),
-          ),
-        ),
-      );
-      // Detail + webview fetches, then the first layout pass.
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 300));
-    });
+    await _mountReader(tester, container);
 
     expect(find.byType(PageView), findsOneWidget);
     // Chrome is hidden by default: the title lives only in the chrome bar,
@@ -266,23 +220,7 @@ void main() {
     // R4: the hint waits for the bar's `dismissed` edge in both
     // directions — on no frame may a finder see both at once.
     final container = await _apiContainer();
-    addTearDown(container.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: NovelPage(novelId: 1),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 300));
-    });
+    await _mountReader(tester, container);
 
     bool hintShown() => find.textContaining('novel 1 ·').evaluate().isNotEmpty;
     bool barShown() =>
@@ -328,26 +266,7 @@ void main() {
     // already hidden a system back must leave the page outright (the
     // chrome-first interception only applies while chrome is visible).
     final container = await _apiContainer();
-    addTearDown(container.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: _Host(),
-          ),
-        ),
-      );
-      await tester.tap(find.text('open'));
-      await tester.pumpAndSettle();
-      // Detail + webview fetches, then the first layout pass.
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 300));
-    });
+    await _mountReader(tester, container, pushed: true);
 
     expect(find.byType(PageView), findsOneWidget);
     // Chrome starts hidden — the back affordance is not on screen.
@@ -363,26 +282,7 @@ void main() {
     tester,
   ) async {
     final container = await _apiContainer();
-    addTearDown(container.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: _Host(),
-          ),
-        ),
-      );
-      await tester.tap(find.text('open'));
-      await tester.pumpAndSettle();
-      // Detail + webview fetches, then the first layout pass.
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 300));
-    });
+    await _mountReader(tester, container, pushed: true);
 
     expect(find.byType(PageView), findsOneWidget);
 
@@ -408,17 +308,8 @@ void main() {
       if (!gate.isCompleted) gate.complete();
     });
     final container = await _apiContainer(detailGate: gate);
-    addTearDown(container.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: NovelPage(novelId: 1),
-        ),
-      ),
+      localizedApp(container: container, home: NovelPage(novelId: 1)),
     );
     await tester.pump();
     await tester.pump();
@@ -437,17 +328,8 @@ void main() {
     tester,
   ) async {
     final container = await _apiContainer(detailFails: true);
-    addTearDown(container.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: NovelPage(novelId: 1),
-        ),
-      ),
+      localizedApp(container: container, home: NovelPage(novelId: 1)),
     );
     // No retry backoff in between: the first failure is the error state.
     // (Riverpod's default retry would first wait 200ms, then longer.)
@@ -475,7 +357,6 @@ void main() {
             : _seriesResponse([_seriesNovel(1, 'one'), _seriesNovel(2, 'two')]);
       },
     );
-    addTearDown(container.dispose);
     await _openReader(tester, container);
     await tester.tapAt(const Offset(400, 300));
     await tester.pumpAndSettle();
@@ -508,7 +389,6 @@ void main() {
       seriesHandler: (_) async =>
           _seriesResponse([_seriesNovel(2, 'two'), _seriesNovel(3, 'three')]),
     );
-    addTearDown(container.dispose);
     await _openReader(tester, container);
     await tester.tapAt(const Offset(400, 300));
     await tester.pumpAndSettle();
@@ -553,7 +433,6 @@ void main() {
       seriesHandler: (_) async =>
           _seriesResponse([_seriesNovel(1, 'one'), _seriesNovel(2, 'two')]),
     );
-    addTearDown(container.dispose);
     await _openReader(tester, container);
 
     for (var i = 0; i < 3; i++) {
@@ -590,26 +469,7 @@ void main() {
     );
 
     final container = await _apiContainer();
-    addTearDown(container.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: _Host(),
-          ),
-        ),
-      );
-      await tester.tap(find.text('open'));
-      await tester.pumpAndSettle();
-      // Detail + webview fetches, then the first layout pass.
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 300));
-    });
+    await _mountReader(tester, container, pushed: true);
 
     expect(
       modes.last,
@@ -668,25 +528,7 @@ void main() {
     );
 
     final container = await _apiContainer();
-    addTearDown(container.dispose);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: _Host(),
-          ),
-        ),
-      );
-      await tester.tap(find.text('open'));
-      await tester.pumpAndSettle();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 300));
-    });
+    await _mountReader(tester, container, pushed: true);
 
     // Reveal the chrome (edgeToEdge), then leave through the explicit
     // back control: the mode must already be ambient on the first frame
@@ -721,20 +563,15 @@ void main() {
       final container = await _apiContainer();
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          UncontrolledProviderScope(
+          localizedApp(
             container: container,
-            child: MaterialApp(
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-              builder: (context, child) => MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: TextScaler.linear(scale)),
-                child: child!,
-              ),
-              home: const NovelPage(novelId: 1),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(scale)),
+              child: child!,
             ),
+            home: const NovelPage(novelId: 1),
           ),
         );
         await tester.pump();
@@ -787,7 +624,6 @@ void main() {
         ),
       },
     );
-    addTearDown(container.dispose);
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
         UncontrolledProviderScope(

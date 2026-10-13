@@ -21,11 +21,12 @@ import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/features/search/tag_search_page.dart';
 import 'package:parfait/features/settings/settings_page.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
 
 /// The shell's own bar, while it is on stage.
 final _shellBar = find.descendant(
@@ -47,19 +48,9 @@ void main() {
   testWidgets('shell owns the active tab and preserves branch stacks', (
     tester,
   ) async {
-    final router = createPixivRouter(initialLocation: '/recommended');
-    addTearDown(router.dispose);
+    final router = pixivRouter('/recommended');
 
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
+    await tester.pumpWidget(ProviderScope(child: localizedRouterApp(router)));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -88,19 +79,9 @@ void main() {
   });
 
   testWidgets('branch back returns to the recommended root', (tester) async {
-    final router = createPixivRouter(initialLocation: '/recommended');
-    addTearDown(router.dispose);
+    final router = pixivRouter('/recommended');
 
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
+    await tester.pumpWidget(ProviderScope(child: localizedRouterApp(router)));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -114,18 +95,8 @@ void main() {
   });
 
   Future<GoRouter> pumpRouter(WidgetTester tester, String location) async {
-    final router = createPixivRouter(initialLocation: location);
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
+    final router = pixivRouter(location);
+    await tester.pumpWidget(ProviderScope(child: localizedRouterApp(router)));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     return router;
@@ -196,22 +167,10 @@ void main() {
   testWidgets('a pushed branch route covers the bar and hands it back', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final router = createPixivRouter(initialLocation: '/recommended');
-    addTearDown(router.dispose);
+    setViewSize(tester, const Size(390, 844));
+    final router = pixivRouter('/recommended');
 
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
+    await tester.pumpWidget(ProviderScope(child: localizedRouterApp(router)));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -246,24 +205,12 @@ void main() {
   testWidgets('a deep link that builds the stack covers the bar', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setViewSize(tester, const Size(390, 844));
     // A cold start from a link builds root + pushed page in one go: no
     // didPushNext ever reaches the branch root.
-    final router = createPixivRouter(initialLocation: '/recommended/history');
-    addTearDown(router.dispose);
+    final router = pixivRouter('/recommended/history');
 
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp.router(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
-      ),
-    );
+    await tester.pumpWidget(ProviderScope(child: localizedRouterApp(router)));
     await tester.pumpAndSettle();
     expect(_shellBar, findsNothing);
 
@@ -277,9 +224,7 @@ void main() {
   testWidgets('settings pushes over the shell and returns to the tab', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setViewSize(tester, const Size(390, 844));
     final router = await pumpRouter(tester, '/recommended');
 
     // Settings is the fifth home destination: opening it switches the shell
@@ -303,9 +248,7 @@ void main() {
   testWidgets('openDownloadTasks lands on the root downloads route', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setViewSize(tester, const Size(390, 844));
     final router = await pumpRouter(tester, '/recommended');
 
     // The submission SnackBar's 查看 action pushes the tasks page

@@ -15,18 +15,17 @@ import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/user/follow_store.dart';
 import 'package:parfait/features/profile/profile_header_delegate.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/profile_world.dart';
+import 'helpers/localized_app.dart';
 
 Future<ProviderContainer> _world({FollowRepository? follows}) async {
   installMemoryPreferences();
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       if (follows != null) followRepositoryProvider.overrideWithValue(follows),
       ...accountProviderOverrides(
@@ -38,15 +37,13 @@ Future<ProviderContainer> _world({FollowRepository? follows}) async {
             ),
           },
         ),
-        metadataRepository: FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'me')],
-          currentId: '100',
+        metadataRepository: FakeAccountMetadataRepository.signedIn(
+          const Account(id: '100', userId: 100, name: 'me'),
         ),
       ),
     ],
   );
   await container.read(accountStoreProvider.future);
-  addTearDown(container.dispose);
   return container;
 }
 
@@ -58,23 +55,19 @@ Future<void> _pump(
   double textScale = 1,
 }) {
   return tester.pumpWidget(
-    UncontrolledProviderScope(
+    localizedApp(
       container: container,
-      child: MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: locale,
-        builder: (context, child) => promptHostBuilder(
-          context,
-          MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: TextScaler.linear(textScale)),
-            child: child!,
-          ),
+      locale: locale,
+      builder: (context, child) => promptHostBuilder(
+        context,
+        MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
         ),
-        home: home,
       ),
+      home: home,
     ),
   );
 }

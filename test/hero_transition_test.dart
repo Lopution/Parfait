@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -21,10 +20,37 @@ import 'package:parfait/app/motion/hero_rect_clip.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
 
 void main() {
+  // The real router on the feed, then the detail page of the work in [json]
+  // pushed with the feed's hero scope.
+  Future<void> pushFromFeed(
+    WidgetTester tester,
+    Map<String, dynamic> json,
+  ) async {
+    setViewSize(tester, const Size(390, 844));
+    // Detail pages embed VisibilityDetector trackers — zero interval uses
+    // post-frame callbacks instead of a periodic timer.
+    VisibilityDetectorController.instance.updateInterval = Duration.zero;
+    final (container, _, _) = await makeWorld();
+    final entity = parseIllust(json);
+    container.read(illustStoreProvider).mergeAll([entity]);
+    final router = pixivRouter('/recommended');
+    await tester.pumpWidget(localizedRouterApp(router, container: container));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    unawaited(
+      router.push<void>(
+        '/recommended/illust/${entity.id}',
+        extra: IllustRouteExtra(entity: entity, heroScope: 'feed'),
+      ),
+    );
+    await tester.pump();
+  }
+
   testWidgets('drag-to-dismiss returns to origin when canceled', (
     tester,
   ) async {
@@ -92,45 +118,13 @@ void main() {
     // card → detail page-0 → viewer page-0; only the page suffix differs.
     // Asserted through the real route glue (openIllust / openImageViewer /
     // heroTagForPage), so a second tag family or a lost scope fails here.
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    // Detail pages embed VisibilityDetector trackers — zero interval uses
-    // post-frame callbacks instead of a periodic timer.
-    VisibilityDetectorController.instance.updateInterval = Duration.zero;
-
-    final (container, _, _) = await makeWorld();
-    final entity = parseIllust(
-      illustJson(42, pageCount: 2, withMetaPages: true),
-    );
-    container.read(illustStoreProvider).mergeAll([entity]);
-    final router = createPixivRouter(initialLocation: '/recommended');
-    addTearDown(router.dispose);
-
     await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: router,
-          ),
-        ),
+      await pushFromFeed(
+        tester,
+        illustJson(42, pageCount: 2, withMetaPages: true),
       );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      final baseTag = illustHeroTag('feed', 42);
-      unawaited(
-        router.push<void>(
-          '/recommended/illust/42',
-          extra: IllustRouteExtra(entity: entity, heroScope: 'feed'),
-        ),
-      );
-      await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
+      final baseTag = illustHeroTag('feed', 42);
 
       expect(find.byType(IllustDetailPage), findsOneWidget);
       expect(
@@ -163,42 +157,13 @@ void main() {
   testWidgets('only the entry page flies back; other pages slide away', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    VisibilityDetectorController.instance.updateInterval = Duration.zero;
-
-    final (container, _, _) = await makeWorld();
-    final entity = parseIllust(
-      illustJson(42, pageCount: 2, type: 'manga', withMetaPages: true),
-    );
-    container.read(illustStoreProvider).mergeAll([entity]);
-    final router = createPixivRouter(initialLocation: '/recommended');
-    addTearDown(router.dispose);
-
     await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp.router(
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            routerConfig: router,
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      final baseTag = illustHeroTag('feed', 42);
-      unawaited(
-        router.push<void>(
-          '/recommended/illust/42',
-          extra: IllustRouteExtra(entity: entity, heroScope: 'feed'),
-        ),
+      await pushFromFeed(
+        tester,
+        illustJson(42, pageCount: 2, type: 'manga', withMetaPages: true),
       );
       await tester.pumpAndSettle();
+      final baseTag = illustHeroTag('feed', 42);
       await tester.tap(find.byType(DetailPageImage).first);
       await tester.pumpAndSettle();
       final viewer = find.byType(ImageViewerPage);
@@ -248,9 +213,7 @@ void main() {
   testWidgets('a cropped long image fills the flight rect width throughout', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setViewSize(tester, const Size(390, 844));
     // A 1:5 work: the card shows its top in a 1:2 box, the detail page the
     // whole image at full width.
     const aspect = 0.2;
@@ -325,9 +288,7 @@ void main() {
     // Audit F2: a faint full-size image seemed to sit at the landing spot
     // while the shuttle grew inside it. The landing Hero must stand in as an
     // empty placeholder, and the page must draw no second copy around it.
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setViewSize(tester, const Size(390, 844));
     VisibilityDetectorController.instance.updateInterval = Duration.zero;
 
     // A stale snapshot: the card says one page, the detail payload that
@@ -340,24 +301,19 @@ void main() {
 
     await mockNetworkImagesFor(() async {
       await tester.pumpWidget(
-        UncontrolledProviderScope(
+        localizedApp(
           container: container,
-          child: MaterialApp(
-            navigatorKey: navigatorKey,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: Scaffold(
-              body: Align(
-                alignment: Alignment.topLeft,
-                child: SizedBox(
-                  width: 150,
-                  height: 200,
-                  child: Hero(
-                    tag: illustHeroTag('feed', 42),
-                    flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                    child: const ColoredBox(color: Colors.red),
-                  ),
+          navigatorKey: navigatorKey,
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 150,
+                height: 200,
+                child: Hero(
+                  tag: illustHeroTag('feed', 42),
+                  flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+                  child: const ColoredBox(color: Colors.red),
                 ),
               ),
             ),
@@ -438,20 +394,11 @@ void main() {
   testWidgets('Hero pop onto a user page matches its own chrome', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(400, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
+    setViewSize(tester, const Size(400, 800));
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-
+      localizedApp(
         navigatorKey: navigatorKey,
         home: const Scaffold(body: SizedBox.shrink()),
       ),
@@ -477,14 +424,7 @@ void main() {
                 SliverPadding(
                   padding: const EdgeInsets.all(10),
                   sliver: SliverToBoxAdapter(
-                    child: Hero(
-                      tag: 'user-page-hero',
-                      flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                      child: const ColoredBox(
-                        color: Colors.red,
-                        child: SizedBox(height: 300),
-                      ),
-                    ),
+                    child: _hero('user-page-hero', height: 300),
                   ),
                 ),
               ],
@@ -511,16 +451,7 @@ void main() {
     navigatorKey.currentState!.push(
       _testPageRoute<void>(
         builder: (_) => Scaffold(
-          body: Center(
-            child: Hero(
-              tag: 'user-page-hero',
-              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-              child: const ColoredBox(
-                color: Colors.red,
-                child: SizedBox(width: 350, height: 500),
-              ),
-            ),
-          ),
+          body: Center(child: _hero('user-page-hero', width: 350, height: 500)),
         ),
       ),
     );
@@ -550,39 +481,20 @@ void main() {
   });
 
   testWidgets('Hero pop flight is occluded by the chrome', (tester) async {
-    tester.view.physicalSize = const Size(400, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
+    setViewSize(tester, const Size(400, 800));
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-
+      localizedApp(
         navigatorKey: navigatorKey,
         home: Scaffold(
           body: ListView(
             children: [
               const SizedBox(height: 600),
-              Hero(
-                tag: 'hero-test',
-                flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                child: const ColoredBox(
-                  color: Colors.red,
-                  child: SizedBox(height: 300),
-                ),
-              ),
+              _hero('hero-test', height: 300),
             ],
           ),
-          bottomNavigationBar: const ColoredBox(
-            color: Colors.blue,
-            child: SizedBox(height: 100),
-          ),
+          bottomNavigationBar: _bottomBar,
         ),
       ),
     );
@@ -591,20 +503,8 @@ void main() {
     navigatorKey.currentState!.push(
       _testPageRoute<void>(
         builder: (_) => Scaffold(
-          body: Center(
-            child: Hero(
-              tag: 'hero-test',
-              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-              child: const ColoredBox(
-                color: Colors.red,
-                child: SizedBox(width: 350, height: 500),
-              ),
-            ),
-          ),
-          bottomNavigationBar: const ColoredBox(
-            color: Colors.blue,
-            child: SizedBox(height: 100),
-          ),
+          body: Center(child: _hero('hero-test', width: 350, height: 500)),
+          bottomNavigationBar: _bottomBar,
         ),
       ),
     );
@@ -631,20 +531,11 @@ void main() {
   });
 
   testWidgets('Hero push from a nested feed stays intact', (tester) async {
-    tester.view.physicalSize = const Size(400, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
+    setViewSize(tester, const Size(400, 800));
 
     final navigatorKey = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
-      MaterialApp(
-        localizationsDelegates: appLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('zh', 'CN'),
-
+      localizedApp(
         navigatorKey: navigatorKey,
         home: Scaffold(
           body: NestedScrollView(
@@ -667,24 +558,15 @@ void main() {
                     crossAxisCount: 2,
                     mainAxisSpacing: 5,
                     crossAxisSpacing: 10,
-                    itemBuilder: (_, index) => Hero(
-                      tag: 'nested-push-hero-test-$index',
-                      flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                      child: const ColoredBox(
-                        color: Colors.red,
-                        child: SizedBox(height: 600),
-                      ),
-                    ),
+                    itemBuilder: (_, index) =>
+                        _hero('nested-push-hero-test-$index', height: 600),
                     childCount: 2,
                   ),
                 ),
               ],
             ),
           ),
-          bottomNavigationBar: const ColoredBox(
-            color: Colors.blue,
-            child: SizedBox(height: 100),
-          ),
+          bottomNavigationBar: _bottomBar,
         ),
       ),
     );
@@ -707,22 +589,16 @@ void main() {
             slivers: [
               SliverToBoxAdapter(
                 child: Center(
-                  child: Hero(
-                    tag: 'nested-push-hero-test-0',
-                    flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                    child: const ColoredBox(
-                      color: Colors.red,
-                      child: SizedBox(width: 350, height: 500),
-                    ),
+                  child: _hero(
+                    'nested-push-hero-test-0',
+                    width: 350,
+                    height: 500,
                   ),
                 ),
               ),
             ],
           ),
-          bottomNavigationBar: const ColoredBox(
-            color: Colors.blue,
-            child: SizedBox(height: 100),
-          ),
+          bottomNavigationBar: _bottomBar,
         ),
       ),
     );
@@ -746,6 +622,18 @@ void main() {
 }
 
 void _noop() {}
+
+/// A red Hero flying with the production shuttle builder.
+Hero _hero(Object tag, {double? width, double? height}) => Hero(
+  tag: tag,
+  flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+  child: ColoredBox(
+    color: Colors.red,
+    child: SizedBox(width: width, height: height),
+  ),
+);
+
+const _bottomBar = ColoredBox(color: Colors.blue, child: SizedBox(height: 100));
 
 PageRoute<T> _testPageRoute<T>({required WidgetBuilder builder}) =>
     PageRouteBuilder<T>(

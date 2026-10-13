@@ -8,12 +8,7 @@ import 'package:http/testing.dart';
 import 'package:parfait/core/actionqueue/action_bootstrap.dart';
 import 'package:parfait/core/actionqueue/action_models.dart';
 import 'package:parfait/core/actionqueue/action_store.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/mutation/mutation_models.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/watchlist/watchlist_actions.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_repository.dart';
@@ -83,44 +78,10 @@ Future<_World> _makeWorld({
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final resolvedFixture = fixture ?? _Fixture();
   final resolvedStore = store ?? InMemoryActionStore();
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient((request) async {
-            fail('refresh should not happen in watchlist tests');
-          }),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client not wired yet');
-        return client;
-      }),
-      actionStoreProvider.overrideWithValue(resolvedStore),
-    ],
+  final container = await signedInApiContainer(
+    resolvedFixture.build(),
+    overrides: [actionStoreProvider.overrideWithValue(resolvedStore)],
   );
-  final client = PixivHttpClient(
-    client: resolvedFixture.build(),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  clientRef[0] = client;
-  await container.read(accountStoreProvider.future);
   return _World(container, resolvedFixture, resolvedStore);
 }
 

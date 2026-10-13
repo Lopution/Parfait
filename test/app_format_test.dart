@@ -2,8 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/format/app_format.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'helpers/localized_app.dart';
 
 void main() {
   /// Pumps a probe that resolves [read] inside the localized app, then
@@ -15,10 +14,8 @@ void main() {
   ) async {
     String? result;
     await tester.pumpWidget(
-      MaterialApp(
+      localizedApp(
         locale: locale,
-        supportedLocales: AppLocalizations.supportedLocales,
-        localizationsDelegates: appLocalizationsDelegates,
         home: Builder(
           builder: (context) {
             result = read(context);

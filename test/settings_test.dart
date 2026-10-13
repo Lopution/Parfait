@@ -4,10 +4,10 @@ import 'dart:io';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
-import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/account_transfer.dart';
@@ -37,8 +37,6 @@ import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
 import 'package:parfait/app/widgets/settings/settings_menu_tile.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_zh.dart';
 import 'package:parfait/app/motion/removal.dart';
 
@@ -55,6 +53,9 @@ import 'package:http/testing.dart';
 import 'package:go_router/go_router.dart';
 import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/app/app.dart';
+import 'helpers/localized_app.dart';
+import 'helpers/view_size.dart';
+import 'helpers/pixiv_router.dart';
 
 /// Save gate for the switch-busy test: `save` parks on [gate] so the
 /// widget layer's in-flight state is observable mid-switch.
@@ -101,6 +102,70 @@ class _UnusedTransferVerifier implements TransferCredentialVerifier {
   }
 }
 
+/// The network settings page over [repository] and [overrides], on a tall
+/// surface that builds every lazy row so ensureVisible-based scrolling
+/// stays legal.
+Future<void> _pumpNetworkSettings(
+  WidgetTester tester,
+  FakeSettingsRepository repository, {
+  List<Override> overrides = const [],
+}) async {
+  await tester.pumpWidget(
+    localizedApp(
+      overrides: [
+        settingsRepositoryProvider.overrideWithValue(repository),
+        ...overrides,
+      ],
+      builder: promptHostBuilder,
+      home: NetworkSettingsPage(),
+    ),
+  );
+  await tester.pump();
+  tester.view.physicalSize = const Size(800, 4800);
+  addTearDown(tester.view.resetPhysicalSize);
+  await tester.pump();
+}
+
+/// The account settings page signed in to account 42, exporting through
+/// [clipboard].
+Future<void> _pumpAccountSettings(
+  WidgetTester tester,
+  _TransferClipboard clipboard, {
+  List<Override> overrides = const [],
+}) async {
+  await tester.pumpWidget(
+    localizedApp(
+      overrides: [
+        settingsRepositoryProvider.overrideWithValue(
+          FakeSettingsRepository(baseTestSettings()),
+        ),
+        ...accountProviderOverrides(
+          metadataRepository: FakeAccountMetadataRepository.signedIn(
+            const Account(id: '42', userId: 42, name: 'tester'),
+          ),
+          credentialStore: FakeCredentialStore(
+            values: const {
+              '42': Credential(accessToken: 'access', refreshToken: 'refresh'),
+            },
+          ),
+        ),
+        accountTransferServiceProvider.overrideWith(
+          (ref) => AccountTransferService(
+            accountStore: ref.read(accountStoreProvider.notifier),
+            credentialStore: ref.read(credentialStoreProvider),
+            verifier: _UnusedTransferVerifier(),
+            clipboard: clipboard,
+          ),
+        ),
+        ...overrides,
+      ],
+      builder: promptHostBuilder,
+      home: AccountSettingsPage(),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
@@ -112,16 +177,10 @@ void main() {
       failLoad: true,
     );
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-
-          home: ThemeSettingsPage(),
-        ),
+        builder: promptHostBuilder,
+        home: ThemeSettingsPage(),
       ),
     );
     await tester.pumpAndSettle();
@@ -153,15 +212,10 @@ void main() {
     Future<FakeSettingsRepository> pumpThemePage(WidgetTester tester) async {
       final repository = FakeSettingsRepository(baseTestSettings());
       await tester.pumpWidget(
-        ProviderScope(
+        localizedApp(
           overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
-          child: const MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: ThemeSettingsPage(),
-          ),
+          builder: promptHostBuilder,
+          home: ThemeSettingsPage(),
         ),
       );
       return repository;
@@ -219,13 +273,7 @@ void main() {
               ),
             ),
           ],
-          child: MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: page,
-          ),
+          child: localizedApp(builder: promptHostBuilder, home: page),
         ),
       );
       await tester.pumpAndSettle();
@@ -245,7 +293,7 @@ void main() {
         currentId: '1',
       );
       await tester.pumpWidget(
-        ProviderScope(
+        localizedApp(
           overrides: [
             settingsRepositoryProvider.overrideWithValue(
               FakeSettingsRepository(baseTestSettings()),
@@ -253,13 +301,8 @@ void main() {
             accountMetadataRepositoryProvider.overrideWithValue(repository),
             credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
           ],
-          child: const MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: AccountSettingsPage(),
-          ),
+          builder: promptHostBuilder,
+          home: AccountSettingsPage(),
         ),
       );
       await tester.pumpAndSettle();
@@ -326,9 +369,7 @@ void main() {
   testWidgets('the dashboard badge counts downloads as they start and end', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(400, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+    setViewSize(tester, const Size(400, 1600));
     final gate = Completer<void>();
     final manager = DownloadManager(
       transport: FakeTransport()
@@ -344,7 +385,7 @@ void main() {
       sinkFactory: MemorySinkFactory(),
     );
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
             FakeSettingsRepository(baseTestSettings()),
@@ -355,13 +396,8 @@ void main() {
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
           downloadManagerProvider.overrideWithValue(manager),
         ],
-        child: const MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: MeDashboardPage(),
-        ),
+        builder: promptHostBuilder,
+        home: MeDashboardPage(),
       ),
     );
     await tester.pump();
@@ -398,7 +434,7 @@ void main() {
     final store = FakeTranslationStore()
       ..baidu = const BaiduTranslationCredentials(appId: 'id', secret: 'sec');
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
             FakeSettingsRepository(
@@ -411,13 +447,8 @@ void main() {
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
           translationCredentialStoreProvider.overrideWithValue(store),
         ],
-        child: const MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: SettingsPage(),
-        ),
+        builder: promptHostBuilder,
+        home: SettingsPage(),
       ),
     );
     await tester.pumpAndSettle();
@@ -443,7 +474,7 @@ void main() {
       ..doubao = const DoubaoWebSession(cookie: 'sessionid=a', teaUuid: '1');
     final cookies = _FakeDoubaoCookies();
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
             FakeSettingsRepository(
@@ -455,13 +486,8 @@ void main() {
           translationCredentialStoreProvider.overrideWithValue(store),
           doubaoWebCookiesProvider.overrideWithValue(cookies),
         ],
-        child: const MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: TranslateSettingsPage(),
-        ),
+        builder: promptHostBuilder,
+        home: TranslateSettingsPage(),
       ),
     );
     await tester.pumpAndSettle();
@@ -491,24 +517,19 @@ void main() {
       tester.view.physicalSize = const Size(800, 4000);
       addTearDown(tester.view.resetPhysicalSize);
       await tester.pumpWidget(
-        ProviderScope(
+        localizedApp(
           overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
-          child: MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('zh', 'CN'),
-            home: Builder(
-              builder: (context) => Scaffold(
-                body: Center(
-                  child: FilledButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const DownloadSettingsPage(),
-                      ),
+          builder: promptHostBuilder,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const DownloadSettingsPage(),
                     ),
-                    child: const Text('open'),
                   ),
+                  child: const Text('open'),
                 ),
               ),
             ),
@@ -596,48 +617,8 @@ void main() {
   testWidgets('the export tile exports bounded transfer data after confirm', (
     tester,
   ) async {
-    final repository = FakeAccountMetadataRepository(
-      accounts: const [Account(id: '42', userId: 42, name: 'tester')],
-      currentId: '42',
-    );
     final clipboard = _TransferClipboard();
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          settingsRepositoryProvider.overrideWithValue(
-            FakeSettingsRepository(baseTestSettings()),
-          ),
-          accountMetadataRepositoryProvider.overrideWithValue(repository),
-          credentialStoreProvider.overrideWithValue(
-            FakeCredentialStore(
-              values: const {
-                '42': Credential(
-                  accessToken: 'access',
-                  refreshToken: 'refresh',
-                ),
-              },
-            ),
-          ),
-          accountTransferServiceProvider.overrideWith(
-            (ref) => AccountTransferService(
-              accountStore: ref.read(accountStoreProvider.notifier),
-              credentialStore: ref.read(credentialStoreProvider),
-              verifier: _UnusedTransferVerifier(),
-              clipboard: clipboard,
-            ),
-          ),
-        ],
-        child: const MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-
-          home: AccountSettingsPage(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _pumpAccountSettings(tester, clipboard);
 
     await tester.tap(find.text('导出账号凭据'));
     await tester.pumpAndSettle();
@@ -653,53 +634,18 @@ void main() {
   testWidgets(
     'exporting on a device without sensitive clipboard shows a warning',
     (tester) async {
-      final repository = FakeAccountMetadataRepository(
-        accounts: const [Account(id: '42', userId: 42, name: 'tester')],
-        currentId: '42',
-      );
       final clipboard = _TransferClipboard();
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            settingsRepositoryProvider.overrideWithValue(
-              FakeSettingsRepository(baseTestSettings()),
-            ),
-            accountMetadataRepositoryProvider.overrideWithValue(repository),
-            credentialStoreProvider.overrideWithValue(
-              FakeCredentialStore(
-                values: const {
-                  '42': Credential(
-                    accessToken: 'access',
-                    refreshToken: 'refresh',
-                  ),
-                },
-              ),
-            ),
-            accountTransferServiceProvider.overrideWith(
-              (ref) => AccountTransferService(
-                accountStore: ref.read(accountStoreProvider.notifier),
-                credentialStore: ref.read(credentialStoreProvider),
-                verifier: _UnusedTransferVerifier(),
-                clipboard: clipboard,
-              ),
-            ),
-            // Capability override: emulate an Android <13 device that
-            // cannot mark the clipboard entry as sensitive.
-            transferClipboardProvider.overrideWithValue(
-              _TransferClipboard()..sensitiveMarkSupported = false,
-            ),
-          ],
-          child: const MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-
-            home: AccountSettingsPage(),
+      await _pumpAccountSettings(
+        tester,
+        clipboard,
+        overrides: [
+          // Capability override: emulate an Android <13 device that
+          // cannot mark the clipboard entry as sensitive.
+          transferClipboardProvider.overrideWithValue(
+            _TransferClipboard()..sensitiveMarkSupported = false,
           ),
-        ),
+        ],
       );
-      await tester.pumpAndSettle();
 
       await tester.tap(find.text('导出账号凭据'));
       await tester.pumpAndSettle();
@@ -730,10 +676,10 @@ void main() {
     // field. Domain endpoints are the production default now. DoH editing
     // lives on the advanced page (D3).
     final repository = FakeSettingsRepository(baseTestSettings());
-    final router = createPixivRouter(initialLocation: '/settings/network');
-    addTearDown(router.dispose);
+    final router = pixivRouter('/settings/network');
     await tester.pumpWidget(
-      ProviderScope(
+      localizedRouterApp(
+        router,
         overrides: [
           settingsRepositoryProvider.overrideWithValue(repository),
           accountMetadataRepositoryProvider.overrideWithValue(
@@ -741,13 +687,7 @@ void main() {
           ),
           credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
         ],
-        child: MaterialApp.router(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          routerConfig: router,
-        ),
+        builder: promptHostBuilder,
       ),
     );
     await tester.pumpAndSettle();
@@ -781,24 +721,7 @@ void main() {
     tester,
   ) async {
     final repository = FakeSettingsRepository(baseTestSettings());
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: NetworkSettingsPage(),
-        ),
-      ),
-    );
-    await tester.pump();
-    // A tall surface builds every lazy row so ensureVisible-based
-    // scrolling below stays legal.
-    tester.view.physicalSize = const Size(800, 4800);
-    addTearDown(tester.view.resetPhysicalSize);
-    await tester.pump();
+    await _pumpNetworkSettings(tester, repository);
 
     expect(find.text('pixiv.cat 镜像'), findsOneWidget);
     expect(find.text('pixiv.re 镜像'), findsOneWidget);
@@ -852,24 +775,7 @@ void main() {
     tester,
   ) async {
     final repository = FakeSettingsRepository(baseTestSettings());
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
-        child: const MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: NetworkSettingsPage(),
-        ),
-      ),
-    );
-    await tester.pump();
-    // A tall surface builds every lazy row so ensureVisible-based
-    // scrolling below stays legal.
-    tester.view.physicalSize = const Size(800, 4800);
-    addTearDown(tester.view.resetPhysicalSize);
-    await tester.pump();
+    await _pumpNetworkSettings(tester, repository);
 
     await _scrollCentered(tester, find.byType(TextField));
     await tester.enterText(find.byType(TextField), 'http://insecure.example');
@@ -906,7 +812,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
 
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(
             FakeSettingsRepository(baseTestSettings()),
@@ -914,13 +820,8 @@ void main() {
           networkAccessPolicyProvider.overrideWithValue(policy),
           imageWorkerProvider.overrideWithValue(worker),
         ],
-        child: const MaterialApp(
-          builder: promptHostBuilder,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('zh', 'CN'),
-          home: NetworkSettingsPage(),
-        ),
+        builder: promptHostBuilder,
+        home: NetworkSettingsPage(),
       ),
     );
     await pumpIoUntil(
@@ -966,27 +867,11 @@ void main() {
         resolver: StubResolver([InternetAddress('93.184.216.34')]),
         clientFactory: (route, canonicalHost, _) => backend,
       );
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            settingsRepositoryProvider.overrideWithValue(repository),
-            networkAccessPolicyProvider.overrideWithValue(policy),
-          ],
-          child: const MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: NetworkSettingsPage(),
-          ),
-        ),
+      await _pumpNetworkSettings(
+        tester,
+        repository,
+        overrides: [networkAccessPolicyProvider.overrideWithValue(policy)],
       );
-      await tester.pump();
-      // A tall surface builds every lazy row so ensureVisible-based
-      // scrolling below stays legal.
-      tester.view.physicalSize = const Size(800, 4800);
-      addTearDown(tester.view.resetPhysicalSize);
-      await tester.pump();
 
       await _scrollCentered(tester, find.byType(TextField));
       await tester.enterText(
@@ -1020,18 +905,13 @@ void main() {
       tester.view.physicalSize = const Size(800, 3200);
       addTearDown(tester.view.resetPhysicalSize);
       await tester.pumpWidget(
-        ProviderScope(
+        localizedApp(
           overrides: [
             settingsRepositoryProvider.overrideWithValue(repository),
             hapticsDriverProvider.overrideWithValue(driver),
           ],
-          child: const MaterialApp(
-            builder: promptHostBuilder,
-            localizationsDelegates: appLocalizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('zh', 'CN'),
-            home: MotionSettingsPage(),
-          ),
+          builder: promptHostBuilder,
+          home: MotionSettingsPage(),
         ),
       );
       await tester.pump();
@@ -1082,15 +962,13 @@ void main() {
       'settings change on a pushed page must not jump to /recommended',
       (tester) async {
         SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-        tester.view.physicalSize = const Size(390, 844);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
+        setViewSize(tester, const Size(390, 844));
         tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
           const MethodChannel('parfait/widget'),
           (call) async => false,
         );
 
-        final container = ProviderContainer(
+        final container = ProviderContainer.test(
           overrides: [
             ...accountProviderOverrides(
               credentialStore: FakeCredentialStore(
@@ -1098,9 +976,8 @@ void main() {
                   '100': Credential(accessToken: 'a', refreshToken: 'r'),
                 },
               ),
-              metadataRepository: FakeAccountMetadataRepository(
-                accounts: const [Account(id: '100', userId: 100, name: 't')],
-                currentId: '100',
+              metadataRepository: FakeAccountMetadataRepository.signedIn(
+                const Account(id: '100', userId: 100, name: 't'),
               ),
             ),
             settingsRepositoryProvider.overrideWithValue(
@@ -1126,7 +1003,6 @@ void main() {
             ),
           ],
         );
-        addTearDown(container.dispose);
         await tester.pumpWidget(
           UncontrolledProviderScope(
             container: container,

@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
@@ -11,9 +10,9 @@ import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/features/comments/comment_item.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/comment_world.dart';
+import 'helpers/localized_app.dart';
 
 /// The Google transport stands in for the network; the rest of the
 /// translation service runs as shipped.
@@ -51,7 +50,7 @@ void main() {
     // never reach the widget.
     transport = _PendingTransport();
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [
           accountStoreProvider.overrideWith(commentsAccountStore),
           if (work != null)
@@ -68,17 +67,12 @@ void main() {
             ),
           ),
         ],
-        child: MaterialApp(
-          locale: const Locale('zh', 'CN'),
-          supportedLocales: const [Locale('zh', 'CN')],
-          localizationsDelegates: appLocalizationsDelegates,
-          home: Scaffold(
-            body: CommentItem(
-              comment: comment,
-              onReply: () => replies++,
-              onOpenReplies: () => openedReplies++,
-              onDelete: () => deletes++,
-            ),
+        home: Scaffold(
+          body: CommentItem(
+            comment: comment,
+            onReply: () => replies++,
+            onOpenReplies: () => openedReplies++,
+            onDelete: () => deletes++,
           ),
         ),
       ),

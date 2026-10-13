@@ -11,12 +11,12 @@ import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
 
 /// Minimal provider world for a bare [IllustCard]: the account + network
 /// boundary overrides every network-backed provider needs, with a MockClient
@@ -28,13 +28,12 @@ Future<ProviderContainer> _makeWorld() async {
       const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
     );
   final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
+  final container = ProviderContainer.test(
     overrides: [
       credentialStoreProvider.overrideWithValue(credentials),
       accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
+        FakeAccountMetadataRepository.signedIn(
+          const Account(id: '100', userId: 100, name: 'tester'),
         ),
       ),
       oauthServiceProvider.overrideWithValue(
@@ -69,23 +68,18 @@ Future<void> _pumpCard(
 }) async {
   await mockNetworkImagesFor(() async {
     await tester.pumpWidget(
-      UncontrolledProviderScope(
+      localizedApp(
         container: container,
-        child: MaterialApp(
-          theme: theme,
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: const [Locale('zh')],
-          locale: const Locale('zh'),
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: TextScaler.linear(textScale)),
-            child: child!,
-          ),
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: SizedBox(width: width, child: card),
-            ),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
+        theme: theme,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: SizedBox(width: width, child: card),
           ),
         ),
       ),
@@ -105,7 +99,6 @@ void main() {
     // Feed grids rebuild every built card on each feed state change; an
     // unchanged card must not re-run its whole subtree for that.
     final container = await _makeWorld();
-    addTearDown(container.dispose);
     final entity = parseIllust(illustJson(6));
     Widget body() => tester.widget(
       find

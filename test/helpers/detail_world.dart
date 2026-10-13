@@ -3,18 +3,12 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
-import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_sink.dart';
 import 'package:parfait/core/illust/illust_detail_controller.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -60,51 +54,8 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
           sinkFactory: sinks,
           progressThrottle: progressThrottle,
         );
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
-    overrides: [
-      downloadManagerProvider.overrideWithValue(manager),
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient(
-            (request) async => throw StateError('refresh must not happen here'),
-          ),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) {
-          throw StateError('client not wired yet');
-        }
-        return client;
-      }),
-      // The page-dims web call degrades to the first-page-ratio fallback
-      // here; the merge path itself is covered in the controller tests.
-      illustDetailWebClientProvider.overrideWithValue(
-        MockClient((request) async => http.Response('unavailable', 403)),
-      ),
-      // A fresh in-memory snapshot store per world: the default sqflite
-      // store shares feeds.db across the whole file, so a related list
-      // committed by one test would be restored (and refreshed) in the
-      // next.
-      feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
-      ...extraOverrides,
-    ],
-  );
-  final client = PixivHttpClient(
-    client: MockClient((request) async {
+  final container = await signedInApiContainer(
+    MockClient((request) async {
       requestLog?.add(request.url.path);
       if (request.url.path == '/v1/illust/detail') {
         await detailGate?.future;
@@ -161,13 +112,21 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
       }
       return http.Response('unexpected', 404);
     }),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
+    overrides: [
+      downloadManagerProvider.overrideWithValue(manager),
+      // The page-dims web call degrades to the first-page-ratio fallback
+      // here; the merge path itself is covered in the controller tests.
+      illustDetailWebClientProvider.overrideWithValue(
+        MockClient((request) async => http.Response('unavailable', 403)),
+      ),
+      // A fresh in-memory snapshot store per world: the default sqflite
+      // store shares feeds.db across the whole file, so a related list
+      // committed by one test would be restored (and refreshed) in the
+      // next.
+      feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
+      ...extraOverrides,
+    ],
   );
-  clientRef[0] = client;
-  await container.read(accountStoreProvider.future);
-  addTearDown(container.dispose);
   return (container, transport, sinks);
 }
 

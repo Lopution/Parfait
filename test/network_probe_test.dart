@@ -314,23 +314,14 @@ void main() {
     'ECH HTTP 404/403 still proves the ECH transport reached the server',
     () async {
       for (final status in [404, 403]) {
-        final report = await NetworkProbe.run(
-          host: 'app-api.pixiv.net',
-          purpose: PixivDestinationPurpose.appApi,
-          registry: PixivDestinationRegistry(),
-          dohResolver: _ScriptedResolver(_v4),
-          revision: const NetworkRevision(0),
-          systemLookup: (host) async => _v4,
-          tcpConnect: (a, p) async {},
-          tlsHandshake: (a, p, h) async => throw HandshakeException('reset'),
-          minimalRequest: (uri) async => const HttpProbeResponse(404),
+        final report = await _sniResetProbe(
+          minimalStatus: 404,
           echConfigLookup: () async => EchConfigResult(
             echConfig: Uint8List.fromList([1, 2, 3]),
             ttl: const Duration(seconds: 30),
             frontAddresses: [InternetAddress('104.18.10.118')],
           ),
           echRequest: (uri, address, config) async => HttpProbeResponse(status),
-          timeoutPerLayer: const Duration(seconds: 2),
         );
 
         expect(report.conclusion, NetworkProbeConclusion.echAvailable);
@@ -369,20 +360,11 @@ void main() {
   });
 
   test('HTTP 421 with empty SNI -> layer fails (tier unusable)', () async {
-    final resolver = _ScriptedResolver(_v4);
-    final report = await NetworkProbe.run(
+    final report = await _sniResetProbe(
       host: 'i.pximg.net',
       purpose: PixivDestinationPurpose.image,
-      registry: PixivDestinationRegistry(),
-      dohResolver: resolver,
-      revision: const NetworkRevision(0),
-      systemLookup: (host) async => _v4,
-      tcpConnect: (a, p) async {},
-      tlsHandshake: (a, p, h) async => throw HandshakeException('reset'),
-      minimalRequest: (uri) async => const HttpProbeResponse(200),
       echConfigLookup: () async => null,
       httpNoSniRequest: (uri, address) async => const HttpProbeResponse(421),
-      timeoutPerLayer: const Duration(seconds: 2),
     );
     final noSni = report.steps.firstWhere((s) => s.name == 'no-sni');
     expect(noSni.ok, isFalse);
@@ -397,21 +379,11 @@ void main() {
       // plain-TLS minimal request when no ECH prober was injected, measured a
       // non-ECH connection and reported `ech: ok`. A config without a
       // transport cannot be measured; the layer must fail, never pretend.
-      final report = await NetworkProbe.run(
-        host: 'app-api.pixiv.net',
-        purpose: PixivDestinationPurpose.appApi,
-        registry: PixivDestinationRegistry(),
-        dohResolver: _ScriptedResolver(_v4),
-        revision: const NetworkRevision(0),
-        systemLookup: (host) async => _v4,
-        tcpConnect: (a, p) async {},
-        tlsHandshake: (a, p, h) async => throw HandshakeException('reset'),
-        minimalRequest: (uri) async => const HttpProbeResponse(200),
+      final report = await _sniResetProbe(
         echConfigLookup: () async => EchConfigResult(
           echConfig: Uint8List.fromList([1, 2, 3]),
           ttl: const Duration(seconds: 30),
         ),
-        timeoutPerLayer: const Duration(seconds: 2),
       );
       final ech = report.steps.firstWhere((s) => s.name == 'ech');
       expect(ech.ok, isFalse);
@@ -424,16 +396,7 @@ void main() {
     // An empty config list must be a hard failure: rustls with an empty ECH
     // list would send a plain ClientHello, and the layer would measure
     // plain TLS while claiming ECH works.
-    final report = await NetworkProbe.run(
-      host: 'app-api.pixiv.net',
-      purpose: PixivDestinationPurpose.appApi,
-      registry: PixivDestinationRegistry(),
-      dohResolver: _ScriptedResolver(_v4),
-      revision: const NetworkRevision(0),
-      systemLookup: (host) async => _v4,
-      tcpConnect: (a, p) async {},
-      tlsHandshake: (a, p, h) async => throw HandshakeException('reset'),
-      minimalRequest: (uri) async => const HttpProbeResponse(200),
+    final report = await _sniResetProbe(
       echConfigLookup: () async => EchConfigResult(
         echConfig: Uint8List(0),
         ttl: const Duration(seconds: 30),
@@ -442,7 +405,6 @@ void main() {
         // Must never be reached.
         fail('echRequest must not be called with an empty config');
       },
-      timeoutPerLayer: const Duration(seconds: 2),
     );
     final ech = report.steps.firstWhere((s) => s.name == 'ech');
     expect(ech.ok, isFalse);
@@ -450,24 +412,45 @@ void main() {
   });
 
   test('lookup returns unexpected type -> ech layer FAILS', () async {
-    final report = await NetworkProbe.run(
-      host: 'app-api.pixiv.net',
-      purpose: PixivDestinationPurpose.appApi,
-      registry: PixivDestinationRegistry(),
-      dohResolver: _ScriptedResolver(_v4),
-      revision: const NetworkRevision(0),
-      systemLookup: (host) async => _v4,
-      tcpConnect: (a, p) async {},
-      tlsHandshake: (a, p, h) async => throw HandshakeException('reset'),
-      minimalRequest: (uri) async => const HttpProbeResponse(200),
+    final report = await _sniResetProbe(
       echConfigLookup: () async => 'not-a-result',
       echRequest: (uri, address, echConfig) async {
         fail('echRequest must not be called with an unexpected type');
       },
-      timeoutPerLayer: const Duration(seconds: 2),
     );
     final ech = report.steps.firstWhere((s) => s.name == 'ech');
     expect(ech.ok, isFalse);
     expect(ech.detail, contains('unexpected type'));
   });
 }
+
+/// A probe whose real-SNI handshake is reset, so the ECH and empty-SNI layers
+/// the caller wires decide the conclusion.
+Future<NetworkProbeReport> _sniResetProbe({
+  String host = 'app-api.pixiv.net',
+  PixivDestinationPurpose purpose = PixivDestinationPurpose.appApi,
+  int minimalStatus = 200,
+  Future<Object?> Function()? echConfigLookup,
+  Future<HttpProbeResponse> Function(
+    Uri uri,
+    InternetAddress address,
+    Object? echConfig,
+  )?
+  echRequest,
+  Future<HttpProbeResponse> Function(Uri uri, InternetAddress address)?
+  httpNoSniRequest,
+}) => NetworkProbe.run(
+  host: host,
+  purpose: purpose,
+  registry: PixivDestinationRegistry(),
+  dohResolver: _ScriptedResolver(_v4),
+  revision: const NetworkRevision(0),
+  systemLookup: (host) async => _v4,
+  tcpConnect: (a, p) async {},
+  tlsHandshake: (a, p, h) async => throw HandshakeException('reset'),
+  minimalRequest: (uri) async => HttpProbeResponse(minimalStatus),
+  echConfigLookup: echConfigLookup,
+  echRequest: echRequest,
+  httpNoSniRequest: httpNoSniRequest,
+  timeoutPerLayer: const Duration(seconds: 2),
+);

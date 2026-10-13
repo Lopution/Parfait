@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -12,12 +11,11 @@ import 'package:parfait/core/spotlight/spotlight_feed_controller.dart';
 import 'package:parfait/core/spotlight/spotlight_models.dart';
 import 'package:parfait/core/spotlight/spotlight_store.dart';
 import 'package:parfait/features/spotlight/spotlight_feed_page.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/spotlight_world.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/localized_app.dart';
 
 void main() {
   setUp(() {
@@ -26,7 +24,6 @@ void main() {
 
   test('spotlight feed loads page one and commits the article store', () async {
     final (container, fixture) = await makeSpotlightWorld();
-    addTearDown(container.dispose);
 
     final state = await container.read(
       spotlightFeedProvider(SpotlightCategory.all).future,
@@ -44,7 +41,6 @@ void main() {
 
   test('categories have independent feeds and cursors', () async {
     final (container, fixture) = await makeSpotlightWorld();
-    addTearDown(container.dispose);
 
     await container.read(spotlightFeedProvider(SpotlightCategory.all).future);
     await container.read(spotlightFeedProvider(SpotlightCategory.manga).future);
@@ -72,7 +68,6 @@ void main() {
     final (container, fixture) = await makeSpotlightWorld(
       fixture: SpotlightFixture()..mismatchedNextCategory = 'manga',
     );
-    addTearDown(container.dispose);
 
     final state = await container.read(
       spotlightFeedProvider(SpotlightCategory.all).future,
@@ -93,7 +88,6 @@ void main() {
     'spotlight feed page lists articles, switches category, opens article',
     (tester) async {
       final (container, fixture) = await makeSpotlightWorld();
-      addTearDown(container.dispose);
 
       final router = GoRouter(
         initialLocation: '/recommended',
@@ -117,15 +111,7 @@ void main() {
 
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: MaterialApp.router(
-              routerConfig: router,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: const Locale('zh', 'CN'),
-            ),
-          ),
+          localizedRouterApp(router, container: container),
         );
         await tester.pumpAndSettle();
 

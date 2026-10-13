@@ -95,7 +95,7 @@ FeedPage _page(List<IllustEntity> illusts, {String? nextCursor}) {
 
 ProviderContainer _container({required bool blockR18, bool hideMuted = false}) {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  return ProviderContainer(
+  return ProviderContainer.test(
     overrides: [
       accountStoreProvider.overrideWith(
         () => StubAccountStore(
@@ -128,7 +128,6 @@ void main() {
         ],
       );
       final container = _container(blockR18: true);
-      addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       await container.read(settingsProvider.future);
 
@@ -154,7 +153,6 @@ void main() {
       ],
     );
     final container = _container(blockR18: true);
-    addTearDown(container.dispose);
     await container.read(accountStoreProvider.future);
     await container.read(settingsProvider.future);
 
@@ -179,7 +177,6 @@ void main() {
         ],
       );
       final container = _container(blockR18: true);
-      addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       await container.read(settingsProvider.future);
 
@@ -206,7 +203,6 @@ void main() {
         ],
       );
       final container = _container(blockR18: true);
-      addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       await container.read(settingsProvider.future);
 
@@ -234,7 +230,6 @@ void main() {
       ],
     );
     final container = _container(blockR18: true);
-    addTearDown(container.dispose);
     await container.read(accountStoreProvider.future);
     await container.read(settingsProvider.future);
 
@@ -255,7 +250,6 @@ void main() {
       ],
     );
     final container = _container(blockR18: false);
-    addTearDown(container.dispose);
     await container.read(accountStoreProvider.future);
     await container.read(settingsProvider.future);
 
@@ -275,7 +269,6 @@ void main() {
       ],
     );
     final container = _container(blockR18: false, hideMuted: true);
-    addTearDown(container.dispose);
     await container.read(accountStoreProvider.future);
     await container.read(settingsProvider.future);
     // Work mute is local-only: seeding through the store needs no server.
@@ -300,7 +293,6 @@ void main() {
         ],
       );
       final container = _container(blockR18: false);
-      addTearDown(container.dispose);
       await container.read(accountStoreProvider.future);
       await container.read(settingsProvider.future);
       await container

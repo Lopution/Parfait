@@ -6,10 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/bookmark/bookmark_tags_controller.dart';
@@ -17,7 +14,6 @@ import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/features/bookmark/bookmark_tags_page.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
@@ -30,8 +26,8 @@ import 'package:parfait/core/profile/profile_models.dart';
 import 'package:parfait/features/profile/bookmark_tag_feed_page.dart';
 import 'package:parfait/features/profile/profile_illust_feed.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
-import 'package:parfait/l10n/app_localizations.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
+import 'helpers/localized_app.dart';
 
 class _RecordingUserRepository implements UserRepository {
   final requests = <({int userId, UserRestrict restrict, String? tag})>[];
@@ -101,7 +97,7 @@ IllustEntity _illust(int id, String title, List<IllustTag> tags) =>
     );
 
 ProviderContainer _makeContainer(_RecordingUserRepository repository) =>
-    ProviderContainer(
+    ProviderContainer.test(
       overrides: [
         accountStoreProvider.overrideWith(StubAccountStore.new),
         feedSnapshotStoreProvider.overrideWithValue(MemoryFeedSnapshotStore()),
@@ -111,15 +107,7 @@ ProviderContainer _makeContainer(_RecordingUserRepository repository) =>
     );
 
 Widget _testApp(ProviderContainer container, Widget home) =>
-    UncontrolledProviderScope(
-      container: container,
-      child: MaterialApp(
-        locale: const Locale('zh', 'CN'),
-        supportedLocales: AppLocalizations.supportedLocales,
-        localizationsDelegates: appLocalizationsDelegates,
-        home: home,
-      ),
-    );
+    localizedApp(container: container, home: home);
 
 class _RecordedRequest {
   _RecordedRequest(this.method, this.uri, this.body);
@@ -162,43 +150,7 @@ Future<World> _makeWorld(Map<String, Object> responses) async {
       headers: {'content-type': 'application/json'},
     );
   });
-  final credentials = FakeCredentialStore()
-    ..seed(
-      '100',
-      const Credential(accessToken: 'access-1', refreshToken: 'refresh-1'),
-    );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: '100', userId: 100, name: 'tester')],
-          currentId: '100',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient((request) async {
-            fail('refresh should not happen in this test');
-          }),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client not wired yet');
-        return client;
-      }),
-    ],
-  );
-  clientRef[0] = PixivHttpClient(
-    client: mock,
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  await container.read(accountStoreProvider.future);
-  addTearDown(container.dispose);
+  final container = await signedInApiContainer(mock);
   return (container, requests);
 }
 
@@ -437,23 +389,14 @@ void main() {
   ) async {
     final repository = _FakeTagRepository();
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [
         accountStoreProvider.overrideWith(StubAccountStore.new),
         bookmarkRepositoryProvider.overrideWithValue(repository),
       ],
     );
-    addTearDown(container.dispose);
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(
-          locale: Locale('zh', 'CN'),
-          supportedLocales: [Locale('zh', 'CN')],
-          localizationsDelegates: appLocalizationsDelegates,
-          home: BookmarkTagsPage(),
-        ),
-      ),
+      localizedApp(container: container, home: BookmarkTagsPage()),
     );
     await tester.pumpAndSettle();
 
@@ -494,28 +437,19 @@ void main() {
             '?user_id=100&restrict=public&offset=30',
       )
       ..loadMoreFailure = StateError('temporary failure');
-    final container = ProviderContainer(
+    final container = ProviderContainer.test(
       overrides: [
         accountStoreProvider.overrideWith(StubAccountStore.new),
         bookmarkRepositoryProvider.overrideWithValue(repository),
       ],
     );
-    addTearDown(container.dispose);
     const query = (BookmarkEntityType.illust, BookmarkRestrict.public);
 
     await container.read(userBookmarkTagsProvider(query).future);
     await container.read(userBookmarkTagsProvider(query).notifier).loadMore();
 
     await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(
-          locale: Locale('zh', 'CN'),
-          supportedLocales: [Locale('zh', 'CN')],
-          localizationsDelegates: appLocalizationsDelegates,
-          home: BookmarkTagsPage(),
-        ),
-      ),
+      localizedApp(container: container, home: BookmarkTagsPage()),
     );
     await tester.pumpAndSettle();
     expect(find.text('加载更多失败'), findsOneWidget);
@@ -542,7 +476,6 @@ void main() {
     ) async {
       final repository = _RecordingUserRepository();
       final container = _makeContainer(repository);
-      addTearDown(container.dispose);
 
       await tester.pumpWidget(
         _testApp(
@@ -590,7 +523,6 @@ void main() {
     ) async {
       final repository = _RecordingUserRepository();
       final container = _makeContainer(repository);
-      addTearDown(container.dispose);
 
       await tester.pumpWidget(
         _testApp(

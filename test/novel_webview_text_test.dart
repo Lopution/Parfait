@@ -6,11 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:parfait/core/auth/account.dart';
-import 'package:parfait/core/auth/account_store.dart';
-import 'package:parfait/core/auth/credential.dart';
-import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/network/api_error.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/novel/novel_repository.dart';
 import 'package:parfait/core/novel/novel_webview_text.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -22,46 +18,10 @@ Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler,
 ) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  final credentials = FakeCredentialStore(
-    values: const {
-      'account': Credential(
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
-      ),
-    },
+  final container = await signedInApiContainer(
+    MockClient(handler),
+    account: const Account(id: 'account', userId: 10, name: 'tester'),
   );
-  final clientRef = <PixivHttpClient?>[null];
-  final container = ProviderContainer(
-    overrides: [
-      credentialStoreProvider.overrideWithValue(credentials),
-      accountMetadataRepositoryProvider.overrideWithValue(
-        FakeAccountMetadataRepository(
-          accounts: const [Account(id: 'account', userId: 10, name: 'tester')],
-          currentId: 'account',
-        ),
-      ),
-      oauthServiceProvider.overrideWithValue(
-        OAuthService(
-          client: MockClient(
-            (_) async => throw StateError('refresh is not expected'),
-          ),
-        ),
-      ),
-      pixivHttpClientProvider.overrideWith((ref) {
-        final client = clientRef[0];
-        if (client == null) throw StateError('client is not wired');
-        return client;
-      }),
-    ],
-  );
-  final client = PixivHttpClient(
-    client: MockClient(handler),
-    accountStore: container.read(accountStoreProvider.notifier),
-    credentialStore: credentials,
-    oauthService: container.read(oauthServiceProvider),
-  );
-  clientRef[0] = client;
-  await container.read(accountStoreProvider.future);
   return container;
 }
 
@@ -234,7 +194,6 @@ Object.defineProperty(window, 'pixiv', {value: {
         }
         return http.Response('not found', 404);
       });
-      addTearDown(container.dispose);
 
       final novel = await container
           .read(novelRepositoryProvider)
@@ -259,7 +218,6 @@ Object.defineProperty(window, 'pixiv', {value: {
         }
         return http.Response('boom', 500);
       });
-      addTearDown(container.dispose);
 
       await expectLater(
         container.read(novelRepositoryProvider).fetchDetail(1),

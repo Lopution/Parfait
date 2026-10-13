@@ -1,16 +1,14 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/translation/translation_credentials.dart';
 import 'package:parfait/features/settings/pages/translation_credentials_page.dart';
-import 'package:parfait/l10n/app_localizations.dart';
-import 'package:parfait/l10n/app_localizations_delegates.dart';
 
 import 'helpers/settings_world.dart';
+import 'helpers/localized_app.dart';
 
 /// The shared fake with injectable delete failures and delays.
 class _FakeStore extends FakeTranslationStore {
@@ -35,14 +33,10 @@ class _FakeStore extends FakeTranslationStore {
 }
 
 Widget _app(TranslationCredentialStore store, {bool baidu = true}) {
-  return ProviderScope(
+  return localizedApp(
     overrides: [translationCredentialStoreProvider.overrideWithValue(store)],
-    child: MaterialApp(
-      localizationsDelegates: appLocalizationsDelegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      locale: const Locale('en', 'US'),
-      home: TranslationCredentialsPage(baidu: baidu),
-    ),
+    locale: const Locale('en', 'US'),
+    home: TranslationCredentialsPage(baidu: baidu),
   );
 }
 
@@ -116,26 +110,22 @@ void main() {
   ) async {
     final store = _FakeStore();
     await tester.pumpWidget(
-      ProviderScope(
+      localizedApp(
         overrides: [
           translationCredentialStoreProvider.overrideWithValue(store),
         ],
-        child: MaterialApp(
-          localizationsDelegates: appLocalizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('en', 'US'),
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: Center(
-                child: FilledButton(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          const TranslationCredentialsPage(baidu: true),
-                    ),
+        locale: const Locale('en', 'US'),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        const TranslationCredentialsPage(baidu: true),
                   ),
-                  child: const Text('open'),
                 ),
+                child: const Text('open'),
               ),
             ),
           ),
