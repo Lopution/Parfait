@@ -67,14 +67,46 @@ The printed/emitted **public** DER base64 is injected as the Gradle property
 `PIXIV_UPDATE_PUBLIC_KEY_DER_B64` (already supported by `build.gradle.kts`;
 the `fdroid` flavor keeps it empty because the updater is disabled there).
 
-## Release procedure (per release)
+## Release checklist
 
-Before cutting a release, dispatch the Windows compile guard once on the
-release ref and wait for green — it no longer runs on every pull request:
+A release ships when its features are complete, not on a schedule. Every
+release goes through these steps in order:
 
-```bash
-gh workflow run windows.yml --ref <release-ref>
-```
+1. **Version**: bump `version:` in `pubspec.yaml` to `X.Y.Z+N` through a
+   pull request. `N` is the versionCode and only ever grows.
+2. **CHANGELOG**: in the same pull request, move the `Unreleased` entries
+   of `CHANGELOG.md` under `X.Y.Z` with the date. The entries come from
+   each pull request's "User-facing change".
+3. **Draft notes**: before building, create the draft with that section
+   (plus the download table and certificate fingerprint of the previous
+   release), so the workflow keeps it instead of generating notes from
+   pull request titles:
+   ```bash
+   gh release create vX.Y.Z --draft --title vX.Y.Z --notes-file notes.md
+   ```
+4. **Build**: dispatch the Windows compile guard on `main` and wait for
+   green (it does not run on every pull request), then dispatch
+   `release.yml` on `main`. It pins the draft to the commit it built,
+   reports the APK sizes, and uploads the split APKs and the signed
+   manifest:
+   ```bash
+   gh workflow run windows.yml --ref main
+   gh workflow run release.yml --ref main
+   ```
+5. **Device acceptance**: install the draft's APK on a real device and go
+   through the release's checklist item by item.
+6. **Publish**: publishing creates the `vX.Y.Z` tag on the built commit.
+   A large or risky version goes out as a pre-release first. The in-app
+   updater reads `releases/latest`, which skips pre-releases, so only
+   people who download it by hand get it. Once no regression shows up,
+   mark the same release as latest; nothing is rebuilt.
+7. **After release**: watch Issues. A regression gets a hotfix branched
+   from the tag (`hotfix/X.Y.Z`), tagged, and merged back into `main`.
+
+## Building by hand
+
+`release.yml` automates steps 1–4 below; use them when the workflow
+cannot run.
 
 1. Build the two split APKs: see above, `github` flavor. Flutter 3.47.2
    names them `app-arm64-v8a-github-release.apk` and
