@@ -1,3 +1,6 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+
 import 'review_support.dart';
 
 /// The five home destinations, their in-page tabs and feed states.
@@ -12,6 +15,33 @@ void main() {
   testShot('home/ranking', location: '/ranking');
   testShot('home/ranking-week', location: '/ranking?mode=week');
   testShot('home/ranking-male', location: '/ranking?mode=dayMale');
+  // The category sheet, browsing and editing.
+  Future<void> openCategories(WidgetTester tester, _) async {
+    await tester.tap(find.byIcon(Icons.grid_view_outlined));
+    await tester.pumpAndSettle();
+  }
+
+  testShot(
+    'home/ranking-categories',
+    location: '/ranking?mode=week',
+    variants: {ShotVariant.dark, ...overflowVariants, ShotVariant.largeText},
+    before: openCategories,
+  );
+  testShot(
+    'home/ranking-categories-edit',
+    location: '/ranking',
+    variants: {ShotVariant.dark, ...overflowVariants, ShotVariant.largeText},
+    before: (tester, router) async {
+      await openCategories(tester, router);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.byIcon(Icons.edit_outlined),
+        ),
+      );
+      await tester.pumpAndSettle();
+    },
+  );
   testShot('home/new', location: '/new');
   testShot('home/new-all', location: '/new?scope=all');
   testShot('home/new-mypixiv', location: '/new?scope=mypixiv');
