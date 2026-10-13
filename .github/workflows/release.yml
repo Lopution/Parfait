@@ -141,10 +141,16 @@ jobs:
         run: |
           VERSION="${{ env.VERSION }}"
           # Draft only (L2): no public formal release is published here.
-          gh release view "v${VERSION}" >/dev/null 2>&1 || \
+          # Publishing creates the tag at the draft's target, so a draft
+          # prepared ahead with its notes is pinned to the commit built here.
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            gh release edit "v${VERSION}" --target "${{ github.sha }}"
+          else
             gh release create "v${VERSION}" \
               --title "v${VERSION}" \
+              --target "${{ github.sha }}" \
               --draft
+          fi
           # Upload on every run (a re-run for an existing draft must still
           # replace the assets), overwriting same-named files.
           gh release upload "v${VERSION}" --clobber \
