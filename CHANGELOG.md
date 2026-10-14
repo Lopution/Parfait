@@ -26,6 +26,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 ### 安全
 
 - TLS 库更新到 rustls 0.23.45：不再跨加密级别接受 TLS 1.3 握手消息。
+- 导出账号凭据后，如果到 5 分钟时 Parfait 在后台或已被关闭，剪贴板里的凭据之前不会被清除；现在回到 Parfait 时会补清。相关提示也不再说成一定会自动清除，并提醒粘贴后自行清空剪贴板。
 
 ### Added
 
@@ -47,6 +48,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 ### Security
 
 - The TLS library moves to rustls 0.23.45, which no longer accepts TLS 1.3 handshake messages across an encryption level boundary.
+- After exporting the account credential, the clipboard was not cleared if Parfait was in the background or closed when the 5 minutes ran out; it is now cleared when you return to Parfait. The notices no longer promise an automatic clear and ask you to clear the clipboard yourself after pasting.
 
 ## [0.9.0] - 2026-10-10
 

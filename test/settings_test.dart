@@ -659,9 +659,7 @@ void main() {
 
       // The explicit security warning appears (R4: 安全降级不能静默).
       expect(
-        find.text(
-          '此设备不支持敏感剪贴板标记（Android 13+ 才支持）：凭据将以明文进入系统剪贴板，请尽快粘贴；5 分钟后自动清除。',
-        ),
+        find.text('此设备不支持敏感剪贴板标记（Android 13+ 才支持），凭据不会被标记为敏感内容。请尽快粘贴。'),
         findsOneWidget,
       );
     },

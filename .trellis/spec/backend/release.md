@@ -16,7 +16,7 @@ applies_to:
   - rust-toolchain.toml
   - CHANGELOG.md
   - .github/pull_request_template.md
-reviewed: 2026-10-13
+reviewed: 2026-10-14
 ---
 
 # Release artifacts, updater and toolchain
@@ -174,6 +174,17 @@ reviewed: 2026-10-13
   otherwise falls back to `stable`.
 - **Check:** manual
 - **Code:** `rust-toolchain.toml`
+
+### REL-18 A vendored package records its fork
+- **Rule:** A package vendored under `plugins/` keeps an `UPSTREAM.md`
+  with the upstream repository, tag and version, every difference and why,
+  and when the fork can be dropped. The commit that syncs upstream or
+  changes the fork updates it. `plugins/rhttp/UPSTREAM.md` and
+  `plugins/flutter_inappwebview_android/UPSTREAM.md` are the two today.
+- **Why:** The webview fork's pubspec note claimed one difference while
+  it carried two; a sync would have dropped the reverse-image upload slot.
+- **Check:** manual
+- **Code:** `plugins/rhttp/UPSTREAM.md`, `plugins/flutter_inappwebview_android/UPSTREAM.md`
 
 ### REL-17 Dependency upgrades start from a risk table
 - **Rule:** Once a month, look at `flutter pub outdated` (app and plugin),

@@ -1,9 +1,11 @@
 package io.github.lopution.parfait
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.SharedPreferences
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -16,29 +18,56 @@ import java.security.MessageDigest
 /**
  * Sensitive, short-lived clipboard bridge for account transfer.
  *
- * The channel never logs or persists the text. Delayed clearing compares a
- * one-way fingerprint with the current clipboard first, so a later user copy
- * is not overwritten by our cleanup task.
+ * The channel never logs or persists the text. Clearing after the lifetime
+ * goes through [PendingTransferClear], which recognises our clip without
+ * reading it, so a later user copy is not overwritten by our cleanup.
  */
 object AccountTransferClipboardChannel {
     private const val CHANNEL = "parfait/account_transfer_clipboard"
+    private const val PREFS = "parfait_transfer_clipboard"
     private const val MAX_TEXT_LENGTH = 32 * 1024
     private const val MIN_CLEAR_DELAY_MS = 1L
     private const val MAX_CLEAR_DELAY_MS = 10L * 60L * 1000L
 
-    fun configure(context: Context, engine: FlutterEngine) {
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val handler = Handler(Looper.getMainLooper())
+    /** Sweeps the pending clear; the activity calls it whenever it gains focus. */
+    class Sweeper internal constructor(
+        private val activity: Activity,
+        private val pending: PendingTransferClear,
+        private val handler: Handler,
+    ) {
+        private val timer = Runnable { if (activity.hasWindowFocus()) sweep() }
+
+        fun sweep() {
+            handler.removeCallbacks(timer)
+            val outcome = pending.sweep()
+            if (outcome is PendingTransferClear.Outcome.Waiting) {
+                handler.postDelayed(timer, outcome.remainingMs)
+            }
+        }
+
+        fun dispose() = handler.removeCallbacks(timer)
+    }
+
+    fun configure(activity: Activity, engine: FlutterEngine): Sweeper {
+        val clipboard = activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val prefs = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val pending = PendingTransferClear(
+            PrefsPendingClearStore(prefs),
+            SystemClipStamps(clipboard),
+            System::currentTimeMillis,
+        )
+        val sweeper = Sweeper(activity, pending, Handler(Looper.getMainLooper()))
         MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
-                    "write" -> write(clipboard, handler, call, result)
+                    "write" -> write(clipboard, pending, sweeper, call, result)
                     "read" -> read(clipboard, result)
-                    "clearIfCurrent" -> clearIfCurrent(clipboard, call, result)
+                    "clearIfCurrent" -> clearIfCurrent(clipboard, pending, call, result)
                     "capabilities" -> capabilities(result)
                     else -> result.notImplemented()
                 }
             }
+        return sweeper
     }
 
     /**
@@ -59,7 +88,8 @@ object AccountTransferClipboardChannel {
 
     private fun write(
         clipboard: ClipboardManager,
-        handler: Handler,
+        pending: PendingTransferClear,
+        sweeper: Sweeper,
         call: MethodCall,
         result: MethodChannel.Result,
     ) {
@@ -75,18 +105,23 @@ object AccountTransferClipboardChannel {
             return
         }
 
-        val clip = ClipData.newPlainText("Parfait account transfer", text)
+        val clip = ClipData.newPlainText(PendingTransferClear.LABEL, text)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             clip.description.setExtras(PersistableBundle().apply {
                 putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
             })
         }
         clipboard.setPrimaryClip(clip)
-        handler.postDelayed({
-            if (fingerprintOf(currentText(clipboard)) == fingerprint) {
-                clear(clipboard)
-            }
-        }, delayMs)
+        // The system stamps the clip when it becomes primary; without that
+        // stamp no later sweep could recognise it, so take it back out.
+        val stamp = SystemClipStamps(clipboard).current()
+        if (stamp == null || stamp.label != PendingTransferClear.LABEL) {
+            clear(clipboard)
+            result.error("clear_unarmed", "clipboard did not report the exported clip", null)
+            return
+        }
+        pending.arm(stamp, delayMs)
+        sweeper.sweep()
         result.success(true)
     }
 
@@ -108,6 +143,7 @@ object AccountTransferClipboardChannel {
 
     private fun clearIfCurrent(
         clipboard: ClipboardManager,
+        pending: PendingTransferClear,
         call: MethodCall,
         result: MethodChannel.Result,
     ) {
@@ -121,6 +157,7 @@ object AccountTransferClipboardChannel {
             return
         }
         clear(clipboard)
+        pending.disarm()
         result.success(true)
     }
 
@@ -139,4 +176,38 @@ object AccountTransferClipboardChannel {
         val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))
         return digest.joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
     }
+}
+
+private class PrefsPendingClearStore(private val prefs: SharedPreferences) : PendingClearStore {
+    override fun read(): PendingClear? {
+        if (!prefs.contains(CLIP_TIMESTAMP) || !prefs.contains(EXPIRES_AT)) return null
+        return PendingClear(prefs.getLong(CLIP_TIMESTAMP, 0), prefs.getLong(EXPIRES_AT, 0))
+    }
+
+    override fun write(pending: PendingClear) {
+        prefs.edit()
+            .putLong(CLIP_TIMESTAMP, pending.clipTimestamp)
+            .putLong(EXPIRES_AT, pending.expiresAtMs)
+            .apply()
+    }
+
+    override fun remove() {
+        prefs.edit().clear().apply()
+    }
+
+    private companion object {
+        const val CLIP_TIMESTAMP = "clipTimestamp"
+        const val EXPIRES_AT = "expiresAt"
+    }
+}
+
+private class SystemClipStamps(private val clipboard: ClipboardManager) : ClipStamps {
+    // getPrimaryClipDescription, unlike getPrimaryClip, does not raise the
+    // Android 12 clipboard access notice.
+    override fun current(): ClipStamp? {
+        val description = clipboard.primaryClipDescription ?: return null
+        return ClipStamp(description.label?.toString(), description.timestamp)
+    }
+
+    override fun clear() = clipboard.clearPrimaryClip()
 }

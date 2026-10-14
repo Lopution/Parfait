@@ -12,12 +12,14 @@ import io.flutter.embedding.android.FlutterSurfaceView
 import io.flutter.embedding.engine.FlutterEngine
 
 class MainActivity : FlutterActivity() {
+    private var transferClipboard: AccountTransferClipboardChannel.Sweeper? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MediaStoreChannel.configure(this, flutterEngine)
         AndroidIntentChannel.configure(this, flutterEngine)
         ReverseImageInputChannel.configure(this, flutterEngine)
-        AccountTransferClipboardChannel.configure(this, flutterEngine)
+        transferClipboard = AccountTransferClipboardChannel.configure(this, flutterEngine)
         WidgetForegroundChannel.configure(this, flutterEngine)
         DistributionUpdaterChannel.configure(this, flutterEngine)
         SafTreeChannel.configure(this, flutterEngine)
@@ -32,6 +34,19 @@ class MainActivity : FlutterActivity() {
         // Cold start and every return to the foreground: reclaim may have
         // dropped the font pages while the app was away.
         ContentFontPrefetcher.prefetch()
+    }
+
+    // Android 10+ lets only the focused app see the clipboard, so an
+    // exported credential whose lifetime ended while we were away is
+    // cleared when focus comes back.
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) transferClipboard?.sweep()
+    }
+
+    override fun onDestroy() {
+        transferClipboard?.dispose()
+        super.onDestroy()
     }
 
     // On this device class, vsync delivery to the app drops to ~60Hz a few
