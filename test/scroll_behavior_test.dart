@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/scroll_behavior.dart';
@@ -50,5 +51,26 @@ void main() {
     await gesture.up();
     await tester.pumpAndSettle();
     expect(controller.offset, max);
+  });
+
+  testWidgets('a mouse brings a scrollbar and keeps the list as it was', (
+    tester,
+  ) async {
+    final controller = await _pumpList(tester);
+    controller.jumpTo(800);
+    await tester.pump();
+    final row = tester.element(find.text('12'));
+    expect(find.byType(Scrollbar), findsNothing);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(10, 10));
+    await tester.pump();
+    expect(find.byType(Scrollbar), findsOneWidget);
+    expect(tester.element(find.text('12')), same(row));
+    expect(controller.offset, 800);
+
+    await mouse.removePointer();
+    await tester.pump();
+    expect(find.byType(Scrollbar), findsNothing);
   });
 }

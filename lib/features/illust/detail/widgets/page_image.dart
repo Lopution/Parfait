@@ -181,6 +181,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
           ? widget.onToggleSelect
           : () => _openViewer(context, quality: viewQuality),
       onLongPress: isPagePlaceholder ? null : widget.onLongPress,
+      onSecondaryTap: isPagePlaceholder ? null : widget.onLongPress,
       // Loose stack: the loaded image sizes itself to its intrinsic aspect
       // ratio at full width. The app API's meta_pages never carries
       // per-page width/height, so a fixed AspectRatio always resolved to the

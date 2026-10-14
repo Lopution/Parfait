@@ -480,6 +480,7 @@ class _RankingTabsState<M extends RankingCategory>
           AppHaptics.longPress();
           toggle();
         },
+        onSecondaryTap: toggle,
         child: label,
       ),
     );

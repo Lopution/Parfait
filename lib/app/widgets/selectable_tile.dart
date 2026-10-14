@@ -36,6 +36,7 @@ class SelectableTile extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: managing ? onToggle : null,
         onLongPress: managing ? onToggle : onLongPress,
+        onSecondaryTap: managing ? onToggle : onLongPress,
         child: Stack(
           children: [
             AbsorbPointer(absorbing: managing, child: child),

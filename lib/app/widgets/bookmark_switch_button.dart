@@ -257,6 +257,7 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
         child: GestureDetector(
           excludeFromSemantics: true,
           onLongPress: onLongPress,
+          onSecondaryTap: onLongPress,
           child: ExcludeSemantics(
             child: IconButton(
               splashRadius: 24,
@@ -278,6 +279,7 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
       child: GestureDetector(
         excludeFromSemantics: true,
         onLongPress: onLongPress,
+        onSecondaryTap: onLongPress,
         onTap: _toggle,
         child: Padding(
           padding: const EdgeInsets.all(FuncSpacing.sm),

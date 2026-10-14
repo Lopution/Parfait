@@ -651,6 +651,18 @@ class _TrendingTagTile extends ConsumerWidget {
         fontWeight: FontWeight.w600,
       ),
     );
+    // Long-pressing opens the work behind the tag, as pixez and Shaft do.
+    // A tag without one offers no long press at all.
+    final openWork = representative == null
+        ? null
+        : () {
+            AppHaptics.longPress();
+            openIllust(
+              context,
+              representative.id,
+              initialEntity: representative,
+            );
+          };
     return Semantics(
       button: true,
       child: GestureDetector(
@@ -665,18 +677,8 @@ class _TrendingTagTile extends ConsumerWidget {
             novelFilters: ref.read(searchNovelFiltersProvider),
           ),
         ),
-        // Long-pressing opens the work behind the tag, as pixez and Shaft
-        // do. A tag without one offers no long press at all.
-        onLongPress: representative == null
-            ? null
-            : () {
-                AppHaptics.longPress();
-                openIllust(
-                  context,
-                  representative.id,
-                  initialEntity: representative,
-                );
-              },
+        onLongPress: openWork,
+        onSecondaryTap: openWork,
         child: ClipRRect(
           borderRadius: FuncShape.card,
           child: ColoredBox(
@@ -1244,6 +1246,7 @@ class _HistoryChip extends StatelessWidget {
     onLongPressHint: context.l10n.searchSuggestionFill,
     child: GestureDetector(
       onLongPress: onLongPress,
+      onSecondaryTap: onLongPress,
       child: InputChip(
         avatar: const Icon(Icons.history),
         label: Text(keyword),

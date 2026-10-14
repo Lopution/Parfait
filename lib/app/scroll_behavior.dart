@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// App-wide scroll behavior: on desktop the mouse and trackpad drag like
@@ -14,6 +15,9 @@ import 'package:material_ui/material_ui.dart';
 /// the same feel here ([FuncScrollPhysics]) keeps detail/settings/search
 /// pages, profile NestedScrollView outer scrolls and feed scrolls on a
 /// single scheme.
+///
+/// Vertical lists show a scrollbar while a mouse is connected
+/// ([mouseScrollbar]).
 class FuncScrollBehavior extends MaterialScrollBehavior {
   const FuncScrollBehavior();
 
@@ -37,6 +41,79 @@ class FuncScrollBehavior extends MaterialScrollBehavior {
     Widget child,
     ScrollableDetails details,
   ) => child;
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) => switch (getPlatform(context)) {
+    TargetPlatform.linux ||
+    TargetPlatform.macOS ||
+    TargetPlatform.windows => super.buildScrollbar(context, child, details),
+    _ => mouseScrollbar(child, details),
+  };
+}
+
+/// [child], a vertical scroll view, with a [Scrollbar] while a mouse is
+/// connected: a wheel gives no sense of a list's length or place, and the
+/// thumb drags. Touch-only devices keep the platform's bare lists.
+///
+/// NestedScrollView's coordinated controllers drive several positions and
+/// cannot back one thumb; their views stay bare, as on desktop.
+Widget mouseScrollbar(Widget child, ScrollableDetails details) {
+  final controller = details.controller;
+  if (axisDirectionToAxis(details.direction) != Axis.vertical ||
+      controller == null ||
+      controller.positions.length > 1 ||
+      controller.debugLabel == 'inner' ||
+      controller.debugLabel == 'outer') {
+    return child;
+  }
+  return _MouseScrollbar(controller: controller, child: child);
+}
+
+class _MouseScrollbar extends StatefulWidget {
+  const _MouseScrollbar({required this.controller, required this.child});
+
+  final ScrollController controller;
+  final Widget child;
+
+  @override
+  State<_MouseScrollbar> createState() => _MouseScrollbarState();
+}
+
+class _MouseScrollbarState extends State<_MouseScrollbar> {
+  final MouseTracker _mouse = RendererBinding.instance.mouseTracker;
+
+  /// Keeps the viewport's subtree, and every state in it, when a mouse
+  /// coming or going adds or drops the scrollbar above it.
+  final GlobalKey _viewportKey = GlobalKey();
+  late bool _connected = _mouse.mouseIsConnected;
+
+  @override
+  void initState() {
+    super.initState();
+    _mouse.addListener(_onMouseChange);
+  }
+
+  @override
+  void dispose() {
+    _mouse.removeListener(_onMouseChange);
+    super.dispose();
+  }
+
+  void _onMouseChange() {
+    final connected = _mouse.mouseIsConnected;
+    if (connected != _connected) setState(() => _connected = connected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewport = KeyedSubtree(key: _viewportKey, child: widget.child);
+    if (!_connected) return viewport;
+    return Scrollbar(controller: widget.controller, child: viewport);
+  }
 }
 
 /// [BouncingScrollPhysics] whose fling stops at either end, the way the
