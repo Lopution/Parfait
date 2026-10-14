@@ -110,14 +110,14 @@ void main() {
               .onPressed,
           isNull,
         );
-        // Page 0's badge is the unselected hollow circle (page 1 is below
-        // the fold).
-        expect(find.byIcon(Icons.radio_button_unchecked), findsOneWidget);
+        // Every shown page carries the unselected hollow circle.
+        final unselected = find.byIcon(Icons.radio_button_unchecked);
+        expect(unselected, findsWidgets);
 
-        // Tapping the page badge toggles the selection — nothing downloads
+        // Tapping page 0's badge toggles the selection — nothing downloads
         // yet.
         await mockNetworkImagesFor(() async {
-          await tester.tap(find.byIcon(Icons.radio_button_unchecked));
+          await tester.tap(unselected.first);
           await tester.pump();
         });
         final manager = container.read(downloadManagerProvider);
@@ -297,7 +297,7 @@ void main() {
       // then fails asynchronously.
       await longPressImage(tester);
       await mockNetworkImagesFor(() async {
-        await tester.tap(find.byIcon(Icons.radio_button_unchecked));
+        await tester.tap(find.byIcon(Icons.radio_button_unchecked).first);
         await tester.pump();
         await tester.tap(downloadSelectedButton);
         await tester.pump(const Duration(milliseconds: 100));

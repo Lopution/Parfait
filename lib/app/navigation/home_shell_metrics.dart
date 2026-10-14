@@ -18,6 +18,7 @@ class HomeShellChrome extends InheritedWidget {
   const HomeShellChrome({
     super.key,
     required this.bottomBarExtent,
+    this.railExtent = 0,
     required this.bottomBarVisibleExtent,
     required this.bottomBarVisibility,
     required this.onBranchRootScroll,
@@ -28,6 +29,24 @@ class HomeShellChrome extends InheritedWidget {
   /// `FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom)`,
   /// or 0 while the width ladder selects the NavigationRail.
   final double bottomBarExtent;
+
+  /// Width the rail and its divider take beside the branches; 0 on
+  /// bottom-bar layouts and while an immersive page hides the rail.
+  final double railExtent;
+
+  /// The collapsed rail's width (Material 3's navigation rail).
+  static const double railWidth = 80;
+
+  /// The labelled rail's width on extra-large windows.
+  static const double extendedRailWidth = 256;
+
+  /// The area a page gets: the window less the rail. A page outside the
+  /// shell, pushed over it, gets the whole window.
+  static Size contentSizeOf(BuildContext context) {
+    final window = MediaQuery.sizeOf(context);
+    final rail = maybeOf(context)?.railExtent ?? 0;
+    return Size(window.width - rail, window.height);
+  }
 
   /// The bar's *currently visible* height at the screen bottom, resolved
   /// from its scroll hide by `FuncShellBottomNav`. The Hero landing clip
@@ -65,6 +84,7 @@ class HomeShellChrome extends InheritedWidget {
   @override
   bool updateShouldNotify(HomeShellChrome oldWidget) =>
       bottomBarExtent != oldWidget.bottomBarExtent ||
+      railExtent != oldWidget.railExtent ||
       bottomBarVisibility != oldWidget.bottomBarVisibility;
 }
 
@@ -100,5 +120,34 @@ class _BranchStackCoveredNotifier extends Notifier<Set<int>> {
     final next = _owners.values.toSet();
     if (setEquals(next, state)) return;
     state = next;
+  }
+}
+
+/// Whether an immersive page hides the shell's rail. On a phone the pages
+/// pushed over a branch root cover the bottom bar; on rail layouts the rail
+/// stays beside them, so a page that wants the whole window (the novel
+/// reader) asks for it here while its route is the current one.
+final shellRailHiddenProvider = NotifierProvider<ShellRailHiddenNotifier, bool>(
+  ShellRailHiddenNotifier.new,
+);
+
+class ShellRailHiddenNotifier extends Notifier<bool> {
+  final _owners = <Object>{};
+
+  @override
+  bool build() {
+    _owners.clear();
+    return false;
+  }
+
+  void setHidden(Object owner, bool hidden) {
+    // A release deferred past the owner's dispose can outlive the scope.
+    if (!ref.mounted) return;
+    if (hidden) {
+      _owners.add(owner);
+    } else {
+      _owners.remove(owner);
+    }
+    if (state != _owners.isNotEmpty) state = _owners.isNotEmpty;
   }
 }

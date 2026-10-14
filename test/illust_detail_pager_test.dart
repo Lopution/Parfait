@@ -378,6 +378,7 @@ void main() {
   ) async {
     // The route-level contract: IllustRouteExtra.pagerSource switches the
     // illust page to the pager; without it the single-work page mounts.
+    setViewSize(tester, const Size(390, 844));
     final (container, _, _) = await makeWorld();
     container.read(illustStoreProvider).mergeAll([
       for (final id in [42, 43]) parseIllust(illustJson(id)),

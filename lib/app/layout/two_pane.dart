@@ -1,40 +1,51 @@
 import 'package:material_ui/material_ui.dart';
 
-/// Fixed-ratio two-pane container for expanded (≥1200) surfaces.
+/// Two side-by-side panes for detail pages on landscape surfaces (see
+/// `AppBreakpoints.useTwoPaneDetail`).
 ///
-/// The [primary] pane takes [primaryFraction] of the width with a 1px
-/// divider before [secondary]; each pane is an independent scroll region.
-/// Callers gate usage through `AppBreakpoints.useTwoPaneDetail` so narrow
-/// surfaces keep their single-scroll structure untouched.
+/// The [secondary] column takes [secondaryFraction] of the width, kept
+/// between [secondaryMinWidth] and [secondaryMaxWidth] so text stays
+/// readable on a turned phone and does not sprawl on a desktop; [primary]
+/// takes the rest after a 1px divider. Each pane is its own scroll region.
 class TwoPane extends StatelessWidget {
   const TwoPane({
     super.key,
     required this.primary,
     required this.secondary,
-    this.primaryFraction = 0.55,
+    this.secondaryFraction = 0.38,
+    this.secondaryMinWidth = 320,
+    this.secondaryMaxWidth = 480,
   }) : assert(
-         primaryFraction > 0 && primaryFraction < 1,
-         'primaryFraction must stay inside (0, 1)',
+         secondaryFraction > 0 && secondaryFraction < 1,
+         'secondaryFraction must stay inside (0, 1)',
        );
 
   final Widget primary;
   final Widget secondary;
+  final double secondaryFraction;
+  final double secondaryMinWidth;
+  final double secondaryMaxWidth;
 
-  /// Width share of the primary (left) pane; secondary takes the rest.
-  final double primaryFraction;
+  static const double _dividerWidth = 1;
+
+  /// The secondary column's width inside a [width]-wide two-pane layout.
+  double secondaryWidthFor(double width) =>
+      (width * secondaryFraction).clamp(secondaryMinWidth, secondaryMaxWidth);
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(flex: (primaryFraction * 1000).round(), child: primary),
-        const VerticalDivider(thickness: 1, width: 1),
-        Expanded(
-          flex: ((1 - primaryFraction) * 1000).round(),
-          child: secondary,
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) => Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: primary),
+          const VerticalDivider(thickness: _dividerWidth, width: _dividerWidth),
+          SizedBox(
+            width: secondaryWidthFor(constraints.maxWidth),
+            child: secondary,
+          ),
+        ],
+      ),
     );
   }
 }

@@ -2,7 +2,7 @@
 prefix: DETAIL
 applies_to:
   - lib/features/illust/**
-reviewed: 2026-10-12
+reviewed: 2026-10-14
 ---
 
 # Artwork detail page and viewer
@@ -25,13 +25,14 @@ reviewed: 2026-10-12
 - **Code:** `lib/features/illust/detail/widgets/page_image.dart`
 
 ### DETAIL-02 A short first image sits in a fixed slot, the Hero inside it
-- **Rule:** On narrow layouts a short first illustration (single, or first
-  of a set; not manga, ugoira or two-pane) is centered at its own ratio in
-  a slot of 0.7 × viewport height. The Hero, placeholder and error states
+- **Rule:** On compact widths (under 600dp) a short first illustration
+  (single, or first of a set; not manga, ugoira or two-pane) is centered
+  at its own ratio in a slot of 0.7 × viewport height. The Hero, placeholder and error states
   stay inside the ratio box, not the slot. Page 1 always goes through the
   slot box so expanding a set never remounts it.
 - **Why:** The flight landed on empty slot space; remounting page 1 lost
-  its decode.
+  its decode. On a portrait tablet the slot only opened a gap under the
+  image.
 - **Check:** `test/illust_detail_page_test.dart` "gives the first image of a set the same slot"
 - **Code:** `lib/features/illust/detail/widgets/page_image.dart`
 
@@ -104,6 +105,17 @@ reviewed: 2026-10-12
   FAB was tried and rejected.
 - **Check:** manual
 - **Code:** `lib/features/illust/detail/widgets/detail_action_bar.dart`
+
+### DETAIL-14 Landscape detail is a stage and an info column
+- **Rule:** When the area the page gets (the window less the shell rail,
+  `HomeShellChrome.contentSizeOf`) is at least 600dp wide and wider than
+  tall, the detail page is a `TwoPane`: the image pager on a
+  `surfaceContainerLow` stage, the info column at 0.38 of the width kept
+  within 320–480dp. The action capsule centers in the info column.
+- **Why:** On a turned phone the single column showed half an image; on
+  wide screens the capsule straddled the divider over the comments.
+- **Check:** `test/layout_breakpoints_test.dart` "two-pane detail needs a landscape area at least medium wide" "the secondary column stays between its bounds"; `test/illust_detail_actions_test.dart` "splits into image pager and meta column"
+- **Code:** `lib/app/layout/two_pane.dart`, `lib/features/illust/detail/illust_detail_page.dart`
 
 ### DETAIL-10 The download button listens to the manager itself
 - **Rule:** The detail download button subscribes to

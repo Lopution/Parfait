@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/motion_tokens.dart';
+import '../../app/navigation/home_shell_metrics.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/system_ui.dart';
 import '../../app/widgets/app_snack_bar.dart';
@@ -149,6 +150,11 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   EdgeInsets _stableInsets = EdgeInsets.zero;
   Size? _insetsSize;
 
+  /// Reading takes the whole window: on rail layouts the shell's rail
+  /// steps aside while this route is the current one.
+  late final ShellRailHiddenNotifier _shellRail;
+  bool _hidesRail = false;
+
   NovelEntity get novel => widget.spec.novel;
 
   @override
@@ -169,6 +175,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     super.initState();
     // Chrome starts hidden, so the reader opens straight into immersion.
     unawaited(setSystemUiMode(SystemUiMode.immersiveSticky));
+    _shellRail = ref.read(shellRailHiddenProvider.notifier);
     _loadPrefs();
   }
 
@@ -181,6 +188,14 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     final next = size == _insetsSize ? _maxEdges(_stableInsets, live) : live;
     _insetsSize = size;
     if (next != _stableInsets) _stableInsets = next;
+    final hidesRail = ModalRoute.isCurrentOf(context) ?? false;
+    if (hidesRail != _hidesRail) {
+      _hidesRail = hidesRail;
+      // Providers cannot change while widgets build.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _shellRail.setHidden(this, _hidesRail);
+      });
+    }
   }
 
   static EdgeInsets _maxEdges(EdgeInsets a, EdgeInsets b) => EdgeInsets.only(
@@ -196,6 +211,12 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     // restore the ambient bars here as the fallback. Re-setting
     // edgeToEdge is harmless when the route left through a normal pop.
     unawaited(setSystemUiMode(SystemUiMode.edgeToEdge));
+    // Providers cannot change while the tree is finalized either; release
+    // after the frame (a pending hide above checks `mounted` and skips).
+    final rail = _shellRail;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => rail.setHidden(this, false),
+    );
     _chrome.dispose();
     super.dispose();
   }

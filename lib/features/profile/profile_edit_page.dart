@@ -721,7 +721,7 @@ class _EditBadge extends StatelessWidget {
 }
 
 double _profileEditContentMaxWidth(double availableWidth) =>
-    availableWidth >= AppBreakpoints.expanded
+    availableWidth >= AppBreakpoints.large
     ? ContentWidths.form
     : availableWidth;
 

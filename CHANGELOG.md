@@ -14,6 +14,12 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 底栏可以自定义：设置 → 导航与布局 → 底栏项目里拖动排序、关掉不用的页面（"我的"始终保留，至少留 2 项）。不在底栏的页面会出现在"我的"页里；搜索不在底栏时，推荐页顶栏会出现搜索按钮。
 - 可以选择启动页：底栏第一项、上次停留的页，或指定某一页。返回键会回到底栏第一项，再按一次退出。
 
+### 变更
+
+- 平板、折叠屏和横屏手机上，作品详情改为左右两栏：左边看图，右边是作品信息，底部操作按钮放在信息栏里。横屏手机和小平板也会用两栏。
+- 宽屏的侧边导航栏改为图标加文字的窄栏，只在很宽的窗口（1600dp 以上）展开；窗口太矮时侧栏可以滚动，不再被截断。
+- 宽屏阅读小说时隐藏侧边导航栏，阅读区占满整个窗口。
+
 ### 修复
 
 - 打开兼容通道时，API、登录和网页请求不再落到会被 pixiv 源站以 403 拒绝的无 SNI 连接；这条最后的兜底连接只用于图片。
@@ -35,6 +41,12 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - An empty R-18G ranking now explains that R-18G must be turned on in pixiv's web viewing settings, with a link to that page.
 - The bottom bar can be customized: under Settings → Navigation & layout → Bottom bar items, drag to reorder and switch off pages you don't use (Me always stays, and at least 2 items remain). Pages off the bar appear on the Me page; while Search is off the bar, the For you top bar shows a search button.
 - Choose the start page: the first bar item, the last used page, or a specific page. Back returns to the first bar item, and once more leaves the app.
+
+### Changed
+
+- On tablets, foldables and phones held sideways, artwork details now show in two columns: the artwork on the left, its information on the right, with the action buttons in the information column. Phones in landscape and small tablets get the two columns too.
+- The side navigation on wide screens is now a narrow rail of icons with labels, expanding only on very wide windows (1600dp and up). On a short window the rail scrolls instead of being cut off.
+- Reading a novel on a wide screen hides the side navigation so the text gets the whole window.
 
 ### Fixed
 

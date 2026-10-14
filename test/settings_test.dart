@@ -694,7 +694,12 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('高级设置'),
       400,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: find
+          .descendant(
+            of: find.byType(NetworkSettingsPage),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('高级设置'));

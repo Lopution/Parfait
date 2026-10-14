@@ -301,6 +301,16 @@ void main() {
     });
   });
 
+  testWidgets('a turned phone gets a scrolling icon rail', (tester) async {
+    await _pumpHome(tester, width: 896, height: 411);
+
+    // Five labelled destinations overflowed 411dp before the rail scrolled.
+    expect(tester.takeException(), isNull);
+    final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+    expect(rail.scrollable, isTrue);
+    expect(rail.extended, isFalse);
+  });
+
   group('NavigationRail shares the bar action entry', () {
     testWidgets('a same-destination rail tap pops the branch stack and '
         'emits re-tap', (tester) async {
