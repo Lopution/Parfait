@@ -24,6 +24,7 @@ import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/layout/card_columns.dart';
 
 /// Beta56 New page for one content [type]: scope tabs over that type's
 /// feeds, the same shape as the ranking pages. The illust page is the
@@ -408,11 +409,10 @@ class _NewFeedBody extends ConsumerWidget {
         if (storedNovels[id] != null) storedNovels[id]!,
     ];
     return [
-      SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) => NovelEntry.regular(entity: entities[index]),
-          childCount: entities.length,
-        ),
+      SliverCardList(
+        itemCount: entities.length,
+        itemBuilder: (context, index) =>
+            NovelEntry.regular(entity: entities[index]),
       ),
       ...tail,
     ];

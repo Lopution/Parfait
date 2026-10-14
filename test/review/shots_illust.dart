@@ -104,7 +104,10 @@ void main() {
     'illust/detail-expanded',
     location: detail,
     before: (tester, router) async {
-      await tester.tap(find.byKey(const Key('illust-expand-pages')));
+      final expand = find.byKey(const Key('illust-expand-pages'));
+      // Two panes page through every image: there is no fold to open.
+      if (expand.evaluate().isEmpty) return;
+      await tester.tap(expand);
       await tester.pumpAndSettle();
       tester
           .state<ScrollableState>(find.byType(Scrollable).first)

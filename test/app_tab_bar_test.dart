@@ -32,8 +32,9 @@ Future<void> _pumpBar(
   List<String> labels, {
   double textScale = 1,
   ValueChanged<int>? onTap,
+  double width = 411,
 }) async {
-  setViewSize(tester, const Size(411, 800));
+  setViewSize(tester, Size(width, 800));
   await tester.pumpWidget(_host(labels, textScale: textScale, onTap: onTap));
   await tester.pump();
 }
@@ -70,6 +71,18 @@ void main() {
     final bar = tester.widget<TabBar>(find.byType(TabBar));
     expect(bar.isScrollable, isTrue);
     expect(bar.tabAlignment, TabAlignment.start);
+  });
+
+  testWidgets('a wide row keeps its tabs together at the start', (
+    tester,
+  ) async {
+    await _pumpBar(tester, const ['插画', '漫画', '小说', '用户'], width: 1400);
+
+    final row = tester.getRect(find.byType(AppTabBar));
+    final bar = tester.getRect(find.byType(TabBar));
+    expect(bar.width, 4 * AppTabBar.maxSlotWidth);
+    expect(bar.left, row.left);
+    expect(tester.widget<TabBar>(find.byType(TabBar)).isScrollable, isFalse);
   });
 
   testWidgets('labels stay 14sp and scroll instead of overflowing at 1.3x', (

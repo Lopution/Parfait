@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/layout/content_widths.dart';
 
 /// Looks like a search field, acts as a button: the input page owns typing.
 ///
@@ -18,6 +19,9 @@ class SearchFieldButton extends StatelessWidget {
 
   static const double height = 48;
 
+  /// The field stops growing here on wide windows, as [SearchBar] does.
+  static const double maxWidth = ContentWidths.management;
+
   final String text;
   final VoidCallback onTap;
 
@@ -31,7 +35,7 @@ class SearchFieldButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Semantics(
+    final field = Semantics(
       button: true,
       onTapHint: tapHint,
       child: Material(
@@ -65,6 +69,10 @@ class SearchFieldButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: maxWidth),
+      child: field,
     );
   }
 }

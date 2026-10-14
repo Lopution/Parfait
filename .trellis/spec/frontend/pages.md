@@ -15,7 +15,9 @@ applies_to:
   - lib/app/widgets/inline_translation.dart
   - lib/app/widgets/selectable_tile.dart
   - lib/app/widgets/sliver_surface_list.dart
-reviewed: 2026-10-13
+  - lib/app/layout/card_columns.dart
+  - lib/app/layout/content_widths.dart
+reviewed: 2026-10-14
 ---
 
 # Page-specific rules
@@ -26,6 +28,7 @@ reviewed: 2026-10-13
 - [Discovery](#discovery)
 - [Shared page pieces](#shared-page-pieces)
 - [Library and management lists](#library-and-management-lists)
+- [Wide and short windows](#wide-and-short-windows)
 
 ## Profile
 
@@ -189,3 +192,18 @@ reviewed: 2026-10-13
   their ink and showed square corners mid-animation.
 - **Check:** `test/download_tasks_page_test.dart` "a five-hundred-item list only builds the visible rows" "a group of one is a plain task row"
 - **Code:** `lib/features/settings/pages/download_tasks_page.dart`, `lib/app/widgets/sliver_surface_list.dart`
+
+## Wide and short windows
+
+### PAGE-16 Card lists add columns; text lists stop growing
+- **Rule:** Lists of novel, user and series-episode cards lay out through
+  `SliverCardList` (or `CardRow` in a `ListView`): a column per 400dp of
+  the list's own width, at most three. Text lists (comments and their
+  composer, search suggestions, bookmark tags, a profile's About tab) sit
+  in `ContentWidthCap` at `ContentWidths.management`; the search field
+  stops at the same width; the reverse image search flow at
+  `ContentWidths.form`, its engine pages full width.
+- **Why:** On wide windows a single row ran the name at one edge and its
+  button or date at the other; the comment field was 1300dp wide.
+- **Check:** `test/responsive_layout_test.dart` "card lists take a column per 400dp, at most three" "a wide card list puts neighbouring cards side by side" "a capped column centres at its width on a wide window"
+- **Code:** `lib/app/layout/card_columns.dart`, `lib/app/layout/content_widths.dart`

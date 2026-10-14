@@ -10,6 +10,7 @@ import '../../core/bookmark/bookmark_tags_controller.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_tab_bar.dart';
+import '../../app/layout/content_widths.dart';
 
 /// The signed-in user's bookmark tag collection (`/v1/user/bookmark-tags/`)
 /// in two tabs, public and private. Tapping a tag opens the filtered
@@ -73,7 +74,11 @@ class _BookmarkTagsPageState extends State<BookmarkTagsPage>
       body: TabBarView(
         controller: _tabController,
         children: [
-          for (final restrict in _restricts) _RestrictTags(restrict: restrict),
+          for (final restrict in _restricts)
+            ContentWidthCap(
+              maxWidth: ContentWidths.management,
+              child: _RestrictTags(restrict: restrict),
+            ),
         ],
       ),
     );

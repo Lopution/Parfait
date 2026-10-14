@@ -23,6 +23,7 @@ import '../../app/widgets/comment_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/layout/content_widths.dart';
 
 class CommentsPage extends ConsumerStatefulWidget {
   const CommentsPage({
@@ -57,33 +58,36 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
       // instead of letting the Scaffold squeeze the whole body.
       resizeToAvoidBottomInset: false,
       appBar: AppTopBar(title: Text(context.l10n.commentTitle)),
-      body: Column(
-        children: [
-          Expanded(
-            child: RemovalScope(
-              controller: _removals,
-              child: _CommentFeedView(
-                query: _query,
-                onReply: _replyTo,
-                onOpenReplies: (comment) =>
-                    openCommentReplies(context, comment),
-                onDelete: _deleteComment,
+      body: ContentWidthCap(
+        maxWidth: ContentWidths.management,
+        child: Column(
+          children: [
+            Expanded(
+              child: RemovalScope(
+                controller: _removals,
+                child: _CommentFeedView(
+                  query: _query,
+                  onReply: _replyTo,
+                  onOpenReplies: (comment) =>
+                      openCommentReplies(context, comment),
+                  onDelete: _deleteComment,
+                ),
               ),
             ),
-          ),
-          CommentComposer(
-            key: _composerKey,
-            replyTo: _replyTarget == null
-                ? null
-                : commentAuthorDisplayName(context, _replyTarget!.user),
-            onCancelReply: () => setState(() => _replyTarget = null),
-            sending: sending,
-            onSend: (text) => _send(text: text, target: _replyTarget),
-            onStampSend: (stampId) =>
-                _send(stampId: stampId, target: _replyTarget),
-            onError: _showMutationError,
-          ),
-        ],
+            CommentComposer(
+              key: _composerKey,
+              replyTo: _replyTarget == null
+                  ? null
+                  : commentAuthorDisplayName(context, _replyTarget!.user),
+              onCancelReply: () => setState(() => _replyTarget = null),
+              sending: sending,
+              onSend: (text) => _send(text: text, target: _replyTarget),
+              onStampSend: (stampId) =>
+                  _send(stampId: stampId, target: _replyTarget),
+              onError: _showMutationError,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -207,59 +211,62 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppTopBar(title: Text(context.l10n.commentReplies)),
-      body: Column(
-        children: [
-          Expanded(
-            child: RemovalScope(
-              controller: _removals,
-              child: _CommentFeedView(
-                query: _query,
-                // The root comment and the section title ride the list's first
-                // slot: they scroll away like every other row, and the composer
-                // reply bar keeps the reply context visible meanwhile.
-                header: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (root != null)
-                      CommentItem(
-                        comment: root,
-                        onReply: () => _replyTo(root),
-                        onDelete: () => _deleteComment(root),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        FuncSpacing.lg,
-                        0,
-                        FuncSpacing.lg,
-                        FuncSpacing.sm,
-                      ),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          context.l10n.commentReplies,
-                          style: Theme.of(context).textTheme.titleMedium,
+      body: ContentWidthCap(
+        maxWidth: ContentWidths.management,
+        child: Column(
+          children: [
+            Expanded(
+              child: RemovalScope(
+                controller: _removals,
+                child: _CommentFeedView(
+                  query: _query,
+                  // The root comment and the section title ride the list's first
+                  // slot: they scroll away like every other row, and the composer
+                  // reply bar keeps the reply context visible meanwhile.
+                  header: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (root != null)
+                        CommentItem(
+                          comment: root,
+                          onReply: () => _replyTo(root),
+                          onDelete: () => _deleteComment(root),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          FuncSpacing.lg,
+                          0,
+                          FuncSpacing.lg,
+                          FuncSpacing.sm,
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            context.l10n.commentReplies,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  onReply: _replyTo,
+                  onDelete: _deleteComment,
                 ),
-                onReply: _replyTo,
-                onDelete: _deleteComment,
               ),
             ),
-          ),
-          CommentComposer(
-            key: _composerKey,
-            replyTo: replyTarget == null
-                ? null
-                : commentAuthorDisplayName(context, replyTarget.user),
-            onCancelReply: () => setState(() => _replyTarget = root),
-            sending: sending,
-            onSend: (text) => _send(text: text),
-            onStampSend: (stampId) => _send(stampId: stampId),
-            onError: _showMutationError,
-          ),
-        ],
+            CommentComposer(
+              key: _composerKey,
+              replyTo: replyTarget == null
+                  ? null
+                  : commentAuthorDisplayName(context, replyTarget.user),
+              onCancelReply: () => setState(() => _replyTarget = root),
+              sending: sending,
+              onSend: (text) => _send(text: text),
+              onStampSend: (stampId) => _send(stampId: stampId),
+              onError: _showMutationError,
+            ),
+          ],
+        ),
       ),
     );
   }
