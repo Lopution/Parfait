@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/core/navigation/home_destination.dart';
 import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/arrangement.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 
 import 'review_support.dart';
@@ -22,6 +27,7 @@ void main() {
     'frame-probe': '/settings/frame-probe',
     'browse': '/settings/browse',
     'navigation': '/settings/navigation',
+    'bottom-bar': '/settings/navigation/bottom-bar',
     'motion': '/settings/motion',
     'download': '/settings/download',
     'download-destination': '/settings/download/destination',
@@ -61,6 +67,44 @@ void main() {
     variants: {ShotVariant.dark, ShotVariant.largeText},
     before: (tester, router) async {
       await tester.enterText(find.byType(SearchBar), '图');
+    },
+  );
+  // Recommended and search off the bar: the bar, the editor and the way
+  // back to them from Me.
+  Future<void> rearrange(WidgetTester tester, GoRouter router) async {
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(Scaffold).first),
+    );
+    await tester.runAsync(
+      () => saveHomeArrangement(
+        container.read(settingsProvider.notifier),
+        const Arrangement(
+          shown: [
+            HomeDestination.ranking,
+            HomeDestination.newWorks,
+            HomeDestination.me,
+          ],
+          hidden: [HomeDestination.recommended, HomeDestination.search],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testShot(
+    'settings/me-rearranged',
+    location: '/settings',
+    variants: {ShotVariant.dark, ShotVariant.ru},
+    before: rearrange,
+  );
+  testShot(
+    'settings/bottom-bar-rearranged',
+    location: '/settings/navigation',
+    variants: {ShotVariant.dark, ...overflowVariants, ShotVariant.largeText},
+    before: (tester, router) async {
+      await rearrange(tester, router);
+      unawaited(router.push('/settings/navigation/bottom-bar'));
+      await tester.pumpAndSettle();
     },
   );
 }
