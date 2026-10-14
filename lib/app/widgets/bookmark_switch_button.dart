@@ -513,8 +513,7 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
     final awaitingPrefill = widget.initiallyBookmarked && !_prefilled;
     final prefillFailed = awaitingPrefill && (detailState?.hasError ?? false);
 
-    final contentMaxWidth =
-        MediaQuery.widthOf(context) >= AppBreakpoints.expanded
+    final contentMaxWidth = MediaQuery.widthOf(context) >= AppBreakpoints.large
         ? ContentWidths.form
         : double.infinity;
     // The modal route does not consume viewInsets: the sheet lifts above

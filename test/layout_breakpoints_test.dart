@@ -12,15 +12,19 @@ void main() {
       expect(AppBreakpoints.useNavigationRail(600), isTrue);
     });
 
-    test('extended rail engages at the expanded boundary', () {
-      expect(AppBreakpoints.useExtendedRail(1199), isFalse);
-      expect(AppBreakpoints.useExtendedRail(1200), isTrue);
+    test('extended rail waits for the extra-large boundary', () {
+      expect(AppBreakpoints.useExtendedRail(1599), isFalse);
+      expect(AppBreakpoints.useExtendedRail(1600), isTrue);
     });
 
-    test('two-pane detail engages at the expanded boundary', () {
-      expect(AppBreakpoints.useTwoPaneDetail(599), isFalse);
-      expect(AppBreakpoints.useTwoPaneDetail(1199), isFalse);
-      expect(AppBreakpoints.useTwoPaneDetail(1200), isTrue);
+    test('two-pane detail needs a landscape area at least medium wide', () {
+      // A turned phone less the rail; a small landscape tablet.
+      expect(AppBreakpoints.useTwoPaneDetail(const Size(815, 411)), isTrue);
+      expect(AppBreakpoints.useTwoPaneDetail(const Size(919, 640)), isTrue);
+      // Portrait tablet, unfolded foldable, landscape split screen.
+      expect(AppBreakpoints.useTwoPaneDetail(const Size(720, 1280)), isFalse);
+      expect(AppBreakpoints.useTwoPaneDetail(const Size(620, 840)), isFalse);
+      expect(AppBreakpoints.useTwoPaneDetail(const Size(599, 300)), isFalse);
     });
   });
 
@@ -41,26 +45,26 @@ void main() {
       expect(find.byType(mui.VerticalDivider), findsOneWidget);
     });
 
-    testWidgets('honours the default 55:45 split', (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1400, 800));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: TwoPane(
-            primary: Placeholder(key: Key('p')),
-            secondary: Placeholder(key: Key('s')),
+    testWidgets('the secondary column stays between its bounds', (
+      tester,
+    ) async {
+      Future<double> secondaryWidth(double width) async {
+        await tester.binding.setSurfaceSize(Size(width, 600));
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: TwoPane(
+              primary: Placeholder(key: Key('p')),
+              secondary: Placeholder(key: Key('s')),
+            ),
           ),
-        ),
-      );
-      // 1400 - 1px divider = 1399 usable; 55% ≈ 769, 45% ≈ 630.
-      expect(
-        tester.getSize(find.byKey(const Key('p'))).width,
-        moreOrLessEquals(769.45, epsilon: 0.01),
-      );
-      expect(
-        tester.getSize(find.byKey(const Key('s'))).width,
-        moreOrLessEquals(629.55, epsilon: 0.01),
-      );
+        );
+        return tester.getSize(find.byKey(const Key('s'))).width;
+      }
+
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      expect(await secondaryWidth(815), 320);
+      expect(await secondaryWidth(1000), moreOrLessEquals(380));
+      expect(await secondaryWidth(1440), 480);
     });
   });
 }

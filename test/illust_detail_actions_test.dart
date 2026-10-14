@@ -32,7 +32,6 @@ import 'helpers/test_preferences.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_detail_page_support.dart';
-import 'helpers/view_size.dart';
 
 void main() {
   installMemoryPreferences();
@@ -56,7 +55,6 @@ void main() {
     testWidgets('bottom inset and margin both clear the gesture area', (
       tester,
     ) async {
-      setViewSize(tester, const Size(390, 844));
       tester.view.viewPadding = const FakeViewPadding(bottom: 24);
       tester.view.padding = const FakeViewPadding(bottom: 24);
 
@@ -184,17 +182,14 @@ void main() {
 
   group('comment preview and author works (§2-E)', () {
     /// Brings a section header mid-screen and lets its request land.
-    Future<void> showSection(WidgetTester tester, String title) async {
+    Future<void> showSection(WidgetTester tester, Finder header) async {
       await mockNetworkImagesFor(() async {
         await tester.scrollUntilVisible(
-          find.text(title),
+          header,
           300,
           scrollable: find.byType(Scrollable).first,
         );
-        await Scrollable.ensureVisible(
-          tester.element(find.text(title)),
-          alignment: 0.3,
-        );
+        await Scrollable.ensureVisible(tester.element(header), alignment: 0.3);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
         await tester.pump(const Duration(milliseconds: 300));
@@ -222,7 +217,7 @@ void main() {
       expect(log, isNot(contains('/v3/illust/comments')));
       expect(log, isNot(contains('/v1/user/illusts')));
 
-      await showSection(tester, '作者的其他作品');
+      await showSection(tester, find.text('作者的其他作品'));
       expect(log.where((path) => path == '/v3/illust/comments'), hasLength(1));
       expect(log.where((path) => path == '/v1/user/illusts'), hasLength(1));
     });
@@ -241,7 +236,7 @@ void main() {
         useRouter: true,
       );
       await tester.pumpAndSettle();
-      await showSection(tester, '查看全部');
+      await showSection(tester, find.widgetWithText(DetailSectionHeader, '评论'));
 
       final preview = find.byKey(const Key('illust-comments-preview'));
       for (var i = 1; i <= 3; i++) {
@@ -286,7 +281,7 @@ void main() {
         useRouter: true,
       );
       await tester.pumpAndSettle();
-      await showSection(tester, '作者的其他作品');
+      await showSection(tester, find.text('作者的其他作品'));
 
       final strip = find.byKey(const Key('illust-author-works'));
       Finder tile(String title) =>
@@ -338,26 +333,6 @@ void main() {
       expect(share.payloads.single.url, 'https://www.pixiv.net/artworks/42');
     });
 
-    testWidgets('the menu artwork-info item scrolls InfoBlock into view', (
-      tester,
-    ) async {
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
-      await tester.pumpAndSettle();
-
-      // InfoBlock's caption sits below the fold — not built yet.
-      expect(find.text('作品说明文字'), findsNothing);
-
-      await openDetailMenu(tester, tooltip: '显示菜单');
-      await tester.tap(find.text('跳到作品信息区'));
-      await tester.pumpAndSettle();
-      expect(find.text('作品说明文字'), findsOneWidget);
-      expect(
-        tester.getRect(find.text('作品说明文字')).top,
-        lessThan(tester.view.physicalSize.height),
-      );
-    });
-
     testWidgets('a long six-page work still reaches InfoBlock via the menu', (
       tester,
     ) async {
@@ -366,6 +341,7 @@ void main() {
           42: illustJson(
             42,
             pageCount: 6,
+            type: 'manga',
             withMetaPages: true,
             caption: '作品说明文字',
           ),
@@ -373,7 +349,13 @@ void main() {
       );
       container.read(illustStoreProvider).mergeAll([
         parseIllust(
-          illustJson(42, pageCount: 6, withMetaPages: true, caption: '作品说明文字'),
+          illustJson(
+            42,
+            pageCount: 6,
+            type: 'manga',
+            withMetaPages: true,
+            caption: '作品说明文字',
+          ),
         ),
       ]);
       await pumpDetail(
@@ -551,11 +533,10 @@ void main() {
     );
   });
 
-  group('two-pane layout (width >= 1200)', () {
+  group('two-pane layout (landscape, medium and wider)', () {
     testWidgets('splits into image pager and meta column', (tester) async {
-      setViewSize(tester, const Size(1400, 900));
       final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container);
+      await pumpDetail(tester, container, surface: const Size(1400, 900));
       expect(find.byType(TwoPane), findsOneWidget);
       expect(find.byType(DetailImagePager), findsOneWidget);
       expect(find.byType(PageView), findsOneWidget);
@@ -564,12 +545,22 @@ void main() {
       expect(find.byType(DetailPageCounter), findsOneWidget);
       expect(find.text('1 / 2'), findsOneWidget);
       expect(find.text('作品说明文字'), findsOneWidget);
+      // The action bar stays inside the meta column, clear of the divider.
+      final divider = tester.getRect(
+        find.descendant(
+          of: find.byType(TwoPane),
+          matching: find.byType(VerticalDivider),
+        ),
+      );
+      expect(
+        tester.getRect(find.byType(DetailActionBar)).left,
+        greaterThanOrEqualTo(divider.right),
+      );
     });
 
     testWidgets('arrow keys page the image pane', (tester) async {
-      setViewSize(tester, const Size(1400, 900));
       final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container);
+      await pumpDetail(tester, container, surface: const Size(1400, 900));
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));

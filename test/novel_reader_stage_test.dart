@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/settings/shared_preferences.dart';
 import 'package:parfait/core/translation/translation_service.dart';
@@ -141,6 +145,25 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pumpAndSettle();
     expect(binding.saves, hasLength(2));
+  });
+
+  testWidgets('the current reader hides the shell rail', (tester) async {
+    await tester.pumpWidget(_stageApp(_RecordingBinding()));
+    await tester.pump();
+    final stage = find.byType(NovelReaderStage);
+    final container = ProviderScope.containerOf(tester.element(stage));
+    expect(container.read(shellRailHiddenProvider), isTrue);
+
+    // A route over the reader hands the rail back until it pops.
+    final navigator = Navigator.of(tester.element(stage));
+    unawaited(
+      navigator.push(MaterialPageRoute<void>(builder: (_) => const SizedBox())),
+    );
+    await tester.pumpAndSettle();
+    expect(container.read(shellRailHiddenProvider), isFalse);
+    navigator.pop();
+    await tester.pumpAndSettle();
+    expect(container.read(shellRailHiddenProvider), isTrue);
   });
 
   testWidgets('a failed prefs read surfaces an error with retry', (

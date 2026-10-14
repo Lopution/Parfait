@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../../app/navigation/home_shell_metrics.dart';
 import '../../../../app/layout/app_breakpoints.dart';
 import '../../../../app/layout/two_pane.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
@@ -17,7 +18,7 @@ class IllustDetailSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final wide = AppBreakpoints.useTwoPaneDetail(
-      MediaQuery.sizeOf(context).width,
+      HomeShellChrome.contentSizeOf(context),
     );
     return FuncSkeleton(
       label: context.l10n.contentLoading,

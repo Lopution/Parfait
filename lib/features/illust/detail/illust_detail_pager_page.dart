@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/navigation/home_shell_metrics.dart';
 import '../../../app/layout/app_breakpoints.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
@@ -454,7 +455,9 @@ class _SlotStandIn extends ConsumerWidget {
     final background = Theme.of(context).scaffoldBackgroundColor;
     final entity = ref.read(illustStoreProvider).get(illustId);
     if (entity == null ||
-        AppBreakpoints.useTwoPaneDetail(MediaQuery.sizeOf(context).width)) {
+        AppBreakpoints.useTwoPaneDetail(
+          HomeShellChrome.contentSizeOf(context),
+        )) {
       return ColoredBox(color: background);
     }
     // Cover: a panorama's viewport shows the middle of the image at its

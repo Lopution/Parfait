@@ -43,6 +43,7 @@ import '../../../app/navigation/routes.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../l10n/context.dart';
+import '../../../app/navigation/home_shell_metrics.dart';
 import '../../../app/layout/app_breakpoints.dart';
 import '../../../app/layout/two_pane.dart';
 import '../../../app/widgets/smooth_wheel_scroll.dart';
@@ -74,8 +75,8 @@ class _FirstImageLayout {
     IllustEntity entity, {
     required bool expanded,
   }) {
-    final viewport = MediaQuery.sizeOf(context);
-    final useTwoPane = AppBreakpoints.useTwoPaneDetail(viewport.width);
+    final viewport = HomeShellChrome.contentSizeOf(context);
+    final useTwoPane = AppBreakpoints.useTwoPaneDetail(viewport);
     // An illustration set opens on its first image; manga reads in full.
     final collapsible =
         entity.type == IllustType.illust && entity.pageCount > 1;
@@ -87,9 +88,11 @@ class _FirstImageLayout {
     );
     final natural = panoramaHeight ?? viewport.width / aspectRatio;
     // A panorama already has its own viewport; the centered reading slot is
-    // for an ordinary short illustration.
+    // for an ordinary short illustration on a phone held upright. On wider
+    // single-column screens it only opens a gap under the image.
     final slots =
         !useTwoPane &&
+        viewport.width < AppBreakpoints.medium &&
         entity.type == IllustType.illust &&
         !entity.isUgoira &&
         panoramaHeight == null;
@@ -470,7 +473,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     // The narrow layout opens on the artwork under a see-through bar —
     // the skeleton too, so content arriving never shifts it.
     final immersive =
-        !AppBreakpoints.useTwoPaneDetail(MediaQuery.sizeOf(context).width) &&
+        !AppBreakpoints.useTwoPaneDetail(
+          HomeShellChrome.contentSizeOf(context),
+        ) &&
         (entity == null ? async.isLoading : _rendersContent(async, entity));
     return PopScope(
       // While the selection mode is on, system back exits the mode instead
@@ -901,28 +906,58 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       ),
     );
 
+    final twoPane = AppBreakpoints.useTwoPaneDetail(
+      HomeShellChrome.contentSizeOf(context),
+    );
+    // The selection mode brings its own download; the bar steps aside.
+    final actionBar = _downloadMode
+        ? null
+        : Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: DetailActionBar(
+              entity: entity,
+              visibility: _barCurve,
+              onDownload: () => unawaited(_downloadAll(entity)),
+              onComments: () =>
+                  unawaited(openIllustComments(context, entity.id)),
+            ),
+          );
     final content = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
         if (_downloadMode) _exitDownloadMode();
       },
-      child: AppBreakpoints.useTwoPaneDetail(MediaQuery.sizeOf(context).width)
+      child: twoPane
           ? TwoPane(
-              primary: DetailImagePager(
-                entity: entity,
-                detailUrlFor: detailUrlFor,
-                downloadMode: _downloadMode,
-                selectedPages: _selectedPages ?? const <int>{},
-                onToggleSelect: _togglePageSelected,
-                onLongPress: _enterDownloadMode,
-                heroTag: illustHeroTag(widget.heroScope, entity.id),
-                heroScope: widget.heroScope,
-                heroImageUrl: widget.heroImageUrl,
-                heroImageDecodeWidth: widget.heroImageDecodeWidth,
+              // The stage tints the letterbox around the artwork, so the
+              // page counter sits on the stage rather than on blank page.
+              primary: ColoredBox(
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                child: DetailImagePager(
+                  entity: entity,
+                  detailUrlFor: detailUrlFor,
+                  downloadMode: _downloadMode,
+                  selectedPages: _selectedPages ?? const <int>{},
+                  onToggleSelect: _togglePageSelected,
+                  onLongPress: _enterDownloadMode,
+                  heroTag: illustHeroTag(widget.heroScope, entity.id),
+                  heroScope: widget.heroScope,
+                  heroImageUrl: widget.heroImageUrl,
+                  heroImageDecodeWidth: widget.heroImageDecodeWidth,
+                ),
               ),
               // The meta column owns the window's right edge, so its
-              // scrollbar lands where the main scrollbar belongs.
-              secondary: Scrollbar(child: metaScroll),
+              // scrollbar lands where the main scrollbar belongs. The
+              // action bar centres on this column, clear of the divider.
+              secondary: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Scrollbar(child: metaScroll),
+                  ?actionBar,
+                ],
+              ),
             )
           : Stack(
               fit: StackFit.expand,
@@ -962,26 +997,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
               ],
             ),
     );
-    final page = Stack(
-      fit: StackFit.expand,
-      children: [
-        content,
-        // The selection mode brings its own download; the bar steps aside.
-        if (!_downloadMode)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: DetailActionBar(
-              entity: entity,
-              visibility: _barCurve,
-              onDownload: () => unawaited(_downloadAll(entity)),
-              onComments: () =>
-                  unawaited(openIllustComments(context, entity.id)),
-            ),
-          ),
-      ],
-    );
+    final page = twoPane
+        ? content
+        : Stack(fit: StackFit.expand, children: [content, ?actionBar]);
     final container = ProviderScope.containerOf(context, listen: false);
     final accountId = ref.watch(historyAccountIdProvider);
     if (accountId == null) return page;

@@ -22,6 +22,7 @@ reviewed: 2026-10-14
 - [Bottom bar](#bottom-bar)
 - [Branch switching and re-tap](#branch-switching-and-re-tap)
 - [Top bars, tabs and choices](#top-bars-tabs-and-choices)
+- [Wide windows](#wide-windows)
 
 ## Routes and stacks
 
@@ -234,3 +235,19 @@ reviewed: 2026-10-14
   bar had no scroll edge at all.
 - **Check:** `test/architecture/top_bar_test.dart` "page top bars are AppTopBar"
 - **Code:** `lib/app/widgets/app_top_bar.dart`
+
+## Wide windows
+
+### NAV-20 Wide windows get a scrolling icon rail
+- **Rule:** From 600dp wide the shell swaps the bar for a
+  `NavigationRail`: an 80dp icon rail with labels below 1600dp, the 256dp
+  extended rail from 1600dp. The rail scrolls when the window is too short
+  for its items. Pages size themselves from `HomeShellChrome.contentSizeOf`
+  (the window less the rail), not the window. An immersive page hides the
+  rail through `shellRailHiddenProvider` while its route is current (the
+  novel reader); it releases the rail after the frame, never in dispose.
+- **Why:** On a turned phone five labelled items overflowed 411dp; the
+  extended rail took 256dp from content on tablets; the reader showed the
+  rail beside the text.
+- **Check:** `test/home_branch_stack_test.dart` "a turned phone gets a scrolling icon rail"; `test/novel_reader_stage_test.dart` "the current reader hides the shell rail"; `test/layout_breakpoints_test.dart` "extended rail waits for the extra-large boundary"
+- **Code:** `lib/app/layout/app_breakpoints.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/home_shell_metrics.dart`

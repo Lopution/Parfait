@@ -15,6 +15,7 @@ import 'package:parfait/core/share/share_service.dart';
 import 'illust_fixtures.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'prompt_host.dart';
+import 'view_size.dart';
 
 // Shared by the illust_detail_page tests.
 /// Records what the detail page hands to the platform share boundary —
@@ -78,7 +79,9 @@ Future<void> pumpDetail(
   bool useRouter = false,
   bool reduceMotion = false,
   double textScale = 1,
+  Size surface = const Size(390, 844),
 }) async {
+  setViewSize(tester, surface);
   if (seedStore) {
     container.read(illustStoreProvider).mergeAll([
       parseIllust(illustJson(illustId, pageCount: 2, withMetaPages: true)),

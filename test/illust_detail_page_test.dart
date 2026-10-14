@@ -30,7 +30,6 @@ import 'helpers/prompt_host.dart';
 
 import 'helpers/illust_detail_page_support.dart';
 import 'helpers/localized_app.dart';
-import 'helpers/view_size.dart';
 
 void main() {
   installMemoryPreferences();
@@ -232,22 +231,23 @@ void main() {
   });
 
   group('info block layout (R1)', () {
-    /// A tall surface builds the whole info block below the two pages.
-    void useTallSurface(WidgetTester tester) {
-      setViewSize(tester, const Size(800, 4000));
-    }
-
     testWidgets('a long caption collapses and expands; a short one does not', (
       tester,
     ) async {
-      useTallSurface(tester);
       final long = [for (var i = 0; i < 12; i++) 'line $i'].join('<br>');
       final (container, _, _) = await makeWorld(
         detailOverrides: {
           42: illustJson(42, pageCount: 2, withMetaPages: true, caption: long),
         },
       );
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      // A tall surface builds the whole info block below the two pages.
+      const tall = Size(800, 4000);
+      await pumpDetail(
+        tester,
+        container,
+        locale: const Locale('zh', 'CN'),
+        surface: tall,
+      );
       await tester.pumpAndSettle();
 
       Text caption() => tester.widget<Text>(find.textContaining('line 0'));
@@ -261,7 +261,12 @@ void main() {
 
       // The default world's caption is one short line.
       final (shortWorld, _, _) = await makeWorld();
-      await pumpDetail(tester, shortWorld, locale: const Locale('zh', 'CN'));
+      await pumpDetail(
+        tester,
+        shortWorld,
+        locale: const Locale('zh', 'CN'),
+        surface: tall,
+      );
       await tester.pumpAndSettle();
       expect(find.text('作品说明文字'), findsOneWidget);
       expect(find.text('展开'), findsNothing);
@@ -297,7 +302,6 @@ void main() {
 
     testWidgets('centers a short first image below the status bar without '
         'changing its Hero rect', (tester) async {
-      setViewSize(tester, const Size(390, 844));
       tester.view.padding = const FakeViewPadding(top: 24);
 
       final (container, _, _) = await makeWorld(
@@ -339,8 +343,6 @@ void main() {
     });
 
     testWidgets('gives the first image of a set the same slot', (tester) async {
-      setViewSize(tester, const Size(390, 844));
-
       final (container, _, _) = await makeWorld(
         detailOverrides: {
           42: illustJson(
@@ -400,7 +402,6 @@ void main() {
       required String type,
       Size surface = const Size(800, 4000),
     }) async {
-      setViewSize(tester, surface);
       final json = illustJson(
         42,
         pageCount: 3,
@@ -414,6 +415,7 @@ void main() {
         container,
         seedStore: false,
         locale: const Locale('en', 'US'),
+        surface: surface,
       );
       await tester.pumpAndSettle();
       return container;
@@ -642,10 +644,13 @@ void main() {
 
         // Jump past page 2's bottom edge so page 3 is the only visible
         // artwork — deterministic, no fling physics involved.
+        final pageHeight = tester
+            .getSize(find.byType(DetailPageImage).first)
+            .height;
         tester
             .state<ScrollableState>(find.byType(Scrollable).first)
             .position
-            .jumpTo(1500);
+            .jumpTo(2 * pageHeight + 100);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
         expect(find.text('3 / 3'), findsOneWidget);
@@ -674,7 +679,13 @@ void main() {
       tester,
     ) async {
       final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container, useRouter: true);
+      // Wide enough that the artwork fills its slot up to the pill.
+      await pumpDetail(
+        tester,
+        container,
+        useRouter: true,
+        surface: const Size(800, 800),
+      );
       await tester.pumpAndSettle();
 
       // The pill is IgnorePointer — a tap on it lands on the artwork

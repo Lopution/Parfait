@@ -250,14 +250,20 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     );
   }
 
-  Widget _buildRail(BuildContext context, List<HomeDestination> shown) {
-    final extended = AppBreakpoints.useExtendedRail(
-      MediaQuery.sizeOf(context).width,
-    );
+  Widget _buildRail(
+    BuildContext context,
+    List<HomeDestination> shown, {
+    required bool extended,
+  }) {
     return NavigationRail(
       selectedIndex: homeBarIndexOf(shown, _current),
       onDestinationSelected: (index) => _select(shown[index].branchIndex),
       extended: extended,
+      minWidth: HomeShellChrome.railWidth,
+      minExtendedWidth: HomeShellChrome.extendedRailWidth,
+      // A landscape phone, a large text scale or a short desktop window
+      // can be too short for every destination.
+      scrollable: true,
       labelType: extended ? null : NavigationRailLabelType.all,
       destinations: [
         for (final d in homeDestinations(context, shown))
@@ -274,9 +280,12 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     final arrangement = ref.watch(homeArrangementProvider);
     final order = [...arrangement.shown, ...arrangement.hidden];
     final enclosingRouteIsCurrent = ModalRoute.of(context)?.isCurrent ?? true;
-    final rail = AppBreakpoints.useNavigationRail(
-      MediaQuery.sizeOf(context).width,
-    );
+    final width = MediaQuery.sizeOf(context).width;
+    final rail = AppBreakpoints.useNavigationRail(width);
+    // An immersive page (the novel reader) takes the rail's room too, as it
+    // covers the bottom bar on a phone.
+    final railShown = rail && !ref.watch(shellRailHiddenProvider);
+    final extended = AppBreakpoints.useExtendedRail(width);
     final bottomBarExtent = rail
         ? 0.0
         : FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom);
@@ -333,6 +342,12 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     );
     return HomeShellChrome(
       bottomBarExtent: bottomBarExtent,
+      railExtent: railShown
+          ? (extended
+                    ? HomeShellChrome.extendedRailWidth
+                    : HomeShellChrome.railWidth) +
+                _railDividerWidth
+          : 0,
       bottomBarVisibleExtent: _navBarVisibleExtent,
       bottomBarVisibility: _navVisibility,
       onBranchRootScroll: _onBranchRootScroll,
@@ -341,8 +356,13 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
         child: rail
             ? Row(
                 children: [
-                  _buildRail(context, arrangement.shown),
-                  const VerticalDivider(thickness: 1, width: 1),
+                  if (railShown) ...[
+                    _buildRail(context, arrangement.shown, extended: extended),
+                    const VerticalDivider(
+                      thickness: _railDividerWidth,
+                      width: _railDividerWidth,
+                    ),
+                  ],
                   Expanded(child: strip),
                 ],
               )
@@ -376,6 +396,8 @@ class BranchActivityScope extends InheritedWidget {
 }
 
 const _still = AlwaysStoppedAnimation<Offset>(Offset.zero);
+
+const double _railDividerWidth = 1;
 
 class _HomeBranchScope extends InheritedWidget {
   const _HomeBranchScope({required this.channel, required super.child});

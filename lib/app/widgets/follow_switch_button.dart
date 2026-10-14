@@ -234,8 +234,7 @@ class _FollowActionsSheet extends ConsumerWidget {
     final restrict = entry?.restrict;
     final colors = Theme.of(context).colorScheme;
     final tokens = FuncSemanticTokens.of(context);
-    final contentMaxWidth =
-        MediaQuery.widthOf(context) >= AppBreakpoints.expanded
+    final contentMaxWidth = MediaQuery.widthOf(context) >= AppBreakpoints.large
         ? ContentWidths.form
         : double.infinity;
     void pick(_FollowSheetAction action) => Navigator.of(context).pop(action);
