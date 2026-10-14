@@ -11,7 +11,6 @@ import '../core/settings/app_settings.dart';
 import '../core/settings/settings_controller.dart';
 import '../core/updater/update_auto_check.dart';
 import '../core/updater/update_service.dart';
-import '../core/widget/widget_coordinator.dart';
 import '../core/download/download_providers.dart';
 import '../core/network/compat/network_providers.dart';
 import '../core/platform/accessibility.dart';
@@ -86,11 +85,6 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
     // provably-owned pending output; nothing is auto-retried. The scan
     // touches local storage / MediaStore only — no network request.
     ref.read(downloadManagerProvider);
-    // Widget maintenance runs only while a widget instance exists (C6); the
-    // coordinator checks the native gate and stays idle otherwise. The
-    // resume path re-checks the gate so a widget added while the app is
-    // running is picked up without a restart.
-    unawaited(ref.read(widgetCoordinatorProvider).start());
     // Constructing the pump provider registers the replay handlers and its
     // account listener, which drains each account's queued mutations as it
     // becomes current; the resumed hook below repeats it on foreground.
@@ -127,7 +121,6 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      unawaited(ref.read(widgetCoordinatorProvider).ensureStarted());
       // Returning to the foreground is connectivity evidence: replay any
       // mutations that were queued while offline.
       final accountId = ref.read(accountStoreProvider).value?.usableCurrent?.id;

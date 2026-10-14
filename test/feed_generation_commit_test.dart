@@ -355,7 +355,7 @@ void main() {
     addTearDown(feedSubscription.close);
     await _waitUntil(() => controller.requests.length == 1);
     final oldContext = controller.requests.single;
-    accountStore.switchCurrentTo('account-b', credentialRevision: 1);
+    accountStore.switchCurrentTo('account-b');
     await _waitUntil(() => controller.requests.length == 2);
     final newContext = controller.requests[1];
     expect(newContext.accountId, 'account-b');

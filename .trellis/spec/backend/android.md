@@ -26,16 +26,15 @@ reviewed: 2026-10-14
   reverse-image input, the github updater, fonts) register with
   `messenger.makeBackgroundTaskQueue()`; Activity work is posted to the
   main looper through `MainThreadPoster`. `parfait/webprofile`, clipboard,
-  intents, widget, haptics and accessibility stay on main.
+  intents, haptics and accessibility stay on main.
 - **Why:** The serial queue keeps begin → write → finalize ordered off the
   UI thread; `CookieManager` is not documented as thread-safe.
 - **Check:** `android/app/src/test/kotlin/io/github/lopution/parfait/SafTreeChannelTest.kt` "pickTree is posted to main", `android/app/src/test/kotlin/io/github/lopution/parfait/ReverseImageInputChannelTest.kt` "pickImage is posted to main"
 - **Code:** `android/app/src/main/kotlin/io/github/lopution/parfait`
 
 ### DROID-02 Arguments and errors keep each channel's style
-- **Rule:** Payloads are maps (bytes as `ByteArray`), never JSON strings;
-  `parfait/widget` `notifySnapshotChanged` stays a scalar. Required
-  arguments go through `ChannelArgs` and fail with
+- **Rule:** Payloads are maps (bytes as `ByteArray`), never JSON strings.
+  Required arguments go through `ChannelArgs` and fail with
   `<channel>_invalid_argument` before the operation. MediaStore, SAF, web
   profile, haptics and accessibility use `<channel>_<reason>` codes;
   reverse-image, intents and clipboard keep their unprefixed codes. Unknown
@@ -63,16 +62,6 @@ reviewed: 2026-10-14
   reject resumable documents.
 - **Check:** `android/app/src/test/kotlin/io/github/lopution/parfait/SafTreeChannelTest.kt` "create ignores ownerId and still succeeds"
 - **Code:** `android/app/src/main/kotlin/io/github/lopution/parfait/SafTreeChannel.kt`
-
-### DROID-05 widget_background runs the other way
-- **Rule:** On `parfait/widget_background` the native worker is the
-  receiver: it starts a headless engine on the main thread, registers the
-  handler, runs `widgetBackgroundMain`, and Dart answers once with its
-  outcome.
-- **Why:** Treating it like a Dart-side receiver deadlocked the WorkManager
-  latch.
-- **Check:** manual
-- **Code:** `android/app/src/main/kotlin/io/github/lopution/parfait/appwidget`, `lib/core/widget/widget_background.dart`
 
 ### DROID-06 Haptics degrade by tier and respect the system switch
 - **Rule:** The haptics tier (composition, predefined, system, none) is

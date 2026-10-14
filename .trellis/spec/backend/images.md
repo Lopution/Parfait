@@ -59,8 +59,7 @@ reviewed: 2026-10-13
 - **Code:** `lib/core/image/image_worker.dart`
 
 ### IMG-05 Downloads reuse the worker's disk cache
-- **Rule:** Downloads, the viewer's save and the in-app widget refresh
-  read cached files through `ImageWorker.cachedFile` before going to the
+- **Rule:** Downloads and the viewer's save read cached files through `ImageWorker.cachedFile` before going to the
   network; a miss or eviction falls back with a log line.
 - **Why:** Saving an image already on screen downloaded it again.
 - **Check:** `test/image_worker_test.dart` "a cache lookup starts the worker and answers from its disk"

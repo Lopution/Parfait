@@ -224,9 +224,6 @@ flutter {
 
 dependencies {
     implementation("androidx.core:core:1.19.0")
-    // Home widget background maintenance (08-26-android-home-widgets).
-    // work-runtime-ktx is an empty shell since 2.8; Kotlin APIs live here.
-    implementation("androidx.work:work-runtime:2.11.2")
-    // Plain JVM tests for widget budget math.
+    // Plain JVM tests for the platform channels.
     testImplementation("junit:junit:4.13.2")
 }

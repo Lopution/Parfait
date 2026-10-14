@@ -20,13 +20,13 @@ class MainActivity : FlutterActivity() {
         AndroidIntentChannel.configure(this, flutterEngine)
         ReverseImageInputChannel.configure(this, flutterEngine)
         transferClipboard = AccountTransferClipboardChannel.configure(this, flutterEngine)
-        WidgetForegroundChannel.configure(this, flutterEngine)
         DistributionUpdaterChannel.configure(this, flutterEngine)
         SafTreeChannel.configure(this, flutterEngine)
         WebProfileChannel.configure(this, flutterEngine)
         HapticsChannel.configure(this, flutterEngine)
         AccessibilityChannel.configure(this, flutterEngine)
         ContentFontPrefetcher.configure(flutterEngine)
+        RemovedWidgetCleanup.runInBackground(this)
     }
 
     override fun onStart() {

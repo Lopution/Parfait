@@ -53,7 +53,7 @@ enum DownloadFailureKind {
 /// product downloads cannot be recovered across accounts.
 ///
 /// C4: the owner is the stable `accountId + job/output + destination`; a
-/// token refresh (credentialRevision) or a profile metadata update never
+/// token refresh or a profile metadata update never
 /// changes ownership. The destination is the D5 value object, persisted by
 /// its canonical [DownloadDestination.identity] only.
 @immutable

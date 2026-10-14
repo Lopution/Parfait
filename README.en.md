@@ -89,7 +89,6 @@ Parfait is written in Flutter with a Material Design 3 interface, using Riverpod
 
 - Multiple accounts; move your login to another device
 - Back up and import settings, mute lists and history
-- Home screen widget with recommended works
 - Light and dark themes, with colours from your wallpaper
 
 ## Download

@@ -176,8 +176,7 @@ reviewed: 2026-10-13
 - **Rule:** Account-scoped stores and feed families watch the current
   account and reset before the new account's responses render. Feeds use
   generation and cancellation, mutations the account id, downloads the
-  account id plus destination identity. `credentialRevision` re-keys only
-  the home widget's display state.
+  account id plus destination identity.
 - **Why:** User ids and pending maps are not portable across accounts;
   re-keying feeds on token refresh lost tab stacks.
 - **Check:** `test/bookmark_store_test.dart` "state resets when the current account changes"

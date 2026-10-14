@@ -115,16 +115,14 @@ class StubAccountStore extends AccountStore {
 
   /// Makes [accountId] current without the metadata repository or a
   /// network session.
-  void switchCurrentTo(String accountId, {int credentialRevision = 0}) =>
-      state = AsyncData(_ready(accountId, credentialRevision));
+  void switchCurrentTo(String accountId) =>
+      state = AsyncData(_ready(accountId));
 
-  AccountState _ready(String currentId, [int credentialRevision = 0]) =>
-      AccountState(
-        status: AccountStatus.ready,
-        accounts: accounts,
-        currentId: currentId,
-        credentialRevision: credentialRevision,
-      );
+  AccountState _ready(String currentId) => AccountState(
+    status: AccountStatus.ready,
+    accounts: accounts,
+    currentId: currentId,
+  );
 }
 
 /// Two signed-in accounts, '100' and '200', for account-switch tests.

@@ -23,6 +23,10 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 宽屏上，小说、用户和系列列表改为多列排列；评论、搜索建议、收藏标签和个人主页“关于”等文字列表限制宽度并居中，搜索框和以图搜图的按钮也不再横跨整个窗口。顶部标签栏在宽屏上靠左排列，不再平均铺满整行。
 - 横屏手机上，欢迎页和登录页把标题放到左侧，“开始”和登录按钮在首屏就能看到。
 
+### 移除
+
+- 移除桌面小部件。升级后，已放在桌面上的小部件会失效，可以长按后移除；它在后台定期刷新用的任务和缓存的图片也会一并清理。
+
 ### 修复
 
 - 打开兼容通道时，API、登录和网页请求不再落到会被 pixiv 源站以 403 拒绝的无 SNI 连接；这条最后的兜底连接只用于图片。
@@ -54,6 +58,10 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - Reading a novel on a wide screen hides the side navigation so the text gets the whole window.
 - On wide screens, novel, user and series lists show in several columns; text lists such as comments, search suggestions, bookmark tags and a profile's About tab keep a readable width and stay centred, and the search field and the reverse image search button no longer span the whole window. Top tabs keep to the left instead of spreading across the row.
 - On a phone held sideways, the welcome and login pages put the heading on the left so the start and login buttons are on the first screen.
+
+### Removed
+
+- The home screen widget is gone. After the update, a widget already on the home screen stops working and can be removed with a long press; its background refresh job and cached images are cleaned up too.
 
 ### Fixed
 
