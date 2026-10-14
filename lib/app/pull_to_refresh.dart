@@ -170,16 +170,37 @@ class _PullToRefreshState extends State<PullToRefresh> {
       scrollController: widget.scrollController,
       onRefresh: widget.onRefresh,
       isNested: isNested,
-      scrollBehaviorBuilder: isNested ? _nestedScrollBehavior : null,
+      scrollBehaviorBuilder: isNested
+          ? _nestedScrollBehavior
+          : _FeedScrollBehavior.new,
       child: widget.child,
     );
   }
 }
 
 ScrollBehavior _nestedScrollBehavior(ScrollPhysics? physics) =>
-    EasyRefresh.defaultScrollBehaviorBuilder(
+    _FeedScrollBehavior(
       physics == null ? null : _AppFlingPhysics(parent: physics),
     );
+
+/// EasyRefresh's scroll behavior with the app's mouse scrollbar: its own
+/// shows one on desktop only, so feeds on a tablet with a mouse had none.
+class _FeedScrollBehavior extends ERScrollBehavior {
+  const _FeedScrollBehavior(ScrollPhysics? physics)
+    : super(physics ?? const ScrollPhysics());
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) => switch (getPlatform(context)) {
+    TargetPlatform.linux ||
+    TargetPlatform.macOS ||
+    TargetPlatform.windows => super.buildScrollbar(context, child, details),
+    _ => mouseScrollbar(child, details),
+  };
+}
 
 /// EasyRefresh's nested physics with the app's fling.
 ///

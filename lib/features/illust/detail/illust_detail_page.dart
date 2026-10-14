@@ -954,7 +954,15 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
               secondary: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Scrollbar(child: metaScroll),
+                  Scrollbar(
+                    // Shown on touch too; the mouse one would be a second.
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(
+                        context,
+                      ).copyWith(scrollbars: false),
+                      child: metaScroll,
+                    ),
+                  ),
                   ?actionBar,
                 ],
               ),

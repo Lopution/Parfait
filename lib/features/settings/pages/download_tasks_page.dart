@@ -817,6 +817,7 @@ class _DownloadTaskRow extends StatelessWidget {
               ? onToggle
               : () => unawaited(openIllust(context, task.illustId)),
           onLongPress: managing ? null : onEnterManaging,
+          onSecondaryTap: managing ? null : onEnterManaging,
           // Entering management plays AppHaptics.confirm and toggles play
           // select; the ink response's own vibration would double them.
           enableFeedback: false,

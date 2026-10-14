@@ -217,19 +217,22 @@ class _IllustCardBody extends ConsumerWidget {
                 ),
           onTap: muted ? reveal : openDetail,
           onLongPress: longPress,
+          onSecondaryTap: longPress,
           // No outer ClipRRect: the Hero child already clips the image to
           // the same 12px radius and every badge sits 7px inside the
           // bounds, so the extra clip only cost a saveLayer per card per
           // frame while scrolling.
-          child: SizedBox(
-            width: cardWidth,
-            height: previewHeight,
-            child: muted
-                ? MutedCover(reasonLabel: mutedHit.label, child: image)
-                : Stack(
-                    fit: StackFit.expand,
-                    children: [image, ..._buildBadges(context)],
-                  ),
+          child: _HoverLayer(
+            child: SizedBox(
+              width: cardWidth,
+              height: previewHeight,
+              child: muted
+                  ? MutedCover(reasonLabel: mutedHit.label, child: image)
+                  : Stack(
+                      fit: StackFit.expand,
+                      children: [image, ..._buildBadges(context)],
+                    ),
+            ),
           ),
         ),
       ),
@@ -416,5 +419,50 @@ class _IllustCardBody extends ConsumerWidget {
         );
       }
     }
+  }
+}
+
+/// The M3 hover state layer over the preview and a link cursor: with a
+/// mouse the card otherwise gave no sign it opens. Touch never hovers, so
+/// on a phone this is an empty decoration and the card body never rebuilds
+/// for it.
+class _HoverLayer extends StatefulWidget {
+  const _HoverLayer({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_HoverLayer> createState() => _HoverLayerState();
+}
+
+class _HoverLayerState extends State<_HoverLayer> {
+  /// M3's hover state-layer opacity.
+  static const double _opacity = 0.08;
+
+  var _hovered = false;
+
+  void _setHovered(bool hovered) {
+    if (_hovered != hovered) setState(() => _hovered = hovered);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => _setHovered(true),
+      onExit: (_) => _setHovered(false),
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: _hovered
+            ? BoxDecoration(
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: _opacity),
+                borderRadius: FuncShape.card,
+              )
+            : const BoxDecoration(),
+        child: widget.child,
+      ),
+    );
   }
 }

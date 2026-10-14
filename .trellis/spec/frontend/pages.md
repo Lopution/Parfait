@@ -18,6 +18,7 @@ applies_to:
   - lib/app/layout/card_columns.dart
   - lib/app/layout/content_widths.dart
   - lib/app/widgets/scrollable_form_shell.dart
+  - lib/app/scroll_behavior.dart
 reviewed: 2026-10-14
 ---
 
@@ -219,3 +220,19 @@ reviewed: 2026-10-14
   the fold, and the profile's works-total row overflowed a 16dp strip.
 - **Check:** `test/onboarding_pages_test.dart` "a phone held sideways shows the welcome action at once"; `test/user_profile_test.dart` "a phone held sideways lays the tab out under the header"
 - **Code:** `lib/app/widgets/scrollable_form_shell.dart`, `lib/features/profile/user_page.dart`
+
+### PAGE-18 A mouse gets right-click, hover and scrollbars
+- **Rule:** Wherever a long press acts (work cards, novel and user rows,
+  tags, history and selection tiles, detail images, the bookmark heart,
+  download tasks, search history and trending tags, ranking tabs), a
+  right-click does the same through `onSecondaryTap`. A work card shows
+  the M3 hover state layer and a click cursor (`InkWell` rows have their
+  own). While a mouse is connected, vertical lists show a `Scrollbar`
+  (`mouseScrollbar`, also in EasyRefresh feeds); NestedScrollView's
+  coordinated views stay bare, and the list keeps its subtree when the
+  scrollbar comes or goes.
+- **Why:** On a tablet or Chromebook with a mouse a long press is
+  awkward, cards gave no sign they open, and a wheel gives no sense of a
+  list's length.
+- **Check:** `test/card_action_test.dart` "a mouse lights the card on hover and opens it on right-click"; `test/scroll_behavior_test.dart` "a mouse brings a scrollbar and keeps the list as it was"
+- **Code:** `lib/app/scroll_behavior.dart`, `lib/app/pull_to_refresh.dart`, `lib/app/widgets/feed/illust_card.dart`

@@ -102,6 +102,7 @@ class _TagChipState extends State<TagChip> {
       child: InkWell(
         onTap: widget.onTap,
         onLongPress: widget.onLongPress,
+        onSecondaryTap: widget.onLongPress,
         onFocusChange: (focused) => setState(() => _focused = focused),
         // A long-press host plays its own AppHaptics role; the ink
         // response's vibration would double it.

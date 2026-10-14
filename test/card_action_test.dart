@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -72,6 +73,48 @@ void main() {
       expect(find.bySemanticsLabel(label), findsWidgets);
     }
     expect(find.widgetWithText(ListTile, '收藏'), findsNothing);
+  });
+
+  testWidgets('a mouse lights the card on hover and opens it on right-click', (
+    tester,
+  ) async {
+    final (container, _, _) = await makeCardWorld();
+    final card = find.byType(IllustCard);
+    Color? hoverLayer() =>
+        (tester
+                    .widget<DecoratedBox>(
+                      find.descendant(
+                        of: card,
+                        matching: find.byWidgetPredicate(
+                          (w) =>
+                              w is DecoratedBox &&
+                              w.position == DecorationPosition.foreground,
+                        ),
+                      ),
+                    )
+                    .decoration
+                as BoxDecoration)
+            .color;
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        _cardApp(container, IllustCard(entity: parseIllust(illustJson(7)))),
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      expect(hoverLayer(), isNull);
+      await mouse.moveTo(tester.getCenter(card));
+      await tester.pump();
+      expect(hoverLayer(), isNotNull);
+
+      await tester.tap(
+        card,
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+    });
+    expect(find.widgetWithText(ListTile, '分享'), findsOneWidget);
   });
 
   testWidgets('unmuting from the card offers Undo', (tester) async {
