@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../layout/app_breakpoints.dart';
 import '../layout/content_widths.dart';
 import 'replica_scaffold.dart';
 import '../theme/func_semantic_tokens.dart';
@@ -18,6 +19,8 @@ import '../theme/func_semantic_tokens.dart';
 ///   [secondary] (optional affordance under the primary action).
 /// - [contentMaxWidth] is a role-based content width (see
 ///   [ContentWidths]), not a breakpoint.
+/// - On a short, wide window (`AppBreakpoints.useSideBySideForm`) the
+///   header moves beside the form.
 ///
 /// Consumers: onboarding welcome/language pages and the login page.
 class ScrollableFormShell extends StatelessWidget {
@@ -63,63 +66,113 @@ class ScrollableFormShell extends StatelessWidget {
       title: title,
       actions: actions,
       child: LayoutBuilder(
-        builder: (context, constraints) {
-          // Same inset model the welcome page proved out: proportional
-          // horizontal padding capped so ultra-wide surfaces stop growing
-          // margins, and a viewport minus padding floor so spaceBetween
-          // can pin the action slot to the bottom.
-          final horizontal = (constraints.maxWidth * .1).clamp(24.0, 48.0);
-          final minHeight = (constraints.maxHeight - 48).clamp(
-            0.0,
-            double.infinity,
-          );
-          return SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              horizontal,
-              FuncSpacing.xl,
-              horizontal,
-              FuncSpacing.xl,
-            ),
+        builder: (context, constraints) =>
+            AppBreakpoints.useSideBySideForm(constraints.biggest)
+            ? _sideBySide(constraints)
+            : _stacked(constraints),
+      ),
+    );
+  }
+
+  /// Proportional horizontal padding, capped so ultra-wide surfaces stop
+  /// growing margins.
+  static double _horizontalPadding(double width) =>
+      (width * .1).clamp(24.0, 48.0);
+
+  /// The viewport less the vertical padding: the floor that lets
+  /// spaceBetween pin the action slot to the bottom.
+  static double _minColumnHeight(double height) =>
+      (height - 2 * FuncSpacing.xl).clamp(0.0, double.infinity);
+
+  Widget _stacked(BoxConstraints constraints) {
+    final horizontal = _horizontalPadding(constraints.maxWidth);
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        horizontal,
+        FuncSpacing.xl,
+        horizontal,
+        FuncSpacing.xl,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: contentMaxWidth,
+            minHeight: _minColumnHeight(constraints.maxHeight),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: FuncSpacing.xxxl),
+                  header,
+                  const SizedBox(height: FuncSpacing.xxxl),
+                  content,
+                ],
+              ),
+              _actionColumn(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// A short, wide window (a phone held sideways) has no room to stack the
+  /// header above the form: the header takes the start half, the form and
+  /// its action the end half, so the action is on the first screen.
+  Widget _sideBySide(BoxConstraints constraints) {
+    final half = constraints.maxWidth / 2;
+    final horizontal = _horizontalPadding(half);
+    final padding = EdgeInsets.fromLTRB(
+      horizontal,
+      FuncSpacing.xl,
+      horizontal,
+      FuncSpacing.xl,
+    );
+    return Row(
+      children: [
+        Expanded(
+          child: Center(
+            child: SingleChildScrollView(padding: padding, child: header),
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: padding,
             child: Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: contentMaxWidth,
-                  minHeight: minHeight,
+                  minHeight: _minColumnHeight(constraints.maxHeight),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const SizedBox(height: FuncSpacing.xxxl),
-                        header,
-                        const SizedBox(height: FuncSpacing.xxxl),
-                        content,
-                      ],
-                    ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const SizedBox(height: FuncSpacing.xxxl),
-                        primaryAction,
-                        if (secondary != null) ...[
-                          const SizedBox(height: FuncSpacing.sm),
-                          secondary!,
-                        ],
-                        const SizedBox(height: FuncSpacing.xl),
-                      ],
-                    ),
-                  ],
+                  children: [content, _actionColumn()],
                 ),
               ),
             ),
-          );
-        },
-      ),
+          ),
+        ),
+      ],
     );
   }
+
+  Widget _actionColumn() => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const SizedBox(height: FuncSpacing.xxxl),
+      primaryAction,
+      if (secondary != null) ...[
+        const SizedBox(height: FuncSpacing.sm),
+        secondary!,
+      ],
+      const SizedBox(height: FuncSpacing.xl),
+    ],
+  );
 }

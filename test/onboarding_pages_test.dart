@@ -176,6 +176,17 @@ void main() {
     });
   });
 
+  testWidgets('a phone held sideways shows the welcome action at once', (
+    tester,
+  ) async {
+    await pumpPage(tester, const Size(896, 411), const WelcomePage());
+
+    // The header moved beside the form, so start is on the first screen.
+    final start = tester.getRect(find.byType(ReplicaButton));
+    expect(start.bottom, lessThanOrEqualTo(411));
+    expect(start.left, greaterThan(896 / 2));
+  });
+
   group('user agreement', () {
     testWidgets('a drag on a paragraph scrolls the whole page', (tester) async {
       final zh = lookupAppLocalizations(const Locale('zh'));

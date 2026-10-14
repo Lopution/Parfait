@@ -768,6 +768,24 @@ void main() {
     expect(_selectedTabIndex(tester), 1);
   });
 
+  testWidgets('a phone held sideways lays the tab out under the header', (
+    tester,
+  ) async {
+    // The expanded header and tabs end at 344: the tab gets a 16dp strip.
+    setViewSize(tester, const Size(816, 360));
+    final repository = FakeUserRepository(
+      works: _works(30),
+      detail: sampleUser(42).copyWith(totalIllusts: 30, hasDetail: true),
+    );
+    final container = await makeProfileWorld(users: repository);
+    await mockNetworkImagesFor(() => _pumpProfile(tester, container));
+
+    // The works total row is clipped with its tab, never squeezed into an
+    // overflow.
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('30', skipOffstage: false), findsWidgets);
+  });
+
   testWidgets('header height tracks the drag without jumps', (tester) async {
     setViewSize(tester, const Size(360, 640));
     final repository = FakeUserRepository(works: _works(30));

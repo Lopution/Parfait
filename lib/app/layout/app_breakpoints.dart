@@ -23,6 +23,15 @@ abstract final class AppBreakpoints {
 
   static bool useExtendedRail(double width) => width >= extraLarge;
 
+  /// Below this height a window is short (Material 3's compact height): a
+  /// phone held sideways.
+  static const double compactHeight = 480;
+
+  /// Form pages put their header beside the form instead of above it on a
+  /// short window that is at least medium wide.
+  static bool useSideBySideForm(Size window) =>
+      window.height < compactHeight && window.width >= medium;
+
   /// Detail pages put the artwork and its information side by side when
   /// the area they get (the window less the rail) is wider than tall and at
   /// least medium wide; otherwise they keep the single scroll.
