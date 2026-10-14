@@ -3,6 +3,10 @@
     <!-- Normal permission (granted at install, no prompt): app haptics play
          through Vibrator so strength can be scaled per device capability. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Runtime permission from Android 17 (target 37): asked only when a
+         configured address (image source, DoH, LLM, system proxy) is on
+         the local network. See LocalNetworkChannel. -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <application
         android:label="Parfait"
         android:name="${applicationName}"

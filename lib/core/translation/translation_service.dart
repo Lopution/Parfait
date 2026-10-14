@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../network/http_client_providers.dart';
+import '../network/local_network_address.dart';
+import '../platform/local_network.dart';
 import '../settings/app_settings.dart';
 import '../settings/settings_controller.dart';
 import 'doubao_web_translation.dart';
@@ -343,7 +345,7 @@ class BaiduTranslationTransport
 class LlmTranslationTransport
     with SequentialBatchTranslation
     implements TranslationTransport {
-  LlmTranslationTransport(this._client, this._store);
+  LlmTranslationTransport(this._client, this._store, this._localNetwork);
 
   static const _timeout = Duration(seconds: 40);
   static const _maxResponseBytes = 256 * 1024;
@@ -355,6 +357,9 @@ class LlmTranslationTransport
 
   final http.Client _client;
   final TranslationCredentialStore _store;
+
+  /// The endpoint can be a model server on the user's own network.
+  final LocalNetworkGate _localNetwork;
 
   @override
   Future<String> translate(
@@ -385,6 +390,14 @@ class LlmTranslationTransport
       throw const TranslationError(
         'LLM endpoint is not HTTPS',
         TranslationFailureKind.invalidCredentials,
+      );
+    }
+    try {
+      await _localNetwork.ensure(endpoint.host);
+    } on LocalNetworkBlocked {
+      throw const TranslationError(
+        'LLM endpoint on the local network is not allowed',
+        TranslationFailureKind.localNetwork,
       );
     }
     final request = http.Request('POST', endpoint)
@@ -487,7 +500,11 @@ final translationServiceProvider = Provider<TranslationTransport>((ref) {
     resolveProvider: () => ref.read(_translationSelectionProvider),
     google: GoogleTranslationTransport(client),
     baidu: BaiduTranslationTransport(client, DateTime.now, store),
-    llm: LlmTranslationTransport(client, store),
+    llm: LlmTranslationTransport(
+      client,
+      store,
+      ref.watch(localNetworkGateProvider),
+    ),
     doubao: ref.watch(doubaoWebTranslationProvider),
   );
 });

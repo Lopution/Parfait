@@ -63,6 +63,10 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     bool raceWhenCold = false,
   }) async {
     _checkUsable();
+    final host = destination.canonicalHost;
+    if (localNetworkBlockedHosts.contains(host)) {
+      throw LocalNetworkBlocked(host);
+    }
     // First request after a cold start waits for the Rust transport; this
     // keeps `main` free to render the boot before rhttp finishes loading.
     final rhttpReady = RhttpGate.ready;
@@ -80,7 +84,6 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       // the auto source selection can drop the dead winner — the original
       // error still propagates to the caller unchanged.
       if (destination.purpose == PixivDestinationPurpose.image) {
-        final host = destination.canonicalHost;
         if (host != 'i.pximg.net' && host != 's.pximg.net') {
           onImageHostExhausted?.call(host);
         }

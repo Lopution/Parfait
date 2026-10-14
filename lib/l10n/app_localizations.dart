@@ -2969,6 +2969,12 @@ abstract class AppLocalizations {
   /// **'连接超时'**
   String get errorTimeout;
 
+  /// No description provided for @errorLocalNetwork.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接局域网地址需要“附近设备”权限，请在系统设置中允许'**
+  String get errorLocalNetwork;
+
   /// No description provided for @errorRateLimited.
   ///
   /// In zh, this message translates to:

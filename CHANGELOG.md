@@ -22,6 +22,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 宽屏阅读小说时隐藏侧边导航栏，阅读区占满整个窗口。
 - 宽屏上，小说、用户和系列列表改为多列排列；评论、搜索建议、收藏标签和个人主页“关于”等文字列表限制宽度并居中，搜索框和以图搜图的按钮也不再横跨整个窗口。顶部标签栏在宽屏上靠左排列，不再平均铺满整行。
 - 横屏手机上，欢迎页和登录页把标题放到左侧，“开始”和登录按钮在首屏就能看到。
+- 适配 Android 17：自定义图片源、DoH、LLM 翻译地址或系统代理在局域网里时，Parfait 会用系统弹窗申请“附近设备”权限；不允许的话，相关请求立即报错，不再一直等到超时。其他情况不会申请这个权限。
 
 ### 移除
 
@@ -58,6 +59,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - Reading a novel on a wide screen hides the side navigation so the text gets the whole window.
 - On wide screens, novel, user and series lists show in several columns; text lists such as comments, search suggestions, bookmark tags and a profile's About tab keep a readable width and stay centred, and the search field and the reverse image search button no longer span the whole window. Top tabs keep to the left instead of spreading across the row.
 - On a phone held sideways, the welcome and login pages put the heading on the left so the start and login buttons are on the first screen.
+- Ready for Android 17: when a custom image source, DoH or LLM translation address, or the system proxy is on your local network, Parfait asks for the Nearby devices permission with the system dialog; without it those requests fail at once instead of waiting for a timeout. It is never asked for otherwise.
 
 ### Removed
 

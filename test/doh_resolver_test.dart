@@ -301,6 +301,24 @@ void main() {
     expect(healthy.requests, hasLength(2));
   });
 
+  test('a blocked local endpoint is skipped without a request', () async {
+    final local = _FakeDohServer(address: '192.168.1.2');
+    final public = _FakeDohServer(address: '8.8.8.8');
+    final resolver = DohResolver(
+      endpointUrls: [
+        'https://192.168.1.2/dns-query',
+        'https://8.8.8.8/dns-query',
+      ],
+      blockedHosts: {'192.168.1.2'},
+      client: _DohServerClient([local, public]),
+    );
+    addTearDown(resolver.dispose);
+
+    final result = await resolver.pixiv();
+    expect(result.addresses.single.address, public.ip.address);
+    expect(local.requests, isEmpty);
+  });
+
   test('all endpoints down raises SecureResolutionException', () async {
     final client = _DohServerClient([
       _FakeDohServer(address: '1.1.1.1', statusCode: 500),

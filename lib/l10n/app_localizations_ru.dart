@@ -1594,6 +1594,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get errorTimeout => 'Время ожидания соединения истекло';
 
   @override
+  String get errorLocalNetwork =>
+      'Для подключения к адресу в локальной сети нужно разрешение «Устройства поблизости» — включите его в настройках системы';
+
+  @override
   String get errorRateLimited => 'Слишком много запросов, попробуйте позже';
 
   @override

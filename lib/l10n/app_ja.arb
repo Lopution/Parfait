@@ -666,6 +666,7 @@
   "continueAction": "続行",
   "errorNetwork": "ネットワーク接続に失敗しました",
   "errorTimeout": "接続がタイムアウトしました",
+  "errorLocalNetwork": "ローカルネットワークのアドレスに接続するには「付近のデバイス」の権限が必要です。システム設定で許可してください",
   "errorRateLimited": "リクエストが多すぎます。しばらくしてから再試行してください",
   "errorUnauthorized": "再ログインが必要です",
   "errorServer": "サーバーエラー",

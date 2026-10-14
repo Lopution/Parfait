@@ -281,6 +281,10 @@ class ImageWorkerHost {
         next.echFrontHost != previous.echFrontHost ||
         next.bootstrapNoSniEnabled != previous.bootstrapNoSniEnabled ||
         !_listEquals(next.dohEndpoints, previous.dohEndpoints) ||
+        !_setEquals(
+          next.localNetworkBlockedHosts,
+          previous.localNetworkBlockedHosts,
+        ) ||
         !_setEquals(allowlist, _allowlist);
     if (initial || policyInputsChanged) {
       unawaited(_policy?.dispose());
@@ -314,6 +318,7 @@ class ImageWorkerHost {
       revision: NetworkRevision(0, networkIdentity: config.networkIdentity),
       echFrontHost: config.echFrontHost,
       bootstrapNoSniEnabled: config.bootstrapNoSniEnabled,
+      localNetworkBlockedHosts: config.localNetworkBlockedHosts,
       fastRouteStore: _fastRoutes,
       routeKindStore: _routeKinds,
       dohEndpoints: config.dohEndpoints,

@@ -1518,6 +1518,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorTimeout => '连接超时';
 
   @override
+  String get errorLocalNetwork => '连接局域网地址需要“附近设备”权限，请在系统设置中允许';
+
+  @override
   String get errorRateLimited => '请求过于频繁，请稍后重试';
 
   @override

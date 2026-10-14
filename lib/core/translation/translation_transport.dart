@@ -9,6 +9,9 @@ enum TranslationFailureKind {
   invalidCredentials,
   rateLimited,
   network,
+
+  /// The endpoint is on the local network and the app may not reach it.
+  localNetwork,
   malformed,
   unsupportedLanguage,
 

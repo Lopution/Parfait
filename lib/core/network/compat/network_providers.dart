@@ -5,6 +5,7 @@ import 'package:flutter/services.dart' show ServicesBinding;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../settings/shared_preferences.dart';
 
+import '../../platform/local_network.dart';
 import '../../settings/app_settings.dart';
 import '../../settings/settings_controller.dart';
 import '../network_restore_signal.dart';
@@ -29,6 +30,7 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
   final echFrontHost = ref.watch(echFrontHostProvider);
   final mode = ref.watch(networkModeProvider);
   final imageMirrorHosts = ref.watch(imageMirrorAllowlistProvider);
+  final localNetworkBlockedHosts = ref.watch(localNetworkBlockedHostsProvider);
   // The compatibility transport is an internal performance tier, not a
   // user-facing security switch. It uses persisted/bootstrap host addresses
   // and remains behind the explicit directOnly escape hatch.
@@ -39,6 +41,7 @@ final networkAccessPolicyProvider = Provider<NetworkAccessPolicy>((ref) {
     dohEndpoints: dohEnabled ? endpoints : const [],
     echFrontHost: echFrontHost,
     bootstrapNoSniEnabled: true,
+    localNetworkBlockedHosts: localNetworkBlockedHosts,
     fastRouteStore: ref.watch(fastRouteStoreProvider),
     routeKindStore: ref.watch(routeKindStoreProvider),
     mode: switch (mode) {

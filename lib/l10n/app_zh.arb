@@ -748,6 +748,7 @@
   "continueAction": "继续",
   "errorNetwork": "网络连接失败",
   "errorTimeout": "连接超时",
+  "errorLocalNetwork": "连接局域网地址需要“附近设备”权限，请在系统设置中允许",
   "errorRateLimited": "请求过于频繁，请稍后重试",
   "errorUnauthorized": "需要重新登录",
   "errorServer": "服务器错误",

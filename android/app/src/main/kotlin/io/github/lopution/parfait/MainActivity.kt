@@ -13,6 +13,7 @@ import io.flutter.embedding.engine.FlutterEngine
 
 class MainActivity : FlutterActivity() {
     private var transferClipboard: AccountTransferClipboardChannel.Sweeper? = null
+    private var localNetwork: LocalNetworkChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -20,6 +21,7 @@ class MainActivity : FlutterActivity() {
         AndroidIntentChannel.configure(this, flutterEngine)
         ReverseImageInputChannel.configure(this, flutterEngine)
         transferClipboard = AccountTransferClipboardChannel.configure(this, flutterEngine)
+        localNetwork = LocalNetworkChannel.configure(this, flutterEngine)
         DistributionUpdaterChannel.configure(this, flutterEngine)
         SafTreeChannel.configure(this, flutterEngine)
         WebProfileChannel.configure(this, flutterEngine)
@@ -99,6 +101,15 @@ class MainActivity : FlutterActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         AndroidIntentChannel.dispatch(this, intent)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        if (localNetwork?.onPermissionResult(requestCode, grantResults) == true) return
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

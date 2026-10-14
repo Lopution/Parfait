@@ -666,6 +666,7 @@
   "continueAction": "Continue",
   "errorNetwork": "Network connection failed",
   "errorTimeout": "Connection timed out",
+  "errorLocalNetwork": "Reaching a local network address needs the Nearby devices permission — allow it in system settings",
   "errorRateLimited": "Too many requests — try again later",
   "errorUnauthorized": "Sign-in required",
   "errorServer": "Server error",

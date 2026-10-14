@@ -249,6 +249,7 @@ String translationFailureText(
       l10n.translationInvalidCredentials,
     TranslationFailureKind.rateLimited => l10n.translationRateLimited,
     TranslationFailureKind.rejected => l10n.translationRejected,
+    TranslationFailureKind.localNetwork => l10n.errorLocalNetwork,
     TranslationFailureKind.network ||
     TranslationFailureKind.malformed ||
     TranslationFailureKind.unsupportedLanguage ||

@@ -15,6 +15,7 @@ import '../core/download/download_providers.dart';
 import '../core/network/compat/network_providers.dart';
 import '../core/platform/accessibility.dart';
 import '../core/platform/android_intent_channel.dart';
+import '../core/platform/local_network.dart';
 import 'external_intent_bridge.dart';
 import 'haptics/app_haptics.dart';
 import 'haptics/haptics_driver.dart';
@@ -121,6 +122,9 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // The local network permission may have changed in the system
+      // settings meanwhile.
+      ref.read(localNetworkBlockedHostsProvider.notifier).refresh();
       // Returning to the foreground is connectivity evidence: replay any
       // mutations that were queued while offline.
       final accountId = ref.read(accountStoreProvider).value?.usableCurrent?.id;

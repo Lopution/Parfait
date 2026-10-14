@@ -1599,6 +1599,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorTimeout => 'Connection timed out';
 
   @override
+  String get errorLocalNetwork =>
+      'Reaching a local network address needs the Nearby devices permission — allow it in system settings';
+
+  @override
   String get errorRateLimited => 'Too many requests — try again later';
 
   @override

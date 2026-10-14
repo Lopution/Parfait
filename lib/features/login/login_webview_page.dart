@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +10,8 @@ import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/oauth_service.dart';
 import '../../core/logging/crash_log.dart';
+import '../../core/network/local_network_address.dart';
+import '../../core/platform/local_network.dart';
 
 import '../../l10n/context.dart';
 import 'login_navigation_decision.dart';
@@ -82,8 +86,8 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
             onHttpError: _onHttpError,
             onWebResourceError: _onWebResourceError,
           ),
-        )
-        ..loadRequest(signupUrl);
+        );
+      unawaited(_load(signupUrl));
       return;
     }
     // Create exactly one PKCE session for this page. Calling beginSession()
@@ -104,8 +108,32 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
           onHttpError: _onHttpError,
           onWebResourceError: _onWebResourceError,
         ),
-      )
-      ..loadRequest(session.authorizeUrl);
+      );
+    unawaited(_load(session.authorizeUrl));
+  }
+
+  /// Whether a page has started loading; until then a reload has nothing
+  /// to reload and loads [_mainFrameUri] instead.
+  bool _loaded = false;
+
+  /// Loads [url], or reloads the current page when it is null.
+  ///
+  /// The page connects through the system proxy, which may sit on the
+  /// local network: without the permission the load would hang until it
+  /// times out, so the card reports it at once instead. Every load and
+  /// reload checks again; the proxy or the grant may have changed.
+  Future<void> _load(Uri? url) async {
+    try {
+      await ref.read(localNetworkGateProvider).ensureProxy();
+    } on LocalNetworkBlocked catch (error) {
+      if (!mounted) return;
+      _reportRecoverable(context.l10n.errorLocalNetwork, error: error);
+      return;
+    }
+    if (!mounted) return;
+    if (url == null) return _controller?.reload();
+    _loaded = true;
+    await _controller?.loadRequest(url);
   }
 
   @override
@@ -291,7 +319,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       _errorDetails = null;
       _fatal = false;
     });
-    _controller?.reload();
+    unawaited(_load(_loaded ? null : _mainFrameUri));
   }
 
   /// Restarts the OAuth attempt without leaving the page: beginSession()
@@ -306,7 +334,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       _fatal = false;
       _mainFrameUri = authorizeUrl;
     });
-    _controller?.loadRequest(authorizeUrl);
+    unawaited(_load(authorizeUrl));
   }
 
   @override
