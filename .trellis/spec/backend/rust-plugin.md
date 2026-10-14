@@ -3,7 +3,7 @@ prefix: RHTTP
 applies_to:
   - plugins/rhttp/**
   - tool/frb_check.sh
-reviewed: 2026-10-12
+reviewed: 2026-10-14
 ---
 
 # The rhttp fork
@@ -66,3 +66,16 @@ reviewed: 2026-10-12
   unmeasured slowdown of every transfer.
 - **Check:** manual
 - **Code:** `plugins/rhttp/rhttp/rust/Cargo.toml`
+
+### RHTTP-07 Android verifies with webpki roots only
+- **Rule:** Every client verifies against the bundled webpki roots;
+  `RootCertSource.platform` is not used. The Android build ships no
+  rustls-platform-verifier AAR, and `create_client` rejects `platform` on
+  Android. The crate itself stays: reqwest's `rustls` feature depends on
+  it, and its init only stores the JVM context.
+- **Why:** The release build never contained the verifier's Java classes
+  (R8 dropped them), so the AAR only cost a build dependency. From 0.7.1 it
+  moved to a Maven repository on GitHub and its manifest would have set an
+  app-wide network security config for CRL downloads.
+- **Check:** manual
+- **Code:** `plugins/rhttp/rhttp/android/build.gradle.kts`, `plugins/rhttp/rhttp/rust/src/api/client.rs`

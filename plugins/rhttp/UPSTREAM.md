@@ -49,10 +49,13 @@ Not part of this fork (upstream features, out of scope):
   app tracks `rhttp/pubspec.lock`. A caret once let the Dart lock resolve a
   newer release than the generated `frb_generated.dart` and Cargo;
   `tool/frb_check.sh` fails unless every source matches.
-- `rust/Cargo.toml` pins `rustls-platform-verifier = "=0.7.0"`. From 0.7.1
-  the Android AAR is no longer inside the `rustls-platform-verifier-android`
-  crate, where `rhttp/android/build.gradle.kts` reads it, but in a Maven
-  repository on GitHub.
+- `rhttp/android/build.gradle.kts` does not add the rustls-platform-verifier
+  AAR (upstream reads `classes.jar` from the `rustls-platform-verifier-android`
+  crate, which no longer ships it from 0.2.0; the AAR moved to a Maven
+  repository on GitHub). The app verifies with webpki roots only, and its
+  release build never contained the verifier's classes. To match,
+  `rust/src/api/client.rs` `create_client` returns `RhttpUnknownError` for
+  `RootCertSource::Platform` on Android. Re-apply on upstream sync.
 - App-root `rust-toolchain.toml` pins `1.98.0` with `rustfmt`/`clippy` and
   Android targets `aarch64` / `armv7` / `x86_64` / `i686` (debug cargokit
   also builds `android-x86`). It sits at the app root rather than next to

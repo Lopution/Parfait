@@ -141,6 +141,17 @@ impl RequestClient {
 }
 
 fn create_client(settings: ClientSettings) -> Result<RequestClient, RhttpError> {
+    // The Android build does not bundle the platform verifier's Java
+    // classes (see UPSTREAM.md): fail here rather than at the handshake.
+    #[cfg(target_os = "android")]
+    if let Some(tls) = settings.tls_settings.as_ref() {
+        if tls.verify_certificates && matches!(tls.root_cert_source, RootCertSource::Platform) {
+            return Err(RhttpError::RhttpUnknownError(
+                "RootCertSource.platform is not supported on Android".to_string(),
+            ));
+        }
+    }
+
     let client: reqwest::Client = {
         let mut client = reqwest::Client::builder();
         if let Some(proxy_settings) = settings.proxy_settings {
