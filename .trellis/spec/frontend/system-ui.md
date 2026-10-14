@@ -5,7 +5,7 @@ applies_to:
   - lib/features/novel/**
   - lib/features/illust/viewer/**
   - lib/features/profile/profile_header_delegate.dart
-reviewed: 2026-10-12
+reviewed: 2026-10-14
 ---
 
 # System bars and immersive pages
@@ -61,10 +61,14 @@ reviewed: 2026-10-12
 - **Check:** manual
 - **Code:** `lib/app/widgets/func_bottom_nav.dart`, `lib/features/novel/novel_reader_stage.dart`
 
-### SYS-06 Light icons only over real artwork
-- **Rule:** The profile header uses light status-bar icons only while a
-  cover image sits behind the toolbar; collapsed or without a cover it
-  falls back to the root style.
-- **Why:** Light icons over a light surface were unreadable.
-- **Check:** `test/user_profile_test.dart`
-- **Code:** `lib/features/profile/profile_header_delegate.dart`
+### SYS-06 Status-bar icons contrast with the cover under them
+- **Rule:** While a profile cover sits behind the toolbar, the status-bar
+  icons take the brightness of the cover rows under the status bar at the
+  current scroll offset, read from a 64px-wide decode of the cover
+  (`BannerSample`, split at the equal-contrast luminance). Before that
+  decode lands, if it fails, once collapsed and without a cover they follow
+  the page. The header keeps one tree shape in every case.
+- **Why:** Light icons over a light surface were unreadable, and fixed
+  light icons were unreadable over a white cover.
+- **Check:** `test/banner_sample_test.dart`
+- **Code:** `lib/features/profile/profile_header_delegate.dart`, `lib/features/profile/banner_sample.dart`
