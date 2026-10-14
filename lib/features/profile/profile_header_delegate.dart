@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
@@ -15,7 +16,9 @@ import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/artwork_controls.dart';
 import '../../app/widgets/follow_switch_button.dart';
+import '../../core/log.dart';
 import '../../l10n/context.dart';
+import 'banner_sample.dart';
 import 'profile_statistics.dart';
 
 /// Pure geometry snapshot used by [ReplicaProfileHeaderDelegate] and tests.
@@ -228,11 +231,18 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     // The overlay affordance and the cover-scoped status bar share one
     // predicate (R4/R6): only while real artwork still sits behind the
     // toolbar do the persistent controls get the image-overlay style and
-    // the status bar light icons. A cover-less surfaceContainerHigh band
-    // and the collapsed toolbar both take the normal surface treatment.
+    // the status bar icons that contrast with the cover under it. A
+    // cover-less surfaceContainerHigh band and the collapsed toolbar both
+    // take the normal surface treatment.
     final overArtwork = hasCover && geometry.bannerBehindToolbar;
-    return FuncSystemBars(
-      background: overArtwork ? Brightness.dark : Theme.of(context).brightness,
+    return _CoverSystemBars(
+      coverUrl: user.backgroundImageUrl,
+      overArtwork: overArtwork,
+      bannerHeight: bannerHeight,
+      // The banner scrolls up with the content: the status bar covers its
+      // rows from shrinkOffset down.
+      statusBarTop: shrinkOffset,
+      statusBarBottom: shrinkOffset + topInset,
       child: Opacity(
         // First frame only: the delegate still holds the estimate extent
         // while the real identity height is being measured.
@@ -369,6 +379,123 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.expandedExtent != expandedExtent ||
         oldDelegate.onExpandedExtentMeasured != onExpandedExtentMeasured ||
         oldDelegate.topInset != topInset;
+  }
+}
+
+/// The status bar style over the profile header. While the cover sits under
+/// the status bar, its icons contrast with that part of the cover, read
+/// from a small decode of it; until that decode lands (or when it fails, and
+/// the banner shows its placeholder) and once the cover has scrolled away,
+/// they follow the page.
+class _CoverSystemBars extends StatefulWidget {
+  const _CoverSystemBars({
+    required this.coverUrl,
+    required this.overArtwork,
+    required this.bannerHeight,
+    required this.statusBarTop,
+    required this.statusBarBottom,
+    required this.child,
+  });
+
+  final String? coverUrl;
+  final bool overArtwork;
+  final double bannerHeight;
+
+  /// The banner rows under the status bar, in banner coordinates.
+  final double statusBarTop;
+  final double statusBarBottom;
+
+  final Widget child;
+
+  @override
+  State<_CoverSystemBars> createState() => _CoverSystemBarsState();
+}
+
+class _CoverSystemBarsState extends State<_CoverSystemBars> {
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+  BannerSample? _sample;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_stream == null && _sample == null) _resolve();
+  }
+
+  @override
+  void didUpdateWidget(_CoverSystemBars oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.coverUrl != widget.coverUrl) _resolve();
+  }
+
+  @override
+  void dispose() {
+    _stopListening();
+    super.dispose();
+  }
+
+  void _resolve() {
+    _stopListening();
+    _sample = null;
+    final url = widget.coverUrl;
+    if (url == null) return;
+    final stream = PixivImage.providerFor(
+      context,
+      url,
+      decodeWidth: BannerSample.decodeWidth,
+    ).resolve(ImageConfiguration.empty);
+    final listener = ImageStreamListener(
+      (info, _) => unawaited(_read(stream, info)),
+      // The banner itself shows the failure; the icons follow the page.
+      onError: (error, _) => log('profile cover sample failed: $error'),
+    );
+    _stream = stream..addListener(listener);
+    _listener = listener;
+  }
+
+  void _stopListening() {
+    final listener = _listener;
+    if (listener != null) _stream?.removeListener(listener);
+    _stream = null;
+    _listener = null;
+  }
+
+  Future<void> _read(ImageStream stream, ImageInfo info) async {
+    try {
+      final image = info.image;
+      final bytes = await image.toByteData();
+      if (!mounted || stream != _stream || bytes == null) return;
+      _stopListening();
+      setState(() {
+        _sample = BannerSample(
+          rgba: bytes.buffer.asUint8List(),
+          width: image.width,
+          height: image.height,
+        );
+      });
+    } finally {
+      info.dispose();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sample = _sample;
+    // One tree shape in every state, so the header below never remounts.
+    return LayoutBuilder(
+      builder: (context, constraints) => FuncSystemBars(
+        background: !widget.overArtwork || sample == null
+            ? theme.brightness
+            : sample.brightnessUnder(
+                box: Size(constraints.maxWidth, widget.bannerHeight),
+                top: widget.statusBarTop,
+                bottom: widget.statusBarBottom,
+                underlay: theme.colorScheme.surface,
+              ),
+        child: widget.child,
+      ),
+    );
   }
 }
 

@@ -310,6 +310,20 @@ class PixivImage extends ConsumerStatefulWidget {
         : ResizeImage.resizeIfNeeded(decodeWidth, null, base);
   }
 
+  /// The worker-backed provider for [url] decoded [decodeWidth] pixels
+  /// wide, for code that reads the pixels instead of painting them.
+  static ImageProvider providerFor(
+    BuildContext context,
+    String url, {
+    required int decodeWidth,
+  }) {
+    final worker = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(imageWorkerProvider);
+    return _imageProvider(url, decodeWidth, worker: worker);
+  }
+
   /// Decode-width-qualified completion log. The visible widget resolves
   /// `ResizeImage(provider, memCacheWidth)`, so checking `statusForKey` on the
   /// raw provider never matched — every capped image reported "not complete"
