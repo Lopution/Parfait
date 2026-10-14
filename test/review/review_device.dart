@@ -6,13 +6,88 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/core/platform/platform_caps.dart';
 
-/// The user's device. The panel size is measured; density and system bar
-/// insets are common values for a 1440p ROM until a probe report's
-/// `surface:` line gives the real ones — change only these constants.
-const reviewPhysicalSize = Size(1440, 3136);
-const reviewDpr = 3.5;
-const reviewStatusBar = 40.0;
-const reviewNavigationBar = 16.0;
+/// A screen the review renders on: the panel in physical pixels, its
+/// density, and the system bar and display cutout insets in logical
+/// pixels (the cutout sits on the left, as on a phone turned left).
+class ReviewDevice {
+  const ReviewDevice({
+    required this.physicalSize,
+    required this.dpr,
+    this.statusBar = 0,
+    this.navigationBar = 0,
+    this.cutout = 0,
+  });
+
+  final Size physicalSize;
+  final double dpr;
+  final double statusBar;
+  final double navigationBar;
+  final double cutout;
+}
+
+/// The screens `PARFAIT_REVIEW_DEVICE` names. `phone` is the user's
+/// device and the default: the panel size is measured; density and insets
+/// are common values for a 1440p ROM until a probe report's `surface:`
+/// line gives the real ones. The others sit in the window classes the
+/// layout switches on (logical sizes in the comments).
+const reviewDevices = <String, ReviewDevice>{
+  // 411 x 896.
+  'phone': ReviewDevice(
+    physicalSize: Size(1440, 3136),
+    dpr: 3.5,
+    statusBar: 40,
+    navigationBar: 16,
+  ),
+  // 896 x 411, the camera cutout on the left.
+  'phone-landscape': ReviewDevice(
+    physicalSize: Size(3136, 1440),
+    dpr: 3.5,
+    statusBar: 40,
+    navigationBar: 16,
+    cutout: 40,
+  ),
+  // 700 x 840, a book-style foldable opened.
+  'foldable': ReviewDevice(
+    physicalSize: Size(1840, 2208),
+    dpr: 2.625,
+    statusBar: 32,
+    navigationBar: 16,
+  ),
+  // 800 x 1280.
+  'tablet-portrait': ReviewDevice(
+    physicalSize: Size(1600, 2560),
+    dpr: 2,
+    statusBar: 24,
+    navigationBar: 16,
+  ),
+  // 1000 x 640, an 8-inch tablet turned.
+  'tablet-small-landscape': ReviewDevice(
+    physicalSize: Size(2000, 1280),
+    dpr: 2,
+    statusBar: 24,
+    navigationBar: 16,
+  ),
+  // 1280 x 800.
+  'tablet-landscape': ReviewDevice(
+    physicalSize: Size(2560, 1600),
+    dpr: 2,
+    statusBar: 24,
+    navigationBar: 16,
+  ),
+  // 1440 x 900, a desktop window: no system bars.
+  'desktop': ReviewDevice(physicalSize: Size(2880, 1800), dpr: 2),
+};
+
+/// The device of this run, from `PARFAIT_REVIEW_DEVICE` (default `phone`).
+final reviewDeviceName =
+    Platform.environment['PARFAIT_REVIEW_DEVICE'] ?? 'phone';
+final ReviewDevice reviewDevice =
+    reviewDevices[reviewDeviceName] ??
+    (throw ArgumentError.value(
+      reviewDeviceName,
+      'PARFAIT_REVIEW_DEVICE',
+      'one of ${reviewDevices.keys.join(', ')}',
+    ));
 
 /// Where fonts, PNGs, films and the manifest land: `PARFAIT_REVIEW_OUT`,
 /// else `~/parfait-ux4-review`. Outside the repo, so review output never
@@ -21,7 +96,7 @@ final reviewOutDir =
     Platform.environment['PARFAIT_REVIEW_OUT'] ??
     '${Platform.environment['HOME']}/parfait-ux4-review';
 
-/// Applies the review device: panel size, density, system bar insets, the
+/// Applies [reviewDevice]: panel size, density, system bar insets, the
 /// [locale] as the system locale, font scale, system [brightness] (the
 /// app's theme setting follows the system by default), and the engine's
 /// `accessibleNavigation` stuck on — the state GKD leaves it in on the
@@ -37,11 +112,13 @@ void applyReviewDevice(
   Brightness brightness = Brightness.light,
 }) {
   final view = tester.view;
-  view.physicalSize = reviewPhysicalSize;
-  view.devicePixelRatio = reviewDpr;
-  const insets = FakeViewPadding(
-    top: reviewStatusBar * reviewDpr,
-    bottom: reviewNavigationBar * reviewDpr,
+  final device = reviewDevice;
+  view.physicalSize = device.physicalSize;
+  view.devicePixelRatio = device.dpr;
+  final insets = FakeViewPadding(
+    left: device.cutout * device.dpr,
+    top: device.statusBar * device.dpr,
+    bottom: device.navigationBar * device.dpr,
   );
   view.padding = insets;
   view.viewPadding = insets;
