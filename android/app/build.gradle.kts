@@ -31,7 +31,10 @@ android {
         // to an app whose downloads always fail is worse than excluding
         // them. API 29 is in the acceptance matrix (R4).
         minSdk = 29
-        targetSdk = flutter.targetSdkVersion
+        // Ahead of Flutter's default (36): Android 17 behaviour, notably the
+        // local network permission (LocalNetworkChannel). Return to
+        // flutter.targetSdkVersion once Flutter's default reaches 37.
+        targetSdk = 37
         // Split APK versionCodes use Flutter ABI_VERSION offsets
         // (io.flutter.FlutterPluginConstants):
         //   armeabi-v7a ABI_VERSION=1 → 1000+n
@@ -224,9 +227,6 @@ flutter {
 
 dependencies {
     implementation("androidx.core:core:1.19.0")
-    // Home widget background maintenance (08-26-android-home-widgets).
-    // work-runtime-ktx is an empty shell since 2.8; Kotlin APIs live here.
-    implementation("androidx.work:work-runtime:2.11.2")
-    // Plain JVM tests for widget budget math.
+    // Plain JVM tests for the platform channels.
     testImplementation("junit:junit:4.13.2")
 }

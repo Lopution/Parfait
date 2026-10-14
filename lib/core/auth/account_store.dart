@@ -24,7 +24,6 @@ class AccountState {
     required this.status,
     this.accounts = const [],
     this.currentId,
-    this.credentialRevision = 0,
     this.error,
   });
 
@@ -33,11 +32,6 @@ class AccountState {
   /// All known accounts, including ones pending re-authentication.
   final List<Account> accounts;
   final String? currentId;
-
-  /// Monotonic account/credential boundary used to fence in-flight readers.
-  /// It changes whenever account metadata or the current account's
-  /// credential ownership changes, but never contains secret material.
-  final int credentialRevision;
   final Object? error;
 
   bool get hasAccounts => accounts.isNotEmpty;
@@ -60,14 +54,12 @@ class AccountState {
     AccountStatus? status,
     List<Account>? accounts,
     String? currentId,
-    int? credentialRevision,
     Object? error,
   }) {
     return AccountState(
       status: status ?? this.status,
       accounts: accounts ?? this.accounts,
       currentId: currentId ?? this.currentId,
-      credentialRevision: credentialRevision ?? this.credentialRevision,
       error: error,
     );
   }
@@ -80,8 +72,6 @@ class AccountState {
 ///   rolls the credential back so no half-added account is visible.
 /// - remove: metadata reference first, secret cleanup second.
 class AccountStore extends AsyncNotifier<AccountState> {
-  int _credentialRevision = 0;
-
   @override
   Future<AccountState> build() async {
     final repository = ref.watch(accountMetadataRepositoryProvider);
@@ -93,7 +83,6 @@ class AccountStore extends AsyncNotifier<AccountState> {
         status: AccountStatus.ready,
         accounts: accounts,
         currentId: _validCurrentId(snapshot.currentId, accounts),
-        credentialRevision: _credentialRevision,
       );
     } on AccountDataException catch (error) {
       return AccountState(status: AccountStatus.failure, error: error);
@@ -154,7 +143,6 @@ class AccountStore extends AsyncNotifier<AccountState> {
           status: AccountStatus.ready,
           accounts: accounts,
           currentId: account.id,
-          credentialRevision: _nextCredentialRevision(),
         ),
       );
       _resetNetworkSession();
@@ -195,7 +183,6 @@ class AccountStore extends AsyncNotifier<AccountState> {
         status: AccountStatus.ready,
         accounts: accounts,
         currentId: currentId,
-        credentialRevision: _nextCredentialRevision(),
       ),
     );
   }
@@ -208,12 +195,7 @@ class AccountStore extends AsyncNotifier<AccountState> {
       throw AccountDataException('cannot switch to unknown account $accountId');
     }
     await repository.save(current.accounts, accountId);
-    state = AsyncData(
-      current.copyWith(
-        currentId: accountId,
-        credentialRevision: _nextCredentialRevision(),
-      ),
-    );
+    state = AsyncData(current.copyWith(currentId: accountId));
     if (current.currentId != accountId) _resetNetworkSession();
   }
 
@@ -229,12 +211,7 @@ class AccountStore extends AsyncNotifier<AccountState> {
         )
         .toList();
     await repository.save(accounts, current.currentId);
-    state = AsyncData(
-      current.copyWith(
-        accounts: accounts,
-        credentialRevision: _nextCredentialRevision(),
-      ),
-    );
+    state = AsyncData(current.copyWith(accounts: accounts));
     if (current.currentId == accountId) _resetNetworkSession();
   }
 
@@ -256,7 +233,6 @@ class AccountStore extends AsyncNotifier<AccountState> {
         status: AccountStatus.ready,
         accounts: accounts,
         currentId: nextCurrentId,
-        credentialRevision: _nextCredentialRevision(),
       ),
     );
     if (current.currentId == accountId) _resetNetworkSession();
@@ -301,8 +277,6 @@ class AccountStore extends AsyncNotifier<AccountState> {
         ? currentId
         : null;
   }
-
-  int _nextCredentialRevision() => ++_credentialRevision;
 
   void _resetNetworkSession() {
     ref.read(networkAccessPolicyProvider).advanceNetworkRevision();

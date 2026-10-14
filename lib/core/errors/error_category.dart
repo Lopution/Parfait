@@ -4,6 +4,7 @@ import 'dart:io';
 import '../download/download_recovery.dart';
 import '../network/api_error.dart';
 import '../network/compat/network_contracts.dart';
+import '../network/local_network_address.dart';
 import '../network/next_page_parser.dart';
 
 /// The user-facing error taxonomy (C8/D1).
@@ -18,6 +19,9 @@ enum ErrorCategory {
 
   /// A request or connection exceeded the configured timeout.
   timeout,
+
+  /// The host is on the local network and the app may not reach it.
+  localNetwork,
 
   /// The server asked the client to slow down.
   rateLimited,
@@ -50,6 +54,8 @@ enum ErrorCategory {
 /// bucket.
 ErrorCategory categorizeError(Object error) => switch (error) {
   ApiTimeout() || TimeoutException() => ErrorCategory.timeout,
+  LocalNetworkBlocked() ||
+  ApiNetworkError(cause: LocalNetworkBlocked()) => ErrorCategory.localNetwork,
   ApiChallengeRequired() => ErrorCategory.network,
   ApiRateLimited() => ErrorCategory.rateLimited,
   ApiUnauthorized() => ErrorCategory.unauthorized,

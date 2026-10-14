@@ -6,9 +6,12 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/translation/translation_credentials.dart';
+import 'package:parfait/core/platform/local_network.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 
 import 'helpers/settings_world.dart';
+
+final unrestricted = LocalNetworkGate(const UnrestrictedLocalNetwork());
 
 void main() {
   final fixedNow = DateTime(2026, 9, 3, 12, 0, 0);
@@ -180,7 +183,7 @@ void main() {
         );
       });
 
-      final service = LlmTranslationTransport(client, store);
+      final service = LlmTranslationTransport(client, store, unrestricted);
       final result = await service.translate('hello', targetLanguage: 'zh');
 
       expect(result, '你好');
@@ -207,6 +210,7 @@ void main() {
           return http.Response('{}', 200);
         }),
         store,
+        unrestricted,
       );
 
       await expectLater(
@@ -238,6 +242,7 @@ void main() {
           final service = LlmTranslationTransport(
             MockClient((_) async => http.Response('{}', entry.key)),
             store,
+            unrestricted,
           );
           await expectLater(
             service.translate('hello', targetLanguage: 'zh'),
@@ -277,6 +282,7 @@ void main() {
           );
         }),
         store,
+        unrestricted,
       );
 
       final result = await service.translate('hello', targetLanguage: 'zh');
@@ -287,6 +293,7 @@ void main() {
       final oversized = LlmTranslationTransport(
         MockClient((_) async => http.Response('x' * (256 * 1024 + 1), 200)),
         store,
+        unrestricted,
       );
       await expectLater(
         oversized.translate('hello', targetLanguage: 'zh'),

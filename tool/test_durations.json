@@ -205,10 +205,6 @@
  "test/watchlist_test.dart": 1.8,
  "test/web_profile_repository_test.dart": 1.6,
  "test/webview_upload_provider_test.dart": 4.3,
- "test/widget_coordinator_test.dart": 1.7,
- "test/widget_feed_loader_test.dart": 3.6,
- "test/widget_snapshot_store_test.dart": 1.6,
- "test/widget_snapshot_test.dart": 1.5,
  "test/windows_capability_test.dart": 2.4,
  "test/worker_image_provider_test.dart": 2.3
 }

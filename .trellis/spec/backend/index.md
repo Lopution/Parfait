@@ -31,7 +31,6 @@ file are in the [spec root](../index.md).
 | [errors.md](./errors.md) | Error types, user-facing failure copy, CrashLog, logging. |
 | [settings-store.md](./settings-store.md) | Persisted settings, secrets, credentials, account transfer. |
 | [android.md](./android.md) | Platform channels, intents, haptics, the login WebView. |
-| [home-widget.md](./home-widget.md) | The Android home widget, its snapshot and background work. |
 | [rust-plugin.md](./rust-plugin.md) | The rhttp fork, FRB versions, Cargo features. |
 | [release.md](./release.md) | APK builds, signing, size gates, the updater, CI workflows, toolchain upgrades. |
 

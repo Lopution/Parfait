@@ -40,6 +40,7 @@ final imageWorkerProvider = Provider<ImageWorker>((ref) {
           ? ref.read(dohEndpointsProvider)
           : const [],
       bootstrapNoSniEnabled: true,
+      localNetworkBlockedHosts: policy.localNetworkBlockedHosts,
       learnedFastRoutes: {
         for (final MapEntry(:key, :value) in learned.entries)
           key: value.address,

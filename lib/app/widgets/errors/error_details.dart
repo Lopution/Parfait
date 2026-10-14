@@ -23,6 +23,7 @@ String errorCategoryTextL10n(AppLocalizations l10n, ErrorCategory category) {
   return switch (category) {
     ErrorCategory.network => l10n.errorNetwork,
     ErrorCategory.timeout => l10n.errorTimeout,
+    ErrorCategory.localNetwork => l10n.errorLocalNetwork,
     ErrorCategory.rateLimited => l10n.errorRateLimited,
     ErrorCategory.unauthorized => l10n.errorUnauthorized,
     ErrorCategory.server => l10n.errorServer,

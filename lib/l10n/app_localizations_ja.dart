@@ -1544,6 +1544,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get errorTimeout => '接続がタイムアウトしました';
 
   @override
+  String get errorLocalNetwork =>
+      'ローカルネットワークのアドレスに接続するには「付近のデバイス」の権限が必要です。システム設定で許可してください';
+
+  @override
   String get errorRateLimited => 'リクエストが多すぎます。しばらくしてから再試行してください';
 
   @override

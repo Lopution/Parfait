@@ -308,8 +308,8 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
                       child: SizedBox(
                         // The status-bar inset belongs above the actual
                         // 56dp toolbar controls. This keeps pinned chrome
-                        // out of the system UI on targetSdk 36
-                        // edge-to-edge devices.
+                        // out of the system UI, which edge-to-edge
+                        // (enforced from targetSdk 35) draws under.
                         height: minExtent,
                         child: Padding(
                           padding: EdgeInsets.only(top: topInset),

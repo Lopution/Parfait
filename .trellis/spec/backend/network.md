@@ -5,7 +5,8 @@ applies_to:
   - lib/core/auth/oauth_service.dart
   - lib/core/download/*transport*.dart
   - lib/core/image/image_worker_host.dart
-reviewed: 2026-10-13
+  - lib/core/platform/local_network.dart
+reviewed: 2026-10-14
 ---
 
 # Network policy, auth and transfers
@@ -131,6 +132,23 @@ reviewed: 2026-10-13
   responses would serve stale data to pull-to-refresh.
 - **Check:** `test/pixiv_http_client_test.dart` "concurrent identical GETs share one transport flight"
 - **Code:** `lib/core/network/pixiv_http_client.dart`
+
+### NET-17 A blocked local address fails before connecting
+- **Rule:** On Android 17 a host the user configured (custom image source,
+  DoH override, LLM endpoint, system proxy) that resolves to the local
+  network needs `ACCESS_LOCAL_NETWORK`. The app asks with the system
+  dialog only then, once per set of hosts; while the dialog is up and
+  while denied, the policy, the DoH resolver, the LLM transport and the
+  login WebView (every load and reload) throw `LocalNetworkBlocked`
+  without connecting, shown as `ErrorCategory.localNetwork`. Built-in
+  hosts are public and never checked. Known gap: requests are not held
+  back during the first check after settings load or change (channel
+  calls plus a system DNS lookup, at most 3 s).
+- **Why:** Without the permission a TCP connect to a local address hangs
+  until it times out; the user decided on an immediate error and the
+  system dialog, no in-app prompt.
+- **Check:** `test/local_network_test.dart` "configured local hosts ask once; denied, none connects", `test/doh_resolver_test.dart` "a blocked local endpoint is skipped without a request"
+- **Code:** `lib/core/platform/local_network.dart`, `lib/core/network/local_network_address.dart`, `android/app/src/main/kotlin/io/github/lopution/parfait/LocalNetworkChannel.kt`
 
 ## Clients and diagnostics
 

@@ -3,6 +3,10 @@
     <!-- Normal permission (granted at install, no prompt): app haptics play
          through Vibrator so strength can be scaled per device capability. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Runtime permission from Android 17 (target 37): asked only when a
+         configured address (image source, DoH, LLM, system proxy) is on
+         the local network. See LocalNetworkChannel. -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <application
         android:label="Parfait"
         android:name="${applicationName}"
@@ -88,32 +92,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_provider_paths" />
         </provider>
-        <!-- Home widgets (R8): non-exported providers, system-only updates. -->
-        <receiver
-            android:name=".appwidget.RecommendWidgetProvider"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="android.appwidget.action.APPWIDGET_OPTIONS_CHANGED" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/recommend_app_widget_info" />
-        </receiver>
-        <receiver
-            android:name=".appwidget.RefreshWidgetProvider"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/refresh_app_widget_info" />
-        </receiver>
-        <receiver
-            android:name=".appwidget.WidgetClickReceiver"
-            android:enabled="true"
-            android:exported="false" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

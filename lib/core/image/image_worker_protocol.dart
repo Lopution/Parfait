@@ -24,6 +24,7 @@ class ImageWorkerConfig {
     required this.echFrontHost,
     required this.dohEndpoints,
     required this.bootstrapNoSniEnabled,
+    this.localNetworkBlockedHosts = const {},
     this.learnedFastRoutes = const {},
     this.routeKinds = const {},
   });
@@ -57,6 +58,9 @@ class ImageWorkerConfig {
   /// wiring rather than hardcoding policy.
   final bool bootstrapNoSniEnabled;
 
+  /// The main policy's local network hosts the app may not reach.
+  final Set<String> localNetworkBlockedHosts;
+
   /// Persisted host→address map from the main isolate's fast-route store
   /// (learned entries only — the compile-time bootstrap map is readable
   /// inside the worker).
@@ -74,6 +78,7 @@ class ImageWorkerConfig {
     'echFrontHost': echFrontHost,
     'dohEndpoints': dohEndpoints,
     'bootstrapNoSniEnabled': bootstrapNoSniEnabled,
+    'localNetworkBlockedHosts': localNetworkBlockedHosts.toList(),
     'learnedFastRoutes': learnedFastRoutes,
     'routeKinds': routeKinds,
   };
@@ -87,6 +92,9 @@ class ImageWorkerConfig {
       echFrontHost: json['echFrontHost'] as String,
       dohEndpoints: (json['dohEndpoints'] as List).cast<String>(),
       bootstrapNoSniEnabled: json['bootstrapNoSniEnabled'] as bool,
+      localNetworkBlockedHosts: {
+        ...(json['localNetworkBlockedHosts'] as List? ?? const []).cast(),
+      },
       learnedFastRoutes: (json['learnedFastRoutes'] as Map? ?? const {}).cast(),
       routeKinds: (json['routeKinds'] as Map? ?? const {}).cast(),
     );

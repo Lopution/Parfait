@@ -96,7 +96,7 @@ final downloadManagerProvider = Provider<DownloadManager>((ref) {
       final account = accountState?.usableCurrent;
       if (accountState == null || account == null) return null;
       // C4: the stable owner is accountId + destination; a token refresh
-      // (credentialRevision) never orphans an in-flight task.
+      // never orphans an in-flight task.
       return DownloadSubmissionContext(
         accountId: account.id,
         destination: ref.read(downloadDestinationProvider),

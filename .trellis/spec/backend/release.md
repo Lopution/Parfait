@@ -149,6 +149,8 @@ reviewed: 2026-10-14
 - **Rule:** AGP, Gradle and Kotlin stay inside the range the pinned Flutter
   validates. `compileSdk` may lead Flutter's default when a dependency
   requires it; `minSdk` and `targetSdk` change only in their own task.
+  `targetSdk` is 37, ahead of Flutter's default 36; it returns to
+  `flutter.targetSdkVersion` once that reaches 37.
 - **Why:** Versions outside the matrix broke plugin builds; a target SDK
   bump changes runtime behaviour.
 - **Check:** manual

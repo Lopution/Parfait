@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:io';
 
 import '../../log.dart';
+import '../local_network_address.dart';
 import '../pixiv_client_identity.dart';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
@@ -44,6 +45,7 @@ class NetworkAccessPolicy {
     this.routeKindStore,
     this.echFrontHost = 'cloudflare-ech.com',
     this.bootstrapNoSniEnabled = false,
+    this.localNetworkBlockedHosts = const {},
     @visibleForTesting Duration? imageHeadersTimeout,
     @visibleForTesting Duration? imageIdleTimeout,
     List<String> dohEndpoints = const [
@@ -77,6 +79,7 @@ class NetworkAccessPolicy {
                ? const SystemSecureResolver()
                : DohResolver(
                    endpointUrls: dohEndpoints,
+                   blockedHosts: localNetworkBlockedHosts,
                    hostOverrides: dohHostOverrides ?? _defaultDohHostOverrides,
                    echEndpointUrls: echDoHEndpoints,
                  )),
@@ -98,6 +101,11 @@ class NetworkAccessPolicy {
   /// which makes it the persisted compatibility tier; tests and standalone
   /// callers opt in explicitly.
   final bool bootstrapNoSniEnabled;
+
+  /// User-configured hosts on the local network the app may not reach
+  /// (see `LocalNetworkBlockedHosts`): requests to them fail at once with
+  /// [LocalNetworkBlocked] instead of hanging until the connect times out.
+  final Set<String> localNetworkBlockedHosts;
 
   /// Origin addresses of pixiv's image hosts for the bootstrap tier, so it
   /// needs no DNS lookup. A `noSni` success teaches it the address it was

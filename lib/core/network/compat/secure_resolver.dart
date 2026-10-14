@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
+import '../local_network_address.dart';
 import 'dns_message.dart';
 import 'network_contracts.dart';
 
@@ -135,6 +136,7 @@ class DohResolver implements SecureResolver, EchConfigResolver {
     http.Client? client,
     this.hostOverrides = const {},
     List<String>? echEndpointUrls,
+    this.blockedHosts = const {},
     this.maxResponseBytes = 64 * 1024,
     this.maxTtl = const Duration(minutes: 10),
     this.minTtl = const Duration(seconds: 5),
@@ -155,6 +157,10 @@ class DohResolver implements SecureResolver, EchConfigResolver {
   /// while the TCP peer is the static IP — no polluted system-DNS round trip
   /// and no resolver recursion.
   final Map<String, List<InternetAddress>> hostOverrides;
+
+  /// Endpoint hosts on the local network the app may not reach: a query
+  /// to one fails at once and the next endpoint is tried.
+  final Set<String> blockedHosts;
 
   /// Maximum accepted response body size (hard cap against amplification).
   final int maxResponseBytes;
@@ -315,6 +321,10 @@ class DohResolver implements SecureResolver, EchConfigResolver {
   ) async {
     if (cancelSignal?.isCancelled ?? false) {
       throw const NetworkFailureException(NetworkFailureKind.cancelled);
+    }
+    final endpointHost = Uri.parse(endpoint).host;
+    if (blockedHosts.contains(endpointHost)) {
+      throw LocalNetworkBlocked(endpointHost);
     }
     final id = _nextQueryId++ & 0xffff;
     final payload = encodeQuery(id: id, name: host, type: 1);

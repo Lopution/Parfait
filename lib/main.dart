@@ -15,7 +15,6 @@ import 'core/logging/crash_log.dart';
 import 'core/network/rhttp_gate.dart';
 import 'core/platform/native_warmup.dart';
 import 'core/platform/platform_caps.dart';
-import 'core/widget/widget_background.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Entrypoint: initializes the Rust transport (rhttp) before the first
@@ -145,11 +144,3 @@ Future<void> _deleteLegacyImageCache() async {
   );
   if (deleted.isNotEmpty) log('deleted the legacy image cache: $deleted');
 }
-
-/// Headless entrypoint for the Android widget worker.
-///
-/// The Flutter engine resolves background entrypoints against the root
-/// library, so the named function must live here; the implementation stays
-/// in `core/widget/widget_background.dart`.
-@pragma('vm:entry-point')
-Future<void> widgetBackgroundMain() => runWidgetBackground();

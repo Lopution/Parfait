@@ -17,8 +17,12 @@ const _legacyIndexSuffixes = [
   '.json',
 ];
 
-/// Deletes what the pre-worker image cache left on disk and returns the
-/// paths it deleted. Each item is checked and deleted on its own: one that
+/// The removed home widget kept its last feed — images and a pointer file —
+/// in this directory of app support.
+const _widgetSnapshot = 'widget_snapshot';
+
+/// Deletes what the pre-worker image cache and the home widget left on disk
+/// and returns the paths it deleted. Each item is checked and deleted on its own: one that
 /// fails goes to the crash log and the rest still go. The worker's cache
 /// has another name and is never touched.
 Future<List<String>> deleteLegacyImageCache({
@@ -29,6 +33,7 @@ Future<List<String>> deleteLegacyImageCache({
     Directory(p.join(temp.path, _legacyKey)),
     for (final suffix in _legacyIndexSuffixes)
       File(p.join(support.path, '$_legacyKey$suffix')),
+    Directory(p.join(support.path, _widgetSnapshot)),
   ];
   final deleted = <String>[];
   for (final target in targets) {

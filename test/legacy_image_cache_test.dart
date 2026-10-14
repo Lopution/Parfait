@@ -20,32 +20,40 @@ void main() {
     ..createSync(recursive: true)
     ..writeAsStringSync('x');
 
-  test('the old image files and their index go, nothing else', () async {
-    touch(temp, 'parfait_images/abc123.jpg');
-    final index = [
-      touch(support, 'parfait_images.db'),
-      touch(support, 'parfait_images.db-journal'),
-      touch(support, 'parfait_images.json'),
-    ];
-    final kept = [
-      touch(temp, '${DiskImageCache.directoryName}/ab/abc123'),
-      touch(temp, 'share.png'),
-      touch(support, 'logs/crash.log'),
-    ];
+  test(
+    'the old image files, their index and the widget snapshot go, nothing else',
+    () async {
+      touch(temp, 'parfait_images/abc123.jpg');
+      final index = [
+        touch(support, 'parfait_images.db'),
+        touch(support, 'parfait_images.db-journal'),
+        touch(support, 'parfait_images.json'),
+      ];
+      touch(support, 'widget_snapshot/images/1.jpg');
+      final kept = [
+        touch(temp, '${DiskImageCache.directoryName}/ab/abc123'),
+        touch(temp, 'share.png'),
+        touch(support, 'logs/crash.log'),
+      ];
 
-    final deleted = await deleteLegacyImageCache(temp: temp, support: support);
+      final deleted = await deleteLegacyImageCache(
+        temp: temp,
+        support: support,
+      );
 
-    expect(deleted, [
-      p.join(temp.path, 'parfait_images'),
-      for (final file in index) file.path,
-    ]);
-    expect(
-      Directory(p.join(temp.path, 'parfait_images')).existsSync(),
-      isFalse,
-    );
-    expect(index.where((file) => file.existsSync()), isEmpty);
-    expect(kept.where((file) => !file.existsSync()), isEmpty);
-  });
+      expect(deleted, [
+        p.join(temp.path, 'parfait_images'),
+        for (final file in index) file.path,
+        p.join(support.path, 'widget_snapshot'),
+      ]);
+      expect(
+        Directory(p.join(temp.path, 'parfait_images')).existsSync(),
+        isFalse,
+      );
+      expect(index.where((file) => file.existsSync()), isEmpty);
+      expect(kept.where((file) => !file.existsSync()), isEmpty);
+    },
+  );
 
   test('a launch with nothing left deletes nothing', () async {
     expect(await deleteLegacyImageCache(temp: temp, support: support), isEmpty);
