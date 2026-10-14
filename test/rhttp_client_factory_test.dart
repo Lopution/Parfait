@@ -221,6 +221,7 @@ void main() {
       ]) {
         final timeouts = RhttpClientFactory.timeoutsFor(
           route,
+          destinationHost: 'app-api.pixiv.net',
           purpose: PixivDestinationPurpose.appApi,
         );
         expect(
@@ -234,6 +235,7 @@ void main() {
     test('direct fails faster than the fallback tiers', () {
       final direct = RhttpClientFactory.timeoutsFor(
         NetworkRoute.direct(_revision),
+        destinationHost: 'app-api.pixiv.net',
         purpose: PixivDestinationPurpose.appApi,
       );
       final ech = RhttpClientFactory.timeoutsFor(
@@ -241,10 +243,22 @@ void main() {
           0xfe,
           0x0d,
         ]),
+        destinationHost: 'app-api.pixiv.net',
         purpose: PixivDestinationPurpose.appApi,
       );
       expect(direct.connectTimeout!, lessThan(ech.connectTimeout!));
       expect(direct.timeout!, lessThan(ech.timeout!));
+
+      final mirror = RhttpClientFactory.timeoutsFor(
+        NetworkRoute.direct(_revision),
+        destinationHost: 'i.pixiv.re',
+        purpose: PixivDestinationPurpose.image,
+      );
+      expect(
+        mirror.connectTimeout,
+        RhttpClientFactory.mirrorDirectConnectTimeout,
+        reason: 'a mirror is reached directly by design',
+      );
     });
 
     test('the whole ladder fits inside the API request budget', () {
@@ -261,6 +275,7 @@ void main() {
       // or download mid-transfer.
       final timeouts = RhttpClientFactory.timeoutsFor(
         NetworkRoute.noSni(_revision, InternetAddress('210.140.139.129')),
+        destinationHost: 'i.pximg.net',
         purpose: PixivDestinationPurpose.image,
       );
       expect(timeouts.timeout, isNull);
@@ -276,6 +291,7 @@ void main() {
       ]) {
         final timeouts = RhttpClientFactory.timeoutsFor(
           NetworkRoute.direct(_revision),
+          destinationHost: 'app-api.pixiv.net',
           purpose: purpose,
         );
         expect(timeouts.timeout, isNotNull, reason: purpose.name);

@@ -115,11 +115,11 @@ void main() {
           reason: 'a third-party mirror never enters the Pixiv ECH tier',
         );
         expect(ech.requests, isEmpty);
-        expect(direct.requests, isEmpty);
-        // A cold mirror races its own top two tiers (noSni + dohRealSni);
-        // both requests retarget to the mirror host.
-        expect(secure.requests, hasLength(2));
-        for (final request in secure.requests) {
+        // A cold mirror races its own top two tiers (direct + noSni); both
+        // requests retarget to the mirror host.
+        expect(direct.requests, hasLength(1));
+        expect(secure.requests, hasLength(1));
+        for (final request in [...direct.requests, ...secure.requests]) {
           expect(request.url.host, 'i.pixiv.cat');
         }
         final sent = secure.requests.first;
@@ -244,8 +244,8 @@ void main() {
             'config only covers pixiv hosts',
       );
 
-      // The mirror still tries its own noSni tier first (its fallback
-      // ordering), and that success seeds the *mirror* group instead.
+      // The mirror races its own tiers (direct is refused here), and the
+      // noSni success seeds the *mirror* group instead.
       await client.get(Uri.parse('https://i.pixiv.re/a.jpg'));
       expect(policy.rememberedRouteKind('i.pixiv.re'), NetworkRouteKind.noSni);
       expect(
@@ -273,9 +273,13 @@ void main() {
           resolver: FakeResolver([InternetAddress('1.2.3.65')]),
           clientFactory: (route, canonicalHost, _) {
             attempts.add(route.kind);
-            return route.kind == NetworkRouteKind.noSni
-                ? FakeClient(failure: certError)
-                : FakeClient(body: 'ok');
+            return switch (route.kind) {
+              NetworkRouteKind.direct => FakeClient(
+                failure: const SocketException('Connection refused'),
+              ),
+              NetworkRouteKind.noSni => FakeClient(failure: certError),
+              _ => FakeClient(body: 'ok'),
+            };
           },
         );
         final client = _imageClient(policy);
@@ -285,6 +289,7 @@ void main() {
         );
         expect(response.statusCode, 200);
         expect(attempts, [
+          NetworkRouteKind.direct,
           NetworkRouteKind.noSni,
           NetworkRouteKind.dohRealSni,
         ], reason: 'empty-SNI cert failure advances instead of aborting');
@@ -309,9 +314,13 @@ void main() {
         resolver: FakeResolver([InternetAddress('1.2.3.66')]),
         clientFactory: (route, canonicalHost, _) {
           attempts.add(route.kind);
-          return route.kind == NetworkRouteKind.noSni
-              ? FakeClient(failure: SocketException('Connection refused'))
-              : FakeClient(failure: certError);
+          return switch (route.kind) {
+            NetworkRouteKind.direct => FakeClient(failure: certError),
+            NetworkRouteKind.noSni => FakeClient(
+              failure: SocketException('Connection refused'),
+            ),
+            _ => FakeClient(body: 'must-not-send'),
+          };
         },
       );
       final client = _imageClient(policy);
@@ -321,9 +330,9 @@ void main() {
         throwsA(same(certError)),
       );
       expect(attempts, [
+        NetworkRouteKind.direct,
         NetworkRouteKind.noSni,
-        NetworkRouteKind.dohRealSni,
-      ], reason: 'a real-SNI mismatch never falls through to direct');
+      ], reason: 'a real-SNI mismatch on direct never falls through');
     });
   });
 
@@ -423,11 +432,11 @@ void main() {
         );
 
         await httpClient.get(imageUri);
+        final coldSends = client.requests.length;
         await httpClient.get(imageUri);
 
-        // Cold first request raced two tiers; the second request goes
-        // straight to the remembered route — one send each leg.
-        expect(client.requests, hasLength(3));
+        // The second request goes straight to the remembered route.
+        expect(client.requests, hasLength(coldSends + 1));
         expect(policy.rememberedRouteKind('i.pixiv.re'), isNotNull);
       },
     );
@@ -452,12 +461,12 @@ void main() {
 
     test('both raced tiers failing falls back to the serial ladder', () async {
       final failing = FakeClient(failure: const SocketException('refused'));
-      final direct = FakeClient(body: 'direct');
+      final realSni = FakeClient(body: 'realSni');
       final policy = NetworkAccessPolicy(
         registry: mirrorRegistry(),
         resolver: FakeResolver([InternetAddress('1.2.3.4')]),
         clientFactory: (route, _, _) =>
-            route.kind == NetworkRouteKind.direct ? direct : failing,
+            route.kind == NetworkRouteKind.dohRealSni ? realSni : failing,
       );
       final client = _imageClient(policy);
 
@@ -465,8 +474,44 @@ void main() {
 
       expect(response.statusCode, 200);
       expect(failing.requests, hasLength(2));
-      expect(direct.requests, hasLength(1));
-      expect(policy.rememberedRouteKind('i.pixiv.re'), NetworkRouteKind.direct);
+      expect(realSni.requests, hasLength(1));
+      expect(
+        policy.rememberedRouteKind('i.pixiv.re'),
+        NetworkRouteKind.dohRealSni,
+      );
+    });
+
+    test('a cold mirror answers from direct while DoH hangs', () async {
+      for (final resolver in [
+        FakeResolver([
+          InternetAddress('1.2.3.4'),
+        ], answered: Completer<void>().future),
+        // Rejected as private: no DoH tier can be built.
+        FakeResolver([InternetAddress('192.168.1.10')]),
+      ]) {
+        final sends = <NetworkRouteKind>[];
+        final policy = NetworkAccessPolicy(
+          registry: mirrorRegistry(),
+          resolver: resolver,
+          mode: NetworkMode.compatPrefer,
+          // Slower than a failed lookup, so both race paths are taken.
+          clientFactory: (route, _, _) => DelayedClient(
+            KindClient(route.kind, sends, {}),
+            const Duration(milliseconds: 20),
+          ),
+        );
+        final client = _imageClient(policy);
+
+        final response = await client.get(imageUri);
+
+        expect(response.statusCode, 200);
+        expect(sends, [NetworkRouteKind.direct]);
+        expect(resolver.calls, 1, reason: 'the racing tier is still sought');
+        expect(
+          policy.rememberedRouteKind('i.pixiv.re'),
+          NetworkRouteKind.direct,
+        );
+      }
     });
 
     test(

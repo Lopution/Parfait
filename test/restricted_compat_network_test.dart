@@ -629,12 +629,40 @@ void main() {
     await policy.dispose();
   });
 
+  test('a network change mid-request looks the host up again', () async {
+    final resolver = FakeResolver([InternetAddress('1.2.3.8')]);
+    final noSni = GateFailureClient();
+    final realSni = FakeClient(body: 'ok');
+    final policy = NetworkAccessPolicy(
+      resolver: resolver,
+      clientFactory: (route, _, _) =>
+          route.kind == NetworkRouteKind.noSni ? noSni : realSni,
+    );
+    addTearDown(policy.dispose);
+    final client = PixivPolicyHttpClient(
+      policy: policy,
+      purpose: PixivDestinationPurpose.image,
+    );
+
+    final response = client.get(Uri.parse('https://i.pximg.net/a.jpg'));
+    while (noSni.requests.isEmpty) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    policy.advanceNetworkRevision(networkIdentity: 'cellular');
+    noSni.gate.complete();
+
+    expect((await response).statusCode, 200);
+    expect(realSni.requests, hasLength(1));
+    expect(resolver.calls, 2, reason: 'the old network answer is dropped');
+  });
+
   test('policy rejects private addresses from an injected resolver', () async {
+    final resolver = FakeResolver([InternetAddress('192.168.1.10')]);
     final direct = FakeClient(failure: SocketException('Connection refused'));
     final secureDns = FakeClient(body: 'must-not-send');
     final client = _appApi(
       NetworkAccessPolicy(
-        resolver: FakeResolver([InternetAddress('192.168.1.10')]),
+        resolver: resolver,
         clientFactory: (route, canonicalHost, _) =>
             route.kind == NetworkRouteKind.direct ? direct : secureDns,
       ),
@@ -645,6 +673,7 @@ void main() {
       throwsA(isA<SecureResolutionException>()),
     );
     expect(secureDns.requests, isEmpty);
+    expect(resolver.calls, 1, reason: 'a failed lookup is not repeated');
   });
 
   test(

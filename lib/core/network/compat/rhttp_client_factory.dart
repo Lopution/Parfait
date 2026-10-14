@@ -42,6 +42,16 @@ abstract final class RhttpClientFactory {
   /// completed in ~0.54s and DoH answered in ~0.11s.
   static const fallbackConnectTimeout = Duration(seconds: 4);
 
+  /// Connection budget for an image mirror's `direct` tier, the path a
+  /// mirror is expected to answer on (see [timeoutsFor]).
+  ///
+  /// Measured from a mainland home network (2026-10-14): about half of the
+  /// SYNs to Cloudflare-hosted mirrors were lost, so a connect took 0.4 s
+  /// or, after one retransmit, 1.3 s, and 3 of 20 test requests timed out
+  /// on a 3 s or 4 s budget. SYNs go out at 0, 1, 3 and 7 s; this budget
+  /// lets the fourth one land.
+  static const mirrorDirectConnectTimeout = Duration(seconds: 8);
+
   /// Total budget for the `direct` tier on non-streaming exits.
   static const directRequestTimeout = Duration(seconds: 5);
 
@@ -103,7 +113,11 @@ abstract final class RhttpClientFactory {
     return rhttp.ClientSettings(
       httpVersionPref: httpVersionFor(purpose),
       redirectSettings: const rhttp.RedirectSettings.none(),
-      timeoutSettings: timeoutsFor(route, purpose: purpose),
+      timeoutSettings: timeoutsFor(
+        route,
+        destinationHost: destinationHost,
+        purpose: purpose,
+      ),
       tlsSettings: tls,
       dnsSettings: dns,
     );
@@ -136,13 +150,22 @@ abstract final class RhttpClientFactory {
   /// `timeout` covers the whole request including the body, so setting it
   /// would abort a large transfer mid-download. Their protection is the
   /// connect budget plus the ladder's own failure classification.
+  ///
+  /// An image mirror's direct tier is the path expected to succeed (the
+  /// ladder tries it first), so it gets [mirrorDirectConnectTimeout]
+  /// instead of the fast-fail budget.
   static rhttp.TimeoutSettings timeoutsFor(
     NetworkRoute route, {
+    required String destinationHost,
     required PixivDestinationPurpose purpose,
   }) {
     final isDirect = route.kind == NetworkRouteKind.direct;
     return rhttp.TimeoutSettings(
-      connectTimeout: isDirect ? directConnectTimeout : fallbackConnectTimeout,
+      connectTimeout: !isDirect
+          ? fallbackConnectTimeout
+          : isImageMirror(purpose, destinationHost)
+          ? mirrorDirectConnectTimeout
+          : directConnectTimeout,
       timeout: _isStreaming(purpose)
           ? null
           : (isDirect ? directRequestTimeout : fallbackRequestTimeout),

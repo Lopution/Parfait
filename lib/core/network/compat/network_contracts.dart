@@ -79,6 +79,12 @@ class PixivDestinationRegistry {
   }
 }
 
+/// Whether [host] on a [purpose] exit is a third-party image mirror (a
+/// preset or custom reverse proxy) rather than one of pixiv's image hosts.
+bool isImageMirror(PixivDestinationPurpose purpose, String host) =>
+    purpose == PixivDestinationPurpose.image &&
+    !PixivClientIdentity.downloadHosts.contains(host);
+
 class PixivDestination {
   const PixivDestination({
     required this.uri,

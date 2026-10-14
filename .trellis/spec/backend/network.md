@@ -46,7 +46,7 @@ reviewed: 2026-10-14
   |---|---|
   | API, OAuth, web (Cloudflare) | `ech`, `dohRealSni`, `direct` |
   | `i.pximg.net`, `s.pximg.net` | `ech`, `noSni`, `dohRealSni`, `direct`, `bootstrapNoSni` |
-  | image mirrors | `noSni`, `dohRealSni`, `direct` |
+  | image mirrors (every mode) | `direct`, `noSni`, `dohRealSni` |
 
   `bootstrapNoSni` serves the pixiv image hosts only, is always last cold
   and never becomes a group preference; a failed fast address cools for
@@ -54,15 +54,23 @@ reviewed: 2026-10-14
   was served from; a DoH answer is never stored unproven. Memory promotes
   the last successful kind per host and group, persisted per network
   identity as a kind, never an address. Only cold mirror image requests
-  race two tiers.
+  race two tiers; a raced tier that answers before the other is even
+  selected wins without waiting. One request looks its host up once per
+  network revision: a failed lookup is not repeated by later tiers or
+  selections, and a network change mid-request looks it up again. A mirror's
+  direct tier gets an 8 s connect budget (the fourth SYN), not the
+  fast-fail 3 s.
 - **Why:** Plain DNS and SNI are blocked or poisoned on the user's
   networks; a failed bootstrap address without a cooldown delayed every
   request. Pixiv's origin answers API, OAuth and web traffic that bypasses
   Cloudflare with 403, which the ladder took for a working route, and a
   DoH refresh stored Cloudflare addresses that reject a handshake without
-  SNI.
-- **Check:** `test/restricted_compat_network_test.dart` "an empty GET prefers the strict tier over direct", `test/network_fast_route_test.dart` "a failed fast address is cooled before the next request" "API, OAuth and web never reach the bootstrap tier" "only a noSni success teaches the bootstrap tier an address", `test/restricted_compat_image_test.dart` "a cold API GET stays serial — racing is image-only"
-- **Code:** `lib/core/network/compat/network_policy.dart`, `lib/core/network/compat/network_policy_ladder.dart`
+  SNI. Mirrors went `noSni` first: the preset mirrors sit behind
+  Cloudflare (no SNI, no handshake) and both other tiers waited on DoH,
+  which the mainland could not reach, so an image took 24–40 s and hit
+  the 15 s headers timeout; pixiv.re and pixiv.nl connect directly.
+- **Check:** `test/restricted_compat_network_test.dart` "an empty GET prefers the strict tier over direct", `test/network_fast_route_test.dart` "a failed fast address is cooled before the next request" "API, OAuth and web never reach the bootstrap tier" "only a noSni success teaches the bootstrap tier an address", `test/restricted_compat_image_test.dart` "a cold API GET stays serial — racing is image-only" "a cold mirror answers from direct while DoH hangs", `test/restricted_compat_network_test.dart` "policy rejects private addresses from an injected resolver"
+- **Code:** `lib/core/network/compat/network_policy.dart`, `lib/core/network/compat/network_policy_ladder.dart`, `lib/core/network/compat/rhttp_client_factory.dart`
 
 ### NET-04 Pixiv image hosts stay on ECH
 - **Rule:** Pixiv image hosts start on ECH alone. One ECH failure moves
