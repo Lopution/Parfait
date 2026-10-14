@@ -1741,13 +1741,13 @@ class AppLocalizationsRu extends AppLocalizations {
       'Удерживайте и перетащите, чтобы изменить порядок';
 
   @override
-  String get rankingHiddenCategories => 'Скрытые';
+  String get arrangementHidden => 'Скрытые';
 
   @override
   String get rankingHiddenEmpty => 'Показаны все категории';
 
   @override
-  String get rankingRestoreDefault => 'По умолчанию';
+  String get restoreDefault => 'По умолчанию';
 
   @override
   String get rankingBlocked => 'Скрыто в настройках просмотра';
@@ -1787,7 +1787,27 @@ class AppLocalizationsRu extends AppLocalizations {
   String get novelRankingCategories => 'Категории рейтинга новелл';
 
   @override
-  String rankingCategoriesShown(int shown, int total) {
+  String get bottomBarItems => 'Пункты нижней панели';
+
+  @override
+  String get bottomBarMeLocked => 'Всегда на панели: здесь настройки';
+
+  @override
+  String bottomBarNote(int min, String me, String search, String recommended) {
+    return 'На панели остаётся не менее $min пунктов. Скрытые страницы открываются из раздела «$me»; если «$search» нет на панели, в разделе «$recommended» появится кнопка поиска.';
+  }
+
+  @override
+  String get homeStartPage => 'Стартовая страница';
+
+  @override
+  String get homeStartFirstVisible => 'Первый пункт панели';
+
+  @override
+  String get homeStartLastUsed => 'Последняя открытая';
+
+  @override
+  String shownOfTotal(int shown, int total) {
     return 'Показано $shown из $total';
   }
 

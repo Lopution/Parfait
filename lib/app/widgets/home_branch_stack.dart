@@ -1,7 +1,13 @@
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/debug/frame_probe.dart';
+import '../../core/log.dart';
+import '../../core/navigation/home_destination.dart';
+import '../../core/settings/settings_controller.dart';
 import '../layout/app_breakpoints.dart';
 import '../motion/motion_tokens.dart';
 import '../motion/scroll_hide.dart';
@@ -40,8 +46,9 @@ void reTapScrollToTop(BuildContext context, ScrollController controller) {
 /// The home shell container. Branches remain mounted in place so each branch
 /// retains its navigator stack and scroll state; a switch slides the
 /// outgoing and incoming branch side by side, toward where the chosen
-/// destination sits on the bar.
-class HomeBranchStack extends StatefulWidget {
+/// destination sits on the bar. The bar and rail show the user's
+/// destinations in their order.
+class HomeBranchStack extends ConsumerStatefulWidget {
   const HomeBranchStack({
     super.key,
     required this.shell,
@@ -60,11 +67,11 @@ class HomeBranchStack extends StatefulWidget {
           ?.channel;
 
   @override
-  State<HomeBranchStack> createState() => _HomeBranchStackState();
+  ConsumerState<HomeBranchStack> createState() => _HomeBranchStackState();
 }
 
-class _HomeBranchStackState extends State<HomeBranchStack>
-    with TickerProviderStateMixin {
+class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _switch = AnimationController(
     vsync: this,
     value: 1,
@@ -95,11 +102,43 @@ class _HomeBranchStackState extends State<HomeBranchStack>
   /// exploring, not merely some assistive service reading nodes.
   bool _touchExploration = false;
 
+  /// For the write in [dispose], where `ref` is gone.
+  late final ProviderContainer _container;
+
   @override
   void initState() {
     super.initState();
     _current = widget.shell.currentIndex;
     _navVisibility = AnimationController(vsync: this, value: 1);
+    _container = ProviderScope.containerOf(context, listen: false);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.hidden) _rememberDestination();
+  }
+
+  /// Saves the destination on screen while the start page is the one used
+  /// last. Saved when the app leaves the screen or the shell closes, not
+  /// on each switch: a settings write rebuilds the app root. A lost write
+  /// only loses that landing: logged, not shown.
+  void _rememberDestination() {
+    final name = HomeDestination.ofBranch(_current).name;
+    final settings = _container.read(settingsProvider).value;
+    if (settings == null ||
+        settings.homeStartPage != homeStartLastUsed ||
+        settings.lastHomeDestination == name) {
+      return;
+    }
+    unawaited(
+      _container
+          .read(settingsProvider.notifier)
+          .setLastHomeDestination(name)
+          .catchError((Object error, _) {
+            log('home destination not remembered: $error');
+          }),
+    );
   }
 
   @override
@@ -147,6 +186,8 @@ class _HomeBranchStackState extends State<HomeBranchStack>
 
   @override
   void dispose() {
+    _rememberDestination();
+    WidgetsBinding.instance.removeObserver(this);
     _reTap.dispose();
     _switch.dispose();
     _switchSnapshot.dispose();
@@ -183,14 +224,20 @@ class _HomeBranchStackState extends State<HomeBranchStack>
   }
 
   /// Where branch [i] slides during a switch: the incoming one in from the
-  /// side of its destination, the outgoing one out the other way. Along
-  /// the rail on wide layouts, mirrored for right-to-left bars.
-  Animation<Offset> _slideOf(int i, {required bool rail}) {
+  /// side of its destination on the bar ([order]: the bar's destinations,
+  /// then the hidden ones), the outgoing one out the other way. Along the
+  /// rail on wide layouts, mirrored for right-to-left bars.
+  Animation<Offset> _slideOf(
+    int i, {
+    required bool rail,
+    required List<HomeDestination> order,
+  }) {
     final outgoing = _outgoing;
     if (outgoing == null || (i != _current && i != outgoing)) {
       return _still;
     }
-    var sign = _current > outgoing ? 1.0 : -1.0;
+    int position(int branch) => order.indexOf(HomeDestination.ofBranch(branch));
+    var sign = position(_current) > position(outgoing) ? 1.0 : -1.0;
     if (!rail && Directionality.of(context) == TextDirection.rtl) {
       sign = -sign;
     }
@@ -203,18 +250,17 @@ class _HomeBranchStackState extends State<HomeBranchStack>
     );
   }
 
-  Widget _buildRail(BuildContext context) {
+  Widget _buildRail(BuildContext context, List<HomeDestination> shown) {
     final extended = AppBreakpoints.useExtendedRail(
       MediaQuery.sizeOf(context).width,
     );
-    final destinations = homeDestinations(context);
     return NavigationRail(
-      selectedIndex: _current,
-      onDestinationSelected: _select,
+      selectedIndex: homeBarIndexOf(shown, _current),
+      onDestinationSelected: (index) => _select(shown[index].branchIndex),
       extended: extended,
       labelType: extended ? null : NavigationRailLabelType.all,
       destinations: [
-        for (final d in destinations)
+        for (final d in homeDestinations(context, shown))
           NavigationRailDestination(
             icon: Icon(d.icon, size: 26),
             label: Text(d.label),
@@ -225,6 +271,8 @@ class _HomeBranchStackState extends State<HomeBranchStack>
 
   @override
   Widget build(BuildContext context) {
+    final arrangement = ref.watch(homeArrangementProvider);
+    final order = [...arrangement.shown, ...arrangement.hidden];
     final enclosingRouteIsCurrent = ModalRoute.of(context)?.isCurrent ?? true;
     final rail = AppBreakpoints.useNavigationRail(
       MediaQuery.sizeOf(context).width,
@@ -252,7 +300,7 @@ class _HomeBranchStackState extends State<HomeBranchStack>
                   child: BranchActivityScope(
                     active: enclosingRouteIsCurrent && i == _current,
                     child: SlideTransition(
-                      position: _slideOf(i, rail: rail),
+                      position: _slideOf(i, rail: rail, order: order),
                       // Always in the tree, so starting a switch never
                       // remounts a branch; only the outgoing branch paints
                       // from a texture.
@@ -274,7 +322,8 @@ class _HomeBranchStackState extends State<HomeBranchStack>
           Align(
             alignment: Alignment.bottomCenter,
             child: FuncShellBottomNav(
-              selectedIndex: _current,
+              destinations: arrangement.shown,
+              currentBranch: _current,
               onSelected: _select,
               scrollVisibility: _navVisibility,
               visibleExtent: _navBarVisibleExtent,
@@ -292,7 +341,7 @@ class _HomeBranchStackState extends State<HomeBranchStack>
         child: rail
             ? Row(
                 children: [
-                  _buildRail(context),
+                  _buildRail(context, arrangement.shown),
                   const VerticalDivider(thickness: 1, width: 1),
                   Expanded(child: strip),
                 ],

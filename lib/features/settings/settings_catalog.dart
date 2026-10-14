@@ -18,6 +18,11 @@ enum SettingsPageRef implements SettingsEntry {
   motion('/settings/motion', 'motionSettings'),
   browse('/settings/browse', 'browseSettings'),
   navigation('/settings/navigation', 'navigationSettings'),
+  bottomBar(
+    '/settings/navigation/bottom-bar',
+    'bottomBarItems',
+    parent: SettingsPageRef.navigation,
+  ),
   muted('/settings/muted', 'mutedItemsSettings'),
   network('/settings/network', 'networkSettings'),
   networkProbe(
@@ -141,6 +146,19 @@ enum Setting implements SettingsEntry {
     SettingsPageRef.browse,
     'viewQuality',
     optionKeys: ['qualityLarge', 'qualityOriginal'],
+  ),
+  homeStartPage(
+    SettingsPageRef.navigation,
+    'homeStartPage',
+    optionKeys: [
+      'homeStartFirstVisible',
+      'homeStartLastUsed',
+      'homeRecommended',
+      'homeRanking',
+      'newTitle',
+      'searchTitle',
+      'homeMe',
+    ],
   ),
   illustRankingCategories(
     SettingsPageRef.navigation,

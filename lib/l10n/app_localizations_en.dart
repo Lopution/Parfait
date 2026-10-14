@@ -1745,13 +1745,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rankingDragHint => 'Long-press and drag to reorder';
 
   @override
-  String get rankingHiddenCategories => 'Hidden';
+  String get arrangementHidden => 'Hidden';
 
   @override
   String get rankingHiddenEmpty => 'Every category is shown';
 
   @override
-  String get rankingRestoreDefault => 'Restore default';
+  String get restoreDefault => 'Restore default';
 
   @override
   String get rankingBlocked => 'Blocked in browse settings';
@@ -1792,7 +1792,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get novelRankingCategories => 'Novel ranking categories';
 
   @override
-  String rankingCategoriesShown(int shown, int total) {
+  String get bottomBarItems => 'Bottom bar items';
+
+  @override
+  String get bottomBarMeLocked => 'Always shown: settings live here';
+
+  @override
+  String bottomBarNote(int min, String me, String search, String recommended) {
+    return 'The bar keeps at least $min items. Hidden pages open from $me; with $search off the bar, $recommended shows a search button.';
+  }
+
+  @override
+  String get homeStartPage => 'Start page';
+
+  @override
+  String get homeStartFirstVisible => 'First bar item';
+
+  @override
+  String get homeStartLastUsed => 'Last used page';
+
+  @override
+  String shownOfTotal(int shown, int total) {
     return '$shown of $total shown';
   }
 

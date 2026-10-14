@@ -14,6 +14,7 @@ import 'package:parfait/app/widgets/app_snack_bar.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/app/widgets/prompt_anchor.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
+import 'package:parfait/core/navigation/home_destination.dart';
 import 'package:parfait/core/platform/accessibility.dart';
 
 import 'helpers/prompt_host.dart';
@@ -525,7 +526,8 @@ void main() {
                   Align(
                     alignment: Alignment.bottomCenter,
                     child: FuncShellBottomNav(
-                      selectedIndex: 0,
+                      destinations: HomeDestination.values,
+                      currentBranch: 0,
                       onSelected: (_) {},
                       scrollVisibility: scrollVisibility,
                       visibleExtent: visibleExtent,

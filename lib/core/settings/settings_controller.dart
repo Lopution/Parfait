@@ -180,6 +180,15 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setNovelRankingLastMode(String apiValue) =>
       _update((settings) => settings.copyWith(novelRankingLastMode: apiValue));
 
+  Future<void> setHomeArrangement(List<ArrangedEntry>? entries) =>
+      _update((settings) => settings.copyWith(homeArrangement: entries));
+
+  Future<void> setHomeStartPage(String? startPage) =>
+      _update((settings) => settings.copyWith(homeStartPage: startPage));
+
+  Future<void> setLastHomeDestination(String name) =>
+      _update((settings) => settings.copyWith(lastHomeDestination: name));
+
   /// Whole-object replace used by backup import. Per-field validation
   /// already happened in [AppSettings.fromJson]; the write goes through
   /// the same serialized persistence path as every other change.

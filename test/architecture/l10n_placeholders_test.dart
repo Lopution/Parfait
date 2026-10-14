@@ -67,6 +67,7 @@ const _textPlaceholderKeys = <String, String>{
   'searchDateUntil': 'formatted date',
   'searchDateBetween': 'formatted dates',
   'rankingDateLabel': 'formatted date',
+  'bottomBarNote': 'localized destination names',
 };
 
 const _textTypes = {'String', 'Object'};

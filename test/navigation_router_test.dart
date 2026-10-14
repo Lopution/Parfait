@@ -24,7 +24,11 @@ import 'package:parfait/features/settings/settings_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
+import 'package:parfait/core/navigation/home_destination.dart';
+import 'package:parfait/core/settings/arrangement.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/settings_world.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
 
@@ -424,5 +428,128 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(router.state.uri.path, '/reverse-image');
+  });
+
+  group('bottom bar arrangement', () {
+    const shown = [
+      HomeDestination.ranking,
+      HomeDestination.newWorks,
+      HomeDestination.me,
+    ];
+    late FakeSettingsRepository repository;
+
+    Future<GoRouter> pumpBar(WidgetTester tester, String location) async {
+      setViewSize(tester, const Size(390, 844));
+      repository = FakeSettingsRepository(
+        baseTestSettings().copyWith(
+          homeArrangement: const Arrangement(
+            shown: shown,
+            hidden: [HomeDestination.recommended, HomeDestination.search],
+          ).toEntries((d) => d.name),
+          homeStartPage: homeStartLastUsed,
+        ),
+      );
+      final router = pixivRouter(location);
+      await tester.pumpWidget(
+        localizedRouterApp(
+          router,
+          overrides: [settingsRepositoryProvider.overrideWithValue(repository)],
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      return router;
+    }
+
+    Future<void> settle(WidgetTester tester) async {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    Finder onBar(IconData icon) =>
+        find.descendant(of: _shellBar, matching: find.byIcon(icon));
+
+    testWidgets('a rearranged bar starts, goes back and reaches hidden pages', (
+      tester,
+    ) async {
+      final router = await pumpBar(tester, '/settings');
+      router.go('/');
+      await settle(tester);
+      expect(router.state.uri.path, '/ranking');
+      expect(onBar(AppIcons.home), findsNothing);
+      expect(onBar(AppIcons.search), findsNothing);
+      final xs = [
+        for (final d in shown)
+          tester.getCenter(onBar(homeDestinationIcon(d))).dx,
+      ];
+      expect(xs, orderedEquals([...xs]..sort()));
+
+      await tester.tap(onBar(Icons.person_outline));
+      await settle(tester);
+      final recommended = find.descendant(
+        of: find.byType(MeDashboardPage),
+        matching: find.byIcon(AppIcons.home),
+      );
+      await tester.ensureVisible(recommended);
+      await tester.tap(recommended);
+      await settle(tester);
+      expect(router.state.uri.path, '/recommended');
+      expect(tester.widget<FuncBottomNav>(_shellBar).selectedIndex, isNull);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(RecommendedHomePage),
+          matching: find.byIcon(AppIcons.search),
+        ),
+      );
+      await settle(tester);
+      expect(router.state.uri.path, '/search');
+
+      await tester.binding.handlePopRoute();
+      await settle(tester);
+      expect(router.state.uri.path, '/ranking', reason: 'back to the first');
+
+      addTearDown(
+        () => tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        ),
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump();
+      expect(repository.saved.last.lastHomeDestination, 'ranking');
+    });
+
+    testWidgets('the bar editor hides, keeps two and restores', (tester) async {
+      final router = await pumpBar(tester, '/settings');
+      unawaited(router.push('/settings/navigation/bottom-bar'));
+      await settle(tester);
+      Finder row(HomeDestination d) => find.ancestor(
+        of: find.byIcon(homeDestinationIcon(d)),
+        matching: find.byType(SwitchListTile),
+      );
+      SwitchListTile tile(HomeDestination d) =>
+          tester.widget<SwitchListTile>(row(d));
+
+      expect(tile(HomeDestination.me).onChanged, isNull, reason: 'locked');
+      await tester.tap(row(HomeDestination.ranking));
+      await tester.pump();
+      expect(resolveHomeArrangement(repository.value.homeArrangement).shown, [
+        HomeDestination.newWorks,
+        HomeDestination.me,
+      ]);
+      expect(tile(HomeDestination.newWorks).onChanged, isNull, reason: 'min');
+
+      await tester.tap(row(HomeDestination.search));
+      await tester.pump();
+      expect(
+        resolveHomeArrangement(repository.value.homeArrangement).shown.last,
+        HomeDestination.search,
+      );
+
+      await tester.tap(find.byIcon(Icons.restart_alt));
+      await tester.pump();
+      expect(repository.value.homeArrangement, isNull);
+      expect(tile(HomeDestination.recommended).value, isTrue);
+    });
   });
 }

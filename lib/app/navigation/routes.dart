@@ -14,6 +14,7 @@ import '../../core/network/api_date.dart';
 import '../../core/entity/illust_entity.dart';
 import '../image_tier_cache.dart';
 import '../../core/entity/illust_store.dart';
+import '../../core/navigation/home_destination.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../core/illust/ranking_repository.dart';
 import '../../core/illust/recommended_repository.dart';
@@ -25,6 +26,7 @@ import '../../core/reverse_image/image_input.dart';
 import '../../core/search/search_models.dart';
 import '../../core/search/search_shortcut.dart';
 import '../../core/settings/app_settings.dart';
+import '../../core/settings/settings_controller.dart';
 import '../../core/user/user_repository.dart';
 import '../../features/bookmark/bookmark_tags_page.dart';
 import '../../features/profile/bookmark_tag_feed_page.dart';
@@ -917,6 +919,17 @@ List<RouteBase> _settingsSubRoutes(
         observer,
         const NavigationSettingsPage(),
       ),
+      routes: [
+        GoRoute(
+          path: 'bottom-bar',
+          pageBuilder: (context, state) => _settingsPage(
+            context,
+            state,
+            observer,
+            const BottomBarSettingsPage(),
+          ),
+        ),
+      ],
     ),
     GoRoute(
       path: 'download',
@@ -1061,7 +1074,15 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
     restorationScopeId: 'router',
     initialLocation: initialLocation,
     routes: [
-      GoRoute(path: '/', redirect: (_, _) => '/recommended'),
+      GoRoute(
+        path: '/',
+        redirect: (context, _) => homeStartDestination(
+          ProviderScope.containerOf(
+            context,
+            listen: false,
+          ).read(settingsProvider).value,
+        ).rootPath,
+      ),
       GoRoute(
         path: '/splash',
         pageBuilder: (context, state) =>
@@ -1514,6 +1535,11 @@ void showDownloadSubmittedSnackBar(
           ),
   );
 }
+
+/// Switches the home shell to [destination] from a page inside it: the
+/// way to a destination the user took off the bar.
+void openHomeDestination(BuildContext context, HomeDestination destination) =>
+    StatefulNavigationShell.of(context).goBranch(destination.branchIndex);
 
 Future<void> openWatchLater(BuildContext context) async {
   await _push(context, '${_currentStackRoot(context)}/watchlater');

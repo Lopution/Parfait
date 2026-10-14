@@ -1662,13 +1662,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get rankingDragHint => '长按拖动排序';
 
   @override
-  String get rankingHiddenCategories => '未显示';
+  String get arrangementHidden => '未显示';
 
   @override
   String get rankingHiddenEmpty => '所有分类都已显示';
 
   @override
-  String get rankingRestoreDefault => '恢复默认';
+  String get restoreDefault => '恢复默认';
 
   @override
   String get rankingBlocked => '已在浏览设置中屏蔽';
@@ -1707,7 +1707,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get novelRankingCategories => '小说排行分类';
 
   @override
-  String rankingCategoriesShown(int shown, int total) {
+  String get bottomBarItems => '底栏项目';
+
+  @override
+  String get bottomBarMeLocked => '设置在这里，始终显示';
+
+  @override
+  String bottomBarNote(int min, String me, String search, String recommended) {
+    return '底栏至少保留 $min 项。未显示的页面可从“$me”进入；$search不在底栏时，$recommended顶栏会显示搜索按钮。';
+  }
+
+  @override
+  String get homeStartPage => '启动页';
+
+  @override
+  String get homeStartFirstVisible => '底栏第一项';
+
+  @override
+  String get homeStartLastUsed => '上次停留的页';
+
+  @override
+  String shownOfTotal(int shown, int total) {
     return '显示 $shown 个，共 $total 个';
   }
 

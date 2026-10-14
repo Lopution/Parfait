@@ -27,6 +27,7 @@ import 'settings_helpers.dart';
 export 'pages/about_settings_page.dart';
 export 'pages/account_settings_page.dart';
 export 'pages/backup_settings_page.dart';
+export 'pages/bottom_bar_settings_page.dart';
 export 'pages/muted_items_page.dart';
 export 'pages/browse_settings_page.dart';
 export 'pages/download_settings_page.dart';

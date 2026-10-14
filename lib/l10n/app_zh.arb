@@ -842,9 +842,9 @@
   "rankingEdit": "编辑",
   "rankingEditDone": "完成",
   "rankingDragHint": "长按拖动排序",
-  "rankingHiddenCategories": "未显示",
+  "arrangementHidden": "未显示",
   "rankingHiddenEmpty": "所有分类都已显示",
-  "rankingRestoreDefault": "恢复默认",
+  "restoreDefault": "恢复默认",
   "rankingBlocked": "已在浏览设置中屏蔽",
   "rankingBlockedNote": "置灰的分类已在浏览设置中屏蔽，不会显示",
   "rankingMoveToFront": "移到最前",
@@ -866,9 +866,41 @@
   "rankingR18gOpenSettings": "打开 pixiv 设置",
   "illustRankingCategories": "插画排行分类",
   "novelRankingCategories": "小说排行分类",
-  "rankingCategoriesShown": "显示 {shown} 个，共 {total} 个",
-  "@rankingCategoriesShown": {
-    "description": "Settings row summary: how many ranking categories are shown",
+  "bottomBarItems": "底栏项目",
+  "bottomBarMeLocked": "设置在这里，始终显示",
+  "@bottomBarMeLocked": {
+    "description": "Subtitle of the Me item in the bottom bar editor: it cannot be hidden because the settings are there"
+  },
+  "bottomBarNote": "底栏至少保留 {min} 项。未显示的页面可从“{me}”进入；{search}不在底栏时，{recommended}顶栏会显示搜索按钮。",
+  "@bottomBarNote": {
+    "description": "Footnote of the bottom bar editor; me, search and recommended are the destination names",
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "me": {
+        "type": "String"
+      },
+      "search": {
+        "type": "String"
+      },
+      "recommended": {
+        "type": "String"
+      }
+    }
+  },
+  "homeStartPage": "启动页",
+  "homeStartFirstVisible": "底栏第一项",
+  "@homeStartFirstVisible": {
+    "description": "Start page choice: open the first item of the bottom bar"
+  },
+  "homeStartLastUsed": "上次停留的页",
+  "@homeStartLastUsed": {
+    "description": "Start page choice: open the bottom bar destination used last"
+  },
+  "shownOfTotal": "显示 {shown} 个，共 {total} 个",
+  "@shownOfTotal": {
+    "description": "Settings row summary: how many items of an arrangement (ranking categories, bottom bar items) are shown",
     "placeholders": {
       "shown": {
         "type": "int"

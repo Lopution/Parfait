@@ -3245,11 +3245,11 @@ abstract class AppLocalizations {
   /// **'长按拖动排序'**
   String get rankingDragHint;
 
-  /// No description provided for @rankingHiddenCategories.
+  /// No description provided for @arrangementHidden.
   ///
   /// In zh, this message translates to:
   /// **'未显示'**
-  String get rankingHiddenCategories;
+  String get arrangementHidden;
 
   /// No description provided for @rankingHiddenEmpty.
   ///
@@ -3257,11 +3257,11 @@ abstract class AppLocalizations {
   /// **'所有分类都已显示'**
   String get rankingHiddenEmpty;
 
-  /// No description provided for @rankingRestoreDefault.
+  /// No description provided for @restoreDefault.
   ///
   /// In zh, this message translates to:
   /// **'恢复默认'**
-  String get rankingRestoreDefault;
+  String get restoreDefault;
 
   /// No description provided for @rankingBlocked.
   ///
@@ -3335,11 +3335,47 @@ abstract class AppLocalizations {
   /// **'小说排行分类'**
   String get novelRankingCategories;
 
-  /// Settings row summary: how many ranking categories are shown
+  /// No description provided for @bottomBarItems.
+  ///
+  /// In zh, this message translates to:
+  /// **'底栏项目'**
+  String get bottomBarItems;
+
+  /// Subtitle of the Me item in the bottom bar editor: it cannot be hidden because the settings are there
+  ///
+  /// In zh, this message translates to:
+  /// **'设置在这里，始终显示'**
+  String get bottomBarMeLocked;
+
+  /// Footnote of the bottom bar editor; me, search and recommended are the destination names
+  ///
+  /// In zh, this message translates to:
+  /// **'底栏至少保留 {min} 项。未显示的页面可从“{me}”进入；{search}不在底栏时，{recommended}顶栏会显示搜索按钮。'**
+  String bottomBarNote(int min, String me, String search, String recommended);
+
+  /// No description provided for @homeStartPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'启动页'**
+  String get homeStartPage;
+
+  /// Start page choice: open the first item of the bottom bar
+  ///
+  /// In zh, this message translates to:
+  /// **'底栏第一项'**
+  String get homeStartFirstVisible;
+
+  /// Start page choice: open the bottom bar destination used last
+  ///
+  /// In zh, this message translates to:
+  /// **'上次停留的页'**
+  String get homeStartLastUsed;
+
+  /// Settings row summary: how many items of an arrangement (ranking categories, bottom bar items) are shown
   ///
   /// In zh, this message translates to:
   /// **'显示 {shown} 个，共 {total} 个'**
-  String rankingCategoriesShown(int shown, int total);
+  String shownOfTotal(int shown, int total);
 
   /// No description provided for @profileBookmarked.
   ///

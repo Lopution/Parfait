@@ -62,25 +62,35 @@ void main() {
     expect(settings.translateIndex, 1);
   });
 
-  test('ranking arrangements round-trip; a damaged one falls back', () {
+  test('ranking and bottom-bar arrangements round-trip; damage falls back', () {
     final saved = baseTestSettings().copyWith(
       illustRankingArrangement: [(id: 'week', visible: true)],
       illustRankingLastMode: 'week',
+      homeArrangement: [(id: 'ranking', visible: true)],
+      homeStartPage: 'last',
+      lastHomeDestination: 'search',
     );
     final json = jsonDecode(jsonEncode(saved.toJson())) as Map<String, Object?>;
     final restored = AppSettings.fromJson(json, fallback: baseTestSettings());
     expect(restored.illustRankingArrangement, [(id: 'week', visible: true)]);
     expect(restored.illustRankingLastMode, 'week');
     expect(restored.novelRankingArrangement, isNull);
+    expect(restored.homeArrangement, [(id: 'ranking', visible: true)]);
+    expect(restored.homeStartPage, 'last');
+    expect(restored.lastHomeDestination, 'search');
 
     final damaged = AppSettings.fromJson({
       'illustRankingArrangement': 'broken',
       'novelRankingArrangement': null,
       'illustRankingLastMode': 3,
+      'homeArrangement': 'broken',
+      'homeStartPage': 3,
     }, fallback: saved);
     expect(damaged.illustRankingArrangement, saved.illustRankingArrangement);
     expect(damaged.novelRankingArrangement, isNull, reason: 'null resets');
     expect(damaged.illustRankingLastMode, 'week');
+    expect(damaged.homeArrangement, saved.homeArrangement);
+    expect(damaged.homeStartPage, 'last');
   });
 
   test('legacy individual keys migrate to the versioned JSON key', () async {

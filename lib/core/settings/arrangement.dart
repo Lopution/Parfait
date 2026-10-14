@@ -1,6 +1,6 @@
 /// A user's arrangement of a fixed set of items: which are shown, in what
 /// order, and which are hidden. Type-agnostic so every user-ordered list
-/// (ranking categories, later the bottom bar) shares one persisted shape
+/// (ranking categories, the bottom bar) shares one persisted shape
 /// and one merge rule.
 library;
 

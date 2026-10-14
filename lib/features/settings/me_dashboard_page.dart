@@ -16,6 +16,7 @@ import '../../app/widgets/settings/settings_tile.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
+import '../../core/navigation/home_destination.dart';
 import '../../core/download/download_providers.dart';
 import '../../core/download/download_task.dart' show isTerminal;
 import '../../l10n/context.dart';
@@ -150,15 +151,19 @@ final _activeDownloadCountProvider = StreamProvider.autoDispose<int>((
 typedef _Entry = ({IconData icon, String label, VoidCallback onTap, int badge});
 
 /// The user's own content: the three places opened most as cards with an
-/// accent icon each, the rest as a row of plain icons under them.
+/// accent icon each, the rest as rows of plain icons under them, followed
+/// by the home destinations the user took off the bar.
 class _ContentShortcuts extends ConsumerWidget {
   const _ContentShortcuts();
 
   static const _cardGap = FuncSpacing.md;
 
+  /// Plain entries in one row.
+  static const _columns = 4;
+
   /// The narrowest plain entry at the default font size that holds a
   /// two-line label of a few CJK characters or one long word. Narrower,
-  /// the plain entries go two to a row.
+  /// the plain entries go half as many to a row.
   static const _minCellWidth = 80.0;
 
   @override
@@ -166,6 +171,7 @@ class _ContentShortcuts extends ConsumerWidget {
     final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final activeTasks = ref.watch(_activeDownloadCountProvider).value ?? 0;
+    final offBar = ref.watch(homeArrangementProvider).hidden;
     final List<(_Entry, _Accent)> cards = [
       (
         (
@@ -220,6 +226,14 @@ class _ContentShortcuts extends ConsumerWidget {
         onTap: () => unawaited(openLocalNovels(context)),
         badge: 0,
       ),
+      for (final destination in HomeDestination.values)
+        if (offBar.contains(destination))
+          (
+            icon: homeDestinationIcon(destination),
+            label: homeDestinationLabel(context, destination),
+            onTap: () => openHomeDestination(context, destination),
+            badge: 0,
+          ),
     ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -237,9 +251,9 @@ class _ContentShortcuts extends ConsumerWidget {
             for (final (entry, _) in cards) entry.label,
           ], cardWidth - 2 * _EntryLabel.inset);
           final minCell = MediaQuery.textScalerOf(context).scale(_minCellWidth);
-          final columns = width / cells.length >= minCell
-              ? cells.length
-              : cells.length ~/ 2;
+          final columns = width / _columns >= minCell
+              ? _columns
+              : _columns ~/ 2;
           final cellFit = _wordFit(context, [
             for (final entry in cells) entry.label,
           ], width / columns - 2 * _EntryLabel.inset);
@@ -268,9 +282,12 @@ class _ContentShortcuts extends ConsumerWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (final entry in cells.skip(start).take(columns))
+                    // A short last row keeps the column widths.
+                    for (var i = start; i < start + columns; i++)
                       Expanded(
-                        child: _PlainEntry(entry: entry, fit: cellFit),
+                        child: i < cells.length
+                            ? _PlainEntry(entry: cells[i], fit: cellFit)
+                            : const SizedBox.shrink(),
                       ),
                   ],
                 ),
