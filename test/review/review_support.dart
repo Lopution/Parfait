@@ -187,13 +187,15 @@ Future<void> _ioTurns(WidgetTester tester, int count) async {
 /// The whole app surface as a PNG, at device density by default.
 Future<Uint8List> captureReviewPng(
   WidgetTester tester, {
-  double pixelRatio = reviewDpr,
+  double? pixelRatio,
 }) async {
   final boundary = tester.renderObject<RenderRepaintBoundary>(
     find.byKey(_captureKey),
   );
   final bytes = await tester.runAsync(() async {
-    final image = await boundary.toImage(pixelRatio: pixelRatio);
+    final image = await boundary.toImage(
+      pixelRatio: pixelRatio ?? reviewDevice.dpr,
+    );
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     image.dispose();
     return data!.buffer.asUint8List();
@@ -201,12 +203,15 @@ Future<Uint8List> captureReviewPng(
   return bytes!;
 }
 
-/// The run directory and its manifest. Each scene file runs in its own
+/// The run directory and its manifest; a device other than the phone
+/// renders into its own subdirectory. Each scene file runs in its own
 /// isolate, so entries are appended to `manifest.tsv` line by line and
 /// tool/review.sh renders the table once every file has run.
 abstract final class ReviewRun {
-  static final dir =
-      '$reviewOutDir/runs/${Platform.environment['PARFAIT_REVIEW_RUN'] ?? 'adhoc'}';
+  static final dir = [
+    '$reviewOutDir/runs/${Platform.environment['PARFAIT_REVIEW_RUN'] ?? 'adhoc'}',
+    if (reviewDeviceName != 'phone') reviewDeviceName,
+  ].join('/');
 
   static void record(
     String kind,
@@ -471,7 +476,9 @@ class FilmRecorder {
     for (var i = 1; i <= count; i++) {
       final t = Curves.easeOutCubic.transform(i / count);
       final inset = height * (show ? t : 1 - t);
-      tester.view.viewInsets = FakeViewPadding(bottom: inset * reviewDpr);
+      tester.view.viewInsets = FakeViewPadding(
+        bottom: inset * reviewDevice.dpr,
+      );
       await frame();
     }
     await untilSettled();
