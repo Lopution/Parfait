@@ -102,7 +102,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get accountTransferWarning =>
-      'クリップボードは短時間保持され、他のアプリに読み取られる可能性があります。この形式は暗号化も送信者認証も提供しません。';
+      'クリップボード内の認証情報は平文で、他のアプリに読み取られる可能性があります。この形式は暗号化も送信者認証も提供しません。貼り付けた後はご自身でクリップボードを消去してください。';
 
   @override
   String get loginClipboardHint =>
@@ -110,10 +110,11 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get accountTransferSensitiveWarning =>
-      'この端末はクリップボードの機密マーク（Android 13+）未対応です。認証情報は平文でシステムクリップボードに置かれます。すぐに貼り付けてください。5分後に自動クリアされます。';
+      'この端末はクリップボードの機密マーク（Android 13+）に対応していないため、認証情報は機密としてマークされません。すぐに貼り付けてください。';
 
   @override
-  String get accountTransferCopied => 'アカウント移行データをコピーしました。対象端末ですぐに貼り付けてください。';
+  String get accountTransferCopied =>
+      'アカウント移行データをコピーしました。対象端末ですぐに貼り付けてください。5分経過後にParfaitに戻ると消去されます。';
 
   @override
   String get accountTransferImported => 'アカウント移行に成功しました';
@@ -171,7 +172,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get agreementAccountBody =>
-      '登録とログインは、アプリ内で開くPixiv公式のWebページで行います。本アプリがパスワードを読み取ったり保存したりすることはありません。ログイン後に得た認証情報はシステムの安全なストレージに保存します。\n\n「アカウント認証情報をエクスポート」は認証情報を平文でシステムのクリップボードに置きます。Android 13以降では機密内容としてマークされ、5分後に自動でクリアされます。自分の端末間でのみ使ってください。\n\nサードパーティクライアントの利用がPixivの規約に沿うかはご自身で判断し、それによるアカウントの制限はご自身の責任となります。';
+      '登録とログインは、アプリ内で開くPixiv公式のWebページで行います。本アプリがパスワードを読み取ったり保存したりすることはありません。ログイン後に得た認証情報はシステムの安全なストレージに保存します。\n\n「アカウント認証情報をエクスポート」は認証情報を平文でシステムのクリップボードに置きます。Android 13以降では機密内容としてマークされます。5分経過後にParfaitに戻ると消去しますが、確実ではないため、貼り付けた後はご自身でクリップボードを消去してください。自分の端末間でのみ使ってください。\n\nサードパーティクライアントの利用がPixivの規約に沿うかはご自身で判断し、それによるアカウントの制限はご自身の責任となります。';
 
   @override
   String get agreementUsageTitle => '利用上のルール';

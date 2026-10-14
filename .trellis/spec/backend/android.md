@@ -8,7 +8,7 @@ applies_to:
   - lib/core/platform/**
   - lib/core/auth/oauth_service.dart
   - lib/features/login/**
-reviewed: 2026-10-12
+reviewed: 2026-10-14
 ---
 
 # Android channels and platform boundaries
@@ -87,12 +87,19 @@ reviewed: 2026-10-12
 ### DROID-09 The transfer clipboard clears only its own content
 - **Rule:** An exported account envelope is written with its SHA-256
   fingerprint, marked sensitive where supported, and given a bounded
-  expiry. Clearing goes through `clearIfCurrent(fingerprint)`, so content
-  the user copied afterwards survives; a malformed read is not cleared.
+  expiry. Clearing on request goes through `clearIfCurrent(fingerprint)`,
+  so content the user copied afterwards survives; a malformed read is not
+  cleared. The expiry is a persisted record of the clip's label and system
+  timestamp, never its text: it is swept only while the activity has
+  window focus, and a sweep reads only `getPrimaryClipDescription`. Copy
+  never promises that the clear happens.
 - **Why:** An unconditional clear erased whatever the user had copied
-  after starting an import.
-- **Check:** `test/account_transfer_service_test.dart` "conditional clear does not erase content copied after import started" "clipboard read is explicit and malformed input is not cleared"
-- **Code:** `lib/core/platform/account_transfer_clipboard.dart`, `android/app/src/main/kotlin/io/github/lopution/parfait/AccountTransferClipboardChannel.kt`
+  after starting an import. Android 10+ hides the clipboard from apps
+  without focus, so an in-process timer that fired in the background, or
+  died with the process, never cleared; reading clip text from another app
+  raises Android 12's access notice.
+- **Check:** `test/account_transfer_service_test.dart` "conditional clear does not erase content copied after import started" "clipboard read is explicit and malformed input is not cleared", `android/app/src/test/kotlin/io/github/lopution/parfait/PendingTransferClearTest.kt` "an expired export is cleared on the next sweep, even after the process died" "content copied after the export survives and the record is dropped" "without a record a sweep never looks at the clipboard"
+- **Code:** `lib/core/platform/account_transfer_clipboard.dart`, `android/app/src/main/kotlin/io/github/lopution/parfait/AccountTransferClipboardChannel.kt`, `android/app/src/main/kotlin/io/github/lopution/parfait/PendingTransferClear.kt`
 
 ## Untrusted input and login
 

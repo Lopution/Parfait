@@ -102,7 +102,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get accountTransferWarning =>
-      'The clipboard is kept briefly and may be read by other apps; this format provides neither encryption nor sender authentication.';
+      'The credential sits in the clipboard in plaintext and may be read by other apps; this format provides neither encryption nor sender authentication. Clear the clipboard yourself after pasting.';
 
   @override
   String get loginClipboardHint =>
@@ -110,11 +110,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get accountTransferSensitiveWarning =>
-      'This device cannot mark clipboard entries as sensitive (Android 13+ only): the credential will sit in the system clipboard in plaintext. Paste as soon as possible; it is cleared automatically after 5 minutes.';
+      'This device cannot mark clipboard entries as sensitive (Android 13+ only), so the credential is not marked as sensitive. Paste it as soon as possible.';
 
   @override
   String get accountTransferCopied =>
-      'Account-transfer data copied. Paste it on the target device soon.';
+      'Account-transfer data copied. Paste it on the target device soon; it is cleared when you return to Parfait after 5 minutes.';
 
   @override
   String get accountTransferImported => 'Account transfer succeeded';
@@ -176,7 +176,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get agreementAccountBody =>
-      'You register and sign in on Pixiv\'s official web pages, opened inside the app; the app never reads or stores your password. The credential you receive after signing in is kept in the system\'s secure storage.\n\n\"Export account credential\" puts the credential into the system clipboard in plaintext: on Android 13 and later it is marked as sensitive, and it is cleared automatically after 5 minutes. Only use it between your own devices.\n\nWhether using a third-party client complies with Pixiv\'s rules is your own judgement, and any restriction placed on your account as a result is your own responsibility.';
+      'You register and sign in on Pixiv\'s official web pages, opened inside the app; the app never reads or stores your password. The credential you receive after signing in is kept in the system\'s secure storage.\n\n\"Export account credential\" puts the credential into the system clipboard in plaintext: on Android 13 and later it is marked as sensitive. Parfait clears it when you return to the app after 5 minutes, which is not guaranteed to happen, so clear the clipboard yourself after pasting. Only use it between your own devices.\n\nWhether using a third-party client complies with Pixiv\'s rules is your own judgement, and any restriction placed on your account as a result is your own responsibility.';
 
   @override
   String get agreementUsageTitle => 'Acceptable use';

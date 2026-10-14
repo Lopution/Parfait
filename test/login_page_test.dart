@@ -117,7 +117,7 @@ void main() {
       // The toggle reveals only the network note…
       expect(find.text(zh.networkCompatibilityHint), findsOneWidget);
       expect(find.text('使用剪贴板数据登录'), findsOneWidget);
-      expect(find.textContaining('剪贴板内容会短时存在'), findsOneWidget);
+      expect(find.textContaining('粘贴后请自行清空剪贴板'), findsOneWidget);
       // …and the dead "get more help" affordance is gone.
       expect(find.textContaining('获取更多帮助'), findsNothing);
 
@@ -143,7 +143,7 @@ void main() {
       // The hint says where the data comes from and keeps the risk note.
       final hint = find.textContaining('导出账号凭据');
       expect(hint, findsOneWidget);
-      expect(tester.widget<Text>(hint).data, contains('剪贴板内容会短时存在'));
+      expect(tester.widget<Text>(hint).data, contains('粘贴后请自行清空剪贴板'));
       // It sits under the register/login row, above the agreement line.
       final login = find.widgetWithText(ReplicaButton, '登录');
       expect(

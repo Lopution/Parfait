@@ -101,17 +101,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountTransferExportTitle => '导出账号凭据';
 
   @override
-  String get accountTransferWarning => '剪贴板内容会短时存在，可能被其他应用读取；此格式不提供加密或发送者认证。';
+  String get accountTransferWarning =>
+      '剪贴板里的凭据是明文，可能被其他应用读取；此格式不提供加密或发送者认证。粘贴后请自行清空剪贴板。';
 
   @override
   String get loginClipboardHint => '先在已登录的设备上打开「我的 → 账号管理 → 导出账号凭据」复制，再回到这里导入。';
 
   @override
   String get accountTransferSensitiveWarning =>
-      '此设备不支持敏感剪贴板标记（Android 13+ 才支持）：凭据将以明文进入系统剪贴板，请尽快粘贴；5 分钟后自动清除。';
+      '此设备不支持敏感剪贴板标记（Android 13+ 才支持），凭据不会被标记为敏感内容。请尽快粘贴。';
 
   @override
-  String get accountTransferCopied => '账号迁移数据已复制，请尽快在目标设备粘贴。';
+  String get accountTransferCopied =>
+      '账号迁移数据已复制，请尽快在目标设备粘贴。5 分钟后你回到 Parfait 时，它会被清除。';
 
   @override
   String get accountTransferImported => '账号迁移成功';
@@ -165,7 +167,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get agreementAccountBody =>
-      '注册和登录在应用内打开的 Pixiv 官方网页中完成；本应用不读取、也不保存你的密码。登录后得到的凭据保存在系统安全存储中。\n\n「导出账号凭据」会把凭据以明文放进系统剪贴板：Android 13 及以上会标记为敏感内容，5 分钟后自动清除。请只在自己的设备之间使用。\n\n使用第三方客户端是否符合 Pixiv 的规则由你自行判断，账号因此受到的限制由你自行承担。';
+      '注册和登录在应用内打开的 Pixiv 官方网页中完成；本应用不读取、也不保存你的密码。登录后得到的凭据保存在系统安全存储中。\n\n「导出账号凭据」会把凭据以明文放进系统剪贴板：Android 13 及以上会标记为敏感内容。5 分钟后你回到 Parfait 时会清除它，但无法保证一定清除，粘贴后请自行清空剪贴板。请只在自己的设备之间使用。\n\n使用第三方客户端是否符合 Pixiv 的规则由你自行判断，账号因此受到的限制由你自行承担。';
 
   @override
   String get agreementUsageTitle => '使用规范';
