@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/auth/account_store.dart';
 import '../core/errors/error_category.dart';
+import '../core/navigation/home_destination.dart';
 import '../core/settings/app_settings.dart';
 import '../l10n/lookup.dart';
 import '../l10n/context.dart';
@@ -110,7 +111,9 @@ class StartupGate extends ConsumerWidget {
               // roots, /me, pushed detail and settings pages…) is a
               // legitimate place to be — a rebuild here must never navigate.
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (context.mounted) router.go('/recommended');
+                if (context.mounted) {
+                  router.go(homeStartDestination(settings).rootPath);
+                }
               });
               // Keep the current route painted until the redirect lands —
               // unmounting child here deadlocks the in-flight go().

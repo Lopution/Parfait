@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/navigation/home_destination.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../l10n/context.dart';
 import '../motion/motion_tokens.dart';
@@ -16,27 +17,45 @@ import 'app_top_bar.dart' show ScrollEdgeLine;
 import 'fit_label.dart';
 import 'prompt_anchor.dart';
 
-/// The five home destinations in branch order, shared by the bottom bar
-/// and the wide-layout navigation rail.
-List<FuncBottomNavDestination> homeDestinations(BuildContext context) => [
-  FuncBottomNavDestination(
-    icon: AppIcons.home,
-    label: context.l10n.homeRecommended,
-  ),
-  FuncBottomNavDestination(
-    icon: AppIcons.ranking,
-    label: context.l10n.homeRanking,
-  ),
-  FuncBottomNavDestination(icon: AppIcons.n, label: context.l10n.newTitle),
-  FuncBottomNavDestination(
-    icon: AppIcons.search,
-    label: context.l10n.searchTitle,
-  ),
-  FuncBottomNavDestination(
-    icon: Icons.person_outline,
-    label: context.l10n.homeMe,
-  ),
+IconData homeDestinationIcon(HomeDestination destination) =>
+    switch (destination) {
+      HomeDestination.recommended => AppIcons.home,
+      HomeDestination.ranking => AppIcons.ranking,
+      HomeDestination.newWorks => AppIcons.n,
+      HomeDestination.search => AppIcons.search,
+      HomeDestination.me => Icons.person_outline,
+    };
+
+String homeDestinationLabel(
+  BuildContext context,
+  HomeDestination destination,
+) => switch (destination) {
+  HomeDestination.recommended => context.l10n.homeRecommended,
+  HomeDestination.ranking => context.l10n.homeRanking,
+  HomeDestination.newWorks => context.l10n.newTitle,
+  HomeDestination.search => context.l10n.searchTitle,
+  HomeDestination.me => context.l10n.homeMe,
+};
+
+/// The bar entries of [destinations], in their order; shared by the
+/// bottom bar and the wide-layout navigation rail.
+List<FuncBottomNavDestination> homeDestinations(
+  BuildContext context,
+  List<HomeDestination> destinations,
+) => [
+  for (final destination in destinations)
+    FuncBottomNavDestination(
+      icon: homeDestinationIcon(destination),
+      label: homeDestinationLabel(context, destination),
+    ),
 ];
+
+/// Where branch [branch] sits on a bar showing [destinations]; null when
+/// the user hid it, and nothing is selected.
+int? homeBarIndexOf(List<HomeDestination> destinations, int branch) {
+  final index = destinations.indexOf(HomeDestination.ofBranch(branch));
+  return index < 0 ? null : index;
+}
 
 /// Primary bottom navigation for narrow layouts, after Shaft's
 /// `BottomNavigationView`: a 56dp row on the page background under a
@@ -51,7 +70,9 @@ class FuncBottomNav extends StatelessWidget {
   });
 
   final List<FuncBottomNavDestination> destinations;
-  final int selectedIndex;
+
+  /// Null while the page on screen belongs to a destination off the bar.
+  final int? selectedIndex;
   final ValueChanged<int> onSelected;
 
   static const double _height = 56;
@@ -346,17 +367,22 @@ class _FuncBottomNavItemState extends State<_FuncBottomNavItem>
 class FuncShellBottomNav extends ConsumerStatefulWidget {
   const FuncShellBottomNav({
     super.key,
-    required this.selectedIndex,
+    required this.destinations,
+    required this.currentBranch,
     required this.onSelected,
     required this.scrollVisibility,
     required this.visibleExtent,
   });
 
-  /// Current branch index.
-  final int selectedIndex;
+  /// The destinations on the bar, in the user's order.
+  final List<HomeDestination> destinations;
 
-  /// Slot-tap callback — the owning [HomeBranchStack] decides between a
-  /// same-branch root reset and a branch switch.
+  /// Current branch index.
+  final int currentBranch;
+
+  /// Slot-tap callback with the slot's branch index — the owning
+  /// [HomeBranchStack] decides between a same-branch root reset and a
+  /// branch switch.
   final ValueChanged<int> onSelected;
 
   /// 1 = fully shown, 0 = slid entirely below the screen edge. Owned by
@@ -397,7 +423,7 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav> {
       oldWidget.scrollVisibility.removeListener(_publishVisibleExtent);
       widget.scrollVisibility.addListener(_publishVisibleExtent);
     }
-    if (oldWidget.selectedIndex != widget.selectedIndex) {
+    if (oldWidget.currentBranch != widget.currentBranch) {
       // A hidden bar must return on a branch switch.
       slideChrome(context, widget.scrollVisibility, hidden: false);
     }
@@ -417,7 +443,7 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav> {
     // Watch only the slice this bar cares about: is *my* branch covered.
     final covered = ref.watch(
       branchStackCoveredProvider.select(
-        (set) => set.contains(widget.selectedIndex),
+        (set) => set.contains(widget.currentBranch),
       ),
     );
     _restingExtent = FuncBottomNav.restingExtent(
@@ -436,9 +462,13 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav> {
         child: ScrollHiddenChrome(
           visibility: widget.scrollVisibility,
           child: FuncBottomNav(
-            destinations: homeDestinations(context),
-            selectedIndex: widget.selectedIndex,
-            onSelected: widget.onSelected,
+            destinations: homeDestinations(context, widget.destinations),
+            selectedIndex: homeBarIndexOf(
+              widget.destinations,
+              widget.currentBranch,
+            ),
+            onSelected: (index) =>
+                widget.onSelected(widget.destinations[index].branchIndex),
           ),
         ),
       ),
@@ -611,13 +641,16 @@ class _BranchRootScaffoldState extends ConsumerState<BranchRootScaffold>
             ),
     );
     final bar = chrome == null || chrome.bottomBarExtent == 0 ? null : chrome;
+    final destinations = bar != null && _covered
+        ? ref.watch(homeArrangementProvider).shown
+        : null;
     // The Stack stays whether or not the copy shows, so the page below is
     // never remounted.
     return Stack(
       fit: StackFit.passthrough,
       children: [
         page,
-        if (bar != null && _covered)
+        if (bar != null && destinations != null)
           Align(
             alignment: Alignment.bottomCenter,
             child: PromptAnchor(
@@ -627,8 +660,11 @@ class _BranchRootScaffoldState extends ConsumerState<BranchRootScaffold>
                   child: ScrollHiddenChrome(
                     visibility: bar.bottomBarVisibility,
                     child: FuncBottomNav(
-                      destinations: homeDestinations(context),
-                      selectedIndex: widget.branchIndex,
+                      destinations: homeDestinations(context, destinations),
+                      selectedIndex: homeBarIndexOf(
+                        destinations,
+                        widget.branchIndex,
+                      ),
                       onSelected: _ignoreSelection,
                     ),
                   ),

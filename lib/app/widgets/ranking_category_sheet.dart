@@ -282,7 +282,7 @@ class _RankingCategorySheetState<M extends RankingCategory>
               ),
             ),
           ),
-        _SectionLabel(l10n.rankingHiddenCategories),
+        _SectionLabel(l10n.arrangementHidden),
         if (draft.hidden.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
@@ -319,7 +319,7 @@ class _RankingCategorySheetState<M extends RankingCategory>
                   ? null
                   : () => _save(widget.catalog.defaults),
               icon: const Icon(Icons.restart_alt),
-              label: Text(l10n.rankingRestoreDefault),
+              label: Text(l10n.restoreDefault),
             ),
           ),
         ),

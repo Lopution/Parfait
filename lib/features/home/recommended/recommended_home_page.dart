@@ -9,7 +9,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/pull_to_refresh.dart';
 import '../../../app/navigation/routes.dart';
+import '../../../app/icons/app_icons.dart';
 import '../../../core/entity/illust_store.dart';
+import '../../../core/navigation/home_destination.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/novel/novel_store.dart';
 import '../../../core/paging/paged_feed_controller.dart';
@@ -215,6 +217,7 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
       resizeToAvoidBottomInset: false,
       appBar: AppTopBar(
         titleSpacing: 0,
+        actions: const [_OffBarSearchAction()],
         title: _RecommendedTypeSelector(
           controller: _tabController,
           onTap: (index) {
@@ -688,6 +691,26 @@ class _UserPreviewThumbnail extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Search's way in when the user took it off the bar.
+class _OffBarSearchAction extends ConsumerWidget {
+  const _OffBarSearchAction();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final offBar = ref.watch(
+      homeArrangementProvider.select(
+        (arrangement) => !arrangement.shown.contains(HomeDestination.search),
+      ),
+    );
+    if (!offBar) return const SizedBox.shrink();
+    return IconButton(
+      tooltip: context.l10n.searchTitle,
+      icon: const Icon(AppIcons.search),
+      onPressed: () => openHomeDestination(context, HomeDestination.search),
     );
   }
 }

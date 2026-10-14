@@ -3,7 +3,7 @@ prefix: SET
 applies_to:
   - lib/app/widgets/settings/**
   - lib/features/settings/**
-reviewed: 2026-10-12
+reviewed: 2026-10-14
 ---
 
 # Settings pages and the Me tab
@@ -84,9 +84,10 @@ reviewed: 2026-10-12
 
 ### SET-07 The Me tab follows Shaft's me page
 - **Rule:** The Me root is the account row, then three equal cards
-  (bookmarks, following, download tasks with an active-task badge), a row
-  of four plain entries (watchlist, history, watch later, local novels)
-  that goes two to a row when narrow, then every settings page as a
+  (bookmarks, following, download tasks with an active-task badge), rows
+  of four plain entries (watchlist, history, watch later, local novels,
+  then each destination the user took off the bottom bar) that go two to
+  a row when narrow, then every settings page as a
   `SettingsTile` in one always-listed group headed by a search button.
 - **Why:** User decision after comparing with Shaft: three cards, no
   fold.

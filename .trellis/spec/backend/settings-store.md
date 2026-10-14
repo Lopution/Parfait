@@ -5,7 +5,7 @@ applies_to:
   - lib/core/auth/credential_store.dart
   - lib/core/translation/**
   - lib/core/auth/account_transfer*.dart
-reviewed: 2026-10-13
+reviewed: 2026-10-14
 ---
 
 # Settings persistence and secrets
@@ -80,5 +80,5 @@ reviewed: 2026-10-13
 - **Why:** User decision: one model for every customizable list. A saved
   copy of the defaults would freeze them, so items a later version adds
   or reorders by default would never reach users who never edited.
-- **Check:** `test/ranking_categories_test.dart` "unknown and repeated ids are skipped, unmentioned items appended" "a payload hiding every known item still shows one"
-- **Code:** `lib/core/settings/arrangement.dart`, `lib/core/ranking/ranking_catalog.dart`
+- **Check:** `test/ranking_categories_test.dart` "unknown and repeated ids are skipped, unmentioned items appended" "a payload hiding every known item still shows one"; `test/home_destination_test.dart` "a saved bar keeps Me and two destinations whatever it says"
+- **Code:** `lib/core/settings/arrangement.dart`, `lib/core/ranking/ranking_catalog.dart`, `lib/core/navigation/home_destination.dart`

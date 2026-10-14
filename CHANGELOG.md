@@ -11,6 +11,8 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 排行补全为插画 21 个、小说 12 个分类，新增 AI、漫画和 R-18G 等排行。排行页右上角的"全部分类"面板里可以跳到任一分类、选择日期、切换插画和小说排行，也可以编辑分类：长按拖动排序，点一下隐藏或加回，随时恢复默认。长按顶部的分类标签可以移到最前或隐藏。设置 → 导航与布局里也能编辑。
 - 排行页记住上次看的分类，下次打开时回到这里。
 - R-18G 排行为空时，提示需要在 pixiv 网页版的浏览设置里开启 R-18G，并附上设置页链接。
+- 底栏可以自定义：设置 → 导航与布局 → 底栏项目里拖动排序、关掉不用的页面（"我的"始终保留，至少留 2 项）。不在底栏的页面会出现在"我的"页里；搜索不在底栏时，推荐页顶栏会出现搜索按钮。
+- 可以选择启动页：底栏第一项、上次停留的页，或指定某一页。返回键会回到底栏第一项，再按一次退出。
 
 ### 修复
 
@@ -30,6 +32,8 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - Rankings now cover 21 illustration and 12 novel categories, adding AI, manga and R-18G rankings. The "All categories" sheet at the top right of the ranking page jumps to any category, picks a date, switches between illustration and novel rankings, and edits the categories: long-press and drag to reorder, tap to hide or add one back, or restore the defaults. Long-press a category tab to move it to the front or hide it. The same editor is under Settings → Navigation & layout.
 - The ranking page remembers the last category you viewed and opens on it next time.
 - An empty R-18G ranking now explains that R-18G must be turned on in pixiv's web viewing settings, with a link to that page.
+- The bottom bar can be customized: under Settings → Navigation & layout → Bottom bar items, drag to reorder and switch off pages you don't use (Me always stays, and at least 2 items remain). Pages off the bar appear on the Me page; while Search is off the bar, the For you top bar shows a search button.
+- Choose the start page: the first bar item, the last used page, or a specific page. Back returns to the first bar item, and once more leaves the app.
 
 ### Fixed
 

@@ -11,7 +11,7 @@ applies_to:
   - lib/app/motion/scroll_hide.dart
   - lib/app/touch_exploration_scope.dart
   - lib/features/home/**
-reviewed: 2026-10-12
+reviewed: 2026-10-14
 ---
 
 # Navigation, shell and tabs
@@ -43,12 +43,13 @@ reviewed: 2026-10-12
 - **Check:** `test/navigation_router_test.dart` "shell owns the active tab and preserves branch stacks"
 - **Code:** `lib/app/app.dart`, `lib/app/navigation/routes.dart`
 
-### NAV-03 Back at a branch root returns to Recommended
-- **Rule:** At the Recommended root, back goes to the system (leaves the
-  app). At any other branch root, back switches to Recommended. There is
-  no double-back-to-exit window.
+### NAV-03 Back at a branch root returns to the first on the bar
+- **Rule:** At the root of the first destination on the bottom bar, back
+  goes to the system (leaves the app). At any other branch root, also one
+  the user took off the bar, back switches to that first destination.
+  There is no double-back-to-exit window.
 - **Why:** User decision.
-- **Check:** `test/navigation_router_test.dart` "branch back returns to the recommended root"
+- **Check:** `test/navigation_router_test.dart` "branch back returns to the recommended root" "a rearranged bar starts, goes back and reaches hidden pages"
 - **Code:** `lib/features/home/home_page.dart`
 
 ### NAV-04 Content opens on the current stack
@@ -135,6 +136,24 @@ reviewed: 2026-10-12
   the tree (the user runs one permanently), so it cannot mean TalkBack.
 - **Check:** `test/home_branch_stack_test.dart` "a polluted engine flag does not pin the bar" "starting touch exploration brings a hidden bar back"
 - **Code:** `lib/app/touch_exploration_scope.dart`, `lib/app/widgets/home_branch_stack.dart`
+
+### NAV-19 The user arranges the bar; branches keep their numbers
+- **Rule:** The bar and the rail show the destinations of
+  `homeArrangementProvider` in its order; Me always stays and at least
+  two remain. Only the display maps through `HomeDestination`: branch
+  indices, routes and stacks never change, and a branch off the bar
+  leaves nothing selected. A branch slide comes from the side its
+  destination sits on in shown-then-hidden order. Off-bar destinations
+  open from the Me page, and Recommended's top bar gains a search button
+  while search is off the bar. Every way in to `/` (cold start, sign-in,
+  a link to `/`) lands on `homeStartDestination`, which falls back to the
+  first on the bar; the last-used destination is written only in that
+  mode, when the app is hidden.
+- **Why:** User request. Renumbering branches would break restoration,
+  deep links and every `goBranch` caller; writing the last-used page on
+  each switch would rebuild the app root through settings.
+- **Check:** `test/navigation_router_test.dart` "a rearranged bar starts, goes back and reaches hidden pages" "the bar editor hides, keeps two and restores"; `test/home_destination_test.dart`
+- **Code:** `lib/core/navigation/home_destination.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/features/settings/pages/bottom_bar_settings_page.dart`
 
 ## Branch switching and re-tap
 

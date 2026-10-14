@@ -13,6 +13,7 @@ class SettingsControl extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.subtitle,
+    this.secondary,
     this.contentPadding,
   });
 
@@ -27,6 +28,9 @@ class SettingsControl extends StatelessWidget {
   final ValueChanged<bool>? onChanged;
   final Widget? subtitle;
 
+  /// A leading icon.
+  final Widget? secondary;
+
   /// Null keeps the list-tile default; a row inside an already padded form
   /// passes [EdgeInsets.zero] so its text lines up with the form.
   final EdgeInsetsGeometry? contentPadding;
@@ -39,6 +43,7 @@ class SettingsControl extends StatelessWidget {
       SwitchListTile(
         title: title ?? Text(settingsRowTitle(context, null, setting)),
         subtitle: subtitle,
+        secondary: secondary,
         contentPadding: contentPadding,
         value: value,
         onChanged: onChanged == null

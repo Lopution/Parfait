@@ -1689,13 +1689,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get rankingDragHint => '長押しでドラッグして並べ替え';
 
   @override
-  String get rankingHiddenCategories => '非表示';
+  String get arrangementHidden => '非表示';
 
   @override
   String get rankingHiddenEmpty => 'すべてのカテゴリーを表示中';
 
   @override
-  String get rankingRestoreDefault => 'デフォルトに戻す';
+  String get restoreDefault => 'デフォルトに戻す';
 
   @override
   String get rankingBlocked => '閲覧設定でブロック中';
@@ -1734,7 +1734,27 @@ class AppLocalizationsJa extends AppLocalizations {
   String get novelRankingCategories => '小説ランキングのカテゴリー';
 
   @override
-  String rankingCategoriesShown(int shown, int total) {
+  String get bottomBarItems => 'ボトムバーの項目';
+
+  @override
+  String get bottomBarMeLocked => '設定があるため常に表示';
+
+  @override
+  String bottomBarNote(int min, String me, String search, String recommended) {
+    return 'バーには $min 項目以上が残ります。非表示のページは「$me」から開けます。$searchがバーにないときは、$recommendedの上部に検索ボタンが表示されます。';
+  }
+
+  @override
+  String get homeStartPage => '起動時のページ';
+
+  @override
+  String get homeStartFirstVisible => 'バーの最初の項目';
+
+  @override
+  String get homeStartLastUsed => '前回開いていたページ';
+
+  @override
+  String shownOfTotal(int shown, int total) {
     return '$total 件中 $shown 件を表示';
   }
 

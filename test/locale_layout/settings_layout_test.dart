@@ -28,6 +28,7 @@ final _pages = <String, Widget>{
   'browse': const BrowseSettingsPage(),
   'motion': const MotionSettingsPage(),
   'navigation': const NavigationSettingsPage(),
+  'bottom bar': const BottomBarSettingsPage(),
   'appearance': const ThemeSettingsPage(),
   'language': const LanguageSettingsPage(),
   'account': const AccountSettingsPage(),

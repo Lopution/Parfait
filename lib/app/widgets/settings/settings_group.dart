@@ -154,7 +154,6 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (duration, curve) = motion;
-    final mark = SettingHighlight.maybeOf(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -167,16 +166,31 @@ class _Row extends StatelessWidget {
           builder: (context, height, _) =>
               SizedBox(height: math.max(height, 0)),
         ),
-        Material(
-          color: Theme.of(context).colorScheme.surfaceContainer,
-          shape: const RoundedRectangleBorder(borderRadius: FuncShape.card),
-          // Ink stays inside its own card.
-          clipBehavior: Clip.antiAlias,
-          child: mark == null
-              ? child
-              : SettingMarkOverlay(mark: mark, child: child),
-        ),
+        SettingsCard(child: child),
       ],
+    );
+  }
+}
+
+/// The card one settings row sits on, for a list that lays its rows out
+/// itself (a reorderable one) and keeps [SettingsGroup.rowGap] between
+/// them.
+class SettingsCard extends StatelessWidget {
+  const SettingsCard({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final mark = SettingHighlight.maybeOf(context);
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(borderRadius: FuncShape.card),
+      // Ink stays inside its own card.
+      clipBehavior: Clip.antiAlias,
+      child: mark == null
+          ? child
+          : SettingMarkOverlay(mark: mark, child: child),
     );
   }
 }

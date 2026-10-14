@@ -21,6 +21,7 @@ import '../../core/auth/account_transfer_service.dart';
 import '../../core/auth/pkce.dart';
 import '../../core/i18n/replica_language.dart';
 import '../../core/logging/crash_log.dart';
+import '../../core/navigation/home_destination.dart';
 import '../../core/network/compat/network_contracts.dart' as network_contracts;
 import '../../core/network/compat/network_providers.dart';
 import '../../core/platform/intent_router.dart';
@@ -60,6 +61,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   NetworkMode _networkMode = NetworkMode.automatic;
   bool _help = false;
   bool _clipboardBusy = false;
+
+  /// Where a successful login lands: the user's start page.
+  String get _homeStart =>
+      homeStartDestination(ref.read(settingsProvider).value).rootPath;
 
   @override
   void initState() {
@@ -107,7 +112,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ),
                 result.credential,
               );
-          if (mounted) context.go('/recommended');
+          if (mounted) context.go(_homeStart);
         } on Object catch (error, stackTrace) {
           if (mounted) {
             showErrorSnackBar(
@@ -161,7 +166,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     // The account store is updated before the WebView pops.  Popping the
     // onboarding/login routes now lets StartupGate rebuild to Home without
     // leaving the user stranded on a stale login surface.
-    context.go('/recommended');
+    context.go(_homeStart);
   }
 
   void _persistNetworkMode(NetworkMode mode) {

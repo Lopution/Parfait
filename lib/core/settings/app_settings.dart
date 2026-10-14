@@ -255,6 +255,9 @@ class AppSettings {
     this.novelRankingArrangement,
     this.illustRankingLastMode,
     this.novelRankingLastMode,
+    this.homeArrangement,
+    this.homeStartPage,
+    this.lastHomeDestination,
     this.schemaVersion = currentSchemaVersion,
   });
 
@@ -389,6 +392,17 @@ class AppSettings {
   /// opened without a mode lands.
   final String? illustRankingLastMode;
   final String? novelRankingLastMode;
+
+  /// The bottom bar's destinations by name, in order with their
+  /// visibility; null until edited (the default).
+  final List<ArrangedEntry>? homeArrangement;
+
+  /// Where the app opens: null is the first destination on the bar, `last`
+  /// the one used last, a destination name that one.
+  final String? homeStartPage;
+
+  /// The name of the home destination used last.
+  final String? lastHomeDestination;
 
   factory AppSettings.defaults() {
     return AppSettings(
@@ -531,6 +545,17 @@ class AppSettings {
         'novelRankingLastMode',
         base.novelRankingLastMode,
       ),
+      homeArrangement: _arrangement(
+        json,
+        'homeArrangement',
+        base.homeArrangement,
+      ),
+      homeStartPage: _nullableString(json, 'homeStartPage', base.homeStartPage),
+      lastHomeDestination: _nullableString(
+        json,
+        'lastHomeDestination',
+        base.lastHomeDestination,
+      ),
     );
   }
 
@@ -575,6 +600,9 @@ class AppSettings {
       'novelRankingArrangement': _encodeArrangement(novelRankingArrangement),
       'illustRankingLastMode': illustRankingLastMode,
       'novelRankingLastMode': novelRankingLastMode,
+      'homeArrangement': _encodeArrangement(homeArrangement),
+      'homeStartPage': homeStartPage,
+      'lastHomeDestination': lastHomeDestination,
     };
   }
 
@@ -715,6 +743,9 @@ class AppSettings {
     Object? novelRankingArrangement = _unset,
     String? illustRankingLastMode,
     String? novelRankingLastMode,
+    Object? homeArrangement = _unset,
+    Object? homeStartPage = _unset,
+    String? lastHomeDestination,
   }) {
     return AppSettings(
       schemaVersion: currentSchemaVersion,
@@ -778,6 +809,13 @@ class AppSettings {
       illustRankingLastMode:
           illustRankingLastMode ?? this.illustRankingLastMode,
       novelRankingLastMode: novelRankingLastMode ?? this.novelRankingLastMode,
+      homeArrangement: identical(homeArrangement, _unset)
+          ? this.homeArrangement
+          : homeArrangement as List<ArrangedEntry>?,
+      homeStartPage: identical(homeStartPage, _unset)
+          ? this.homeStartPage
+          : homeStartPage as String?,
+      lastHomeDestination: lastHomeDestination ?? this.lastHomeDestination,
     );
   }
 
