@@ -26,6 +26,7 @@ import '../../core/watchlist/watchlist_store.dart';
 import '../../app/widgets/watchlist_toggle.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/layout/card_columns.dart';
 
 /// One illust series: a header (cover/title/author/work count/caption) plus
 /// the paginated episode list (`/v1/illust/series`, newest first). Episodes
@@ -111,7 +112,7 @@ class IllustSeriesPage extends ConsumerWidget {
                         ),
                       )
                     else
-                      SliverList.builder(
+                      SliverCardList(
                         itemCount: entities.length,
                         itemBuilder: (context, index) => _EpisodeRow(
                           entity: entities[index],

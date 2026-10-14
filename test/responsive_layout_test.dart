@@ -2,7 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:parfait/app/layout/app_breakpoints.dart';
+import 'package:parfait/app/layout/card_columns.dart';
+import 'package:parfait/app/layout/content_widths.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'helpers/view_size.dart';
@@ -21,13 +22,54 @@ void main() {
     expect(illustColumnsFor(-50), 2);
   });
 
-  test('navigation form factor follows the compact/medium breakpoint', () {
-    expect(AppBreakpoints.useNavigationRail(320), isFalse);
-    expect(AppBreakpoints.useNavigationRail(390), isFalse);
-    expect(AppBreakpoints.useNavigationRail(599), isFalse);
-    expect(AppBreakpoints.useNavigationRail(600), isTrue);
-    expect(AppBreakpoints.useNavigationRail(840), isTrue);
-    expect(AppBreakpoints.useNavigationRail(1200), isTrue);
+  test('card lists take a column per 400dp, at most three', () {
+    expect(CardColumns.of(390), 1);
+    expect(CardColumns.of(815), 2);
+    expect(CardColumns.of(1199), 2);
+    expect(CardColumns.of(1359), 3);
+    expect(CardColumns.of(2400), 3);
+    expect(CardColumns.rowCount(5, 2), 3);
+  });
+
+  testWidgets('a wide card list puts neighbouring cards side by side', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(1000, 600));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CustomScrollView(
+          slivers: [
+            SliverCardList(
+              itemCount: 3,
+              itemBuilder: (context, index) =>
+                  SizedBox(key: ValueKey(index), height: 80),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    Rect card(int index) => tester.getRect(find.byKey(ValueKey(index)));
+    expect(card(1).top, card(0).top);
+    expect(card(1).left, card(0).right);
+    expect(card(2).top, card(0).bottom);
+    expect(card(2).width, 500);
+  });
+
+  testWidgets('a capped column centres at its width on a wide window', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(1400, 600));
+    await tester.pumpWidget(
+      const ContentWidthCap(
+        maxWidth: ContentWidths.management,
+        child: SizedBox.expand(key: Key('column')),
+      ),
+    );
+
+    final column = tester.getRect(find.byKey(const Key('column')));
+    expect(column.width, ContentWidths.management);
+    expect(column.center.dx, 700);
   });
 
   testWidgets(

@@ -38,6 +38,7 @@ import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/widgets/tag_chips.dart';
 import '../../app/widgets/undo_snack_bar.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/layout/content_widths.dart';
 
 /// Search guide shown by the Home bottom-navigation entry: a search field
 /// and the reverse-image camera in the app bar, then one tab per work kind
@@ -924,7 +925,10 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
       // Flat, with the icon and text where [SearchFieldButton] draws them
       // on the guide and the result page: the field reads as one across
       // both pushes.
-      constraints: const BoxConstraints(minHeight: SearchFieldButton.height),
+      constraints: const BoxConstraints(
+        minHeight: SearchFieldButton.height,
+        maxWidth: SearchFieldButton.maxWidth,
+      ),
       elevation: const WidgetStatePropertyAll(0),
       backgroundColor: WidgetStatePropertyAll(
         Theme.of(context).colorScheme.surfaceContainerHigh,
@@ -978,10 +982,13 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
           ],
         ),
       ),
-      body: _SearchInputBody(
-        type: _types[_selectedIndex],
-        onSearch: _search,
-        onFill: _fill,
+      body: ContentWidthCap(
+        maxWidth: ContentWidths.management,
+        child: _SearchInputBody(
+          type: _types[_selectedIndex],
+          onSearch: _search,
+          onFill: _fill,
+        ),
       ),
     );
   }

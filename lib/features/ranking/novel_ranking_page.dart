@@ -16,6 +16,7 @@ import '../../core/novel/novel_store.dart';
 import '../../core/ranking/ranking_catalog.dart';
 import '../../l10n/context.dart';
 import 'ranking_tabs.dart';
+import '../../app/layout/card_columns.dart';
 
 /// The novel ranking, pushed from the illust ranking: [RankingTabs] over
 /// the novel categories, each a list of ranked novels.
@@ -132,7 +133,7 @@ class _NovelRankingModeBody extends ConsumerWidget {
                 slivers: [
                   SliverPadding(
                     padding: const EdgeInsets.only(top: FuncSpacing.sm),
-                    sliver: SliverList.builder(
+                    sliver: SliverCardList(
                       itemCount: entities.length,
                       itemBuilder: (context, index) => KeyedSubtree(
                         key: ValueKey(entities[index].id),

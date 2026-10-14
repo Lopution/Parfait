@@ -1,3 +1,5 @@
+import 'package:flutter/widgets.dart';
+
 /// Content-width roles shared by capped-width pages.
 ///
 /// Content width answers "how wide may the readable column be" inside
@@ -26,4 +28,30 @@ abstract final class ContentWidths {
   /// Management lists (history, watch-later, follows, downloads) — denser
   /// than an article so actions stay close to their rows.
   static const double management = 840;
+}
+
+/// Centres [child] at no more than [maxWidth]; narrower surfaces pass
+/// through unchanged. The child keeps tight constraints either way.
+class ContentWidthCap extends StatelessWidget {
+  const ContentWidthCap({
+    super.key,
+    required this.maxWidth,
+    required this.child,
+  });
+
+  final double maxWidth;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final inset = (constraints.maxWidth - maxWidth) / 2;
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: inset > 0 ? inset : 0),
+          child: child,
+        );
+      },
+    );
+  }
 }

@@ -14,6 +14,7 @@ import '../../core/user/user_store.dart';
 import '../../l10n/context.dart';
 import '../../app/widgets/follow_switch_button.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/layout/card_columns.dart';
 
 class ProfileUserFeed extends ConsumerWidget {
   const ProfileUserFeed({super.key, required this.feedKey});
@@ -82,23 +83,23 @@ class ProfileUserFeed extends ConsumerWidget {
                       title: context.l10n.profileItemsEmpty,
                     ),
                   )
-                else
-                  SliverList.builder(
-                    itemCount: users.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == users.length) {
-                        return FeedTail(
-                          feed: feed,
-                          onRetry: () => ref
-                              .read(profileUserFeedProvider(feedKey).notifier)
-                              .retryLoadMore(),
-                          errorTitle: context.l10n.profileLoadMoreFailed,
-                          retryLabel: context.l10n.profileRetry,
-                        );
-                      }
-                      return _UserPreviewTile(user: users[index]);
-                    },
+                else ...[
+                  SliverCardList(
+                    itemCount: users.length,
+                    itemBuilder: (context, index) =>
+                        _UserPreviewTile(user: users[index]),
                   ),
+                  SliverToBoxAdapter(
+                    child: FeedTail(
+                      feed: feed,
+                      onRetry: () => ref
+                          .read(profileUserFeedProvider(feedKey).notifier)
+                          .retryLoadMore(),
+                      errorTitle: context.l10n.profileLoadMoreFailed,
+                      retryLabel: context.l10n.profileRetry,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

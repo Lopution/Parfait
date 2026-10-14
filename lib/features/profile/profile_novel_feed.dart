@@ -9,6 +9,7 @@ import '../../core/network/api_error.dart';
 import '../../core/novel/novel_feed_controller.dart';
 import '../../core/novel/novel_store.dart';
 import '../../l10n/context.dart';
+import '../../app/layout/card_columns.dart';
 
 class ProfileNovelFeed extends ConsumerWidget {
   const ProfileNovelFeed({super.key, required this.userId});
@@ -75,23 +76,23 @@ class ProfileNovelFeed extends ConsumerWidget {
                       title: context.l10n.profileItemsEmpty,
                     ),
                   )
-                else
-                  SliverList.builder(
-                    itemCount: novels.length + 1,
-                    itemBuilder: (context, index) {
-                      if (index == novels.length) {
-                        return FeedTail(
-                          feed: feed,
-                          onRetry: () => ref
-                              .read(userNovelFeedProvider(userId).notifier)
-                              .retryLoadMore(),
-                          errorTitle: context.l10n.profileLoadMoreFailed,
-                          retryLabel: context.l10n.profileRetry,
-                        );
-                      }
-                      return NovelEntry.regular(entity: novels[index]);
-                    },
+                else ...[
+                  SliverCardList(
+                    itemCount: novels.length,
+                    itemBuilder: (context, index) =>
+                        NovelEntry.regular(entity: novels[index]),
                   ),
+                  SliverToBoxAdapter(
+                    child: FeedTail(
+                      feed: feed,
+                      onRetry: () => ref
+                          .read(userNovelFeedProvider(userId).notifier)
+                          .retryLoadMore(),
+                      errorTitle: context.l10n.profileLoadMoreFailed,
+                      retryLabel: context.l10n.profileRetry,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

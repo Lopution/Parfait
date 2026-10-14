@@ -188,9 +188,11 @@ reviewed: 2026-10-14
 ### NAV-14 Top tabs are AppTabBar and never shrink
 - **Rule:** Every tab row is `AppTabBar`. Labels stay at the themed size;
   the row divides the width evenly when the widest label fits a share,
-  otherwise it scrolls from the start edge with `ScrollEdgeFade`.
-- **Why:** Shrunk labels became unreadable in long languages.
-- **Check:** `test/app_tab_bar_test.dart`
+  each share at most 180dp with the row kept at the start edge; otherwise
+  it scrolls from the start edge with `ScrollEdgeFade`.
+- **Why:** Shrunk labels became unreadable in long languages; on wide
+  windows even shares left the labels far apart.
+- **Check:** `test/app_tab_bar_test.dart` "a wide row keeps its tabs together at the start"
 - **Code:** `lib/app/widgets/app_tab_bar.dart`
 
 ### NAV-15 A tab tap never calls animateTo again

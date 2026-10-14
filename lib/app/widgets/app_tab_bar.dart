@@ -5,7 +5,8 @@ import 'scroll_edge_fade.dart';
 
 /// The single entry point for top-of-page tab rows (D3). Labels always
 /// render at the themed size — they are never shrunk to fit. When the
-/// widest label fits every equal slot, the row divides the width evenly;
+/// widest label fits every equal slot, the row divides the width evenly,
+/// each slot at most [maxSlotWidth] with the row kept at the start edge;
 /// otherwise it scrolls from the start edge, and an edge with more tabs
 /// past it fades out (H3). Counts in labels use tabular figures.
 class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
@@ -31,6 +32,9 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
   final Widget Function(int index, Widget label)? labelWrapper;
 
   static const _labelPadding = EdgeInsets.symmetric(horizontal: FuncSpacing.md);
+
+  /// Widest equal slot: past it the labels drift apart on wide windows.
+  static const double maxSlotWidth = 180;
 
   /// Merged into the tab bar's own label style, which keeps its colours.
   static const _tabular = TextStyle(
@@ -89,7 +93,13 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
               Tab(child: _label(index, label)),
           ],
         );
-        return fits ? bar : ScrollEdgeFade(child: bar);
+        if (!fits) return ScrollEdgeFade(child: bar);
+        final width = maxSlotWidth * labels.length;
+        if (constraints.maxWidth <= width) return bar;
+        return Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: SizedBox(width: width, child: bar),
+        );
       },
     );
   }

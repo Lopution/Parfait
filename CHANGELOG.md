@@ -19,6 +19,8 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 平板、折叠屏和横屏手机上，作品详情改为左右两栏：左边看图，右边是作品信息，底部操作按钮放在信息栏里。横屏手机和小平板也会用两栏。
 - 宽屏的侧边导航栏改为图标加文字的窄栏，只在很宽的窗口（1600dp 以上）展开；窗口太矮时侧栏可以滚动，不再被截断。
 - 宽屏阅读小说时隐藏侧边导航栏，阅读区占满整个窗口。
+- 宽屏上，小说、用户和系列列表改为多列排列；评论、搜索建议、收藏标签和个人主页“关于”等文字列表限制宽度并居中，搜索框和以图搜图的按钮也不再横跨整个窗口。顶部标签栏在宽屏上靠左排列，不再平均铺满整行。
+- 横屏手机上，欢迎页和登录页把标题放到左侧，“开始”和登录按钮在首屏就能看到。
 
 ### 修复
 
@@ -28,6 +30,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 在部分使用 PowerVR B 系列 GPU 的设备上，画面异常和卡顿的问题已修复。
 - 排行加载失败时，标题不再显示成一串内部文字，而是写明哪个分类加载失败。
 - 账号页的服务器显示设置、搜索页的热门标签、追更列表、收藏标签、稍后看、本地小说和应用设置加载失败时，立即显示错误和重试按钮，不再先转圈约 40 秒。
+- 横屏手机打开个人主页时，作品数一行不再被挤压变形。
 
 ### 安全
 
@@ -47,6 +50,8 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - On tablets, foldables and phones held sideways, artwork details now show in two columns: the artwork on the left, its information on the right, with the action buttons in the information column. Phones in landscape and small tablets get the two columns too.
 - The side navigation on wide screens is now a narrow rail of icons with labels, expanding only on very wide windows (1600dp and up). On a short window the rail scrolls instead of being cut off.
 - Reading a novel on a wide screen hides the side navigation so the text gets the whole window.
+- On wide screens, novel, user and series lists show in several columns; text lists such as comments, search suggestions, bookmark tags and a profile's About tab keep a readable width and stay centred, and the search field and the reverse image search button no longer span the whole window. Top tabs keep to the left instead of spreading across the row.
+- On a phone held sideways, the welcome and login pages put the heading on the left so the start and login buttons are on the first screen.
 
 ### Fixed
 
@@ -56,6 +61,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - Fixed visual glitches and slowdowns on devices with PowerVR B-Series GPUs.
 - A ranking that fails to load now names the category in its title instead of showing an internal placeholder.
 - When the server display settings, search trends, watchlists, bookmark tags, Watch Later, local novels or the app settings fail to load, the error and its retry button now appear at once instead of after about 40 seconds of spinning.
+- Opening a profile on a phone held sideways no longer squeezes the works count row out of shape.
 
 ### Security
 

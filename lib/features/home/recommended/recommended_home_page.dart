@@ -40,6 +40,7 @@ import '../../../core/illust/recommended_repository.dart';
 import '../../../l10n/context.dart';
 import '../../../l10n/lookup.dart';
 import '../../../app/widgets/smooth_wheel_scroll.dart';
+import '../../../app/layout/card_columns.dart';
 
 String _recommendedText(BuildContext context, String key) {
   return l10nLookup(context.l10n, key);
@@ -491,7 +492,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
     return [
       SliverPadding(
         padding: const EdgeInsets.only(top: FuncSpacing.sm),
-        sliver: SliverList.builder(
+        sliver: SliverCardList(
           itemCount: novels.length,
           itemBuilder: (context, index) => KeyedSubtree(
             key: ValueKey(novels[index].id),
@@ -516,7 +517,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
     return [
       SliverPadding(
         padding: const EdgeInsets.only(top: FuncSpacing.sm),
-        sliver: SliverList.builder(
+        sliver: SliverCardList(
           itemCount: users.length,
           itemBuilder: (context, index) => KeyedSubtree(
             key: ValueKey(users[index].id),

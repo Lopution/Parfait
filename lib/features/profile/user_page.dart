@@ -39,6 +39,7 @@ import '../../core/user/user_detail_controller.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/clipboard.dart';
+import '../../app/layout/content_widths.dart';
 
 /// Remote user profile. [id] is accepted as a beta56-compatible alias for
 /// callers migrating from the original UserPage.
@@ -811,11 +812,28 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
     final feed = _buildFeed();
     final header = widget.header;
     if (header == null) return feed;
-    return Column(
+    final column = Column(
       children: [
         header,
         Expanded(child: feed),
       ],
+    );
+    // The body is only as tall as what the expanded header leaves, a strip
+    // on a short window: lay the tab out at a usable height and clip it
+    // rather than crush the filter row. The tree is the same at any height
+    // so the feed keeps its state as the header collapses.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = math.max(constraints.maxHeight, _minTabBodyHeight);
+        return ClipRect(
+          child: OverflowBox(
+            alignment: Alignment.topCenter,
+            minHeight: height,
+            maxHeight: height,
+            child: column,
+          ),
+        );
+      },
     );
   }
 
@@ -870,6 +888,10 @@ class _WorksTotal extends StatelessWidget {
   }
 }
 
+/// Shortest a profile tab is laid out: the filter row plus a row of the
+/// feed.
+const double _minTabBodyHeight = 160;
+
 class _ProfileAbout extends ConsumerWidget {
   const _ProfileAbout({required this.user, required this.statistics});
 
@@ -891,46 +913,49 @@ class _ProfileAbout extends ConsumerWidget {
       if (user.pawooUrl != null)
         (label: 'Pawoo', value: user.pawooUrl!, id: 'pawoo'),
     ];
-    return ListView(
-      key: PageStorageKey('profile-about-${user.id}'),
-      restorationId: 'profile-about-${user.id}',
-      padding: const EdgeInsets.fromLTRB(
-        FuncSpacing.xl,
-        FuncSpacing.md,
-        FuncSpacing.xl,
-        FuncSpacing.xxl,
-      ),
-      children: [
-        _ProfileAboutTextEntry(
-          label: context.l10n.profileId,
-          value: '${user.id}',
+    return ContentWidthCap(
+      maxWidth: ContentWidths.management,
+      child: ListView(
+        key: PageStorageKey('profile-about-${user.id}'),
+        restorationId: 'profile-about-${user.id}',
+        padding: const EdgeInsets.fromLTRB(
+          FuncSpacing.xl,
+          FuncSpacing.md,
+          FuncSpacing.xl,
+          FuncSpacing.xxl,
         ),
-        if (user.account.isNotEmpty)
+        children: [
           _ProfileAboutTextEntry(
-            label: context.l10n.profileAccount,
-            value: user.account,
+            label: context.l10n.profileId,
+            value: '${user.id}',
           ),
-        if (comment != null) _ProfileIntroduction(text: comment),
-        for (final link in links)
-          _ProfileSocialLinkRow(
-            key: ValueKey('profile-link-${link.id}'),
-            id: link.id,
-            label: link.label,
-            value: link.value,
-            onOpen: () =>
-                unawaited(_openProfileSocialLink(context, ref, link.value)),
-            onCopy: () =>
-                unawaited(_copyProfileSocialLink(context, link.value)),
+          if (user.account.isNotEmpty)
+            _ProfileAboutTextEntry(
+              label: context.l10n.profileAccount,
+              value: user.account,
+            ),
+          if (comment != null) _ProfileIntroduction(text: comment),
+          for (final link in links)
+            _ProfileSocialLinkRow(
+              key: ValueKey('profile-link-${link.id}'),
+              id: link.id,
+              label: link.label,
+              value: link.value,
+              onOpen: () =>
+                  unawaited(_openProfileSocialLink(context, ref, link.value)),
+              onCopy: () =>
+                  unawaited(_copyProfileSocialLink(context, link.value)),
+            ),
+          const Divider(),
+          Text(
+            context.l10n.profileStats,
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-        const Divider(),
-        Text(
-          context.l10n.profileStats,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: FuncSpacing.sm),
-        for (final statistic in statistics)
-          ProfileStatistic(statistic: statistic),
-      ],
+          const SizedBox(height: FuncSpacing.sm),
+          for (final statistic in statistics)
+            ProfileStatistic(statistic: statistic),
+        ],
+      ),
     );
   }
 }

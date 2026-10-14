@@ -38,6 +38,7 @@ import '../../l10n/context.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_snack_bar.dart';
+import '../../app/layout/card_columns.dart';
 
 /// Grid padding shared by the result sliver and its first-load skeleton.
 const _illustGridPadding = EdgeInsets.all(FuncSpacing.sm);
@@ -606,25 +607,37 @@ class _NovelSearchFeed extends ConsumerWidget {
           }
           return false;
         },
-        child: ListView.builder(
-          key: PageStorageKey(query.cacheKey),
-          controller: scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          scrollCacheExtent: kFeedCacheExtent,
-          restorationId: 'search-${query.cacheKey}',
-          itemCount: entities.length + 1,
-          itemBuilder: (context, index) {
-            if (index == entities.length) {
-              return FeedTail(
-                feed: feed,
-                onRetry: () => ref
-                    .read(searchFeedProvider(query).notifier)
-                    .retryLoadMore(),
-                errorTitle: context.l10n.searchLoadMoreFailed,
-                retryLabel: context.l10n.searchRetry,
-              );
-            }
-            return NovelEntry.regular(entity: entities[index]);
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = CardColumns.of(constraints.maxWidth);
+            final rows = CardColumns.rowCount(entities.length, columns);
+            return ListView.builder(
+              key: PageStorageKey(query.cacheKey),
+              controller: scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              scrollCacheExtent: kFeedCacheExtent,
+              restorationId: 'search-${query.cacheKey}',
+              itemCount: rows + 1,
+              itemBuilder: (context, row) {
+                if (row == rows) {
+                  return FeedTail(
+                    feed: feed,
+                    onRetry: () => ref
+                        .read(searchFeedProvider(query).notifier)
+                        .retryLoadMore(),
+                    errorTitle: context.l10n.searchLoadMoreFailed,
+                    retryLabel: context.l10n.searchRetry,
+                  );
+                }
+                return CardRow(
+                  row: row,
+                  columns: columns,
+                  count: entities.length,
+                  itemBuilder: (context, index) =>
+                      NovelEntry.regular(entity: entities[index]),
+                );
+              },
+            );
           },
         ),
       ),
@@ -673,25 +686,37 @@ class _UserSearchFeed extends ConsumerWidget {
           }
           return false;
         },
-        child: ListView.builder(
-          key: PageStorageKey(query.cacheKey),
-          controller: scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          scrollCacheExtent: kFeedCacheExtent,
-          restorationId: 'search-${query.cacheKey}',
-          itemCount: users.length + 1,
-          itemBuilder: (context, index) {
-            if (index == users.length) {
-              return FeedTail(
-                feed: feed,
-                onRetry: () => ref
-                    .read(searchFeedProvider(query).notifier)
-                    .retryLoadMore(),
-                errorTitle: context.l10n.searchLoadMoreFailed,
-                retryLabel: context.l10n.searchRetry,
-              );
-            }
-            return _SearchUserTile(user: users[index]);
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = CardColumns.of(constraints.maxWidth);
+            final rows = CardColumns.rowCount(users.length, columns);
+            return ListView.builder(
+              key: PageStorageKey(query.cacheKey),
+              controller: scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              scrollCacheExtent: kFeedCacheExtent,
+              restorationId: 'search-${query.cacheKey}',
+              itemCount: rows + 1,
+              itemBuilder: (context, row) {
+                if (row == rows) {
+                  return FeedTail(
+                    feed: feed,
+                    onRetry: () => ref
+                        .read(searchFeedProvider(query).notifier)
+                        .retryLoadMore(),
+                    errorTitle: context.l10n.searchLoadMoreFailed,
+                    retryLabel: context.l10n.searchRetry,
+                  );
+                }
+                return CardRow(
+                  row: row,
+                  columns: columns,
+                  count: users.length,
+                  itemBuilder: (context, index) =>
+                      _SearchUserTile(user: users[index]),
+                );
+              },
+            );
           },
         ),
       ),

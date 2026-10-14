@@ -33,6 +33,7 @@ import 'package:parfait/core/network/http_client_providers.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_choice_chip.dart';
+import 'package:parfait/app/layout/content_widths.dart';
 
 class ReverseImageSearchPage extends ConsumerStatefulWidget {
   const ReverseImageSearchPage({
@@ -207,6 +208,17 @@ class _ReverseImageSearchPageState
   }
 
   Widget _body(BuildContext context, ReverseImageFlowState state) {
+    final web =
+        state.status == ReverseImageFlowStatus.success &&
+        (state.webUpload != null || state.webView != null);
+    final body = _state(context, state);
+    // The engine pages own the width; the flow's own states read as a form.
+    return web
+        ? body
+        : ContentWidthCap(maxWidth: ContentWidths.form, child: body);
+  }
+
+  Widget _state(BuildContext context, ReverseImageFlowState state) {
     return switch (state.status) {
       ReverseImageFlowStatus.idle ||
       ReverseImageFlowStatus.canceled => _idle(context, state),
