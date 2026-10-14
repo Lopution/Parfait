@@ -30,10 +30,14 @@ class FakeClient extends http.BaseClient {
 }
 
 class FakeResolver implements SecureResolver {
-  FakeResolver(this.addresses);
+  FakeResolver(this.addresses, {this.answered});
 
   final List<InternetAddress> addresses;
   var calls = 0;
+
+  /// Each lookup answers once this completes; a DoH endpoint that cannot
+  /// connect never does.
+  final Future<void>? answered;
 
   @override
   Future<ResolvedHost> resolve(
@@ -42,6 +46,7 @@ class FakeResolver implements SecureResolver {
     NetworkCancelSignal? cancelSignal,
   }) async {
     calls++;
+    await answered;
     return ResolvedHost(
       host: host,
       addresses: addresses,
@@ -173,7 +178,7 @@ class KindClient extends http.BaseClient {
 class DelayedClient extends http.BaseClient {
   DelayedClient(this.inner, this.delay);
 
-  final FakeClient inner;
+  final http.Client inner;
   final Duration delay;
 
   /// Records on arrival — the delay simulates a slow tier, and a test

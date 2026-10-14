@@ -37,6 +37,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 排行加载失败时，标题不再显示成一串内部文字，而是写明哪个分类加载失败。
 - 账号页的服务器显示设置、搜索页的热门标签、追更列表、收藏标签、稍后看、本地小说和应用设置加载失败时，立即显示错误和重试按钮，不再先转圈约 40 秒。
 - 横屏手机打开个人主页时，作品数一行不再被挤压变形。
+- 选用 pixiv.re、pixiv.nl 等镜像图片源或自定义图片源时，图片不再加载失败：镜像先直接连接，不再先等可能连不上的 DoH 解析（之前一张图要等 20 多秒，超时后显示失败）。
 
 ### 安全
 
@@ -74,6 +75,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - A ranking that fails to load now names the category in its title instead of showing an internal placeholder.
 - When the server display settings, search trends, watchlists, bookmark tags, Watch Later, local novels or the app settings fail to load, the error and its retry button now appear at once instead of after about 40 seconds of spinning.
 - Opening a profile on a phone held sideways no longer squeezes the works count row out of shape.
+- Images load again with a mirror image source such as pixiv.re or pixiv.nl, or a custom one: Parfait now connects to the mirror directly first instead of waiting on DoH lookups that may not get through (an image used to wait over 20 seconds and then fail).
 
 ### Security
 

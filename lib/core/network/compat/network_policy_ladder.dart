@@ -108,6 +108,19 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     final host = destination.canonicalHost;
     final attemptedKeys = <String>{};
     final attemptedKinds = <NetworkRouteKind>{};
+    // Shared by every tier and selection of this request, failure
+    // included: a DoH lookup that cannot connect costs its timeouts once.
+    // A network change mid-request looks the host up again.
+    Future<ResolvedHost>? pendingResolve;
+    int? pendingRevision;
+    Future<ResolvedHost> resolveHost() {
+      if (pendingRevision != _revision.value) {
+        pendingRevision = _revision.value;
+        pendingResolve = resolve(destination, cancelSignal: cancelSignal);
+      }
+      return pendingResolve!;
+    }
+
     var useMemory = true;
     // Pixiv's own image hosts never race: their origin tier wins a
     // first-byte race and then throttles every image (see [_prefersEch]).
@@ -118,6 +131,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         attempt: attempt,
         attemptedKeys: attemptedKeys,
         attemptedKinds: attemptedKinds,
+        resolveHost: resolveHost,
       );
       if (raced) return value as T;
       useMemory = false;
@@ -130,6 +144,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
           cancelSignal: cancelSignal,
           attemptedKeys: attemptedKeys,
           attemptedKinds: attemptedKinds,
+          resolveHost: resolveHost,
           useMemory: useMemory,
         );
       } on Object catch (error, stackTrace) {
@@ -193,13 +208,17 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
   /// verified here: the business request itself is the attempt,
   /// so a candidate only needs a usable connect address (fast tier: known
   /// address; direct: no address; ECH: config+front address; DoH tiers: a
-  /// resolved address).
+  /// resolved address). [resolveHost] is shared by every selection of one
+  /// request, so a DoH lookup that cannot connect costs its timeouts once.
+  /// [remember] is off while racing, where only the winner is remembered.
   Future<NetworkRoute> _selectRoute({
     required PixivDestination destination,
     required NetworkCancelSignal? cancelSignal,
     required Set<String> attemptedKeys,
     required Set<NetworkRouteKind> attemptedKinds,
+    required Future<ResolvedHost> Function() resolveHost,
     bool useMemory = true,
+    bool remember = true,
   }) async {
     final host = destination.canonicalHost;
     final now = clock();
@@ -241,9 +260,6 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
 
     Object? lastError;
     StackTrace? lastStack;
-    ResolvedHost? pendingResolved;
-    Future<ResolvedHost> resolveOnce() async => pendingResolved ??=
-        await resolve(destination, cancelSignal: cancelSignal);
 
     final preferredKind = rememberedGroupRouteKind(
       destination.purpose,
@@ -254,8 +270,8 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     // Verified-fast-first ordering, driven by real-device probe data:
     // Cloudflare hosts (API/OAuth) reach the ECH tier inside the wall while
     // plain SNI is RST; pixiv image hosts take ECH too, with their origin
-    // addresses as the throttled stand-in. Mirrors reach the empty-SNI
-    // tier. The bootstrap tier (bootstrapNoSni, image hosts only) stays as
+    // addresses as the throttled stand-in. Mirrors go direct first, in
+    // every mode (see [_fallbackTiersFor]). The bootstrap tier (bootstrapNoSni, image hosts only) stays as
     // the very last fallback: if it happens to work on this network its host
     // remembers it after one success, but an unproven address can never
     // again cost the first N requests of a screen.
@@ -271,7 +287,8 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       // compatPrefer walks every compatibility tier before touching direct —
       // the user already knows plain direct is blocked on this network.
       if (compatPrefer && bootstrapEligible) NetworkRouteKind.bootstrapNoSni,
-      NetworkRouteKind.direct,
+      if (!fallbackTiers.contains(NetworkRouteKind.direct))
+        NetworkRouteKind.direct,
       if (!compatPrefer && bootstrapEligible) NetworkRouteKind.bootstrapNoSni,
     ];
     // A cooling ECH tier goes last rather than away: the stand-in tiers
@@ -291,7 +308,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
             : await _routeForTier(
                 kind,
                 destination,
-                resolveHost: resolveOnce,
+                resolveHost: resolveHost,
                 cancelSignal: cancelSignal,
               );
       } on Object catch (error, stackTrace) {
@@ -321,7 +338,9 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
         // The candidate is not pre-verified. The business
         // request itself is the attempt; a failure falls through to the
         // re-selection in the caller. Only cancellations abort here.
-        _rememberRoute(host, route, purpose: destination.purpose);
+        if (remember) {
+          _rememberRoute(host, route, purpose: destination.purpose);
+        }
         return route;
       } on Object catch (error, stackTrace) {
         policyRecord(destination, route, error, timer.elapsed);
@@ -356,6 +375,7 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     required FutureOr<T> Function(NetworkRoute route, Uri url) attempt,
     required Set<String> attemptedKeys,
     required Set<NetworkRouteKind> attemptedKinds,
+    required Future<ResolvedHost> Function() resolveHost,
   }) async {
     final host = destination.canonicalHost;
     final now = clock();
@@ -377,67 +397,47 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       cancelSignal: cancelSignal,
       attemptedKeys: attemptedKeys,
       attemptedKinds: attemptedKinds,
+      resolveHost: resolveHost,
       useMemory: false,
+      remember: false,
     );
     final sendA = _raceSend(destination, routeA, attempt, cancelSignal);
     // Selecting the second tier may resolve DNS/ECH while A's send is
-    // already in flight — that overlap is the point of racing.
-    NetworkRoute? routeB;
-    try {
-      routeB = await _selectRoute(
-        destination: destination,
-        cancelSignal: cancelSignal,
-        attemptedKeys: attemptedKeys,
-        attemptedKinds: attemptedKinds,
-        useMemory: false,
-      );
-    } on Object {
-      routeB = null;
-    }
-    if (routeB == null) {
-      // Only one tier was constructible — take A's outcome alone.
-      return switch (await sendA) {
-        _RaceSuccess<T>(value: final value) => (true, value),
-        _RaceFailure<T>(:final error, :final stackTrace) =>
-          Error.throwWithStackTrace(error, stackTrace),
-      };
-    }
-    final sendB = _raceSend(destination, routeB, attempt, cancelSignal);
-
-    // Tag each send so `Future.any` tells us which one resolved.
-    final indexed = [
-      sendA.then((outcome) => (0, outcome)),
-      sendB.then((outcome) => (1, outcome)),
-    ];
-    final (firstIndex, first) = await Future.any(indexed);
+    // already in flight — that overlap is the point of racing. An A that
+    // succeeds first wins without waiting: B's selection may be a DoH
+    // lookup that cannot connect on this network.
+    final selectB = _selectRoute(
+      destination: destination,
+      cancelSignal: cancelSignal,
+      attemptedKeys: attemptedKeys,
+      attemptedKinds: attemptedKinds,
+      resolveHost: resolveHost,
+      useMemory: false,
+      remember: false,
+    ).then<NetworkRoute?>((route) => route, onError: (Object _) => null);
+    final early = await Future.any<_RaceOutcome<T>?>([
+      sendA,
+      selectB.then((_) => null),
+    ]);
     _RaceSuccess<T>? winner;
     Future<_RaceOutcome<T>>? loser;
-    if (first is _RaceSuccess<T>) {
-      winner = first;
-      loser = firstIndex == 0 ? sendB : sendA;
+    if (early is _RaceSuccess<T>) {
+      winner = early;
     } else {
-      // The first failure often lands fast (RST/refused) while the winning
-      // tier is still handshaking — wait for the sibling before giving up.
-      final second = await (firstIndex == 0 ? sendB : sendA);
-      if (second is _RaceSuccess<T>) {
-        winner = second;
+      final routeB = await selectB;
+      if (routeB == null) {
+        // Only one tier was constructible — take A's outcome alone.
+        winner = switch (await sendA) {
+          final _RaceSuccess<T> success => success,
+          _RaceFailure<T>(:final error, :final stackTrace) =>
+            Error.throwWithStackTrace(error, stackTrace),
+        };
       } else {
-        _discardRaceOutcome(destination, first);
-        _discardRaceOutcome(destination, second);
-        _invalidateRouteMemory(host, routeA, purpose: destination.purpose);
-        _invalidateRouteMemory(host, routeB, purpose: destination.purpose);
-        _coolFastRoute(host, routeA);
-        _coolFastRoute(host, routeB);
-        // Racing must not weaken terminal semantics: a failure the serial
-        // ladder would have called final (e.g. a real-SNI certificate
-        // mismatch) still ends the walk here instead of leaking into the
-        // remaining tiers.
-        for (final failure in [first, second]) {
-          if (failure is _RaceFailure<T> &&
-              !_retryEligible(true, failure.error, failure.route)) {
-            Error.throwWithStackTrace(failure.error, failure.stackTrace);
-          }
-        }
+        (winner, loser) = await _raceAgainst(
+          destination,
+          sendA,
+          _raceSend(destination, routeB, attempt, cancelSignal),
+        );
       }
     }
     if (winner == null) return (false, null);
@@ -459,6 +459,45 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
       unawaited(loser.then((o) => _discardRaceOutcome(destination, o)));
     }
     return (true, winner.value);
+  }
+
+  /// The first success of [sendA] and [sendB], with the other send to
+  /// drain; a null winner when both failed and the serial ladder should
+  /// continue.
+  Future<(_RaceSuccess<T>?, Future<_RaceOutcome<T>>?)> _raceAgainst<T>(
+    PixivDestination destination,
+    Future<_RaceOutcome<T>> sendA,
+    Future<_RaceOutcome<T>> sendB,
+  ) async {
+    final host = destination.canonicalHost;
+    // Tag each send so `Future.any` tells us which one resolved.
+    final (firstIndex, first) = await Future.any([
+      sendA.then((outcome) => (0, outcome)),
+      sendB.then((outcome) => (1, outcome)),
+    ]);
+    if (first is _RaceSuccess<T>) {
+      return (first, firstIndex == 0 ? sendB : sendA);
+    }
+    // The first failure often lands fast (RST/refused) while the winning
+    // tier is still handshaking — wait for the sibling before giving up.
+    final second = await (firstIndex == 0 ? sendB : sendA);
+    if (second is _RaceSuccess<T>) return (second, null);
+    _discardRaceOutcome(destination, first);
+    _discardRaceOutcome(destination, second);
+    for (final failure in [first, second]) {
+      _invalidateRouteMemory(host, failure.route, purpose: destination.purpose);
+      _coolFastRoute(host, failure.route);
+    }
+    // Racing must not weaken terminal semantics: a failure the serial
+    // ladder would have called final (e.g. a real-SNI certificate mismatch)
+    // still ends the walk here instead of leaking into the remaining tiers.
+    for (final failure in [first, second]) {
+      if (failure is _RaceFailure<T> &&
+          !_retryEligible(true, failure.error, failure.route)) {
+        Error.throwWithStackTrace(failure.error, failure.stackTrace);
+      }
+    }
+    return (null, null);
   }
 
   /// Wraps one raced attempt so neither send ever throws — the race loop
@@ -735,19 +774,22 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     // Third-party image mirrors (preset/custom reverse proxies) are not
     // pixiv infrastructure: the ECH config and the persisted-address tier
     // only exist for pixiv's own hosts and would fail or mis-route a
-    // mirror. `noSni` leads the fallback because mirror domains are
-    // SNI-blocked inside the wall, and a single-tenant reverse proxy
-    // answers an empty-SNI handshake from a default vhost that still
-    // presents a valid certificate for the mirror name (no bootstrapNoSni
-    // tier for mirrors: they have no known origin address). A mirror
-    // whose default vhost does not cover the name fails the handshake
-    // with a certificate mismatch, which `_retryEligible` advances past
-    // on this tier; dohRealSni keeps the real-SNI escape hatch.
-    if (purpose == PixivDestinationPurpose.image &&
-        !PixivClientIdentity.downloadHosts.contains(
-          destination.canonicalHost,
-        )) {
-      return [NetworkRouteKind.noSni, NetworkRouteKind.dohRealSni];
+    // mirror. `direct` leads, in every mode: a mirror exists to be reached
+    // directly (pixiv.re and pixiv.nl are, from the mainland), and both
+    // other tiers wait on DoH, which the mainland often cannot reach.
+    // `noSni` serves a single-tenant reverse proxy whose name is
+    // SNI-blocked: its default vhost still presents a valid certificate
+    // for the mirror name (Cloudflare-hosted mirrors refuse an empty SNI).
+    // A default vhost that does not cover the name fails with a
+    // certificate mismatch, which `_retryEligible` advances past on this
+    // tier; dohRealSni keeps the real-SNI escape hatch. No bootstrapNoSni:
+    // mirrors have no known origin address.
+    if (isImageMirror(purpose, destination.canonicalHost)) {
+      return [
+        NetworkRouteKind.direct,
+        NetworkRouteKind.noSni,
+        NetworkRouteKind.dohRealSni,
+      ];
     }
     final isCloudflareHost = switch (purpose) {
       PixivDestinationPurpose.appApi ||
