@@ -22,6 +22,7 @@ import 'haptics/haptics_driver.dart';
 import 'motion/motion_tokens.dart';
 import 'scroll_behavior.dart';
 import 'system_ui.dart';
+import 'navigation/keyboard_back.dart';
 import 'navigation/routes.dart';
 import 'startup_gate.dart';
 import 'touch_exploration_scope.dart';
@@ -305,7 +306,7 @@ class AppChrome extends ConsumerWidget {
               child: ExternalIntentBridge(
                 router: router,
                 intentSource: intentSource,
-                child: child,
+                child: KeyboardBack(router: router, child: child),
               ),
             ),
           ),

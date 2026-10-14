@@ -253,3 +253,25 @@ reviewed: 2026-10-14
   rail beside the text.
 - **Check:** `test/home_branch_stack_test.dart` "a turned phone gets a scrolling icon rail"; `test/novel_reader_stage_test.dart` "the current reader hides the shell rail"; `test/layout_breakpoints_test.dart` "extended rail waits for the extra-large boundary"
 - **Code:** `lib/app/layout/app_breakpoints.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/home_shell_metrics.dart`
+
+### NAV-21 A resize keeps every branch, its stack and its place
+- **Rule:** Turning, folding or dragging the window keeps the shell's
+  branches, their pushed pages and scroll offsets: switching between the
+  bar and the rail reparents the branch Navigators (their GlobalKeys)
+  instead of rebuilding them. A two-pane detail keeps its page.
+- **Why:** Desktop-class windows resize all the time; losing the open page
+  or the scroll on each resize would make the rail unusable.
+- **Check:** `test/home_branch_stack_test.dart` "a resize keeps every branch, its stack and its scroll"; `test/illust_detail_actions_test.dart` "arrow keys page the image pane; a resize keeps the page"
+- **Code:** `lib/app/widgets/home_branch_stack.dart`
+
+### NAV-22 Esc goes back
+- **Rule:** `KeyboardBack` maps Esc to the router's `popRoute`, the path
+  the system back takes, so dialogs, PopScope and the shell's return to
+  the first destination behave the same. In a text field Esc only leaves
+  the field; at the first destination's root it does nothing. Esc gets
+  its own intent: every page route answers `DismissIntent` with a
+  disabled action, which stops the lookup there.
+- **Why:** With a keyboard there was no way back but the on-screen
+  arrow.
+- **Check:** `test/home_branch_stack_test.dart` "Esc goes back as the system back does, short of leaving"
+- **Code:** `lib/app/navigation/keyboard_back.dart`, `lib/app/app.dart`

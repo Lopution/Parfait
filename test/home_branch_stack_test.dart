@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
+import 'package:parfait/app/navigation/keyboard_back.dart';
 import 'package:parfait/app/touch_exploration_scope.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/app/widgets/home_branch_stack.dart';
@@ -44,7 +46,10 @@ Future<GoRouter> _pumpHome(
   final router = pixivRouter(location);
   Widget app = localizedRouterApp(
     router,
-    builder: (context, child) => TouchExplorationScope(child: child!),
+    builder: (context, child) => KeyboardBack(
+      router: router,
+      child: TouchExplorationScope(child: child!),
+    ),
   );
   if (reduceMotion) {
     app = MotionScope(reduce: true, child: app);
@@ -235,6 +240,89 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(tester.state<ScrollableState>(scrollable).position.pixels, position);
+  });
+
+  testWidgets('a resize keeps every branch, its stack and its scroll', (
+    tester,
+  ) async {
+    final router = await _pumpHome(tester);
+    final recommended = tester.state(find.byType(RecommendedHomePage));
+    _select(tester, 4);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    unawaited(router.push<void>('/settings/all'));
+    await tester.pumpAndSettle();
+    final settings = find.byType(SettingsPage);
+    await tester.drag(
+      find.descendant(of: settings, matching: find.byType(ListView)),
+      const Offset(0, -120),
+    );
+    await tester.pumpAndSettle();
+    double offset() => tester
+        .state<ScrollableState>(
+          find
+              .descendant(of: settings, matching: find.byType(Scrollable))
+              .first,
+        )
+        .position
+        .pixels;
+    final scrolled = offset();
+
+    // Unfolding: the rail replaces the bottom bar around the same branches.
+    setViewSize(tester, const Size(1280, 800));
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(offset(), scrolled);
+    expect(
+      tester.state(find.byType(RecommendedHomePage, skipOffstage: false)),
+      same(recommended),
+    );
+  });
+
+  testWidgets('Esc goes back as the system back does, short of leaving', (
+    tester,
+  ) async {
+    final router = await _pumpHome(tester);
+    unawaited(router.push<void>('/recommended/search/input'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+    bool editing() =>
+        primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() !=
+        null;
+    expect(editing(), isTrue);
+
+    // The first Esc only leaves the field; the next one leaves the page.
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(editing(), isFalse);
+    expect(find.byType(SearchInputPage), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.byType(SearchInputPage), findsNothing);
+    expect(find.byType(RecommendedHomePage), findsOneWidget);
+
+    // The first destination's root: nothing to go back to, the app stays.
+    final calls = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        calls.add(call);
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(calls.map((c) => c.method), isNot(contains('SystemNavigator.pop')));
+    expect(find.byType(RecommendedHomePage), findsOneWidget);
   });
 
   testWidgets('cold start builds no unvisited branch', (tester) async {

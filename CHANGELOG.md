@@ -13,6 +13,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - R-18G 排行为空时，提示需要在 pixiv 网页版的浏览设置里开启 R-18G，并附上设置页链接。
 - 底栏可以自定义：设置 → 导航与布局 → 底栏项目里拖动排序、关掉不用的页面（"我的"始终保留，至少留 2 项）。不在底栏的页面会出现在"我的"页里；搜索不在底栏时，推荐页顶栏会出现搜索按钮。
 - 可以选择启动页：底栏第一项、上次停留的页，或指定某一页。返回键会回到底栏第一项，再按一次退出。
+- 接上鼠标或键盘时：右键等同长按（作品卡、标签、历史、下载任务等）；鼠标悬停在作品卡上会高亮；列表显示滚动条；按 Esc 返回上一页（在输入框里按 Esc 先收起输入）。
 
 ### 变更
 
@@ -44,6 +45,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - An empty R-18G ranking now explains that R-18G must be turned on in pixiv's web viewing settings, with a link to that page.
 - The bottom bar can be customized: under Settings → Navigation & layout → Bottom bar items, drag to reorder and switch off pages you don't use (Me always stays, and at least 2 items remain). Pages off the bar appear on the Me page; while Search is off the bar, the For you top bar shows a search button.
 - Choose the start page: the first bar item, the last used page, or a specific page. Back returns to the first bar item, and once more leaves the app.
+- With a mouse or keyboard: right-click does what a long press does (work cards, tags, history, downloads and more), work cards highlight under the pointer, lists show a scrollbar, and Esc goes back (in a text field it first leaves the field).
 
 ### Changed
 

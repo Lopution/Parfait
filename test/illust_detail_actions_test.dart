@@ -29,6 +29,7 @@ import 'helpers/detail_world.dart';
 import 'helpers/download_world.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/view_size.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_detail_page_support.dart';
@@ -558,10 +559,17 @@ void main() {
       );
     });
 
-    testWidgets('arrow keys page the image pane', (tester) async {
+    testWidgets('arrow keys page the image pane; a resize keeps the page', (
+      tester,
+    ) async {
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container, surface: const Size(1400, 900));
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(find.text('2 / 2'), findsOneWidget);
+      // A dragged window or a folding tablet: still two panes, same page.
+      setViewSize(tester, const Size(1000, 640));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
       expect(find.text('2 / 2'), findsOneWidget);
