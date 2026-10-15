@@ -5,6 +5,7 @@ applies_to:
   - lib/app/widgets/**
   - lib/core/platform/native_warmup.dart
   - lib/core/platform/app_root_pipeline_owner.dart
+  - lib/app/navigation/route_animation.dart
 reviewed: 2026-10-12
 ---
 
@@ -116,13 +117,17 @@ reviewed: 2026-10-12
   aspect getters (`sizeOf`, `maybeDisableAnimationsOf`, …), never
   `MediaQuery.of`. They do not depend on `TickerMode.valuesOf`; they mix in
   `TickerModeWatch` and rebuild in `didChangeTickerMode` only when their
-  output changes.
+  output changes. A widget that only listens to its route's transition
+  takes the animation from `RouteAnimationScope.of`, never
+  `ModalRoute.of(context)?.animation`.
 - **Why:** Dart runs on the Android main thread, and with an accessibility
   service on (the user runs one permanently) every semantics change is
   re-read there. Whole-object dependencies rebuilt every card on each
-  inset change or route cover.
-- **Check:** `test/motion_test.dart` "does not rebuild on unrelated MediaQuery changes"
-- **Code:** `lib/app/motion/motion_tokens.dart`, `lib/app/motion/press_scale.dart`, `lib/app/pixiv_image.dart`
+  inset change or route cover. `ModalRoute.of` rebuilds its caller whenever
+  `isCurrent` flips: a leaving detail page and both neighbours rebuilt in
+  full in the first frame of every back transition.
+- **Check:** `test/motion_test.dart` "does not rebuild on unrelated MediaQuery changes"; `test/func_page_test.dart` "a page reading its route animation is not rebuilt as its route is covered, uncovered or popped"
+- **Code:** `lib/app/motion/motion_tokens.dart`, `lib/app/motion/press_scale.dart`, `lib/app/pixiv_image.dart`, `lib/app/navigation/route_animation.dart`
 
 ### MOTION-11 Fades keep semantics; progress moves in steps
 - **Rule:** Opacity-driven entrances pass `alwaysIncludeSemantics: true`.

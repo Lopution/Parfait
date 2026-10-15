@@ -12,6 +12,7 @@ import '../../../app/motion/drag_to_dismiss.dart';
 import '../../../app/haptics/app_haptics.dart';
 import '../../../app/motion/app_overlays.dart';
 import '../../../app/motion/motion_tokens.dart';
+import '../../../app/navigation/route_animation.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/pixiv_image.dart';
@@ -1073,7 +1074,7 @@ class _ExitSlideState extends State<_ExitSlide> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final route = ModalRoute.of(context)?.animation;
+    final route = RouteAnimationScope.of(context);
     if (identical(route, _route)) return;
     _route?.removeStatusListener(_onStatus);
     _route = route?..addStatusListener(_onStatus);

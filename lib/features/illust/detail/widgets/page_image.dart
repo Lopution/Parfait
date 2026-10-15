@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/motion/hero_transition.dart';
 import '../../../../app/motion/motion_tokens.dart';
 import '../../../../app/motion/state_icon_switcher.dart';
+import '../../../../app/navigation/route_animation.dart';
 import '../../../../app/pixiv_image.dart';
 import '../../../../app/theme/func_tokens.dart';
 import '../../../../core/entity/illust_entity.dart';
@@ -119,7 +120,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final animation = ModalRoute.of(context)?.animation;
+    final animation = RouteAnimationScope.of(context);
     if (identical(animation, _routeAnimation)) return;
 
     _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);

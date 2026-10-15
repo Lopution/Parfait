@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../app/haptics/app_haptics.dart';
+import '../../../app/navigation/route_animation.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/theme/func_tokens.dart';
@@ -138,7 +139,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final animation = ModalRoute.of(context)?.animation;
+    final animation = RouteAnimationScope.of(context);
     if (identical(animation, _routeAnimation)) return;
     _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
     _routeAnimation = animation;

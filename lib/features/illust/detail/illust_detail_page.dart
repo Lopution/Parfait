@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import '../../../app/navigation/route_animation.dart';
 import '../../../app/widgets/app_top_bar.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart'
@@ -271,7 +272,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     _touchExploration = MediaQuery.accessibleNavigationOf(context);
     if (_touchExploration) _barVisibility.value = 1;
     _topBarEntrance.duration = MotionTokens.resolve(context, MotionTokens.fast);
-    final route = ModalRoute.of(context)?.animation;
+    final route = RouteAnimationScope.of(context);
     if (!identical(route, _routeAnimation)) {
       _routeAnimation?.removeStatusListener(_onRouteStatus);
       _routeAnimation = route?..addStatusListener(_onRouteStatus);
