@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui' show FramePhase, SemanticsUpdate;
+import 'dart:ui' show FramePhase;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -546,37 +546,6 @@ class UiFrame {
         'sem ${_ms(this[UiPhase.semantics])} '
         'post ${_ms(math.max(0, this[UiPhase.frame] - draw))}';
   }
-}
-
-/// Root pipeline owner that times its flushes for [FrameProbe]. Stands in
-/// for the framework's default root owner (which manages no render node of
-/// its own) only in builds that can record; the flushes still recurse into
-/// the views' child owners exactly as before.
-final class ProbedRootPipelineOwner extends PipelineOwner {
-  ProbedRootPipelineOwner() : super(onSemanticsUpdate: _noRootSemantics);
-
-  // The root owner has no root node, so it never produces semantics.
-  static void _noRootSemantics(SemanticsUpdate _) {}
-
-  @override
-  void flushLayout() =>
-      FrameProbe.instance.timePhase(UiPhase.layout, () => super.flushLayout());
-
-  @override
-  void flushCompositingBits() => FrameProbe.instance.timePhase(
-    UiPhase.paint,
-    () => super.flushCompositingBits(),
-  );
-
-  @override
-  void flushPaint() =>
-      FrameProbe.instance.timePhase(UiPhase.paint, () => super.flushPaint());
-
-  @override
-  void flushSemantics() => FrameProbe.instance.timePhase(
-    UiPhase.semantics,
-    () => super.flushSemantics(),
-  );
 }
 
 /// Layer-tree counts for one frame: the kinds that make the raster thread

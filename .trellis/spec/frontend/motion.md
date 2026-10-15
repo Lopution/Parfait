@@ -4,6 +4,7 @@ applies_to:
   - lib/app/motion/**
   - lib/app/widgets/**
   - lib/core/platform/native_warmup.dart
+  - lib/core/platform/app_root_pipeline_owner.dart
 reviewed: 2026-10-12
 ---
 
@@ -140,3 +141,18 @@ reviewed: 2026-10-12
   one-second still threshold never fired.
 - **Check:** manual
 - **Code:** `lib/core/platform/native_warmup.dart`
+
+### MOTION-13 Semantics reach the platform at most every 100 ms
+- **Rule:** The root pipeline owner pushes semantics at most once per
+  `kSemanticsPushInterval` (100 ms, Android's interval for recurring
+  accessibility events). A frame inside the interval skips the flush and a
+  timer requests the frame that sends the last change. Tests that read
+  semantics right after an interaction keep the default test binding; only
+  the throttle's own test installs this owner.
+- **Why:** Flutter pushed every changed node each frame, and the embedding
+  sent two accessibility events per push. With a service on, a scrolling
+  feed spent about 2 ms of each frame there and missed about one frame in
+  every two seconds of fling; a native client pulls nodes on demand and
+  throttles its events.
+- **Check:** `test/semantics_push_throttle_test.dart`
+- **Code:** `lib/core/platform/app_root_pipeline_owner.dart`
