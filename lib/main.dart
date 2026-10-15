@@ -13,6 +13,7 @@ import 'core/debug/frame_probe.dart';
 import 'core/image/legacy_image_cache.dart';
 import 'core/logging/crash_log.dart';
 import 'core/network/rhttp_gate.dart';
+import 'core/platform/app_root_pipeline_owner.dart';
 import 'core/platform/native_warmup.dart';
 import 'core/platform/platform_caps.dart';
 import 'package:path_provider/path_provider.dart';
@@ -63,11 +64,12 @@ class _ParfaitBinding extends WidgetsFlutterBinding {
     }
   }
 
+  // Throttles semantics pushes to the platform; see AppRootPipelineOwner.
+  @override
+  PipelineOwner createRootPipelineOwner() => AppRootPipelineOwner();
+
   // Frame-probe hooks: split each frame's UI-thread time by phase while the
   // probe records. When it does not, each hook is a plain super call.
-  @override
-  PipelineOwner createRootPipelineOwner() => ProbedRootPipelineOwner();
-
   @override
   void handleBeginFrame(Duration? rawTimeStamp) {
     FrameProbe.instance
