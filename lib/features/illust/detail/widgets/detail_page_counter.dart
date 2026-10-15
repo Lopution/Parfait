@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../app/motion/motion_tokens.dart';
+import '../../../../app/navigation/route_animation.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
 import '../../../../app/theme/func_tokens.dart';
 import '../../../../l10n/context.dart';
@@ -60,7 +61,7 @@ class _DetailPageCounterState extends State<DetailPageCounter>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _fade.duration = MotionTokens.resolve(context, MotionTokens.fast);
-    final animation = ModalRoute.of(context)?.animation;
+    final animation = RouteAnimationScope.of(context);
     if (!identical(animation, _routeAnimation)) {
       _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
       _routeAnimation = animation;

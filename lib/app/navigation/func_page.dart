@@ -13,6 +13,7 @@ import '../../core/settings/app_settings.dart' show PageTransitionStyle;
 import '../motion/motion_tokens.dart';
 import '../motion/page_transitions.dart';
 import '../widgets/home_branch_stack.dart' show BranchActivityScope;
+import 'route_animation.dart';
 
 /// The app's standard route page, animated by [transitionStyle]:
 /// - [PageTransitionStyle.system]: Android gets
@@ -146,10 +147,13 @@ class _FuncPageRoute<T> extends PageRoute<T> {
     BuildContext context,
     Animation<double> animation,
     Animation<double> secondaryAnimation,
-  ) => Semantics(
-    scopesRoute: true,
-    explicitChildNodes: true,
-    child: _page.child,
+  ) => RouteAnimationScope(
+    animation: animation,
+    child: Semantics(
+      scopesRoute: true,
+      explicitChildNodes: true,
+      child: _page.child,
+    ),
   );
 
   @override

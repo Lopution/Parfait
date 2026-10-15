@@ -9,6 +9,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/navigation/func_page.dart';
+import 'package:parfait/app/navigation/route_animation.dart';
 import 'package:parfait/app/widgets/home_branch_stack.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/profile/profile_edit_controller.dart';
@@ -147,6 +148,52 @@ ModalRoute<dynamic> _routeOf(WidgetTester tester, Finder finder) =>
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets(
+    'a page reading its route animation is not rebuilt as its route is covered, uncovered or popped',
+    (tester) async {
+      final builds = <Animation<double>?>[];
+      final route = await _pushSecondPage(
+        tester,
+        second: _RouteAnimationProbe(builds),
+      );
+      expect(builds.single, same(route.animation));
+
+      // Each step flips the route's isCurrent, which rebuilt every
+      // ModalRoute.of reader: the leaving detail page and both neighbours.
+      final navigator = route.navigator!;
+      unawaited(
+        navigator.push(
+          const FuncPage<void>(
+            child: Text('page c'),
+          ).createRoute(tester.element(find.text('page b'))),
+        ),
+      );
+      await tester.pumpAndSettle();
+      navigator.pop();
+      await tester.pumpAndSettle();
+      navigator.pop();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(builds, hasLength(1));
+    },
+  );
+
+  testWidgets('inside a nested Navigator the route animation is the inner '
+      "route's, not the enclosing page's", (tester) async {
+    final builds = <Animation<double>?>[];
+    final outer = await _pushSecondPage(
+      tester,
+      second: Navigator(
+        onGenerateRoute: (_) => PageRouteBuilder<void>(
+          pageBuilder: (_, _, _) => _RouteAnimationProbe(builds),
+        ),
+      ),
+    );
+    final inner = ModalRoute.of(tester.element(find.text('page b')))!;
+    expect(inner, isNot(same(outer)));
+    expect(builds.single, same(inner.animation));
+  });
 
   testWidgets('a throwing back-gesture commit releases the Navigator', (
     tester,
@@ -615,4 +662,30 @@ class _TickerProbeState extends State<_TickerProbe>
 
   @override
   Widget build(BuildContext context) => const Text('page b');
+}
+
+/// Records the route animation it sees on every build.
+class _RouteAnimationProbe extends StatefulWidget {
+  const _RouteAnimationProbe(this.builds);
+
+  final List<Animation<double>?> builds;
+
+  @override
+  State<_RouteAnimationProbe> createState() => _RouteAnimationProbeState();
+}
+
+class _RouteAnimationProbeState extends State<_RouteAnimationProbe> {
+  Animation<double>? _animation;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _animation = RouteAnimationScope.of(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    widget.builds.add(_animation);
+    return const Text('page b');
+  }
 }
