@@ -110,6 +110,8 @@ class ProfileIllustFeed extends ConsumerWidget {
                     pagerLoadMore: () => ref
                         .read(profileIllustFeedProvider(feedKey).notifier)
                         .loadMore(),
+                    warmTexts: (context, index) =>
+                        IllustCard.warmTexts(context, visibleEntities[index]),
                     itemBuilder: (context, index) => IllustCard(
                       entity: visibleEntities[index],
                       heroScope:

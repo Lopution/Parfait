@@ -21,6 +21,7 @@ import '../../widgets/bookmark_switch_button.dart';
 import '../card_actions/card_action_sheet.dart';
 import '../entity_row.dart';
 import 'feed_grid.dart';
+import 'feed_text_warmup.dart';
 import 'illust_card_layout.dart';
 import 'muted_cover.dart';
 import '../../haptics/app_haptics.dart';
@@ -62,6 +63,35 @@ class IllustCard extends StatefulWidget {
   /// Management pages (history selection mode) supply their own so the
   /// gesture enters selection instead of opening actions.
   final VoidCallback? onLongPress;
+
+  /// The title and author lines exactly as a card for [entity] lays them
+  /// out under [context], for [FeedTextWarmup].
+  static List<WarmText> warmTexts(BuildContext context, IllustEntity entity) {
+    var base = DefaultTextStyle.of(context).style;
+    // Text applies the platform's bold-text setting on top of the style.
+    if (MediaQuery.boldTextOf(context)) {
+      base = base.merge(const TextStyle(fontWeight: FontWeight.bold));
+    }
+    return [
+      (
+        text: entity.title,
+        style: base.merge(_titleStyle(context)),
+        locale: contentLocale(context, entity.title),
+      ),
+      (
+        text: entity.user.name,
+        style: base.merge(_authorStyle(context)),
+        locale: contentLocale(context, entity.user.name),
+      ),
+    ];
+  }
+
+  static TextStyle _titleStyle(BuildContext context) => FuncSemanticTokens.of(
+    context,
+  ).label.copyWith(fontWeight: FontWeight.bold);
+
+  static TextStyle _authorStyle(BuildContext context) =>
+      FuncSemanticTokens.of(context).caption;
 
   @override
   State<IllustCard> createState() => _IllustCardState();
@@ -337,7 +367,7 @@ class _IllustCardBody extends ConsumerWidget {
                       locale: contentLocale(context, entity.user.name),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: FuncSemanticTokens.of(context).caption,
+                      style: IllustCard._authorStyle(context),
                     ),
                   ],
                 ),
@@ -357,9 +387,7 @@ class _IllustCardBody extends ConsumerWidget {
       locale: contentLocale(context, entity.title),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: FuncSemanticTokens.of(
-        context,
-      ).label.copyWith(fontWeight: FontWeight.bold),
+      style: IllustCard._titleStyle(context),
     );
     final rank = this.rank;
     if (rank == null) return title;

@@ -132,6 +132,8 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
           mainAxisSpacing: _gridMainAxisSpacing,
           itemIds: [for (final e in illusts) e.id],
           itemCount: illusts.length,
+          warmTexts: (context, index) =>
+              IllustCard.warmTexts(context, illusts[index]),
           itemBuilder: (context, index) => IllustCard(
             entity: illusts[index],
             // Same heroScope the detail page receives when a tile is

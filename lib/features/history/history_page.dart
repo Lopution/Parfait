@@ -380,6 +380,16 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
                   padding: const EdgeInsets.all(FuncSpacing.sm),
                   mainAxisSpacing: FuncSpacing.sm,
                   itemCount: entries.length,
+                  warmTexts: (context, index) {
+                    final record = entries[index].record;
+                    final entity =
+                        record.contentType == HistoryContentType.illust
+                        ? ref.read(illustStoreProvider).get(record.contentId)
+                        : null;
+                    return entity == null
+                        ? const []
+                        : IllustCard.warmTexts(context, entity);
+                  },
                   itemBuilder: (context, index) => Removable(
                     id: entries[index].key,
                     style: RemovalStyle.tile,

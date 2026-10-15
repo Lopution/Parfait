@@ -395,6 +395,8 @@ class _NewFeedBody extends ConsumerWidget {
           itemCount: entities.length,
           pagerLoadMore: () =>
               ref.read(newFeedProvider(feedKey).notifier).loadMore(),
+          warmTexts: (context, index) =>
+              IllustCard.warmTexts(context, entities[index]),
           itemBuilder: (context, index) => IllustCard(
             entity: entities[index],
             heroScope: 'new:${feedKey.scope.name}:${feedKey.type.name}',

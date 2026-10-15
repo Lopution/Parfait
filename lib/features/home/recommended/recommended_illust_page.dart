@@ -122,6 +122,8 @@ class RecommendedIllustPage extends ConsumerWidget {
                       pagerLoadMore: () => ref
                           .read(recommendedIllustControllerProvider.notifier)
                           .loadMore(),
+                      warmTexts: (context, index) =>
+                          IllustCard.warmTexts(context, entities[index]),
                       itemBuilder: (context, index) => IllustCard(
                         entity: entities[index],
                         heroScope: 'recommended:illust',

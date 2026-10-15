@@ -162,6 +162,11 @@ class _WatchLaterPageState extends ConsumerState<WatchLaterPage> {
                                 mainAxisSpacing: FuncSpacing.sm,
                                 itemIds: [for (final e in list) e.entity.id],
                                 itemCount: list.length,
+                                warmTexts: (context, index) =>
+                                    IllustCard.warmTexts(
+                                      context,
+                                      list[index].entity,
+                                    ),
                                 itemBuilder: (context, index) {
                                   final id = list[index].entity.id;
                                   return Removable(

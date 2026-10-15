@@ -27,15 +27,7 @@ class MainActivity : FlutterActivity() {
         WebProfileChannel.configure(this, flutterEngine)
         HapticsChannel.configure(this, flutterEngine)
         AccessibilityChannel.configure(this, flutterEngine)
-        ContentFontPrefetcher.configure(flutterEngine)
         RemovedWidgetCleanup.runInBackground(this)
-    }
-
-    override fun onStart() {
-        super.onStart()
-        // Cold start and every return to the foreground: reclaim may have
-        // dropped the font pages while the app was away.
-        ContentFontPrefetcher.prefetch()
     }
 
     // Android 10+ lets only the focused app see the clipboard, so an
