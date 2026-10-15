@@ -543,6 +543,8 @@ class _IllustSearchFeed extends ConsumerWidget {
                 itemCount: entities.length,
                 pagerLoadMore: () =>
                     ref.read(searchFeedProvider(query).notifier).loadMore(),
+                warmTexts: (context, index) =>
+                    IllustCard.warmTexts(context, entities[index]),
                 itemBuilder: (context, index) => IllustCard(
                   entity: entities[index],
                   heroScope: 'search:${query.cacheKey}',

@@ -142,6 +142,8 @@ class _RankingModeBody extends ConsumerWidget {
                     pagerLoadMore: () => ref
                         .read(rankingFeedControllerProvider(feedKey).notifier)
                         .loadMore(),
+                    warmTexts: (context, index) =>
+                        IllustCard.warmTexts(context, entities[index]),
                     itemBuilder: (context, index) => IllustCard(
                       entity: entities[index],
                       heroScope: 'ranking:$_listId',

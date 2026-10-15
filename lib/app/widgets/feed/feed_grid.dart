@@ -5,8 +5,8 @@ import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
-import '../../../core/platform/content_font_prefetch.dart';
 import '../../theme/func_semantic_tokens.dart';
+import 'feed_text_warmup.dart';
 
 /// Minimum card width used to derive the masonry column count.
 const _kMinCardExtent = 180.0;
@@ -121,6 +121,7 @@ class IllustFeedGrid extends StatefulWidget {
     this.crossAxisSpacing = defaultCrossAxisSpacing,
     this.itemIds,
     this.pagerLoadMore,
+    this.warmTexts,
   });
 
   final int itemCount;
@@ -145,6 +146,11 @@ class IllustFeedGrid extends StatefulWidget {
   /// leave it null.
   final VoidCallback? pagerLoadMore;
 
+  /// The text lines of the card at an index, as the card lays them out
+  /// (`IllustCard.warmTexts`). New items' lines are laid out between frames
+  /// before their cards are built ([FeedTextWarmup]).
+  final List<WarmText> Function(BuildContext context, int index)? warmTexts;
+
   @override
   State<IllustFeedGrid> createState() => _IllustFeedGridState();
 }
@@ -155,13 +161,16 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
   /// route's, not the widget's.
   final _pagerSource = IllustPagerSource();
 
+  final _warmup = FeedTextWarmup();
+  int _warmedCount = 0;
+  int? _warmedHead;
+
   @override
   void initState() {
     super.initState();
     _pagerSource
       ..onNearEnd = widget.pagerLoadMore
       ..update(widget.itemIds ?? const []);
-    if (widget.itemCount > 0) requestContentFontPrefetch();
   }
 
   @override
@@ -170,12 +179,40 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
     _pagerSource
       ..onNearEnd = widget.pagerLoadMore
       ..update(widget.itemIds ?? const []);
-    // A page of new titles is about to be laid out.
-    if (widget.itemCount > oldWidget.itemCount) requestContentFontPrefetch();
+  }
+
+  @override
+  void dispose() {
+    _warmup.dispose();
+    super.dispose();
+  }
+
+  /// Queues the lines of items not queued yet; a feed whose head changed
+  /// (a refresh) starts over.
+  void _queueWarmup(BuildContext context) {
+    final warmTexts = widget.warmTexts;
+    if (warmTexts == null) return;
+    final head = widget.itemIds?.firstOrNull;
+    if (head != _warmedHead || widget.itemCount < _warmedCount) {
+      _warmup.clear();
+      _warmedCount = 0;
+      _warmedHead = head;
+    }
+    if (widget.itemCount == _warmedCount) return;
+    _warmup.add(
+      [
+        for (var i = _warmedCount; i < widget.itemCount; i++)
+          ...warmTexts(context, i),
+      ],
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: Directionality.of(context),
+    );
+    _warmedCount = widget.itemCount;
   }
 
   @override
   Widget build(BuildContext context) {
+    _queueWarmup(context);
     final horizontal = widget.padding
         .resolve(Directionality.of(context))
         .horizontal;

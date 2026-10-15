@@ -74,15 +74,21 @@ reviewed: 2026-10-13
 - **Check:** manual
 - **Code:** `lib/app/widgets/feed/feed_grid.dart`
 
-### FEED-06 Content text in a fling path warms its fonts
+### FEED-06 Card text is laid out between frames before its card
 - **Rule:** Content text on feed cards sets
-  `locale: contentLocale(context, text)`. A new surface that lays out
-  content text while scrolling calls `requestContentFontPrefetch()` or
-  reuses `IllustFeedGrid`.
-- **Why:** An untouched glyph page (Japanese on a zh device, emoji) was a
-  2–8 ms synchronous storage read per paragraph during a fling.
-- **Check:** manual
-- **Code:** `lib/app/format/content_locale.dart`, `lib/core/platform/content_font_prefetch.dart`
+  `locale: contentLocale(context, text)`. Every `IllustFeedGrid` of
+  `IllustCard`s passes `warmTexts: IllustCard.warmTexts(...)`, and a card's
+  text styles live only in `IllustCard`, shared by the card and the warmup.
+  `FeedTextWarmup` lays out one line per gap, right after a frame that
+  started at most `vsync - itemCost` earlier, never inside a frame and
+  never at idle priority. Fonts are not prefetched as whole files.
+- **Why:** A first-time glyph reads its outline from the font file; under
+  memory pressure those pages are evicted within about 30 s, and the read
+  was a 2–4 ms wait inside the frame that built the card. Whole-file
+  prefetch (31 MB per 40 s) was evicted before use and still missed;
+  warming the exact lines left no in-frame reads on device.
+- **Check:** `test/feed_text_warmup_test.dart`
+- **Code:** `lib/app/widgets/feed/feed_text_warmup.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/format/content_locale.dart`
 
 ## Pull to refresh
 
