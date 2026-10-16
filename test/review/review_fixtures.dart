@@ -175,7 +175,8 @@ Map<String, dynamic> reviewCommentJson(
   'id': id,
   'comment': 'comment $id on $workId',
   'date': '2026-09-01T10:00:00+09:00',
-  'user': reviewUserJson(7000 + id),
+  // The signed-in reviewer (user 100) wrote comment 2.
+  'user': reviewUserJson(id == 2 ? 100 : 7000 + id),
   'has_replies': id == 1,
   if (stampUrl != null) 'stamp': {'stamp_url': stampUrl},
 };

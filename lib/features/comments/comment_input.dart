@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../app/motion/motion_tokens.dart';
+import '../../app/motion/state_fade.dart';
 import '../../app/pixiv_image.dart';
 import '../../core/comments/comment_assets.dart';
 import '../../l10n/context.dart';
@@ -39,16 +42,33 @@ class CommentComposer extends StatefulWidget {
   State<CommentComposer> createState() => CommentComposerState();
 }
 
-class CommentComposerState extends State<CommentComposer> {
+class CommentComposerState extends State<CommentComposer>
+    with SingleTickerProviderStateMixin {
   /// Panel height before any real keyboard height is sampled — close to a
   /// typical soft-keyboard height.
   static const _fallbackPanelHeight = 280.0;
+
+  /// How long a panel holds its height for a keyboard that may not come (a
+  /// hardware keyboard, a floating IME): longer than an IME slides in.
+  static const _keyboardHoldTimeout = Duration(milliseconds: 600);
 
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   CommentComposerInputState _inputState = CommentComposerInputState.none;
   double _cachedKeyboardHeight = 0;
   bool _busy = false;
+
+  /// How much of the panel height the bottom slot shows: 0 none, 1 all.
+  late final AnimationController _panelReveal = AnimationController(
+    vsync: this,
+  );
+
+  /// The panel the slot draws; kept through the collapse after the state
+  /// has left it.
+  CommentComposerInputState _shownPanel = CommentComposerInputState.emoji;
+
+  /// Runs while a panel waits for the keyboard to cover it.
+  Timer? _keyboardHold;
 
   bool get _disabled => widget.sending || _busy;
 
@@ -71,29 +91,87 @@ class CommentComposerState extends State<CommentComposer> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // The keyboard has risen over the held panel: nothing of it shows any
+    // more, so it goes at once.
+    final hold = _keyboardHold;
+    if (hold != null &&
+        hold.isActive &&
+        MediaQuery.viewInsetsOf(context).bottom >=
+            _panelHeight * _panelReveal.value) {
+      hold.cancel();
+      _panelReveal.value = 0;
+    }
+  }
+
+  @override
   void dispose() {
+    _keyboardHold?.cancel();
+    _panelReveal.dispose();
     _focusNode.removeListener(_onFocusChange);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
   }
 
+  double get _panelHeight =>
+      math.max(_cachedKeyboardHeight, _fallbackPanelHeight);
+
   /// Reply-pill entry point: converge to the keyboard leg — an open panel is
   /// replaced by the IME — and focus the field.
   void focusForReply() => _showKeyboard();
 
   void _showKeyboard() {
-    setState(() => _inputState = CommentComposerInputState.keyboard);
+    _enter(CommentComposerInputState.keyboard);
     _focusNode.requestFocus();
   }
 
   void _onFocusChange() {
     if (_focusNode.hasFocus) {
       if (_inputState != CommentComposerInputState.keyboard) {
-        setState(() => _inputState = CommentComposerInputState.keyboard);
+        _enter(CommentComposerInputState.keyboard);
       }
     } else if (_inputState == CommentComposerInputState.keyboard) {
-      setState(() => _inputState = CommentComposerInputState.none);
+      _enter(CommentComposerInputState.none);
+    }
+  }
+
+  /// Moves to [next] and plays the panel's part of it. A panel opens from
+  /// whatever height is already there (the keyboard's, when it replaces
+  /// the keyboard) and closes on the sheet spring. A panel giving way to
+  /// the keyboard holds still until the keyboard has risen over it, so the
+  /// input row never drops and climbs back.
+  void _enter(CommentComposerInputState next) {
+    setState(() {
+      _inputState = next;
+      if (_panelVisible) _shownPanel = next;
+    });
+    _keyboardHold?.cancel();
+    switch (next) {
+      case CommentComposerInputState.emoji || CommentComposerInputState.stamp:
+        final under = MediaQuery.viewInsetsOf(context).bottom / _panelHeight;
+        _panelReveal.value = math.max(_panelReveal.value, under);
+        _animatePanel(1);
+      case CommentComposerInputState.keyboard when _panelReveal.value > 0:
+        _panelReveal.stop();
+        _keyboardHold = Timer(_keyboardHoldTimeout, () => _animatePanel(0));
+      case CommentComposerInputState.keyboard:
+        break;
+      case CommentComposerInputState.none:
+        _animatePanel(0);
+    }
+  }
+
+  void _animatePanel(double target) {
+    final (duration, curve) = MotionTokens.springCurve(
+      context,
+      MotionSpring.spatialDefault,
+    );
+    if (duration == Duration.zero) {
+      _panelReveal.value = target;
+    } else {
+      _panelReveal.animateTo(target, duration: duration, curve: curve);
     }
   }
 
@@ -109,12 +187,7 @@ class CommentComposerState extends State<CommentComposer> {
     if (_focusNode.hasFocus && viewInsetsBottom > _cachedKeyboardHeight) {
       _cachedKeyboardHeight = viewInsetsBottom;
     }
-    final bottomExtent = math.max(
-      viewInsetsBottom,
-      _panelVisible
-          ? math.max(_cachedKeyboardHeight, _fallbackPanelHeight)
-          : 0.0,
-    );
+    final panelHeight = _panelHeight;
     return PopScope(
       // An open picker panel is a transient layer on this route: system back
       // collapses it instead of leaving (§5.4). The keyboard leg is never
@@ -122,7 +195,7 @@ class CommentComposerState extends State<CommentComposer> {
       canPop: !_panelVisible,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop || !mounted) return;
-        setState(() => _inputState = CommentComposerInputState.none);
+        _enter(CommentComposerInputState.none);
       },
       child: Material(
         color: theme.colorScheme.surface,
@@ -252,10 +325,31 @@ class CommentComposerState extends State<CommentComposer> {
               // IME rides over a plain spacer, and a panel swaps into the
               // same slot at keyboard height so IME ↔ panel switches do
               // not jump (the feed list is only compressed, never doubly
-              // padded — design 「避让责任唯一」).
-              SizedBox(
-                height: bottomExtent,
-                child: _panelVisible ? _buildPanel(context) : null,
+              // padded — design 「避让责任唯一」). A panel rises from the
+              // slot's bottom edge like the keyboard: its top shows first.
+              AnimatedBuilder(
+                animation: _panelReveal,
+                // Built per composer build, not per frame of the reveal.
+                child: StateFade(
+                  kind: _shownPanel,
+                  child: _buildPanel(context),
+                ),
+                builder: (context, panel) {
+                  final reveal = _panelReveal.value;
+                  return SizedBox(
+                    height: math.max(viewInsetsBottom, panelHeight * reveal),
+                    child: reveal == 0
+                        ? null
+                        : ClipRect(
+                            child: OverflowBox(
+                              alignment: Alignment.topCenter,
+                              minHeight: panelHeight,
+                              maxHeight: panelHeight,
+                              child: panel,
+                            ),
+                          ),
+                  );
+                },
               ),
             ],
           ),
@@ -265,7 +359,7 @@ class CommentComposerState extends State<CommentComposer> {
   }
 
   Widget _buildPanel(BuildContext context) {
-    final isEmoji = _inputState == CommentComposerInputState.emoji;
+    final isEmoji = _shownPanel == CommentComposerInputState.emoji;
     return LayoutBuilder(
       builder: (context, constraints) {
         // Width-driven columns: emoji cells keep a ~48dp touch target,
@@ -335,14 +429,14 @@ class CommentComposerState extends State<CommentComposer> {
   void _togglePanel(CommentComposerInputState panel) {
     if (_inputState == panel) {
       // Toggling the active panel's button rests the surface.
-      setState(() => _inputState = CommentComposerInputState.none);
+      _enter(CommentComposerInputState.none);
       return;
     }
     // Entering a panel releases the IME. The focus listener cannot race this:
-    // unfocus converges keyboard→none first, then this setState lands the
-    // panel state; in a panel state the listener is a no-op.
+    // the focus change reaches it after the panel state has landed, and in
+    // a panel state it is a no-op.
     _focusNode.unfocus();
-    setState(() => _inputState = panel);
+    _enter(panel);
   }
 
   void _insertEmoji(String name) {
@@ -385,9 +479,7 @@ class CommentComposerState extends State<CommentComposer> {
     setState(() => _busy = true);
     try {
       await widget.onStampSend(id);
-      if (mounted) {
-        setState(() => _inputState = CommentComposerInputState.none);
-      }
+      if (mounted) _enter(CommentComposerInputState.none);
     } on Object catch (error) {
       widget.onError?.call(error);
     } finally {

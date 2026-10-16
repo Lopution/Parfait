@@ -132,6 +132,9 @@ const _durationCensus = <String, int>{
   'lib/app/widgets/image_load_progress.dart': 1,
   // A section's automatic retry backoff: a request pace, not an animation.
   'lib/app/widgets/feed/feed_states.dart': 1,
+  // How long a composer panel waits for the keyboard to rise over it: a
+  // timeout on the IME, not an animation.
+  'lib/features/comments/comment_input.dart': 1,
   // How long a pager page stays settled before its sections may request:
   // a request gate, not an animation.
   'lib/features/illust/detail/illust_detail_pager_page.dart': 1,
