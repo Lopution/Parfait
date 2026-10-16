@@ -102,7 +102,7 @@ class _ImageLoadProgressOverlayState extends State<ImageLoadProgressOverlay> {
   Widget build(BuildContext context) {
     return IgnorePointer(
       child: AnimatedSwitcher(
-        duration: MotionTokens.resolve(context, MotionTokens.fast),
+        duration: MotionTokens.resolve(context, MotionTokens.stateFade),
         child: _visible
             ? Center(
                 child: ValueListenableBuilder(

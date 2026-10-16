@@ -6,7 +6,7 @@ applies_to:
   - lib/core/platform/native_warmup.dart
   - lib/core/platform/app_root_pipeline_owner.dart
   - lib/app/navigation/route_animation.dart
-reviewed: 2026-10-12
+reviewed: 2026-10-16
 ---
 
 # Motion, press feedback and the rebuild budget
@@ -25,10 +25,18 @@ reviewed: 2026-10-12
   setting and returns zero under reduced motion (platform
   `disableAnimations`, platform `reduceMotion`, or the in-app setting).
   Code above `MotionScope` uses `resolveWith`. Data timings (debounce,
-  throttles) are not tokens.
+  throttles) are not tokens. A token names what moves, never a general
+  speed: `stateFade` (150 ms, a small element's fade), `chrome` (200 ms,
+  bars showing and hiding), `spatial` (300 ms on
+  `Cubic(0.3, 0, 0.2, 1)`, a surface moving in place),
+  `MotionTokens.scrollToTop` (300 to 500 ms by distance, jumping to a
+  screen from the top first when farther), `themeChange`, `sheetExit`,
+  and the page, shared-element and component tokens.
 - **Why:** Hard-coded durations ignored the speed and reduced-motion
-  settings.
-- **Check:** `test/architecture/motion_census_test.dart` "duration tokens are read through MotionTokens.resolve", `test/architecture/feedback_channels_test.dart` "motion durations live only in MotionTokens (pinned census)"
+  settings. Two general tokens 20 ms apart ran a page counter fade, a
+  zoom and a scroll home alike (user feedback); M3 sizes a duration by
+  the area and distance that move, effects shorter than movement.
+- **Check:** `test/architecture/motion_census_test.dart` "duration tokens are read through MotionTokens.resolve", `test/architecture/feedback_channels_test.dart` "motion durations live only in MotionTokens (pinned census)", `test/home_branch_stack_test.dart` "a re-tap from"
 - **Code:** `lib/app/motion/motion_tokens.dart`
 
 ### MOTION-02 Reduced motion removes the flight, not the state

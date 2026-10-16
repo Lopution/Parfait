@@ -389,6 +389,38 @@ void main() {
     });
   });
 
+  // Within a screen the scroll grows from 300 to 500 ms with the distance;
+  // farther, the list jumps to a screen from the top and takes 500 ms.
+  for (final (from, firstFrameAt, ms) in [
+    (300.0, 300.0, 400),
+    (5000.0, 600.0, 500),
+  ]) {
+    testWidgets('a re-tap from $from scrolls home in $ms ms', (tester) async {
+      final controller = ScrollController(initialScrollOffset: from);
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            height: 600,
+            child: ListView.builder(
+              controller: controller,
+              itemExtent: 100,
+              itemCount: 100,
+              itemBuilder: (_, i) => Text('$i'),
+            ),
+          ),
+        ),
+      );
+      reTapScrollToTop(tester.element(find.byType(ListView)), controller);
+      await tester.pump();
+      expect(controller.offset, firstFrameAt);
+      await tester.pump(Duration(milliseconds: ms - 10));
+      expect(controller.offset, greaterThan(0));
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(controller.offset, 0);
+    });
+  }
+
   testWidgets('a turned phone gets a scrolling icon rail', (tester) async {
     await _pumpHome(tester, width: 896, height: 411);
 

@@ -231,10 +231,11 @@ class _ParfaitAppState extends ConsumerState<ParfaitApp>
       // MotionScope, so the settings are passed in directly.
       themeAnimationDuration: MotionTokens.resolveWith(
         context,
-        MotionTokens.medium,
+        MotionTokens.themeChange,
         reduce: settings.reduceMotion,
         speed: settings.animationSpeed,
       ),
+      themeAnimationCurve: MotionTokens.themeChangeCurve,
       builder: (context, child) {
         final routeChild = child!;
         final content =

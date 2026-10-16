@@ -260,29 +260,17 @@ class _UserPageState extends ConsumerState<UserPage>
   }
 
   void _scrollActiveTabToTop() {
-    final animated = MotionTokens.enabled(context);
-    final duration = MotionTokens.resolve(context, MotionTokens.fast);
-    const curve = Curves.easeOutCubic;
+    Duration resolve(Duration base) => MotionTokens.resolve(context, base);
     final tab = _selectedTab;
     if (tab == null) return;
-    _bodyKeys[tab]?.currentState?.scrollToTop(
-      animated: animated,
-      duration: duration,
-      curve: curve,
-    );
+    _bodyKeys[tab]?.currentState?.scrollToTop(resolve);
     // The outer controller's position is a _NestedScrollPosition too:
     // animateTo would broadcast through the nested coordinator and rewind
     // every keep-alive inner tab. Drive each attached position locally so
     // only the header expands.
     if (_outerScrollController.hasClients) {
       for (final position in _outerScrollController.positions) {
-        _drivePositionToTop(
-          this,
-          position,
-          animated: animated,
-          duration: duration,
-          curve: curve,
-        );
+        _drivePositionToTop(this, position, resolve);
       }
     }
   }
@@ -291,38 +279,47 @@ class _UserPageState extends ConsumerState<UserPage>
   /// selected feed sits on the NestedScrollView's inner controller, whose
   /// positions route jumpTo/animateTo through the nested coordinator, and
   /// the coordinator moves the header along. A [DrivenScrollActivity]
-  /// begun directly on the position touches only that offset.
+  /// begun directly on the position touches only that offset. [resolve]
+  /// turns the base duration into the played one ([MotionTokens.resolve]).
   static void _drivePositionToTop(
     TickerProvider vsync,
-    ScrollPosition position, {
-    required bool animated,
-    required Duration duration,
-    required Curve curve,
-  }) {
+    ScrollPosition position,
+    Duration Function(Duration base) resolve,
+  ) {
     // Every Scrollable position in this app is a
     // ScrollPositionWithSingleContext, which implements the delegate.
     final delegate = position is ScrollActivityDelegate
         ? position as ScrollActivityDelegate
         : null;
     if (delegate == null || !position.hasPixels) return;
-    if (animated && duration > Duration.zero && position.pixels != 0) {
-      position.beginActivity(
-        DrivenScrollActivity(
-          delegate,
-          from: position.pixels,
-          to: 0,
-          duration: duration,
-          curve: curve,
-          vsync: vsync,
-        ),
-      );
-      return;
-    }
-    // Local jumpTo(0): stop any in-flight activity, then write the offset
+    final plan = MotionTokens.scrollToTop(
+      position.pixels,
+      position.viewportDimension,
+    );
+    final duration = resolve(plan.duration);
+    // A local jumpTo: stop any in-flight activity, then write the offset
     // through the position's own setPixels — minus the coordinator
     // fan-out. setPixels still emits the scroll-position notification.
-    position.beginActivity(IdleScrollActivity(delegate));
-    position.setPixels(0);
+    void jump(double to) {
+      position.beginActivity(IdleScrollActivity(delegate));
+      position.setPixels(to);
+    }
+
+    if (duration == Duration.zero || position.pixels == 0) {
+      jump(0);
+      return;
+    }
+    if (plan.start < position.pixels) jump(plan.start);
+    position.beginActivity(
+      DrivenScrollActivity(
+        delegate,
+        from: position.pixels,
+        to: 0,
+        duration: duration,
+        curve: MotionTokens.spatialCurve,
+        vsync: vsync,
+      ),
+    );
   }
 
   ProfileFeedKey? _feedKeyFor(_ProfileTab tab) {
@@ -768,11 +765,7 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
   @override
   bool get wantKeepAlive => true;
 
-  void scrollToTop({
-    required bool animated,
-    required Duration duration,
-    required Curve curve,
-  }) {
+  void scrollToTop(Duration Function(Duration base) resolve) {
     // Driving the feed's own position with a local activity rewinds only
     // this list; the header stays where it is.
     final scrollable = _tabScrollable();
@@ -780,13 +773,7 @@ class _ProfileTabBodyState extends ConsumerState<_ProfileTabBody>
     if (scrollable == null || position == null || !position.hasPixels) {
       return;
     }
-    _UserPageState._drivePositionToTop(
-      scrollable.vsync,
-      position,
-      animated: animated,
-      duration: duration,
-      curve: curve,
-    );
+    _UserPageState._drivePositionToTop(scrollable.vsync, position, resolve);
   }
 
   /// The feed's own scroll view — the first Scrollable below this tab

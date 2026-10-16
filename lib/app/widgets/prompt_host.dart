@@ -134,7 +134,7 @@ class PromptHostState extends State<PromptHost>
         _touchExploration ? Duration.zero : MotionTokens.resolve(context, base);
     _presence
       ..duration = resolve(MotionTokens.promptEnter)
-      ..reverseDuration = resolve(MotionTokens.fast);
+      ..reverseDuration = resolve(MotionTokens.stateFade);
   }
 
   @override

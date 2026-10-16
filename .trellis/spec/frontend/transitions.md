@@ -108,8 +108,9 @@ reviewed: 2026-10-16
   `MotionTokens.sharedElement` (450ms), the page fading over a still
   page below (no slide, no barrier) in the first part of either
   direction (`sharedElementFadeIn` opening, `sharedElementFadeOut`
-  leaving, chosen by the controller's direction), the Hero flying on its
-  default curve. The
+  leaving, chosen by the controller's direction), the Hero flying on
+  `MotionTokens.spatialCurve`, set on every artwork Hero end (a flight
+  reads the curve of the page that opens or leaves). The
   back gesture scrubs the fade with the app's own driver, so every artwork
   Hero sets `transitionOnUserGestures`, and a committed gesture finishes
   from where the finger left it. While a landed page leaves,
@@ -139,7 +140,7 @@ reviewed: 2026-10-16
   the cache extent pulled the image in from off the screen. Refusing the
   transition stopped the secondary animation, so the bottom bar appeared
   over the leaving page.
-- **Check:** `test/func_page_test.dart` "a shared-element page fades over a still page"; `test/illust_card_badges_test.dart` "the pager image flies back only to a card on screen"
+- **Check:** `test/func_page_test.dart` "a shared-element page fades over a still page"; `test/architecture/feedback_channels_test.dart` "Hero uses only the shared illustHeroTag family"; `test/illust_card_badges_test.dart` "the pager image flies back only to a card on screen"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/widgets/feed/feed_grid.dart`
 
 ### TRANS-10 The flight clip follows both pages' chrome

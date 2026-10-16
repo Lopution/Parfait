@@ -225,7 +225,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   );
   late final CurvedAnimation _barCurve = CurvedAnimation(
     parent: _barVisibility,
-    curve: MotionTokens.chromeScrollCurve,
+    curve: MotionTokens.chromeCurve,
   );
   final _scrollHide = ScrollHideTracker();
 
@@ -267,11 +267,14 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     super.didChangeDependencies();
     _barVisibility.duration = MotionTokens.resolve(
       context,
-      MotionTokens.chromeScrollHide,
+      MotionTokens.chrome,
     );
     _touchExploration = MediaQuery.accessibleNavigationOf(context);
     if (_touchExploration) _barVisibility.value = 1;
-    _topBarEntrance.duration = MotionTokens.resolve(context, MotionTokens.fast);
+    _topBarEntrance.duration = MotionTokens.resolve(
+      context,
+      MotionTokens.chrome,
+    );
     final route = RouteAnimationScope.of(context);
     if (!identical(route, _routeAnimation)) {
       _routeAnimation?.removeStatusListener(_onRouteStatus);
@@ -369,7 +372,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     if (anchor == null || !anchor.mounted) return;
     await Scrollable.ensureVisible(
       anchor,
-      duration: MotionTokens.resolve(anchor, MotionTokens.medium),
+      duration: MotionTokens.resolve(anchor, MotionTokens.spatial),
     );
   }
 

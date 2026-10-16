@@ -119,7 +119,7 @@ const _heroFiles = <String>{
 /// throttle, wheel floor clamp, ugoira frame delay, debug probe poll).
 /// Counts are pinned so a new hard-coded animation duration fails here.
 const _durationCensus = <String, int>{
-  'lib/app/motion/motion_tokens.dart': 18,
+  'lib/app/motion/motion_tokens.dart': 21,
   // Press-feedback settle window before a covered page may be snapshotted:
   // a throttle on capture timing, not an animation.
   'lib/app/motion/page_transitions.dart': 1,
@@ -323,6 +323,16 @@ void main() {
           'TRANS-07 Hero callsites must stay in the shared illustHeroTag '
           'family — tag new Heroes with illustHeroTag or update the census',
     );
+    for (final file in files) {
+      final src = File(file).readAsStringSync();
+      expect(
+        RegExp(
+          r'Hero\(\s*tag: [^,]+,\s*curve: MotionTokens\.spatialCurve,',
+        ).allMatches(src).length,
+        RegExp(r'(?<![A-Za-z])Hero\(').allMatches(src).length,
+        reason: 'TRANS-09 every artwork Hero flies on the spatial curve: $file',
+      );
+    }
   });
 
   test('motion durations live only in MotionTokens (pinned census)', () {

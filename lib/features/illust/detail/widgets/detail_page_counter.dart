@@ -60,7 +60,7 @@ class _DetailPageCounterState extends State<DetailPageCounter>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _fade.duration = MotionTokens.resolve(context, MotionTokens.fast);
+    _fade.duration = MotionTokens.resolve(context, MotionTokens.stateFade);
     final animation = RouteAnimationScope.of(context);
     if (!identical(animation, _routeAnimation)) {
       _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);

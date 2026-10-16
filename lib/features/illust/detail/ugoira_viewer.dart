@@ -9,6 +9,7 @@ import '../../../app/haptics/app_haptics.dart';
 import '../../../app/navigation/route_animation.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/motion/hero_transition.dart';
+import '../../../app/motion/motion_tokens.dart';
 import '../../../app/theme/func_tokens.dart';
 import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/feed/feed_states.dart';
@@ -309,6 +310,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
           );
     return Hero(
       tag: tag,
+      curve: MotionTokens.spatialCurve,
       transitionOnUserGestures: true,
       flightShuttleBuilder: widget.flightShuttleBuilder,
       child: IllustHeroFlightChild(
