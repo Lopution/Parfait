@@ -174,6 +174,9 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
                   ? entity.metaPages[widget.index].large
                   : entity.imageUrls.large);
     final image = GestureDetector(
+      // Opaque: while the image flies, its Hero is an offstage placeholder
+      // that takes no hits, and a tap there must still open the viewer.
+      behavior: HitTestBehavior.opaque,
       // Selection mode turns the whole page into a select toggle; outside
       // the mode a tap opens the viewer as before.
       onTap: isPagePlaceholder

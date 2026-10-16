@@ -9,7 +9,7 @@ applies_to:
   - lib/app/widgets/feed/illust_card*.dart
   - lib/features/illust/**
   - android/app/src/main/AndroidManifest.xml
-reviewed: 2026-10-16
+reviewed: 2026-10-17
 ---
 
 # Page transitions, back gesture and Hero flights
@@ -75,10 +75,14 @@ reviewed: 2026-10-16
 ### TRANS-06 Transitions snapshot only what does not move live
 - **Rule:** Every transition runs inside `FuncTransitionGuard`: entering
   and covered pages paint live with running tickers; a popping page and a
-  settled reveal paint one snapshot each.
+  settled reveal paint one snapshot each. A page under a shared-element
+  page (`underSharedElement`), the home shell under the viewer included,
+  is never frozen: it stays live while the image flies.
 - **Why:** Re-rendering the leaving page every frame dropped frames;
-  freezing the entering page froze its entrances.
-- **Check:** `test/func_page_test.dart` "the entering page stays live while a transition runs"
+  freezing the entering page froze its entrances. A detail page frozen
+  under the viewer's return flight could not be scrolled or tapped to any
+  visible effect until the image had landed.
+- **Check:** `test/func_page_test.dart` "the entering page stays live while a transition runs"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight"
 - **Code:** `lib/app/motion/page_transitions.dart`
 
 ## Hero flights
@@ -113,13 +117,15 @@ reviewed: 2026-10-16
   reads the curve of the page that opens or leaves). The
   back gesture scrubs the fade with the app's own driver, so every artwork
   Hero sets `transitionOnUserGestures`, and a committed gesture finishes
-  from where the finger left it. While a landed page leaves,
+  from where the finger left it and ends the navigator's gesture at once.
+  A leaving page takes no touch, so the page below answers while the
+  image flies. While a landed page leaves,
   `HeroLiftHole` cuts the flying image's spot out of it, so the page below
   shows there, not the page's background; an opening page has no hole
   (it fades in over the page below anyway, and the image's slow last
   stretch left a line of that page around it). The viewer's endpoint
-  (`IllustHeroFlightChild.containsImage`) cuts only the image, shaped
-  like the other endpoint. Under a page pushed on top it moves in the
+  (`IllustHeroFlightChild.containsImage`) cuts nothing: its stage fades
+  out whole. Under a page pushed on top it moves in the
   style like any page. The transition's widget structure never changes
   over the route's life. A detail pager aims each settled work's back
   flight (`IllustPagerSource.aimHomeFlight`): a card with nothing on
@@ -139,8 +145,11 @@ reviewed: 2026-10-16
   whole page in that frame. Hero pairs by tag alone, so a card built in
   the cache extent pulled the image in from off the screen. Refusing the
   transition stopped the secondary animation, so the bottom bar appeared
-  over the leaving page.
-- **Check:** `test/func_page_test.dart` "a shared-element page fades over a still page"; `test/architecture/feedback_channels_test.dart` "Hero uses only the shared illustHeroTag family"; `test/illust_card_badges_test.dart` "the pager image flies back only to a card on screen"
+  over the leaving page. The page below ignored touches for the whole
+  flight: the gesture flag stayed up until the landing, and FadeForwards'
+  backdrop on the leaving page took every hit. A hole in the viewer read
+  as a sharp-edged window that did not fade with the dark stage.
+- **Check:** `test/func_page_test.dart` "a shared-element page fades over a still page"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight"; `test/architecture/feedback_channels_test.dart` "Hero uses only the shared illustHeroTag family"; `test/illust_card_badges_test.dart` "the pager image flies back only to a card on screen"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/widgets/feed/feed_grid.dart`
 
 ### TRANS-10 The flight clip follows both pages' chrome
@@ -155,11 +164,14 @@ reviewed: 2026-10-16
 
 ### TRANS-11 Card rounding lives inside the Hero child
 - **Rule:** The card's corner clip (`IllustHeroCardFrame`) wraps the Hero
-  child, and feed cards draw no outline. A top-cropped card hands its
-  `cropAspect` to the flight, which lays the image out full width and
-  top-aligned for the whole flight.
+  child, and feed cards draw no outline. Only a flight with a card end
+  rounds its corners; detail ↔ viewer flies square. A top-cropped card
+  hands its `cropAspect` to the flight, which lays the image out full
+  width and top-aligned for the whole flight.
 - **Why:** A clip outside the Hero snapped from square to rounded on pop;
   fitting the image inside the rect mid-flight read as a second shrink.
+  A radius lerped by flight progress rounded the square detail ↔ viewer
+  flight on its way.
 - **Check:** `test/hero_transition_test.dart` "a cropped long image fills the flight rect width throughout"
 - **Code:** `lib/app/widgets/feed/illust_card.dart`, `lib/app/motion/hero_transition.dart`
 

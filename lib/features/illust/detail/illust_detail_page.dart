@@ -246,15 +246,16 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   /// two-pane layout, whose pages sit below an opaque bar.
   double _topChromeExtent = 0;
 
-  /// The top bar's arrival. The Hero image flying in from a card is drawn
-  /// over the see-through bar, so the bar waits for the route to land and
-  /// then fades in (see [AppTopBar.entrance]); without a card it is there
-  /// at once.
+  /// The top bar's arrival: it fades in with the page flying in from a
+  /// card (see [AppTopBar.entrance]); without a card it is there at once.
   late final AnimationController _topBarEntrance = AnimationController(
     vsync: this,
     value: widget.heroImageUrl == null ? 1 : 0,
   );
   Animation<double>? _routeAnimation;
+
+  /// Whether the route has started showing the page.
+  bool _entered = false;
 
   @override
   void initState() {
@@ -289,11 +290,17 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     }
   }
 
-  /// The action bar rises once the page has landed. Leaving, it stays and
-  /// goes with the page: sliding it down on its own read as a second,
-  /// smaller exit under the page's fade.
+  /// The top bar and the action bar enter with the page, not after its
+  /// landing: waiting held the page's controls back until the image had
+  /// flown in. Leaving, they stay and go with the page: sliding the action
+  /// bar down on its own read as a second, smaller exit under the page's
+  /// fade.
   void _onRouteStatus(AnimationStatus status) {
-    if (!status.isCompleted) return;
+    // A back gesture's scrub reports forward too: only the first one is
+    // the page entering.
+    final entering = status == AnimationStatus.forward && !_entered;
+    if (!entering && !status.isCompleted) return;
+    _entered = true;
     _topBarEntrance.forward();
     if (!_touchExploration) {
       slideChrome(context, _barVisibility, hidden: false);

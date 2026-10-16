@@ -309,6 +309,7 @@ void main() {
         'style while its Hero flies (${style.name})', (tester) async {
       late BuildContext rootContext;
       late PageRoute<void> pushed;
+      var stillTaps = 0;
       PageRoute<void> page(Widget child, {bool sharedElement = false}) =>
           FuncPage<void>(
                 transitionDuration: const Duration(milliseconds: 400),
@@ -318,7 +319,6 @@ void main() {
                 child: child,
               ).createRoute(rootContext)
               as PageRoute<void>;
-      // The detail end is a stage twice as tall as the image it contains.
       Widget hero(String label, Offset at, {double height = 50}) => Stack(
         children: [
           Positioned(
@@ -328,10 +328,7 @@ void main() {
               tag: 'art',
               transitionOnUserGestures: true,
               flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-              child: IllustHeroFlightChild(
-                containsImage: true,
-                child: SizedBox(width: 50, height: height, child: Text(label)),
-              ),
+              child: SizedBox(width: 50, height: height, child: Text(label)),
             ),
           ),
         ],
@@ -362,10 +359,13 @@ void main() {
                           },
                           child: hero('card', Offset.zero),
                         ),
-                        const Positioned(
+                        Positioned(
                           left: 0,
                           top: 200,
-                          child: Text('still'),
+                          child: GestureDetector(
+                            onTap: () => stillTaps++,
+                            child: const Text('still'),
+                          ),
                         ),
                       ],
                     ),
@@ -400,7 +400,10 @@ void main() {
         expect(tester.getTopLeft(find.text('still')), still);
         final stage = tester.getRect(find.byType(Hero).last);
         expect(_liftedHoleAt(tester, stage.center), isTrue);
-        expect(_liftedHoleAt(tester, stage.topCenter), isFalse);
+        expect(
+          _liftedHoleAt(tester, stage.topCenter.translate(0, -1)),
+          isFalse,
+        );
       }
 
       await tester.tap(find.text('card'));
@@ -431,6 +434,21 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.getTopLeft(find.text('card')), Offset.zero);
       expect(find.text('detail'), findsNothing);
+
+      // A committed gesture hands the page below the touch at once, while
+      // the image is still on its way.
+      await tester.tap(find.text('card'));
+      await tester.pumpAndSettle();
+      await _startBackGesture();
+      await _dragBackGesture(0.3);
+      await tester.pump();
+      await _sendBackGestureMethod('commitBackGesture');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(pushed.animation!.isAnimating, isTrue);
+      await tester.tap(find.text('still'));
+      expect(stillTaps, 1);
+      await tester.pumpAndSettle();
     }, variant: TargetPlatformVariant.only(TargetPlatform.android));
   }
 

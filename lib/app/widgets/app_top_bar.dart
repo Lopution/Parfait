@@ -63,10 +63,9 @@ class AppTopBar extends StatefulWidget implements PreferredSizeWidget {
   /// off.
   final bool overArtwork;
 
-  /// Fades the whole bar in. A Hero flight that lands under a see-through
-  /// bar is drawn over it; the page holds the bar back until the image has
-  /// landed, so its controls arrive with a fade rather than a cut. Null
-  /// shows the bar at once.
+  /// Fades the whole bar in, with the page a Hero flight brings in, so its
+  /// controls arrive with a fade rather than a cut. Null shows the bar at
+  /// once.
   final Animation<double>? entrance;
 
   /// Whether the bar currently hides what scrolls under it. A Hero flight
