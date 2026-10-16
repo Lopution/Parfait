@@ -157,6 +157,18 @@ reviewed: 2026-10-17
 - **Check:** `test/comment_item_test.dart` "own comment: the ⋮ only deletes, in danger color" "another user's comment has no ⋮"
 - **Code:** `lib/features/comments/comment_item.dart`
 
+### PAGE-19 Composer panels rise and fall like the keyboard
+- **Rule:** The emoji and stamp panels share the composer's bottom slot
+  with the keyboard. A panel rises and folds on the sheet spring, top
+  edge first; one replacing the keyboard starts at the keyboard's
+  height. A panel giving way to the keyboard holds its height until the
+  keyboard has risen over it, or 600ms pass. Emoji ↔ stamp swaps through
+  `StateFade`. Reduced motion jumps to the end.
+- **Why:** The panel popped in and out, and the input row dropped to the
+  bottom and climbed back with every switch to the keyboard.
+- **Check:** `test/comments_replies_test.dart` "the panel rises on a spring and waits for the keyboard" "composer reserves the sampled keyboard height for panels"
+- **Code:** `lib/features/comments/comment_input.dart`
+
 ## Library and management lists
 
 ### PAGE-11 Batch selection starts from a "manage" text button

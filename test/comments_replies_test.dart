@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
+import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:http/http.dart' as http;
@@ -82,6 +83,14 @@ Map<String, dynamic> _commentJson(
 
 /// The reply text button of every comment row (zh).
 Finder _replyButton() => find.widgetWithText(TextButton, '回复');
+
+/// Lets a composer panel rise or fold away: the keyboard hold runs out,
+/// then the sheet spring plays from the frame after. Not pumpAndSettle:
+/// stalled stamps keep their placeholders running.
+Future<void> _settlePanel(WidgetTester tester) async {
+  await tester.pump(const Duration(seconds: 1));
+  await tester.pump(const Duration(seconds: 1));
+}
 
 /// The signed-in comment world, over [repository] when given.
 List<Override> _signedIn([CommentRepository? repository]) => [
@@ -504,6 +513,7 @@ void main() {
     );
     await tester.tap(find.byTooltip('Stamp'));
     await tester.pump();
+    await _settlePanel(tester);
 
     final grid = tester.widget<GridView>(find.byType(GridView));
     expect(
@@ -632,6 +642,7 @@ void main() {
     // none → emoji: opening the panel releases the field.
     await tester.tap(find.byTooltip('Emoji'));
     await tester.pump();
+    await _settlePanel(tester);
     expect(find.byType(GridView), findsOneWidget);
     expect(field().focusNode.hasFocus, isFalse);
 
@@ -640,15 +651,18 @@ void main() {
     await tester.tap(find.byType(TextField));
     await tester.pump();
     expect(field().focusNode.hasFocus, isTrue);
+    await _settlePanel(tester);
     expect(find.byType(GridView), findsNothing);
 
     // Same convergence from the stamp leg.
     await tester.tap(find.byTooltip('Stamp'));
     await tester.pump();
+    await _settlePanel(tester);
     expect(find.byType(GridView), findsOneWidget);
     await tester.tap(find.byType(TextField));
     await tester.pump();
     expect(field().focusNode.hasFocus, isTrue);
+    await _settlePanel(tester);
     expect(find.byType(GridView), findsNothing);
   });
 
@@ -676,11 +690,13 @@ void main() {
 
     await tester.tap(find.byTooltip('Emoji'));
     await tester.pump();
+    await _settlePanel(tester);
     expect(find.byType(GridView), findsOneWidget);
 
     // Back collapses the transient panel; the route stays.
     await tester.binding.handlePopRoute();
     await tester.pump();
+    await _settlePanel(tester);
     expect(find.byType(GridView), findsNothing);
     expect(find.byType(CommentComposer), findsOneWidget);
 
@@ -751,12 +767,56 @@ void main() {
       300,
     );
 
-    // Once the IME is gone the panel keeps the sampled height — switching
-    // keyboard → panel does not jump.
-    await tester.pumpWidget(withInsets(0));
+    // A panel replacing the keyboard takes its height at once and keeps it
+    // as the IME leaves: keyboard → panel does not jump.
+    double slot() =>
+        tester.getSize(find.byType(CommentComposer)).height - idleHeight;
     await tester.tap(find.byTooltip('Emoji'));
     await tester.pump();
     expect(tester.getSize(find.byType(GridView)).height, 300);
+    await tester.pumpWidget(withInsets(0));
+    expect(slot(), 300);
+
+    // Back to the keyboard: once it has risen over the panel, the panel is
+    // gone, without waiting out the hold.
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    await tester.pumpWidget(withInsets(300));
+    await tester.pumpWidget(withInsets(0));
+    expect(slot(), 0);
+  });
+
+  testWidgets('the panel rises on a spring and waits for the keyboard', (
+    tester,
+  ) async {
+    await tester.pumpWidget(composerApp(bareComposer()));
+    final idleHeight = tester.getSize(find.byType(CommentComposer)).height;
+    double slot() =>
+        tester.getSize(find.byType(CommentComposer)).height - idleHeight;
+
+    await tester.tap(find.byTooltip('Emoji'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(slot(), inExclusiveRange(0, 280));
+    await _settlePanel(tester);
+    expect(slot(), 280);
+
+    // The field takes over: the input row stays up for the keyboard (none
+    // comes here), then the panel folds away.
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(slot(), 280);
+    await _settlePanel(tester);
+    expect(slot(), 0);
+
+    // Reduced motion: the panel is there at once.
+    await tester.pumpWidget(
+      MotionScope(reduce: true, child: composerApp(bareComposer())),
+    );
+    await tester.tap(find.byTooltip('Emoji'));
+    await tester.pump();
+    expect(slot(), 280);
   });
 
   testWidgets('composer input state covers the four-state matrix', (
@@ -778,12 +838,14 @@ void main() {
     await tester.tap(find.byTooltip('Stamp'));
     await tester.pump();
     expect(state().debugInputState, CommentComposerInputState.stamp);
+    await _settlePanel(tester);
     expect(find.byType(GridView), findsOneWidget);
 
     // Toggling the active button rests the surface.
     await tester.tap(find.byTooltip('Stamp'));
     await tester.pump();
     expect(state().debugInputState, CommentComposerInputState.none);
+    await _settlePanel(tester);
     expect(find.byType(GridView), findsNothing);
 
     // The reply-pill entry point lands on the keyboard leg with real focus.
