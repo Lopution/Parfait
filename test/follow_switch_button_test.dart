@@ -105,9 +105,8 @@ class _MeasuredHeaderState extends State<_MeasuredHeader> {
 }
 
 void main() {
-  testWidgets('haptics play on the tap; a failure adds an error', (
-    tester,
-  ) async {
+  testWidgets('a follow pops the button with success; an unfollow is '
+      'quiet; a failure adds an error', (tester) async {
     final haptics = recordHaptics();
     final follows = FakeFollowRepository();
     final container = await _world(follows: follows);
@@ -119,26 +118,45 @@ void main() {
       ),
     );
 
+    double scale() => tester
+        .widget<ScaleTransition>(
+          find
+              .descendant(
+                of: find.byType(FollowSwitchButton),
+                matching: find.byType(ScaleTransition),
+              )
+              .first,
+        )
+        .scale
+        .value;
+
     await tester.tap(find.byType(FollowSwitchButton));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(scale(), greaterThan(1));
     await tester.pumpAndSettle();
+    expect(scale(), 1);
     expect(follows.requests, ['add:7:public']);
-    expect(haptics.roles, [HapticRole.select]);
+    expect(haptics.roles, [HapticRole.success]);
 
     // The throttle reads the wall clock; let the light lane re-arm.
     await tester.runAsync(() => Future<void>.delayed(AppHaptics.lightInterval));
     await tester.tap(find.byType(FollowSwitchButton));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(scale(), 1);
     await tester.pumpAndSettle();
     expect(follows.requests, ['add:7:public', 'delete:7']);
-    expect(haptics.roles, [HapticRole.select, HapticRole.select]);
+    expect(haptics.roles, [HapticRole.success, HapticRole.select]);
 
     await tester.runAsync(() => Future<void>.delayed(AppHaptics.lightInterval));
     follows.failure = StateError('boom');
     await tester.tap(find.byType(FollowSwitchButton));
     await tester.pumpAndSettle();
     expect(haptics.roles, [
+      HapticRole.success,
       HapticRole.select,
-      HapticRole.select,
-      HapticRole.select,
+      HapticRole.success,
       HapticRole.error,
     ]);
   });

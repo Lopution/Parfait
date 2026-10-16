@@ -16,6 +16,7 @@ import '../layout/app_breakpoints.dart';
 import '../layout/content_widths.dart';
 import '../motion/app_overlays.dart';
 import '../motion/motion_tokens.dart';
+import '../motion/spring_pop.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
 import '../widgets/errors/error_details.dart';
@@ -47,17 +48,6 @@ const _heartPopPeak = 0.25;
 
 /// How far the heart sinks below its rest scale on a removal.
 const _heartDipDepth = 0.15;
-
-/// Initial velocity that carries an underdamped spring released at rest
-/// position out to [peak]. For x(t) = v/ωd · e^(−ζωt) · sin(ωd t) the
-/// first peak is v/ω · e^(−ζθ/√(1−ζ²)) with θ = atan(√(1−ζ²)/ζ).
-double _heartKickVelocity(SpringDescription spring, double peak) {
-  final omega = math.sqrt(spring.stiffness / spring.mass);
-  final zeta = spring.damping / (2 * math.sqrt(spring.stiffness * spring.mass));
-  final root = math.sqrt(1 - zeta * zeta);
-  final theta = math.atan(root / zeta);
-  return peak * omega * math.exp(zeta * theta / root);
-}
 
 /// Beta56 BookmarkSwitchButton replica driven entirely by the shared
 /// BookmarkStore: heart icon (isButton app-bar/row variant), short-press
@@ -139,7 +129,7 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
         spring,
         1,
         1,
-        _heartKickVelocity(spring, _heartPopPeak),
+        springKickVelocity(spring, _heartPopPeak),
         snapToEnd: true,
       ),
     );
@@ -158,7 +148,7 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
         spring,
         1,
         1,
-        -_heartKickVelocity(spring, _heartDipDepth),
+        -springKickVelocity(spring, _heartDipDepth),
         snapToEnd: true,
       ),
     );
