@@ -13,7 +13,7 @@ applies_to:
   - lib/app/widgets/bookmark_switch_button.dart
   - lib/app/widgets/follow_switch_button.dart
   - lib/app/widgets/watchlist_toggle.dart
-reviewed: 2026-10-16
+reviewed: 2026-10-17
 ---
 
 # Menus, overlays, prompts, undo and haptics
@@ -75,10 +75,13 @@ reviewed: 2026-10-16
   `replaceCurrent: false` (ordered steps). The dwell starts after the
   entrance and goes through the platform's recommended timeout; an action
   pins the prompt only under touch exploration. Chrome registers a
-  `PromptAnchor` so prompts rest above it.
+  `PromptAnchor` so prompts rest above it. A prompt whose message stops
+  being true before its dwell ends takes itself down through the callback
+  `showAppSnackBar` returns (the exit hint, NAV-03).
 - **Why:** Prompts died with their page; action prompts stayed forever for
-  users of always-on accessibility services.
-- **Check:** `test/prompt_host_test.dart` "touch exploration pins only the action prompt" "ordered prompts show one after another"
+  users of always-on accessibility services. The dwell runs past the
+  entrance and the platform timeout, so it cannot time a window.
+- **Check:** `test/prompt_host_test.dart` "touch exploration pins only the action prompt" "ordered prompts show one after another", `test/navigation_router_test.dart` "a second back at the start exits"
 - **Code:** `lib/app/widgets/prompt_host.dart`, `lib/app/widgets/prompt_anchor.dart`
 
 ## Undo

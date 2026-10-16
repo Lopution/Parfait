@@ -33,6 +33,7 @@ class FuncScrollBehavior extends MaterialScrollBehavior {
 
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) =>
+      textScrollPhysics(context) ??
       const FuncScrollPhysics(parent: AlwaysScrollableScrollPhysics());
 
   @override
@@ -54,6 +55,19 @@ class FuncScrollBehavior extends MaterialScrollBehavior {
     _ => mouseScrollbar(child, details),
   };
 }
+
+/// The physics of the scrollable a text control (`SelectableText`,
+/// `TextField`) keeps inside its [EditableText], or null for any other
+/// scrollable. That scrollable takes its physics from the nearest scroll
+/// behavior; always scrollable, text that fits followed the finger and the
+/// page under it stayed put. Without that parent, text that fits takes no
+/// drag and text that overflows still scrolls, with the app's bounce.
+///
+/// Every scroll behavior the app installs asks this first.
+ScrollPhysics? textScrollPhysics(BuildContext context) =>
+    context.findAncestorStateOfType<EditableTextState>() == null
+    ? null
+    : const FuncScrollPhysics(parent: RangeMaintainingScrollPhysics());
 
 /// [child], a vertical scroll view, with a [Scrollbar] while a mouse is
 /// connected: a wheel gives no sense of a list's length or place, and the

@@ -1,7 +1,10 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/app/pull_to_refresh.dart';
 import 'package:parfait/app/scroll_behavior.dart';
+
+import 'helpers/localized_app.dart';
 
 Future<ScrollController> _pumpList(WidgetTester tester) async {
   final controller = ScrollController();
@@ -73,4 +76,48 @@ void main() {
     await tester.pump();
     expect(find.byType(Scrollbar), findsNothing);
   });
+
+  // A text control's own scrollable inherits the page's physics; always
+  // scrollable, a one-line title followed the finger instead of the page.
+  for (final inRefreshList in [false, true]) {
+    testWidgets('a selectable title that fits scrolls the page, not itself'
+        '${inRefreshList ? ' (refresh list)' : ''}', (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      const title = Key('title');
+      Widget list = ListView(
+        controller: controller,
+        children: [
+          const SelectableText('illust 1000', key: title),
+          for (var i = 0; i < 30; i++) SizedBox(height: 80, child: Text('$i')),
+        ],
+      );
+      if (inRefreshList) {
+        list = PullToRefresh(onRefresh: () async {}, child: list);
+      }
+      await tester.pumpWidget(
+        localizedApp(
+          scrollBehavior: const FuncScrollBehavior(),
+          home: Scaffold(body: list),
+        ),
+      );
+
+      final titleScroll = tester.state<ScrollableState>(
+        find.descendant(
+          of: find.byKey(title),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(title)),
+      );
+      await gesture.moveBy(const Offset(0, -20));
+      await gesture.moveBy(const Offset(0, -100));
+      await tester.pump();
+      expect(titleScroll.position.pixels, 0, reason: 'the title kept still');
+      expect(controller.offset, greaterThan(0), reason: 'the page scrolled');
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+  }
 }

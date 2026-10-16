@@ -1560,6 +1560,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeMe => 'Me';
 
   @override
+  String get homeExitHint => 'Press back again to exit';
+
+  @override
   String get bookmarkIllust => 'Bookmark illustration';
 
   @override

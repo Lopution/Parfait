@@ -1,8 +1,19 @@
+import 'dart:async';
+
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../app/widgets/app_snack_bar.dart';
 import '../../core/navigation/home_destination.dart';
+import '../../core/navigation/route_observer.dart';
+import '../../core/platform/platform_caps.dart';
+import '../../l10n/context.dart';
+
+/// How long a first back at the start page keeps a second one armed to
+/// leave the app, and so how long its hint stays.
+const homeExitWindow = Duration(seconds: 2);
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key, required this.navigationShell});
@@ -13,11 +24,91 @@ class HomePage extends ConsumerStatefulWidget {
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends ConsumerState<HomePage> {
+class _HomePageState extends ConsumerState<HomePage>
+    with WidgetsBindingObserver, RouteAware {
+  RouteObserver<ModalRoute<dynamic>> _routeObserver = replicaRouteObserver;
+  ModalRoute<dynamic>? _route;
+  Timer? _exitArmed;
+  VoidCallback? _hideExitHint;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    final observer =
+        RouteObserverScope.maybeOf(context) ?? replicaRouteObserver;
+    if (identical(route, _route) && identical(observer, _routeObserver)) {
+      return;
+    }
+    if (_route != null) _routeObserver.unsubscribe(this);
+    _routeObserver = observer;
+    _route = route;
+    if (route != null) _routeObserver.subscribe(this, route);
+  }
+
+  @override
+  void didUpdateWidget(HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final from = oldWidget.navigationShell;
+    final to = widget.navigationShell;
+    if (from.currentIndex != to.currentIndex ||
+        from.shellRouteContext.routerState.uri !=
+            to.shellRouteContext.routerState.uri) {
+      _disarmExit();
+    }
+  }
+
+  // A back only exits right after the hint: leaving the start page,
+  // covering it or leaving the app ends the window, so a later back there
+  // starts over instead of closing the app.
+  @override
+  void didPushNext() => _disarmExit();
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _disarmExit();
+  }
+
+  @override
+  void dispose() {
+    if (_route != null) _routeObserver.unsubscribe(this);
+    WidgetsBinding.instance.removeObserver(this);
+    _disarmExit();
+    super.dispose();
+  }
+
+  void _disarmExit() {
+    _exitArmed?.cancel();
+    _exitArmed = null;
+    _hideExitHint?.call();
+    _hideExitHint = null;
+  }
+
+  void _backAtStart() {
+    if (_exitArmed != null) {
+      _disarmExit();
+      unawaited(SystemNavigator.pop());
+      return;
+    }
+    _exitArmed = Timer(homeExitWindow, _disarmExit);
+    _hideExitHint = showAppSnackBar(
+      context,
+      context.l10n.homeExitHint,
+      duration: homeExitWindow,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final shell = widget.navigationShell;
-    // Only the first destination's own root hands back to the system. Every
+    // The first destination's own root confirms before it hands back to
+    // the system (on Android, the one platform with a root back). Every
     // other branch root claims the back event and returns to the first.
     final first = ref.watch(
       homeArrangementProvider.select((arrangement) => arrangement.shown.first),
@@ -25,11 +116,15 @@ class _HomePageState extends ConsumerState<HomePage> {
     final atStart =
         shell.currentIndex == first.branchIndex &&
         shell.shellRouteContext.routerState.uri.path == first.rootPath;
+    final confirmExit = ref.watch(platformCapsProvider).isAndroid;
     return PopScope<void>(
-      canPop: atStart,
+      canPop: atStart && !confirmExit,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && shell.currentIndex != first.branchIndex) {
+        if (didPop) return;
+        if (shell.currentIndex != first.branchIndex) {
           shell.goBranch(first.branchIndex);
+        } else if (atStart) {
+          _backAtStart();
         }
       },
       child: Scaffold(

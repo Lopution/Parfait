@@ -1035,6 +1035,56 @@ void main() {
     });
   });
 
+  // The feed's clamping header keeps it at its top, so the coordinator gave
+  // a reversed pull to the outer scroll first: the header collapsed under
+  // an indicator stuck on screen.
+  testWidgets(
+    'a reversed pull retracts the indicator before the header collapses',
+    (tester) async {
+      setViewSize(tester, const Size(360, 640));
+      final repository = FakeUserRepository(works: _works(30));
+      final container = await makeProfileWorld(users: repository);
+      await mockNetworkImagesFor(() async {
+        await _pumpProfile(
+          tester,
+          container,
+          scrollBehavior: const FuncScrollBehavior(),
+        );
+        final outer = outerPosition(tester);
+        final inner = activeFeedPosition(tester);
+        final indicator = find.byType(RefreshProgressIndicator);
+        final requests = repository.requests.length;
+
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byType(NestedScrollView)),
+        );
+        // Past the 100dp arm threshold, then all the way back.
+        for (var i = 0; i < 10; i++) {
+          await gesture.moveBy(const Offset(0, 40));
+          await tester.pump();
+        }
+        expect(indicator, findsOneWidget);
+        var retracted = false;
+        for (var i = 0; i < 24; i++) {
+          await gesture.moveBy(const Offset(0, -30));
+          await tester.pump();
+          retracted = retracted || indicator.evaluate().isEmpty;
+          if (!retracted) {
+            expect(outer.pixels, 0, reason: 'step $i: the header stays put');
+            expect(inner.pixels, 0, reason: 'step $i: the feed stays put');
+          }
+        }
+        expect(retracted, isTrue);
+        expect(outer.pixels, greaterThan(0), reason: 'the rest collapses it');
+
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(repository.requests.length, requests, reason: 'no refresh');
+        expect(indicator, findsNothing);
+      });
+    },
+  );
+
   testWidgets(
     'same work tab tap returns both profile scroll positions to top',
     (tester) async {

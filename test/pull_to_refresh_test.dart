@@ -39,6 +39,7 @@ void main() {
     return localizedApp(
       home: Scaffold(
         body: NestedScrollView(
+          physics: const NestedRefreshOuterPhysics(),
           headerSliverBuilder: (context, innerBoxIsScrolled) => [
             const SliverToBoxAdapter(child: SizedBox(height: 180)),
           ],

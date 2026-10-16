@@ -5,7 +5,7 @@ applies_to:
   - lib/app/format/**
   - lib/features/**
   - lib/l10n/**
-reviewed: 2026-10-12
+reviewed: 2026-10-17
 ---
 
 # Layout across locales, text sizes and keyboards
@@ -129,9 +129,9 @@ reviewed: 2026-10-12
 - **Rule:** A long document page wraps its one list in a single
   `SelectionArea` and renders paragraphs as plain `Text`, never
   `SelectableText` per paragraph.
-- **Why:** Each `SelectableText` owns a scrollable that inherited the
-  bouncing physics, so every paragraph dragged on its own and selection
-  could not span paragraphs.
+- **Why:** Selection cannot span `SelectableText` paragraphs. Each also
+  owns a scrollable that inherited the bouncing physics, so every
+  paragraph dragged on its own; FEED-11 now stops that for all text.
 - **Check:** `test/onboarding_pages_test.dart` "a drag on a paragraph scrolls the whole page", `test/spotlight_article_test.dart` "a drag on a paragraph scrolls the whole article"
 - **Code:** `lib/features/spotlight/spotlight_article_page.dart`
 

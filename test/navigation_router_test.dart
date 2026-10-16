@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -25,12 +26,15 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
 import 'package:parfait/core/navigation/home_destination.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
+import 'package:parfait/features/home/home_page.dart';
 import 'package:parfait/core/settings/arrangement.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/settings_world.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
+import 'helpers/prompt_host.dart';
 
 /// The shell's own bar, while it is on stage.
 final _shellBar = find.descendant(
@@ -97,6 +101,90 @@ void main() {
     await tester.pump();
     expect(router.state.uri.path, '/recommended');
   });
+
+  // Each way the start page stops being where the hint was shown.
+  final exitInterruptions =
+      <String, Future<void> Function(WidgetTester, GoRouter)>{
+        'the window closes': (tester, router) async {
+          await tester.pump(homeExitWindow);
+          await tester.pump(const Duration(milliseconds: 400));
+          expect(find.text('再按一次退出'), findsNothing, reason: 'hint goes too');
+        },
+        'a page opens': (tester, router) async {
+          unawaited(router.push('/recommended/history'));
+          await tester.pump(const Duration(milliseconds: 600));
+          await tester.binding.handlePopRoute();
+          await tester.pump(const Duration(milliseconds: 600));
+        },
+        'an overlay opens': (tester, router) async {
+          unawaited(router.push('/reverse-image'));
+          await tester.pump(const Duration(milliseconds: 600));
+          await tester.binding.handlePopRoute();
+          await tester.pump(const Duration(milliseconds: 600));
+        },
+        'the app leaves the foreground': (tester, router) async {
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.hidden,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+          await tester.pump(const Duration(milliseconds: 400));
+          expect(find.text('再按一次退出'), findsNothing, reason: 'not left up');
+        },
+        'the branch changes': (tester, router) async {
+          router.go('/ranking');
+          await tester.pump(const Duration(milliseconds: 600));
+          await tester.binding.handlePopRoute();
+          await tester.pump(const Duration(milliseconds: 600));
+          expect(router.state.uri.path, '/recommended');
+        },
+      };
+  for (final MapEntry(key: name, value: interrupt)
+      in exitInterruptions.entries) {
+    testWidgets('a second back at the start exits; after $name it hints '
+        'again', (tester) async {
+      final exits = <MethodCall>[];
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'SystemNavigator.pop') exits.add(call);
+        return null;
+      });
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      final router = pixivRouter('/recommended');
+      await tester.pumpWidget(
+        localizedRouterApp(
+          router,
+          // The double back is Android's; the test host is Linux.
+          overrides: [
+            platformCapsProvider.overrideWithValue(
+              const PlatformCaps(isAndroid: true),
+            ),
+          ],
+          builder: promptHostBuilder,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      Future<void> back() async {
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+      }
+
+      await back();
+      expect(find.text('再按一次退出'), findsOneWidget);
+      expect(exits, isEmpty);
+      await back();
+      expect(exits, hasLength(1));
+
+      await back();
+      await interrupt(tester, router);
+      await back();
+      expect(find.text('再按一次退出'), findsOneWidget);
+      expect(exits, hasLength(1), reason: 'after $name a back starts over');
+    });
+  }
 
   Future<GoRouter> pumpRouter(WidgetTester tester, String location) async {
     final router = pixivRouter(location);

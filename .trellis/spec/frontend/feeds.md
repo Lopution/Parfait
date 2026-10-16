@@ -7,7 +7,7 @@ applies_to:
   - lib/app/scroll_behavior.dart
   - lib/app/format/content_locale.dart
   - lib/features/**/*_page.dart
-reviewed: 2026-10-13
+reviewed: 2026-10-17
 ---
 
 # Feeds: states, grid, pull to refresh, skeletons
@@ -98,12 +98,16 @@ reviewed: 2026-10-13
   `NestedScrollView` passes `isNested: true` and has exactly one
   `HeaderLocator` as its first item; its header is clamping, the only kind
   EasyRefresh 4 accepts there. Nothing wraps the whole
-  `NestedScrollView`.
+  `NestedScrollView`; its outer physics is `NestedRefreshOuterPhysics`,
+  which holds the outer scroll while the user drags a feed's header out.
 - **Why:** Per-page wrappers diverged; under clamping the reversed pull is
   not real overscroll, so the indicator stayed pinned while the list
-  moved.
-- **Check:** `test/pull_to_refresh_test.dart` "the shared wrapper refreshes a nested scroll view once"
-- **Code:** `lib/app/pull_to_refresh.dart`
+  moved. A clamping header keeps the feed at its top, so the coordinator
+  gave a reversed pull to the outer scroll first: the profile header
+  collapsed under a stuck indicator. EasyRefresh holds only an outer scroll
+  that runs its own physics.
+- **Check:** `test/pull_to_refresh_test.dart` "the shared wrapper refreshes a nested scroll view once", `test/user_profile_test.dart` "a reversed pull retracts the indicator before the header collapses"
+- **Code:** `lib/app/pull_to_refresh.dart`, `lib/features/profile/user_page.dart`
 
 ### FEED-08 The indicator follows observable outcomes
 - **Rule:** A reversed pull moves the indicator back with the finger, and
@@ -113,7 +117,7 @@ reviewed: 2026-10-13
   no scroll resets the refreshing state until its future completes.
 - **Why:** Pointer-up overscroll re-armed pulls and the indicator stuck on
   screen.
-- **Check:** `test/pull_to_refresh_test.dart` "a reverse drag retracts the indicator and cancels" "a released armed pull refreshes once and hides the indicator" "ballistic overscroll after the pointer lifts starts no pull"
+- **Check:** `test/pull_to_refresh_test.dart` "a reverse drag retracts the indicator and cancels" "a released armed pull refreshes once and hides the indicator" "ballistic overscroll after the pointer lifts starts no pull", `test/user_profile_test.dart` "a reversed pull retracts the indicator before the header collapses"
 - **Code:** `lib/app/pull_to_refresh.dart`
 
 ### FEED-09 The framework decides the threshold
@@ -142,18 +146,24 @@ reviewed: 2026-10-13
   physics with no overscroll glow; do not add a `ClampingScrollPhysics`
   region. A fling stops at either edge; only a drag overscrolls.
   `PullToRefresh` passes `notLoadFooter: NotLoadFooter(hitOver: false)`.
+  The scrollable inside a text control (`EditableText`) is not always
+  scrollable: every scroll behavior the app installs returns
+  `textScrollPhysics` for it first.
 - **Why:** Mixed physics felt different per page; a fling into the end of
   a feed sprang back while the next page loaded, because EasyRefresh
-  copies `ClassicFooter`'s `hitOver: true` without `onLoad`.
-- **Check:** `test/scroll_behavior_test.dart` "a fling stops at the end instead of springing back", `test/pull_to_refresh_test.dart` "a fling stops at the trailing edge instead of bouncing back"
+  copies `ClassicFooter`'s `hitOver: true` without `onLoad`. A text
+  control's scrollable takes the nearest behavior's physics; always
+  scrollable, a one-line selectable title followed the finger instead of
+  the page, and came back after LAYOUT-11 fixed two pages only.
+- **Check:** `test/scroll_behavior_test.dart` "a fling stops at the end instead of springing back" "a selectable title that fits scrolls the page, not itself", `test/pull_to_refresh_test.dart` "a fling stops at the trailing edge instead of bouncing back"
 - **Code:** `lib/app/scroll_behavior.dart`, `lib/app/pull_to_refresh.dart`
 
 ### FEED-12 NestedScrollView gets explicit physics and one inner tab
-- **Rule:** A `NestedScrollView` passes
-  `physics: ScrollConfiguration.of(context).getScrollPhysics(context)`,
-  and a nested `PullToRefresh` flings with `FuncScrollPhysics` on top of
-  EasyRefresh's nested physics, so outer and inner run the same
-  simulation. Only the selected tab sits on the inner controller;
+- **Rule:** A `NestedScrollView` passes the behavior's physics,
+  `ScrollConfiguration.of(context).getScrollPhysics(context)`, as the
+  parent of its outer physics (FEED-07), and a nested `PullToRefresh`
+  flings with `FuncScrollPhysics` on top of EasyRefresh's nested physics,
+  so outer and inner run the same simulation. Only the selected tab sits on the inner controller;
   unselected tabs park on a controller of the same kind, and the
   `PrimaryScrollController` is never `.none`.
 - **Why:** Its outer position defaults to clamping, so the header stopped

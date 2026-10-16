@@ -11,6 +11,7 @@ import '../../app/motion/motion_tokens.dart';
 import '../../app/motion/state_fade.dart';
 import '../../app/format/app_format.dart';
 import '../../app/navigation/routes.dart';
+import '../../app/pull_to_refresh.dart';
 import '../../app/icons/app_icons.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/errors/error_details.dart';
@@ -590,8 +591,11 @@ class _UserPageState extends ConsumerState<UserPage>
             // Clamping, whose simulation diverges from it at low release
             // speeds — the header then stops short while the feed is
             // already rolling ("dip"), and a light pull-down dies on the
-            // edge ("stuck").
-            physics: ScrollConfiguration.of(context).getScrollPhysics(context),
+            // edge ("stuck"). On top, the outer scroll holds while a feed's
+            // refresh header is pulled out, so a reversed pull retracts it.
+            physics: NestedRefreshOuterPhysics(
+              parent: ScrollConfiguration.of(context).getScrollPhysics(context),
+            ),
             headerSliverBuilder: (context, innerBoxIsScrolled) => [
               SliverPersistentHeader(
                 pinned: true,

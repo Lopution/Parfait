@@ -11,7 +11,7 @@ applies_to:
   - lib/app/motion/scroll_hide.dart
   - lib/app/touch_exploration_scope.dart
   - lib/features/home/**
-reviewed: 2026-10-14
+reviewed: 2026-10-17
 ---
 
 # Navigation, shell and tabs
@@ -44,13 +44,20 @@ reviewed: 2026-10-14
 - **Check:** `test/navigation_router_test.dart` "shell owns the active tab and preserves branch stacks"
 - **Code:** `lib/app/app.dart`, `lib/app/navigation/routes.dart`
 
-### NAV-03 Back at a branch root returns to the first on the bar
-- **Rule:** At the root of the first destination on the bottom bar, back
-  goes to the system (leaves the app). At any other branch root, also one
-  the user took off the bar, back switches to that first destination.
-  There is no double-back-to-exit window.
-- **Why:** User decision.
-- **Check:** `test/navigation_router_test.dart` "branch back returns to the recommended root" "a rearranged bar starts, goes back and reaches hidden pages"
+### NAV-03 Back at a branch root returns to the first; the first confirms
+- **Rule:** At any branch root other than the first destination on the
+  bottom bar, also one the user took off the bar, back switches to that
+  first destination. At the first destination's root on Android, back
+  shows `homeExitHint` and arms `homeExitWindow` (2 s); a second back
+  inside it leaves the app. A push, an overlay, a branch switch or the
+  app leaving the foreground ends the window and takes the hint down.
+  Other platforms hand that back to the system.
+- **Why:** User decisions: the double back first went so the system
+  could preview going home, then came back without a setting, at the cost
+  of that preview on the start page. A hint left on screen after its
+  window, or a window that outlived a covered page, turned a later back
+  into an exit or a lie.
+- **Check:** `test/navigation_router_test.dart` "branch back returns to the recommended root" "a rearranged bar starts, goes back and reaches hidden pages" "a second back at the start exits"
 - **Code:** `lib/features/home/home_page.dart`
 
 ### NAV-04 Content opens on the current stack
