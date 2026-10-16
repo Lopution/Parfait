@@ -13,10 +13,12 @@ import '../../../../core/illust/illust_download_controller.dart';
 import '../../../../l10n/context.dart';
 
 /// The detail page's floating actions, in thumb reach at the bottom:
-/// download (with its progress and saved state), comments, and bookmark,
-/// which wears a tonal circle as the page's main action.
+/// download (with its progress and saved state) and bookmark, which wears
+/// a tonal circle as the page's main action. Comments open from the
+/// page's own comment preview.
 ///
-/// One themed surface with separate buttons — no dividers, no segments.
+/// One slightly translucent, shadowless surface with separate buttons —
+/// no dividers, no segments.
 /// [visibility] (1 shown, 0 hidden) slides it below the screen edge and
 /// fades it; the page drives it from scrolling. It is the page's prompt anchor, so a
 /// snackbar rests above it and moves with it.
@@ -26,11 +28,10 @@ class DetailActionBar extends StatefulWidget {
     required this.entity,
     required this.visibility,
     required this.onDownload,
-    required this.onComments,
   });
 
-  /// Height of the toolbar surface itself.
-  static const double height = 64;
+  /// Height of the toolbar surface itself: a 48dp button and its padding.
+  static const double height = 56;
 
   /// Gap between the toolbar and the bottom safe edge.
   static const double margin = FuncSpacing.lg;
@@ -43,13 +44,15 @@ class DetailActionBar extends StatefulWidget {
   final IllustEntity entity;
   final Animation<double> visibility;
   final VoidCallback onDownload;
-  final VoidCallback onComments;
 
   @override
   State<DetailActionBar> createState() => _DetailActionBarState();
 }
 
 class _DetailActionBarState extends State<DetailActionBar> {
+  /// The page shows through a little; the outline keeps the edge.
+  static const _surfaceOpacity = 0.85;
+
   /// The height the bar covers right now, for the prompt anchor.
   final _visibleExtent = ValueNotifier<double>(0);
   double _restingExtent = 0;
@@ -86,14 +89,11 @@ class _DetailActionBarState extends State<DetailActionBar> {
     // Written during build: the anchor only relayouts on it.
     _publish();
     final colors = Theme.of(context).colorScheme;
-    final l10n = context.l10n;
     final toolbar = Material(
-      color: colors.surfaceContainerHigh,
-      elevation: 3,
-      shadowColor: colors.shadow,
+      color: colors.surfaceContainerHigh.withValues(alpha: _surfaceOpacity),
       shape: StadiumBorder(side: BorderSide(color: colors.outlineVariant)),
       child: Padding(
-        padding: const EdgeInsets.all(FuncSpacing.sm),
+        padding: const EdgeInsets.all(FuncSpacing.xs),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -101,13 +101,7 @@ class _DetailActionBarState extends State<DetailActionBar> {
               entity: widget.entity,
               onPressed: widget.onDownload,
             ),
-            const SizedBox(width: FuncSpacing.sm),
-            IconButton(
-              tooltip: l10n.commentTitle,
-              onPressed: widget.onComments,
-              icon: const Icon(Icons.mode_comment_outlined),
-            ),
-            const SizedBox(width: FuncSpacing.sm),
+            const SizedBox(width: FuncSpacing.xs),
             DecoratedBox(
               decoration: ShapeDecoration(
                 color: colors.secondaryContainer,

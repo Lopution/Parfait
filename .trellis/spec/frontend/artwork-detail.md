@@ -97,12 +97,15 @@ reviewed: 2026-10-14
 ## Chrome
 
 ### DETAIL-09 The action bar is the centered capsule
-- **Rule:** On narrow layouts download, comments and bookmark sit in one
-  floating capsule (`DetailActionBar`), the heart on a tonal circle; the
-  top bar carries only the ⋮ menu. Share, page selection and work info are
-  ⋮ entries with text labels; no action depends only on a long press.
+- **Rule:** On narrow layouts download and bookmark sit in one floating
+  capsule (`DetailActionBar`), the heart on a tonal circle: 56dp high, the
+  surface 85% opaque with an outline and no shadow. Comments open from the
+  page's comment preview. The top bar carries only the ⋮ menu. Share, page
+  selection and work info are ⋮ entries with text labels; no action
+  depends only on a long press.
 - **Why:** User decision. An M3 floating toolbar with a separate bookmark
-  FAB was tried and rejected.
+  FAB was tried and rejected; a comments button repeated the preview's
+  entry, and a larger opaque capsule weighed on the page.
 - **Check:** manual
 - **Code:** `lib/features/illust/detail/widgets/detail_action_bar.dart`
 
