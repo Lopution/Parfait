@@ -35,12 +35,18 @@ class ReTapChannel extends ChangeNotifier {
 void reTapScrollToTop(BuildContext context, ScrollController controller) {
   if (!controller.hasClients) return;
   if (controller.offset <= 0 && PullToRefresh.trigger(controller)) return;
-  final duration = MotionTokens.resolve(context, MotionTokens.fast);
+  final position = controller.position;
+  final plan = MotionTokens.scrollToTop(
+    position.pixels,
+    position.viewportDimension,
+  );
+  final duration = MotionTokens.resolve(context, plan.duration);
   if (duration == Duration.zero) {
     controller.jumpTo(0);
-  } else {
-    controller.animateTo(0, duration: duration, curve: MotionTokens.fastCurve);
+    return;
   }
+  if (plan.start < position.pixels) controller.jumpTo(plan.start);
+  controller.animateTo(0, duration: duration, curve: MotionTokens.spatialCurve);
 }
 
 /// The home shell container. Branches remain mounted in place so each branch
@@ -147,7 +153,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     _switch.duration = MotionTokens.resolve(context, MotionTokens.branchSwitch);
     _navVisibility.duration = MotionTokens.resolve(
       context,
-      MotionTokens.chromeScrollHide,
+      MotionTokens.chrome,
     );
     _touchExploration = MediaQuery.accessibleNavigationOf(context);
     // Touch exploration started while the bar was scrolled away: bring it

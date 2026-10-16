@@ -41,14 +41,14 @@ class PullToRefresh extends StatefulWidget {
   static bool trigger(ScrollController controller) {
     final state = _mounted[controller];
     if (state == null) return false;
-    final duration = MotionTokens.resolve(state.context, MotionTokens.fast);
+    final duration = MotionTokens.resolve(state.context, MotionTokens.chrome);
     unawaited(
       state._controller.callRefresh(
         // The overscroll a release would leave: just past the trigger.
         overOffset: _callRefreshOverOffset,
         // Null jumps there: reduced motion.
         duration: duration == Duration.zero ? null : duration,
-        curve: MotionTokens.fastCurve,
+        curve: MotionTokens.spatialCurve,
       ),
     );
     return true;

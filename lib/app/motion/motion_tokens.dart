@@ -34,8 +34,9 @@ abstract final class MotionTokens {
 
   /// The shared-element transition (a card into its detail, a detail
   /// image into the viewer), both ways and whatever the page style: M3's
-  /// long1, as long as Android's FadeForwards. The Hero keeps its default
-  /// curve, `Curves.fastOutSlowIn`.
+  /// long1, as long as Android's FadeForwards. The Hero flies on
+  /// [spatialCurve]; every artwork Hero end sets it, since a flight reads
+  /// the curve of the page that opens or leaves.
   static const sharedElement = Duration(milliseconds: 450);
 
   /// The shared-element page fades over the first part of either
@@ -45,12 +46,44 @@ abstract final class MotionTokens {
   static const sharedElementFadeIn = Interval(0, 0.6, curve: Curves.easeInOut);
   static const sharedElementFadeOut = Interval(0.4, 1, curve: Curves.easeInOut);
 
-  /// Short UI transitions (type-selector snap, tab hint fade-in).
-  static const fast = Duration(milliseconds: 180);
-  static const fastCurve = Curves.easeOut;
+  /// A small element's state fade: a page counter, a progress ring, a
+  /// prompt's exit. M3 short3; effects run shorter than movement.
+  static const stateFade = Duration(milliseconds: 150);
+  static const stateFadeCurve = Curves.easeOut;
 
-  /// Medium UI transitions.
-  static const medium = Duration(milliseconds: 200);
+  /// A surface moving in place: a tab settling, a page turn, a zoom, a
+  /// scroll to an anchor. M3 medium2. The curve starts a little earlier
+  /// than `Curves.fastOutSlowIn` and lands the same way (user choice).
+  static const spatial = Duration(milliseconds: 300);
+  static const spatialCurve = Cubic(0.3, 0, 0.2, 1);
+
+  /// A scroll back to the top takes [spatial] for a short way and grows
+  /// with the distance to this at a screen; see [scrollToTop].
+  static const scrollToTopLong = Duration(milliseconds: 500);
+
+  /// The scroll back to the top of a list at [pixels] in a viewport
+  /// [viewport] tall, on [spatialCurve]. Farther than a screen the list
+  /// first jumps to a screen from the top ([start]): the way a long list
+  /// scrolls home in a moment without a blur of every row in between.
+  static ({double start, Duration duration}) scrollToTop(
+    double pixels,
+    double viewport,
+  ) {
+    final start = math.min(pixels, viewport);
+    final share = viewport > 0 ? start / viewport : 1.0;
+    return (
+      start: start,
+      duration: spatial + (scrollToTopLong - spatial) * share,
+    );
+  }
+
+  /// The light/dark and palette cross-fade over the whole screen. M3
+  /// medium2: a large area of colour changes, longer than a state fade.
+  static const themeChange = Duration(milliseconds: 300);
+  static const themeChangeCurve = Curves.easeInOut;
+
+  /// A bottom sheet's exit: Material's 200 ms, shorter than its entrance.
+  static const sheetExit = Duration(milliseconds: 200);
 
   /// Prompt entrance — Compose M3 `SnackbarHost`: a 150ms linear fade with
   /// a 0.8→1 fast-out-slow-in scale. The exit reverses both over [fast]
@@ -79,11 +112,13 @@ abstract final class MotionTokens {
   /// In-page tab switch, matching the app bar's kTabScrollDuration.
   static const tabSwitch = Duration(milliseconds: 300);
 
-  /// Scroll hide/show of floating chrome — the shell's bottom bar and the
-  /// detail action bar: Shaft's capsule, a 200 ms slide plus fade both
-  /// ways on Android's default AccelerateDecelerate interpolator.
-  static const chromeScrollHide = Duration(milliseconds: 200);
-  static const chromeScrollCurve = Curves.easeInOutSine;
+  /// Chrome showing and hiding: bars hidden on scroll (the shell's bottom
+  /// bar, the detail action bar), the immersive top bar, the viewer's and
+  /// the novel reader's bars, a filter summary, and the short pull down
+  /// to the refresh trigger, which moves about as far. Shaft's capsule: a 200 ms slide plus fade both ways on
+  /// Android's default AccelerateDecelerate interpolator.
+  static const chrome = Duration(milliseconds: 200);
+  static const chromeCurve = Curves.easeInOutSine;
 
   /// SmoothWheelScroll's per-wheel animated scroll duration.
   static const wheelScroll = Duration(milliseconds: 240);
@@ -312,15 +347,15 @@ mixin TickerModeWatch<T extends StatefulWidget> on State<T> {
 }
 
 /// Programmatic page turn (keyboard, tap zones): slides over the resolved
-/// [MotionTokens.fast], or jumps when the motion gate is closed — a scroll
+/// [MotionTokens.spatial], or jumps when the motion gate is closed — a scroll
 /// animation asserts a non-zero duration.
 void turnPage(BuildContext context, PageController controller, int page) {
-  final duration = MotionTokens.resolve(context, MotionTokens.fast);
+  final duration = MotionTokens.resolve(context, MotionTokens.spatial);
   if (duration > Duration.zero) {
     controller.animateToPage(
       page,
       duration: duration,
-      curve: MotionTokens.fastCurve,
+      curve: MotionTokens.spatialCurve,
     );
   } else {
     controller.jumpToPage(page);

@@ -144,7 +144,7 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
     super.didChangeDependencies();
     _filterSummaryController.duration = MotionTokens.resolve(
       context,
-      MotionTokens.fast,
+      MotionTokens.chrome,
     );
     if (_filterSummaryInitialized) return;
     final labels = _selectedType == SearchResultType.user

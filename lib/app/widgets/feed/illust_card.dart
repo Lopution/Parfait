@@ -13,6 +13,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/context.dart';
 import '../../theme/func_semantic_tokens.dart';
 import '../../motion/hero_transition.dart';
+import '../../motion/motion_tokens.dart';
 import '../../motion/press_scale.dart';
 import '../../navigation/routes.dart';
 import '../../pixiv_image.dart';
@@ -341,6 +342,7 @@ class _IllustCardBody extends ConsumerWidget {
     // rounded on pop.
     return Hero(
       tag: heroTag,
+      curve: MotionTokens.spatialCurve,
       // The back gesture scrubs the image home with the finger (TRANS-09).
       transitionOnUserGestures: true,
       flightShuttleBuilder: illustHeroFlightShuttleBuilder,

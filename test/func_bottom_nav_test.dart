@@ -107,7 +107,7 @@ void main() {
 
     // Every frame's move crosses 8 px and asks for the hide again; the
     // slide must keep its own clock instead of restarting on each ask, so
-    // it finishes within a drag that outlasts MotionTokens.chromeScrollHide.
+    // it finishes within a drag that outlasts MotionTokens.chrome.
     final gesture = await tester.startGesture(tester.getCenter(_settingsList));
     await gesture.moveBy(const Offset(0, -20));
     for (var i = 0; i < 30; i++) {

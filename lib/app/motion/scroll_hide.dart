@@ -75,7 +75,7 @@ class ScrollHideTracker {
 }
 
 /// Moves chrome driven by [visibility] (1 shown, 0 hidden) toward
-/// [hidden] on [MotionTokens.chromeScrollHide]; at once under reduced
+/// [hidden] on [MotionTokens.chrome]; at once under reduced
 /// motion. A call that matches where it is already heading does nothing.
 void slideChrome(
   BuildContext context,
@@ -94,7 +94,7 @@ void slideChrome(
 
 /// Chrome at the screen bottom that [slideChrome] hides: it slides down by
 /// its own height and fades out together, on
-/// [MotionTokens.chromeScrollCurve].
+/// [MotionTokens.chromeCurve].
 class ScrollHiddenChrome extends StatelessWidget {
   const ScrollHiddenChrome({
     super.key,
@@ -108,13 +108,11 @@ class ScrollHiddenChrome extends StatelessWidget {
 
   /// How much of the chrome shows at [visibility]'s current value.
   static double shownOf(Animation<double> visibility) =>
-      MotionTokens.chromeScrollCurve.transform(visibility.value);
+      MotionTokens.chromeCurve.transform(visibility.value);
 
   @override
   Widget build(BuildContext context) {
-    final shown = visibility.drive(
-      CurveTween(curve: MotionTokens.chromeScrollCurve),
-    );
+    final shown = visibility.drive(CurveTween(curve: MotionTokens.chromeCurve));
     return FadeTransition(
       opacity: shown,
       child: SlideTransition(

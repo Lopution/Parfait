@@ -182,7 +182,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _chrome.duration = MotionTokens.resolve(context, MotionTokens.fast);
+    _chrome.duration = MotionTokens.resolve(context, MotionTokens.chrome);
     final size = MediaQuery.sizeOf(context);
     final live = MediaQuery.of(context).viewPadding;
     final next = size == _insetsSize ? _maxEdges(_stableInsets, live) : live;
@@ -935,7 +935,7 @@ class _ChromeBar extends StatelessWidget {
           begin: Offset(0, isTop ? -1 : 1),
           end: Offset.zero,
         ).animate(
-          CurvedAnimation(parent: animation, curve: MotionTokens.fastCurve),
+          CurvedAnimation(parent: animation, curve: MotionTokens.chromeCurve),
         );
     // No SafeArea here: the bar surface must paint edge-to-edge so its
     // background covers the system inset. The inset padding lives inside

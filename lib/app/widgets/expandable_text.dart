@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/context.dart';
-import '../motion/motion_tokens.dart';
+import '../motion/spring_size.dart';
 
 /// Long text collapsed to [maxLines] with a Show more / Show less toggle
 /// under it. Links inside [text] stay tappable in both states. Text that
@@ -51,9 +51,7 @@ class _ExpandableTextState extends State<ExpandableText> {
           return Text.rich(widget.text, style: widget.style);
         }
         final l10n = context.l10n;
-        return AnimatedSize(
-          duration: MotionTokens.resolve(context, MotionTokens.medium),
-          alignment: Alignment.topCenter,
+        return SpringSize(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

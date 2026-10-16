@@ -161,7 +161,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
       ..addListener(_applyZoomFrame);
     _zoomCurve = CurvedAnimation(
       parent: _zoomController,
-      curve: MotionTokens.fastCurve,
+      curve: MotionTokens.spatialCurve,
     );
     _pageController.addListener(_onPageChanged);
     _transformationFor(_activePage).addListener(_onTransformed);
@@ -342,7 +342,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     _zoomTarget = target;
     _zoomTween = Matrix4Tween(begin: target.value, end: end);
     _zoomController
-      ..duration = MotionTokens.resolve(context, MotionTokens.fast)
+      ..duration = MotionTokens.resolve(context, MotionTokens.spatial)
       ..forward(from: 0);
   }
 
@@ -786,6 +786,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
         }
         final hero = Hero(
           tag: heroTag,
+          curve: MotionTokens.spatialCurve,
           transitionOnUserGestures: true,
           flightShuttleBuilder: illustHeroFlightShuttleBuilder,
           child: IllustHeroFlightChild(
@@ -1165,7 +1166,7 @@ class _ChromeEdgeBarState extends State<_ChromeEdgeBar>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _controller.duration = MotionTokens.resolve(context, MotionTokens.fast);
+    _controller.duration = MotionTokens.resolve(context, MotionTokens.chrome);
   }
 
   @override

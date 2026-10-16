@@ -126,7 +126,7 @@ class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
   void _settleTo(int target) {
     final from = _tc.animation?.value ?? _tc.index.toDouble();
     _settleTarget = target;
-    final duration = MotionTokens.resolve(context, MotionTokens.fast);
+    final duration = MotionTokens.resolve(context, MotionTokens.spatial);
     if (duration == Duration.zero || (from - target).abs() < 1e-4) {
       _tc.index = target;
       _tc.offset = 0;
@@ -137,7 +137,7 @@ class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
       ..addStatusListener(_finishSettle);
     controller.duration = duration;
     _settleAnim = Tween<double>(begin: from, end: target.toDouble()).animate(
-      CurvedAnimation(parent: controller, curve: MotionTokens.fastCurve),
+      CurvedAnimation(parent: controller, curve: MotionTokens.spatialCurve),
     );
     controller.forward(from: 0);
   }

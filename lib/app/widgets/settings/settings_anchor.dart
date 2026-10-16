@@ -84,12 +84,12 @@ class _SettingsFocusScopeState extends State<SettingsFocusScope> {
     final target = _anchors[widget.target];
     if (target != null) {
       _done = true;
-      final duration = MotionTokens.resolve(context, MotionTokens.medium);
+      final duration = MotionTokens.resolve(context, MotionTokens.spatial);
       Scrollable.ensureVisible(
         target.context,
         alignment: _revealAlignment,
         duration: duration,
-        curve: MotionTokens.fastCurve,
+        curve: MotionTokens.spatialCurve,
       ).then((_) {
         if (target.mounted) target.mark();
       });

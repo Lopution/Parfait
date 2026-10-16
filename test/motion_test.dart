@@ -98,7 +98,7 @@ void main() {
         _wrap(
           Builder(
             builder: (context) {
-              resolved = MotionTokens.resolve(context, MotionTokens.medium);
+              resolved = MotionTokens.resolve(context, MotionTokens.spatial);
               return const SizedBox.shrink();
             },
           ),
@@ -113,11 +113,11 @@ void main() {
     testWidgets('scales by the animation speed', (tester) async {
       expect(
         await resolve(tester, speed: AnimationSpeed.slow),
-        MotionTokens.medium * (450 / 350),
+        MotionTokens.spatial * (450 / 350),
       );
       expect(
         await resolve(tester, speed: AnimationSpeed.fast),
-        MotionTokens.medium * (250 / 350),
+        MotionTokens.spatial * (250 / 350),
       );
     });
 
@@ -129,7 +129,7 @@ void main() {
     });
 
     testWidgets('plays when neither source asks for reduction', (tester) async {
-      expect(await resolve(tester), MotionTokens.medium);
+      expect(await resolve(tester), MotionTokens.spatial);
     });
 
     testWidgets('collapses under the in-app reduce-motion setting', (

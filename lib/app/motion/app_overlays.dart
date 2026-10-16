@@ -67,7 +67,7 @@ AnimationStyle _sheetAnimationStyle(BuildContext context) {
   return AnimationStyle(
     duration: duration,
     curve: curve,
-    reverseDuration: MotionTokens.resolve(context, MotionTokens.medium),
+    reverseDuration: MotionTokens.resolve(context, MotionTokens.sheetExit),
   );
 }
 
