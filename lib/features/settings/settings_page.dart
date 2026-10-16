@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -296,20 +295,39 @@ class _SettingsGroups extends ConsumerWidget {
               page(SettingsPageRef.about, subtitle: const _VersionSummary()),
             ],
           ),
-          // Frame probe is a diagnostics tool, not a preference: it ships in
-          // every build but stays hidden until the about-page gesture (or a
-          // non-release build) unlocks the developer group. A
-          // `PIXIV_FRAME_PROBE` dart-define shows it in release for signed
-          // measurement packages; default release builds are unchanged.
-          if (ref.watch(developerOptionsProvider) ||
-              !kReleaseMode ||
-              kPixivFrameProbe)
-            SettingsGroup(
-              title: Text(context.l10n.settingsGroupDeveloper),
-              children: [page(SettingsPageRef.frameProbe)],
-            ),
+          const DeveloperSettingsGroup(),
         ],
       ),
+    );
+  }
+}
+
+/// The developer group (frame probe), under the settings on the index and
+/// on the Me page; nothing while it is locked.
+///
+/// The frame probe is a diagnostics tool, not a preference: it ships in
+/// every build but stays hidden until the about-page gesture unlocks it.
+/// Builds that can record ([FrameProbe.available]: non-release, or a
+/// release with the `PIXIV_FRAME_PROBE` dart-define for signed measurement
+/// packages) show it unlocked; default release builds are unchanged.
+class DeveloperSettingsGroup extends ConsumerWidget {
+  const DeveloperSettingsGroup({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(developerOptionsProvider) && !FrameProbe.available) {
+      return const SizedBox.shrink();
+    }
+    const probe = SettingsPageRef.frameProbe;
+    return SettingsGroup(
+      title: Text(context.l10n.settingsGroupDeveloper),
+      children: [
+        SettingsTile(
+          setting: probe,
+          icon: settingsPageIcons[probe],
+          onTap: () => openSettingsPage(context, probe.path),
+        ),
+      ],
     );
   }
 }
