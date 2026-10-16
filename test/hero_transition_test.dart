@@ -77,40 +77,6 @@ void main() {
     expect(tester.getTopLeft(surface).dy, closeTo(origin, 0.001));
   });
 
-  testWidgets('drag-to-dismiss pops after the distance threshold', (
-    tester,
-  ) async {
-    final navigatorKey = GlobalKey<NavigatorState>();
-    var dismissed = false;
-    await tester.pumpWidget(
-      MaterialApp(navigatorKey: navigatorKey, home: const SizedBox.shrink()),
-    );
-    navigatorKey.currentState!.push<void>(
-      MaterialPageRoute<void>(
-        builder: (context) => Scaffold(
-          body: DragToDismiss(
-            onDismissed: () {
-              dismissed = true;
-              Navigator.of(context).pop();
-            },
-            child: const SizedBox(
-              key: Key('dismissible-surface'),
-              width: 200,
-              height: 200,
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.drag(find.byType(DragToDismiss), const Offset(0, 180));
-    await tester.pumpAndSettle();
-
-    expect(dismissed, isTrue);
-    expect(find.byKey(const Key('dismissible-surface')), findsNothing);
-  });
-
   testWidgets('feed → detail → viewer keeps one hero tag family', (
     tester,
   ) async {
@@ -154,9 +120,8 @@ void main() {
     });
   });
 
-  testWidgets('only the entry page flies back; other pages slide away', (
-    tester,
-  ) async {
+  testWidgets('only the entry page flies back; a drag from another page '
+      'slides away, back leaves like any page', (tester) async {
     await mockNetworkImagesFor(() async {
       await pushFromFeed(
         tester,
@@ -164,49 +129,58 @@ void main() {
       );
       await tester.pumpAndSettle();
       final baseTag = illustHeroTag('feed', 42);
-      await tester.tap(find.byType(DetailPageImage).first);
-      await tester.pumpAndSettle();
       final viewer = find.byType(ImageViewerPage);
-      expect(
-        find.descendant(
-          of: viewer,
-          matching: find.byWidgetPredicate(
-            (w) => w is Hero && w.tag == baseTag,
-          ),
-        ),
-        findsOneWidget,
-        reason: 'the viewer opened on page 1 carries its Hero',
-      );
+      double slide() => tester
+          .widget<FractionalTranslation>(
+            find
+                .descendant(
+                  of: viewer,
+                  matching: find.byType(FractionalTranslation),
+                )
+                .first,
+          )
+          .translation
+          .dy;
 
-      // Page 2 is not where the viewer opened: it carries no Hero.
-      await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
-      await tester.pumpAndSettle();
-      expect(find.text('2 / 2'), findsOneWidget);
-      expect(
-        find.descendant(
-          of: viewer,
-          matching: find.byWidgetPredicate(
-            (w) => w is Hero && '${w.tag}'.startsWith(baseTag),
+      // Leaving from page 2, where the viewer did not open: it carries no
+      // Hero. Back plays the page transition; a drag slides the stage down.
+      for (final drag in [false, true]) {
+        await tester.tap(find.byType(DetailPageImage).first);
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: viewer,
+            matching: find.byWidgetPredicate(
+              (w) => w is Hero && w.tag == baseTag,
+            ),
           ),
-        ),
-        findsNothing,
-      );
+          findsOneWidget,
+          reason: 'the viewer opened on page 1 carries its Hero',
+        );
+        await tester.fling(find.byType(PageView), const Offset(-300, 0), 1000);
+        await tester.pumpAndSettle();
+        expect(find.text('2 / 2'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: viewer,
+            matching: find.byWidgetPredicate(
+              (w) => w is Hero && '${w.tag}'.startsWith(baseTag),
+            ),
+          ),
+          findsNothing,
+        );
 
-      // Leaving from there slides the stage down instead of shrinking.
-      await tester.tap(find.byType(BackButton));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 150));
-      final slide = tester.widget<FractionalTranslation>(
-        find
-            .descendant(
-              of: viewer,
-              matching: find.byType(FractionalTranslation),
-            )
-            .first,
-      );
-      expect(slide.translation.dy, greaterThan(0));
-      await tester.pumpAndSettle();
-      expect(viewer, findsNothing);
+        if (drag) {
+          await tester.drag(find.byType(DragToDismiss), const Offset(0, 300));
+        } else {
+          await tester.tap(find.byType(BackButton));
+        }
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 150));
+        expect(slide(), drag ? greaterThan(0) : 0, reason: 'drag: $drag');
+        await tester.pumpAndSettle();
+        expect(viewer, findsNothing);
+      }
     });
   });
 

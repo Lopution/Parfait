@@ -113,6 +113,9 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   final _progress = <int, ValueNotifier<ImageLoadProgress>>{};
   int _activePage = 0;
 
+  /// Set as a drag-to-dismiss pops the route; read by [_ExitSlide].
+  bool _dismissedByDrag = false;
+
   /// The page controller currently being zoom-animated and the tween
   /// driving it (focal zoom → Matrix4, not a scalar scale).
   TransformationController? _zoomTarget;
@@ -544,13 +547,19 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
         child: Focus(
           autofocus: true,
           child: _ExitSlide(
-            // Only the entry page's image shrinks back into the detail
-            // page; from any other page the stage leaves downward.
-            enabled: widget.heroTagForPage?.call(_activePage) == null,
+            // A drag-to-dismiss on the entry page shrinks the image back
+            // into the detail page; from any other page the stage leaves
+            // downward. Back and the back gesture fade the viewer out.
+            slidesOut: () =>
+                _dismissedByDrag &&
+                widget.heroTagForPage?.call(_activePage) == null,
             child: DragToDismiss(
               enabled: !_activeZoomed,
               allowPointer: (event) => event.pointer != _scrubPointer,
-              onDismissed: () => Navigator.of(context).pop<void>(),
+              onDismissed: () {
+                _dismissedByDrag = true;
+                Navigator.of(context).pop<void>();
+              },
               // The stage is always black; pin light bar icons while the
               // viewer is mounted so the clock stays readable after exiting
               // immersive mode (the AnnotatedRegion restores the ambient
@@ -777,8 +786,10 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
         }
         final hero = Hero(
           tag: heroTag,
+          transitionOnUserGestures: true,
           flightShuttleBuilder: illustHeroFlightShuttleBuilder,
           child: IllustHeroFlightChild(
+            containsImage: true,
             // The return shuttle paints the exact provider the
             // viewer is showing (same URL + uncapped decode =>
             // same decoded cache entry => identical pixels).
@@ -1051,14 +1062,14 @@ class _PageScrubber extends StatelessWidget {
   }
 }
 
-/// Slides the viewer down off the screen while its route pops, for exits
-/// without a Hero to carry the image back. The slide runs from wherever the
-/// pop starts (a committed back gesture may begin it mid-way), so it never
-/// jumps.
+/// Slides the viewer down off the screen while its route pops, for a
+/// drag-to-dismiss without a Hero to carry the image back. The slide runs
+/// from wherever the pop starts, so it never jumps.
 class _ExitSlide extends StatefulWidget {
-  const _ExitSlide({required this.enabled, required this.child});
+  const _ExitSlide({required this.slidesOut, required this.child});
 
-  final bool enabled;
+  /// Asked as the pop starts, before the viewer can rebuild.
+  final bool Function() slidesOut;
   final Widget child;
 
   @override
@@ -1083,7 +1094,7 @@ class _ExitSlideState extends State<_ExitSlide> {
   void _onStatus(AnimationStatus status) {
     final route = _route;
     if (route == null || !mounted) return;
-    final popFrom = status == AnimationStatus.reverse && widget.enabled
+    final popFrom = status == AnimationStatus.reverse && widget.slidesOut()
         ? route.value
         : null;
     if (popFrom != _popFrom) setState(() => _popFrom = popFrom);

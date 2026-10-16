@@ -1,5 +1,10 @@
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart' show Scaffold;
 import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 
 import 'review_support.dart';
 
@@ -89,4 +94,62 @@ void main() {
       await film.tap(find.text('推荐'));
     },
   );
+
+  for (final style in PageTransitionStyle.values) {
+    testFilm(
+      'nav/hero-detail-back-gesture-${style.name}',
+      location: '/recommended',
+      notes:
+          'The ${style.name} transition, back gesture on the detail page '
+          'opened from a feed card. Halfway, then cancelled: the page follows '
+          'the finger as any page does in this style, the image leaves its '
+          'spot toward the card, and both return on the cancel. Then a '
+          'committed gesture: the page leaves with the style, the feed moves '
+          'with it, the image lands on the card without a gap or a jump, and '
+          'nothing cuts the image wrongly while the page shrinks or slides.',
+      script: (film, router) async {
+        final tester = film.tester;
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(Scaffold).first),
+        );
+        await tester.runAsync(
+          () => container
+              .read(settingsProvider.notifier)
+              .setPageTransitionStyle(style),
+        );
+        await film.tap(find.byType(PixivImage), hold: 6);
+        await film.frames(45);
+        for (final commit in [false, true]) {
+          await _backGesture('startBackGesture', 0);
+          for (var i = 1; i <= 15; i++) {
+            await _backGesture('updateBackGestureProgress', i / 30);
+            await film.frame();
+          }
+          await _backGesture(
+            commit ? 'commitBackGesture' : 'cancelBackGesture',
+          );
+          await film.frames(40);
+        }
+      },
+    );
+  }
+}
+
+/// The Android predictive back gesture from the left edge, which some ROMs
+/// never deliver to the app (they send a plain back on release instead).
+Future<void> _backGesture(String method, [double? progress]) {
+  final data = const StandardMethodCodec().encodeMethodCall(
+    MethodCall(
+      method,
+      progress == null
+          ? null
+          : {
+              'touchOffset': <double>[20 + 300 * progress, 400],
+              'progress': progress,
+              'swipeEdge': 0,
+            },
+    ),
+  );
+  return TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .handlePlatformMessage('flutter/backgesture', data, (_) {});
 }

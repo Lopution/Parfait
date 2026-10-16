@@ -32,6 +32,19 @@ abstract final class MotionTokens {
   static const pageTransition = Duration(milliseconds: 300);
   static const pageCurve = Curves.easeInOutCubic;
 
+  /// The shared-element transition (a card into its detail, a detail
+  /// image into the viewer), both ways and whatever the page style: M3's
+  /// long1, as long as Android's FadeForwards. The Hero keeps its default
+  /// curve, `Curves.fastOutSlowIn`.
+  static const sharedElement = Duration(milliseconds: 450);
+
+  /// The shared-element page fades over the first part of either
+  /// direction: opening, so the image lands on a shown page; leaving, so
+  /// the page goes with the image rather than after it. Both read the
+  /// route value, which runs 1 → 0 when leaving.
+  static const sharedElementFadeIn = Interval(0, 0.6, curve: Curves.easeInOut);
+  static const sharedElementFadeOut = Interval(0.4, 1, curve: Curves.easeInOut);
+
   /// Short UI transitions (type-selector snap, tab hint fade-in).
   static const fast = Duration(milliseconds: 180);
   static const fastCurve = Curves.easeOut;

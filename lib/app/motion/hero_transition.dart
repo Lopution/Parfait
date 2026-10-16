@@ -27,10 +27,20 @@ String illustHeroTag(String scope, int illustId) =>
 /// first reverse-flight frame. The wrapper is intentionally transparent in
 /// the normal widget tree and is interpreted by the shared shuttle below.
 class IllustHeroFlightChild extends StatelessWidget {
-  const IllustHeroFlightChild({super.key, this.popChild, required this.child});
+  const IllustHeroFlightChild({
+    super.key,
+    this.popChild,
+    this.containsImage = false,
+    required this.child,
+  });
 
   final Widget child;
   final Widget? popChild;
+
+  /// Whether the image is contained in a larger endpoint (the viewer's
+  /// full-screen stage) rather than filling it. The image then has the
+  /// other endpoint's shape, and [HeroLiftHole] cuts out only the image.
+  final bool containsImage;
 
   @override
   Widget build(BuildContext context) => child;
@@ -207,10 +217,236 @@ Widget illustHeroFlightShuttleBuilder(
     },
   );
   // The shuttle is mounted for exactly the flight: the frame probe counts
-  // it as a live scene.
-  return FrameProbe.available
-      ? ProbeScene(scene: 'hero', child: shuttle)
-      : shuttle;
+  // it as a live scene, and the endpoints stay lifted out of their pages.
+  return _LiftedEndpoints(
+    from: fromHeroContext,
+    to: toHeroContext,
+    child: FrameProbe.available
+        ? ProbeScene(scene: 'hero', child: shuttle)
+        : shuttle,
+  );
+}
+
+/// Keeps both endpoints of one flight lifted out of their pages
+/// ([HeroLiftHole]) for as long as the shuttle is mounted. A diverted
+/// flight rebuilds the shuttle in place with its new endpoints.
+class _LiftedEndpoints extends StatefulWidget {
+  const _LiftedEndpoints({
+    required this.from,
+    required this.to,
+    required this.child,
+  });
+
+  final BuildContext from;
+  final BuildContext to;
+  final Widget child;
+
+  @override
+  State<_LiftedEndpoints> createState() => _LiftedEndpointsState();
+}
+
+class _LiftedEndpointsState extends State<_LiftedEndpoints> {
+  List<VoidCallback> _releases = const [];
+
+  void _lift() => _releases = [
+    ?HeroLiftHole.lift(widget.from, other: widget.to),
+    ?HeroLiftHole.lift(widget.to, other: widget.from),
+  ];
+
+  void _release() {
+    for (final release in _releases) {
+      release();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _lift();
+  }
+
+  @override
+  void didUpdateWidget(_LiftedEndpoints oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.from, widget.from) ||
+        !identical(oldWidget.to, widget.to)) {
+      _release();
+      _lift();
+    }
+  }
+
+  @override
+  void dispose() {
+    _release();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+/// Wraps a shared-element page. While the page leaves (back, the back
+/// gesture) and one of its Hero endpoints is in flight, the endpoint's
+/// image is cut out of the page: the page below shows through where the
+/// image was lifted off, not the page's own background.
+///
+/// Opening has no hole: the page fades in over a page that shows through
+/// anyway, and the image's slow last stretch left a line of the page below
+/// around it on the shown page. A settled page (covered by the viewer, or
+/// revealed by it) has none either: the route below it is not painted.
+class HeroLiftHole extends SingleChildRenderObjectWidget {
+  const HeroLiftHole({super.key, required this.animation, super.child});
+
+  /// The page's own route controller, not its animation: the animation
+  /// reports complete for the frame a Hero measures the opening page.
+  /// The hole opens only while it runs after the page has landed.
+  final Animation<double> animation;
+
+  /// Cuts the Hero endpoint at [heroContext] out of its page until the
+  /// returned callback runs. Null when the endpoint is in no such page.
+  /// [other] is the flight's other endpoint.
+  static VoidCallback? lift(
+    BuildContext heroContext, {
+    required BuildContext other,
+  }) {
+    final page = heroContext
+        .findAncestorRenderObjectOfType<_RenderHeroLiftHole>();
+    final box = heroContext.findRenderObject();
+    if (page == null || box is! RenderBox) return null;
+    final hero = heroContext.widget;
+    final flightChild = hero is Hero ? hero.child : null;
+    final otherBox = other.findRenderObject();
+    final lift = _Lift(
+      box,
+      flightChild is IllustHeroFlightChild &&
+              flightChild.containsImage &&
+              otherBox is RenderBox &&
+              otherBox.hasSize &&
+              !otherBox.size.isEmpty
+          ? otherBox.size.aspectRatio
+          : null,
+    );
+    page._add(lift);
+    return () => page._remove(lift);
+  }
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderHeroLiftHole(animation);
+
+  @override
+  void updateRenderObject(BuildContext context, RenderObject renderObject) {
+    (renderObject as _RenderHeroLiftHole).animation = animation;
+  }
+}
+
+/// One lifted endpoint: its Hero placeholder box, and the image's aspect
+/// when the image is contained in it.
+final class _Lift {
+  _Lift(this.box, this.aspect);
+
+  final RenderBox box;
+  final double? aspect;
+}
+
+class _RenderHeroLiftHole extends RenderProxyBox {
+  _RenderHeroLiftHole(this._animation);
+
+  Animation<double> _animation;
+  set animation(Animation<double> value) {
+    if (identical(value, _animation)) return;
+    if (attached) {
+      _animation.removeStatusListener(_onStatus);
+      value.addStatusListener(_onStatus);
+    }
+    _animation = value;
+    markNeedsPaint();
+  }
+
+  final _lifts = <_Lift>[];
+  final _clip = LayerHandle<ClipPathLayer>();
+
+  void _add(_Lift lift) {
+    _lifts.add(lift);
+    if (attached) markNeedsPaint();
+  }
+
+  void _remove(_Lift lift) {
+    if (_lifts.remove(lift) && attached) markNeedsPaint();
+  }
+
+  /// Whether the page has been fully shown: only then does a flight lift
+  /// the image off it.
+  bool _landed = false;
+
+  void _onStatus(AnimationStatus status) {
+    if (status.isCompleted) _landed = true;
+    markNeedsPaint();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    if (_animation.isCompleted) _landed = true;
+    _animation.addStatusListener(_onStatus);
+  }
+
+  @override
+  void detach() {
+    _animation.removeStatusListener(_onStatus);
+    super.detach();
+  }
+
+  @override
+  void dispose() {
+    _clip.layer = null;
+    super.dispose();
+  }
+
+  /// Where the lifted images sit in this page, or null for no hole.
+  Rect? _hole() {
+    if (!_landed || _animation.isCompleted) return null;
+    Rect? hole;
+    for (final lift in _lifts) {
+      final box = lift.box;
+      if (!box.attached || !box.hasSize) continue;
+      var rect = Offset.zero & box.size;
+      if (lift.aspect case final aspect?) {
+        final fitted = applyBoxFit(
+          BoxFit.contain,
+          Size(aspect, 1),
+          rect.size,
+        ).destination;
+        rect = Alignment.center.inscribe(fitted, rect);
+      }
+      rect = MatrixUtils.transformRect(box.getTransformTo(this), rect);
+      hole = hole?.expandToInclude(rect) ?? rect;
+    }
+    return hole;
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final hole = _hole();
+    if (child == null || hole == null) {
+      _clip.layer = null;
+      super.paint(context, offset);
+      return;
+    }
+    final bounds = Offset.zero & size;
+    _clip.layer = context.pushClipPath(
+      needsCompositing,
+      offset,
+      bounds,
+      Path()
+        ..fillType = PathFillType.evenOdd
+        ..addRect(bounds)
+        ..addRect(hole),
+      super.paint,
+      clipBehavior: Clip.hardEdge,
+      oldLayer: _clip.layer,
+    );
+  }
 }
 
 /// The measured viewport clip for one flight endpoint, or null when the

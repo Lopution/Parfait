@@ -40,17 +40,16 @@ class FuncTransitionGuard extends StatelessWidget {
   }
 }
 
-/// Pushed-route transition: slide in from the trailing edge.
+/// Pushed-route transition: slide in from the trailing edge. The page
+/// below does not move.
 class FuncRouteTransition extends StatelessWidget {
   const FuncRouteTransition({
     super.key,
     required this.animation,
-    required this.secondaryAnimation,
     required this.child,
   });
 
   final Animation<double> animation;
-  final Animation<double> secondaryAnimation;
   final Widget child;
 
   @override
@@ -58,16 +57,10 @@ class FuncRouteTransition extends StatelessWidget {
     // drive(CurveTween) instead of CurvedAnimation: build methods run every
     // frame during the transition, and a CurvedAnimation is a stateful
     // listener-holding object — the curve evaluation is all that is needed.
-    final curved = animation.drive(CurveTween(curve: MotionTokens.pageCurve));
-    return FuncTransitionGuard(
-      animation: animation,
-      secondaryAnimation: secondaryAnimation,
-      transition: (child) => SlideTransition(
-        position: curved.drive(
-          Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero),
-        ),
-        child: child,
-      ),
+    return SlideTransition(
+      position: animation
+          .drive(CurveTween(curve: MotionTokens.pageCurve))
+          .drive(Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)),
       child: child,
     );
   }

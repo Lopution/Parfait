@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoPageTransition;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show PredictiveBackEvent;
@@ -10,6 +8,7 @@ import 'package:material_ui/material_ui.dart'
         PredictiveBackPageTransitionsBuilder;
 
 import '../../core/settings/app_settings.dart' show PageTransitionStyle;
+import '../motion/hero_transition.dart' show HeroLiftHole;
 import '../motion/motion_tokens.dart';
 import '../motion/page_transitions.dart';
 import '../widgets/home_branch_stack.dart' show BranchActivityScope;
@@ -25,8 +24,11 @@ import 'route_animation.dart';
 ///   gesture scrub it.
 ///
 /// A [sharedElement] page (one opened with a Hero from the page below)
-/// replaces the style with a fade over a still page below, so the flying
-/// image is the only thing that moves; see [_SharedElementTransition].
+/// has its own transition whatever the style: it fades in and out over a
+/// still page below while its Hero flies, the way shared-element
+/// transitions do on Android, iOS and in Flutter's own samples. A slide
+/// would move both ends of the flight while the image crosses between
+/// them. Under a page pushed on top it moves in the style like any page.
 ///
 /// A hand-rolled [Page] instead of `CustomTransitionPage` because the
 /// predictive-back builder's `buildTransitions` takes the [PageRoute]
@@ -76,10 +78,33 @@ class _FuncPageRoute<T> extends PageRoute<T> {
 
   FuncPage<T> get _page => settings as FuncPage<T>;
 
+  /// The route last announced above this one. A pop announces no new next
+  /// route, so through a pop this is still the route leaving.
+  _FuncPageRoute<dynamic>? _next;
+
+  /// A shared-element page's opacity.
+  late final Animation<double> _sharedElementFade = _SharedElementFade(
+    this,
+    controller!,
+  );
+
+  @override
+  void didChangeNext(Route<dynamic>? nextRoute) {
+    _next = nextRoute is _FuncPageRoute ? nextRoute : null;
+    super.didChangeNext(nextRoute);
+  }
+
+  @override
+  void didPopNext(Route<dynamic> nextRoute) {
+    _next = nextRoute is _FuncPageRoute ? nextRoute : null;
+    super.didPopNext(nextRoute);
+  }
+
   @override
   bool get barrierDismissible => _page.barrierDismissible;
 
-  /// The slide darkens the page below like `CupertinoPageRoute`.
+  /// The slide darkens the page below like `CupertinoPageRoute`, except
+  /// under a shared-element page, which only fades.
   @override
   Color? get barrierColor =>
       _page.transitionStyle == PageTransitionStyle.slide &&
@@ -87,26 +112,6 @@ class _FuncPageRoute<T> extends PageRoute<T> {
           !_page.sharedElement
       ? _slideBarrierColor
       : _page.barrierColor;
-
-  /// The page below a shared-element page holds still: the Hero flies to
-  /// or from a spot on it, which must not slide away under the flight. Its
-  /// secondary animation still runs, so it counts as covered until a pop
-  /// has finished — the home branch root keeps drawing its own copy of the
-  /// bottom bar under the fading page instead of the shell's popping up
-  /// over it. One builder per route: the framework skips a delegated
-  /// transition equal to the receiving route's own, which would let a
-  /// shared-element page below another (detail under viewer) move.
-  @override
-  DelegatedTransitionBuilder? get delegatedTransition =>
-      _page.sharedElement ? _holdStill : null;
-
-  Widget? _holdStill(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    bool allowSnapshotting,
-    Widget? child,
-  ) => child;
 
   @override
   String? get barrierLabel => _page.barrierLabel;
@@ -138,23 +143,74 @@ class _FuncPageRoute<T> extends PageRoute<T> {
     return BranchActivityScope.maybeOf(navigator.context)?.active ?? true;
   }
 
+  /// A shared-element page in the system style on Android takes the back
+  /// gesture with its own driver around FadeForwards (which only moves it
+  /// under a page pushed on top), not Material's predictive back: that
+  /// one rewinds the route at the commit for its own commit animation, and
+  /// the Hero, which follows the route, would jump back to the page.
+  bool get _scrubsFadeForwards =>
+      _page.sharedElement &&
+      _page.transitionStyle == PageTransitionStyle.system &&
+      defaultTargetPlatform == TargetPlatform.android;
+
   @override
-  void handleCommitBackGesture() =>
-      commitBackGestureGuarded(navigator, super.handleCommitBackGesture);
+  void handleCommitBackGesture() => commitBackGestureGuarded(
+    navigator,
+    _page.transitionStyle == PageTransitionStyle.slide || _page.sharedElement
+        ? _commitWhereLeft
+        : super.handleCommitBackGesture,
+  );
+
+  /// Under a shared-element page this page holds still, not in the
+  /// predictive-back pose the navigator-wide gesture flag would pick.
+  @override
+  bool get popGestureInProgress {
+    final next = _next;
+    if (next != null &&
+        next._page.sharedElement &&
+        !next.animation!.isDismissed) {
+      return false;
+    }
+    return super.popGestureInProgress;
+  }
+
+  /// The framework's commit rewinds the route to fully shown and pops from
+  /// there, for Material's separate commit animation. A transition that
+  /// follows the route animation itself (the slide, a Hero) would jump back
+  /// under the finger, so this pops from where the gesture left it and
+  /// ends the gesture once the pop has run.
+  void _commitWhereLeft() {
+    final navigator = this.navigator;
+    final controller = this.controller!;
+    if (isCurrent) navigator?.pop();
+    if (!controller.isAnimating) {
+      navigator?.didStopUserGesture();
+      return;
+    }
+    late final AnimationStatusListener ended;
+    ended = (_) {
+      controller.removeStatusListener(ended);
+      navigator?.didStopUserGesture();
+    };
+    controller.addStatusListener(ended);
+  }
 
   @override
   Widget buildPage(
     BuildContext context,
     Animation<double> animation,
     Animation<double> secondaryAnimation,
-  ) => RouteAnimationScope(
-    animation: animation,
-    child: Semantics(
-      scopesRoute: true,
-      explicitChildNodes: true,
-      child: _page.child,
-    ),
-  );
+  ) {
+    final page = RouteAnimationScope(
+      animation: animation,
+      child: Semantics(
+        scopesRoute: true,
+        explicitChildNodes: true,
+        child: _page.child,
+      ),
+    );
+    return page;
+  }
 
   @override
   Widget buildTransitions(
@@ -163,199 +219,103 @@ class _FuncPageRoute<T> extends PageRoute<T> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
+    // One structure for the route's whole life, whatever the phase: the
+    // page lives under the route's GlobalKey, and a changed widget type
+    // here would reparent it, rebuilding the whole page in that frame.
+    final shared = _page.sharedElement;
+    final secondary = (_next?._page.sharedElement ?? false)
+        ? kAlwaysDismissedAnimation
+        : secondaryAnimation;
+    Widget style(Widget child) => _styleTransition(
+      context,
+      shared ? kAlwaysCompleteAnimation : animation,
+      secondary,
+      child,
+    );
+    return FuncTransitionGuard(
+      animation: animation,
+      secondaryAnimation: secondary,
+      transition: shared
+          ? (child) => FadeTransition(
+              opacity: _sharedElementFade,
+              child: style(HeroLiftHole(animation: controller!, child: child)),
+            )
+          : style,
+      child: child,
+    );
+  }
+
+  Widget _styleTransition(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
     final android = defaultTargetPlatform == TargetPlatform.android;
-    if (_page.sharedElement) {
-      return FuncTransitionGuard(
-        animation: animation,
-        secondaryAnimation: secondaryAnimation,
-        transition: (child) => _coveredMotion(
-          context,
-          secondaryAnimation,
-          _SharedElementTransition(
-            route: this,
-            animation: animation,
-            child: child,
-          ),
-        ),
-        child: child,
-      );
-    }
-    // FuncRouteTransition carries its own guard; every other path composes
-    // the shared guard around the official transition.
-    final Widget Function(Widget child) transition;
     switch (_page.transitionStyle) {
       case PageTransitionStyle.system when !android:
-        return FuncRouteTransition(
-          animation: animation,
-          secondaryAnimation: secondaryAnimation,
-          child: child,
+        return FuncRouteTransition(animation: animation, child: child);
+      case PageTransitionStyle.system when _scrubsFadeForwards:
+        // FadeForwards follows the finger, the way the Hero does; see
+        // [_scrubsFadeForwards].
+        return _BackGestureDriver(
+          route: this,
+          child: const FadeForwardsPageTransitionsBuilder().buildTransitions(
+            this,
+            context,
+            animation,
+            secondaryAnimation,
+            child,
+          ),
         );
       case PageTransitionStyle.system:
         // Carries its own back-gesture detector.
-        transition = (child) =>
-            const PredictiveBackPageTransitionsBuilder().buildTransitions(
-              this,
-              context,
-              animation,
-              secondaryAnimation,
-              child,
-            );
+        return const PredictiveBackPageTransitionsBuilder().buildTransitions(
+          this,
+          context,
+          animation,
+          secondaryAnimation,
+          child,
+        );
       case PageTransitionStyle.slide:
         // The transition widget, not CupertinoPageTransitionsBuilder: the
         // builder adds an iOS edge-swipe back detector that would take
         // horizontal drags from in-page pagers. Back is the system gesture.
-        transition = (child) => CupertinoPageTransition(
+        final slide = CupertinoPageTransition(
           primaryRouteAnimation: animation,
           secondaryRouteAnimation: secondaryAnimation,
           linearTransition: popGestureInProgress,
           child: child,
         );
+        return android ? _BackGestureDriver(route: this, child: slide) : slide;
     }
-    final drive = android && _page.transitionStyle == PageTransitionStyle.slide;
-    return FuncTransitionGuard(
-      animation: animation,
-      secondaryAnimation: secondaryAnimation,
-      transition: drive
-          ? (child) => _BackGestureDriver(route: this, child: transition(child))
-          : transition,
-      child: child,
-    );
   }
 }
 
-extension on _FuncPageRoute<dynamic> {
-  /// A shared-element page's own motion while an ordinary page covers it:
-  /// the style's outgoing half, as every other page plays it. Off Android
-  /// the system style's slide carries its own guard, so the page stays
-  /// still there.
-  Widget _coveredMotion(
-    BuildContext context,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) => switch (_page.transitionStyle) {
-    PageTransitionStyle.system
-        when defaultTargetPlatform == TargetPlatform.android =>
-      const FadeForwardsPageTransitionsBuilder().buildTransitions(
-        this,
-        context,
-        kAlwaysCompleteAnimation,
-        secondaryAnimation,
-        child,
-      ),
-    PageTransitionStyle.slide => CupertinoPageTransition(
-      primaryRouteAnimation: kAlwaysCompleteAnimation,
-      secondaryRouteAnimation: secondaryAnimation,
-      linearTransition: false,
-      child: child,
-    ),
-    PageTransitionStyle.system => child,
-  };
-}
+/// A shared-element page's opacity: it fades over the first part of an
+/// opening and over the first part of a leave (back, the back gesture),
+/// so leaving it goes with the image rather than after it. One curve
+/// played backwards would hold the page until the image had nearly
+/// landed. Reads the controller: the route animation reports complete
+/// for the frame a Hero measures the opening page.
+class _SharedElementFade extends Animation<double>
+    with AnimationWithParentMixin<double> {
+  _SharedElementFade(this.route, this.parent);
 
-/// A shared-element page fades in and out over the still page below while
-/// its Hero flies; nothing else moves, so the push, the back button and the
-/// back gesture all read as the image travelling between its two spots.
-///
-/// The Android back gesture does not scrub the route: Heroes cannot follow
-/// a gesture-driven pop (their start rect is fixed when it begins). It
-/// shrinks the page with the finger instead, like the viewer's
-/// drag-to-dismiss; a commit pops normally, so the Hero flies from the
-/// shrunken image to its card and the page fades from where the gesture
-/// left it. A cancel springs it back.
-class _SharedElementTransition extends StatefulWidget {
-  const _SharedElementTransition({
-    required this.route,
-    required this.animation,
-    required this.child,
-  });
-
-  final PageRoute<dynamic> route;
-  final Animation<double> animation;
-  final Widget child;
+  final _FuncPageRoute<dynamic> route;
 
   @override
-  State<_SharedElementTransition> createState() =>
-      _SharedElementTransitionState();
-}
-
-class _SharedElementTransitionState extends State<_SharedElementTransition>
-    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
-  /// Material's predictive-back scale at full gesture progress.
-  static const _gestureScale = 0.9;
-
-  /// The back gesture's progress, 0 at rest.
-  late final AnimationController _gesture = AnimationController(vsync: this);
+  final Animation<double> parent;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
+  double get value {
+    final leaving =
+        parent.status == AnimationStatus.reverse || route.popGestureInProgress;
+    return (leaving
+            ? MotionTokens.sharedElementFadeOut
+            : MotionTokens.sharedElementFadeIn)
+        .transform(parent.value);
   }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _gesture.dispose();
-    super.dispose();
-  }
-
-  // The binding sends update, cancel and commit only to observers that
-  // returned true from start.
-  @override
-  bool handleStartBackGesture(PredictiveBackEvent backEvent) {
-    final route = widget.route;
-    if (defaultTargetPlatform != TargetPlatform.android ||
-        backEvent.isButtonEvent ||
-        !route.isCurrent ||
-        !route.popGestureEnabled) {
-      return false;
-    }
-    _gesture.value = backEvent.progress;
-    return true;
-  }
-
-  @override
-  void handleUpdateBackGestureProgress(PredictiveBackEvent backEvent) =>
-      _gesture.value = backEvent.progress;
-
-  @override
-  void handleCancelBackGesture() => unawaited(_settle());
-
-  @override
-  void handleCommitBackGesture() {
-    final navigator = widget.route.navigator;
-    if (navigator == null) return;
-    unawaited(
-      navigator.maybePop().then((popped) {
-        // A PopScope that refused the pop leaves the page where it was.
-        if (!popped && mounted) unawaited(_settle());
-      }),
-    );
-  }
-
-  Future<void> _settle() {
-    final (duration, curve) = MotionTokens.springCurve(
-      context,
-      MotionSpring.spatialFast,
-    );
-    return _gesture.animateTo(0, duration: duration, curve: curve);
-  }
-
-  @override
-  Widget build(BuildContext context) => FadeTransition(
-    opacity: CurvedAnimation(
-      parent: widget.animation,
-      curve: MotionTokens.pageCurve,
-    ),
-    child: AnimatedBuilder(
-      animation: _gesture,
-      builder: (context, child) => Transform.scale(
-        scale: 1 - (1 - _gestureScale) * _gesture.value,
-        child: child,
-      ),
-      child: widget.child,
-    ),
-  );
 }
 
 /// Ends a Navigator user gesture when the route's pop throws. Flutter's
