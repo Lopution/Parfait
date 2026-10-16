@@ -19,7 +19,7 @@ applies_to:
   - lib/app/layout/content_widths.dart
   - lib/app/widgets/scrollable_form_shell.dart
   - lib/app/scroll_behavior.dart
-reviewed: 2026-10-14
+reviewed: 2026-10-17
 ---
 
 # Page-specific rules
@@ -136,20 +136,26 @@ reviewed: 2026-10-14
 - **Rule:** Every "translate this text" entry uses `InlineTranslation` and
   `TranslationPanel`. Entries: the caption heading (or title) on the
   detail page, the novel info sheet title, the user introduction, the
-  comment ⋮ menu, the tag actions sheet, and the novel reader's bilingual
+  comment translate pill, the tag actions sheet, and the novel reader's bilingual
   mode. A setup failure offers a button to translation settings.
   Translations are never persisted and never replace the original.
 - **Why:** User decision, following Shaft.
 - **Check:** `test/illust_detail_actions_test.dart` "translate answers inside the menu, or points to settings", `test/comment_item_test.dart` "translate is disabled while a translation runs"
 - **Code:** `lib/app/widgets/inline_translation.dart`
 
-### PAGE-10 Comment actions: two text buttons and a menu
-- **Rule:** Reply and "view N replies" are `TextButton`s under the body
-  in an `OverflowBar`; translate and delete (own comments only) are in a
-  ⋮ `AppMenuButton`, not built when empty. No pill buttons.
-- **Why:** Pill buttons were below 48dp and crowded the row.
-- **Check:** `test/comment_item_test.dart` "own comment: the menu translates and deletes in danger color"
-- **Code:** `lib/features/comments`
+### PAGE-10 Comment actions are pills; only delete hides behind ⋮
+- **Rule:** Reply, "view N replies" and translate are pill `TextButton`s
+  (32dp tall, 48dp target) in a `Wrap` under the body. Only the viewer's
+  own comment gets a ⋮ `AppMenuButton`, at the end of that row, holding
+  delete in the danger colour. The header holds the name (`labelLarge`,
+  as in the detail page's preview) and the date, which ends on the row's
+  edge on every comment.
+- **Why:** User decision. A ⋮ beside the date opened on a lone translate
+  item for other people's comments and pushed their dates off the edge
+  that comments without one used. An `OverflowBar` stacked all pills
+  once one label did not fit.
+- **Check:** `test/comment_item_test.dart` "own comment: the ⋮ only deletes, in danger color" "another user's comment has no ⋮"
+- **Code:** `lib/features/comments/comment_item.dart`
 
 ## Library and management lists
 

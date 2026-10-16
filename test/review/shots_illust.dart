@@ -125,8 +125,24 @@ void main() {
       unawaited(router.push<void>('$detail/viewer/0'));
     },
   );
-  testShot('illust/comments', location: comments);
-  testShot('illust/replies', location: '$comments/1');
+  // Comment 2 is the viewer's own: its pill row ends in the ⋮.
+  testShot(
+    'illust/comments',
+    location: comments,
+    variants: {ShotVariant.dark, ShotVariant.ru},
+  );
+  testShot(
+    'illust/comments-emoji',
+    location: comments,
+    before: (tester, router) async {
+      await tester.tap(find.byIcon(Icons.emoji_emotions_outlined));
+    },
+  );
+  testShot(
+    'illust/replies',
+    location: '$comments/1',
+    variants: {ShotVariant.dark, ShotVariant.ru},
+  );
 
   testShot(
     'illust/detail-loading',

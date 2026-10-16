@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/app/format/app_format.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/translation/translation_service.dart';
@@ -81,34 +82,36 @@ void main() {
   }
 
   final moreActions = find.byTooltip('更多操作');
-
-  Future<void> openMenu(WidgetTester tester) async {
-    await tester.tap(moreActions);
-    // Not pumpAndSettle: a running translation keeps its spinner turning.
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-  }
+  final translate = find.widgetWithText(TextButton, '翻译');
 
   Finder menuItem(String label) => find.widgetWithText(MenuItemButton, label);
 
-  testWidgets('own comment: the menu translates and deletes in danger color', (
+  testWidgets('own comment: the ⋮ only deletes, in danger color', (
     tester,
   ) async {
     await pumpItem(tester, sampleComment(40));
-    await openMenu(tester);
+    expect(translate, findsOneWidget);
+    // The ⋮ sits in the pill row: the date still ends on the row's edge.
+    final item = find.byType(CommentItem);
+    final date = AppFormat.relative(
+      tester.element(item),
+      DateTime.utc(2026, 8, 27),
+    );
+    expect(
+      tester.getTopRight(find.text(date)).dx,
+      tester.getTopRight(item).dx - FuncSpacing.lg,
+    );
 
-    expect(menuItem('翻译'), findsOneWidget);
+    await tester.tap(moreActions);
+    await tester.pumpAndSettle();
+    expect(menuItem('翻译'), findsNothing);
     final delete = menuItem('删除评论');
-    expect(delete, findsOneWidget);
-    final danger = FuncSemanticTokens.of(
-      tester.element(find.byType(CommentItem)),
-    ).danger;
     final label = tester.widget<Text>(
       find.descendant(of: delete, matching: find.text('删除评论')),
     );
     expect(
       DefaultTextStyle.of(tester.element(find.byWidget(label))).style.color,
-      danger,
+      FuncSemanticTokens.of(tester.element(item)).danger,
     );
 
     // The page confirms before deleting; the item only reports the choice.
@@ -117,14 +120,11 @@ void main() {
     expect(deletes, 1);
   });
 
-  testWidgets('another user\'s comment: the menu only translates', (
-    tester,
-  ) async {
+  testWidgets("another user's comment has no ⋮", (tester) async {
     await pumpItem(tester, sampleComment(40, userId: 20));
-    await openMenu(tester);
 
-    expect(menuItem('翻译'), findsOneWidget);
-    expect(menuItem('删除评论'), findsNothing);
+    expect(moreActions, findsNothing);
+    expect(translate, findsOneWidget);
     // The avatar opens the profile with a ripple shaped like it.
     expect(
       find.byWidgetPredicate(
@@ -143,19 +143,16 @@ void main() {
 
   testWidgets('translate is disabled while a translation runs', (tester) async {
     await pumpItem(tester, sampleComment(40, userId: 20));
-    await openMenu(tester);
-    await tester.tap(menuItem('翻译'));
-    // Let the menu finish closing before it is opened again.
+    await tester.tap(translate);
+    // Not pumpAndSettle: the running translation keeps its spinner turning.
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
     expect(transport.calls, 1);
-
-    await openMenu(tester);
-    expect(tester.widget<MenuItemButton>(menuItem('翻译')).onPressed, isNull);
+    expect(tester.widget<TextButton>(translate).onPressed, isNull);
 
     transport.completer.complete('你好');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('你好'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, '收起翻译'), findsOneWidget);
   });
 }

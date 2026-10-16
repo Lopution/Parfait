@@ -220,35 +220,17 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
                 controller: _removals,
                 child: _CommentFeedView(
                   query: _query,
-                  // The root comment and the section title ride the list's first
-                  // slot: they scroll away like every other row, and the composer
-                  // reply bar keeps the reply context visible meanwhile.
-                  header: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (root != null)
-                        CommentItem(
+                  // The root comment rides the list's first slot: it scrolls
+                  // away like every other row, and the composer reply bar
+                  // keeps the reply context visible meanwhile. Its divider
+                  // sets it apart from the replies; the top bar names them.
+                  header: root == null
+                      ? null
+                      : CommentItem(
                           comment: root,
                           onReply: () => _replyTo(root),
                           onDelete: () => _deleteComment(root),
                         ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          FuncSpacing.lg,
-                          0,
-                          FuncSpacing.lg,
-                          FuncSpacing.sm,
-                        ),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            context.l10n.commentReplies,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                   onReply: _replyTo,
                   onDelete: _deleteComment,
                 ),

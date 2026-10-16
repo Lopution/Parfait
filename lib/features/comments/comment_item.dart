@@ -18,10 +18,11 @@ import '../../app/widgets/comment_text.dart';
 import '../../app/widgets/inline_translation.dart';
 import '../../l10n/context.dart';
 
-/// One comment row. The work's author is marked beside the name. Reply and
-/// the replies link are pill buttons under the body; translate and delete
-/// sit in the header's overflow menu, and a translation opens below the
-/// body. No long-press reply gesture is installed, matching beta56.
+/// One comment row. The work's author is marked beside the name. Reply,
+/// the replies link and translate are pill buttons under the body, a
+/// translation opens below the body, and the viewer's own comment ends
+/// the pill row with a ⋮ holding delete. No long-press reply gesture is
+/// installed, matching beta56.
 class CommentItem extends ConsumerStatefulWidget {
   const CommentItem({
     super.key,
@@ -86,9 +87,7 @@ class _CommentItemState extends ConsumerState<CommentItem>
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  style: theme.textTheme.labelLarge,
                                 ),
                               ),
                               if (byAuthor) ...[
@@ -116,23 +115,20 @@ class _CommentItemState extends ConsumerState<CommentItem>
                     ),
                     _Actions(
                       comment: widget.comment,
+                      translating: translating,
+                      translationShown: translationShown,
                       onReply: widget.onReply,
                       onOpenReplies: widget.onOpenReplies,
+                      onTranslate: showTranslate
+                          ? () => unawaited(
+                              toggleTranslation([widget.comment.content]),
+                            )
+                          : null,
+                      onDelete: canDelete ? widget.onDelete : null,
                     ),
                   ],
                 ),
               ),
-              // The 48dp target centers its icon on the avatar.
-              if (showTranslate || canDelete)
-                _MoreMenu(
-                  showTranslate: showTranslate,
-                  translating: translating,
-                  translationShown: translationShown,
-                  canDelete: canDelete,
-                  onTranslate: () =>
-                      unawaited(toggleTranslation([widget.comment.content])),
-                  onDelete: widget.onDelete,
-                ),
             ],
           ),
           const Divider(height: 24),
@@ -211,66 +207,34 @@ class _CommentBody extends StatelessWidget {
   }
 }
 
-enum _CommentMenuAction { translate, delete }
-
-/// The header's overflow menu: translate and, on the viewer's own comment,
-/// delete. The caller confirms the delete — it cannot be undone.
-class _MoreMenu extends StatelessWidget {
-  const _MoreMenu({
-    required this.showTranslate,
+/// Reply, the link to the replies when there are any, and translate:
+/// pill buttons, 32dp tall within a 48dp target, wrapping onto a second
+/// line when long labels do not fit. The viewer's own comment ends the
+/// row with a ⋮ that holds delete; the caller confirms the delete — it
+/// cannot be undone. The ⋮ sits here rather than beside the date, so
+/// every date ends on the same edge.
+class _Actions extends StatelessWidget {
+  const _Actions({
+    required this.comment,
     required this.translating,
     required this.translationShown,
-    required this.canDelete,
-    required this.onTranslate,
+    this.onReply,
+    this.onOpenReplies,
+    this.onTranslate,
     this.onDelete,
   });
 
-  final bool showTranslate;
+  final CommentEntity comment;
   final bool translating;
   final bool translationShown;
-  final bool canDelete;
-  final VoidCallback onTranslate;
-  final VoidCallback? onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppMenuButton<_CommentMenuAction>(
-      tooltip: context.l10n.commentMoreActions,
-      entries: [
-        if (showTranslate)
-          AppMenuEntry(
-            value: _CommentMenuAction.translate,
-            icon: Icons.translate_outlined,
-            label: translationShown
-                ? context.l10n.translationHide
-                : context.l10n.translateAction,
-            enabled: !translating,
-          ),
-        if (canDelete)
-          AppMenuEntry(
-            value: _CommentMenuAction.delete,
-            icon: Icons.delete_outline,
-            label: context.l10n.commentDelete,
-            destructive: true,
-          ),
-      ],
-      onSelected: (_, action) => switch (action) {
-        _CommentMenuAction.translate => onTranslate(),
-        _CommentMenuAction.delete => onDelete?.call(),
-      },
-    );
-  }
-}
-
-/// Reply and, when there are any, the link to the replies: pill buttons,
-/// 32dp tall within a 48dp target, wrapping onto a second line when long
-/// labels do not fit.
-class _Actions extends StatelessWidget {
-  const _Actions({required this.comment, this.onReply, this.onOpenReplies});
-
-  final CommentEntity comment;
   final VoidCallback? onReply;
   final VoidCallback? onOpenReplies;
+
+  /// Null when the comment has no text to translate.
+  final VoidCallback? onTranslate;
+
+  /// Null unless the comment is the viewer's own.
+  final VoidCallback? onDelete;
 
   static const _pillHeight = 32.0;
 
@@ -278,8 +242,16 @@ class _Actions extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final l10n = context.l10n;
+    final onTranslate = this.onTranslate;
+    final onDelete = this.onDelete;
     final showReplies = comment.hasReplies && onOpenReplies != null;
-    if (onReply == null && !showReplies) return const SizedBox.shrink();
+    if (onReply == null &&
+        !showReplies &&
+        onTranslate == null &&
+        onDelete == null) {
+      return const SizedBox.shrink();
+    }
     ButtonStyle pill(Color foreground) => TextButton.styleFrom(
       foregroundColor: foreground,
       backgroundColor: colors.surfaceContainerHigh,
@@ -293,23 +265,54 @@ class _Actions extends StatelessWidget {
     );
     // Pixiv's comment payload flags replies without counting them.
     final repliesLabel = comment.replyCount > 0
-        ? context.l10n.commentViewReplies(comment.replyCount)
-        : context.l10n.commentShowReplies;
-    return OverflowBar(
-      spacing: FuncSpacing.sm,
-      overflowAlignment: OverflowBarAlignment.start,
+        ? l10n.commentViewReplies(comment.replyCount)
+        : l10n.commentShowReplies;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (onReply != null)
-          TextButton(
-            style: pill(colors.onSurfaceVariant),
-            onPressed: onReply,
-            child: Text(context.l10n.commentReply),
+        Expanded(
+          // A Wrap, not an OverflowBar: one pill too many moves to the
+          // next line alone instead of stacking the whole row.
+          child: Wrap(
+            spacing: FuncSpacing.sm,
+            children: [
+              if (onReply != null)
+                TextButton(
+                  style: pill(colors.onSurfaceVariant),
+                  onPressed: onReply,
+                  child: Text(l10n.commentReply),
+                ),
+              if (showReplies)
+                TextButton(
+                  style: pill(colors.primary),
+                  onPressed: onOpenReplies,
+                  child: Text(repliesLabel),
+                ),
+              if (onTranslate != null)
+                TextButton(
+                  style: pill(colors.onSurfaceVariant),
+                  onPressed: translating ? null : onTranslate,
+                  child: Text(
+                    translationShown
+                        ? l10n.translationHide
+                        : l10n.translateAction,
+                  ),
+                ),
+            ],
           ),
-        if (showReplies)
-          TextButton(
-            style: pill(colors.primary),
-            onPressed: onOpenReplies,
-            child: Text(repliesLabel),
+        ),
+        if (onDelete != null)
+          AppMenuButton<VoidCallback>(
+            tooltip: l10n.commentMoreActions,
+            entries: [
+              AppMenuEntry(
+                value: onDelete,
+                icon: Icons.delete_outline,
+                label: l10n.commentDelete,
+                destructive: true,
+              ),
+            ],
+            onSelected: (_, delete) => delete(),
           ),
       ],
     );
