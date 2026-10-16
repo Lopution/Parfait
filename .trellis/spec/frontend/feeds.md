@@ -98,12 +98,16 @@ reviewed: 2026-10-17
   `NestedScrollView` passes `isNested: true` and has exactly one
   `HeaderLocator` as its first item; its header is clamping, the only kind
   EasyRefresh 4 accepts there. Nothing wraps the whole
-  `NestedScrollView`.
+  `NestedScrollView`; its outer physics is `NestedRefreshOuterPhysics`,
+  which holds the outer scroll while the user drags a feed's header out.
 - **Why:** Per-page wrappers diverged; under clamping the reversed pull is
   not real overscroll, so the indicator stayed pinned while the list
-  moved.
-- **Check:** `test/pull_to_refresh_test.dart` "the shared wrapper refreshes a nested scroll view once"
-- **Code:** `lib/app/pull_to_refresh.dart`
+  moved. A clamping header keeps the feed at its top, so the coordinator
+  gave a reversed pull to the outer scroll first: the profile header
+  collapsed under a stuck indicator. EasyRefresh holds only an outer scroll
+  that runs its own physics.
+- **Check:** `test/pull_to_refresh_test.dart` "the shared wrapper refreshes a nested scroll view once", `test/user_profile_test.dart` "a reversed pull retracts the indicator before the header collapses"
+- **Code:** `lib/app/pull_to_refresh.dart`, `lib/features/profile/user_page.dart`
 
 ### FEED-08 The indicator follows observable outcomes
 - **Rule:** A reversed pull moves the indicator back with the finger, and
@@ -113,7 +117,7 @@ reviewed: 2026-10-17
   no scroll resets the refreshing state until its future completes.
 - **Why:** Pointer-up overscroll re-armed pulls and the indicator stuck on
   screen.
-- **Check:** `test/pull_to_refresh_test.dart` "a reverse drag retracts the indicator and cancels" "a released armed pull refreshes once and hides the indicator" "ballistic overscroll after the pointer lifts starts no pull"
+- **Check:** `test/pull_to_refresh_test.dart` "a reverse drag retracts the indicator and cancels" "a released armed pull refreshes once and hides the indicator" "ballistic overscroll after the pointer lifts starts no pull", `test/user_profile_test.dart` "a reversed pull retracts the indicator before the header collapses"
 - **Code:** `lib/app/pull_to_refresh.dart`
 
 ### FEED-09 The framework decides the threshold
@@ -155,11 +159,11 @@ reviewed: 2026-10-17
 - **Code:** `lib/app/scroll_behavior.dart`, `lib/app/pull_to_refresh.dart`
 
 ### FEED-12 NestedScrollView gets explicit physics and one inner tab
-- **Rule:** A `NestedScrollView` passes
-  `physics: ScrollConfiguration.of(context).getScrollPhysics(context)`,
-  and a nested `PullToRefresh` flings with `FuncScrollPhysics` on top of
-  EasyRefresh's nested physics, so outer and inner run the same
-  simulation. Only the selected tab sits on the inner controller;
+- **Rule:** A `NestedScrollView` passes the behavior's physics,
+  `ScrollConfiguration.of(context).getScrollPhysics(context)`, as the
+  parent of its outer physics (FEED-07), and a nested `PullToRefresh`
+  flings with `FuncScrollPhysics` on top of EasyRefresh's nested physics,
+  so outer and inner run the same simulation. Only the selected tab sits on the inner controller;
   unselected tabs park on a controller of the same kind, and the
   `PrimaryScrollController` is never `.none`.
 - **Why:** Its outer position defaults to clamping, so the header stopped

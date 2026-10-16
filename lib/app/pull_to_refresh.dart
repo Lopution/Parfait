@@ -15,8 +15,9 @@ import 'scroll_behavior.dart';
 /// the list scrolls; without clamping the indicator retracts with the
 /// reverse gesture first, then the list starts moving — the expected
 /// pull-to-refresh behaviour. Inside a NestedScrollView ([isNested])
-/// EasyRefresh 4 only takes a clamping header, and retracts it before the
-/// outer header collapses.
+/// EasyRefresh 4 only takes a clamping header; the NestedScrollView runs
+/// [NestedRefreshOuterPhysics] so that header retracts before the outer one
+/// collapses.
 class PullToRefresh extends StatefulWidget {
   const PullToRefresh({
     super.key,
@@ -57,6 +58,9 @@ class PullToRefresh extends StatefulWidget {
   /// Mounted wrappers by the controller of the list they wrap.
   static final _mounted = Expando<_PullToRefreshState>();
 
+  /// Mounted nested wrappers by their NestedScrollView's outer scrollable.
+  static final _nestedByOuter = Expando<Set<_PullToRefreshState>>();
+
   @override
   State<PullToRefresh> createState() => _PullToRefreshState();
 }
@@ -64,13 +68,24 @@ class PullToRefresh extends StatefulWidget {
 const _triggerOffset = 100.0;
 const _callRefreshOverOffset = 20.0;
 
+/// Header modes in which a refresh holds the header open, so a drag moves
+/// the list rather than the header (EasyRefresh's `modeLocked`).
+const _heldOpenModes = {IndicatorMode.processing, IndicatorMode.processed};
+
 class _PullToRefreshState extends State<PullToRefresh> {
   final _controller = EasyRefreshController();
+  ScrollableState? _outer;
 
   @override
   void initState() {
     super.initState();
     _register(widget.scrollController);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncOuter();
   }
 
   @override
@@ -80,13 +95,46 @@ class _PullToRefreshState extends State<PullToRefresh> {
       _unregister(oldWidget.scrollController);
       _register(widget.scrollController);
     }
+    if (oldWidget.isNested != widget.isNested) _syncOuter();
   }
 
   @override
   void dispose() {
     _unregister(widget.scrollController);
+    _leaveOuter();
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Whether the user is dragging this nested feed's refresh header out, as
+  /// EasyRefresh's own nested hold judges it.
+  bool get _dragsHeader {
+    final header = _controller.headerState;
+    return header != null &&
+        header.userOffsetNotifier.value &&
+        header.offset > 0 &&
+        !_heldOpenModes.contains(header.mode);
+  }
+
+  static bool _dragsHeaderUnder(ScrollContext outer) =>
+      PullToRefresh._nestedByOuter[outer]?.any((state) => state._dragsHeader) ??
+      false;
+
+  void _syncOuter() {
+    final outer = widget.isNested
+        ? Scrollable.maybeOf(context, axis: Axis.vertical)
+        : null;
+    if (identical(outer, _outer)) return;
+    _leaveOuter();
+    _outer = outer;
+    if (outer != null) {
+      (PullToRefresh._nestedByOuter[outer] ??= {}).add(this);
+    }
+  }
+
+  void _leaveOuter() {
+    final outer = _outer;
+    if (outer != null) PullToRefresh._nestedByOuter[outer]?.remove(this);
   }
 
   void _register(ScrollController? scrollController) {
@@ -236,6 +284,33 @@ class _AppFlingPhysics extends ScrollPhysics {
     final simulation = super.createBallisticSimulation(position, velocity);
     if (simulation is! ClampingScrollSimulation) return simulation;
     return _fling.createBallisticSimulation(position, velocity);
+  }
+}
+
+/// The outer physics of a NestedScrollView whose tabs refresh through a
+/// nested [PullToRefresh]: the parent's, held while the user drags a tab's
+/// refresh header out.
+///
+/// That header is clamping, so the feed stays at its top while it is out,
+/// and the coordinator hands a reversed pull to the outer scroll first: the
+/// header collapsed under an indicator stuck on screen. EasyRefresh holds
+/// only an outer scroll that runs its own physics. Held, the outer scroll
+/// passes the pull on to the feed, whose header retracts with the finger.
+class NestedRefreshOuterPhysics extends ScrollPhysics {
+  const NestedRefreshOuterPhysics({super.parent});
+
+  @override
+  NestedRefreshOuterPhysics applyTo(ScrollPhysics? ancestor) =>
+      NestedRefreshOuterPhysics(parent: buildParent(ancestor));
+
+  @override
+  double applyBoundaryConditions(ScrollMetrics position, double value) {
+    if (value > position.pixels &&
+        position is ScrollPosition &&
+        _PullToRefreshState._dragsHeaderUnder(position.context)) {
+      return value - position.pixels;
+    }
+    return super.applyBoundaryConditions(position, value);
   }
 }
 
