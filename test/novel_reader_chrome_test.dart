@@ -376,7 +376,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(requests.length, 2, reason: 'retry must issue exactly one fetch');
     expect(find.text('series five'), findsOneWidget);
-    expect(find.byIcon(Icons.bookmark_add_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.library_add_outlined), findsOneWidget);
   });
 
   testWidgets('a series missing the current entry dead-ends navigation', (

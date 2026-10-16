@@ -90,6 +90,7 @@ Future<void> _settle(WidgetTester tester) async {
 void main() {
   Finder row() =>
       find.ancestor(of: find.text('bad-tag'), matching: find.byType(Removable));
+  final unmute = find.widgetWithText(TextButton, '解除屏蔽');
 
   testWidgets('unmuting plays the row exit before the edit is sent', (
     tester,
@@ -97,7 +98,7 @@ void main() {
     final (container, api) = await _pump(tester);
     expect(row(), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.visibility_outlined));
+    await tester.tap(unmute);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 60));
     expect(api.edits, isEmpty, reason: 'the exit plays first');
@@ -115,7 +116,7 @@ void main() {
     final (container, api) = await _pump(tester);
     api.editStatus = 500;
 
-    await tester.tap(find.byIcon(Icons.visibility_outlined));
+    await tester.tap(unmute);
     await _settle(tester);
     await tester.pumpAndSettle();
 
@@ -133,7 +134,7 @@ void main() {
   ) async {
     final (container, api) = await _pump(tester);
 
-    await tester.tap(find.byIcon(Icons.visibility_outlined));
+    await tester.tap(unmute);
     await _settle(tester);
     expect(find.text('已解除屏蔽'), findsOneWidget);
     // No confirmation step: the unmute already landed (D5).

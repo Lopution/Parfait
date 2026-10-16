@@ -78,7 +78,7 @@ class SpotlightArticlePage extends ConsumerWidget {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.share),
+            icon: const Icon(Icons.share_outlined),
             tooltip: context.l10n.share,
             onPressed: () => unawaited(_share(context, ref)),
           ),
@@ -298,7 +298,8 @@ class _ArticleImage extends ConsumerWidget {
               fit: BoxFit.contain,
               imageBuilder: (_, child) => AspectFitBox(child: child),
               placeholderBuilder: (_) => placeholder,
-              errorBuilder: (_, _, _) => const Icon(Icons.broken_image),
+              errorBuilder: (_, _, _) =>
+                  const Icon(Icons.broken_image_outlined),
               fadeInDuration: Duration.zero,
               fadeOutDuration: Duration.zero,
             ),

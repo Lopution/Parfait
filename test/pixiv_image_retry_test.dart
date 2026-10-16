@@ -103,7 +103,7 @@ void main() {
               attempt < 3 ? _Outcome.transient : _Outcome.image;
         await _pump(tester, network);
         expect(network.requests, 1);
-        expect(find.byIcon(Icons.broken_image), findsOneWidget);
+        expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
         expect(find.byIcon(Icons.refresh), findsNothing);
 
         await tester.pump(const Duration(milliseconds: 900));
@@ -120,7 +120,7 @@ void main() {
           await _settle(tester);
         }
         expect(_painted(tester), isTrue);
-        expect(find.byIcon(Icons.broken_image), findsNothing);
+        expect(find.byIcon(Icons.broken_image_outlined), findsNothing);
       });
 
       testWidgets('three failed retries end in a manual retry button', (

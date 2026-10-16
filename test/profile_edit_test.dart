@@ -449,7 +449,7 @@ void main() {
       // No separate button any more; each image wears an edit badge.
       expect(find.text('Choose image'), findsNothing);
       expect(find.byType(OutlinedButton), findsNothing);
-      expect(find.byIcon(Icons.edit), findsNWidgets(2));
+      expect(find.byIcon(Icons.edit_outlined), findsNWidgets(2));
 
       await tester.tap(avatar);
       await tester.pumpAndSettle();

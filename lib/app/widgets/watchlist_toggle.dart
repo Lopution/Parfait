@@ -57,7 +57,7 @@ class WatchlistToggle extends ConsumerWidget {
       },
     );
     final icon = Icon(
-      added ? Icons.bookmark_added : Icons.bookmark_add_outlined,
+      added ? Icons.library_add_check : Icons.library_add_outlined,
       size: iconOnly ? null : 18,
     );
 

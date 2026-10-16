@@ -121,8 +121,8 @@ class _AccountRow extends StatelessWidget {
             : context.l10n.labelValue(context.l10n.accountId, value.id),
       ),
       trailing: IconButton(
-        tooltip: context.l10n.switchAccount,
-        icon: const Icon(Icons.switch_account_outlined),
+        tooltip: context.l10n.accountManagement,
+        icon: const Icon(Icons.manage_accounts_outlined),
         onPressed: () =>
             openSettingsPage(context, SettingsPageRef.account.path),
       ),
@@ -204,7 +204,7 @@ class _ContentShortcuts extends ConsumerWidget {
     ];
     final List<_Entry> cells = [
       (
-        icon: Icons.collections_bookmark_outlined,
+        icon: Icons.library_books_outlined,
         label: l10n.watchlistTitle,
         onTap: () => unawaited(openWatchlist(context)),
         badge: 0,
@@ -216,7 +216,7 @@ class _ContentShortcuts extends ConsumerWidget {
         badge: 0,
       ),
       (
-        icon: Icons.watch_later_outlined,
+        icon: Icons.bookmark_border,
         label: l10n.watchLaterTitle,
         onTap: () => unawaited(openWatchLater(context)),
         badge: 0,

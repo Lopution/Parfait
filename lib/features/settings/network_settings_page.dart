@@ -125,7 +125,7 @@ class NetworkSettingsPage extends ConsumerWidget {
             SettingsGroup(
               children: [
                 SettingsTile(
-                  icon: Icons.tune,
+                  icon: Icons.tune_outlined,
                   setting: SettingsPageRef.networkAdvanced,
                   subtitle: Text(context.l10n.networkAdvancedHint),
                   onTap: () => context.push<void>('/settings/network/advanced'),

@@ -57,7 +57,7 @@ void main() {
     state: 'filter sheet',
     variants: {ShotVariant.dark, ...overflowVariants, ShotVariant.largeText},
     before: (tester, router) async {
-      await tester.tap(find.byIcon(Icons.tune).first);
+      await tester.tap(find.byIcon(Icons.tune_outlined).first);
     },
   );
   testShot('reverse-image/page', location: '/reverse-image');

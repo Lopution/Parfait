@@ -662,9 +662,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get addAccount => 'アカウントを追加';
 
   @override
-  String get switchAccount => 'アカウントを切り替え';
-
-  @override
   String get accountSwitching => '切り替え中…';
 
   @override

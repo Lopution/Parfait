@@ -723,7 +723,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
   /// times; a permanent or exhausted one offers a manual retry when the box
   /// is large enough for a button.
   Widget _errorView(Object error, _HistoryEntry entry, ImageWorker worker) {
-    const broken = Icon(Icons.broken_image);
+    const broken = Icon(Icons.broken_image_outlined);
     final status = error is FetchFailure ? error.statusCode : null;
     final permanent = _permanentStatuses.contains(status);
     if (!permanent && _attempt < _retryBackoff.length) {

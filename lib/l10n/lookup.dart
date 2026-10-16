@@ -807,7 +807,6 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'spotlightSeeAll' => l10n.spotlightSeeAll,
   'spotlightTitle' => l10n.spotlightTitle,
   'start' => l10n.start,
-  'switchAccount' => l10n.switchAccount,
   'system' => l10n.system,
   'tagActionCopy' => l10n.tagActionCopy,
   'tagActionCopyTranslation' => l10n.tagActionCopyTranslation,

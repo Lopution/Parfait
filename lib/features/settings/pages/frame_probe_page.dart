@@ -205,7 +205,7 @@ class _FrameProbePageState extends ConsumerState<FrameProbePage> {
                     _report!,
                     message: context.l10n.networkProbeCopied,
                   ),
-                  icon: const Icon(Icons.copy, size: 16),
+                  icon: const Icon(Icons.copy_outlined, size: 16),
                   label: Text(context.l10n.copy),
                 ),
               ),

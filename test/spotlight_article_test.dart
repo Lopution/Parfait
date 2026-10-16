@@ -449,7 +449,7 @@ void main() {
         images: {cdn: http.Response.bytes(onePixelPng, 200)},
       );
       await pumpIoUntil(tester, () => painted(tester));
-      expect(find.byIcon(Icons.broken_image), findsNothing);
+      expect(find.byIcon(Icons.broken_image_outlined), findsNothing);
     });
 
     testWidgets('the cover comes from the list entry on pximg', (tester) async {

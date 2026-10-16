@@ -161,3 +161,27 @@ reviewed: 2026-10-17
   warnings.
 - **Check:** `test/illust_card_badges_test.dart`
 - **Code:** `lib/app/widgets/entity_row.dart`
+
+### THEME-16 Icons are outlined; filled marks a state
+- **Rule:** An action, a destination or a placeholder uses the outlined
+  icon. The filled twin only marks a state: a toggle that is on (a
+  muted work or author, a work in watch-later) or a status (a download
+  task's). One glyph, one meaning: the bookmark is watch-later, the heart
+  is a pixiv bookmark, `collections_bookmark` is a series, the library
+  stack is following series (`library_books`, toggled with `library_add`
+  / `library_add_check`), the circled minus removes from a list,
+  `manage_accounts` opens account management. Unmuting is a text
+  button: no icon says it.
+- **Why:** The same action showed filled on one page and outlined on the
+  next; one bookmark glyph meant two features, and an eye read as "view".
+- **Check:** `test/architecture/icon_style_test.dart` "a filled icon with an outlined twin marks a state"
+- **Code:** `lib/app/widgets/card_actions/illust_card_actions.dart`, `lib/app/widgets/watchlist_toggle.dart`
+
+### THEME-17 Every icon button names its action
+- **Rule:** Every `IconButton` has a localized tooltip saying what it
+  does, which is also its screen-reader label. A button that labels
+  itself through `Semantics` (the bookmark heart, whose long press opens
+  the tag picker) is pinned in the check.
+- **Why:** An icon alone is a guess, and a screen reader read "button".
+- **Check:** `test/architecture/icon_style_test.dart` "every icon button has a tooltip"
+- **Code:** `lib/app/widgets/bookmark_switch_button.dart`

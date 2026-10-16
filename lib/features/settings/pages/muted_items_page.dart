@@ -93,12 +93,13 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
     }
   }
 
-  /// Unmute affordance (D6): the visibility icon reads as "show again";
-  /// while the write is in flight the slot shows a spinner instead of a
-  /// dead disabled button so the pending state is visible.
+  /// Unmute affordance: a text button, since no icon says "unmute" (an
+  /// eye read as "view"). Screen readers hear what it unmutes. While the
+  /// write is in flight the slot shows a spinner instead of a dead
+  /// disabled button so the pending state is visible.
   Widget _unmuteTrailing({
     required bool pending,
-    required String tooltip,
+    required String semanticsLabel,
     required VoidCallback onPressed,
   }) {
     if (pending) {
@@ -114,10 +115,9 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
         ),
       );
     }
-    return IconButton(
-      icon: const Icon(Icons.visibility_outlined),
-      tooltip: tooltip,
+    return TextButton(
       onPressed: onPressed,
+      child: Text(context.l10n.unmuteTag, semanticsLabel: semanticsLabel),
     );
   }
 
@@ -171,7 +171,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
                         onTap: () => openTagSearch(context, tag),
                         trailing: _unmuteTrailing(
                           pending: state.pending.contains(MuteKey.tag(tag)),
-                          tooltip: l10n.unmuteTag,
+                          semanticsLabel: l10n.unmuteTag,
                           onPressed: () => unawaited(
                             _unmute(
                               MuteKey.tag(tag),
@@ -206,7 +206,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
                           pending: state.pending.contains(
                             MuteKey.user(user.userId),
                           ),
-                          tooltip: l10n.unmuteAuthor,
+                          semanticsLabel: l10n.unmuteAuthor,
                           onPressed: () => unawaited(
                             _unmute(
                               MuteKey.user(user.userId),
@@ -249,7 +249,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
                           pending: state.pending.contains(
                             MuteKey.work(work.illustId),
                           ),
-                          tooltip: l10n.unmuteWork,
+                          semanticsLabel: l10n.unmuteWork,
                           onPressed: () => unawaited(
                             _unmute(
                               MuteKey.work(work.illustId),
