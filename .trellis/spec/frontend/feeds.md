@@ -7,7 +7,7 @@ applies_to:
   - lib/app/scroll_behavior.dart
   - lib/app/format/content_locale.dart
   - lib/features/**/*_page.dart
-reviewed: 2026-10-13
+reviewed: 2026-10-17
 ---
 
 # Feeds: states, grid, pull to refresh, skeletons
@@ -142,10 +142,16 @@ reviewed: 2026-10-13
   physics with no overscroll glow; do not add a `ClampingScrollPhysics`
   region. A fling stops at either edge; only a drag overscrolls.
   `PullToRefresh` passes `notLoadFooter: NotLoadFooter(hitOver: false)`.
+  The scrollable inside a text control (`EditableText`) is not always
+  scrollable: every scroll behavior the app installs returns
+  `textScrollPhysics` for it first.
 - **Why:** Mixed physics felt different per page; a fling into the end of
   a feed sprang back while the next page loaded, because EasyRefresh
-  copies `ClassicFooter`'s `hitOver: true` without `onLoad`.
-- **Check:** `test/scroll_behavior_test.dart` "a fling stops at the end instead of springing back", `test/pull_to_refresh_test.dart` "a fling stops at the trailing edge instead of bouncing back"
+  copies `ClassicFooter`'s `hitOver: true` without `onLoad`. A text
+  control's scrollable takes the nearest behavior's physics; always
+  scrollable, a one-line selectable title followed the finger instead of
+  the page, and came back after LAYOUT-11 fixed two pages only.
+- **Check:** `test/scroll_behavior_test.dart` "a fling stops at the end instead of springing back" "a selectable title that fits scrolls the page, not itself", `test/pull_to_refresh_test.dart` "a fling stops at the trailing edge instead of bouncing back"
 - **Code:** `lib/app/scroll_behavior.dart`, `lib/app/pull_to_refresh.dart`
 
 ### FEED-12 NestedScrollView gets explicit physics and one inner tab

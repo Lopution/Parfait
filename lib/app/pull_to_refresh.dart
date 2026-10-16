@@ -189,6 +189,12 @@ class _FeedScrollBehavior extends ERScrollBehavior {
   const _FeedScrollBehavior(ScrollPhysics? physics)
     : super(physics ?? const ScrollPhysics());
 
+  /// A text control in the feed keeps the app's text physics instead of
+  /// the refresh physics, which would let it drag (and arm the header).
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) =>
+      textScrollPhysics(context) ?? super.getScrollPhysics(context);
+
   @override
   Widget buildScrollbar(
     BuildContext context,
