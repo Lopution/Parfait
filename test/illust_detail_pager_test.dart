@@ -236,10 +236,12 @@ void main() {
       findsOneWidget,
     );
 
-    // After a swipe the live hero follows the committed page.
+    // After a swipe the live hero follows the committed page. The feed
+    // has no card of it on screen here, so the image will not fly back.
     await tester.flingFrom(_swipeOrigin(tester), const Offset(-260, 0), 900);
     await tester.pumpAndSettle();
     expect(_page(tester), 1);
+    expect(source.cardFlies(43), isFalse);
     expect(enabled, findsOneWidget);
     expect(
       find.descendant(

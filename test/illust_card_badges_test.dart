@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
+import 'package:parfait/app/motion/hero_transition.dart';
+import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
@@ -124,5 +126,69 @@ void main() {
       IllustCard(entity: parseIllust(illustJson(6)), rank: 2),
     );
     expect(identical(body(), ranked), isFalse);
+  });
+
+  testWidgets('the pager image flies back only to a card on screen', (
+    tester,
+  ) async {
+    final container = await _makeWorld();
+    final source = IllustPagerSource();
+    // 400dp slots on a 600dp screen: card 3 is built in the cache extent
+    // but off screen.
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          home: Scaffold(
+            body: IllustPagerScope(
+              source: source,
+              child: ListView(
+                children: [
+                  for (final id in [1, 2, 3])
+                    SizedBox(
+                      height: 400,
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: SizedBox(
+                          width: 150,
+                          child: IllustCard(
+                            entity: parseIllust(illustJson(id)),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    });
+    bool flies(int id) => tester
+        .widget<HeroMode>(
+          find
+              .ancestor(
+                of: find.byWidgetPredicate(
+                  (w) => w is Hero && w.tag == illustHeroTag('feed', id),
+                  skipOffstage: false,
+                ),
+                matching: find.byType(HeroMode, skipOffstage: false),
+              )
+              .first,
+        )
+        .enabled;
+
+    for (final (id, onScreen) in [(1, true), (3, false), (2, true)]) {
+      source.aimHomeFlight(id);
+      await tester.pump();
+      expect(flies(id), onScreen, reason: 'card $id');
+    }
+    // Closing the pager lets every card fly again.
+    source
+      ..aimHomeFlight(3)
+      ..clearHomeFlight();
+    await tester.pump();
+    expect(flies(3), isTrue);
   });
 }

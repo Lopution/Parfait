@@ -48,6 +48,64 @@ class IllustPagerSource extends ChangeNotifier {
     _ids = List.unmodifiable(ids);
     notifyListeners();
   }
+
+  /// The grid's built cards by work id, for [aimHomeFlight].
+  final _cards = <int, ({BuildContext context, VoidCallback rebuild})>{};
+
+  /// The work whose card the pager's image must not fly back to.
+  int? _grounded;
+
+  void attachCard(int id, BuildContext context, VoidCallback rebuild) =>
+      _cards[id] = (context: context, rebuild: rebuild);
+
+  void detachCard(int id, BuildContext context) {
+    if (identical(_cards[id]?.context, context)) _cards.remove(id);
+  }
+
+  /// Whether the card of [id] may take the image flying back from the
+  /// pager.
+  bool cardFlies(int id) => id != _grounded;
+
+  /// Called by the pager as it turns to [id]: a back flight lands on the
+  /// card only while some of it is on screen. Hero pairs by tag alone, so
+  /// a card built in the cache extent off screen would otherwise pull the
+  /// image off the edge (TRANS-09). Decided here, not at the pop: the back
+  /// gesture collects its Heroes the moment it starts.
+  void aimHomeFlight(int id) => _ground(_cardOnScreen(id) ? null : id);
+
+  /// The pager closed: every card flies again.
+  void clearHomeFlight() => _ground(null);
+
+  void _ground(int? id) {
+    if (id == _grounded) return;
+    final previous = _grounded;
+    _grounded = id;
+    for (final changed in [previous, id]) {
+      if (changed != null) _cards[changed]?.rebuild();
+    }
+  }
+
+  bool _cardOnScreen(int id) {
+    final card = _cards[id]?.context;
+    final box = card?.findRenderObject();
+    if (card == null || box is! RenderBox || !box.hasSize) return false;
+    // Every enclosing scroll view clips the card: the feed, and a row or a
+    // page it sits in.
+    for (
+      var scrollable = card.findAncestorStateOfType<ScrollableState>();
+      scrollable != null;
+      scrollable = scrollable.context.findAncestorStateOfType<ScrollableState>()
+    ) {
+      final viewport = scrollable.context.findRenderObject();
+      if (viewport is! RenderBox || !viewport.hasSize) continue;
+      final rect = MatrixUtils.transformRect(
+        box.getTransformTo(viewport),
+        Offset.zero & box.size,
+      );
+      if (!rect.overlaps(Offset.zero & viewport.size)) return false;
+    }
+    return true;
+  }
 }
 
 /// Exposes the enclosing grid's [IllustPagerSource] to the cards it

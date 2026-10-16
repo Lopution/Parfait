@@ -116,6 +116,11 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
   @override
   void dispose() {
     widget.source.removeListener(_onSourceChanged);
+    // After the frame: cards cannot rebuild while the tree is finalized.
+    final source = widget.source;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => source.clearHomeFlight(),
+    );
     _dwell?.cancel();
     _controller.dispose();
     _index.dispose();
@@ -215,6 +220,7 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
     if (index < 0 || index >= ids.length) return;
     _index.value = index;
     _currentId = ids[index];
+    widget.source.aimHomeFlight(_currentId);
     if (index >= ids.length - IllustDetailPagerPage.loadAhead) {
       widget.source.onNearEnd?.call();
     }
@@ -257,6 +263,7 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
       _currentId = ids[newIndex];
       _dwell?.cancel();
       _activeId.value = _currentId;
+      widget.source.aimHomeFlight(_currentId);
     }
     setState(() {});
     if (newIndex != _index.value && _controller.hasClients) {
