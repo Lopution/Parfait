@@ -309,6 +309,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
           );
     return Hero(
       tag: tag,
+      transitionOnUserGestures: true,
       flightShuttleBuilder: widget.flightShuttleBuilder,
       child: IllustHeroFlightChild(
         popChild: popChild,

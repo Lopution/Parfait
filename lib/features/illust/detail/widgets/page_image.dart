@@ -209,6 +209,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
               aspectRatio: entity.pageAspectRatioAt(widget.index),
               builder: (panoramaDecodeWidth) => Hero(
                 tag: widget.heroTag,
+                transitionOnUserGestures: true,
                 flightShuttleBuilder: illustHeroFlightShuttleBuilder,
                 child: IllustHeroFlightChild(
                   // The detail endpoint stays sharp for the normal page and

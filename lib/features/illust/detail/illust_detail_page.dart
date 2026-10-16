@@ -921,8 +921,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
               entity: entity,
               visibility: _barCurve,
               onDownload: () => unawaited(_downloadAll(entity)),
-              onComments: () =>
-                  unawaited(openIllustComments(context, entity.id)),
             ),
           );
     final content = GestureDetector(

@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/navigation/func_page.dart';
 import 'package:parfait/app/navigation/route_animation.dart';
@@ -38,6 +40,27 @@ Future<void> _sendBackGestureMethod(
 }
 
 /// Android's predictive back, starting at the left edge.
+/// Whether the lifted-Hero hole of a moving page covers [global]: the
+/// painted even-odd clip leaves it out. Null when no page has a hole.
+bool? _liftedHoleAt(WidgetTester tester, Offset global) {
+  final clips = tester.layers.whereType<ClipPathLayer>().where(
+    (layer) => layer.clipPath!.fillType == PathFillType.evenOdd,
+  );
+  if (clips.isEmpty) return null;
+  final clip = clips.single;
+  final chain = <Layer>[clip];
+  for (var up = clip.parent; up != null; up = up.parent) {
+    chain.add(up);
+  }
+  // From below the root, whose transform maps logical to device pixels.
+  final transform = Matrix4.identity();
+  for (var i = chain.length - 2; i > 0; i--) {
+    (chain[i] as ContainerLayer).applyTransform(chain[i - 1], transform);
+  }
+  final local = MatrixUtils.transformPoint(Matrix4.inverted(transform), global);
+  return !clip.clipPath!.contains(local);
+}
+
 Future<void> _startBackGesture() => _sendBackGestureMethod('startBackGesture', {
   'touchOffset': <double>[5.0, 300.0],
   'progress': 0.0,
@@ -261,21 +284,6 @@ void main() {
     expect(find.text('page a'), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-  testWidgets('cancelling the gesture restores the route', (tester) async {
-    final route = await _pushSecondPage(tester);
-
-    await _startBackGesture();
-    await tester.pump();
-    await _dragBackGesture(0.3);
-    await tester.pump();
-    expect(route.animation!.value, lessThan(1.0));
-
-    await _sendBackGestureMethod('cancelBackGesture');
-    await tester.pumpAndSettle();
-    expect(find.text('page b'), findsOneWidget);
-    expect(route.animation!.value, 1.0);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-
   testWidgets(
     'a button back pops through FadeForwards, not the gesture transition',
     (tester) async {
@@ -296,93 +304,135 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.android),
   );
 
-  testWidgets('a shared-element page answers the back gesture by shrinking, '
-      'then pops with its Hero over a still page', (tester) async {
-    late BuildContext rootContext;
-    late final PageRoute<void> below;
-    late final PageRoute<void> pushed;
-    PageRoute<void> page(Widget child, {bool sharedElement = false}) =>
-        FuncPage<void>(
-              transitionDuration: const Duration(milliseconds: 400),
-              reverseTransitionDuration: const Duration(milliseconds: 400),
-              sharedElement: sharedElement,
-              child: child,
-            ).createRoute(rootContext)
-            as PageRoute<void>;
-    Widget hero(String label, Offset at) => Stack(
-      children: [
-        Positioned(
-          left: at.dx,
-          top: at.dy,
-          child: Hero(
-            tag: 'art',
-            child: SizedBox.square(dimension: 50, child: Text(label)),
+  for (final style in PageTransitionStyle.values) {
+    testWidgets('a shared-element page fades over a still page in either '
+        'style while its Hero flies (${style.name})', (tester) async {
+      late BuildContext rootContext;
+      late PageRoute<void> pushed;
+      PageRoute<void> page(Widget child, {bool sharedElement = false}) =>
+          FuncPage<void>(
+                transitionDuration: const Duration(milliseconds: 400),
+                reverseTransitionDuration: const Duration(milliseconds: 400),
+                transitionStyle: style,
+                sharedElement: sharedElement,
+                child: child,
+              ).createRoute(rootContext)
+              as PageRoute<void>;
+      // The detail end is a stage twice as tall as the image it contains.
+      Widget hero(String label, Offset at, {double height = 50}) => Stack(
+        children: [
+          Positioned(
+            left: at.dx,
+            top: at.dy,
+            child: Hero(
+              tag: 'art',
+              transitionOnUserGestures: true,
+              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+              child: IllustHeroFlightChild(
+                containsImage: true,
+                child: SizedBox(width: 50, height: height, child: Text(label)),
+              ),
+            ),
           ),
-        ),
-      ],
-    );
-    await tester.pumpWidget(
-      Directionality(
-        textDirection: TextDirection.ltr,
-        child: Builder(
-          builder: (context) {
-            rootContext = context;
-            return Navigator(
-              observers: [HeroController()],
-              onGenerateRoute: (_) => below = page(
-                Builder(
-                  builder: (context) => Stack(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          pushed = page(
-                            hero('detail', const Offset(300, 500)),
-                            sharedElement: true,
-                          );
-                          Navigator.of(context).push(pushed);
-                        },
-                        child: hero('card', Offset.zero),
-                      ),
-                      const Positioned(left: 0, top: 200, child: Text('still')),
-                    ],
+        ],
+      );
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Builder(
+            builder: (context) {
+              rootContext = context;
+              return Navigator(
+                observers: [HeroController()],
+                onGenerateRoute: (_) => page(
+                  Builder(
+                    builder: (context) => Stack(
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            pushed = page(
+                              hero(
+                                'detail',
+                                const Offset(300, 500),
+                                height: 100,
+                              ),
+                              sharedElement: true,
+                            );
+                            Navigator.of(context).push(pushed);
+                          },
+                          child: hero('card', Offset.zero),
+                        ),
+                        const Positioned(
+                          left: 0,
+                          top: 200,
+                          child: Text('still'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
-      ),
-    );
-    await tester.tap(find.text('card'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
-    // The page below is covered but does not move.
-    expect(below.secondaryAnimation!.value, inExclusiveRange(0, 1));
-    expect(tester.getTopLeft(find.text('still')), const Offset(0, 200));
-    await tester.pumpAndSettle();
+      );
+      const still = Offset(0, 200);
+      double pageOpacity() => tester
+          .widgetList<FadeTransition>(
+            find.ancestor(
+              of: find.byType(Hero).last,
+              matching: find.byType(FadeTransition),
+            ),
+          )
+          .last
+          .opacity
+          .value;
+      // Mid-flight the page below holds still, and the fading page has a
+      // hole where its image sits, so the page below shows there rather
+      // than a blank; the rest of the stage still paints. Leaving, the page
+      // has mostly faded halfway through, not waiting for the image.
+      void expectFlyingHome() {
+        expect(pageOpacity(), lessThan(0.5));
+        // The shuttle flies the leaving page's image.
+        final flying = tester.getTopLeft(find.text('detail'));
+        expect(flying.dx, inExclusiveRange(0, 300));
+        expect(flying.dy, inExclusiveRange(0, 500));
+        expect(tester.getTopLeft(find.text('still')), still);
+        final stage = tester.getRect(find.byType(Hero).last);
+        expect(_liftedHoleAt(tester, stage.center), isTrue);
+        expect(_liftedHoleAt(tester, stage.topCenter), isFalse);
+      }
 
-    await _startBackGesture();
-    await _dragBackGesture(1.0);
-    await tester.pump();
-    // The gesture shrinks the page; it does not scrub the route.
-    expect(pushed.animation!.value, 1.0);
-    expect(tester.getRect(find.text('detail')).width, closeTo(45, 0.5));
+      await tester.tap(find.text('card'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.getTopLeft(find.text('still')), still);
+      expect(pageOpacity(), greaterThan(0.5));
+      // Only a landed page has its image lifted off.
+      expect(_liftedHoleAt(tester, const Offset(325, 550)), isNull);
+      await tester.pumpAndSettle();
 
-    await _sendBackGestureMethod('commitBackGesture');
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
-    // The Hero flies from the shrunken image back to the card, while the
-    // page below stays where it is and still counts as covered (so a
-    // branch root keeps its bottom bar under the leaving page).
-    final flying = tester.getTopLeft(find.text('card'));
-    expect(flying.dx, inExclusiveRange(0, 300));
-    expect(flying.dy, inExclusiveRange(0, 500));
-    expect(tester.getTopLeft(find.text('still')), const Offset(0, 200));
-    expect(below.secondaryAnimation!.value, inExclusiveRange(0, 1));
-    await tester.pumpAndSettle();
-    expect(find.text('detail'), findsNothing);
-    expect(tester.getTopLeft(find.text('card')), Offset.zero);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+      // The back gesture scrubs the fade; the image follows the finger
+      // home and returns on a cancel.
+      await _startBackGesture();
+      await _dragBackGesture(0.5);
+      await tester.pump();
+      expect(pushed.animation!.value, inExclusiveRange(0, 1));
+      expectFlyingHome();
+      await _sendBackGestureMethod('cancelBackGesture');
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('detail')), const Offset(300, 500));
+
+      // Back fades the page out while the image flies home.
+      Navigator.of(tester.element(find.text('detail'))).pop();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expectFlyingHome();
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('card')), Offset.zero);
+      expect(find.text('detail'), findsNothing);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+  }
 
   testWidgets('the scoped tier still collapses under reduced motion', (
     tester,

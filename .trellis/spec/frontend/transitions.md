@@ -9,7 +9,7 @@ applies_to:
   - lib/app/widgets/feed/illust_card*.dart
   - lib/features/illust/**
   - android/app/src/main/AndroidManifest.xml
-reviewed: 2026-10-12
+reviewed: 2026-10-16
 ---
 
 # Page transitions, back gesture and Hero flights
@@ -27,6 +27,7 @@ reviewed: 2026-10-12
   `PredictiveBackPageTransitionsBuilder`) and `slide`
   (`CupertinoPageTransition`). A stored `sharedAxis` or `zoom` reads as
   `system`. Fade-through is not offered. No hand-written transition.
+  Shared-element pages keep their own fade whatever the style (TRANS-09).
 - **Why:** User decision: shared axis and zoom were dropped; fade-through
   is for unrelated destinations, not pushes.
 - **Check:** manual
@@ -35,10 +36,12 @@ reviewed: 2026-10-12
 ### TRANS-02 Slide uses the Cupertino widget, not its builder
 - **Rule:** The slide style uses the `CupertinoPageTransition` widget with
   the app's own back-gesture driver, never
-  `CupertinoPageTransitionsBuilder`.
+  `CupertinoPageTransitionsBuilder`. A committed gesture finishes from
+  where the finger left the page.
 - **Why:** The builder adds an iOS edge-swipe detector that steals
-  horizontal drags from the detail pager.
-- **Check:** `test/func_page_test.dart` "the back gesture drives the route and commits" "cancelling the gesture restores the route"
+  horizontal drags from the detail pager. The framework's commit rewinds
+  the route to 1 first, so the page jumped back on release.
+- **Check:** `test/func_page_test.dart` "the back gesture drives the route and commits" "a shared-element page fades over a still page"
 - **Code:** `lib/app/navigation/func_page.dart`
 
 ### TRANS-03 Back uses PopScope.onPopInvokedWithResult
@@ -99,17 +102,45 @@ reviewed: 2026-10-12
 - **Check:** `test/hero_transition_test.dart` "feed → detail → viewer keeps one hero tag family"
 - **Code:** `lib/app/widgets/feed/illust_card.dart`
 
-### TRANS-09 Shared-element pages fade over a still page
-- **Rule:** A page opened with a Hero is `FuncPage(sharedElement: true)`:
-  it fades over a page below that holds still, and the image is the only
-  thing that moves. Do not refuse the transition (`canTransitionTo`
-  false). On the back gesture the page shrinks to 0.9 with the finger
-  instead of scrubbing, and a commit is a normal pop.
-- **Why:** Sliding pages under a flight read as two animations. Refusing
-  the transition stopped the secondary animation, so the bottom bar
-  appeared over the leaving page. Heroes cannot follow a scrubbed pop.
-- **Check:** `test/func_page_test.dart` "a shared-element page answers the back gesture by shrinking"
-- **Code:** `lib/app/navigation/func_page.dart`
+### TRANS-09 Shared-element pages fade over a still page, whatever the style
+- **Rule:** A page opened with a Hero is `FuncPage(sharedElement: true)`
+  and has its own transition in both directions, whatever the style:
+  `MotionTokens.sharedElement` (450ms), the page fading over a still
+  page below (no slide, no barrier) in the first part of either
+  direction (`sharedElementFadeIn` opening, `sharedElementFadeOut`
+  leaving, chosen by the controller's direction), the Hero flying on its
+  default curve. The
+  back gesture scrubs the fade with the app's own driver, so every artwork
+  Hero sets `transitionOnUserGestures`, and a committed gesture finishes
+  from where the finger left it. While a landed page leaves,
+  `HeroLiftHole` cuts the flying image's spot out of it, so the page below
+  shows there, not the page's background; an opening page has no hole
+  (it fades in over the page below anyway, and the image's slow last
+  stretch left a line of that page around it). The viewer's endpoint
+  (`IllustHeroFlightChild.containsImage`) cuts only the image, shaped
+  like the other endpoint. Under a page pushed on top it moves in the
+  style like any page. The transition's widget structure never changes
+  over the route's life. A detail pager aims each settled work's back
+  flight (`IllustPagerSource.aimHomeFlight`): a card with nothing on
+  screen takes no flight. Do not refuse the transition (`canTransitionTo`
+  false).
+- **Why:** User decision, after trying the style's
+  transitions: a slide or FadeForwards moves both ends of the flight while
+  the image crosses between them, so the image arrived before its page
+  and the hole showed a half-moved feed and the gap beside it. One fade
+  curve played backwards held the leaving page until the image had
+  nearly landed, and an emphasized flight curve read as odd.
+  Shared-element transitions on Android, iOS (zoom) and in Flutter's
+  Wonderous all keep the page below still and only fade the rest. The
+  framework's gesture commit rewinds the route to 1 before reversing, so
+  the page and the Hero jumped back on release. A changed transition
+  widget type reparents the page's GlobalKey subtree and rebuilds the
+  whole page in that frame. Hero pairs by tag alone, so a card built in
+  the cache extent pulled the image in from off the screen. Refusing the
+  transition stopped the secondary animation, so the bottom bar appeared
+  over the leaving page.
+- **Check:** `test/func_page_test.dart` "a shared-element page fades over a still page"; `test/illust_card_badges_test.dart` "the pager image flies back only to a card on screen"
+- **Code:** `lib/app/navigation/func_page.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/widgets/feed/feed_grid.dart`
 
 ### TRANS-10 The flight clip follows both pages' chrome
 - **Rule:** Push and pop flights use a progress-aware global clip between
@@ -133,9 +164,10 @@ reviewed: 2026-10-12
 
 ### TRANS-12 Only the viewer's entry page flies back
 - **Rule:** The viewer carries a Hero only on the page it opened on. After a
-  page turn every pop slides the stage away instead.
+  page turn a drag-to-dismiss slides the stage down; back and the back
+  gesture fade the viewer out (TRANS-09).
 - **Why:** Shrinking into the card showed a different page landing on it.
-- **Check:** `test/hero_transition_test.dart` "only the entry page flies back; other pages slide away"
+- **Check:** `test/hero_transition_test.dart` "only the entry page flies back; a drag from another page "
 - **Code:** `lib/features/illust/viewer/image_viewer_page.dart`
 
 ### TRANS-13 The detail image list has one sliver type

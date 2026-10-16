@@ -191,10 +191,12 @@ Page<dynamic> _page(
   final style = MotionScope.transitionStyleOf(context);
   final duration = MotionTokens.resolve(
     context,
-    MotionTokens.pageTransitionOf(
-      style,
-      android: defaultTargetPlatform == TargetPlatform.android,
-    ),
+    sharedElement
+        ? MotionTokens.sharedElement
+        : MotionTokens.pageTransitionOf(
+            style,
+            android: defaultTargetPlatform == TargetPlatform.android,
+          ),
   );
   return FuncPage<dynamic>(
     key: state.pageKey,
