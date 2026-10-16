@@ -3,7 +3,7 @@ prefix: QUAL
 applies_to:
   - lib/**
   - analysis_options.yaml
-reviewed: 2026-10-12
+reviewed: 2026-10-17
 ---
 
 # Code quality
@@ -45,3 +45,16 @@ reviewed: 2026-10-12
   160 MB/s until the host ran out of memory.
 - **Check:** manual
 - **Code:** `lib/features/illust/detail/illust_detail_pager_page.dart`
+
+### QUAL-05 Scenes worth timing go through FrameProbe
+- **Rule:** A scene that jank may be pinned on (a transition, a branch
+  switch, a Hero, a decode) is bracketed with `FrameProbe.enter`/`exit` or
+  noted with `FrameProbe.mark`, never a raw `Timeline` call. Both reach the
+  in-app probe and, outside release, the system trace as `parfait` marks
+  beside the page and pointer marks of `TraceMarks`. Release attaches
+  nothing. Work on another isolate, where the probe does not live (the
+  data worker), times itself with `Timeline.timeSync`.
+- **Why:** A trace held only touch delivery times, so a janky frame from
+  a free session on a device could not be placed on a page or a gesture.
+- **Check:** `test/trace_marks_test.dart` "a tap and a fling are marked down and up, the fling fast" "a route change marks the page and the scene it plays"
+- **Code:** `lib/core/debug/trace_marks.dart`, `lib/core/debug/frame_probe.dart`

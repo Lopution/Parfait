@@ -7,6 +7,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import 'trace_marks.dart';
+
 /// `--dart-define=PIXIV_FRAME_PROBE=true` exposes the probe's settings
 /// entry in release builds — the only way to attach it to a signed
 /// measurement package. Default builds leave the define unset, so release
@@ -41,15 +43,18 @@ class FrameProbe {
   /// lands on the frames a scene spans, not on the frame it started in.
   final Map<String, int> _live = {};
 
-  /// Scene hook: one [key] scene started. Pair with [exit].
+  /// Scene hook: one [key] scene started. Pair with [exit]. Also marked in
+  /// the system trace, recording or not.
   void enter(String key) {
     if (!available) return;
+    TraceMarks.mark('enter $key');
     _live[key] = (_live[key] ?? 0) + 1;
   }
 
   /// Scene hook: one [key] scene ended.
   void exit(String key) {
     if (!available) return;
+    TraceMarks.mark('exit $key');
     final count = (_live[key] ?? 0) - 1;
     if (count > 0) {
       _live[key] = count;
@@ -181,8 +186,10 @@ class FrameProbe {
 
   /// Logs an instant [label] against the frame it lands in, under the same
   /// rule as [measure] — for events whose cost shows up off the UI thread,
-  /// like a decoded image the raster thread draws for the first time.
+  /// like a decoded image the raster thread draws for the first time. The
+  /// system trace gets it recording or not.
   void mark(String label) {
+    TraceMarks.mark('event $label');
     if (_attached) _log(label);
   }
 

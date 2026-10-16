@@ -22,7 +22,7 @@ import '../../core/download/download_task.dart' show isTerminal;
 import '../../l10n/context.dart';
 import 'settings_catalog.dart';
 import 'settings_helpers.dart';
-import 'settings_page.dart' show settingsPageIcons;
+import 'settings_page.dart' show DeveloperSettingsGroup, settingsPageIcons;
 
 /// The "me" destination: who is signed in, the places of their own content
 /// one tap away, and the settings pages. The content entries carry more
@@ -76,6 +76,7 @@ class MeDashboardPage extends ConsumerWidget {
           SettingsGroup(children: [_AccountRow(account: state?.current)]),
           const _ContentShortcuts(),
           const _SettingsList(),
+          const DeveloperSettingsGroup(),
           const FuncNavBarSpacer(),
         ],
       ),
@@ -444,8 +445,8 @@ class _EntryLabel extends StatelessWidget {
 class _SettingsList extends StatelessWidget {
   const _SettingsList();
 
-  /// The account page is the account row's; the frame probe stays on the
-  /// index.
+  /// The account page is the account row's; the frame probe is in the
+  /// developer group below.
   static const _pages = [
     SettingsPageRef.theme,
     SettingsPageRef.language,

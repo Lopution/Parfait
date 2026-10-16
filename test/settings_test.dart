@@ -401,6 +401,11 @@ void main() {
       ),
     );
     await tester.pump();
+    expect(
+      find.text('帧探针'),
+      findsOneWidget,
+      reason: 'a build that can record lists the probe under the settings',
+    );
     Badge downloadsBadge() => tester.widget<Badge>(
       find.ancestor(
         of: find.byIcon(Icons.downloading_outlined),

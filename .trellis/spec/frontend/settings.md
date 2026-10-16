@@ -3,7 +3,7 @@ prefix: SET
 applies_to:
   - lib/app/widgets/settings/**
   - lib/features/settings/**
-reviewed: 2026-10-14
+reviewed: 2026-10-17
 ---
 
 # Settings pages and the Me tab
@@ -88,8 +88,10 @@ reviewed: 2026-10-14
   of four plain entries (watchlist, history, watch later, local novels,
   then each destination the user took off the bottom bar) that go two to
   a row when narrow, then every settings page as a
-  `SettingsTile` in one always-listed group headed by a search button.
+  `SettingsTile` in one always-listed group headed by a search button,
+  and under it `DeveloperSettingsGroup` (frame probe) when unlocked.
 - **Why:** User decision after comparing with Shaft: three cards, no
-  fold.
+  fold. Left only at the bottom of the index and unsearchable, the probe
+  could not be found.
 - **Check:** `test/settings_test.dart` "the dashboard badge counts downloads as they start and end"
 - **Code:** `lib/features/settings/me_dashboard_page.dart`

@@ -10,6 +10,7 @@ import 'package:rhttp/rhttp.dart' as rhttp;
 
 import 'app/app.dart';
 import 'core/debug/frame_probe.dart';
+import 'core/debug/trace_marks.dart';
 import 'core/image/legacy_image_cache.dart';
 import 'core/logging/crash_log.dart';
 import 'core/network/rhttp_gate.dart';
@@ -122,6 +123,7 @@ Future<void> _run() async {
   // A measurement package records from launch: cold start is a scenario
   // the probe page cannot be opened in time for. Stop it there.
   if (kPixivFrameProbe) FrameProbe.instance.start();
+  TraceMarks.trackPointers();
   runApp(const ProviderScope(child: ParfaitApp()));
   unawaited(_deleteLegacyImageCache());
   unawaited(_warmUpNativeChannels());
