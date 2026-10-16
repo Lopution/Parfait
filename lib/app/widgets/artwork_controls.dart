@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 /// The one look of toolbar controls standing on artwork (R6): bare glyphs,
@@ -25,8 +27,15 @@ class ArtworkControls extends StatelessWidget {
   /// Defaults to the page surface.
   final Color? halo;
 
-  /// Stacked tight blurs read as an outline rather than a glow.
-  static const _haloBlurs = [1.0, 2.0, 3.0];
+  /// A tight copy pushed out in eight directions traces a solid outline;
+  /// one soft blur behind it parts the glyph from a busy image. Blurs
+  /// alone stayed a faint glow: an accent glyph on a mid-tone banner of
+  /// a near hue disappeared.
+  static final _halo = [
+    for (var i = 0; i < 8; i++)
+      (offset: Offset.fromDirection(i * math.pi / 4, 1.0), blur: 0.6),
+    (offset: Offset.zero, blur: 3.0),
+  ];
 
   /// The icon theme of controls on artwork, for a bar that themes its
   /// icons itself (an [AppBar]'s `iconTheme`).
@@ -40,8 +49,12 @@ class ArtworkControls extends StatelessWidget {
     return IconThemeData(
       color: glyph ?? colors.primary,
       shadows: [
-        for (final blur in _haloBlurs)
-          Shadow(color: haloColor, blurRadius: blur),
+        for (final layer in _halo)
+          Shadow(
+            color: haloColor,
+            offset: layer.offset,
+            blurRadius: layer.blur,
+          ),
       ],
     );
   }

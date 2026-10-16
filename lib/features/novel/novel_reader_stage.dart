@@ -487,12 +487,12 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   }
 
   /// Shared fill for both chrome bars: the reading palette's background
-  /// (the page surface under `system`) at 0.96 alpha — a tinted glass over
-  /// the body, kept one brightness with the palette's bar-icon override.
+  /// (the page surface under `system`), kept one brightness with the
+  /// palette's bar-icon override. Opaque: the page lies under the bars,
+  /// and text showing through a see-through bar read as a smudge behind
+  /// the controls.
   Color _chromeBarColor(BuildContext context, NovelReaderPalette palette) =>
-      (palette.background ?? Theme.of(context).colorScheme.surface).withValues(
-        alpha: 0.96,
-      );
+      palette.background ?? Theme.of(context).colorScheme.surface;
 
   Widget _buildTopBar(BuildContext context, NovelReaderPalette palette) {
     final foreground =
