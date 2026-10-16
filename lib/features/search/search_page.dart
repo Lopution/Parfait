@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/haptics/app_haptics.dart';
 import '../../app/motion/app_overlays.dart';
+import '../../app/motion/press_scale.dart';
 import '../../app/motion/state_fade.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
@@ -663,66 +664,68 @@ class _TrendingTagTile extends ConsumerWidget {
               initialEntity: representative,
             );
           };
-    return Semantics(
-      button: true,
-      child: GestureDetector(
-        // Tapping searches the tag; the image is context. Every entry
-        // starts from the type's persisted default filter set.
-        onTap: () => openSearchResults(
-          context,
-          searchQueryForType(
-            type,
-            keyword: tag.name,
-            illustFilters: ref.read(searchIllustFiltersProvider),
-            novelFilters: ref.read(searchNovelFiltersProvider),
+    return PressScale(
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          // Tapping searches the tag; the image is context. Every entry
+          // starts from the type's persisted default filter set.
+          onTap: () => openSearchResults(
+            context,
+            searchQueryForType(
+              type,
+              keyword: tag.name,
+              illustFilters: ref.read(searchIllustFiltersProvider),
+              novelFilters: ref.read(searchNovelFiltersProvider),
+            ),
           ),
-        ),
-        onLongPress: openWork,
-        onSecondaryTap: openWork,
-        child: ClipRRect(
-          borderRadius: FuncShape.card,
-          child: ColoredBox(
-            color: scheme.surfaceContainer,
-            child: representative == null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(FuncSpacing.sm),
-                      child: label,
-                    ),
-                  )
-                : Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      PixivImage.feed(
-                        representative.imageUrls.squareMedium,
-                        layoutWidth: tileWidth,
-                        fit: BoxFit.cover,
+          onLongPress: openWork,
+          onSecondaryTap: openWork,
+          child: ClipRRect(
+            borderRadius: FuncShape.card,
+            child: ColoredBox(
+              color: scheme.surfaceContainer,
+              child: representative == null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(FuncSpacing.sm),
+                        child: label,
                       ),
-                      const Align(
-                        alignment: Alignment.bottomCenter,
-                        child: FractionallySizedBox(
-                          widthFactor: 1,
-                          heightFactor: _scrimFraction,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [Color(0x00000000), _scrimColor],
+                    )
+                  : Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        PixivImage.feed(
+                          representative.imageUrls.squareMedium,
+                          layoutWidth: tileWidth,
+                          fit: BoxFit.cover,
+                        ),
+                        const Align(
+                          alignment: Alignment.bottomCenter,
+                          child: FractionallySizedBox(
+                            widthFactor: 1,
+                            heightFactor: _scrimFraction,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [Color(0x00000000), _scrimColor],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      Align(
-                        alignment: Alignment.bottomLeft,
-                        child: Padding(
-                          padding: const EdgeInsets.all(FuncSpacing.sm),
-                          child: label,
+                        Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.all(FuncSpacing.sm),
+                            child: label,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),

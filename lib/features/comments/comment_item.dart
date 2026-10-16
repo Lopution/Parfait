@@ -153,6 +153,8 @@ int? _workAuthorId(WidgetRef ref, CommentEntity comment) =>
       ),
     };
 
+const _avatarRadius = 21.0;
+
 class _Avatar extends StatelessWidget {
   const _Avatar({required this.comment});
 
@@ -160,13 +162,20 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    // A circular ripple the size of the avatar: the press shows on the
+    // shape that is tapped (MOTION-06).
+    return InkResponse(
       onTap: comment.user.id > 0
           ? () => openUser(context, comment.user.id)
           : null,
+      customBorder: const CircleBorder(),
+      radius: _avatarRadius,
       // Keep comment/profile avatars on the same placeholder, cache and ring
       // contract as every other user surface.
-      child: PersonAvatar(imageUrl: comment.user.profileImageUrl, radius: 21),
+      child: PersonAvatar(
+        imageUrl: comment.user.profileImageUrl,
+        radius: _avatarRadius,
+      ),
     );
   }
 }

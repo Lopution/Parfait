@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/app/motion/press_scale.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -717,6 +718,14 @@ void main() {
         final router = await pumpSearchRouter(tester, '/search');
         await tester.tap(find.widgetWithText(Tab, tab));
         await tester.pumpAndSettle();
+        // The tile is an image card: it takes the card press (MOTION-06).
+        expect(
+          find.ancestor(
+            of: find.text('#风景').hitTestable(),
+            matching: find.byType(PressScale),
+          ),
+          findsOneWidget,
+        );
 
         await tester.longPress(find.text('#风景').hitTestable());
         await tester.pump();

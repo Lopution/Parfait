@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +10,8 @@ import '../haptics/app_haptics.dart';
 import '../layout/app_breakpoints.dart';
 import '../layout/content_widths.dart';
 import '../motion/app_overlays.dart';
+import '../motion/motion_tokens.dart';
+import '../motion/spring_pop.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
 import 'errors/error_details.dart';
@@ -17,14 +21,16 @@ import 'fit_label.dart';
 import 'undo_snack_bar.dart';
 
 /// Toggles the follow of [userId]. The button flips on this frame
-/// (optimistic) with a select haptic; a failure rolls it back with an error
-/// haptic and the button reports the cause. A confirmed unfollow offers
-/// Undo, which follows again with the old visibility.
+/// (optimistic), so the haptic plays now too, as the bookmark's does:
+/// follow → success, unfollow → select. A failure rolls it back with an
+/// error haptic and the button reports the cause. A confirmed unfollow
+/// offers Undo, which follows again with the old visibility.
 Future<void> toggleFollowWithUndo(BuildContext context, int userId) async {
   // Read up front: the toggle may outlive the widget that started it.
   final container = ProviderScope.containerOf(context, listen: false);
   final store = container.read(followStoreProvider.notifier);
-  AppHaptics.select();
+  final wish = !(store.entryOf(userId)?.shown ?? false);
+  wish ? AppHaptics.success() : AppHaptics.select();
   final removed = await container.read(followActionsProvider).toggle(userId);
   if (store.entryOf(userId)?.error != null) {
     AppHaptics.error();
@@ -44,11 +50,16 @@ Future<void> toggleFollowWithUndo(BuildContext context, int userId) async {
 /// Horizontal padding around the follow button's label.
 const _labelPadding = FuncSpacing.md;
 
+/// The follow pop's overshoot: the button is wide, so far less than the
+/// bookmark heart's.
+const _followPopPeak = 0.08;
+
 /// Shared beta56-style follow button for profile/user-preview surfaces.
 ///
 /// It shows the user's wish at once ([FollowEntry.shown]); the canonical
-/// [FollowStore] owns rollback and cross-page updates.
-class FollowSwitchButton extends ConsumerWidget {
+/// [FollowStore] owns rollback and cross-page updates. A follow from this
+/// button pops it ([SpringPop]); a follow from elsewhere only recolours it.
+class FollowSwitchButton extends ConsumerStatefulWidget {
   const FollowSwitchButton({
     super.key,
     required this.userId,
@@ -62,6 +73,15 @@ class FollowSwitchButton extends ConsumerWidget {
   final String userAccount;
   final bool compact;
 
+  @override
+  ConsumerState<FollowSwitchButton> createState() => _FollowSwitchButtonState();
+}
+
+class _FollowSwitchButtonState extends ConsumerState<FollowSwitchButton> {
+  var _pops = 0;
+
+  int get userId => widget.userId;
+
   String _text(BuildContext context, String key) =>
       l10nLookup(context.l10n, key);
 
@@ -71,13 +91,18 @@ class FollowSwitchButton extends ConsumerWidget {
       context,
       ref,
       userId: userId,
-      userName: userName,
-      userAccount: userAccount,
+      userName: widget.userName,
+      userAccount: widget.userAccount,
     );
   }
 
+  void _toggle(bool followed) {
+    if (!followed) setState(() => _pops++);
+    unawaited(toggleFollowWithUndo(context, userId));
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final entry = ref.watch(
       followStoreProvider.select((state) => state[userId]),
     );
@@ -103,7 +128,7 @@ class FollowSwitchButton extends ConsumerWidget {
     // still cannot fit the grown button bound it (e.g. a ListTile trailing
     // capped at half the row); only then does the label scale down, to
     // LabelFit.minScale, and past that ellipsize.
-    final minSize = compact ? const Size(96, 36) : const Size(116, 42);
+    final minSize = widget.compact ? const Size(96, 36) : const Size(116, 42);
     // The sheet acts on a settled state only.
     final onLongPress = unsettled
         ? null
@@ -111,7 +136,11 @@ class FollowSwitchButton extends ConsumerWidget {
     final labelStyle = Theme.of(
       context,
     ).textTheme.labelLarge!.copyWith(fontWeight: FontWeight.w600);
-    return LayoutBuilder(
+    final (labelFade, labelCurve) = MotionTokens.springCurve(
+      context,
+      MotionSpring.effectsFast,
+    );
+    final button = LayoutBuilder(
       builder: (context, constraints) => ConstrainedBox(
         constraints: BoxConstraints(
           minWidth: minSize.width,
@@ -123,7 +152,7 @@ class FollowSwitchButton extends ConsumerWidget {
             button: true,
             toggled: followed,
             label: semanticLabel,
-            onTap: () => toggleFollowWithUndo(context, userId),
+            onTap: () => _toggle(followed),
             onLongPress: onLongPress,
             child: ExcludeSemantics(
               child: OutlinedButton(
@@ -146,17 +175,22 @@ class FollowSwitchButton extends ConsumerWidget {
                   // click sound).
                   enableFeedback: false,
                 ),
-                onPressed: () => toggleFollowWithUndo(context, userId),
+                onPressed: () => _toggle(followed),
                 onLongPress: onLongPress,
                 // Drawn in the button's text style, measured in the same.
-                child: FitLabel(
-                  semanticLabel,
-                  fit: LabelFit.group(
-                    labels: [semanticLabel],
-                    style: labelStyle,
-                    textScaler: MediaQuery.textScalerOf(context),
-                    textDirection: Directionality.of(context),
-                    slotWidth: constraints.maxWidth - 2 * _labelPadding,
+                child: AnimatedSwitcher(
+                  duration: labelFade,
+                  switchInCurve: labelCurve,
+                  child: FitLabel(
+                    semanticLabel,
+                    key: ValueKey(followed),
+                    fit: LabelFit.group(
+                      labels: [semanticLabel],
+                      style: labelStyle,
+                      textScaler: MediaQuery.textScalerOf(context),
+                      textDirection: Directionality.of(context),
+                      slotWidth: constraints.maxWidth - 2 * _labelPadding,
+                    ),
                   ),
                 ),
               ),
@@ -165,6 +199,7 @@ class FollowSwitchButton extends ConsumerWidget {
         ),
       ),
     );
+    return SpringPop(pops: _pops, peak: _followPopPeak, child: button);
   }
 }
 

@@ -426,6 +426,24 @@ void main() {
       expect(entering(tester, Icons.check_circle), (1.0, 1.0));
     });
 
+    testWidgets('a swap pops the new icon past its size and back', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_wrap(switcher(false)));
+      await tester.pumpWidget(_wrap(switcher(true)));
+      var peak = 0.0;
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        final (scale, opacity) = entering(tester, Icons.check_circle);
+        if (scale > peak) peak = scale;
+        // The fade lands well before the pop does.
+        if (i == 12) expect(opacity, 1.0);
+      }
+      expect(peak, greaterThan(1.05));
+      expect(find.byIcon(Icons.circle_outlined), findsNothing);
+      expect(entering(tester, Icons.check_circle), (1.0, 1.0));
+    });
+
     testWidgets('reduced motion swaps at once', (tester) async {
       await tester.pumpWidget(_wrap(switcher(false), reduce: true));
       await tester.pumpWidget(_wrap(switcher(true), reduce: true));

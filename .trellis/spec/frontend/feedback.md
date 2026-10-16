@@ -13,7 +13,7 @@ applies_to:
   - lib/app/widgets/bookmark_switch_button.dart
   - lib/app/widgets/follow_switch_button.dart
   - lib/app/widgets/watchlist_toggle.dart
-reviewed: 2026-10-12
+reviewed: 2026-10-16
 ---
 
 # Menus, overlays, prompts, undo and haptics
@@ -112,10 +112,12 @@ reviewed: 2026-10-12
 ### FB-09 Bookmark and follow have one UI entry each
 - **Rule:** UI code toggles bookmarks through `toggleBookmark` and follows
   through `toggleFollowWithUndo`, never through the action providers
-  directly.
+  directly. Both play their haptic on the tap, as the state flips:
+  adding plays `success`, removing `select`, a failure adds `error`.
 - **Why:** Those entries own the undo snapshot, the haptic and the error
-  prompt; direct calls skipped them.
-- **Check:** manual
+  prompt; direct calls skipped them. A follow played `select` while a
+  bookmark played `success` for the same kind of moment.
+- **Check:** `test/follow_switch_button_test.dart` "a follow pops the button with success"
 - **Code:** `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/follow_switch_button.dart`
 
 ## Haptics

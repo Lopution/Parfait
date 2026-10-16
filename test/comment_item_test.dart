@@ -125,6 +125,13 @@ void main() {
 
     expect(menuItem('翻译'), findsOneWidget);
     expect(menuItem('删除评论'), findsNothing);
+    // The avatar opens the profile with a ripple shaped like it.
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is InkResponse && w.customBorder is CircleBorder,
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('deleted author uses a localized placeholder', (tester) async {

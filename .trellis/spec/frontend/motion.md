@@ -55,11 +55,17 @@ reviewed: 2026-10-16
   `MotionTokens.springCurve` (for duration-and-curve APIs). Spatial
   springs drive position, scale and size; effects springs drive opacity
   and colour. Never swap them. A token is listed only when something uses
-  it.
+  it. Press, size and sheet motion stays on the standard springs, which
+  hardly overshoot; the expressive bounce is only for a state the user
+  just switched: `SpringPop` kicks the element past its size and back
+  (the bookmark heart, the follow button on a follow, every
+  `StateIconSwitcher` swap), never on a rebuild, refresh or first build.
 - **Why:** Material 3 tunes the two families differently; an effects
-  spring on a size change overshot.
-- **Check:** `test/architecture/motion_census_test.dart` "spring tokens are read through MotionTokens.spring"
-- **Code:** `lib/app/motion/motion_tokens.dart`
+  spring on a size change overshot. User decision: the bookmark's pop was
+  the one feedback that felt right, and a bounce on every press or
+  expand would wobble.
+- **Check:** `test/architecture/motion_census_test.dart` "spring tokens are read through MotionTokens.spring", `test/motion_test.dart` "a swap pops the new icon past its size and back"
+- **Code:** `lib/app/motion/motion_tokens.dart`, `lib/app/motion/spring_pop.dart`
 
 ### MOTION-04 Physical springs snap to their end
 - **Rule:** A `SpringSimulation` driving a widget passes
