@@ -221,7 +221,9 @@ Page<dynamic> _page(
 /// by the enclosing route's `secondaryAnimation`. The home shell is a
 /// [NoTransitionPage], so root-level pushes/pops (settings, viewer) over it
 /// would otherwise re-raster the whole shell — branch feeds, bottom
-/// navigation and the active branch page — on every frame.
+/// navigation and the active branch page — on every frame. Under a
+/// shared-element page (the viewer) it stays live like any page below one,
+/// so the detail page answers touches while the image flies back.
 class _SecondaryAnimationSnapshotGate extends StatelessWidget {
   const _SecondaryAnimationSnapshotGate({required this.child});
 
@@ -232,8 +234,11 @@ class _SecondaryAnimationSnapshotGate extends StatelessWidget {
     final route = ModalRoute.of(context);
     return RoutePopSnapshot(
       animation: route?.animation ?? const AlwaysStoppedAnimation<double>(1),
-      secondaryAnimation:
-          route?.secondaryAnimation ?? const AlwaysStoppedAnimation<double>(0),
+      secondaryAnimation: route == null
+          ? const AlwaysStoppedAnimation<double>(0)
+          : underSharedElement(route)
+          ? kAlwaysDismissedAnimation
+          : route.secondaryAnimation!,
       child: child,
     );
   }

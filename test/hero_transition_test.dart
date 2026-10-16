@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
@@ -184,6 +185,53 @@ void main() {
     });
   });
 
+  testWidgets(
+    'the viewer leaves whole and square; the detail page answers mid-flight',
+    (tester) async {
+      await mockNetworkImagesFor(() async {
+        await pushFromFeed(tester, illustJson(42));
+        await tester.pumpAndSettle();
+        final detail = find.byType(IllustDetailPage);
+        await tester.tap(find.byType(DetailPageImage).first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(BackButton));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(find.byType(HeroRectClip), findsOneWidget, reason: 'in flight');
+        // The stage fades out whole: no hole where the image sat. The image
+        // flies square: neither end is a card.
+        expect(
+          tester.layers.whereType<ClipPathLayer>().where(
+            (layer) => layer.clipPath!.fillType == PathFillType.evenOdd,
+          ),
+          isEmpty,
+        );
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is HeroRectClip && w.child is ClipRRect,
+          ),
+          findsNothing,
+        );
+        // The detail page below stays live rather than a frozen texture, and
+        // a tap on its image opens the viewer again.
+        expect(
+          tester
+              .widgetList<SnapshotWidget>(
+                find.ancestor(
+                  of: detail,
+                  matching: find.byType(SnapshotWidget),
+                ),
+              )
+              .where((snapshot) => snapshot.controller.allowSnapshotting),
+          isEmpty,
+        );
+        await tester.tap(find.byType(DetailPageImage).first);
+        await tester.pumpAndSettle();
+        expect(find.byType(ImageViewerPage), findsOneWidget);
+      });
+    },
+  );
+
   testWidgets('a cropped long image fills the flight rect width throughout', (
     tester,
   ) async {
@@ -337,16 +385,18 @@ void main() {
         isEmpty,
         reason: 'the page draws no copy of the artwork under the flight',
       );
-      // The flight is drawn over the page's chrome: the see-through top bar
-      // and the action bar wait for the landing rather than sit under it.
+      // The top bar and the action bar enter with the page, under the
+      // flight, rather than after the image has landed.
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byType(HeroRectClip), findsOneWidget, reason: 'in flight');
       double barEntrance() =>
           tester.widget<AppTopBar>(find.byType(AppTopBar)).entrance!.value;
       double actionBar() => tester
           .widget<DetailActionBar>(find.byType(DetailActionBar))
           .visibility
           .value;
-      expect(barEntrance(), 0);
-      expect(actionBar(), 0);
+      expect(barEntrance(), greaterThan(0));
+      expect(actionBar(), greaterThan(0));
       await tester.pumpAndSettle();
       expect(barEntrance(), 1);
       expect(actionBar(), 1);

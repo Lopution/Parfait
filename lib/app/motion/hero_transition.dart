@@ -39,7 +39,8 @@ class IllustHeroFlightChild extends StatelessWidget {
 
   /// Whether the image is contained in a larger endpoint (the viewer's
   /// full-screen stage) rather than filling it. The image then has the
-  /// other endpoint's shape, and [HeroLiftHole] cuts out only the image.
+  /// other endpoint's shape, and [HeroLiftHole] cuts nothing out of the
+  /// stage: it fades out whole.
   final bool containsImage;
 
   @override
@@ -133,10 +134,11 @@ Widget illustHeroFlightShuttleBuilder(
   final cardHero =
       (direction == HeroFlightDirection.push ? fromHeroContext : toHeroContext)
           .widget;
-  final cardFrame = cardHero is Hero ? cardHero.child : null;
-  final cropAspect = cardFrame is IllustHeroCardFrame
-      ? cardFrame.cropAspect
-      : null;
+  final cardChild = cardHero is Hero ? cardHero.child : null;
+  // Detail and viewer are both square: only a flight to or from a card
+  // rounds its corners.
+  final cardFrame = cardChild is IllustHeroCardFrame ? cardChild : null;
+  final cropAspect = cardFrame?.cropAspect;
   // Resolve all geometry before the animation starts. The old implementation
   // performed RenderObject walks and NestedScrollView header discovery from
   // AnimatedBuilder; the first return therefore paid that cost on a frame
@@ -175,19 +177,12 @@ Widget illustHeroFlightShuttleBuilder(
       if (size.isEmpty) {
         return HeroRectClip(globalRect: Rect.zero, child: child!);
       }
-      // Corner radius follows the flight animation itself: it runs 0→1 on
-      // push and 1→0 on pop, and the detail endpoint is always the 1 side —
-      // so radius = lerp(card 12 → rect 0) by the raw value either way. A
-      // constant radius used to land rounded then snap square on push.
-      final rawProgress = animation.value;
-      final progress = rawProgress.isFinite
-          ? rawProgress.clamp(0.0, 1.0).toDouble()
-          : (direction == HeroFlightDirection.push ? 1.0 : 0.0);
-      final radius = BorderRadius.lerp(
-        _illustHeroBorderRadius,
-        BorderRadius.zero,
-        progress,
-      )!;
+      final shaped = cropAspect == null
+          ? child!
+          : CustomSingleChildLayout(
+              delegate: _CoverTopDelegate(aspect: cropAspect),
+              child: child,
+            );
       return HeroRectClip(
         globalRect: _heroFlightClipRect(
           flightContext,
@@ -204,15 +199,12 @@ Widget illustHeroFlightShuttleBuilder(
           toHome: toHome,
           visibleExtent: visibleExtent,
         ),
-        child: ClipRRect(
-          borderRadius: radius,
-          child: cropAspect == null
-              ? child
-              : CustomSingleChildLayout(
-                  delegate: _CoverTopDelegate(aspect: cropAspect),
-                  child: child,
-                ),
-        ),
+        child: cardFrame != null
+            ? ClipRRect(
+                borderRadius: _cardRadiusAt(animation.value, direction),
+                child: shaped,
+              )
+            : shaped,
       );
     },
   );
@@ -249,8 +241,8 @@ class _LiftedEndpointsState extends State<_LiftedEndpoints> {
   List<VoidCallback> _releases = const [];
 
   void _lift() => _releases = [
-    ?HeroLiftHole.lift(widget.from, other: widget.to),
-    ?HeroLiftHole.lift(widget.to, other: widget.from),
+    ?HeroLiftHole.lift(widget.from),
+    ?HeroLiftHole.lift(widget.to),
   ];
 
   void _release() {
@@ -293,7 +285,10 @@ class _LiftedEndpointsState extends State<_LiftedEndpoints> {
 /// Opening has no hole: the page fades in over a page that shows through
 /// anyway, and the image's slow last stretch left a line of the page below
 /// around it on the shown page. A settled page (covered by the viewer, or
-/// revealed by it) has none either: the route below it is not painted.
+/// revealed by it) has none either: the route below it is not painted. Nor
+/// does an endpoint that contains its image ([IllustHeroFlightChild]
+/// `containsImage`, the viewer's stage): the image's spot, sharp-edged
+/// and clear while the rest of the dark stage faded, read as a window.
 class HeroLiftHole extends SingleChildRenderObjectWidget {
   const HeroLiftHole({super.key, required this.animation, super.child});
 
@@ -303,31 +298,21 @@ class HeroLiftHole extends SingleChildRenderObjectWidget {
   final Animation<double> animation;
 
   /// Cuts the Hero endpoint at [heroContext] out of its page until the
-  /// returned callback runs. Null when the endpoint is in no such page.
-  /// [other] is the flight's other endpoint.
-  static VoidCallback? lift(
-    BuildContext heroContext, {
-    required BuildContext other,
-  }) {
+  /// returned callback runs. Null when the endpoint is in no such page or
+  /// contains its image.
+  static VoidCallback? lift(BuildContext heroContext) {
     final page = heroContext
         .findAncestorRenderObjectOfType<_RenderHeroLiftHole>();
     final box = heroContext.findRenderObject();
-    if (page == null || box is! RenderBox) return null;
     final hero = heroContext.widget;
     final flightChild = hero is Hero ? hero.child : null;
-    final otherBox = other.findRenderObject();
-    final lift = _Lift(
-      box,
-      flightChild is IllustHeroFlightChild &&
-              flightChild.containsImage &&
-              otherBox is RenderBox &&
-              otherBox.hasSize &&
-              !otherBox.size.isEmpty
-          ? otherBox.size.aspectRatio
-          : null,
-    );
-    page._add(lift);
-    return () => page._remove(lift);
+    if (page == null ||
+        box is! RenderBox ||
+        (flightChild is IllustHeroFlightChild && flightChild.containsImage)) {
+      return null;
+    }
+    page._add(box);
+    return () => page._remove(box);
   }
 
   @override
@@ -338,15 +323,6 @@ class HeroLiftHole extends SingleChildRenderObjectWidget {
   void updateRenderObject(BuildContext context, RenderObject renderObject) {
     (renderObject as _RenderHeroLiftHole).animation = animation;
   }
-}
-
-/// One lifted endpoint: its Hero placeholder box, and the image's aspect
-/// when the image is contained in it.
-final class _Lift {
-  _Lift(this.box, this.aspect);
-
-  final RenderBox box;
-  final double? aspect;
 }
 
 class _RenderHeroLiftHole extends RenderProxyBox {
@@ -363,15 +339,16 @@ class _RenderHeroLiftHole extends RenderProxyBox {
     markNeedsPaint();
   }
 
-  final _lifts = <_Lift>[];
+  /// The lifted endpoints' Hero placeholder boxes.
+  final _lifts = <RenderBox>[];
   final _clip = LayerHandle<ClipPathLayer>();
 
-  void _add(_Lift lift) {
+  void _add(RenderBox lift) {
     _lifts.add(lift);
     if (attached) markNeedsPaint();
   }
 
-  void _remove(_Lift lift) {
+  void _remove(RenderBox lift) {
     if (_lifts.remove(lift) && attached) markNeedsPaint();
   }
 
@@ -407,19 +384,12 @@ class _RenderHeroLiftHole extends RenderProxyBox {
   Rect? _hole() {
     if (!_landed || _animation.isCompleted) return null;
     Rect? hole;
-    for (final lift in _lifts) {
-      final box = lift.box;
+    for (final box in _lifts) {
       if (!box.attached || !box.hasSize) continue;
-      var rect = Offset.zero & box.size;
-      if (lift.aspect case final aspect?) {
-        final fitted = applyBoxFit(
-          BoxFit.contain,
-          Size(aspect, 1),
-          rect.size,
-        ).destination;
-        rect = Alignment.center.inscribe(fitted, rect);
-      }
-      rect = MatrixUtils.transformRect(box.getTransformTo(this), rect);
+      final rect = MatrixUtils.transformRect(
+        box.getTransformTo(this),
+        Offset.zero & box.size,
+      );
       hole = hole?.expandToInclude(rect) ?? rect;
     }
     return hole;
@@ -757,3 +727,18 @@ double _pinnedHeaderChrome(BuildContext context, double statusInset) {
 }
 
 const _illustHeroBorderRadius = FuncShape.card;
+
+/// The card end's corner radius at flight [value]. The value runs 0→1 on
+/// push and 1→0 on pop, and the detail endpoint is always the 1 side, so
+/// the radius lerps card 12 → square 0 by the raw value either way. A
+/// constant radius used to land rounded then snap square on push.
+BorderRadius _cardRadiusAt(double value, HeroFlightDirection direction) {
+  final progress = value.isFinite
+      ? value.clamp(0.0, 1.0).toDouble()
+      : (direction == HeroFlightDirection.push ? 1.0 : 0.0);
+  return BorderRadius.lerp(
+    _illustHeroBorderRadius,
+    BorderRadius.zero,
+    progress,
+  )!;
+}

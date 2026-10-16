@@ -78,9 +78,11 @@ class _FuncPageRoute<T> extends PageRoute<T> {
 
   FuncPage<T> get _page => settings as FuncPage<T>;
 
-  /// The route last announced above this one. A pop announces no new next
-  /// route, so through a pop this is still the route leaving.
-  _FuncPageRoute<dynamic>? _next;
+  /// Each route's page right above it, announced by that page as it is
+  /// pushed or moved. A pop announces nothing, so through a pop this is
+  /// still the page leaving. Keyed by any route: the home shell is not a
+  /// [FuncPage].
+  static final _above = Expando<_FuncPageRoute<dynamic>>();
 
   /// A shared-element page's opacity.
   late final Animation<double> _sharedElementFade = _SharedElementFade(
@@ -89,15 +91,9 @@ class _FuncPageRoute<T> extends PageRoute<T> {
   );
 
   @override
-  void didChangeNext(Route<dynamic>? nextRoute) {
-    _next = nextRoute is _FuncPageRoute ? nextRoute : null;
-    super.didChangeNext(nextRoute);
-  }
-
-  @override
-  void didPopNext(Route<dynamic> nextRoute) {
-    _next = nextRoute is _FuncPageRoute ? nextRoute : null;
-    super.didPopNext(nextRoute);
+  void didChangePrevious(Route<dynamic>? previousRoute) {
+    if (previousRoute != null) _above[previousRoute] = this;
+    super.didChangePrevious(previousRoute);
   }
 
   @override
@@ -164,26 +160,23 @@ class _FuncPageRoute<T> extends PageRoute<T> {
   /// Under a shared-element page this page holds still, not in the
   /// predictive-back pose the navigator-wide gesture flag would pick.
   @override
-  bool get popGestureInProgress {
-    final next = _next;
-    if (next != null &&
-        next._page.sharedElement &&
-        !next.animation!.isDismissed) {
-      return false;
-    }
-    return super.popGestureInProgress;
-  }
+  bool get popGestureInProgress =>
+      !underSharedElement(this) && super.popGestureInProgress;
 
   /// The framework's commit rewinds the route to fully shown and pops from
   /// there, for Material's separate commit animation. A transition that
   /// follows the route animation itself (the slide, a Hero) would jump back
-  /// under the finger, so this pops from where the gesture left it and
-  /// ends the gesture once the pop has run.
+  /// under the finger, so this pops from where the gesture left it. The
+  /// slide ends the gesture once the pop has run: its curve reads the
+  /// gesture flag. A shared-element page ends it right away: once it pops,
+  /// nothing it shows reads the flag, and while the flag is up the
+  /// navigator's other pages ignore every touch, so the page below would
+  /// not answer until the image had landed.
   void _commitWhereLeft() {
     final navigator = this.navigator;
     final controller = this.controller!;
     if (isCurrent) navigator?.pop();
-    if (!controller.isAnimating) {
+    if (_page.sharedElement || !controller.isAnimating) {
       navigator?.didStopUserGesture();
       return;
     }
@@ -223,7 +216,7 @@ class _FuncPageRoute<T> extends PageRoute<T> {
     // page lives under the route's GlobalKey, and a changed widget type
     // here would reparent it, rebuilding the whole page in that frame.
     final shared = _page.sharedElement;
-    final secondary = (_next?._page.sharedElement ?? false)
+    final secondary = underSharedElement(this)
         ? kAlwaysDismissedAnimation
         : secondaryAnimation;
     Widget style(Widget child) => _styleTransition(
@@ -236,9 +229,18 @@ class _FuncPageRoute<T> extends PageRoute<T> {
       animation: animation,
       secondaryAnimation: secondary,
       transition: shared
-          ? (child) => FadeTransition(
-              opacity: _sharedElementFade,
-              child: style(HeroLiftHole(animation: controller!, child: child)),
+          ? (child) => IgnorePointer(
+              // Leaving, nothing of the page takes a touch, so the page
+              // below answers while the image flies home. The route's own
+              // guard covers only the page, not what the style draws
+              // around it: FadeForwards' backdrop takes every hit.
+              ignoring: animation.status == AnimationStatus.reverse,
+              child: FadeTransition(
+                opacity: _sharedElementFade,
+                child: style(
+                  HeroLiftHole(animation: controller!, child: child),
+                ),
+              ),
             )
           : style,
       child: child,
@@ -290,6 +292,16 @@ class _FuncPageRoute<T> extends PageRoute<T> {
         return android ? _BackGestureDriver(route: this, child: slide) : slide;
     }
   }
+}
+
+/// Whether a shared-element page is entering or leaving right above
+/// [route]. The page below holds still and stays live then: no secondary
+/// motion, no snapshot, so it answers touches while the image flies.
+bool underSharedElement(Route<dynamic> route) {
+  final above = _FuncPageRoute._above[route];
+  return above != null &&
+      above._page.sharedElement &&
+      !above.animation!.isDismissed;
 }
 
 /// A shared-element page's opacity: it fades over the first part of an
