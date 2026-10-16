@@ -94,7 +94,10 @@ class PromptHostState extends State<PromptHost>
   /// timeout. By default it replaces whatever is showing and drops queued
   /// prompts; [replaceCurrent] false queues it behind them instead, for
   /// messages that report ordered steps.
-  void show(
+  ///
+  /// Returns a callback that takes this prompt down early, on screen or
+  /// queued; once it is gone the callback does nothing.
+  VoidCallback show(
     String message, {
     Duration duration = defaultPromptDuration,
     PromptAction? action,
@@ -116,6 +119,9 @@ class PromptHostState extends State<PromptHost>
     } else if (replaceCurrent) {
       _hide(current);
     }
+    return () {
+      if (mounted && !_queue.remove(prompt)) _hide(prompt);
+    };
   }
 
   /// Hides the prompt on screen; the next queued one follows.

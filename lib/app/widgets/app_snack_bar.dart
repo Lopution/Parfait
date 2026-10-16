@@ -11,14 +11,17 @@ export 'prompt_host.dart' show PromptAction, defaultPromptDuration;
 /// [PromptHost], which places it above the bottom chrome on screen and
 /// keeps it across navigation — position, motion and dwell are never the
 /// caller's business.
-void showAppSnackBar(
+///
+/// Returns a callback that takes the prompt down early, for a message that
+/// stops being true before its dwell ends.
+VoidCallback showAppSnackBar(
   BuildContext context,
   String message, {
   Duration duration = defaultPromptDuration,
   PromptAction? action,
   bool replaceCurrent = true,
 }) {
-  PromptHost.of(context).show(
+  return PromptHost.of(context).show(
     message,
     duration: duration,
     action: action,

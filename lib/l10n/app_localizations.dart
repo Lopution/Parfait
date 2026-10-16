@@ -2891,6 +2891,12 @@ abstract class AppLocalizations {
   /// **'我的'**
   String get homeMe;
 
+  /// No description provided for @homeExitHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'再按一次退出'**
+  String get homeExitHint;
+
   /// No description provided for @bookmarkIllust.
   ///
   /// In zh, this message translates to:

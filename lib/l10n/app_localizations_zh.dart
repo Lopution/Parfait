@@ -1479,6 +1479,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeMe => '我的';
 
   @override
+  String get homeExitHint => '再按一次退出';
+
+  @override
   String get bookmarkIllust => '收藏插画';
 
   @override
