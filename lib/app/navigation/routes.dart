@@ -9,6 +9,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../haptics/app_haptics.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/bookmark/bookmark_models.dart';
+import '../../core/debug/trace_marks.dart';
 import '../../core/entity/comment_entity.dart';
 import '../../core/network/api_date.dart';
 import '../../core/entity/illust_entity.dart';
@@ -1070,7 +1071,7 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
   final searchRouteObserver = RouteObserver<ModalRoute<dynamic>>();
   final settingsRouteObserver = RouteObserver<ModalRoute<dynamic>>();
 
-  return GoRouter(
+  final router = GoRouter(
     navigatorKey: appRootNavigatorKey,
     observers: [appRootRouteObserver],
     restorationScopeId: 'router',
@@ -1292,6 +1293,16 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
         ],
       ),
     ],
+  );
+  if (TraceMarks.enabled) _markPages(router);
+  return router;
+}
+
+/// Marks each page [router] shows in the system trace.
+void _markPages(GoRouter router) {
+  final delegate = router.routerDelegate;
+  delegate.addListener(
+    () => TraceMarks.page(delegate.currentConfiguration.uri.path),
   );
 }
 
