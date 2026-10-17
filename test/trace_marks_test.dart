@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -42,8 +44,20 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     router.go('/ranking');
     await tester.pump(const Duration(milliseconds: 100));
-
-    expect(marks, contains('page /ranking'));
     expect(marks, contains('enter branch switch'));
+
+    // A pushed page never reaches the router's uri; it is marked all the same.
+    unawaited(router.push('/ranking/history'));
+    await tester.pumpAndSettle();
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(
+      marks.where((mark) => mark.startsWith('page ')),
+      containsAllInOrder([
+        'page /ranking',
+        'page /ranking/history',
+        'page /ranking',
+      ]),
+    );
   });
 }
