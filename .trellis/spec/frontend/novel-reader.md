@@ -3,7 +3,7 @@ prefix: NOVEL
 applies_to:
   - lib/features/novel/**
   - lib/core/novel/**
-reviewed: 2026-10-12
+reviewed: 2026-10-17
 ---
 
 # Novel markup and reader
@@ -55,8 +55,10 @@ reviewed: 2026-10-12
 ### NOVEL-05 Chrome state and rendered state are separate
 - **Rule:** The reader chrome runs on one stage-owned controller; the
   user's intent and the rendered state are separate fields. The progress
-  hint exists only while the controller is dismissed.
-- **Why:** The hint painted under the exiting bottom bar.
+  hint exists only while the controller is dismissed. The bars are opaque
+  in the reading palette's background.
+- **Why:** The hint painted under the exiting bottom bar. Text showing
+  through see-through bars read as a smudge behind the controls.
 - **Check:** `test/novel_reader_chrome_test.dart` "the progress hint never overlaps the sliding bottom bar"
 - **Code:** `lib/features/novel/novel_reader_stage.dart`
 

@@ -80,7 +80,7 @@ class _WatchlistFeedBody extends ConsumerWidget {
           data: (feed) {
             if (feed.entries.isEmpty) {
               return FeedEmpty(
-                icon: Icons.collections_bookmark_outlined,
+                icon: Icons.library_books_outlined,
                 title: context.l10n.watchlistEmpty,
               );
             }
@@ -317,7 +317,7 @@ class _WatchlistEntryTile extends ConsumerWidget {
                   },
                 ),
               ListTile(
-                leading: const Icon(Icons.bookmark_remove_outlined),
+                leading: const Icon(Icons.remove_circle_outline),
                 title: Text(sheetContext.l10n.watchlistRemove),
                 onTap: () {
                   Navigator.of(sheetContext).pop();

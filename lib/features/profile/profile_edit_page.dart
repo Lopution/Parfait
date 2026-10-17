@@ -715,7 +715,11 @@ class _EditBadge extends StatelessWidget {
         shape: BoxShape.circle,
         color: scheme.primaryContainer,
       ),
-      child: Icon(Icons.edit, size: 14, color: scheme.onPrimaryContainer),
+      child: Icon(
+        Icons.edit_outlined,
+        size: 14,
+        color: scheme.onPrimaryContainer,
+      ),
     );
   }
 }

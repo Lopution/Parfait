@@ -4,7 +4,7 @@ applies_to:
   - lib/app/theme/**
   - lib/app/widgets/**
   - lib/app/app.dart
-reviewed: 2026-10-12
+reviewed: 2026-10-17
 ---
 
 # Theme, color and type
@@ -142,11 +142,13 @@ reviewed: 2026-10-12
 ### THEME-14 Controls over artwork use ArtworkControls
 - **Rule:** Icon controls over artwork (detail top bar, profile banner,
   viewer) use `ArtworkControls`: accent glyphs (white on the viewer) with a
-  surface-colored halo traced around each glyph. No disc under a control
-  and no gradient scrim over the artwork. Pills and counters keep the
-  `FuncTokens.imageControl` / `onImageControl` pair.
+  surface-colored 1dp outline traced around each glyph, over one soft
+  blur. No disc under a control and no gradient scrim over the artwork.
+  Pills and counters keep the `FuncTokens.imageControl` /
+  `onImageControl` pair.
 - **Why:** A plain glyph washes out on a white artwork; discs and scrims
-  were rejected as covering the work.
+  were rejected as covering the work. A blurred halo alone stayed a faint
+  glow: the accent glyph vanished on a mid-tone banner of a near hue.
 - **Check:** manual
 - **Code:** `lib/app/widgets/artwork_controls.dart`
 
@@ -159,3 +161,27 @@ reviewed: 2026-10-12
   warnings.
 - **Check:** `test/illust_card_badges_test.dart`
 - **Code:** `lib/app/widgets/entity_row.dart`
+
+### THEME-16 Icons are outlined; filled marks a state
+- **Rule:** An action, a destination or a placeholder uses the outlined
+  icon. The filled twin only marks a state: a toggle that is on (a
+  muted work or author, a work in watch-later) or a status (a download
+  task's). One glyph, one meaning: the bookmark is watch-later, the heart
+  is a pixiv bookmark, `collections_bookmark` is a series, the library
+  stack is following series (`library_books`, toggled with `library_add`
+  / `library_add_check`), the circled minus removes from a list,
+  `manage_accounts` opens account management. Unmuting is a text
+  button: no icon says it.
+- **Why:** The same action showed filled on one page and outlined on the
+  next; one bookmark glyph meant two features, and an eye read as "view".
+- **Check:** `test/architecture/icon_style_test.dart` "a filled icon with an outlined twin marks a state"
+- **Code:** `lib/app/widgets/card_actions/illust_card_actions.dart`, `lib/app/widgets/watchlist_toggle.dart`
+
+### THEME-17 Every icon button names its action
+- **Rule:** Every `IconButton` has a localized tooltip saying what it
+  does, which is also its screen-reader label. A button that labels
+  itself through `Semantics` (the bookmark heart, whose long press opens
+  the tag picker) is pinned in the check.
+- **Why:** An icon alone is a guess, and a screen reader read "button".
+- **Check:** `test/architecture/icon_style_test.dart` "every icon button has a tooltip"
+- **Code:** `lib/app/widgets/bookmark_switch_button.dart`

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -524,9 +525,10 @@ final class _TaskEntry extends _DownloadEntry {
 }
 
 /// One download row's chrome (§5.1): thumbnail, title, status line, and the
-/// trailing actions. Below 420dp the actions wrap onto a second line while
-/// [titleAction] (selection circle / expand icon) stays on the title row —
-/// the same rule `54815ac` set for the old card heading.
+/// trailing actions. Below 420dp the actions fold into one button and a
+/// menu; they move onto a second line only when the text beside them would
+/// keep less than [_minInlineTextWidth], while [titleAction] (selection
+/// circle / expand icon) stays on the title row.
 class _DownloadRowLayout extends StatelessWidget {
   const _DownloadRowLayout({
     required this.thumbnailUrl,
@@ -574,8 +576,12 @@ class _DownloadRowLayout extends StatelessWidget {
   /// Element pinned to the end of the title row in both layouts.
   final Widget? titleAction;
 
-  /// Row actions; wrapped onto a second line when compact.
+  /// Row actions; wrapped onto a second line when the row is too narrow.
   final List<_DownloadAction> actions;
+
+  /// The narrowest text column the actions may stand beside: about ten
+  /// characters of the title.
+  static const _minInlineTextWidth = 160.0;
 
   @override
   Widget build(BuildContext context) {
@@ -586,6 +592,16 @@ class _DownloadRowLayout extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 420;
+        final buttons =
+            (compact ? math.min(actions.length, 2) : actions.length) +
+            (titleAction == null ? 0 : 1);
+        final textWidth =
+            constraints.maxWidth -
+            2 * FuncSpacing.lg -
+            thumbnailSize -
+            FuncSpacing.md -
+            buttons * kMinInteractiveDimension;
+        final wraps = actions.isNotEmpty && textWidth < _minInlineTextWidth;
         final textColumn = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -631,7 +647,7 @@ class _DownloadRowLayout extends StatelessWidget {
             _DownloadThumbnail(url: thumbnailUrl, size: thumbnailSize),
             const SizedBox(width: FuncSpacing.md),
             Expanded(child: textColumn),
-            if (compact && titleAction != null) titleAction!,
+            if (wraps && titleAction != null) titleAction!,
           ],
         );
         final strip = _DownloadActionStrip(actions: actions, compact: compact);
@@ -640,7 +656,7 @@ class _DownloadRowLayout extends StatelessWidget {
             horizontal: FuncSpacing.lg,
             vertical: FuncSpacing.sm,
           ),
-          child: compact
+          child: wraps
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

@@ -682,9 +682,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get addAccount => 'Добавить аккаунт';
 
   @override
-  String get switchAccount => 'Сменить аккаунт';
-
-  @override
   String get accountSwitching => 'Переключение…';
 
   @override

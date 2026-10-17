@@ -219,7 +219,6 @@
   "profileEditLeaveConfirm": "Discard changes",
   "accountManagement": "Accounts",
   "addAccount": "Add account",
-  "switchAccount": "Switch account",
   "accountSwitching": "Switching…",
   "removeAccount": "Remove account",
   "removeAccountConfirm": "Remove this account?",

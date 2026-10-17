@@ -269,6 +269,42 @@ void main() {
     expect(manager.tasks, isEmpty);
   });
 
+  testWidgets('on a phone a finished row keeps remove on its title row', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(360, 720)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final (container, manager, _) = await makeDownloadWorld(
+      responses: [
+        ScriptedResponse(
+          contentLength: 1,
+          chunks: [
+            [1],
+          ],
+        ),
+      ],
+    );
+    final task = manager.submit(downloadRequest(1));
+    await _pumpPage(tester, container);
+    await pumpUntil(
+      tester,
+      () => manager.tasks.single.status == DownloadStatus.succeeded,
+    );
+
+    final row = _taskRow(task.id);
+    final remove = find.descendant(
+      of: row,
+      matching: find.byIcon(Icons.remove_circle_outline),
+    );
+    // Beside the 56dp thumbnail, not on a line of its own under it.
+    expect(
+      tester.getTopLeft(remove).dy - tester.getTopLeft(row).dy,
+      lessThan(56),
+    );
+  });
+
   testWidgets('a task interrupted by a restart says so, not unknown error', (
     tester,
   ) async {

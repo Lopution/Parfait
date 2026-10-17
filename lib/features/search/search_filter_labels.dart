@@ -129,7 +129,7 @@ class SearchFilterButton extends StatelessWidget {
         isLabelVisible: count > 0,
         // The tooltip already reads the count.
         label: ExcludeSemantics(child: Text('$count')),
-        child: const Icon(Icons.tune),
+        child: const Icon(Icons.tune_outlined),
       ),
     );
   }

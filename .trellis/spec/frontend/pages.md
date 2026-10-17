@@ -207,10 +207,13 @@ reviewed: 2026-10-17
   items) keyed by task or group id. A group's rows share one
   `SliverSurfaceList` container; never split a group into its own slivers
   or reparent rows with `GlobalKey`s. Progress bars show only on
-  unfinished rows. A group of one is a plain row.
+  unfinished rows. A group of one is a plain row. A row's action buttons
+  stand on its title row while its text keeps 160dp; only a narrower row
+  moves them to a line of their own.
 - **Why:** Eager lists built hundreds of rows; reparented rows dropped
-  their ink and showed square corners mid-animation.
-- **Check:** `test/download_tasks_page_test.dart` "a five-hundred-item list only builds the visible rows" "a group of one is a plain task row"
+  their ink and showed square corners mid-animation. On every phone a
+  lone remove button took a line of its own under the row.
+- **Check:** `test/download_tasks_page_test.dart` "a five-hundred-item list only builds the visible rows" "a group of one is a plain task row" "on a phone a finished row keeps remove on its title row"
 - **Code:** `lib/features/settings/pages/download_tasks_page.dart`, `lib/app/widgets/sliver_surface_list.dart`
 
 ## Wide and short windows

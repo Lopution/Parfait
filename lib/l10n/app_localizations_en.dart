@@ -681,9 +681,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addAccount => 'Add account';
 
   @override
-  String get switchAccount => 'Switch account';
-
-  @override
   String get accountSwitching => 'Switching…';
 
   @override
