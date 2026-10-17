@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
+import '../../app/layout/deferred_cache_scroll_view.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -195,9 +196,9 @@ class _SettingsGroups extends ConsumerWidget {
     // Tiles are grouped by intent under labeled section headers.
     // Destructive/transfer actions (backup) sit in their own "data" group.
     return settingsNarrowBody(
-      ListView(
-        // A bounded ~15-tile list: prebuilding it keeps maxScrollExtent
-        // stable during a fling.
+      DeferredCacheListView(
+        // A bounded ~15-tile list: prebuilding it, from the second frame,
+        // keeps maxScrollExtent stable during a fling.
         scrollCacheExtent: const ScrollCacheExtent.pixels(2000),
         padding: const EdgeInsets.only(
           top: FuncSpacing.sm,

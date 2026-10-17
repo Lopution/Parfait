@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 
+import '../../app/layout/deferred_cache_scroll_view.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -85,7 +86,7 @@ class ProfileIllustFeed extends ConsumerWidget {
             // NestedScrollView — driving its position via animateTo bypasses
             // the nested coordinator, so the profile header would never
             // collapse on wheel. Native wheel keeps header folding intact.
-            child: CustomScrollView(
+            child: DeferredCacheScrollView(
               key: PageStorageKey(feedKey),
               restorationId: 'profile-${feedKey.toString()}',
               physics: const AlwaysScrollableScrollPhysics(),

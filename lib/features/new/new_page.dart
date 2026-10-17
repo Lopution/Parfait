@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../app/layout/deferred_cache_scroll_view.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -331,16 +332,18 @@ class _NewFeedBody extends ConsumerWidget {
             child: SmoothWheelScroll(
               controller: scrollController,
               basePhysics: const AlwaysScrollableScrollPhysics(),
-              builder: (context, controller, physics) => CustomScrollView(
-                key: PageStorageKey(
-                  'new-${feedKey.scope.name}-${feedKey.type.name}',
-                ),
-                controller: controller,
-                physics: physics,
-                scrollCacheExtent: kFeedCacheExtent,
-                restorationId: 'new-${feedKey.scope.name}-${feedKey.type.name}',
-                slivers: slivers,
-              ),
+              builder: (context, controller, physics) =>
+                  DeferredCacheScrollView(
+                    key: PageStorageKey(
+                      'new-${feedKey.scope.name}-${feedKey.type.name}',
+                    ),
+                    controller: controller,
+                    physics: physics,
+                    scrollCacheExtent: kFeedCacheExtent,
+                    restorationId:
+                        'new-${feedKey.scope.name}-${feedKey.type.name}',
+                    slivers: slivers,
+                  ),
             ),
           ),
         );

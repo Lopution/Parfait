@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../app/layout/deferred_cache_scroll_view.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -101,46 +102,51 @@ class RecommendedIllustPage extends ConsumerWidget {
                 return false;
               },
               child: SmoothWheelScroll(
-                builder: (context, controller, physics) => CustomScrollView(
-                  key: const PageStorageKey('recommended-illust'),
-                  // U1 (R7): this tab is the only one without an AppBar, so
-                  // on edge-to-edge Android 15+ the top padding is otherwise
-                  // zero and the feed overlaps the status bar. Only the top
-                  // safe inset is added — no AppBar — so the immersive feed
-                  // look is kept. The refresh indicator's overscroll zone
-                  // stays above the padding, so pull-to-refresh still
-                  // triggers.
-                  restorationId: 'recommended-illust',
-                  controller: controller,
-                  physics: physics,
-                  scrollCacheExtent: kFeedCacheExtent,
-                  slivers: [
-                    IllustFeedGrid(
-                      padding: _feedPadding(context),
-                      itemIds: [for (final e in entities) e.id],
-                      itemCount: entities.length,
-                      pagerLoadMore: () => ref
-                          .read(recommendedIllustControllerProvider.notifier)
-                          .loadMore(),
-                      warmTexts: (context, index) =>
-                          IllustCard.warmTexts(context, entities[index]),
-                      itemBuilder: (context, index) => IllustCard(
-                        entity: entities[index],
-                        heroScope: 'recommended:illust',
-                      ),
+                builder: (context, controller, physics) =>
+                    DeferredCacheScrollView(
+                      key: const PageStorageKey('recommended-illust'),
+                      // U1 (R7): this tab is the only one without an AppBar, so
+                      // on edge-to-edge Android 15+ the top padding is otherwise
+                      // zero and the feed overlaps the status bar. Only the top
+                      // safe inset is added — no AppBar — so the immersive feed
+                      // look is kept. The refresh indicator's overscroll zone
+                      // stays above the padding, so pull-to-refresh still
+                      // triggers.
+                      restorationId: 'recommended-illust',
+                      controller: controller,
+                      physics: physics,
+                      scrollCacheExtent: kFeedCacheExtent,
+                      slivers: [
+                        IllustFeedGrid(
+                          padding: _feedPadding(context),
+                          itemIds: [for (final e in entities) e.id],
+                          itemCount: entities.length,
+                          pagerLoadMore: () => ref
+                              .read(
+                                recommendedIllustControllerProvider.notifier,
+                              )
+                              .loadMore(),
+                          warmTexts: (context, index) =>
+                              IllustCard.warmTexts(context, entities[index]),
+                          itemBuilder: (context, index) => IllustCard(
+                            entity: entities[index],
+                            heroScope: 'recommended:illust',
+                          ),
+                        ),
+                        SliverToBoxAdapter(
+                          child: FeedTail(
+                            feed: feed,
+                            onRetry: () => ref
+                                .read(
+                                  recommendedIllustControllerProvider.notifier,
+                                )
+                                .retryLoadMore(),
+                            errorTitle: context.l10n.recommendedLoadMoreFailed,
+                            retryLabel: context.l10n.retry,
+                          ),
+                        ),
+                      ],
                     ),
-                    SliverToBoxAdapter(
-                      child: FeedTail(
-                        feed: feed,
-                        onRetry: () => ref
-                            .read(recommendedIllustControllerProvider.notifier)
-                            .retryLoadMore(),
-                        errorTitle: context.l10n.recommendedLoadMoreFailed,
-                        retryLabel: context.l10n.retry,
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ),

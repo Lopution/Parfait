@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/format/app_format.dart';
+import '../../app/layout/deferred_cache_scroll_view.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_grid.dart';
@@ -369,7 +370,7 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
               .refresh(),
           child: SmoothWheelScroll(
             controller: _scrollController,
-            builder: (context, controller, physics) => CustomScrollView(
+            builder: (context, controller, physics) => DeferredCacheScrollView(
               key: PageStorageKey('history-${widget.accountId}'),
               controller: controller,
               physics: physics,

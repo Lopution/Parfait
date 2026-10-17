@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/haptics/app_haptics.dart';
+import '../../app/layout/deferred_cache_scroll_view.dart';
 import '../../app/motion/removal.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/app_top_bar.dart';
@@ -151,7 +152,7 @@ class _WatchLaterPageState extends ConsumerState<WatchLaterPage> {
                     controller: _removals,
                     child: SmoothWheelScroll(
                       builder: (context, controller, physics) =>
-                          CustomScrollView(
+                          DeferredCacheScrollView(
                             controller: controller,
                             physics: physics,
                             scrollCacheExtent: kFeedCacheExtent,

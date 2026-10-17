@@ -707,8 +707,15 @@ double _pinnedHeaderChrome(BuildContext context, double statusInset) {
   }
 
   double total = 0;
-  final scroll = context.findAncestorWidgetOfExactType<CustomScrollView>();
-  if (scroll != null) {
+  // Any CustomScrollView, subtypes too: feeds use DeferredCacheScrollView.
+  CustomScrollView? scroll;
+  context.visitAncestorElements((element) {
+    final widget = element.widget;
+    if (widget is! CustomScrollView) return true;
+    scroll = widget;
+    return false;
+  });
+  if (scroll case final scroll?) {
     for (final sliver in scroll.slivers) {
       if (sliver is SliverPersistentHeader && sliver.pinned) {
         total += fromSliver(sliver);
