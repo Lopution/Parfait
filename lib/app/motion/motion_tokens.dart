@@ -356,6 +356,20 @@ mixin TickerModeWatch<T extends StatefulWidget> on State<T> {
   }
 }
 
+/// Gives a repeated part of a page (a feed card, a card row, a detail
+/// section) its own [TickerMode] notifier, following the ambient mode.
+///
+/// Every ticker, implicit animation and [TickerModeWatch] on a route
+/// otherwise listens to the route's one notifier, and each one removed at
+/// unmount searches and shifts that whole list: closing a detail page
+/// spent 3–5 ms of its last frame there, and each card leaving a fling
+/// paid its share. A nested [TickerMode] follows its ancestor through an
+/// inherited dependency, so the listeners below it stay in a short list.
+class TickerPartition extends TickerMode {
+  const TickerPartition({super.key, required super.child})
+    : super(enabled: true);
+}
+
 /// Programmatic page turn (keyboard, tap zones): slides over the resolved
 /// [MotionTokens.spatial], or jumps when the motion gate is closed — a scroll
 /// animation asserts a non-zero duration.

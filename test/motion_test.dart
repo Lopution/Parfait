@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart' show kPressTimeout;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -691,6 +692,36 @@ void main() {
       expect(opacity(tester, 'error'), 1);
     });
   });
+
+  testWidgets(
+    'a ticker partition mutes with its ancestor on its own notifier',
+    (tester) async {
+      late ValueListenable<TickerModeData> route;
+      late ValueListenable<TickerModeData> card;
+      Widget build({required bool enabled}) => TickerMode(
+        enabled: enabled,
+        child: Builder(
+          builder: (context) {
+            route = TickerMode.getValuesNotifier(context);
+            return TickerPartition(
+              child: Builder(
+                builder: (context) {
+                  card = TickerMode.getValuesNotifier(context);
+                  return const SizedBox();
+                },
+              ),
+            );
+          },
+        ),
+      );
+
+      await tester.pumpWidget(build(enabled: true));
+      expect(card, isNot(same(route)));
+      expect(card.value.enabled, isTrue);
+      await tester.pumpWidget(build(enabled: false));
+      expect(card.value.enabled, isFalse);
+    },
+  );
 
   group('SpringSize', () {
     Widget section(bool open, {bool reduce = false}) => _wrap(

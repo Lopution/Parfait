@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../layout/sliver_width_builder.dart';
+import '../../motion/motion_tokens.dart';
 import '../../theme/func_semantic_tokens.dart';
 import 'feed_text_warmup.dart';
 
@@ -305,7 +306,7 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
                 // images fade in.
                 return FeedItemExtent(
                   width: columnWidth,
-                  child: KeyedSubtree(
+                  child: TickerPartition(
                     key: ValueKey(id),
                     child: widget.itemBuilder(context, index),
                   ),

@@ -182,11 +182,13 @@ reviewed: 2026-10-14
   with the upstream repository, tag and version, every difference and why,
   and when the fork can be dropped. The commit that syncs upstream or
   changes the fork updates it. `plugins/rhttp/UPSTREAM.md` and
-  `plugins/flutter_inappwebview_android/UPSTREAM.md` are the two today.
+  `plugins/flutter_inappwebview_android/UPSTREAM.md` are the two today. A
+  dependency pinned to a fork commit in `pubspec.yaml` says the same in
+  its comment there (`easy_refresh`).
 - **Why:** The webview fork's pubspec note claimed one difference while
   it carried two; a sync would have dropped the reverse-image upload slot.
 - **Check:** manual
-- **Code:** `plugins/rhttp/UPSTREAM.md`, `plugins/flutter_inappwebview_android/UPSTREAM.md`
+- **Code:** `plugins/rhttp/UPSTREAM.md`, `plugins/flutter_inappwebview_android/UPSTREAM.md`, `pubspec.yaml`
 
 ### REL-17 Dependency upgrades start from a risk table
 - **Rule:** Once a month, look at `flutter pub outdated` (app and plugin),

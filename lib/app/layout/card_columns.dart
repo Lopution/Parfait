@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../motion/motion_tokens.dart';
 import 'sliver_width_builder.dart';
 
 /// Card lists (novels, users, series episodes) put their cards side by side
@@ -21,7 +22,8 @@ abstract final class CardColumns {
 }
 
 /// Row [row] of a [columns]-wide card list: the cards side by side, top
-/// aligned; a short last row keeps its cards at column width.
+/// aligned; a short last row keeps its cards at column width. Each row is
+/// a [TickerPartition].
 class CardRow extends StatelessWidget {
   const CardRow({
     super.key,
@@ -38,17 +40,20 @@ class CardRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (columns == 1) return itemBuilder(context, row);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var column = 0; column < columns; column++)
-          Expanded(
-            child: row * columns + column < count
-                ? itemBuilder(context, row * columns + column)
-                : const SizedBox.shrink(),
-          ),
-      ],
+    return TickerPartition(
+      child: columns == 1
+          ? itemBuilder(context, row)
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var column = 0; column < columns; column++)
+                  Expanded(
+                    child: row * columns + column < count
+                        ? itemBuilder(context, row * columns + column)
+                        : const SizedBox.shrink(),
+                  ),
+              ],
+            ),
     );
   }
 }
