@@ -134,6 +134,12 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     ..addStatusListener(_onChromeStatus);
   bool _chromeVisible = false;
   bool _chromeHidden = true; // == _chrome.isDismissed, cached for build
+  // The bars' contents, built while the chrome shows and kept as they were
+  // while it is dismissed: a dismissed bar stays mounted offstage, so a
+  // page turn does not rebuild it and the next reveal re-lays out only the
+  // text that changed.
+  Widget? _topBar;
+  Widget? _bottomBar;
   final NovelReaderHandle _readerHandle = NovelReaderHandle();
   NovelAnchor? _anchor;
   int _page = 0;
@@ -321,6 +327,10 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     if (seriesId != null) {
       ref.watch(_novelSeriesProvider(seriesId));
     }
+    if (!_chromeHidden) {
+      _topBar = _buildTopBar(context, palette);
+      _bottomBar = _buildBottomBar(context, l10n, palette);
+    }
     // Bar icons invert off the reading surface: paper/sepia pin dark
     // icons, night pins light ones; `system` follows the app theme. The
     // stage fills the screen, so this region owns both bars while it is
@@ -375,21 +385,23 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                       ),
                     ),
                   ),
-                // Dismissed bars are removed here, on the status-driven
+                // Dismissed bars go offstage here, on the status-driven
                 // setState frame — not inside the animation builder,
-                // where mid-flush reparenting can trip the semantics
-                // attach assert.
-                if (!_chromeHidden)
+                // where a mid-flush semantics change can trip the
+                // semantics attach assert.
+                if (_topBar case final bar?)
                   _ChromeBar(
                     animation: _chrome,
                     edge: _ChromeEdge.top,
-                    child: _buildTopBar(context, palette),
+                    shown: !_chromeHidden,
+                    child: bar,
                   ),
-                if (!_chromeHidden)
+                if (_bottomBar case final bar?)
                   _ChromeBar(
                     animation: _chrome,
                     edge: _ChromeEdge.bottom,
-                    child: _buildBottomBar(context, l10n, palette),
+                    shown: !_chromeHidden,
+                    child: bar,
                   ),
               ],
             ),
@@ -965,16 +977,19 @@ enum _ChromeEdge { top, bottom }
 /// One sliding chrome bar driven by the stage's controller. The bar stays
 /// hittable until the hide animation fully completes — a tap landing
 /// mid-slide still hits the button instead of leaking through to the
-/// page-turn zone.
+/// page-turn zone. Once dismissed it stays mounted offstage: no paint,
+/// hits, semantics or focus.
 class _ChromeBar extends StatelessWidget {
   const _ChromeBar({
     required this.animation,
     required this.edge,
+    required this.shown,
     required this.child,
   });
 
   final Animation<double> animation;
   final _ChromeEdge edge;
+  final bool shown;
   final Widget child;
 
   @override
@@ -1001,11 +1016,17 @@ class _ChromeBar extends StatelessWidget {
       // the boundary flipping on each animation frame trips the
       // semantics attach assert during repeated hide/reveal cycles.
       // Pinning the boundary keeps one stable semantics parent — the
-      // dismissed bar is still removed from the tree by the stage.
-      child: FadeTransition(
-        opacity: animation,
-        alwaysIncludeSemantics: true,
-        child: bar,
+      // dismissed bar still leaves the semantics tree, offstage.
+      child: Visibility(
+        visible: shown,
+        // Tickers stop while dismissed: a kept bar may hold a spinner
+        // (series loading, page translating).
+        maintainState: true,
+        child: FadeTransition(
+          opacity: animation,
+          alwaysIncludeSemantics: true,
+          child: bar,
+        ),
       ),
     );
   }

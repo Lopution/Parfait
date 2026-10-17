@@ -212,6 +212,19 @@ void main() {
     expect(find.byType(PageView), findsOneWidget);
     expect(find.text('novel 1'), findsNothing);
     expect(find.textContaining('novel 1 ·'), findsOneWidget);
+
+    // The dismissed bars stay mounted offstage, out of the semantics tree;
+    // the next reveal reuses their laid-out text.
+    final semantics = tester.ensureSemantics();
+    final title = find.text('novel 1', skipOffstage: false);
+    final paragraph = tester.renderObject(title);
+    final titleNode = find.semantics.byLabel(RegExp(r'^novel 1(\n|$)'));
+    expect(titleNode, findsNothing);
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    expect(tester.renderObject(find.text('novel 1')), same(paragraph));
+    expect(titleNode, findsOne);
+    semantics.dispose();
   });
 
   testWidgets('the progress hint never overlaps the sliding bottom bar', (

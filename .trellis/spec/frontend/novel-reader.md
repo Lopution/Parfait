@@ -8,6 +8,13 @@ reviewed: 2026-10-17
 
 # Novel markup and reader
 
+## Contents
+
+- [Markup and layout](#markup-and-layout)
+- [Reader stage](#reader-stage)
+
+## Markup and layout
+
 ### NOVEL-01 Markup becomes typed tokens with visible fallbacks
 - **Rule:** `NovelMarkupParser` scans the body into sealed typed tokens
   (text, newpage, chapter, ruby, jumps, images, unknown, budget exceeded)
@@ -52,6 +59,8 @@ reviewed: 2026-10-17
 - **Check:** `test/novel_reader_test.dart` "a translation lays out under its paragraph and moves no anchor", `test/novel_reader_stage_test.dart` "translate this page: translations under the paragraphs, on with each"
 - **Code:** `lib/features/novel/novel_bilingual.dart`, `lib/features/novel/novel_layout.dart`
 
+## Reader stage
+
 ### NOVEL-05 Chrome state and rendered state are separate
 - **Rule:** The reader chrome runs on one stage-owned controller; the
   user's intent and the rendered state are separate fields. The progress
@@ -90,3 +99,16 @@ reviewed: 2026-10-17
   every line of the pages on screen.
 - **Check:** `test/novel_reader_stage_test.dart` "chrome and page turns keep the reader and its lines"
 - **Code:** `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_reader.dart`
+
+### NOVEL-09 Pages and bars are built while the reader rests
+- **Rule:** The reader's `PageView` has a one-pixel cache
+  (`allowImplicitScrolling` with `ScrollCacheExtent.pixels(1)`): the
+  pages beside the one on screen are built at rest, and the page after
+  them enters on the frame a turn lands. A dismissed chrome bar stays
+  mounted offstage (`Visibility` with `maintainState`, tickers stopped);
+  its contents are rebuilt only while the chrome shows.
+- **Why:** The first frame of every swipe built the next page, about
+  15 lines of text layout (8–21 ms). Each reveal re-created both bars and
+  laid out their text again (4 ms on device).
+- **Check:** `test/novel_reader_test.dart` "the pages beside the page on screen are built at rest"; `test/novel_reader_chrome_test.dart` "immersive reader: chrome toggles, back closes chrome first"
+- **Code:** `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_stage.dart`
