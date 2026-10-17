@@ -20,13 +20,14 @@ dependencies:
   crypto: ^3.0.0
   cupertino_ui: ^1.0.2
   dynamic_color: ^2.1.0
-  # Fork: depends only on the MediaQuery padding, so a keyboard animation
-  # no longer rebuilds every feed's refresh and walks its list after each
-  # frame. Back to ^4.0.x once xuelongqy/flutter_easy_refresh releases it.
+  # Fork: EasyRefresh depends on no MediaQuery; its indicator views read
+  # only the padding. A keyboard animation or a system bar toggle no longer
+  # rebuilds every feed's refresh and walks its list after the frame. Back
+  # to ^4.0.x once xuelongqy/flutter_easy_refresh releases it.
   easy_refresh:
     git:
       url: https://github.com/Lopution/flutter_easy_refresh.git
-      ref: 391d53c22729cf9834f8060b4326e225924e3e3e
+      ref: 03e2e185a081f30f4fb73c047ba5c7b9c3f68e33
       path: packages/easy_refresh
   file_selector: ^1.1.0
   flutter:

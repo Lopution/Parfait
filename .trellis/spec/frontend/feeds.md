@@ -157,10 +157,15 @@ reviewed: 2026-10-17
 - **Rule:** `PullToRefresh` rebuilds its `EasyRefresh` only when the
   colours, the indicator exit, `isNested` or the scroll controller change;
   the list reaches it through an inherited slot and `onRefresh` through a
-  forwarding method. `easy_refresh` reads only `MediaQuery.paddingOf`.
+  forwarding method. EasyRefresh itself depends on no `MediaQuery`: the
+  fork reads the padding (`MediaQuery.paddingOf`) in its indicator
+  builders.
 - **Why:** EasyRefresh syncs its nested host after every update and
   dependency change, and the sync walks the whole list: each new page,
   load phase and keyboard frame cost a walk of the feed after the frame.
+  The padding changes while the keyboard crosses the navigation bar and
+  whenever the system bars show or hide (the novel chrome), and every
+  mounted feed walked its list then.
 - **Check:** `test/pull_to_refresh_test.dart` "a new list keeps the refresh and refreshes with the new callback"
 - **Code:** `lib/app/pull_to_refresh.dart`, `pubspec.yaml`
 
