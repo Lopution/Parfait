@@ -212,10 +212,11 @@ packages:
   easy_refresh:
     dependency: "direct main"
     description:
-      name: easy_refresh
-      sha256: e8a3c60f940b53d7fb8365d5f14fbf2c2b157ba69f947dcccebed41736b0aacf
-      url: "https://pub.dev"
-    source: hosted
+      path: "packages/easy_refresh"
+      ref: "391d53c22729cf9834f8060b4326e225924e3e3e"
+      resolved-ref: "391d53c22729cf9834f8060b4326e225924e3e3e"
+      url: "https://github.com/Lopution/flutter_easy_refresh.git"
+    source: git
     version: "4.0.0"
   fake_async:
     dependency: "direct dev"
