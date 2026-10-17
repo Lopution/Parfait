@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/app/widgets/app_tab_bar.dart';
 import 'package:parfait/core/debug/trace_marks.dart';
 
 import 'helpers/localized_app.dart';
@@ -34,6 +35,25 @@ void main() {
     expect(ups.first.distance, 0);
     expect(ups.last.distance, 300);
     expect(ups.last.speed, greaterThan(ups.first.speed + 2000));
+  });
+
+  testWidgets('a tab switched to is marked, the first tab is not', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      localizedApp(
+        home: DefaultTabController(
+          length: 2,
+          child: Scaffold(
+            appBar: AppBar(bottom: const AppTabBar(labels: ['A', 'B'])),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('B'));
+    await tester.pumpAndSettle();
+
+    expect(marks, ['tab B']);
   });
 
   testWidgets('a route change marks the page and the scene it plays', (

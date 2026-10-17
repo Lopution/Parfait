@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 
 /// Marks in the system trace that tell what the user was doing: the page on
-/// screen, scenes in progress (`enter`/`exit`), probe events (`event`) and
-/// every pointer (`down`, `up`, `cancel`). Each is a zero-length timeline
+/// screen and its tab, scenes in progress (`enter`/`exit`), probe events
+/// (`event`) and every pointer (`down`, `up`, `cancel`). Each is a zero-length timeline
 /// slice named `parfait <label>`, which a profile build hands to Perfetto,
 /// so a free session on a device can be read back as "this frame janked on
 /// that page, right after that fling".
@@ -36,6 +36,10 @@ abstract final class TraceMarks {
     _page = location;
     sink('page $location');
   }
+
+  /// Marks [label] as the tab now selected on the page: tabs share their
+  /// page's route, so only this tells them apart.
+  static void tab(String label) => mark('tab $label');
 
   static final Map<int, _PointerTrack> _pointers = {};
   static bool _tracking = false;
