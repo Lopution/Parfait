@@ -7,6 +7,7 @@ applies_to:
   - lib/core/platform/app_root_pipeline_owner.dart
   - lib/app/navigation/route_animation.dart
   - lib/app/layout/sliver_width_builder.dart
+  - lib/app/startup_gate.dart
 reviewed: 2026-10-17
 ---
 
@@ -198,6 +199,19 @@ reviewed: 2026-10-17
   its first frames, up to 11.6 ms of one.
 - **Check:** `test/semantics_push_throttle_test.dart`
 - **Code:** `lib/core/platform/app_root_pipeline_owner.dart`, `lib/app/motion/page_transitions.dart`, `lib/app/widgets/home_branch_stack.dart`
+
+### MOTION-17 GPU pipelines a first use would compile are warmed at start
+- **Rule:** `PipelineWarmup` paints, in the app's first frames, what
+  compiles a pipeline on first use: the Hero flight's clipped and
+  transformed image, and under an `InkSparkle` theme the ripple shader,
+  drawn transparent inside a rounded clip as a ripple draws it. It keeps
+  the shader's program for the process, so `InkSparkle` gets the same
+  one. The content stays its first child throughout.
+- **Why:** The first back flight dropped frames, and the first tap spent
+  16 ms of a raster frame compiling the ripple. Unwrapping the content
+  when the warm-up ended remounted the app.
+- **Check:** `test/startup_gate_test.dart` "the warm-up draws the ripple and keeps the app mounted"
+- **Code:** `lib/app/startup_gate.dart`
 
 ### MOTION-15 Width-dependent slivers rebuild only on a width change
 - **Rule:** A sliver built from its width uses `SliverWidthBuilder`, never

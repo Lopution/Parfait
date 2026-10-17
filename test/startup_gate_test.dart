@@ -273,4 +273,42 @@ void main() {
     expect(find.byType(LoginPage), findsNothing);
     expect(find.byType(HomePage), findsNothing);
   });
+
+  testWidgets('the warm-up draws the ripple and keeps the app mounted', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: PipelineWarmup(child: _MountProbe())),
+    );
+    final probe = tester.state(find.byType(_MountProbe));
+    final warmups = find.descendant(
+      of: find.byType(PipelineWarmup),
+      matching: find.byType(Positioned),
+    );
+    final sparkle = find.descendant(
+      of: warmups,
+      matching: find.byType(CustomPaint),
+    );
+    var sparkleFrames = 0;
+    for (var frame = 0; frame < 6; frame++) {
+      await tester.pump();
+      if (sparkle.evaluate().isNotEmpty) sparkleFrames++;
+    }
+
+    expect(sparkleFrames, greaterThan(0));
+    expect(warmups, findsNothing);
+    expect(tester.state(find.byType(_MountProbe)), same(probe));
+  });
+}
+
+class _MountProbe extends StatefulWidget {
+  const _MountProbe();
+
+  @override
+  State<_MountProbe> createState() => _MountProbeState();
+}
+
+class _MountProbeState extends State<_MountProbe> {
+  @override
+  Widget build(BuildContext context) => const SizedBox.expand();
 }
