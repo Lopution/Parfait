@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import 'sliver_width_builder.dart';
+
 /// Card lists (novels, users, series episodes) put their cards side by side
 /// on wide surfaces instead of stretching one row across the window: a
 /// column per [minColumnWidth], at most [maxColumns].
@@ -65,9 +67,9 @@ class SliverCardList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SliverLayoutBuilder(
-      builder: (context, constraints) {
-        final columns = CardColumns.of(constraints.crossAxisExtent);
+    return SliverWidthBuilder(
+      builder: (context, width) {
+        final columns = CardColumns.of(width);
         return SliverList.builder(
           itemCount: CardColumns.rowCount(itemCount, columns),
           itemBuilder: (context, row) => CardRow(
