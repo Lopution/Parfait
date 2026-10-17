@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../app/layout/deferred_cache_scroll_view.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -530,7 +531,7 @@ class _IllustSearchFeed extends ConsumerWidget {
         child: SmoothWheelScroll(
           controller: scrollController,
           basePhysics: const AlwaysScrollableScrollPhysics(),
-          builder: (context, controller, physics) => CustomScrollView(
+          builder: (context, controller, physics) => DeferredCacheScrollView(
             key: PageStorageKey(query.cacheKey),
             physics: physics,
             scrollCacheExtent: kFeedCacheExtent,
@@ -613,7 +614,7 @@ class _NovelSearchFeed extends ConsumerWidget {
           builder: (context, constraints) {
             final columns = CardColumns.of(constraints.maxWidth);
             final rows = CardColumns.rowCount(entities.length, columns);
-            return ListView.builder(
+            return DeferredCacheListView.builder(
               key: PageStorageKey(query.cacheKey),
               controller: scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
@@ -692,7 +693,7 @@ class _UserSearchFeed extends ConsumerWidget {
           builder: (context, constraints) {
             final columns = CardColumns.of(constraints.maxWidth);
             final rows = CardColumns.rowCount(users.length, columns);
-            return ListView.builder(
+            return DeferredCacheListView.builder(
               key: PageStorageKey(query.cacheKey),
               controller: scrollController,
               physics: const AlwaysScrollableScrollPhysics(),

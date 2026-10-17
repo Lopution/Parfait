@@ -176,7 +176,7 @@ void main() {
 
       // Adjacent scope slots stay mounted for swipe warmup — restrict
       // scroll-state queries to the onstage feed.
-      final feedView = find.byType(CustomScrollView).hitTestable();
+      final feedView = find.bySubtype<CustomScrollView>().hitTestable();
       expect(feedView, findsOneWidget);
       final controller = tester.widget<CustomScrollView>(feedView).controller!;
 
@@ -207,7 +207,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      final feedView = find.byType(CustomScrollView);
+      final feedView = find.bySubtype<CustomScrollView>();
       expect(feedView, findsOneWidget);
       final controller = tester.widget<CustomScrollView>(feedView).controller!;
       controller.jumpTo(400);
@@ -244,7 +244,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
       final controller = tester
-          .widget<CustomScrollView>(find.byType(CustomScrollView))
+          .widget<CustomScrollView>(find.bySubtype<CustomScrollView>())
           .controller!;
       expect(controller.offset, 0);
 
@@ -293,7 +293,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      final illustFeed = find.byType(CustomScrollView);
+      final illustFeed = find.bySubtype<CustomScrollView>();
       final illustController = tester
           .widget<CustomScrollView>(illustFeed)
           .controller!;

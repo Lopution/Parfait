@@ -557,7 +557,7 @@ void main() {
 
       final feedView = find.descendant(
         of: find.byType(RankingPage),
-        matching: find.byType(CustomScrollView),
+        matching: find.bySubtype<CustomScrollView>(),
       );
       expect(feedView, findsOneWidget);
       final controller = tester.widget<CustomScrollView>(feedView).controller!;

@@ -214,7 +214,7 @@ void main() {
     await tester.pumpAndSettle();
     final list = find.descendant(
       of: find.byType(SettingsPage),
-      matching: find.byType(ListView),
+      matching: find.bySubtype<ListView>(),
     );
     await tester.drag(list, const Offset(0, -120));
     await tester.pumpAndSettle();
@@ -255,7 +255,7 @@ void main() {
     await tester.pumpAndSettle();
     final settings = find.byType(SettingsPage);
     await tester.drag(
-      find.descendant(of: settings, matching: find.byType(ListView)),
+      find.descendant(of: settings, matching: find.bySubtype<ListView>()),
       const Offset(0, -120),
     );
     await tester.pumpAndSettle();
@@ -411,7 +411,7 @@ void main() {
           ),
         ),
       );
-      reTapScrollToTop(tester.element(find.byType(ListView)), controller);
+      reTapScrollToTop(tester.element(find.bySubtype<ListView>()), controller);
       await tester.pump();
       expect(controller.offset, firstFrameAt);
       await tester.pump(Duration(milliseconds: ms - 10));
@@ -464,7 +464,7 @@ void main() {
   group('touch exploration', () {
     final settingsList = find.descendant(
       of: find.byType(MeDashboardPage),
-      matching: find.byType(ListView),
+      matching: find.bySubtype<ListView>(),
     );
 
     testWidgets('the bottom bar stays on screen while scrolling', (

@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../app/layout/deferred_cache_scroll_view.dart';
 import '../../../app/motion/press_scale.dart';
 import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/errors/error_details.dart';
@@ -444,7 +445,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
           // controller the channel cannot address.
           controller: scrollController,
           basePhysics: const AlwaysScrollableScrollPhysics(),
-          builder: (context, controller, physics) => CustomScrollView(
+          builder: (context, controller, physics) => DeferredCacheScrollView(
             key: PageStorageKey('recommended-${type.name}'),
             physics: physics,
             scrollCacheExtent: kFeedCacheExtent,

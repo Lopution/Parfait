@@ -4,6 +4,7 @@ applies_to:
   - lib/app/widgets/feed/**
   - lib/app/widgets/skeleton/**
   - lib/app/pull_to_refresh.dart
+  - lib/app/layout/deferred_cache_scroll_view.dart
   - lib/app/scroll_behavior.dart
   - lib/app/format/content_locale.dart
   - lib/features/**/*_page.dart
@@ -89,6 +90,19 @@ reviewed: 2026-10-17
   warming the exact lines left no in-frame reads on device.
 - **Check:** `test/feed_text_warmup_test.dart`
 - **Code:** `lib/app/widgets/feed/feed_text_warmup.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/format/content_locale.dart`
+
+### FEED-18 A list builds its cache area from its second frame
+- **Rule:** A list with `kFeedCacheExtent`, and the settings list, is a
+  `DeferredCacheScrollView` or `DeferredCacheListView`: its first frame
+  builds what is on screen, and the cache extent applies from the next
+  frame, which builds only the children it adds. Code and tests look a
+  scroll view up by subtype (`is CustomScrollView`, `find.bySubtype`),
+  never by exact type.
+- **Why:** A feed mounts on a busy frame (a push, a branch switch, its
+  first data), and building half a screen more there took the first
+  visit to ranking, new works, an author or the settings to 13–25 ms.
+- **Check:** `test/responsive_layout_test.dart` "a deferred cache builds the screen, then only the cache area"
+- **Code:** `lib/app/layout/deferred_cache_scroll_view.dart`, `lib/app/motion/hero_transition.dart`
 
 ## Pull to refresh
 

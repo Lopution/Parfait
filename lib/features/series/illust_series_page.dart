@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/layout/deferred_cache_scroll_view.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/format/app_format.dart';
@@ -94,43 +95,48 @@ class IllustSeriesPage extends ConsumerWidget {
               },
               child: SmoothWheelScroll(
                 basePhysics: const AlwaysScrollableScrollPhysics(),
-                builder: (context, controller, physics) => CustomScrollView(
-                  key: PageStorageKey('series-$seriesId'),
-                  physics: physics,
-                  scrollCacheExtent: kFeedCacheExtent,
-                  restorationId: 'series-$seriesId',
-                  controller: controller,
-                  slivers: [
-                    if (detail != null)
-                      SliverToBoxAdapter(child: _SeriesHeader(detail: detail)),
-                    if (entities.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: FeedEmpty(
-                          icon: Icons.collections_bookmark_outlined,
-                          title: context.l10n.seriesEmpty,
+                builder: (context, controller, physics) =>
+                    DeferredCacheScrollView(
+                      key: PageStorageKey('series-$seriesId'),
+                      physics: physics,
+                      scrollCacheExtent: kFeedCacheExtent,
+                      restorationId: 'series-$seriesId',
+                      controller: controller,
+                      slivers: [
+                        if (detail != null)
+                          SliverToBoxAdapter(
+                            child: _SeriesHeader(detail: detail),
+                          ),
+                        if (entities.isEmpty)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: FeedEmpty(
+                              icon: Icons.collections_bookmark_outlined,
+                              title: context.l10n.seriesEmpty,
+                            ),
+                          )
+                        else
+                          SliverCardList(
+                            itemCount: entities.length,
+                            itemBuilder: (context, index) => _EpisodeRow(
+                              entity: entities[index],
+                              episode: _episodeNumber(index, entities, detail),
+                            ),
+                          ),
+                        SliverToBoxAdapter(
+                          child: FeedTail(
+                            feed: feed,
+                            onRetry: () => ref
+                                .read(
+                                  illustSeriesFeedProvider(seriesId).notifier,
+                                )
+                                .retryLoadMore(),
+                            errorTitle: context.l10n.seriesLoadMoreFailed,
+                            retryLabel: context.l10n.retry,
+                          ),
                         ),
-                      )
-                    else
-                      SliverCardList(
-                        itemCount: entities.length,
-                        itemBuilder: (context, index) => _EpisodeRow(
-                          entity: entities[index],
-                          episode: _episodeNumber(index, entities, detail),
-                        ),
-                      ),
-                    SliverToBoxAdapter(
-                      child: FeedTail(
-                        feed: feed,
-                        onRetry: () => ref
-                            .read(illustSeriesFeedProvider(seriesId).notifier)
-                            .retryLoadMore(),
-                        errorTitle: context.l10n.seriesLoadMoreFailed,
-                        retryLabel: context.l10n.retry,
-                      ),
+                      ],
                     ),
-                  ],
-                ),
               ),
             ),
           );

@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 
+import '../../app/layout/deferred_cache_scroll_view.dart';
 import '../../app/motion/press_scale.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/feed/feed_grid.dart';
@@ -83,7 +84,7 @@ class UserSeriesFeed extends ConsumerWidget {
               }
               return false;
             },
-            child: CustomScrollView(
+            child: DeferredCacheScrollView(
               key: PageStorageKey('user-series-$userId'),
               restorationId: 'user-series-$userId',
               physics: const AlwaysScrollableScrollPhysics(),

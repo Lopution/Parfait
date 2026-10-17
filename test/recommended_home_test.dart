@@ -382,7 +382,7 @@ void main() {
 
       final feedView = find.descendant(
         of: find.byType(RecommendedHomePage),
-        matching: find.byType(CustomScrollView),
+        matching: find.bySubtype<CustomScrollView>(),
       );
       expect(feedView, findsOneWidget);
       final controller = tester.widget<CustomScrollView>(feedView).controller!;
@@ -479,7 +479,7 @@ void main() {
       // Short, slow drags: the strip follows and reels back, no commit.
       for (var i = 0; i < 2; i++) {
         await tester.timedDrag(
-          find.byType(CustomScrollView).first,
+          find.bySubtype<CustomScrollView>().first,
           const Offset(-60, 0),
           const Duration(milliseconds: 600),
         );

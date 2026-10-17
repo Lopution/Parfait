@@ -1,9 +1,11 @@
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/layout/card_columns.dart';
 import 'package:parfait/app/layout/content_widths.dart';
+import 'package:parfait/app/layout/deferred_cache_scroll_view.dart';
 import 'package:parfait/app/layout/sliver_width_builder.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
@@ -94,6 +96,35 @@ void main() {
     setViewSize(tester, const Size(500, 600));
     await tester.pump();
     expect(widths, [400, 500]);
+  });
+
+  testWidgets('a deferred cache builds the screen, then only the cache area', (
+    tester,
+  ) async {
+    final builds = <int, int>{};
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: DeferredCacheScrollView(
+          scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+          slivers: [
+            SliverList.builder(
+              itemCount: 100,
+              itemBuilder: (context, index) {
+                builds.update(index, (n) => n + 1, ifAbsent: () => 1);
+                return const SizedBox(height: 100);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+    // A 600 tall screen holds rows 0–5; the cache adds 500 below.
+    expect(builds.keys, List.generate(6, (index) => index));
+
+    await tester.pump();
+    expect(builds.keys, List.generate(11, (index) => index));
+    expect(builds.values.every((count) => count == 1), isTrue);
   });
 
   testWidgets('a capped column centres at its width on a wide window', (

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../app/layout/deferred_cache_scroll_view.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/theme/func_semantic_tokens.dart';
@@ -124,38 +125,39 @@ class _NovelRankingModeBody extends ConsumerWidget {
             child: SmoothWheelScroll(
               controller: scrollController,
               basePhysics: const AlwaysScrollableScrollPhysics(),
-              builder: (context, controller, physics) => CustomScrollView(
-                key: PageStorageKey('novel-ranking-$_listId'),
-                controller: controller,
-                physics: physics,
-                scrollCacheExtent: kFeedCacheExtent,
-                restorationId: 'novel-ranking-$_listId',
-                slivers: [
-                  SliverPadding(
-                    padding: const EdgeInsets.only(top: FuncSpacing.sm),
-                    sliver: SliverCardList(
-                      itemCount: entities.length,
-                      itemBuilder: (context, index) => KeyedSubtree(
-                        key: ValueKey(entities[index].id),
-                        child: NovelEntry.ranking(
-                          entity: entities[index],
-                          rank: index + 1,
+              builder: (context, controller, physics) =>
+                  DeferredCacheScrollView(
+                    key: PageStorageKey('novel-ranking-$_listId'),
+                    controller: controller,
+                    physics: physics,
+                    scrollCacheExtent: kFeedCacheExtent,
+                    restorationId: 'novel-ranking-$_listId',
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.only(top: FuncSpacing.sm),
+                        sliver: SliverCardList(
+                          itemCount: entities.length,
+                          itemBuilder: (context, index) => KeyedSubtree(
+                            key: ValueKey(entities[index].id),
+                            child: NovelEntry.ranking(
+                              entity: entities[index],
+                              rank: index + 1,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      SliverToBoxAdapter(
+                        child: FeedTail(
+                          feed: feed,
+                          onRetry: () => ref
+                              .read(novelRankingFeedProvider(feedKey).notifier)
+                              .retryLoadMore(),
+                          errorTitle: context.l10n.rankingLoadMoreFailed,
+                          retryLabel: context.l10n.retry,
+                        ),
+                      ),
+                    ],
                   ),
-                  SliverToBoxAdapter(
-                    child: FeedTail(
-                      feed: feed,
-                      onRetry: () => ref
-                          .read(novelRankingFeedProvider(feedKey).notifier)
-                          .retryLoadMore(),
-                      errorTitle: context.l10n.rankingLoadMoreFailed,
-                      retryLabel: context.l10n.retry,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         );
