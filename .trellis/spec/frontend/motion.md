@@ -206,3 +206,15 @@ reviewed: 2026-10-17
   up to 6 ms of each scroll frame on device.
 - **Check:** `test/responsive_layout_test.dart` "a width-built sliver rebuilds on a width change, not a scroll"
 - **Code:** `lib/app/layout/sliver_width_builder.dart`, `lib/app/format/app_format.dart`, `lib/app/motion/motion_tokens.dart`, `lib/app/widgets/fit_label.dart`
+
+### MOTION-16 Repeated parts of a page get their own ticker notifier
+- **Rule:** Feed cards, card rows, and the detail page's image pages and
+  sections each sit in a `TickerPartition`. A list of uniform wrappers
+  holds no conditional entry.
+- **Why:** Every ticker, implicit animation and `TickerModeWatch` on a
+  route listened to one notifier, and each removal searched and shifted
+  it: 43% of the 7–11 ms unmount frame after closing a detail page. A
+  conditional entry among uniform wrappers moves every later child to a
+  different wrapper, remounting it.
+- **Check:** `test/motion_test.dart` "a ticker partition mutes with its ancestor on its own notifier"
+- **Code:** `lib/app/motion/motion_tokens.dart`, `lib/app/widgets/feed/feed_grid.dart`, `lib/app/layout/card_columns.dart`, `lib/features/illust/detail/illust_detail_page.dart`
