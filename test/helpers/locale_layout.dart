@@ -261,7 +261,7 @@ class LocaleMessages {
     final file = File('lib/l10n/app_$language.arb');
     final arb = jsonDecode(file.readAsStringSync()) as Map<String, Object?>;
     final exact = <String, String>{};
-    final patterns = <(RegExp, String)>[];
+    final patterns = <(RegExp, String, int)>[];
     final placeholder = RegExp(r'\{\w+\}');
     for (final MapEntry(:key, :value) in arb.entries) {
       if (key.startsWith('@') || value is! String) continue;
@@ -276,22 +276,32 @@ class LocaleMessages {
           .split(placeholder)
           .map(RegExp.escape)
           .join('(?:.|\\n)+?');
-      patterns.add((RegExp('^$pattern\$'), key));
+      final literal = value.replaceAll(placeholder, '').length;
+      patterns.add((RegExp('^$pattern\$'), key, literal));
     }
     return LocaleMessages._(exact, patterns);
   }
 
   final Map<String, String> _exact;
-  final List<(RegExp, String)> _patterns;
 
-  /// The key whose message [text] is, or null for other text.
+  /// Pattern, key, and the length of the message's own text.
+  final List<(RegExp, String, int)> _patterns;
+
+  /// The key whose message [text] is, or null for other text. Of several
+  /// matching patterns the one with the most text of its own wins: "共 12
+  /// 页" is "共 {count} 页", not "{count} 页" with "共 12" as the count.
   String? keyOf(String text) {
     if (text.isEmpty) return null;
     final exact = _exact[text];
     if (exact != null) return exact;
-    for (final (pattern, key) in _patterns) {
-      if (pattern.hasMatch(text)) return key;
+    String? best;
+    var bestLiteral = -1;
+    for (final (pattern, key, literal) in _patterns) {
+      if (literal > bestLiteral && pattern.hasMatch(text)) {
+        best = key;
+        bestLiteral = literal;
+      }
     }
-    return null;
+    return best;
   }
 }

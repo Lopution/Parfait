@@ -163,13 +163,6 @@ void expectViewerChrome(WidgetTester tester, {required bool visible}) {
   }
 }
 
-/// The fixture's `create_date` as the device shows it.
-final fixtureCreateDate = DateTime.parse('2026-08-01T10:00:00+09:00').toLocal();
-
-/// The info block's metadata line without its icons.
-String dateText(WidgetTester tester) =>
-    tester.widget<Text>(find.byKey(const Key('illust-detail-date'))).data!;
-
 /// The stats block's figures, left to right.
 List<String> statFigures(WidgetTester tester) => [
   for (final text in tester.widgetList<Text>(

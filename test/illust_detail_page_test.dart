@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,6 +16,7 @@ import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart';
+import 'package:parfait/features/illust/detail/widgets/detail_section_header.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_detail_skeleton.dart';
 import 'package:parfait/features/illust/detail/widgets/page_image.dart';
 import 'package:parfait/features/illust/detail/widgets/info_block.dart';
@@ -270,6 +272,52 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('作品说明文字'), findsOneWidget);
       expect(find.text('展开'), findsNothing);
+    });
+
+    testWidgets('the ID copies; headings sit one distance above content', (
+      tester,
+    ) async {
+      final clipboard = <String>[];
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboard.add((call.arguments as Map)['text'] as String);
+        }
+        return null;
+      });
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(
+        tester,
+        container,
+        locale: const Locale('zh', 'CN'),
+        surface: const Size(800, 4000),
+      );
+      await tester.pumpAndSettle();
+
+      final meta = tester
+          .widget<Text>(find.byKey(const Key('illust-detail-meta')))
+          .data!;
+      expect(meta, allOf(contains('2 页'), contains('800×600')));
+      await tester.tap(find.byKey(const Key('illust-detail-id')));
+      await tester.pump();
+      expect(clipboard, ['42']);
+
+      // The caption heading carries the translate button, the tags heading
+      // none; the content starts where the heading row ends.
+      double underHeading(String heading) {
+        final row = find.ancestor(
+          of: find.text(heading),
+          matching: find.byType(DetailSectionHeader),
+        );
+        return tester.getBottomLeft(row).dy -
+            tester.getBottomLeft(find.text(heading)).dy;
+      }
+
+      expect(underHeading('简介'), underHeading('标签'));
     });
   });
 

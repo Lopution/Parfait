@@ -2,7 +2,7 @@
 prefix: DETAIL
 applies_to:
   - lib/features/illust/**
-reviewed: 2026-10-14
+reviewed: 2026-10-17
 ---
 
 # Artwork detail page and viewer
@@ -93,6 +93,22 @@ reviewed: 2026-10-14
 - **Why:** Transient failures on the detail page left dead sections.
 - **Check:** manual
 - **Code:** `lib/features/illust/detail/on_demand_sliver.dart`
+
+### DETAIL-15 The work's facts sit under its title; sections share one header
+- **Rule:** One line under the title holds the date, the page count (two
+  or more pages), the size and "ID n" with a copy glyph; a tap on the ID
+  copies the bare number and confirms with a snack bar. The ID's target
+  reaches 8dp above and below the line, and the gaps around it take that
+  much less. Every titled part of the page, inside the info block or
+  below it, starts with `DetailSectionHeader`: a 48dp row whose action's
+  label or glyph ends on the 24dp margin (LAYOUT-15). The info block has
+  no bottom padding; the next header spaces itself.
+- **Why:** User decision (option A of three rendered layouts): the date
+  sat under the title while the size and ID hid at the block's end, and
+  headings with and without a button sat at two distances from their
+  content, so the gaps between sections ran 50 to 81dp.
+- **Check:** `test/illust_detail_page_test.dart` "the ID copies; headings sit one distance above content"
+- **Code:** `lib/features/illust/detail/widgets/info_block.dart`, `lib/features/illust/detail/widgets/detail_section_header.dart`
 
 ## Chrome
 

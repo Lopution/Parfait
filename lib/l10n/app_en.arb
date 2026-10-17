@@ -932,6 +932,16 @@
   "detailStatViews": "Views",
   "detailStatBookmarks": "Bookmarks",
   "detailSectionCaption": "Description",
+  "detailPageCount": "{count} pages",
+  "@detailPageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "copyArtworkId": "Copy artwork ID",
+  "artworkIdCopied": "Artwork ID copied",
   "detailSectionTags": "Tags",
   "detailViewAll": "See all",
   "detailSectionAuthorWorks": "More by this artist",

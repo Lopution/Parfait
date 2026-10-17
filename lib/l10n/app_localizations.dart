@@ -4313,6 +4313,24 @@ abstract class AppLocalizations {
   /// **'简介'**
   String get detailSectionCaption;
 
+  /// Page count in the metadata line under an artwork title; shown for two or more pages.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 页'**
+  String detailPageCount(int count);
+
+  /// Tooltip of the artwork ID in the detail metadata line; a tap copies the ID.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制作品 ID'**
+  String get copyArtworkId;
+
+  /// Snack bar after the artwork ID was copied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制作品 ID'**
+  String get artworkIdCopied;
+
   /// Section heading over the artwork tags.
   ///
   /// In zh, this message translates to:

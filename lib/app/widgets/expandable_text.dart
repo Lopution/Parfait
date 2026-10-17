@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/context.dart';
 import '../motion/spring_size.dart';
+import '../theme/func_semantic_tokens.dart';
 
 /// Long text collapsed to [maxLines] with a Show more / Show less toggle
 /// under it. Links inside [text] stay tappable in both states. Text that
@@ -69,6 +70,15 @@ class _ExpandableTextState extends State<ExpandableText> {
                   child: Semantics(
                     expanded: _expanded,
                     child: TextButton(
+                      // The label ends where the lines above end; the
+                      // target reaches inward instead.
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsetsDirectional.only(
+                          start: FuncSpacing.md,
+                        ),
+                        minimumSize: const Size(kMinInteractiveDimension, 40),
+                        alignment: AlignmentDirectional.centerEnd,
+                      ),
                       onPressed: () => setState(() => _expanded = !_expanded),
                       child: Text(
                         _expanded ? l10n.collapseText : l10n.expandText,

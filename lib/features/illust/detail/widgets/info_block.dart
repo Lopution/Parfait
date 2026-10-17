@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../app/clipboard.dart';
 import '../../../../app/format/app_format.dart';
 import '../../../../app/navigation/routes.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
 import '../../../../app/widgets/author_row.dart';
+import '../../../../app/widgets/edge_icon_buttons.dart';
 import '../../../../app/widgets/follow_switch_button.dart';
 import '../../../../app/widgets/tag_chips.dart';
 import '../../../../core/auth/account_store.dart';
@@ -17,6 +19,19 @@ import '../../../../app/widgets/caption_rich_text.dart';
 import '../../../../app/widgets/inline_translation.dart';
 import '../../../../app/widgets/tag_actions_sheet.dart';
 import '../../../../core/entity/illust_caption.dart';
+import 'detail_section_header.dart';
+
+/// The page margin of the info area.
+const _margin = EdgeInsets.symmetric(horizontal: FuncSpacing.xl);
+
+/// The margin of a row that ends in an icon button: its glyph, not its
+/// target, ends on the margin (LAYOUT-15).
+const _buttonRowMargin = EdgeInsetsDirectional.only(
+  start: FuncSpacing.xl,
+  end: FuncSpacing.xl - EdgeIconButtons.glyphInset,
+);
+
+Widget _inMargin(Widget child) => Padding(padding: _margin, child: child);
 
 class InfoBlock extends ConsumerWidget {
   const InfoBlock({
@@ -33,11 +48,6 @@ class InfoBlock extends ConsumerWidget {
   /// Collapsed caption height; longer captions get a Show more toggle.
   static const captionLines = 4;
 
-  String? _postedDate(BuildContext context) {
-    final created = DateTime.tryParse(entity.createDate ?? '');
-    return created == null ? null : AppFormat.date(context, created);
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Tag chips now block through the MuteStore: tag mutes sync with the
@@ -50,11 +60,11 @@ class InfoBlock extends ConsumerWidget {
       ),
     );
     final author = entity.user;
+    // Sections pad themselves: a heading row that ends in a button ends
+    // its padding short of the margin (LAYOUT-15). The next section of the
+    // page spaces itself from the last one here.
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: FuncSpacing.xl,
-        vertical: FuncSpacing.xl,
-      ),
+      padding: const EdgeInsets.only(top: FuncSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -63,41 +73,41 @@ class InfoBlock extends ConsumerWidget {
           // selectable — a one-line AppBar title could only ellipsise.
           // Without a caption the title carries the translate button.
           if (entity.caption.isEmpty)
-            _TranslatableTitle(title: entity.title)
+            Padding(
+              padding: _buttonRowMargin,
+              child: _TranslatableTitle(title: entity.title),
+            )
           else
-            _Title(title: entity.title),
-          if (_postedDate(context) case final date?) ...[
-            const SizedBox(height: FuncSpacing.xs),
-            Text(
-              date,
-              key: const Key('illust-detail-date'),
-              style: _metaStyle(context),
-            ),
-          ],
-          const SizedBox(height: FuncSpacing.lg),
-          _StatsBlock(entity: entity),
+            _inMargin(_Title(title: entity.title)),
+          // The line's ID target reaches [_MetaLine.targetInset] above and
+          // below its text; the gap under it takes that much less.
+          _inMargin(_MetaLine(entity: entity)),
+          const SizedBox(height: FuncSpacing.lg - _MetaLine.targetInset),
+          _inMargin(_StatsBlock(entity: entity)),
           const SizedBox(height: FuncSpacing.md),
-          _BlockSurface(
-            padding: const EdgeInsetsDirectional.fromSTEB(
-              FuncSpacing.md,
-              FuncSpacing.sm,
-              FuncSpacing.md,
-              FuncSpacing.sm,
-            ),
-            child: AuthorRow(
-              key: const Key('illust-author-row'),
-              userId: author.id,
-              name: author.name,
-              avatarUrl: author.profileImageUrl,
-              avatarRadius: 24,
-              trailing: author.id == ownUserId
-                  ? null
-                  : FollowSwitchButton(
-                      userId: author.id,
-                      userName: author.name,
-                      userAccount: author.account,
-                      compact: true,
-                    ),
+          _inMargin(
+            _BlockSurface(
+              padding: const EdgeInsetsDirectional.fromSTEB(
+                FuncSpacing.md,
+                FuncSpacing.sm,
+                FuncSpacing.md,
+                FuncSpacing.sm,
+              ),
+              child: AuthorRow(
+                key: const Key('illust-author-row'),
+                userId: author.id,
+                name: author.name,
+                avatarUrl: author.profileImageUrl,
+                avatarRadius: 24,
+                trailing: author.id == ownUserId
+                    ? null
+                    : FollowSwitchButton(
+                        userId: author.id,
+                        userName: author.name,
+                        userAccount: author.account,
+                        compact: true,
+                      ),
+              ),
             ),
           ),
           if (entity.caption.isNotEmpty)
@@ -154,18 +164,86 @@ class InfoBlock extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: FuncSpacing.lg),
-          // ID stays selectable: users quote artwork IDs. SelectableText,
-          // not SelectionArea — SelectionArea pulls in the whole
-          // SelectableRegion/context-menu machinery (~180KB AOT) that
-          // nothing else in the app uses, while SelectableText is already
-          // compiled in for the title.
-          SelectableText(
-            '${entity.width}×${entity.height} · ID ${entity.id}',
-            key: const Key('illust-detail-footer'),
-            style: _metaStyle(context),
-          ),
         ],
+      ),
+    );
+  }
+}
+
+/// The line under the title: when, how many pages, how large, and the
+/// ID, which a tap copies — users quote artwork IDs. One line where it
+/// fits; the ID wraps to the next as a whole.
+class _MetaLine extends StatelessWidget {
+  const _MetaLine({required this.entity});
+
+  final IllustEntity entity;
+
+  /// How far the ID's target reaches past its text, up and down: 32dp in
+  /// all with the 16dp line. A full 48dp would push the line away from
+  /// the title.
+  static const targetInset = FuncSpacing.sm;
+
+  static const _separator = ' · ';
+
+  @override
+  Widget build(BuildContext context) {
+    final style = _metaStyle(context);
+    final created = DateTime.tryParse(entity.createDate ?? '');
+    final facts = [
+      if (created != null) AppFormat.date(context, created),
+      if (entity.pageCount > 1) context.l10n.detailPageCount(entity.pageCount),
+      '${entity.width}×${entity.height}',
+    ];
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          '${facts.join(_separator)}$_separator',
+          key: const Key('illust-detail-meta'),
+          style: style,
+        ),
+        _CopyableId(id: entity.id, style: style),
+      ],
+    );
+  }
+}
+
+/// "ID 123" with a copy glyph. The ink is the small box around the two;
+/// the target reaches [_MetaLine.targetInset] past the text on each side.
+class _CopyableId extends StatelessWidget {
+  const _CopyableId({required this.id, required this.style});
+
+  final int id;
+  final TextStyle style;
+
+  /// Sized to the metadata text rather than the 24dp default.
+  static const _copyGlyph = 14.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Tooltip(
+      message: l10n.copyArtworkId,
+      child: InkWell(
+        key: const Key('illust-detail-id'),
+        borderRadius: FuncShape.badge,
+        onTap: () => unawaited(
+          copyToClipboard(context, '$id', message: l10n.artworkIdCopied),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: FuncSpacing.xs,
+            vertical: _MetaLine.targetInset,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('ID $id', style: style),
+              const SizedBox(width: FuncSpacing.xs),
+              Icon(Icons.content_copy, size: _copyGlyph, color: style.color),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -314,10 +392,17 @@ class _TranslatableTitleState extends ConsumerState<_TranslatableTitle>
           ),
         ],
       ),
-      TranslationPanel(
-        translating: translating,
-        translations: translations,
-        failure: translationFailure,
+      // The row's padding ends short for the button's glyph; the
+      // translation below ends on the margin like the text.
+      Padding(
+        padding: const EdgeInsetsDirectional.only(
+          end: EdgeIconButtons.glyphInset,
+        ),
+        child: TranslationPanel(
+          translating: translating,
+          translations: translations,
+          failure: translationFailure,
+        ),
       ),
     ],
   );
@@ -374,8 +459,8 @@ class _CaptionSectionState extends ConsumerState<_CaptionSection>
 
 String? _nonBlank(String text) => text.trim().isEmpty ? null : text;
 
-/// One titled part of the info area: a heading, then its content. [action]
-/// sits at the end of the heading row.
+/// One titled part of the info area: a [DetailSectionHeader] like the
+/// sections below the block, then its content in the margin.
 class _Section extends StatelessWidget {
   const _Section({
     super.key,
@@ -389,29 +474,11 @@ class _Section extends StatelessWidget {
   final Widget? action;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: FuncSpacing.xl),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Semantics(
-                header: true,
-                child: Text(
-                  heading,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-            ),
-            ?action,
-          ],
-        ),
-        // The button's own padding already spaces the heading.
-        if (action == null) const SizedBox(height: FuncSpacing.sm),
-        child,
-      ],
-    ),
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      DetailSectionHeader(title: heading, action: action),
+      _inMargin(child),
+    ],
   );
 }
