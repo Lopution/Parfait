@@ -139,6 +139,10 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   int _page = 0;
   int _pageCount = 1;
 
+  /// The reader subtree and what it was built from ([_buildStage]).
+  Widget? _reader;
+  Object? _readerInputs;
+
   NovelReaderSettings _settings = const NovelReaderSettings();
   NovelAnchor? _initialAnchor;
   bool _prefsReady = false;
@@ -184,7 +188,7 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     super.didChangeDependencies();
     _chrome.duration = MotionTokens.resolve(context, MotionTokens.chrome);
     final size = MediaQuery.sizeOf(context);
-    final live = MediaQuery.of(context).viewPadding;
+    final live = MediaQuery.viewPaddingOf(context);
     final next = size == _insetsSize ? _maxEdges(_stableInsets, live) : live;
     _insetsSize = size;
     if (next != _stableInsets) _stableInsets = next;
@@ -459,36 +463,59 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
     if (!_prefsReady) {
       return const FeedLoading();
     }
-    final content = Padding(
-      // The reserve depends only on the stable insets and the text scaler,
-      // so chrome show/hide never repaginates (C6 R3 contract).
-      padding: _stableInsets.copyWith(bottom: _hintReserve(context, palette)),
-      child: NovelReader(
-        novel: novel,
-        settings: _settings,
-        initialAnchor: _initialAnchor,
-        textColor: palette.foreground,
-        translations: pageTranslations,
-        handle: _readerHandle,
-        onCenterTap: _toggleChrome,
-        onProgressChanged: (page, pageCount) {
-          if (page == _page && pageCount == _pageCount) return;
-          setState(() {
-            _page = page;
-            _pageCount = pageCount;
-          });
-        },
-        onAnchorChanged: (anchor, cause) {
-          if (_anchor != anchor) setState(() => _anchor = anchor);
-          // D1: only a user-committed turn persists progress. Layout
-          // echoes (open/restore, settings relayout) are not reads —
-          // opening and closing the book leaves no record behind.
-          if (cause == NovelAnchorCause.userTurn) _persistAnchor(anchor);
-          bilingualPageSettled();
-        },
-      ),
+    // The reserve depends only on the stable insets and the text scaler,
+    // so chrome show/hide never repaginates (C6 R3 contract).
+    final padding = _stableInsets.copyWith(
+      bottom: _hintReserve(context, palette),
     );
+    final translations = pageTranslations;
+    final inputs = (
+      novel,
+      _settings,
+      _initialAnchor,
+      palette.foreground,
+      translations,
+      padding,
+    );
+    // The same reader while its inputs hold: the chrome, the progress hint
+    // and the anchor rebuild the stage on a tap and on every page turn,
+    // and a new reader rebuilt every line of the pages on screen.
+    if (inputs != _readerInputs) {
+      _readerInputs = inputs;
+      _reader = Padding(
+        padding: padding,
+        child: NovelReader(
+          novel: novel,
+          settings: _settings,
+          initialAnchor: _initialAnchor,
+          textColor: palette.foreground,
+          translations: translations,
+          handle: _readerHandle,
+          onCenterTap: _toggleChrome,
+          onProgressChanged: _onProgressChanged,
+          onAnchorChanged: _onAnchorChanged,
+        ),
+      );
+    }
+    final content = _reader!;
     return widget.spec.bodyWrapper?.call(context, _anchor, content) ?? content;
+  }
+
+  void _onProgressChanged(int page, int pageCount) {
+    if (page == _page && pageCount == _pageCount) return;
+    setState(() {
+      _page = page;
+      _pageCount = pageCount;
+    });
+  }
+
+  void _onAnchorChanged(NovelAnchor anchor, NovelAnchorCause cause) {
+    if (_anchor != anchor) setState(() => _anchor = anchor);
+    // D1: only a user-committed turn persists progress. Layout echoes
+    // (open/restore, settings relayout) are not reads — opening and
+    // closing the book leaves no record behind.
+    if (cause == NovelAnchorCause.userTurn) _persistAnchor(anchor);
+    bilingualPageSettled();
   }
 
   /// Shared fill for both chrome bars: the reading palette's background
