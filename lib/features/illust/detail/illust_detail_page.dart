@@ -356,9 +356,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   }
 
   /// The ⋮ menu's artwork-info item scrolls the InfoBlock into view.
-  /// The InfoBlock sliver is built
+  /// The InfoBlock's parts are built
   /// lazily below the page list, so on long works the narrow scroll first
-  /// steps one viewport at a time until the anchor exists — each step's
+  /// steps one viewport at a time until its first part exists — each step's
   /// viewport is contiguous with the previous one, so every section gets
   /// built as we pass. ensureVisible uses the target's own context
   /// (risks R9 — we never touch SmoothWheelScroll's controller).
@@ -406,8 +406,14 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   /// Download badge states derive from live manager tasks; without this
   /// subscription the Provider-backed snapshot would never notify the UI.
   void _ensureDownloadListener() {
-    _downloadEvents ??= ref.read(downloadManagerProvider).events.listen((_) {
-      if (mounted) setState(() {});
+    // Only this work's: a batch elsewhere rebuilt every open detail page
+    // once per saved page.
+    _downloadEvents ??= ref.read(downloadManagerProvider).events.listen((
+      event,
+    ) {
+      if (mounted && event.snapshot.illustId == widget.illustId) {
+        setState(() {});
+      }
     });
   }
 
@@ -873,17 +879,13 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
           illustId: widget.illustId,
           outsideSeries: entity.outsideSeries,
         ),
-        SliverToBoxAdapter(
-          // The ⋮ menu's artwork-info item scrolls to this anchor
-          // (ensureVisible by context — no controller takeover, risks R9).
-          child: Container(
-            key: _infoAnchorKey,
-            child: InfoBlock(
-              entity: entity,
-              blockMode: _blockMode,
-              onToggleBlockMode: () => setState(() => _blockMode = !_blockMode),
-            ),
-          ),
+        // The ⋮ menu's artwork-info item scrolls to the anchor
+        // (ensureVisible by context — no controller takeover, risks R9).
+        InfoBlock(
+          anchorKey: _infoAnchorKey,
+          entity: entity,
+          blockMode: _blockMode,
+          onToggleBlockMode: () => setState(() => _blockMode = !_blockMode),
         ),
         // Comment preview and the author's other works; like related works,
         // each asks for its data only once it is on screen.

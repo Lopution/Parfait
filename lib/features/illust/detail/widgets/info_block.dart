@@ -33,9 +33,155 @@ const _buttonRowMargin = EdgeInsetsDirectional.only(
 
 Widget _inMargin(Widget child) => Padding(padding: _margin, child: child);
 
-class InfoBlock extends ConsumerWidget {
+/// The work's title, facts, author, caption and tags: one sliver list,
+/// so a part below the first screen is built as it scrolls near rather
+/// than with the page. Built parts stay built ([_KeptPart]).
+class InfoBlock extends StatelessWidget {
   const InfoBlock({
     super.key,
+    required this.entity,
+    required this.blockMode,
+    required this.onToggleBlockMode,
+    this.anchorKey,
+  });
+
+  final IllustEntity entity;
+  final bool blockMode;
+  final VoidCallback onToggleBlockMode;
+
+  /// Marks the first part, from the top of the block: the menu's
+  /// artwork-info item scrolls to it.
+  final GlobalKey? anchorKey;
+
+  /// Collapsed caption height; longer captions get a Show more toggle.
+  static const captionLines = 4;
+
+  @override
+  Widget build(BuildContext context) {
+    // Sections pad themselves: a heading row that ends in a button ends
+    // its padding short of the margin (LAYOUT-15). The next section of the
+    // page spaces itself from the last one here.
+    return SliverList.list(
+      children: [
+        _KeptPart(
+          key: anchorKey,
+          child: Padding(
+            padding: const EdgeInsets.only(top: FuncSpacing.xl),
+            // Official client order: the work title leads the meta block,
+            // wraps without a line cap, and stays selectable — a one-line
+            // AppBar title could only ellipsise. Without a caption the
+            // title carries the translate button.
+            child: entity.caption.isEmpty
+                ? Padding(
+                    padding: _buttonRowMargin,
+                    child: _TranslatableTitle(title: entity.title),
+                  )
+                : _inMargin(_Title(title: entity.title)),
+          ),
+        ),
+        // The line's ID target reaches [_MetaLine.targetInset] above and
+        // below its text; the gap under it takes that much less.
+        _KeptPart(
+          child: Padding(
+            padding: _margin.copyWith(
+              bottom: FuncSpacing.lg - _MetaLine.targetInset,
+            ),
+            child: _MetaLine(entity: entity),
+          ),
+        ),
+        _KeptPart(
+          child: Padding(
+            padding: _margin.copyWith(bottom: FuncSpacing.md),
+            child: _StatsBlock(entity: entity),
+          ),
+        ),
+        _KeptPart(child: _inMargin(_AuthorBlock(entity: entity))),
+        if (entity.caption.isNotEmpty)
+          _KeptPart(
+            key: const Key('illust-detail-caption'),
+            child: _CaptionSection(entity: entity),
+          ),
+        _KeptPart(
+          key: const Key('illust-detail-tags'),
+          child: _TagsSection(
+            entity: entity,
+            blockMode: blockMode,
+            onToggleBlockMode: onToggleBlockMode,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Keeps a part of the block built once it has been, as the block was
+/// when it was one box: a part holds state (a translation, an expanded
+/// caption) that scrolling away must not lose.
+class _KeptPart extends StatefulWidget {
+  const _KeptPart({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeptPart> createState() => _KeptPartState();
+}
+
+class _KeptPartState extends State<_KeptPart>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+}
+
+/// The author on the block surface, with a follow button unless it is the
+/// signed-in user.
+class _AuthorBlock extends ConsumerWidget {
+  const _AuthorBlock({required this.entity});
+
+  final IllustEntity entity;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ownUserId = ref.watch(
+      accountStoreProvider.select(
+        (async) => async.value?.usableCurrent?.userId,
+      ),
+    );
+    final author = entity.user;
+    return _BlockSurface(
+      padding: const EdgeInsetsDirectional.fromSTEB(
+        FuncSpacing.md,
+        FuncSpacing.sm,
+        FuncSpacing.md,
+        FuncSpacing.sm,
+      ),
+      child: AuthorRow(
+        key: const Key('illust-author-row'),
+        userId: author.id,
+        name: author.name,
+        avatarUrl: author.profileImageUrl,
+        avatarRadius: 24,
+        trailing: author.id == ownUserId
+            ? null
+            : FollowSwitchButton(
+                userId: author.id,
+                userName: author.name,
+                userAccount: author.account,
+                compact: true,
+              ),
+      ),
+    );
+  }
+}
+
+/// The tags, each searching on a tap or, in the block mode, muting.
+class _TagsSection extends ConsumerWidget {
+  const _TagsSection({
     required this.entity,
     required this.blockMode,
     required this.onToggleBlockMode,
@@ -45,125 +191,57 @@ class InfoBlock extends ConsumerWidget {
   final bool blockMode;
   final VoidCallback onToggleBlockMode;
 
-  /// Collapsed caption height; longer captions get a Show more toggle.
-  static const captionLines = 4;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Tag chips now block through the MuteStore: tag mutes sync with the
     // official /v1/mute list instead of the legacy local-only pref.
     final mutedTags = ref.watch(muteStoreProvider.select((s) => s.tags));
     final muteStore = ref.read(muteStoreProvider.notifier);
-    final ownUserId = ref.watch(
-      accountStoreProvider.select(
-        (async) => async.value?.usableCurrent?.userId,
-      ),
-    );
-    final author = entity.user;
-    // Sections pad themselves: a heading row that ends in a button ends
-    // its padding short of the margin (LAYOUT-15). The next section of the
-    // page spaces itself from the last one here.
-    return Padding(
-      padding: const EdgeInsets.only(top: FuncSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return _Section(
+      heading: context.l10n.detailSectionTags,
+      child: TagChips(
         children: [
-          // Official client order: the work title
-          // leads the meta block, wraps without a line cap, and stays
-          // selectable — a one-line AppBar title could only ellipsise.
-          // Without a caption the title carries the translate button.
-          if (entity.caption.isEmpty)
-            Padding(
-              padding: _buttonRowMargin,
-              child: _TranslatableTitle(title: entity.title),
-            )
-          else
-            _inMargin(_Title(title: entity.title)),
-          // The line's ID target reaches [_MetaLine.targetInset] above and
-          // below its text; the gap under it takes that much less.
-          _inMargin(_MetaLine(entity: entity)),
-          const SizedBox(height: FuncSpacing.lg - _MetaLine.targetInset),
-          _inMargin(_StatsBlock(entity: entity)),
-          const SizedBox(height: FuncSpacing.md),
-          _inMargin(
-            _BlockSurface(
-              padding: const EdgeInsetsDirectional.fromSTEB(
-                FuncSpacing.md,
-                FuncSpacing.sm,
-                FuncSpacing.md,
-                FuncSpacing.sm,
-              ),
-              child: AuthorRow(
-                key: const Key('illust-author-row'),
-                userId: author.id,
-                name: author.name,
-                avatarUrl: author.profileImageUrl,
-                avatarRadius: 24,
-                trailing: author.id == ownUserId
-                    ? null
-                    : FollowSwitchButton(
-                        userId: author.id,
-                        userName: author.name,
-                        userAccount: author.account,
-                        compact: true,
-                      ),
-              ),
-            ),
-          ),
-          if (entity.caption.isNotEmpty)
-            _CaptionSection(
-              key: const Key('illust-detail-caption'),
-              entity: entity,
-            ),
-          _Section(
-            key: const Key('illust-detail-tags'),
-            heading: context.l10n.detailSectionTags,
-            child: TagChips(
-              children: [
-                for (final tag in entity.tags)
-                  TagChip(
-                    label: tag.name,
-                    translated: tag.translatedName,
-                    blockMode: blockMode,
-                    blocked: mutedTags.contains(tag.name),
-                    onTap: () {
-                      if (blockMode) {
-                        unawaited(
-                          toggleTagMute(
-                            context,
-                            muteStore,
-                            tag.name,
-                            muted: mutedTags.contains(tag.name),
-                          ),
-                        );
-                      } else {
-                        openTagSearch(context, tag.name);
-                      }
-                    },
-                    // Long-press opens the direct action menu (search /
-                    // copy / mute / batch-mute entry) instead of silently
-                    // flipping the block mode.
-                    onLongPress: () => unawaited(
-                      showTagActionsSheet(
-                        context,
-                        tag: tag.name,
-                        muted: mutedTags.contains(tag.name),
-                        onSearch: () => openTagSearch(context, tag.name),
-                        onToggleMute: () => unawaited(
-                          toggleTagMute(
-                            context,
-                            muteStore,
-                            tag.name,
-                            muted: mutedTags.contains(tag.name),
-                          ),
-                        ),
-                        onMuteMode: onToggleBlockMode,
-                      ),
+          for (final tag in entity.tags)
+            TagChip(
+              label: tag.name,
+              translated: tag.translatedName,
+              blockMode: blockMode,
+              blocked: mutedTags.contains(tag.name),
+              onTap: () {
+                if (blockMode) {
+                  unawaited(
+                    toggleTagMute(
+                      context,
+                      muteStore,
+                      tag.name,
+                      muted: mutedTags.contains(tag.name),
+                    ),
+                  );
+                } else {
+                  openTagSearch(context, tag.name);
+                }
+              },
+              // Long-press opens the direct action menu (search /
+              // copy / mute / batch-mute entry) instead of silently
+              // flipping the block mode.
+              onLongPress: () => unawaited(
+                showTagActionsSheet(
+                  context,
+                  tag: tag.name,
+                  muted: mutedTags.contains(tag.name),
+                  onSearch: () => openTagSearch(context, tag.name),
+                  onToggleMute: () => unawaited(
+                    toggleTagMute(
+                      context,
+                      muteStore,
+                      tag.name,
+                      muted: mutedTags.contains(tag.name),
                     ),
                   ),
-              ],
+                  onMuteMode: onToggleBlockMode,
+                ),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -411,7 +489,7 @@ class _TranslatableTitleState extends ConsumerState<_TranslatableTitle>
 /// The caption section. Its translate button translates the title and the
 /// caption together and shows both below the caption.
 class _CaptionSection extends ConsumerStatefulWidget {
-  const _CaptionSection({super.key, required this.entity});
+  const _CaptionSection({required this.entity});
 
   final IllustEntity entity;
 
@@ -462,12 +540,7 @@ String? _nonBlank(String text) => text.trim().isEmpty ? null : text;
 /// One titled part of the info area: a [DetailSectionHeader] like the
 /// sections below the block, then its content in the margin.
 class _Section extends StatelessWidget {
-  const _Section({
-    super.key,
-    required this.heading,
-    required this.child,
-    this.action,
-  });
+  const _Section({required this.heading, required this.child, this.action});
 
   final String heading;
   final Widget child;

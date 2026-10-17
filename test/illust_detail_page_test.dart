@@ -718,7 +718,7 @@ void main() {
           await tester.pump(const Duration(milliseconds: 300));
           await tester.pump(const Duration(milliseconds: 300));
         }
-        expect(find.text('作品说明文字'), findsOneWidget);
+        expect(find.text('相关作品'), findsOneWidget);
         expect(find.byType(PageCountPill), findsNothing);
       },
     );

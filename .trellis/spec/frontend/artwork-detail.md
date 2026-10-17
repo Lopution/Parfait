@@ -110,6 +110,16 @@ reviewed: 2026-10-17
 - **Check:** `test/illust_detail_page_test.dart` "the ID copies; headings sit one distance above content"
 - **Code:** `lib/features/illust/detail/widgets/info_block.dart`, `lib/features/illust/detail/widgets/detail_section_header.dart`
 
+### DETAIL-16 The info block's parts build as they near
+- **Rule:** `InfoBlock` is a `SliverList.list` of parts (title, facts,
+  stats, author, caption, tags) that stay built once built; the
+  artwork-info jump scrolls to its first part. A part that reads a store
+  watches it itself.
+- **Why:** As one box it was built with the page, below the fold of a
+  long work too, in the push frame.
+- **Check:** `test/illust_detail_actions_test.dart` "a long six-page work still reaches InfoBlock via the menu"
+- **Code:** `lib/features/illust/detail/widgets/info_block.dart`, `lib/features/illust/detail/illust_detail_page.dart`
+
 ## Chrome
 
 ### DETAIL-09 The action bar is the centered capsule
@@ -139,11 +149,13 @@ reviewed: 2026-10-17
 ### DETAIL-10 The download button listens to the manager itself
 - **Rule:** The detail download button subscribes to
   `DownloadManager.changes` (progress included) and shows the whole work's
-  state: ring, saved check, or failure.
+  state: ring, saved check, or failure. The detail page and the viewer
+  refresh their page badges on `events` of their own work only.
 - **Why:** `events` carries terminal events only; rebuilding the page per
-  progress tick was costly.
+  progress tick was costly. A batch of another work rebuilt every open
+  detail page once per saved page.
 - **Check:** `test/illust_detail_download_test.dart`
-- **Code:** `lib/features/illust/detail/widgets/detail_action_bar.dart`
+- **Code:** `lib/features/illust/detail/widgets/detail_action_bar.dart`, `lib/features/illust/detail/illust_detail_page.dart`, `lib/features/illust/viewer/image_viewer_page.dart`
 
 ### DETAIL-11 One page counter that never hard-cuts
 - **Rule:** Page numbers on the detail page come only from
