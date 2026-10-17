@@ -24,12 +24,16 @@ class SettingsMenuTile<T> extends StatelessWidget {
     required this.value,
     required this.options,
     required this.onChanged,
+    this.subtitle,
     this.icon,
     this.haptics = true,
   });
 
   /// The title; defaults to the title of [setting].
   final String? title;
+
+  /// A note on this row alone, under its title.
+  final Widget? subtitle;
 
   /// The catalog entry this row is the place of (settings search).
   final SettingsEntry? setting;
@@ -80,6 +84,7 @@ class SettingsMenuTile<T> extends StatelessWidget {
           enabled: onChanged != null,
           leading: icon == null ? null : Icon(icon),
           title: Text(settingsRowTitle(context, title, setting)),
+          subtitle: subtitle,
           // The subtitle's look; ListTile greys it out with the row.
           leadingAndTrailingTextStyle: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,

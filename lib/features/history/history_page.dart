@@ -592,7 +592,7 @@ class _NovelHistoryEntry extends StatelessWidget {
                   ],
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(FuncSpacing.xs),
+                  padding: _titlePadding,
                   child: Text(
                     title,
                     maxLines: 2,
@@ -601,12 +601,7 @@ class _NovelHistoryEntry extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    FuncSpacing.xs,
-                    0,
-                    FuncSpacing.xs,
-                    FuncSpacing.sm,
-                  ),
+                  padding: _linePadding,
                   child: Text(
                     author,
                     maxLines: 1,
@@ -623,6 +618,19 @@ class _NovelHistoryEntry extends StatelessWidget {
   }
 }
 
+/// A history cell's title, under the cover.
+const _titlePadding = EdgeInsets.fromLTRB(
+  IllustCard.textIndent,
+  FuncSpacing.sm,
+  IllustCard.textIndent,
+  0,
+);
+
+/// A history cell's author and date lines.
+const _linePadding = EdgeInsets.symmetric(horizontal: IllustCard.textIndent);
+
+/// A cell drawn here (a novel, a work not in the store) laid out like the
+/// shared [IllustCard] beside it: flat, the text on the card's indent.
 class _HistoryCardFrame extends StatelessWidget {
   const _HistoryCardFrame({required this.lastViewedAt, required this.child});
 
@@ -631,24 +639,15 @@ class _HistoryCardFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      margin: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          child,
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              FuncSpacing.xs,
-              0,
-              FuncSpacing.xs,
-              FuncSpacing.xs,
-            ),
-            child: EntityMetaText(AppFormat.relative(context, lastViewedAt)),
-          ),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        child,
+        Padding(
+          padding: _linePadding,
+          child: EntityMetaText(AppFormat.relative(context, lastViewedAt)),
+        ),
+      ],
     );
   }
 }
@@ -666,7 +665,7 @@ class _SnapshotEntry extends StatelessWidget {
       children: [
         _SnapshotCover(record: record, icon: icon),
         Padding(
-          padding: const EdgeInsets.all(FuncSpacing.xs),
+          padding: _titlePadding,
           child: Text(
             record.snapshot.title,
             maxLines: 2,
@@ -675,12 +674,7 @@ class _SnapshotEntry extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(
-            FuncSpacing.xs,
-            0,
-            FuncSpacing.xs,
-            FuncSpacing.sm,
-          ),
+          padding: _linePadding,
           child: Text(
             record.snapshot.authorName,
             maxLines: 1,
@@ -703,15 +697,18 @@ class _SnapshotCover extends StatelessWidget {
   Widget build(BuildContext context) {
     return AspectRatio(
       aspectRatio: 1,
-      child: record.snapshot.coverUrl == null
-          ? ColoredBox(
-              color: Theme.of(context).colorScheme.surfaceContainer,
-              child: Icon(icon, size: 42),
-            )
-          : PixivImage.feed(
-              record.snapshot.coverUrl!,
-              layoutWidth: MediaQuery.sizeOf(context).width / 2,
-            ),
+      child: ClipRRect(
+        borderRadius: FuncShape.card,
+        child: record.snapshot.coverUrl == null
+            ? ColoredBox(
+                color: Theme.of(context).colorScheme.surfaceContainer,
+                child: Icon(icon, size: 42),
+              )
+            : PixivImage.feed(
+                record.snapshot.coverUrl!,
+                layoutWidth: MediaQuery.sizeOf(context).width / 2,
+              ),
+      ),
     );
   }
 }

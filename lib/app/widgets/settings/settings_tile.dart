@@ -2,8 +2,8 @@ import 'package:material_ui/material_ui.dart';
 
 import 'settings_anchor.dart';
 
-/// A row that opens another page. Its icon sits in a tonal circle, which
-/// sets the page entries apart from the settings themselves.
+/// A row that opens another page; its chevron says so. On a sub-page the
+/// icon is bare, like the setting rows around it (SET-08).
 class SettingsTile extends StatelessWidget {
   const SettingsTile({
     super.key,
@@ -12,7 +12,20 @@ class SettingsTile extends StatelessWidget {
     required this.onTap,
     this.icon,
     this.subtitle,
-  });
+  }) : _circled = false;
+
+  /// An entry of a top-level page (the settings index, the Me tab): the
+  /// icon sits in a tonal circle, setting the categories apart.
+  const SettingsTile.topLevel({
+    super.key,
+    this.title,
+    this.setting,
+    required this.onTap,
+    this.icon,
+    this.subtitle,
+  }) : _circled = true;
+
+  final bool _circled;
 
   /// Optional leading icon. Sub-page entries without a distinctive icon
   /// leave it null instead of picking a filler glyph.
@@ -41,6 +54,8 @@ class SettingsTile extends StatelessWidget {
       ListTile(
         leading: icon == null
             ? null
+            : !_circled
+            ? Icon(icon)
             : SizedBox.square(
                 dimension: iconDiameter,
                 child: DecoratedBox(

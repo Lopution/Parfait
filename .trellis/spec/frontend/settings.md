@@ -20,10 +20,13 @@ reviewed: 2026-10-17
 - **Rule:** Settings rows go inside `SettingsGroup`, which draws each child
   as its own `surfaceContainer` card 8dp apart, the gap being the only
   separator; never a `Divider`, never a hand-built group container.
-  Explanations go in the group `footer`, after the rows. A leaving
-  `Removable` row stops counting from the exit's first frame.
+  A note on one row is that row's subtitle; a note on the whole group, or
+  on content without a subtitle (a slider, a form), is the group
+  `footer`. On one page either every group has a title or none does. A
+  leaving `Removable` row stops counting from the exit's first frame.
 - **Why:** User decision: separate cards on settings pages and the Me page
-  replaced the 2dp segmented list.
+  replaced the 2dp segmented list. Notes set apart from their row and a
+  page with one titled group read as unrelated.
 - **Check:** `test/architecture/settings_rows_test.dart` "SettingsSection is gone from lib/"
 - **Code:** `lib/app/widgets/settings/settings_group.dart`
 
@@ -39,6 +42,25 @@ reviewed: 2026-10-17
   removed (NAV-17).
 - **Check:** `test/selection_controls_haptics_test.dart`
 - **Code:** `lib/app/widgets/settings/settings_menu_tile.dart`, `lib/app/widgets/settings/settings_choice_tile.dart`
+
+### SET-08 Page entries carry a circled icon, setting rows a bare one
+- **Rule:** A row that opens a settings page from the index or the Me tab
+  is `SettingsTile.topLevel`, its icon on a tonal circle. Rows inside a
+  settings page show the bare icon.
+- **Why:** User decision: the circle marks the top level; on sub-pages it
+  outweighed the setting rows around it.
+- **Check:** manual
+- **Code:** `lib/app/widgets/settings/settings_tile.dart`
+
+### SET-09 A form is one card with its save at the end
+- **Rule:** A form's fields and its `FilledButton` save sit in one
+  `SettingsGroupContent` card, the save at the card's bottom end. Reset
+  and clear actions are `SettingsActionTile` rows in a group under it.
+  "Optional" is a field's helper text, never part of its label.
+- **Why:** User decision: loose fields and buttons on the page surface
+  did not read as one form. A long label was cut at narrow widths.
+- **Check:** `test/translation_credentials_page_test.dart`
+- **Code:** `lib/features/settings/pages/translation_credentials_page.dart`, `lib/features/settings/network_settings_page.dart`
 
 ### SET-03 Hand-written ListTiles only for content rows
 - **Rule:** A hand-written `ListTile` is allowed only for data entries
@@ -86,8 +108,9 @@ reviewed: 2026-10-17
 - **Rule:** The Me root is the account row, then three equal cards
   (bookmarks, following, download tasks with an active-task badge), rows
   of four plain entries (watchlist, history, watch later, local novels,
-  then each destination the user took off the bottom bar) that go two to
-  a row when narrow, then every settings page as a
+  then each destination the user took off the bottom bar) in one card
+  whose edges meet the three, two to a row when narrow, then every
+  settings page as a
   `SettingsTile` in one always-listed group headed by a search button,
   and under it `DeveloperSettingsGroup` (frame probe) when unlocked.
 - **Why:** User decision after comparing with Shaft: three cards, no

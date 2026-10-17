@@ -216,7 +216,11 @@ class _SpotlightBlockViewState extends State<_SpotlightBlockView> {
       ),
       SpotlightImage(:final url, :final cover) => Padding(
         padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
-        child: _ArticleImage(url: cover ? widget.coverUrl ?? url : url),
+        // Rounded like the work images further down.
+        child: ClipRRect(
+          borderRadius: FuncShape.card,
+          child: _ArticleImage(url: cover ? widget.coverUrl ?? url : url),
+        ),
       ),
       final SpotlightIllustCard card => _SpotlightIllustCardView(card: card),
     };

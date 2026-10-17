@@ -1368,6 +1368,12 @@ abstract class AppLocalizations {
   /// **'账号显示设置'**
   String get serverDisplaySettings;
 
+  /// No description provided for @accountSignedIn.
+  ///
+  /// In zh, this message translates to:
+  /// **'已登录账号'**
+  String get accountSignedIn;
+
   /// No description provided for @serverDisplayHint.
   ///
   /// In zh, this message translates to:
@@ -1847,6 +1853,18 @@ abstract class AppLocalizations {
   /// **'页面转场'**
   String get motionPageTransition;
 
+  /// No description provided for @motionAnimation.
+  ///
+  /// In zh, this message translates to:
+  /// **'动画'**
+  String get motionAnimation;
+
+  /// No description provided for @motionHaptics.
+  ///
+  /// In zh, this message translates to:
+  /// **'触感'**
+  String get motionHaptics;
+
   /// No description provided for @pageTransitionStyleSystem.
   ///
   /// In zh, this message translates to:
@@ -1978,6 +1996,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'文件命名预设'**
   String get namingPreset;
+
+  /// No description provided for @downloadGroupTasks.
+  ///
+  /// In zh, this message translates to:
+  /// **'任务'**
+  String get downloadGroupTasks;
+
+  /// No description provided for @downloadGroupSaving.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get downloadGroupSaving;
 
   /// No description provided for @namingPresetId.
   ///
@@ -2222,8 +2252,14 @@ abstract class AppLocalizations {
   /// No description provided for @translateLlmModel.
   ///
   /// In zh, this message translates to:
-  /// **'模型名（可选）'**
+  /// **'模型名'**
   String get translateLlmModel;
+
+  /// No description provided for @translateLlmModelOptional.
+  ///
+  /// In zh, this message translates to:
+  /// **'可选'**
+  String get translateLlmModelOptional;
 
   /// No description provided for @translateCredentialsSave.
   ///
@@ -3346,6 +3382,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'底栏项目'**
   String get bottomBarItems;
+
+  /// No description provided for @navigationBottomBar.
+  ///
+  /// In zh, this message translates to:
+  /// **'底栏'**
+  String get navigationBottomBar;
+
+  /// No description provided for @navigationRanking.
+  ///
+  /// In zh, this message translates to:
+  /// **'排行分类'**
+  String get navigationRanking;
 
   /// Subtitle of the Me item in the bottom bar editor: it cannot be hidden because the settings are there
   ///

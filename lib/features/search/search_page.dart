@@ -928,19 +928,12 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
     return SearchBar(
       controller: _textController,
       focusNode: _focusNode,
-      // Flat, with the icon and text where [SearchFieldButton] draws them
-      // on the guide and the result page: the field reads as one across
-      // both pushes.
+      // The theme's flat field, sized like [SearchFieldButton] on the
+      // guide and the result page: the field reads as one across both
+      // pushes.
       constraints: const BoxConstraints(
         minHeight: SearchFieldButton.height,
         maxWidth: SearchFieldButton.maxWidth,
-      ),
-      elevation: const WidgetStatePropertyAll(0),
-      backgroundColor: WidgetStatePropertyAll(
-        Theme.of(context).colorScheme.surfaceContainerHigh,
-      ),
-      padding: const WidgetStatePropertyAll(
-        EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
       ),
       hintText: context.l10n.searchBarHint,
       leading: const Icon(Icons.search),

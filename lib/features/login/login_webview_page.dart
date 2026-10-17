@@ -342,7 +342,6 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     return Scaffold(
       appBar: AppTopBar(
         title: Text(widget.title),
-        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.close),

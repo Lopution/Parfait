@@ -700,6 +700,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get serverDisplaySettings => 'Account display settings';
 
   @override
+  String get accountSignedIn => 'Signed-in accounts';
+
+  @override
   String get serverDisplayHint =>
       'Stored by Pixiv; these flags shape what the API returns for this account.';
 
@@ -974,6 +977,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get motionPageTransition => 'Page transition';
 
   @override
+  String get motionAnimation => 'Animation';
+
+  @override
+  String get motionHaptics => 'Haptics';
+
+  @override
   String get pageTransitionStyleSystem => 'System default';
 
   @override
@@ -1044,6 +1053,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get namingPreset => 'File naming preset';
+
+  @override
+  String get downloadGroupTasks => 'Tasks';
+
+  @override
+  String get downloadGroupSaving => 'Saving';
 
   @override
   String get namingPresetId => 'Work ID (default)';
@@ -1173,7 +1188,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get translateLlmApiKey => 'API key';
 
   @override
-  String get translateLlmModel => 'Model (optional)';
+  String get translateLlmModel => 'Model';
+
+  @override
+  String get translateLlmModelOptional => 'Optional';
 
   @override
   String get translateCredentialsSave => 'Save to secure storage';
@@ -1797,6 +1815,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bottomBarItems => 'Bottom bar items';
+
+  @override
+  String get navigationBottomBar => 'Bottom bar';
+
+  @override
+  String get navigationRanking => 'Ranking categories';
 
   @override
   String get bottomBarMeLocked => 'Always shown: settings live here';

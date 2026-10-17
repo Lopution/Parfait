@@ -495,7 +495,7 @@ class _SettingsList extends StatelessWidget {
       ),
       children: [
         for (final page in _pages)
-          SettingsTile(
+          SettingsTile.topLevel(
             setting: page,
             icon: settingsPageIcons[page],
             onTap: () => openSettingsPage(context, page.path),

@@ -10,6 +10,7 @@ import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/settings/settings_action_tile.dart';
+import '../../app/widgets/settings/settings_anchor.dart';
 import '../../app/widgets/settings/settings_choice_tile.dart';
 import '../../app/widgets/settings/settings_group.dart';
 import '../../app/widgets/settings/settings_group_content.dart';
@@ -537,43 +538,41 @@ class _NetworkAdvancedSettingsPageState
               bottom: FuncSpacing.xl,
             ),
             children: [
+              // One card: Save commits both fields, so they share it.
               SettingsGroup(
                 children: [
                   SettingsGroupContent(
-                    setting: Setting.dohEndpoints,
-                    child: TextField(
-                      controller: _dohController,
-                      focusNode: _dohFocusNode,
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.networkDohEndpoints,
-                        helperText: context.l10n.networkDohEndpointsHint,
-                        helperMaxLines: 3,
-                      ),
-                      onChanged: (_) => setState(() => _dohDirty = true),
-                    ),
-                  ),
-                ],
-              ),
-              SettingsGroup(
-                children: [
-                  // One row: Save commits both fields and closes the
-                  // block.
-                  SettingsGroupContent(
-                    setting: Setting.echFrontHost,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        TextField(
-                          controller: _echHostController,
-                          focusNode: _echHostFocusNode,
-                          decoration: InputDecoration(
-                            labelText: context.l10n.networkEchFrontHost,
-                            helperText: context.l10n.networkEchFrontHostHint,
-                            helperMaxLines: 5,
+                        anchorSettingsRow(
+                          Setting.dohEndpoints,
+                          TextField(
+                            controller: _dohController,
+                            focusNode: _dohFocusNode,
+                            maxLines: 2,
+                            decoration: InputDecoration(
+                              labelText: context.l10n.networkDohEndpoints,
+                              helperText: context.l10n.networkDohEndpointsHint,
+                              helperMaxLines: 3,
+                            ),
+                            onChanged: (_) => setState(() => _dohDirty = true),
                           ),
-                          onChanged: (_) =>
-                              setState(() => _echHostDirty = true),
+                        ),
+                        const SizedBox(height: FuncSpacing.md),
+                        anchorSettingsRow(
+                          Setting.echFrontHost,
+                          TextField(
+                            controller: _echHostController,
+                            focusNode: _echHostFocusNode,
+                            decoration: InputDecoration(
+                              labelText: context.l10n.networkEchFrontHost,
+                              helperText: context.l10n.networkEchFrontHostHint,
+                              helperMaxLines: 5,
+                            ),
+                            onChanged: (_) =>
+                                setState(() => _echHostDirty = true),
+                          ),
                         ),
                         const SizedBox(height: FuncSpacing.md),
                         FilledButton(

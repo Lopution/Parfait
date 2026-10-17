@@ -62,14 +62,15 @@ class MotionSettingsPage extends ConsumerWidget {
               ],
             ),
             SettingsGroup(
-              footer: Text(
-                settings.reduceMotion
-                    ? context.l10n.animationSpeedReduceHint
-                    : context.l10n.animationSpeedHint,
-              ),
+              title: Text(context.l10n.motionAnimation),
               children: [
                 SettingsMenuTile<AnimationSpeed>(
                   setting: Setting.animationSpeed,
+                  subtitle: Text(
+                    settings.reduceMotion
+                        ? context.l10n.animationSpeedReduceHint
+                        : context.l10n.animationSpeedHint,
+                  ),
                   value: settings.animationSpeed,
                   options: [
                     for (final speed in AnimationSpeed.values)
@@ -80,7 +81,7 @@ class MotionSettingsPage extends ConsumerWidget {
                   ],
                   // Greyed out while reduce motion is on: the gate
                   // collapses every animation to zero, so the speed
-                  // has nothing to drive (footnote explains why).
+                  // has nothing to drive (the subtitle says why).
                   onChanged: settings.reduceMotion
                       ? null
                       : (speed) => persistSettings(
@@ -90,10 +91,6 @@ class MotionSettingsPage extends ConsumerWidget {
                               .setAnimationSpeed(speed),
                         ),
                 ),
-              ],
-            ),
-            SettingsGroup(
-              children: [
                 SettingsControl(
                   setting: Setting.reduceMotion,
                   subtitle: Text(context.l10n.reduceMotionHint),
@@ -128,8 +125,8 @@ class MotionSettingsPage extends ConsumerWidget {
   }
 }
 
-/// Strength picker with a device-capability footer. Picking a level plays
-/// it at once, so the user feels the choice before leaving the page.
+/// Strength picker with the device's capability under it. Picking a level
+/// plays it at once, so the user feels the choice before leaving the page.
 class _HapticStrengthGroup extends ConsumerWidget {
   const _HapticStrengthGroup({required this.selected});
 
@@ -140,19 +137,20 @@ class _HapticStrengthGroup extends ConsumerWidget {
     final l10n = context.l10n;
     final capability = ref.watch(hapticsCapabilityProvider);
     return SettingsGroup(
-      footer: switch (capability) {
-        AsyncData(:final value) => Text(
-          [
-            _hapticTierText(context, value.tier),
-            if (value.systemOff) l10n.hapticSystemOff,
-          ].join('\n'),
-        ),
-        AsyncError() => Text(l10n.hapticTierUnknown),
-        _ => null,
-      },
+      title: Text(l10n.motionHaptics),
       children: [
         SettingsMenuTile<HapticStrength>(
           setting: Setting.hapticStrength,
+          subtitle: switch (capability) {
+            AsyncData(:final value) => Text(
+              [
+                _hapticTierText(context, value.tier),
+                if (value.systemOff) l10n.hapticSystemOff,
+              ].join('\n'),
+            ),
+            AsyncError() => Text(l10n.hapticTierUnknown),
+            _ => null,
+          },
           value: selected,
           options: [
             for (final strength in HapticStrength.values)

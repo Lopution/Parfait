@@ -40,10 +40,10 @@ Widget _app(TranslationCredentialStore store, {bool baidu = true}) {
   );
 }
 
-/// The clear action is confirm-gated: page button → dialog → filled
+/// The clear action is confirm-gated: page row → dialog → filled
 /// "Clear credentials" button. [confirm]=false exercises the cancel branch.
 Future<void> _tapClear(WidgetTester tester, {bool confirm = true}) async {
-  await tester.tap(find.widgetWithText(OutlinedButton, 'Clear credentials'));
+  await tester.tap(find.widgetWithText(ListTile, 'Clear credentials'));
   await tester.pump();
   await tester.pump();
   if (confirm) {
