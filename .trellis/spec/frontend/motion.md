@@ -7,6 +7,7 @@ applies_to:
   - lib/core/platform/app_root_pipeline_owner.dart
   - lib/app/navigation/route_animation.dart
   - lib/app/layout/sliver_width_builder.dart
+  - lib/app/startup_gate.dart
 reviewed: 2026-10-17
 ---
 
@@ -184,16 +185,33 @@ reviewed: 2026-10-17
 - **Rule:** The root pipeline owner pushes semantics at most once per
   `kSemanticsPushInterval` (100 ms, Android's interval for recurring
   accessibility events). A frame inside the interval skips the flush and a
-  timer requests the frame that sends the last change. Tests that read
-  semantics right after an interaction keep the default test binding; only
-  the throttle's own test installs this owner.
+  timer requests the frame that sends the last change. Route transitions
+  and home branch switches hold the push (`holdSemantics`) until an
+  interval after the last one ends; a hold gives way after
+  `kSemanticsHoldLimit` (2 s). Tests that read semantics right after an
+  interaction keep the default test binding; only the throttle's own test
+  installs this owner.
 - **Why:** Flutter pushed every changed node each frame, and the embedding
   sent two accessibility events per push. With a service on, a scrolling
   feed spent about 2 ms of each frame there and missed about one frame in
   every two seconds of fling; a native client pulls nodes on demand and
-  throttles its events.
+  throttles its events. A transition pushed the new page's tree during
+  its first frames, up to 11.6 ms of one.
 - **Check:** `test/semantics_push_throttle_test.dart`
-- **Code:** `lib/core/platform/app_root_pipeline_owner.dart`
+- **Code:** `lib/core/platform/app_root_pipeline_owner.dart`, `lib/app/motion/page_transitions.dart`, `lib/app/widgets/home_branch_stack.dart`
+
+### MOTION-17 GPU pipelines a first use would compile are warmed at start
+- **Rule:** `PipelineWarmup` paints, in the app's first frames, what
+  compiles a pipeline on first use: the Hero flight's clipped and
+  transformed image, and under an `InkSparkle` theme the ripple shader,
+  drawn transparent inside a rounded clip as a ripple draws it. It keeps
+  the shader's program for the process, so `InkSparkle` gets the same
+  one. The content stays its first child throughout.
+- **Why:** The first back flight dropped frames, and the first tap spent
+  16 ms of a raster frame compiling the ripple. Unwrapping the content
+  when the warm-up ended remounted the app.
+- **Check:** `test/startup_gate_test.dart` "the warm-up draws the ripple and keeps the app mounted"
+- **Code:** `lib/app/startup_gate.dart`
 
 ### MOTION-15 Width-dependent slivers rebuild only on a width change
 - **Rule:** A sliver built from its width uses `SliverWidthBuilder`, never

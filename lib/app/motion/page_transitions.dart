@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../../core/debug/frame_probe.dart';
+import '../../core/platform/app_root_pipeline_owner.dart';
 import 'motion_tokens.dart';
 
 /// Transition-window guard shared by every route transition: wraps the route
@@ -127,6 +128,9 @@ class _RoutePopSnapshotState extends State<RoutePopSnapshot> {
   /// are counted as live scenes.
   bool _probedTransition = false;
   bool _probedSnapshot = false;
+
+  /// Releases this page's semantics hold while it transitions.
+  VoidCallback? _releaseSemantics;
   String _routeLabel = '';
 
   /// Whether this page is being covered by a route pushing on top of it.
@@ -196,6 +200,7 @@ class _RoutePopSnapshotState extends State<RoutePopSnapshot> {
     widget.secondaryAnimation.removeStatusListener(_sync);
     _pressSettleTimer?.cancel();
     _probeTransition(false);
+    _holdSemantics(false);
     _probeSnapshot(false);
     _controller.dispose();
     super.dispose();
@@ -218,6 +223,7 @@ class _RoutePopSnapshotState extends State<RoutePopSnapshot> {
 
   void _sync([AnimationStatus? _]) {
     _probeTransition(_animating);
+    _holdSemantics(_animating);
     _updatePressWindow();
     if (!_wantsSnapshot) {
       _captureScheduled = false;
@@ -259,6 +265,16 @@ class _RoutePopSnapshotState extends State<RoutePopSnapshot> {
       probe
         ..exit('transition')
         ..mark('transition $_routeLabel end');
+    }
+  }
+
+  void _holdSemantics(bool active) {
+    if (active == (_releaseSemantics != null)) return;
+    if (active) {
+      _releaseSemantics = AppRootPipelineOwner.holdSemantics();
+    } else {
+      _releaseSemantics!();
+      _releaseSemantics = null;
     }
   }
 

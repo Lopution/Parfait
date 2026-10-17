@@ -179,8 +179,13 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   /// viewer usable in ProviderScope-less harnesses, where no entity can
   /// ever arrive).
   void _ensureDownloadListener() {
-    _downloadEvents ??= ref.read(downloadManagerProvider).events.listen((_) {
-      if (mounted) setState(() {});
+    // Only this work's, as on the detail page.
+    _downloadEvents ??= ref.read(downloadManagerProvider).events.listen((
+      event,
+    ) {
+      if (mounted && event.snapshot.illustId == widget.entity?.id) {
+        setState(() {});
+      }
     });
   }
 
