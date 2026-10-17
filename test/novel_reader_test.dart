@@ -215,6 +215,45 @@ void main() {
     expect(handle.currentPage?.call(), 0);
   });
 
+  testWidgets('the pages beside the page on screen are built at rest', (
+    tester,
+  ) async {
+    final handle = NovelReaderHandle();
+    await tester.pumpWidget(
+      localizedApp(
+        home: Scaffold(
+          body: NovelReader(
+            novel: _novel([for (var i = 0; i < 1200; i++) 'w$i'].join(' ')),
+            handle: handle,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final pages = handle.layout!()!.pages;
+    expect(pages.length, greaterThan(3));
+    Finder firstLine(int page) => find.text(
+      pages[page].lines.firstWhere((line) => line.text.isNotEmpty).text,
+      skipOffstage: false,
+    );
+    expect(firstLine(1), findsOneWidget);
+    expect(firstLine(2), findsNothing);
+
+    // Mid-swipe nothing new is built; the page after waits for the landing.
+    final swipe = await tester.startGesture(const Offset(600, 300));
+    await swipe.moveBy(const Offset(-40, 0));
+    await tester.pump();
+    await swipe.moveBy(const Offset(-460, 0));
+    await tester.pump();
+    expect(firstLine(2), findsNothing);
+    await swipe.up();
+    await tester.pumpAndSettle();
+    expect(handle.currentPage?.call(), 1);
+    expect(firstLine(0), findsOneWidget);
+    expect(firstLine(2), findsOneWidget);
+  });
+
   testWidgets('goToPage(animate:false) lands in a single frame', (
     tester,
   ) async {

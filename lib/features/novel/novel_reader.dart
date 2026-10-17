@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/network/api_error.dart';
@@ -240,6 +241,12 @@ class NovelReaderHandle {
   NovelLayout? Function()? layout;
 }
 
+/// One pixel past each edge of the page on screen: the pages beside it are
+/// built while the reader rests, and the page after them enters only on
+/// the frame a turn lands. A page's lines cost about 6 ms of text layout,
+/// which the first frame of every swipe used to pay.
+const _neighbourPages = ScrollCacheExtent.pixels(1);
+
 /// Horizontal, non-scrolling body reader with a cancellable relayout path.
 class NovelReader extends StatefulWidget {
   const NovelReader({
@@ -453,6 +460,8 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
           child: PageView.builder(
             controller: _pageController,
             scrollDirection: Axis.horizontal,
+            allowImplicitScrolling: true,
+            scrollCacheExtent: _neighbourPages,
             itemCount: layout.pages.length,
             onPageChanged: (page) {
               // Nothing built reads the page: a rebuild here, mid-swipe,
