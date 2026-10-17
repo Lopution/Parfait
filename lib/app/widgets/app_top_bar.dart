@@ -39,6 +39,8 @@ class AppTopBar extends StatefulWidget implements PreferredSizeWidget {
   final PreferredSizeWidget? bottom;
 
   /// Null keeps the themed page colour; the selection bar sets its own.
+  /// A change of colour is a change of mode (entering or leaving
+  /// selection): the bar cross-fades into the new one.
   final Color? backgroundColor;
 
   /// Which scroll notifications count; tab bodies one level down pass
@@ -124,10 +126,16 @@ class _AppTopBarState extends State<AppTopBar> {
             builder: (context, value, _) =>
                 _buildBar(context, value.clamp(0.0, 1.0).toDouble()),
           );
+    final switched = AnimatedSwitcher(
+      duration: MotionTokens.resolve(context, MotionTokens.chrome),
+      switchInCurve: MotionTokens.chromeCurve,
+      switchOutCurve: MotionTokens.chromeCurve,
+      child: KeyedSubtree(key: ValueKey(widget.backgroundColor), child: bar),
+    );
     final entrance = widget.entrance;
     return entrance == null
-        ? bar
-        : FadeTransition(opacity: entrance, child: bar);
+        ? switched
+        : FadeTransition(opacity: entrance, child: switched);
   }
 
   /// [drawn] is the bar's presence: 1 the normal bar, 0 fully immersed.

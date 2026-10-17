@@ -9,6 +9,7 @@ import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/inline_translation.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/motion_tokens.dart';
+import '../../app/motion/reveal.dart';
 import '../../app/motion/state_fade.dart';
 import '../../app/format/app_format.dart';
 import '../../app/navigation/routes.dart';
@@ -563,23 +564,29 @@ class _UserPageState extends ConsumerState<UserPage>
         selectedTab == _ProfileTab.illust || selectedTab == _ProfileTab.manga;
     return Column(
       children: [
-        if (staleError != null && _staleBannerVisible)
-          MaterialBanner(
-            content: Text(context.l10n.profileLoadFailed),
-            actions: [
-              TextButton(
-                key: const ValueKey('profile-stale-error-retry'),
-                onPressed: _reloadProfile,
-                child: Text(context.l10n.profileRetry),
-              ),
-              IconButton(
-                key: const ValueKey('profile-stale-error-dismiss'),
-                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                onPressed: () => setState(() => _staleBannerVisible = false),
-                icon: const Icon(Icons.close),
-              ),
-            ],
-          ),
+        Reveal(
+          child: staleError == null || !_staleBannerVisible
+              ? null
+              : MaterialBanner(
+                  content: Text(context.l10n.profileLoadFailed),
+                  actions: [
+                    TextButton(
+                      key: const ValueKey('profile-stale-error-retry'),
+                      onPressed: _reloadProfile,
+                      child: Text(context.l10n.profileRetry),
+                    ),
+                    IconButton(
+                      key: const ValueKey('profile-stale-error-dismiss'),
+                      tooltip: MaterialLocalizations.of(
+                        context,
+                      ).closeButtonTooltip,
+                      onPressed: () =>
+                          setState(() => _staleBannerVisible = false),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+        ),
         Expanded(
           child: NestedScrollView(
             key: const ValueKey('profile-nested-scroll'),

@@ -10,6 +10,7 @@ import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/app/motion/removal.dart';
+import 'package:parfait/app/motion/reveal.dart';
 import 'package:parfait/app/motion/spring_size.dart';
 import 'package:parfait/app/motion/state_fade.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
@@ -735,6 +736,48 @@ void main() {
       await tester.pumpWidget(section(true, reduce: true));
       await tester.pump();
       expect(tester.getTopLeft(find.text('below')).dy, closedTop + 100);
+    });
+  });
+
+  group('Reveal', () {
+    Widget note(bool shown, {bool reduce = false}) =>
+        _wrap(Reveal(child: shown ? const Text('note') : null), reduce: reduce);
+
+    double opacity(WidgetTester tester) => tester
+        .widget<FadeTransition>(
+          find.descendant(
+            of: find.byType(Reveal),
+            matching: find.byType(FadeTransition),
+          ),
+        )
+        .opacity
+        .value;
+
+    testWidgets('fades in, and fades out before the block leaves', (
+      tester,
+    ) async {
+      await tester.pumpWidget(note(false));
+      expect(find.text('note'), findsNothing);
+
+      await tester.pumpWidget(note(true));
+      await tester.pump(const Duration(milliseconds: 30));
+      expect(opacity(tester), inExclusiveRange(0, 1));
+      await tester.pumpAndSettle();
+      expect(opacity(tester), 1);
+
+      await tester.pumpWidget(note(false));
+      await tester.pump(const Duration(milliseconds: 30));
+      expect(opacity(tester), inExclusiveRange(0, 1));
+      // Its callbacks are stale: a leaving block takes no taps.
+      expect(find.text('note').hitTestable(), findsNothing);
+      await tester.pumpAndSettle();
+      expect(find.text('note'), findsNothing);
+    });
+
+    testWidgets('reduced motion hides at once', (tester) async {
+      await tester.pumpWidget(note(true, reduce: true));
+      await tester.pumpWidget(note(false, reduce: true));
+      expect(find.text('note'), findsNothing);
     });
   });
 

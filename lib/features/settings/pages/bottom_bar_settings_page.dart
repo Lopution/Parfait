@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/haptics/app_haptics.dart';
+import '../../../app/motion/reveal.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/func_bottom_nav.dart';
@@ -96,27 +97,31 @@ class _BottomBarEditorState extends ConsumerState<_BottomBarEditor> {
             ),
             children: const [],
           ),
-          if (draft.hidden.isNotEmpty)
-            SettingsGroup(
-              title: Text(l10n.arrangementHidden),
-              children: [
-                for (final destination in draft.hidden)
-                  Row(
+          Reveal(
+            child: draft.hidden.isEmpty
+                ? null
+                : SettingsGroup(
+                    title: Text(l10n.arrangementHidden),
                     children: [
-                      Expanded(
-                        child: _DestinationSwitch(
-                          destination: destination,
-                          shown: false,
-                          onChanged: (_) => _save(draft.show(destination)),
+                      for (final destination in draft.hidden)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _DestinationSwitch(
+                                destination: destination,
+                                shown: false,
+                                onChanged: (_) =>
+                                    _save(draft.show(destination)),
+                              ),
+                            ),
+                            // Where a handle sits on the bar, so both columns of
+                            // switches line up.
+                            const SizedBox(width: _ShownRow.handleExtent),
+                          ],
                         ),
-                      ),
-                      // Where a handle sits on the bar, so both columns of
-                      // switches line up.
-                      const SizedBox(width: _ShownRow.handleExtent),
                     ],
                   ),
-              ],
-            ),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.md),
             child: Align(

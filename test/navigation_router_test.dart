@@ -620,7 +620,7 @@ void main() {
 
       expect(tile(HomeDestination.me).onChanged, isNull, reason: 'locked');
       await tester.tap(row(HomeDestination.ranking));
-      await tester.pump();
+      await settle(tester);
       expect(resolveHomeArrangement(repository.value.homeArrangement).shown, [
         HomeDestination.newWorks,
         HomeDestination.me,
@@ -635,7 +635,7 @@ void main() {
       );
 
       await tester.tap(find.byIcon(Icons.restart_alt));
-      await tester.pump();
+      await settle(tester);
       expect(repository.value.homeArrangement, isNull);
       expect(tile(HomeDestination.recommended).value, isTrue);
     });

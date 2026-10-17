@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/motion/app_overlays.dart';
+import '../../app/motion/reveal.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_button.dart';
@@ -322,15 +323,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (_help) ...[
-          Text(
-            text('networkCompatibilityHint'),
-            style: FuncSemanticTokens.of(context).body.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: FuncSpacing.md),
-        ],
+        Reveal(
+          child: _help
+              ? Padding(
+                  padding: const EdgeInsets.only(bottom: FuncSpacing.md),
+                  child: Text(
+                    text('networkCompatibilityHint'),
+                    style: FuncSemanticTokens.of(context).body.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              : null,
+        ),
         // Clipboard import is an action (idle/busy/success/error): while
         // busy the button is disabled and its label carries a small
         // progress indicator — ReplicaButton has no loading variant, so

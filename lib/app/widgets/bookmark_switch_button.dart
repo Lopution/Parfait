@@ -16,6 +16,7 @@ import '../layout/app_breakpoints.dart';
 import '../layout/content_widths.dart';
 import '../motion/app_overlays.dart';
 import '../motion/motion_tokens.dart';
+import '../motion/reveal.dart';
 import '../motion/spring_pop.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
@@ -711,33 +712,37 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                     ),
                   ),
                   const SizedBox(height: FuncSpacing.lg),
-                  if (_submitError != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        FuncSpacing.xl,
-                        0,
-                        FuncSpacing.xl,
-                        FuncSpacing.md,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.errorWithReason(
-                              l10n.bookmarkOperationFailed,
-                              errorCategoryText(
-                                context,
-                                categorizeError(_submitError!),
+                  Reveal(
+                    child: switch (_submitError) {
+                      null => null,
+                      final error => Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          FuncSpacing.xl,
+                          0,
+                          FuncSpacing.xl,
+                          FuncSpacing.md,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l10n.errorWithReason(
+                                l10n.bookmarkOperationFailed,
+                                errorCategoryText(
+                                  context,
+                                  categorizeError(error),
+                                ),
                               ),
+                              style: FuncSemanticTokens.of(
+                                context,
+                              ).caption.copyWith(color: colorScheme.error),
                             ),
-                            style: FuncSemanticTokens.of(
-                              context,
-                            ).caption.copyWith(color: colorScheme.error),
-                          ),
-                          ErrorDetails(error: _submitError!),
-                        ],
+                            ErrorDetails(error: error),
+                          ],
+                        ),
                       ),
-                    ),
+                    },
+                  ),
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: FuncSpacing.xl,

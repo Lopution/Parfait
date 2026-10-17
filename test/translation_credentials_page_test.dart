@@ -95,13 +95,13 @@ void main() {
       expect(_fieldText(tester, 0), 'typed-app-id');
       expect(_fieldText(tester, 1), 'typed-secret');
 
-      final status = tester.widget<Text>(
-        find.text('Secure storage operation failed'),
-      );
+      // The error colour is the icon's (THEME-08).
+      expect(find.text('Secure storage operation failed'), findsOneWidget);
+      final icon = tester.widget<Icon>(find.byIcon(Icons.error_outline));
       final scheme = Theme.of(
-        tester.element(find.text('Secure storage operation failed')),
+        tester.element(find.byIcon(Icons.error_outline)),
       ).colorScheme;
-      expect(status.style?.color, scheme.error);
+      expect(icon.color, scheme.error);
     },
   );
 

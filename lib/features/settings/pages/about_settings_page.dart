@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../app/motion/app_overlays.dart';
+import '../../../app/motion/reveal.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/app_top_bar.dart';
@@ -330,9 +331,16 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
                 : statusText ?? '',
           ),
         ),
-        if (_checking || _applying)
-          const SettingsGroupContent(child: LinearProgressIndicator()),
-        if (applyText != null) SettingsGroupContent(child: Text(applyText)),
+        Reveal(
+          child: _checking || _applying
+              ? const SettingsGroupContent(child: LinearProgressIndicator())
+              : null,
+        ),
+        Reveal(
+          child: applyText == null
+              ? null
+              : SettingsGroupContent(child: Text(applyText)),
+        ),
         SettingsGroupContent(
           child: FilledButton.icon(
             onPressed: _checking

@@ -314,8 +314,9 @@ void main() {
         matching: find.byIcon(Icons.error_outline),
       );
       expect(pageError, findsOneWidget);
-      // The selection mode brings its own download; the bar steps aside.
-      expect(find.byType(DetailActionBar), findsNothing);
+      // The selection mode brings its own download; the bar slides away.
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(DetailActionBar).hitTestable(), findsNothing);
 
       await mockNetworkImagesFor(() async {
         await tester.tap(pageError);
