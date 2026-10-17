@@ -2336,6 +2336,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get detailSectionCaption => 'Description';
 
   @override
+  String detailPageCount(int count) {
+    return '$count pages';
+  }
+
+  @override
+  String get copyArtworkId => 'Copy artwork ID';
+
+  @override
+  String get artworkIdCopied => 'Artwork ID copied';
+
+  @override
   String get detailSectionTags => 'Tags';
 
   @override

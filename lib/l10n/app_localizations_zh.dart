@@ -2238,6 +2238,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get detailSectionCaption => '简介';
 
   @override
+  String detailPageCount(int count) {
+    return '$count 页';
+  }
+
+  @override
+  String get copyArtworkId => '复制作品 ID';
+
+  @override
+  String get artworkIdCopied => '已复制作品 ID';
+
+  @override
   String get detailSectionTags => '标签';
 
   @override

@@ -2337,6 +2337,17 @@ class AppLocalizationsRu extends AppLocalizations {
   String get detailSectionCaption => 'Описание';
 
   @override
+  String detailPageCount(int count) {
+    return '$count стр.';
+  }
+
+  @override
+  String get copyArtworkId => 'Копировать ID работы';
+
+  @override
+  String get artworkIdCopied => 'ID работы скопирован';
+
+  @override
   String get detailSectionTags => 'Теги';
 
   @override

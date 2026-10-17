@@ -932,6 +932,16 @@
   "detailStatViews": "Просмотры",
   "detailStatBookmarks": "Закладки",
   "detailSectionCaption": "Описание",
+  "detailPageCount": "{count} стр.",
+  "@detailPageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "copyArtworkId": "Копировать ID работы",
+  "artworkIdCopied": "ID работы скопирован",
   "detailSectionTags": "Теги",
   "detailViewAll": "Все",
   "detailSectionAuthorWorks": "Другие работы автора",

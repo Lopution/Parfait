@@ -932,6 +932,16 @@
   "detailStatViews": "閲覧",
   "detailStatBookmarks": "ブックマーク",
   "detailSectionCaption": "キャプション",
+  "detailPageCount": "{count}ページ",
+  "@detailPageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "copyArtworkId": "作品IDをコピー",
+  "artworkIdCopied": "作品IDをコピーしました",
   "detailSectionTags": "タグ",
   "detailViewAll": "すべて見る",
   "detailSectionAuthorWorks": "この作者の他の作品",

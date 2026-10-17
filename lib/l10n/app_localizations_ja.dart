@@ -2267,6 +2267,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get detailSectionCaption => 'キャプション';
 
   @override
+  String detailPageCount(int count) {
+    return '$countページ';
+  }
+
+  @override
+  String get copyArtworkId => '作品IDをコピー';
+
+  @override
+  String get artworkIdCopied => '作品IDをコピーしました';
+
+  @override
   String get detailSectionTags => 'タグ';
 
   @override

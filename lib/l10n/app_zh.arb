@@ -1240,6 +1240,23 @@
   "@detailSectionCaption": {
     "description": "Section heading over the artwork caption."
   },
+  "detailPageCount": "{count} 页",
+  "@detailPageCount": {
+    "description": "Page count in the metadata line under an artwork title; shown for two or more pages.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "copyArtworkId": "复制作品 ID",
+  "@copyArtworkId": {
+    "description": "Tooltip of the artwork ID in the detail metadata line; a tap copies the ID."
+  },
+  "artworkIdCopied": "已复制作品 ID",
+  "@artworkIdCopied": {
+    "description": "Snack bar after the artwork ID was copied."
+  },
   "detailSectionTags": "标签",
   "@detailSectionTags": {
     "description": "Section heading over the artwork tags."

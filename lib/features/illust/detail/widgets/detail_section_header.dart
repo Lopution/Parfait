@@ -1,30 +1,37 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../app/theme/func_semantic_tokens.dart';
+import '../../../../app/widgets/edge_icon_buttons.dart';
 
 /// A detail-page section's title, marked as a heading for screen readers,
-/// with an optional trailing action ("See all"). Indented like the info
-/// block above it.
+/// with an optional trailing action: a text button ("See all") from
+/// [actionLabel], or an icon button as [action]. Every section of the page
+/// — inside the info block or below it — starts with one, so headings sit
+/// at one distance from what is above and below them.
 class DetailSectionHeader extends StatelessWidget {
   const DetailSectionHeader({
     super.key,
     required this.title,
     this.actionLabel,
     this.onAction,
-  });
+    this.action,
+  }) : assert(actionLabel == null || action == null);
 
   final String title;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
     final actionLabel = this.actionLabel;
     return Padding(
+      // The action's label or glyph, not its target, ends on the margin
+      // (LAYOUT-15): a text button and an icon button both pad 12dp.
       padding: const EdgeInsetsDirectional.fromSTEB(
         FuncSpacing.xl,
         FuncSpacing.xl,
-        FuncSpacing.md,
+        FuncSpacing.xl - EdgeIconButtons.glyphInset,
         FuncSpacing.xs,
       ),
       child: ConstrainedBox(
@@ -43,7 +50,16 @@ class DetailSectionHeader extends StatelessWidget {
               ),
             ),
             if (actionLabel != null)
-              TextButton(onPressed: onAction, child: Text(actionLabel)),
+              TextButton(
+                // Narrower than the default 64dp: a short label would
+                // centre away from the margin.
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(kMinInteractiveDimension, 40),
+                ),
+                onPressed: onAction,
+                child: Text(actionLabel),
+              ),
+            ?action,
           ],
         ),
       ),
