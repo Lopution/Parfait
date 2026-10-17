@@ -914,7 +914,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get mutedEmpty => 'Ничего не заглушено';
 
   @override
-  String muteEmptyHint(String action) {
+  String cardMenuHint(String action) {
     return 'Нажмите и удерживайте карточку работы и выберите «$action»';
   }
 
@@ -2779,7 +2779,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchLaterTitle => 'Посмотреть позже';
 
   @override
-  String get watchLaterEmpty => 'Отложенные работы появятся здесь';
+  String get watchLaterEmpty => 'В «Посмотреть позже» пока пусто';
 
   @override
   String get watchLaterLoadFailed => 'Не удалось загрузить «Посмотреть позже»';

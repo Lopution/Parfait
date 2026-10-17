@@ -4,7 +4,7 @@
   "welcome1": "感谢使用 Parfait",
   "welcome2": "下面将进行首次启动设置",
   "start": "开始",
-  "selectLanguage": "选择您的语言",
+  "selectLanguage": "选择你的语言",
   "next": "下一步",
   "dark": "深色",
   "light": "浅色",
@@ -362,9 +362,9 @@
   "mutedUsersSection": "屏蔽用户",
   "mutedWorksSection": "屏蔽作品",
   "mutedEmpty": "暂无屏蔽条目",
-  "muteEmptyHint": "长按作品卡片，选择「{action}」",
-  "@muteEmptyHint": {
-    "description": "Hint in an empty group of the muted items page: where this kind of mute is made. action is the card menu label (muteAuthor or muteWork).",
+  "cardMenuHint": "长按作品卡片，选择「{action}」",
+  "@cardMenuHint": {
+    "description": "Hint on an empty list: where its entries are made. action is the label of a work card menu action (muteAuthor, muteWork, cardActionWatchLater).",
     "placeholders": {
       "action": {
         "type": "String"
@@ -1456,7 +1456,7 @@
   "openLink": "打开链接",
   "watchLaterAdded": "已加入稍后再看",
   "watchLaterTitle": "稍后再看",
-  "watchLaterEmpty": "暂存的作品会显示在这里",
+  "watchLaterEmpty": "暂无稍后再看的作品",
   "watchLaterLoadFailed": "稍后再看加载失败",
   "bookmarkEditTitle": "编辑收藏",
   "bookmarkTags": "收藏标签",

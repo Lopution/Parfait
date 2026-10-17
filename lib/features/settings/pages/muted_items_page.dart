@@ -188,7 +188,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
                 title: Text(l10n.mutedUsersSection),
                 children: [
                   if (users.isEmpty)
-                    _EmptyHint(l10n.muteEmptyHint(l10n.muteAuthor)),
+                    _EmptyHint(l10n.cardMenuHint(l10n.muteAuthor)),
                   for (final user in users)
                     Removable(
                       id: MuteKey.user(user.userId),
@@ -224,7 +224,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
                 title: Text(l10n.mutedWorksSection),
                 children: [
                   if (works.isEmpty)
-                    _EmptyHint(l10n.muteEmptyHint(l10n.muteWork)),
+                    _EmptyHint(l10n.cardMenuHint(l10n.muteWork)),
                   for (final work in works)
                     Removable(
                       id: MuteKey.work(work.illustId),
