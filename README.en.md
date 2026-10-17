@@ -16,7 +16,7 @@
 > [!NOTE]
 > Parfait is an unofficial client and is not affiliated with pixiv Inc. All works belong to their creators.
 >
-> Parfait is in public beta (0.9.x). Bug reports are welcome in [Issues](https://github.com/Lopution/Parfait/issues).
+> Parfait is in public beta. Bug reports are welcome in [Issues](https://github.com/Lopution/Parfait/issues).
 
 Parfait is an unofficial pixiv client for Android. Browse, bookmark and download illustrations, manga and novels, with an interface in English, 日本語, Русский or 中文.
 
@@ -33,12 +33,12 @@ Parfait is written in Flutter with a Material Design 3 interface, using Riverpod
 <table align="center">
 <tr>
 <td align="center" valign="top"><img src=".github/readme/home.webp" width="200" alt="Recommended"><br><b>Recommended</b><br><sub>Illustrations, manga, novels and users</sub></td>
-<td align="center" valign="top"><img src=".github/readme/detail.webp" width="200" alt="Artwork"><br><b>Artwork</b><br><sub>Download, comment and bookmark in reach</sub></td>
+<td align="center" valign="top"><img src=".github/readme/detail.webp" width="200" alt="Artwork"><br><b>Artwork</b><br><sub>Download and bookmark in reach</sub></td>
 <td align="center" valign="top"><img src=".github/readme/search.webp" width="200" alt="Search"><br><b>Search</b><br><sub>Features, trending tags, reverse image search</sub></td>
 <td align="center" valign="top"><img src=".github/readme/profile.webp" width="200" alt="Artist"><br><b>Artist</b><br><sub>Works, bookmarks and follows</sub></td>
 </tr>
 <tr>
-<td align="center" valign="top"><img src=".github/readme/ranking.webp" width="200" alt="Rankings"><br><b>Rankings</b><br><sub>Daily, weekly and more, by date</sub><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="center" valign="top"><img src=".github/readme/ranking.webp" width="200" alt="Rankings"><br><b>Rankings</b><br><sub>33 categories, any past date</sub><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
 <td align="center" valign="top"><img src=".github/readme/novel.webp" width="200" alt="Novel reader"><br><b>Novel reader</b><br><sub>Font size, translation, reading progress</sub><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
 <td align="center" valign="top"><img src=".github/readme/viewer.webp" width="200" alt="Viewer"><br><b>Viewer</b><br><sub>Scrub through pages, save and share</sub><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
 <td align="center" valign="top"><img src=".github/readme/downloads.webp" width="200" alt="Downloads"><br><b>Downloads</b><br><sub>Multi-page works grouped, progress at a glance</sub><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
@@ -49,7 +49,8 @@ Parfait is written in Flutter with a Material Design 3 interface, using Riverpod
 
 **Browse and discover**
 
-- Recommendations and rankings for illustrations, manga and novels, plus pixivision features
+- Recommendations for illustrations, manga and novels, plus pixivision features
+- Rankings in 21 illustration and 12 novel categories, for any past date; reorder or hide categories
 - Search with sorting and filters (bookmark count, date, AI-generated works) and trending tags
 - Reverse image search to find a picture's source: SauceNAO, IQDB, ascii2d, TinEye
 - Ugoira playback, with saving as GIF
@@ -87,6 +88,8 @@ Parfait is written in Flutter with a Material Design 3 interface, using Riverpod
 - Multiple accounts; move your login to another device
 - Back up and import settings, mute lists and history
 - Light and dark themes, with colours from your wallpaper
+- Choose which pages sit in the bottom bar and which one opens at launch
+- Two-pane artwork pages on tablets, foldables and phones in landscape; right-click and Esc work with a mouse and keyboard
 
 ## Download
 

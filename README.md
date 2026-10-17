@@ -16,7 +16,7 @@
 > [!NOTE]
 > 本项目是非官方的第三方客户端，与 pixiv Inc. 无关。作品版权归各自的创作者所有。
 >
-> Parfait 目前处于公开测试阶段（0.9.x），欢迎通过 [Issues](https://github.com/Lopution/Parfait/issues) 反馈问题。
+> Parfait 目前处于公开测试阶段，欢迎通过 [Issues](https://github.com/Lopution/Parfait/issues) 反馈问题。
 
 Parfait 是 Android 上的 pixiv 第三方客户端，可以浏览、收藏和下载插画、漫画与小说。
 
@@ -33,12 +33,12 @@ Parfait 用 Flutter 编写，界面遵循 Material Design 3，状态管理和路
 <table align="center">
 <tr>
 <td align="center" valign="top"><img src=".github/readme/home.webp" width="200" alt="推荐"><br><b>推荐</b><br><sub>插画、漫画、<br>小说与用户推荐</sub></td>
-<td align="center" valign="top"><img src=".github/readme/detail.webp" width="200" alt="作品详情"><br><b>作品详情</b><br><sub>下载、评论、收藏随手可达</sub></td>
+<td align="center" valign="top"><img src=".github/readme/detail.webp" width="200" alt="作品详情"><br><b>作品详情</b><br><sub>下载和收藏随手可达</sub></td>
 <td align="center" valign="top"><img src=".github/readme/search.webp" width="200" alt="搜索"><br><b>搜索</b><br><sub>特辑、热门标签，<br>拍照反向搜图</sub></td>
 <td align="center" valign="top"><img src=".github/readme/profile.webp" width="200" alt="画师主页"><br><b>画师主页</b><br><sub>作品、收藏与关注一览</sub></td>
 </tr>
 <tr>
-<td align="center" valign="top"><img src=".github/readme/ranking.webp" width="200" alt="排行"><br><b>排行</b><br><sub>每日、每周等榜单，<br>可按日期回看</sub><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="center" valign="top"><img src=".github/readme/ranking.webp" width="200" alt="排行"><br><b>排行</b><br><sub>33 个分类，可按日期回看</sub><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
 <td align="center" valign="top"><img src=".github/readme/novel.webp" width="200" alt="小说阅读"><br><b>小说阅读</b><br><sub>字号可调，一键翻译，<br>显示阅读进度</sub><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
 <td align="center" valign="top"><img src=".github/readme/viewer.webp" width="200" alt="看图"><br><b>看图</b><br><sub>多页作品拖动跳页，<br>保存与分享</sub><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
 <td align="center" valign="top"><img src=".github/readme/downloads.webp" width="200" alt="下载任务"><br><b>下载任务</b><br><sub>多页作品自动分组，<br>进度一目了然</sub><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
@@ -49,7 +49,8 @@ Parfait 用 Flutter 编写，界面遵循 Material Design 3，状态管理和路
 
 **浏览与发现**
 
-- 插画、漫画、小说的推荐、排行与 pixivision 特辑
+- 插画、漫画、小说的推荐与 pixivision 特辑
+- 排行涵盖插画 21 个、小说 12 个分类，可按日期回看，分类可排序和隐藏
 - 搜索支持排序和筛选（收藏数、发布时间、AI 作品），查看热门标签
 - 反向搜图，查找图片出处：SauceNAO、IQDB、ascii2d、TinEye
 - 播放动图，并可保存为 GIF
@@ -87,6 +88,8 @@ Parfait 用 Flutter 编写，界面遵循 Material Design 3，状态管理和路
 - 多账号切换；可把登录状态迁移到另一台设备
 - 备份与导入设置、屏蔽列表和浏览历史
 - 中文、English、日本語、Русский 界面；浅色与深色主题，可跟随系统壁纸取色
+- 底栏放哪些页面、启动时打开哪一页都可以自己选
+- 平板、折叠屏和横屏手机上，作品详情分左右两栏；支持鼠标右键和键盘 Esc 返回
 
 ## 下载与安装
 
