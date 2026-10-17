@@ -79,3 +79,14 @@ reviewed: 2026-10-17
 - **Why:** Opening a novel overwrote the stored position with page 1.
 - **Check:** `test/novel_reader_stage_test.dart` "open and sheet toggles never write; a page turn writes once" "a stored record restores without being rewritten"
 - **Code:** `lib/features/novel/novel_reader_stage.dart`
+
+### NOVEL-08 The chrome and page turns leave the reader alone
+- **Rule:** The stage keeps one reader widget while the novel, settings,
+  initial anchor, text colour, translations and padding hold; the chrome,
+  the progress hint and the anchor rebuild around it. The reader does not
+  rebuild when the page changes: nothing it builds reads the page.
+- **Why:** A tap that showed the chrome took 25 ms, and every page turn
+  rebuilt the stage and the reader mid-swipe; each rebuild re-created
+  every line of the pages on screen.
+- **Check:** `test/novel_reader_stage_test.dart` "chrome and page turns keep the reader and its lines"
+- **Code:** `lib/features/novel/novel_reader_stage.dart`, `lib/features/novel/novel_reader.dart`

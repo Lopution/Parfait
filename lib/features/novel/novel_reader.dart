@@ -455,7 +455,9 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
             scrollDirection: Axis.horizontal,
             itemCount: layout.pages.length,
             onPageChanged: (page) {
-              setState(() => _reader.setPage(page));
+              // Nothing built reads the page: a rebuild here, mid-swipe,
+              // rebuilt every line of the pages on screen.
+              _reader.setPage(page);
               _notifyAnchor(
                 _layoutEchoPending
                     ? NovelAnchorCause.layoutEcho

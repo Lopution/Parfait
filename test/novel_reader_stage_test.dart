@@ -12,6 +12,7 @@ import 'package:parfait/core/settings/shared_preferences.dart';
 import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/novel/novel_layout.dart';
+import 'package:parfait/features/novel/novel_reader.dart';
 import 'package:parfait/features/novel/novel_reader_stage.dart';
 import 'package:parfait/app/widgets/prompt_host.dart';
 
@@ -145,6 +146,43 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
     await tester.pumpAndSettle();
     expect(binding.saves, hasLength(2));
+  });
+
+  testWidgets('chrome and page turns keep the reader and its lines', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_stageApp(_RecordingBinding()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    NovelReader reader() => tester.widget(find.byType(NovelReader));
+    Widget firstLine() => tester.widget(
+      find
+          .descendant(of: find.byType(PageView), matching: find.byType(Text))
+          .first,
+    );
+    final opened = reader();
+
+    // The chrome shows over the same lines.
+    final line = firstLine();
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.info_outline), findsOneWidget);
+    expect(firstLine(), same(line));
+    await tester.tapAt(const Offset(400, 300));
+    await tester.pumpAndSettle();
+
+    // A drag past the middle reports the next page; the page leaving
+    // keeps its lines.
+    final gesture = await tester.startGesture(const Offset(700, 300));
+    // The first move only claims the drag.
+    await gesture.moveBy(const Offset(-40, 0));
+    await gesture.moveBy(const Offset(-460, 0));
+    await tester.pump();
+    expect(find.textContaining('2/'), findsOneWidget);
+    expect(firstLine(), same(line));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(reader(), same(opened));
   });
 
   testWidgets('the current reader hides the shell rail', (tester) async {
