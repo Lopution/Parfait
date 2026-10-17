@@ -446,8 +446,8 @@ class _TranslationSummaryState extends ConsumerState<_TranslationSummary>
   }
 }
 
-/// Version string under the about entry, same source the about page uses —
-/// the platform package metadata, not a literal.
+/// Version string under the about entry, shown as the about page shows it:
+/// the platform package's version, without the build number.
 class _VersionSummary extends StatelessWidget {
   const _VersionSummary();
 
@@ -457,7 +457,7 @@ class _VersionSummary extends StatelessWidget {
       future: PackageInfo.fromPlatform(),
       builder: (context, snapshot) {
         final info = snapshot.data;
-        return Text(info == null ? '—' : '${info.version}+${info.buildNumber}');
+        return Text(info?.version ?? '—');
       },
     );
   }

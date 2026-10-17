@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:parfait/core/settings/shared_preferences.dart';
 import 'package:parfait/core/updater/update_providers.dart';
 import 'package:parfait/core/updater/update_service.dart';
@@ -43,6 +44,21 @@ void main() {
       expect(find.widgetWithText(FilledButton, '检查更新'), findsNothing);
     },
   );
+
+  testWidgets('About shows the version without the build number', (
+    tester,
+  ) async {
+    PackageInfo.setMockInitialValues(
+      appName: 'Parfait',
+      packageName: 'io.github.lopution.parfait',
+      version: '9.9.9',
+      buildNumber: '2001',
+      buildSignature: '',
+    );
+    await pumpAbout(tester);
+
+    expect(find.text('9.9.9'), findsOneWidget);
+  });
 
   testWidgets('seven version taps unlock developer options', (tester) async {
     final service = UpdateService(

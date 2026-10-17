@@ -94,14 +94,14 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
                 const ListTile(leading: _AppIcon(), title: Text('Parfait')),
                 // Version comes from the platform package, not a literal —
                 // the pubspec `version:` line is the single source of truth
-                // (R1).
+                // (R1). The build number is left out: it is the versionCode
+                // with the split APK's ABI offset (2001 for arm64 0.9.0),
+                // which means nothing to a reader.
                 FutureBuilder<PackageInfo>(
                   future: PackageInfo.fromPlatform(),
                   builder: (context, snapshot) {
                     final info = snapshot.data;
-                    final label = info == null
-                        ? '—'
-                        : '${info.version}+${info.buildNumber}';
+                    final label = info?.version ?? '—';
                     return Column(
                       children: [
                         SettingsActionTile(
