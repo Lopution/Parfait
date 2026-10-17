@@ -16,6 +16,7 @@ reviewed: 2026-10-17
 - [Locale layout matrix](#locale-layout-matrix)
 - [Boxes, headers and keyboards](#boxes-headers-and-keyboards)
 - [Semantics](#semantics)
+- [Edges](#edges)
 
 ## Text in every locale
 
@@ -156,3 +157,27 @@ reviewed: 2026-10-17
 - **Why:** Screen readers read each card two or three times.
 - **Check:** manual
 - **Code:** `lib/app/widgets/feed/illust_card.dart`
+
+## Edges
+
+### LAYOUT-14 One page, one margin
+- **Rule:** A page keeps one horizontal margin for its text, rows and
+  cards: 16dp on list, card and settings pages, 8dp around artwork grids.
+  A hint or overlay takes the margin of the content under it, and a
+  full-width button lines up with the cards above it.
+- **Why:** Pages mixed 12, 16 and 24dp, so the blocks of one page did not
+  line up and pages of one kind differed.
+- **Check:** manual
+- **Code:** `lib/app/theme/func_tokens.dart`
+
+### LAYOUT-15 An inline icon button's glyph sits on the content edge
+- **Rule:** At the end of a row, the last icon button's glyph, not its
+  48dp target, lines up with the text above and below. In a `ListTile`
+  wrap the buttons in `EdgeIconButtons`, which moves them into the tile's
+  end padding. A custom row ends its padding
+  `EdgeIconButtons.glyphInset` short of the margin instead, so the whole
+  target stays inside the row.
+- **Why:** A button ended 12dp inside the text edge. Moved past a parent's
+  bounds by a transform, the outer part of the target stopped taking taps.
+- **Check:** `test/user_profile_test.dart` "profile social links open, report failures, and copy"
+- **Code:** `lib/app/widgets/edge_icon_buttons.dart`, `lib/features/profile/user_page.dart`

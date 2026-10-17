@@ -1278,9 +1278,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('无法打开链接'), findsOneWidget);
 
+    // The glyph, not its target, ends on the page margin like the divider
+    // under the links, and the target past the glyph still takes the tap.
     final copyPawoo = find.byKey(const ValueKey('profile-link-copy-pawoo'));
     await tester.ensureVisible(copyPawoo);
-    await tester.tap(copyPawoo);
+    final copyGlyph = find.descendant(
+      of: copyPawoo,
+      matching: find.byType(Icon),
+    );
+    expect(
+      tester.getTopRight(copyGlyph).dx,
+      tester.getTopRight(find.byType(Divider)).dx,
+    );
+    await tester.tapAt(
+      tester.getRect(copyGlyph).centerRight + const Offset(8, 0),
+    );
     await tester.pumpAndSettle();
     expect(clipboardWrites, contains('https://pawoo.test/sample'));
   });

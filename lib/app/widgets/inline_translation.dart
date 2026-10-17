@@ -200,25 +200,32 @@ class _TranslationFailure extends StatelessWidget {
 
   final TranslationFailureKind kind;
 
+  static const _iconSize = 18.0;
+
   @override
   Widget build(BuildContext context) {
-    final text = Text(
-      translationFailureText(context, kind),
-      style: TextStyle(color: Theme.of(context).colorScheme.error),
-    );
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(top: FuncSpacing.xs),
-      child: translationNeedsSettings(kind)
-          ? Row(
-              children: [
-                Expanded(child: text),
-                TextButton(
-                  onPressed: () => openTranslationSettings(context),
-                  child: Text(context.l10n.translationOpenSettings),
-                ),
-              ],
-            )
-          : text,
+      child: Row(
+        children: [
+          // THEME-08: the status color is the icon's; the text stays
+          // neutral.
+          Icon(Icons.error_outline, size: _iconSize, color: scheme.error),
+          const SizedBox(width: FuncSpacing.sm),
+          Expanded(
+            child: Text(
+              translationFailureText(context, kind),
+              style: TextStyle(color: scheme.onSurfaceVariant),
+            ),
+          ),
+          if (translationNeedsSettings(kind))
+            TextButton(
+              onPressed: () => openTranslationSettings(context),
+              child: Text(context.l10n.translationOpenSettings),
+            ),
+        ],
+      ),
     );
   }
 }

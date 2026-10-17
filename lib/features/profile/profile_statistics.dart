@@ -38,6 +38,9 @@ class ProfileStatistic extends StatelessWidget {
       child: ExcludeSemantics(
         child: ListTile(
           dense: true,
+          // Icon and value sit on the content edges like the entries
+          // above.
+          contentPadding: EdgeInsets.zero,
           leading: Icon(statistic.icon, size: 18),
           title: Text(statistic.label),
           trailing: Text(AppFormat.count(context, statistic.value)),

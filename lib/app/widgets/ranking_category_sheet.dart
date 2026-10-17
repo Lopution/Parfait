@@ -134,10 +134,12 @@ class _RankingCategorySheetState<M extends RankingCategory>
     final theme = Theme.of(context);
     final page = _page;
     final header = Padding(
-      padding: const EdgeInsets.fromLTRB(
+      // The end meets the grid's edge: a tonal button's edge is its
+      // container, a text button's is its label, inset by the padding.
+      padding: EdgeInsets.fromLTRB(
         FuncSpacing.xl,
         FuncSpacing.lg,
-        FuncSpacing.md,
+        _editing ? FuncSpacing.xl : FuncSpacing.md,
         FuncSpacing.xs,
       ),
       child: Row(

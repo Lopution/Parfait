@@ -351,10 +351,15 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                 // paint and semantics tree. The chrome owns the interactive
                 // progress readout while it is visible; the hint returns when
                 // the reader is immersive again.
+                // It starts on the body text's edge.
                 if (_chromeHidden)
                   Positioned(
-                    left: 16,
-                    right: 16,
+                    left:
+                        _stableInsets.left +
+                        const NovelLayoutStyle().horizontalPadding,
+                    right:
+                        _stableInsets.right +
+                        const NovelLayoutStyle().horizontalPadding,
                     bottom: 4 + _stableInsets.bottom,
                     child: IgnorePointer(
                       child: Text(
@@ -505,52 +510,62 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
         // controls are padded below it.
         child: Padding(
           padding: _stableInsets.copyWith(bottom: 0),
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                // Imperative pop: the PopScope only intercepts the system
-                // back gesture (chrome-first); this control always leaves.
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.arrow_back),
-              ),
-              Expanded(
-                child: Text(
-                  novel.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleMedium?.copyWith(color: foreground),
+          // An AppBar's geometry: the back button in a toolbar-square
+          // slot, the title one middle spacing after it.
+          child: SizedBox(
+            height: kToolbarHeight,
+            child: NavigationToolbar(
+              centerMiddle: false,
+              leading: SizedBox(
+                width: kToolbarHeight,
+                child: IconButton(
+                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                  // Imperative pop: the PopScope only intercepts the system
+                  // back gesture (chrome-first); this control always leaves.
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back),
                 ),
               ),
-              ...widget.spec.topActions,
-              IconButton(
-                tooltip: bilingual
-                    ? context.l10n.translationHide
-                    : context.l10n.novelTranslatePage,
-                isSelected: bilingual,
-                onPressed: toggleBilingual,
-                icon: const Icon(Icons.translate),
-                selectedIcon: translatingPage
-                    ? SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: foreground,
-                        ),
-                      )
-                    : Icon(
-                        Icons.translate,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+              middle: Text(
+                novel.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(color: foreground),
               ),
-              IconButton(
-                tooltip: widget.spec.infoTooltip,
-                onPressed: () => _showInfoSheet(context),
-                icon: const Icon(Icons.info_outline),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ...widget.spec.topActions,
+                  IconButton(
+                    tooltip: bilingual
+                        ? context.l10n.translationHide
+                        : context.l10n.novelTranslatePage,
+                    isSelected: bilingual,
+                    onPressed: toggleBilingual,
+                    icon: const Icon(Icons.translate),
+                    selectedIcon: translatingPage
+                        ? SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: foreground,
+                            ),
+                          )
+                        : Icon(
+                            Icons.translate,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                  ),
+                  IconButton(
+                    tooltip: widget.spec.infoTooltip,
+                    onPressed: () => _showInfoSheet(context),
+                    icon: const Icon(Icons.info_outline),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -583,50 +598,58 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                   prevId: novel.seriesPrevId,
                   nextId: novel.seriesNextId,
                 ),
-              Row(
-                children: [
-                  IconButton(
+              // The readout sits on the bar's centre line, whatever the
+              // controls on either side.
+              SizedBox(
+                height: kMinInteractiveDimension,
+                child: NavigationToolbar(
+                  middleSpacing: 0,
+                  leading: IconButton(
                     tooltip: l10n.novelDecreaseFont,
                     onPressed: () => _applySettings(
                       _settings.copyWith(fontSize: _settings.fontSize - 1),
                     ),
                     icon: const Icon(Icons.text_decrease_outlined),
                   ),
-                  Expanded(
-                    // Tap opens the progress/TOC sheet — the readout keeps
-                    // its a11y label so screen readers announce it as the
-                    // progress control, not a bare number.
-                    child: InkWell(
-                      onTap: () => _showProgressSheet(context),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: FuncSpacing.md,
-                        ),
-                        child: Text(
-                          '${_page + 1}/$_pageCount · ${percent.round()}%',
-                          textAlign: TextAlign.center,
-                          semanticsLabel: l10n.novelReadingProgress,
-                          maxLines: 1,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: foreground)
-                              .tabular,
-                        ),
+                  // Tap opens the progress/TOC sheet — the readout keeps
+                  // its a11y label so screen readers announce it as the
+                  // progress control, not a bare number.
+                  middle: InkWell(
+                    onTap: () => _showProgressSheet(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: FuncSpacing.xl,
+                        vertical: FuncSpacing.md,
+                      ),
+                      child: Text(
+                        '${_page + 1}/$_pageCount · ${percent.round()}%',
+                        textAlign: TextAlign.center,
+                        semanticsLabel: l10n.novelReadingProgress,
+                        maxLines: 1,
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(color: foreground)
+                            .tabular,
                       ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: l10n.novelIncreaseFont,
-                    onPressed: () => _applySettings(
-                      _settings.copyWith(fontSize: _settings.fontSize + 1),
-                    ),
-                    icon: const Icon(Icons.text_increase_outlined),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: l10n.novelIncreaseFont,
+                        onPressed: () => _applySettings(
+                          _settings.copyWith(fontSize: _settings.fontSize + 1),
+                        ),
+                        icon: const Icon(Icons.text_increase_outlined),
+                      ),
+                      IconButton(
+                        tooltip: l10n.novelReaderSettings,
+                        onPressed: () => _showReaderSettings(context),
+                        icon: const Icon(Icons.tune_outlined),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    tooltip: l10n.novelReaderSettings,
-                    onPressed: () => _showReaderSettings(context),
-                    icon: const Icon(Icons.tune_outlined),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
@@ -992,8 +1015,9 @@ final _novelSeriesProvider = FutureProvider.autoDispose
 /// data never resize the strip under the bottom chrome.
 const _seriesBarHeight = 48.0;
 
-/// One fixed-height series row: prev/next chevrons at the edges, centered
-/// content, an optional trailing control (watchlist, retry) beside next.
+/// One fixed-height series row: prev/next chevrons at the edges, content
+/// centred on the row (not between the controls), an optional trailing
+/// control (watchlist, retry) beside next.
 /// All series-bar states share it so layout never shifts between them.
 class _SeriesBarRow extends StatelessWidget {
   const _SeriesBarRow({
@@ -1012,21 +1036,25 @@ class _SeriesBarRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: _seriesBarHeight,
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: context.l10n.novelPrevious,
-            onPressed: onPrevious,
-            icon: const Icon(Icons.chevron_left),
-          ),
-          Expanded(child: center ?? const SizedBox.shrink()),
-          ?trailing,
-          IconButton(
-            tooltip: context.l10n.novelNext,
-            onPressed: onNext,
-            icon: const Icon(Icons.chevron_right),
-          ),
-        ],
+      child: NavigationToolbar(
+        middleSpacing: 0,
+        leading: IconButton(
+          tooltip: context.l10n.novelPrevious,
+          onPressed: onPrevious,
+          icon: const Icon(Icons.chevron_left),
+        ),
+        middle: center,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ?trailing,
+            IconButton(
+              tooltip: context.l10n.novelNext,
+              onPressed: onNext,
+              icon: const Icon(Icons.chevron_right),
+            ),
+          ],
+        ),
       ),
     );
   }

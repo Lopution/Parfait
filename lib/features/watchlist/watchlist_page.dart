@@ -11,6 +11,7 @@ import '../../app/pull_to_refresh.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
+import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/entity_row.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -194,9 +195,12 @@ class _WatchlistEntryTile extends ConsumerWidget {
     // A large portrait cover, as on a bookshelf: the series is recognised
     // by its cover first, its title second.
     return EntityRow(
-      padding: const EdgeInsets.symmetric(
-        horizontal: FuncSpacing.lg,
-        vertical: FuncSpacing.sm,
+      // The menu button's glyph ends on the margin (LAYOUT-15).
+      padding: const EdgeInsetsDirectional.fromSTEB(
+        FuncSpacing.lg,
+        FuncSpacing.sm,
+        FuncSpacing.lg - EdgeIconButtons.glyphInset,
+        FuncSpacing.sm,
       ),
       leading: ClipRRect(
         borderRadius: FuncShape.control,

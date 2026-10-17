@@ -265,16 +265,26 @@ class _NetworkProbePageState extends ConsumerState<NetworkProbePage> {
         ListView(
           padding: const EdgeInsets.all(FuncSpacing.lg),
           children: [
-            Text(
-              context.l10n.networkProbeHint,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: FuncSpacing.xs),
-            // Reports live only in page state — say so instead of letting the
-            // user expect history (spec: probe results are not persisted).
-            Text(
-              context.l10n.networkProbeNotPersisted,
-              style: Theme.of(context).textTheme.bodySmall,
+            // Indented to the cards' text, like a settings group's notes.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.networkProbeHint,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: FuncSpacing.xs),
+                  // Reports live only in page state — say so instead of
+                  // letting the user expect history (spec: probe results
+                  // are not persisted).
+                  Text(
+                    context.l10n.networkProbeNotPersisted,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: FuncSpacing.md),
             FilledButton.icon(
@@ -363,7 +373,7 @@ class NetworkProbeOverview extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: FuncSpacing.md),
       child: Padding(
-        padding: const EdgeInsets.all(FuncSpacing.md),
+        padding: const EdgeInsets.all(FuncSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -449,7 +459,7 @@ class NetworkProbeHostPanel extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: FuncSpacing.md),
       child: Padding(
-        padding: const EdgeInsets.all(FuncSpacing.md),
+        padding: const EdgeInsets.all(FuncSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

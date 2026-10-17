@@ -171,7 +171,6 @@ class _FrameProbePageState extends ConsumerState<FrameProbePage> {
             if (_worker case final worker?) ...[
               const SizedBox(height: FuncSpacing.md),
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Text(

@@ -13,6 +13,7 @@ import '../../../app/motion/app_overlays.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/app_top_bar.dart';
+import '../../../app/widgets/edge_icon_buttons.dart';
 import '../../../app/widgets/settings/settings_action_tile.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_group_content.dart';
@@ -135,10 +136,14 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
                   // secondary trailing action (settings action row, not a
                   // navigation row).
                   onTap: _openSourceRepository,
-                  trailing: IconButton(
-                    icon: const Icon(Icons.copy_outlined),
-                    tooltip: context.l10n.copy,
-                    onPressed: _copySourceUrl,
+                  trailing: EdgeIconButtons(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.copy_outlined),
+                        tooltip: context.l10n.copy,
+                        onPressed: _copySourceUrl,
+                      ),
+                    ],
                   ),
                 ),
                 SettingsActionTile(

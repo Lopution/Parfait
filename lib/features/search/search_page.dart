@@ -12,6 +12,7 @@ import '../../app/pixiv_image.dart';
 import '../../app/theme/func_tokens.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
+import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/home_branch_stack.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/feed/spotlight_article_card.dart';
@@ -1052,13 +1053,13 @@ class _SearchInputBody extends ConsumerWidget {
     if (state.suggestions.isEmpty) {
       return Center(child: Text(context.l10n.searchNoSuggestions));
     }
-    return ListView.separated(
+    // No dividers: rows of one list, like M3's search view.
+    return ListView.builder(
       padding: EdgeInsets.only(
         top: FuncSpacing.sm,
         bottom: FuncSpacing.sm + MediaQuery.viewInsetsOf(context).bottom,
       ),
       itemCount: state.suggestions.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final suggestion = state.suggestions[index];
         return Semantics(
@@ -1074,10 +1075,14 @@ class _SearchInputBody extends ConsumerWidget {
               AppHaptics.longPress();
               onFill(suggestion.keyword);
             },
-            trailing: IconButton(
-              tooltip: context.l10n.searchSuggestionFill,
-              onPressed: () => onFill(suggestion.keyword),
-              icon: const Icon(Icons.north_west),
+            trailing: EdgeIconButtons(
+              children: [
+                IconButton(
+                  tooltip: context.l10n.searchSuggestionFill,
+                  onPressed: () => onFill(suggestion.keyword),
+                  icon: const Icon(Icons.north_west),
+                ),
+              ],
             ),
           ),
         );

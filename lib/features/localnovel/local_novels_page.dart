@@ -13,6 +13,7 @@ import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/app_menu_button.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
+import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/errors/error_details.dart';
 import '../../app/widgets/entity_row.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -141,6 +142,13 @@ class _LocalNovelTile extends ConsumerWidget {
       if (percent != null) context.l10n.localNovelContinue(percent),
     ].join(' · ');
     return EntityRow(
+      // The menu button's glyph ends on the margin (LAYOUT-15).
+      padding: const EdgeInsetsDirectional.fromSTEB(
+        FuncSpacing.lg,
+        FuncSpacing.md,
+        FuncSpacing.lg - EdgeIconButtons.glyphInset,
+        FuncSpacing.md,
+      ),
       leading: Container(
         width: 48,
         height: 48,
