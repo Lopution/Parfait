@@ -884,7 +884,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mutedEmpty => 'ミュート項目はありません';
 
   @override
-  String muteEmptyHint(String action) {
+  String cardMenuHint(String action) {
     return '作品カードを長押しして「$action」を選択';
   }
 
@@ -2703,7 +2703,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get watchLaterTitle => 'あとで見る';
 
   @override
-  String get watchLaterEmpty => '一時保存した作品がここに表示されます';
+  String get watchLaterEmpty => 'あとで見る作品はありません';
 
   @override
   String get watchLaterLoadFailed => 'あとで見るの読み込みに失敗しました';

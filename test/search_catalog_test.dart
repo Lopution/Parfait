@@ -635,6 +635,7 @@ void main() {
       );
 
       await enter(tester, 1, '1000');
+      await tester.pumpAndSettle();
       expect(find.text(reversedError), findsNothing);
       expect(applyEnabled(tester), isTrue);
 

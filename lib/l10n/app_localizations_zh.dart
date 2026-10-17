@@ -21,7 +21,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get start => '开始';
 
   @override
-  String get selectLanguage => '选择您的语言';
+  String get selectLanguage => '选择你的语言';
 
   @override
   String get next => '下一步';
@@ -866,7 +866,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mutedEmpty => '暂无屏蔽条目';
 
   @override
-  String muteEmptyHint(String action) {
+  String cardMenuHint(String action) {
     return '长按作品卡片，选择「$action」';
   }
 
@@ -2674,7 +2674,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get watchLaterTitle => '稍后再看';
 
   @override
-  String get watchLaterEmpty => '暂存的作品会显示在这里';
+  String get watchLaterEmpty => '暂无稍后再看的作品';
 
   @override
   String get watchLaterLoadFailed => '稍后再看加载失败';

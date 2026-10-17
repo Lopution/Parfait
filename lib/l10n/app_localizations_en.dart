@@ -912,7 +912,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mutedEmpty => 'Nothing muted yet';
 
   @override
-  String muteEmptyHint(String action) {
+  String cardMenuHint(String action) {
     return 'Long-press a work\'s card and choose \"$action\"';
   }
 
@@ -2787,7 +2787,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchLaterTitle => 'Watch later';
 
   @override
-  String get watchLaterEmpty => 'Stashed works appear here';
+  String get watchLaterEmpty => 'Nothing in Watch later yet';
 
   @override
   String get watchLaterLoadFailed => 'Watch later failed to load';

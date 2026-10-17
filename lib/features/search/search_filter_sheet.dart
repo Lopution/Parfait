@@ -7,6 +7,7 @@ import '../../app/format/app_format.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/search/search_models.dart';
 import '../../app/motion/app_overlays.dart';
+import '../../app/motion/reveal.dart';
 import 'search_text.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
@@ -304,16 +305,19 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
     // Popularity sorts are Premium-only server-side; free accounts are
     // silently rerouted to the popular-preview endpoint for any of them —
     // the hint covers the gendered sorts too.
-    if (_filters.normalizedSort.isPopular && !_isPremium)
-      Padding(
-        padding: const EdgeInsets.only(top: FuncSpacing.xs),
-        child: Text(
-          context.l10n.searchPopularPreviewHint,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ),
+    Reveal(
+      child: _filters.normalizedSort.isPopular && !_isPremium
+          ? Padding(
+              padding: const EdgeInsets.only(top: FuncSpacing.xs),
+              child: Text(
+                context.l10n.searchPopularPreviewHint,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            )
+          : null,
+    ),
   ];
 
   /// When the work was posted: a preset or a custom range.
@@ -698,19 +702,22 @@ class _BoundRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         fields,
-        if (errorText != null)
-          Padding(
-            padding: const EdgeInsets.only(top: FuncSpacing.xs),
-            child: Semantics(
-              liveRegion: true,
-              child: Text(
-                errorText,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
+        Reveal(
+          child: errorText == null
+              ? null
+              : Padding(
+                  padding: const EdgeInsets.only(top: FuncSpacing.xs),
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      errorText,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
+        ),
       ],
     );
   }

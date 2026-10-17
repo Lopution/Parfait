@@ -271,7 +271,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       MotionTokens.chrome,
     );
     _touchExploration = MediaQuery.accessibleNavigationOf(context);
-    if (_touchExploration) _barVisibility.value = 1;
+    if (_touchExploration && !_downloadMode) _barVisibility.value = 1;
     _topBarEntrance.duration = MotionTokens.resolve(
       context,
       MotionTokens.chrome,
@@ -328,7 +328,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   }
 
   bool _onBarScroll(ScrollNotification notification) {
-    if (_touchExploration) return false;
+    if (_touchExploration || _downloadMode) return false;
     final hide = _scrollHide.update(
       notification,
       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
@@ -422,6 +422,8 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       _selectedPages = <int>{};
       _pagesExpanded = true;
     });
+    // The selection brings its own download; the bar slides aside.
+    slideChrome(context, _barVisibility, hidden: true);
   }
 
   /// Any exit path (cancel button, blank tap, system back) is a light
@@ -431,6 +433,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     if (!_downloadMode) return;
     AppHaptics.select();
     setState(() => _selectedPages = null);
+    slideChrome(context, _barVisibility, hidden: false);
   }
 
   void _togglePageSelected(int index) {
@@ -920,19 +923,17 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     final twoPane = AppBreakpoints.useTwoPaneDetail(
       HomeShellChrome.contentSizeOf(context),
     );
-    // The selection mode brings its own download; the bar steps aside.
-    final actionBar = _downloadMode
-        ? null
-        : Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: DetailActionBar(
-              entity: entity,
-              visibility: _barCurve,
-              onDownload: () => unawaited(_downloadAll(entity)),
-            ),
-          );
+    // Hidden, not removed, in the download mode: it slides out and back.
+    final actionBar = Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: DetailActionBar(
+        entity: entity,
+        visibility: _barCurve,
+        onDownload: () => unawaited(_downloadAll(entity)),
+      ),
+    );
     final content = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -972,7 +973,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
                       child: metaScroll,
                     ),
                   ),
-                  ?actionBar,
+                  actionBar,
                 ],
               ),
             )
@@ -1016,7 +1017,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     );
     final page = twoPane
         ? content
-        : Stack(fit: StackFit.expand, children: [content, ?actionBar]);
+        : Stack(fit: StackFit.expand, children: [content, actionBar]);
     final container = ProviderScope.containerOf(context, listen: false);
     final accountId = ref.watch(historyAccountIdProvider);
     if (accountId == null) return page;

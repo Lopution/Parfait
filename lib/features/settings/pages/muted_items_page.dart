@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/motion/removal.dart';
+import '../../../app/motion/state_fade.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/person_avatar.dart';
 import '../../../app/pixiv_image.dart';
@@ -188,7 +189,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
                 title: Text(l10n.mutedUsersSection),
                 children: [
                   if (users.isEmpty)
-                    _EmptyHint(l10n.muteEmptyHint(l10n.muteAuthor)),
+                    _EmptyHint(l10n.cardMenuHint(l10n.muteAuthor)),
                   for (final user in users)
                     Removable(
                       id: MuteKey.user(user.userId),
@@ -224,7 +225,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
                 title: Text(l10n.mutedWorksSection),
                 children: [
                   if (works.isEmpty)
-                    _EmptyHint(l10n.muteEmptyHint(l10n.muteWork)),
+                    _EmptyHint(l10n.cardMenuHint(l10n.muteWork)),
                   for (final work in works)
                     Removable(
                       id: MuteKey.work(work.illustId),
@@ -271,7 +272,8 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
 }
 
 /// The one row of an empty group: where its mutes come from. Not a
-/// button — the action lives on the cards.
+/// button — the action lives on the cards. Fades in as the last mute of
+/// its group leaves.
 class _EmptyHint extends StatelessWidget {
   const _EmptyHint(this.text);
 
@@ -280,11 +282,13 @@ class _EmptyHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SettingsGroupContent(
-      child: Text(
-        text,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
+    return StateFade.onMount(
+      child: SettingsGroupContent(
+        child: Text(
+          text,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ),
     );

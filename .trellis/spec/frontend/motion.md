@@ -6,7 +6,7 @@ applies_to:
   - lib/core/platform/native_warmup.dart
   - lib/core/platform/app_root_pipeline_owner.dart
   - lib/app/navigation/route_animation.dart
-reviewed: 2026-10-16
+reviewed: 2026-10-17
 ---
 
 # Motion, press feedback and the rebuild budget
@@ -81,6 +81,24 @@ reviewed: 2026-10-16
 - **Why:** A zero-duration `AnimatedSize` asserts during its own layout.
 - **Check:** `test/motion_test.dart` "opening and closing animate the height" "reduced motion resizes at once"
 - **Code:** `lib/app/motion/spring_size.dart`
+
+### MOTION-14 A state change that moves content animates
+- **Rule:** A block that a user action shows or hides in place (a note,
+  a banner, a status line, a settings group) is a `Reveal`: the space
+  opens on `SpringSize` while the block fades in; on the way out the
+  block fades, taking no taps, then the space closes. A view that swaps for another of
+  the same size (an edit mode) is `StateFade(kind:)` inside `SpringSize`;
+  an empty hint that replaces the last row is `StateFade.onMount`. A top
+  bar that changes mode (its `backgroundColor`, e.g. `selectionAppBar`)
+  cross-fades over `MotionTokens.chrome`; a bar the mode replaces slides
+  out with `slideChrome` instead of leaving the tree. Small swaps inside
+  a control (icon to spinner), selection tints and results refreshed
+  while typing stay instant.
+- **Why:** Blocks that appeared at once pushed the content under them
+  down in one frame; the user picked these groups from an audit and
+  kept the small swaps instant, as M3 and the system apps do.
+- **Check:** `test/motion_test.dart` "fades in, and fades out before the block leaves" "reduced motion hides at once"
+- **Code:** `lib/app/motion/reveal.dart`, `lib/app/widgets/app_top_bar.dart`
 
 ## Press and removal
 

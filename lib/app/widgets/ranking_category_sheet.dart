@@ -12,6 +12,8 @@ import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import '../haptics/app_haptics.dart';
 import '../motion/app_overlays.dart';
+import '../motion/spring_size.dart';
+import '../motion/state_fade.dart';
 import '../theme/func_semantic_tokens.dart';
 import 'settings/persist_settings.dart';
 
@@ -179,11 +181,18 @@ class _RankingCategorySheetState<M extends RankingCategory>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            header,
+            StateFade(kind: _editing, child: header),
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.only(bottom: FuncSpacing.lg),
-                child: SafeArea(top: false, child: body),
+                child: SafeArea(
+                  top: false,
+                  // Switching between browsing and editing fades the new
+                  // view in while the sheet springs to its height.
+                  child: SpringSize(
+                    child: StateFade(kind: _editing, child: body),
+                  ),
+                ),
               ),
             ),
           ],
@@ -286,12 +295,15 @@ class _RankingCategorySheetState<M extends RankingCategory>
           ),
         _SectionLabel(l10n.arrangementHidden),
         if (draft.hidden.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
-            child: Text(
-              l10n.rankingHiddenEmpty,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+          // Fades in as the last hidden category leaves.
+          StateFade.onMount(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
+              child: Text(
+                l10n.rankingHiddenEmpty,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           )

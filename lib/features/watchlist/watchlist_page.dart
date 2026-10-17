@@ -190,7 +190,9 @@ class _WatchlistEntryTile extends ConsumerWidget {
           orElse: () => false,
         );
     final canOpen = entry.type == WatchlistType.manga || latest != null;
-    final published = entry.lastPublishedContentDatetime;
+    final published = DateTime.tryParse(
+      entry.lastPublishedContentDatetime ?? '',
+    );
     final count = entry.publishedContentCount;
     // A large portrait cover, as on a bookshelf: the series is recognised
     // by its cover first, its title second.
@@ -232,9 +234,7 @@ class _WatchlistEntryTile extends ConsumerWidget {
       title: entry.title,
       titleStyle: Theme.of(context).textTheme.titleMedium,
       subtitle: entry.userName,
-      meta: published != null && published.length >= 10
-          ? published.substring(0, 10)
-          : null,
+      meta: published == null ? null : AppFormat.date(context, published),
       badge: hasNew
           ? EntityBadge(label: context.l10n.watchlistNewContent)
           : null,

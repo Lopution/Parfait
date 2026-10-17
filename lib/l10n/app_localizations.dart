@@ -129,7 +129,7 @@ abstract class AppLocalizations {
   /// No description provided for @selectLanguage.
   ///
   /// In zh, this message translates to:
-  /// **'选择您的语言'**
+  /// **'选择你的语言'**
   String get selectLanguage;
 
   /// No description provided for @next.
@@ -1733,11 +1733,11 @@ abstract class AppLocalizations {
   /// **'暂无屏蔽条目'**
   String get mutedEmpty;
 
-  /// Hint in an empty group of the muted items page: where this kind of mute is made. action is the card menu label (muteAuthor or muteWork).
+  /// Hint on an empty list: where its entries are made. action is the label of a work card menu action (muteAuthor, muteWork, cardActionWatchLater).
   ///
   /// In zh, this message translates to:
   /// **'长按作品卡片，选择「{action}」'**
-  String muteEmptyHint(String action);
+  String cardMenuHint(String action);
 
   /// No description provided for @muteTagInputHint.
   ///
@@ -5168,7 +5168,7 @@ abstract class AppLocalizations {
   /// No description provided for @watchLaterEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'暂存的作品会显示在这里'**
+  /// **'暂无稍后再看的作品'**
   String get watchLaterEmpty;
 
   /// No description provided for @watchLaterLoadFailed.

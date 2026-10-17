@@ -31,6 +31,7 @@ import '../../app/widgets/app_snack_bar.dart';
 import '../../app/widgets/errors/error_details.dart';
 import 'package:parfait/core/network/http_client_providers.dart';
 import '../../l10n/context.dart';
+import '../../app/motion/reveal.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_choice_chip.dart';
 import 'package:parfait/app/layout/content_widths.dart';
@@ -1056,22 +1057,27 @@ class _UploadInAppWebViewState extends State<_UploadInAppWebView> {
     }
     return Column(
       children: [
-        if (_showUploadHint)
-          MaterialBanner(
-            leading: const Icon(Icons.upload_file_outlined),
-            content: Text(
-              widget.upload.armedUri == null
-                  ? context.l10n.searchReverseUploadPickHint
-                  : context.l10n.searchReverseUploadTapHint,
-            ),
-            actions: [
-              IconButton(
-                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                onPressed: () => setState(() => _showUploadHint = false),
-                icon: const Icon(Icons.close),
-              ),
-            ],
-          ),
+        Reveal(
+          child: !_showUploadHint
+              ? null
+              : MaterialBanner(
+                  leading: const Icon(Icons.upload_file_outlined),
+                  content: Text(
+                    widget.upload.armedUri == null
+                        ? context.l10n.searchReverseUploadPickHint
+                        : context.l10n.searchReverseUploadTapHint,
+                  ),
+                  actions: [
+                    IconButton(
+                      tooltip: MaterialLocalizations.of(
+                        context,
+                      ).closeButtonTooltip,
+                      onPressed: () => setState(() => _showUploadHint = false),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+        ),
         Expanded(
           child: Stack(
             children: [

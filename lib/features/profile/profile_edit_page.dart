@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/layout/app_breakpoints.dart';
 import '../../app/layout/content_widths.dart';
 import '../../app/motion/app_overlays.dart';
+import '../../app/motion/reveal.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/widgets/app_top_bar.dart';
@@ -407,19 +408,34 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
               icon: Icons.info_outline,
               text: capabilities.reason ?? context.l10n.profileEditUnavailable,
             ),
-          if (state.failure != null)
-            _Notice(icon: Icons.error_outline, text: state.failure!.message),
-          if (state.status == ProfileEditStatus.verificationPending)
-            _Notice(
-              icon: Icons.mark_email_unread_outlined,
-              text:
-                  state.verificationMessage ?? context.l10n.profileEditPending,
-            ),
-          if (state.status == ProfileEditStatus.confirmed)
-            _Notice(
-              icon: Icons.check_circle_outline,
-              text: context.l10n.profileEditConfirmed,
-            ),
+          // What a save brought back comes and goes in place (MOTION-14).
+          Reveal(
+            child: switch (state.failure) {
+              final failure? => _Notice(
+                icon: Icons.error_outline,
+                text: failure.message,
+              ),
+              null => null,
+            },
+          ),
+          Reveal(
+            child: state.status == ProfileEditStatus.verificationPending
+                ? _Notice(
+                    icon: Icons.mark_email_unread_outlined,
+                    text:
+                        state.verificationMessage ??
+                        context.l10n.profileEditPending,
+                  )
+                : null,
+          ),
+          Reveal(
+            child: state.status == ProfileEditStatus.confirmed
+                ? _Notice(
+                    icon: Icons.check_circle_outline,
+                    text: context.l10n.profileEditConfirmed,
+                  )
+                : null,
+          ),
           TextFormField(
             controller: _displayName,
             enabled:

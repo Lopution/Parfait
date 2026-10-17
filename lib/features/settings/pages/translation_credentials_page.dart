@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/motion/app_overlays.dart';
+import '../../../app/motion/reveal.dart';
 import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/settings/settings_action_tile.dart';
 import '../../../app/widgets/settings/settings_group.dart';
@@ -290,20 +291,15 @@ class _TranslationCredentialsPageState
                       children: [
                         const SizedBox(height: FuncSpacing.sm),
                         ..._fields(),
-                        if (_status != null)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: FuncSpacing.md,
+                        Reveal(
+                          child: switch (_status) {
+                            final status? => _StatusLine(
+                              text: status,
+                              isError: _statusIsError,
                             ),
-                            child: Text(
-                              _status!,
-                              style: TextStyle(
-                                color: _statusIsError
-                                    ? Theme.of(context).colorScheme.error
-                                    : Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                          ),
+                            null => null,
+                          },
+                        ),
                         Align(
                           alignment: AlignmentDirectional.centerEnd,
                           child: FilledButton.icon(
@@ -396,6 +392,36 @@ class _TranslationCredentialsPageState
           hintText: hint,
           helperText: helper,
         ),
+      ),
+    );
+  }
+}
+
+/// The outcome of the last save or clear, over the save button. THEME-08:
+/// the status colour is the icon's; the text stays neutral.
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({required this.text, required this.isError});
+
+  final String text;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: FuncSpacing.md),
+      child: Row(
+        children: [
+          Icon(
+            isError ? Icons.error_outline : Icons.check_circle_outline,
+            size: 18,
+            color: isError ? scheme.error : scheme.primary,
+          ),
+          const SizedBox(width: FuncSpacing.sm),
+          Expanded(
+            child: Text(text, style: TextStyle(color: scheme.onSurfaceVariant)),
+          ),
+        ],
       ),
     );
   }

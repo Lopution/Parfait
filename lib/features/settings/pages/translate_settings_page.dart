@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/motion/app_overlays.dart';
+import '../../../app/motion/spring_size.dart';
+import '../../../app/motion/state_fade.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/app_top_bar.dart';
@@ -94,6 +96,31 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
     if (mounted) setState(_refreshCredentials);
   }
 
+  /// The note under the providers for [provider], if it has one.
+  String? _providerHint(TranslationProvider provider) => switch (provider) {
+    TranslationProvider.baidu => context.l10n.translateBaiduHint,
+    TranslationProvider.doubao => context.l10n.translateDoubaoHint,
+    _ => null,
+  };
+
+  /// The account or credential row of [provider], if it has one.
+  Widget? _providerRow(TranslationProvider provider) => switch (provider) {
+    TranslationProvider.baidu => SettingsTile(
+      icon: Icons.key_outlined,
+      title: context.l10n.translateBaiduCredential,
+      subtitle: _credentialStatus(_baiduConfigured),
+      onTap: () => _openTranslationCredentials(true),
+    ),
+    TranslationProvider.translationLlm => SettingsTile(
+      icon: Icons.key_outlined,
+      title: context.l10n.translateLlmCredential,
+      subtitle: _credentialStatus(_llmConfigured),
+      onTap: () => _openTranslationCredentials(false),
+    ),
+    TranslationProvider.doubao => _doubaoAccount(),
+    _ => null,
+  };
+
   Widget _doubaoAccount() {
     return FutureBuilder<bool>(
       future: _doubaoSignedIn,
@@ -150,6 +177,7 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
         titleKey: 'translateSettings',
       );
     }
+    final provider = settings.translationProvider;
     final items = [
       (TranslationProvider.disabled, context.l10n.translateDisabled),
       (TranslationProvider.baidu, context.l10n.translateBaidu),
@@ -166,54 +194,37 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
             bottom: FuncSpacing.xl,
           ),
           children: [
-            SettingsGroup(
-              setting: Setting.translationProvider,
-              footer: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            // A provider's own row and note come and go with it: the group
+            // springs to its new height and they fade in.
+            SpringSize(
+              child: SettingsGroup(
+                setting: Setting.translationProvider,
+                footer: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(context.l10n.translateCredentialHint),
+                    if (_providerHint(provider) case final hint?) ...[
+                      const SizedBox(height: FuncSpacing.xs),
+                      StateFade(kind: provider, child: Text(hint)),
+                    ],
+                  ],
+                ),
                 children: [
-                  Text(context.l10n.translateCredentialHint),
-                  if (settings.translationProvider ==
-                      TranslationProvider.baidu) ...[
-                    const SizedBox(height: FuncSpacing.xs),
-                    Text(context.l10n.translateBaiduHint),
-                  ],
-                  if (settings.translationProvider ==
-                      TranslationProvider.doubao) ...[
-                    const SizedBox(height: FuncSpacing.xs),
-                    Text(context.l10n.translateDoubaoHint),
-                  ],
+                  for (final item in items)
+                    SettingsChoiceTile(
+                      title: Text(item.$2),
+                      selected: provider == item.$1,
+                      onTap: () => persistSettings(
+                        context,
+                        () => ref
+                            .read(settingsProvider.notifier)
+                            .selectTranslationProvider(item.$1),
+                      ),
+                    ),
+                  if (_providerRow(provider) case final row?)
+                    StateFade(kind: provider, child: row),
                 ],
               ),
-              children: [
-                for (final item in items)
-                  SettingsChoiceTile(
-                    title: Text(item.$2),
-                    selected: settings.translationProvider == item.$1,
-                    onTap: () => persistSettings(
-                      context,
-                      () => ref
-                          .read(settingsProvider.notifier)
-                          .selectTranslationProvider(item.$1),
-                    ),
-                  ),
-                if (settings.translationProvider == TranslationProvider.baidu)
-                  SettingsTile(
-                    icon: Icons.key_outlined,
-                    title: context.l10n.translateBaiduCredential,
-                    subtitle: _credentialStatus(_baiduConfigured),
-                    onTap: () => _openTranslationCredentials(true),
-                  ),
-                if (settings.translationProvider ==
-                    TranslationProvider.translationLlm)
-                  SettingsTile(
-                    icon: Icons.key_outlined,
-                    title: context.l10n.translateLlmCredential,
-                    subtitle: _credentialStatus(_llmConfigured),
-                    onTap: () => _openTranslationCredentials(false),
-                  ),
-                if (settings.translationProvider == TranslationProvider.doubao)
-                  _doubaoAccount(),
-              ],
             ),
           ],
         ),
