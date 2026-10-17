@@ -139,6 +139,17 @@ reviewed: 2026-10-17
 - **Check:** `test/pull_to_refresh_test.dart`
 - **Code:** `test/pull_to_refresh_test.dart`
 
+### FEED-17 PullToRefresh keeps one EasyRefresh while its settings hold
+- **Rule:** `PullToRefresh` rebuilds its `EasyRefresh` only when the
+  colours, the indicator exit, `isNested` or the scroll controller change;
+  the list reaches it through an inherited slot and `onRefresh` through a
+  forwarding method. `easy_refresh` reads only `MediaQuery.paddingOf`.
+- **Why:** EasyRefresh syncs its nested host after every update and
+  dependency change, and the sync walks the whole list: each new page,
+  load phase and keyboard frame cost a walk of the feed after the frame.
+- **Check:** `test/pull_to_refresh_test.dart` "a new list keeps the refresh and refreshes with the new callback"
+- **Code:** `lib/app/pull_to_refresh.dart`, `pubspec.yaml`
+
 ## Scroll physics
 
 ### FEED-11 One bouncing physics everywhere; flings stop at the edge

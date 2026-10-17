@@ -230,6 +230,45 @@ void main() {
     expect(indicator, findsNothing);
   });
 
+  testWidgets(
+    'a new list keeps the refresh and refreshes with the new callback',
+    (tester) async {
+      var page = 1;
+      final refreshed = <int>[];
+      late StateSetter setPage;
+      await tester.pumpWidget(
+        localizedApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                setPage = setState;
+                final shown = page;
+                return PullToRefresh(
+                  onRefresh: () async => refreshed.add(shown),
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [Text('page $shown')],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      final refresh = tester.widget(find.byType(EasyRefresh));
+
+      setPage(() => page = 2);
+      await tester.pump();
+      expect(find.text('page 2'), findsOneWidget);
+      expect(tester.widget(find.byType(EasyRefresh)), same(refresh));
+
+      await tester.drag(find.byType(ListView), const Offset(0, 600));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(refreshed, [2]);
+    },
+  );
+
   testWidgets('ballistic overscroll after the pointer lifts starts no pull', (
     tester,
   ) async {

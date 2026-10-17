@@ -150,14 +150,39 @@ class _PullToRefreshState extends State<PullToRefresh> {
     }
   }
 
+  /// The [EasyRefresh] built for [_refreshSettings], kept while they hold.
+  /// EasyRefresh syncs its nested host after every update, walking the
+  /// whole list below it; a feed rebuilding for a new page or a load phase
+  /// handed it a new widget each time. The list reaches it through
+  /// [_RefreshContent] instead.
+  EasyRefresh? _refresh;
+  Object? _refreshSettings;
+
+  Future<void> _onRefresh() => widget.onRefresh();
+
   @override
   Widget build(BuildContext context) {
-    final isNested = widget.isNested;
     final colors = Theme.of(context).colorScheme;
     final indicatorExit = MotionTokens.resolve(
       context,
       MotionTokens.refreshIndicatorExit,
     );
+    final settings = (
+      colors.primary,
+      colors.surface,
+      indicatorExit,
+      widget.isNested,
+      widget.scrollController,
+    );
+    if (settings != _refreshSettings) {
+      _refreshSettings = settings;
+      _refresh = _buildRefresh(colors, indicatorExit);
+    }
+    return _RefreshContent(content: widget.child, child: _refresh!);
+  }
+
+  EasyRefresh _buildRefresh(ColorScheme colors, Duration indicatorExit) {
+    final isNested = widget.isNested;
     return EasyRefresh(
       header: BuilderHeader(
         // Keep EasyRefresh's 100dp arm threshold, but do not expose the
@@ -216,14 +241,34 @@ class _PullToRefreshState extends State<PullToRefresh> {
       notLoadFooter: const NotLoadFooter(hitOver: false),
       controller: _controller,
       scrollController: widget.scrollController,
-      onRefresh: widget.onRefresh,
+      onRefresh: _onRefresh,
       isNested: isNested,
       scrollBehaviorBuilder: isNested
           ? _nestedScrollBehavior
           : _FeedScrollBehavior.new,
-      child: widget.child,
+      child: const _RefreshContentSlot(),
     );
   }
+}
+
+/// Hands [PullToRefresh.child] past the kept [EasyRefresh] to
+/// [_RefreshContentSlot].
+class _RefreshContent extends InheritedWidget {
+  const _RefreshContent({required this.content, required super.child});
+
+  final Widget content;
+
+  @override
+  bool updateShouldNotify(_RefreshContent oldWidget) =>
+      content != oldWidget.content;
+}
+
+class _RefreshContentSlot extends StatelessWidget {
+  const _RefreshContentSlot();
+
+  @override
+  Widget build(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_RefreshContent>()!.content;
 }
 
 ScrollBehavior _nestedScrollBehavior(ScrollPhysics? physics) =>
