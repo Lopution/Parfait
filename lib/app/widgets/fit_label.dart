@@ -45,12 +45,18 @@ final class LabelFit {
   static const _scaleSlack = 1.0;
 
   /// The single-line width [FitLabel] draws [label] at before scaling.
+  /// Remembered: the bottom bar, the tab bars and every follow button
+  /// measure the same few labels in each build.
   static double measureLabel(
     String label,
     TextStyle style,
     TextScaler textScaler,
     TextDirection textDirection,
   ) {
+    final key = (label, style, textScaler, textDirection);
+    final known = _widths[key];
+    if (known != null) return known;
+    _forgetOnFontChange();
     final painter = TextPainter(
       text: TextSpan(text: label, style: style),
       textDirection: textDirection,
@@ -59,7 +65,21 @@ final class LabelFit {
     )..layout();
     final width = painter.maxIntrinsicWidth;
     painter.dispose();
-    return width;
+    if (_widths.length >= _maxWidths) _widths.remove(_widths.keys.first);
+    return _widths[key] = width;
+  }
+
+  /// Widths [measureLabel] laid out, oldest first.
+  static final _widths =
+      <(String, TextStyle, TextScaler, TextDirection), double>{};
+  static const _maxWidths = 256;
+  static bool _watchingFonts = false;
+
+  /// A font that loads or changes can change every width.
+  static void _forgetOnFontChange() {
+    if (_watchingFonts) return;
+    _watchingFonts = true;
+    PaintingBinding.instance.systemFonts.addListener(_widths.clear);
   }
 
   final double scale;

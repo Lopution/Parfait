@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/debug/trace_marks.dart';
 import '../layout/app_breakpoints.dart';
 import '../theme/func_semantic_tokens.dart';
+import 'fit_label.dart';
 import 'scroll_edge_fade.dart';
 
 /// The single entry point for top-of-page tab rows (D3). Labels always
@@ -66,20 +69,19 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
     final row = LayoutBuilder(
       builder: (context, constraints) {
         var widest = 0.0;
-        final painter = TextPainter(
-          textDirection: textDirection,
-          textScaler: textScaler,
-        );
         for (final label in labels) {
           for (final style in styles) {
-            painter.text = TextSpan(text: label, style: style?.merge(_tabular));
-            painter.layout();
-            if (painter.width > widest) {
-              widest = painter.width;
-            }
+            widest = math.max(
+              widest,
+              LabelFit.measureLabel(
+                label,
+                style?.merge(_tabular) ?? _tabular,
+                textScaler,
+                textDirection,
+              ),
+            );
           }
         }
-        painter.dispose();
 
         final fits =
             widest + _labelPadding.horizontal <=

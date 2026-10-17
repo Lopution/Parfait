@@ -195,7 +195,11 @@ abstract final class MotionTokens {
   /// at an unchanged damping ratio.
   static SpringDescription? spring(BuildContext context, MotionSpring token) {
     if (!enabled(context)) return null;
-    final f = MotionScope.speedOf(context).factor;
+    return _springAt(token, MotionScope.speedOf(context));
+  }
+
+  static SpringDescription _springAt(MotionSpring token, AnimationSpeed speed) {
+    final f = speed.factor;
     return SpringDescription.withDampingRatio(
       mass: 1,
       stiffness: token.stiffness / (f * f),
@@ -210,11 +214,17 @@ abstract final class MotionTokens {
     BuildContext context,
     MotionSpring token,
   ) {
-    final description = spring(context, token);
-    if (description == null) return (Duration.zero, Curves.linear);
-    final curve = SpringCurve(description);
+    if (!enabled(context)) return (Duration.zero, Curves.linear);
+    final speed = MotionScope.speedOf(context);
+    final curve = _springCurves[(token, speed)] ??= SpringCurve(
+      _springAt(token, speed),
+    );
     return (curve.settleDuration, curve);
   }
+
+  /// One curve per token and speed: building a [SpringCurve] searches its
+  /// settle time step by step, and per-card widgets ask in every build.
+  static final _springCurves = <(MotionSpring, AnimationSpeed), SpringCurve>{};
 }
 
 /// Material 3 spring tokens as (damping ratio, stiffness), mass 1, from

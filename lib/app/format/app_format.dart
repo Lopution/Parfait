@@ -14,11 +14,10 @@ abstract final class AppFormat {
     bool withTime = false,
   }) {
     final locale = Localizations.localeOf(context).toLanguageTag();
-    final local = value.toLocal();
-    final pattern = withTime
+    final pattern = _dates[(locale, withTime)] ??= withTime
         ? DateFormat.yMMMd(locale).add_Hm()
         : DateFormat.yMMMd(locale);
-    return pattern.format(local);
+    return pattern.format(value.toLocal());
   }
 
   /// 刚刚 / N 分钟前 / N 小时前 / N 天前, then [date]. [now] is for tests.
@@ -46,7 +45,13 @@ abstract final class AppFormat {
   /// en "12K", ru "12 тыс.".
   static String count(BuildContext context, int value) {
     final locale = Localizations.localeOf(context).toLanguageTag();
-    final format = NumberFormat.compact(locale: locale)..significantDigits = 2;
+    final format = _counts[locale] ??= NumberFormat.compact(locale: locale)
+      ..significantDigits = 2;
     return format.format(value);
   }
+
+  // Formats by locale: building one parses the locale's patterns, and
+  // feed rows format counts in every build.
+  static final _dates = <(String, bool), DateFormat>{};
+  static final _counts = <String, NumberFormat>{};
 }

@@ -6,6 +6,7 @@ applies_to:
   - lib/core/platform/native_warmup.dart
   - lib/core/platform/app_root_pipeline_owner.dart
   - lib/app/navigation/route_animation.dart
+  - lib/app/layout/sliver_width_builder.dart
 reviewed: 2026-10-17
 ---
 
@@ -193,3 +194,15 @@ reviewed: 2026-10-17
   throttles its events.
 - **Check:** `test/semantics_push_throttle_test.dart`
 - **Code:** `lib/core/platform/app_root_pipeline_owner.dart`
+
+### MOTION-15 Width-dependent slivers rebuild only on a width change
+- **Rule:** A sliver built from its width uses `SliverWidthBuilder`, never
+  `SliverLayoutBuilder`. Formatters, spring curves and label widths that
+  repeated widgets need in every build are made once and reused
+  (`AppFormat`, `MotionTokens.springCurve`, `LabelFit.measureLabel`).
+- **Why:** `SliverLayoutBuilder` reruns its builder on every scroll
+  offset, so each scroll frame rebuilt every visible row, and with an
+  accessibility service on every rebuilt `Semantics` re-sent its node:
+  up to 6 ms of each scroll frame on device.
+- **Check:** `test/responsive_layout_test.dart` "a width-built sliver rebuilds on a width change, not a scroll"
+- **Code:** `lib/app/layout/sliver_width_builder.dart`, `lib/app/format/app_format.dart`, `lib/app/motion/motion_tokens.dart`, `lib/app/widgets/fit_label.dart`
