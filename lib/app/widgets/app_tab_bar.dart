@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/debug/trace_marks.dart';
 import '../layout/app_breakpoints.dart';
 import '../theme/func_semantic_tokens.dart';
 import 'scroll_edge_fade.dart';
@@ -62,7 +63,7 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
     final textScaler = MediaQuery.textScalerOf(context);
     final textDirection = Directionality.of(context);
 
-    return LayoutBuilder(
+    final row = LayoutBuilder(
       builder: (context, constraints) {
         var widest = 0.0;
         final painter = TextPainter(
@@ -108,6 +109,8 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
         );
       },
     );
+    if (!TraceMarks.enabled) return row;
+    return _TabMarks(controller: controller, labels: labels, child: row);
   }
 
   Widget _label(int index, String label) {
@@ -119,4 +122,64 @@ class AppTabBar extends StatelessWidget implements PreferredSizeWidget {
     );
     return labelWrapper?.call(index, text) ?? text;
   }
+}
+
+/// Marks each tab switched to, by tap or swipe, in the system trace
+/// (QUAL-05).
+class _TabMarks extends StatefulWidget {
+  const _TabMarks({
+    required this.controller,
+    required this.labels,
+    required this.child,
+  });
+
+  final TabController? controller;
+  final List<String> labels;
+  final Widget child;
+
+  @override
+  State<_TabMarks> createState() => _TabMarksState();
+}
+
+class _TabMarksState extends State<_TabMarks> {
+  TabController? _controller;
+  int? _index;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _attach();
+  }
+
+  @override
+  void didUpdateWidget(_TabMarks oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _attach();
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_onChanged);
+    super.dispose();
+  }
+
+  void _attach() {
+    final controller =
+        widget.controller ?? DefaultTabController.maybeOf(context);
+    if (controller == _controller) return;
+    _controller?.removeListener(_onChanged);
+    _controller = controller?..addListener(_onChanged);
+    _index = controller?.index;
+  }
+
+  void _onChanged() {
+    // A switch notifies as it starts and as it settles.
+    final index = _controller!.index;
+    if (index == _index) return;
+    _index = index;
+    if (index < widget.labels.length) TraceMarks.tab(widget.labels[index]);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

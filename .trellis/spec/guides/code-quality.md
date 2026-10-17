@@ -52,12 +52,14 @@ reviewed: 2026-10-17
   noted with `FrameProbe.mark`, never a raw `Timeline` call. Both reach the
   in-app probe and, outside release, the system trace as `parfait` marks
   beside the page and pointer marks of `TraceMarks`. The page mark names
-  the router's top match (`matchedLocation`), pushed routes included.
+  the router's top match (`matchedLocation`), pushed routes included;
+  `AppTabBar` marks each tab switched to, since tabs share their route.
   Release attaches nothing. Work on another isolate, where the probe does
   not live (the data worker), times itself with `Timeline.timeSync`.
 - **Why:** A trace held only touch delivery times, so a janky frame from
   a free session on a device could not be placed on a page or a gesture.
   go_router's `uri` leaves out pushed routes: the first device recording
-  showed no page at all while a detail page opened and closed.
-- **Check:** `test/trace_marks_test.dart` "a tap and a fling are marked down and up, the fling fast" "a route change marks the page and the scene it plays"
-- **Code:** `lib/core/debug/trace_marks.dart`, `lib/core/debug/frame_probe.dart`
+  showed no page at all while a detail page opened and closed, and the
+  janky "users" tab of the recommended page read as the whole page.
+- **Check:** `test/trace_marks_test.dart` "a tap and a fling are marked down and up, the fling fast" "a route change marks the page and the scene it plays" "a tab switched to is marked, the first tab is not"
+- **Code:** `lib/core/debug/trace_marks.dart`, `lib/core/debug/frame_probe.dart`, `lib/app/widgets/app_tab_bar.dart`
