@@ -142,4 +142,47 @@ void main() {
     expect(find.semantics.byLabel('c'), findsOne);
     handle.dispose();
   });
+
+  testWidgets('a hold keeps changes back until an interval after its '
+      'release, and gives way at its limit', (tester) async {
+    final handle = tester.ensureSemantics();
+    final label = ValueNotifier('a');
+    addTearDown(label.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder(
+          valueListenable: label,
+          builder: (context, value, _) => Text(value),
+        ),
+      ),
+    );
+    final pushes = _recordPushes(tester);
+    await tester.binding.delayed(kSemanticsPushInterval);
+
+    final release = AppRootPipelineOwner.holdSemantics();
+    label.value = 'b';
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(pushes, isEmpty);
+    release();
+    release();
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(pushes, isEmpty);
+    await tester.binding.delayed(kSemanticsPushInterval);
+    await tester.pump();
+    expect(pushes, hasLength(1));
+    expect(find.semantics.byLabel('b'), findsOne);
+
+    final stuck = AppRootPipelineOwner.holdSemantics();
+    label.value = 'c';
+    await tester.pump();
+    expect(find.semantics.byLabel('c'), findsNothing);
+    await tester.binding.delayed(kSemanticsHoldLimit);
+    await tester.pump();
+    expect(find.semantics.byLabel('c'), findsOne);
+    stuck();
+    await tester.binding.delayed(kSemanticsPushInterval);
+    handle.dispose();
+  });
 }

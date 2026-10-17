@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/debug/frame_probe.dart';
+import '../../core/platform/app_root_pipeline_owner.dart';
 import '../../core/log.dart';
 import '../../core/navigation/home_destination.dart';
 import '../../core/settings/settings_controller.dart';
@@ -180,9 +181,11 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
       ..enter('branch switch')
       ..mark('branch switch $_outgoing→$index');
     _switchSnapshot.allowSnapshotting = true;
+    final releaseSemantics = AppRootPipelineOwner.holdSemantics();
     _switch
       ..duration = duration
       ..forward(from: 0).whenCompleteOrCancel(() {
+        releaseSemantics();
         FrameProbe.instance.exit('branch switch');
         if (!mounted || generation != _switchGeneration) return;
         _switchSnapshot.allowSnapshotting = false;
