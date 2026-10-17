@@ -1306,9 +1306,11 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
 /// Marks each page [router] shows in the system trace.
 void _markPages(GoRouter router) {
   final delegate = router.routerDelegate;
-  delegate.addListener(
-    () => TraceMarks.page(delegate.currentConfiguration.uri.path),
-  );
+  delegate.addListener(() {
+    // The top match, not `uri`: a pushed route never shows in `uri`.
+    final top = delegate.currentConfiguration.lastOrNull;
+    if (top != null) TraceMarks.page(top.matchedLocation);
+  });
 }
 
 Future<void> routeExternalIntent(
