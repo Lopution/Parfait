@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/layout/card_columns.dart';
 import 'package:parfait/app/layout/content_widths.dart';
+import 'package:parfait/app/layout/sliver_width_builder.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'helpers/view_size.dart';
@@ -54,6 +55,45 @@ void main() {
     expect(card(1).left, card(0).right);
     expect(card(2).top, card(0).bottom);
     expect(card(2).width, 500);
+  });
+
+  testWidgets('a width-built sliver rebuilds on a width change, not a scroll', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(400, 600));
+    final widths = <double>[];
+    var taps = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CustomScrollView(
+          slivers: [
+            SliverWidthBuilder(
+              builder: (context, width) {
+                widths.add(width);
+                return SliverList.builder(
+                  itemCount: 30,
+                  itemBuilder: (context, index) => GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => taps++,
+                    child: SizedBox(key: ValueKey(index), height: 100),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey(6)));
+    expect(taps, 1);
+    expect(widths, [400]);
+
+    setViewSize(tester, const Size(500, 600));
+    await tester.pump();
+    expect(widths, [400, 500]);
   });
 
   testWidgets('a capped column centres at its width on a wide window', (

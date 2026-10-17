@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/pull_to_refresh.dart';
+import '../../app/layout/sliver_width_builder.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -207,14 +208,13 @@ class _SpotlightCategoryFeed extends ConsumerWidget {
                       ),
                     )
                   else
-                    SliverLayoutBuilder(
-                      builder: (context, constraints) {
+                    SliverWidthBuilder(
+                      builder: (context, width) {
                         final cardWidth = math.min(
                           _maxCardWidth,
-                          constraints.crossAxisExtent - 2 * FuncSpacing.lg,
+                          width - 2 * FuncSpacing.lg,
                         );
-                        final side =
-                            (constraints.crossAxisExtent - cardWidth) / 2;
+                        final side = (width - cardWidth) / 2;
                         return SliverPadding(
                           padding: EdgeInsets.fromLTRB(
                             side,

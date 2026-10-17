@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/haptics/app_haptics.dart';
+import '../../app/layout/sliver_width_builder.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/press_scale.dart';
 import '../../app/motion/state_fade.dart';
@@ -546,12 +547,10 @@ class _TrendingGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return SliverPadding(
       padding: padding,
-      sliver: SliverLayoutBuilder(
-        builder: (context, constraints) {
-          final columns = columnsFor(constraints.crossAxisExtent);
-          final tileWidth =
-              (constraints.crossAxisExtent - _spacing * (columns - 1)) /
-              columns;
+      sliver: SliverWidthBuilder(
+        builder: (context, width) {
+          final columns = columnsFor(width);
+          final tileWidth = (width - _spacing * (columns - 1)) / columns;
           return SliverGrid.builder(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,

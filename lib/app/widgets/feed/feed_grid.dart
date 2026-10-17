@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
+import '../../layout/sliver_width_builder.dart';
 import '../../theme/func_semantic_tokens.dart';
 import 'feed_text_warmup.dart';
 
@@ -274,18 +275,8 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
     final horizontal = widget.padding
         .resolve(Directionality.of(context))
         .horizontal;
-    // SliverLayoutBuilder is called again when the scroll offset changes.
-    // Keep the generated grid widget stable for the same width so its
-    // SliverChildBuilderDelegate is not recreated on every scroll tick. A
-    // width change still creates a new grid and recalculates the columns.
-    double? cachedCrossAxisExtent;
-    Widget? cachedGrid;
-    return SliverLayoutBuilder(
-      builder: (context, constraints) {
-        final crossAxisExtent = constraints.crossAxisExtent;
-        if (cachedGrid != null && cachedCrossAxisExtent == crossAxisExtent) {
-          return cachedGrid!;
-        }
+    return SliverWidthBuilder(
+      builder: (context, crossAxisExtent) {
         final columns = illustColumnsFor(crossAxisExtent - horizontal);
         final columnWidth =
             (crossAxisExtent -
@@ -332,8 +323,6 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
         if (widget.itemIds != null) {
           grid = IllustPagerScope(source: _pagerSource, child: grid);
         }
-        cachedCrossAxisExtent = crossAxisExtent;
-        cachedGrid = grid;
         return grid;
       },
     );
