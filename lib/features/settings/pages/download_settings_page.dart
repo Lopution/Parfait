@@ -122,6 +122,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
             ),
             children: [
               SettingsGroup(
+                title: Text(context.l10n.downloadGroupTasks),
                 footer: Text(context.l10n.maxDownloadCountHint),
                 children: [
                   // One row: the label names the slider under it.
@@ -161,6 +162,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                 ],
               ),
               SettingsGroup(
+                title: Text(context.l10n.downloadGroupSaving),
                 children: [
                   SettingsTile(
                     setting: SettingsPageRef.downloadDestination,

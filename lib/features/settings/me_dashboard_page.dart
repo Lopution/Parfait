@@ -8,6 +8,7 @@ import '../../app/navigation/routes.dart';
 import '../../app/person_avatar.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_top_bar.dart';
+import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/fit_label.dart';
 import '../../app/widgets/func_bottom_nav.dart';
@@ -101,7 +102,7 @@ class _AccountRow extends StatelessWidget {
       contentPadding: const EdgeInsets.fromLTRB(
         FuncSpacing.lg,
         FuncSpacing.sm,
-        FuncSpacing.sm,
+        FuncSpacing.xl,
         FuncSpacing.sm,
       ),
       leading: SizedBox.square(
@@ -120,11 +121,15 @@ class _AccountRow extends StatelessWidget {
             ? context.l10n.login
             : context.l10n.labelValue(context.l10n.accountId, value.id),
       ),
-      trailing: IconButton(
-        tooltip: context.l10n.accountManagement,
-        icon: const Icon(Icons.manage_accounts_outlined),
-        onPressed: () =>
-            openSettingsPage(context, SettingsPageRef.account.path),
+      trailing: EdgeIconButtons(
+        children: [
+          IconButton(
+            tooltip: context.l10n.accountManagement,
+            icon: const Icon(Icons.manage_accounts_outlined),
+            onPressed: () =>
+                openSettingsPage(context, SettingsPageRef.account.path),
+          ),
+        ],
       ),
       onTap: value == null ? () => openLogin(context) : () => openMe(context),
     );
@@ -278,20 +283,33 @@ class _ContentShortcuts extends ConsumerWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: FuncSpacing.sm),
-              for (var start = 0; start < cells.length; start += columns)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: _cardGap),
+              // Four columns cannot line up with three cards, so the plain
+              // entries share one card whose edges meet theirs.
+              Material(
+                color: Theme.of(context).colorScheme.surfaceContainer,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: FuncShape.card,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
                   children: [
-                    // A short last row keeps the column widths.
-                    for (var i = start; i < start + columns; i++)
-                      Expanded(
-                        child: i < cells.length
-                            ? _PlainEntry(entry: cells[i], fit: cellFit)
-                            : const SizedBox.shrink(),
+                    for (var start = 0; start < cells.length; start += columns)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // A short last row keeps the column widths.
+                          for (var i = start; i < start + columns; i++)
+                            Expanded(
+                              child: i < cells.length
+                                  ? _PlainEntry(entry: cells[i], fit: cellFit)
+                                  : const SizedBox.shrink(),
+                            ),
+                        ],
                       ),
                   ],
                 ),
+              ),
             ],
           );
         },
@@ -477,7 +495,7 @@ class _SettingsList extends StatelessWidget {
       ),
       children: [
         for (final page in _pages)
-          SettingsTile(
+          SettingsTile.topLevel(
             setting: page,
             icon: settingsPageIcons[page],
             onTap: () => openSettingsPage(context, page.path),

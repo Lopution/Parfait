@@ -217,7 +217,6 @@ class _LoginWebViewDesktopPageState
     return Scaffold(
       appBar: AppTopBar(
         title: Text(widget.title),
-        centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.close),

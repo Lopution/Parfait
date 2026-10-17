@@ -22,7 +22,6 @@ class AppTopBar extends StatefulWidget implements PreferredSizeWidget {
     this.automaticallyImplyLeading = true,
     this.title,
     this.titleSpacing,
-    this.centerTitle,
     this.actions,
     this.bottom,
     this.backgroundColor,
@@ -36,7 +35,6 @@ class AppTopBar extends StatefulWidget implements PreferredSizeWidget {
   final bool automaticallyImplyLeading;
   final Widget? title;
   final double? titleSpacing;
-  final bool? centerTitle;
   final List<Widget>? actions;
   final PreferredSizeWidget? bottom;
 
@@ -172,7 +170,6 @@ class _AppTopBarState extends State<AppTopBar> {
               ? title
               : Opacity(opacity: drawn, child: title),
           titleSpacing: widget.titleSpacing,
-          centerTitle: widget.centerTitle,
           actions: widget.actions,
           bottom: widget.bottom,
           backgroundColor: immersed

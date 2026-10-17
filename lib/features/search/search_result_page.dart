@@ -735,7 +735,7 @@ class _SearchUserTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(
-        horizontal: FuncSpacing.md,
+        horizontal: FuncSpacing.lg,
         vertical: FuncSpacing.sm,
       ),
       child: ListTile(

@@ -44,9 +44,13 @@ class NavigationSettingsPage extends ConsumerWidget {
             bottom: FuncSpacing.xl,
           ),
           children: [
-            const SettingsGroup(children: [_BottomBarTile()]),
+            SettingsGroup(
+              title: Text(context.l10n.navigationBottomBar),
+              children: const [_BottomBarTile()],
+            ),
             _StartPageGroup(startPage: state.value?.homeStartPage),
             SettingsGroup(
+              title: Text(context.l10n.navigationRanking),
               children: [
                 _CategoriesTile(
                   setting: Setting.illustRankingCategories,

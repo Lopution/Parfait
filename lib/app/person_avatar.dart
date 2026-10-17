@@ -19,11 +19,12 @@ class PersonAvatar extends StatelessWidget {
   final bool ring;
 
   /// Neutral placeholder used both while loading and when the user has no
-  /// avatar: a light gradient disc with a low-contrast person glyph.
+  /// avatar: a light gradient disc with a low-contrast person glyph. The
+  /// disc is the top container tier, so it still shows on a card.
   Widget neutral(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return DecoratedBox(
-      decoration: BoxDecoration(color: colors.surfaceContainer),
+      decoration: BoxDecoration(color: colors.surfaceContainerHighest),
       child: Center(
         child: Icon(
           Icons.person_outline,

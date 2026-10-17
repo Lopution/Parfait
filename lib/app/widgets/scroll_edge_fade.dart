@@ -11,7 +11,9 @@ class ScrollEdgeFade extends StatefulWidget {
 
   final Widget child;
 
-  static const _fadeWidth = FuncSpacing.xl;
+  /// Twice the 24dp gap between tab labels: a narrower fade spent itself
+  /// on the sliver of a cut label and read as a hard cut, not a fade.
+  static const _fadeWidth = FuncSpacing.xxxl;
 
   @override
   State<ScrollEdgeFade> createState() => ScrollEdgeFadeState();

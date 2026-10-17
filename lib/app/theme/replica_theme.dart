@@ -164,6 +164,14 @@ ThemeData replicaTheme(
     cardColor: colorScheme.surfaceContainer,
     colorScheme: colorScheme,
     textTheme: textTheme,
+    // One search field everywhere (THEME-13): flat, one tier above the page.
+    searchBarTheme: SearchBarThemeData(
+      elevation: const WidgetStatePropertyAll(0),
+      backgroundColor: WidgetStatePropertyAll(colorScheme.surfaceContainerHigh),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+      ),
+    ),
     appBarTheme: AppBarThemeData(
       // One colour in both states: content scrolled under the bar is marked
       // by AppTopBar's edge line, not by a tint or a shadow (an elevation

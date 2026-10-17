@@ -134,10 +134,12 @@ class _RankingCategorySheetState<M extends RankingCategory>
     final theme = Theme.of(context);
     final page = _page;
     final header = Padding(
-      padding: const EdgeInsets.fromLTRB(
+      // The end meets the grid's edge: a tonal button's edge is its
+      // container, a text button's is its label, inset by the padding.
+      padding: EdgeInsets.fromLTRB(
         FuncSpacing.xl,
         FuncSpacing.lg,
-        FuncSpacing.md,
+        _editing ? FuncSpacing.xl : FuncSpacing.md,
         FuncSpacing.xs,
       ),
       child: Row(
@@ -381,16 +383,23 @@ class _CategoryGrid<M extends RankingCategory> extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
+          final labels = [
+            for (final mode in labelsToFit) _label(context, mode),
+          ];
+          // As many columns as keep the longest name on one line; two at
+          // least, wrapping only what two cannot hold.
+          final tileFloor = math.max(
+            _minTileWidth,
+            _CategoryTile.oneLineWidth(context, labels),
+          );
           final columns = math.max(
             2,
-            ((width + _spacing) / (_minTileWidth + _spacing)).floor(),
+            ((width + _spacing) / (tileFloor + _spacing)).floor(),
           );
           final tileWidth = (width - _spacing * (columns - 1)) / columns;
           final size = Size(
             tileWidth,
-            _CategoryTile.heightFor(context, tileWidth, [
-              for (final mode in labelsToFit) _label(context, mode),
-            ]),
+            _CategoryTile.heightFor(context, tileWidth, labels),
           );
           return Wrap(
             spacing: _spacing,
@@ -437,6 +446,27 @@ class _CategoryTile extends StatelessWidget {
   static TextStyle? _style(BuildContext context) =>
       Theme.of(context).textTheme.labelLarge;
 
+  /// The tile width that holds the longest of [labels] on one line, beside
+  /// the icon.
+  static double oneLineWidth(BuildContext context, List<String> labels) {
+    final painter = TextPainter(
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    );
+    var widest = 0.0;
+    for (final label in labels) {
+      painter.text = TextSpan(text: label, style: _style(context));
+      painter.layout();
+      widest = math.max(widest, painter.width);
+    }
+    painter.dispose();
+    return widest.ceilToDouble() +
+        _padding.horizontal +
+        _iconSize +
+        FuncSpacing.xs;
+  }
+
   /// The height every tile takes: the tallest label wrapped at the width
   /// left beside the icon, at the painted style and text scale.
   static double heightFor(
@@ -482,21 +512,28 @@ class _CategoryTile extends StatelessWidget {
           onTap: onTap,
           child: Padding(
             padding: _padding,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: _iconSize, color: foreground),
-                  const SizedBox(width: FuncSpacing.xs),
-                ],
-                Flexible(
-                  child: Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: _style(context)?.copyWith(color: foreground),
-                  ),
+            // The icon runs inline, so a wrapped name keeps it beside its
+            // first line.
+            child: Center(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    if (icon != null)
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: Padding(
+                          padding: const EdgeInsetsDirectional.only(
+                            end: FuncSpacing.xs,
+                          ),
+                          child: Icon(icon, size: _iconSize, color: foreground),
+                        ),
+                      ),
+                    TextSpan(text: label),
+                  ],
                 ),
-              ],
+                textAlign: TextAlign.center,
+                style: _style(context)?.copyWith(color: foreground),
+              ),
             ),
           ),
         ),

@@ -211,7 +211,7 @@ class _SpotlightCategoryFeed extends ConsumerWidget {
                       builder: (context, constraints) {
                         final cardWidth = math.min(
                           _maxCardWidth,
-                          constraints.crossAxisExtent - 2 * FuncSpacing.md,
+                          constraints.crossAxisExtent - 2 * FuncSpacing.lg,
                         );
                         final side =
                             (constraints.crossAxisExtent - cardWidth) / 2;

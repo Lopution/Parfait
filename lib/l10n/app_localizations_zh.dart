@@ -664,6 +664,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get serverDisplaySettings => '账号显示设置';
 
   @override
+  String get accountSignedIn => '已登录账号';
+
+  @override
   String get serverDisplayHint => '由 Pixiv 服务端保存，作用于接口为该账号返回的内容。';
 
   @override
@@ -925,6 +928,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get motionPageTransition => '页面转场';
 
   @override
+  String get motionAnimation => '动画';
+
+  @override
+  String get motionHaptics => '触感';
+
+  @override
   String get pageTransitionStyleSystem => '系统默认';
 
   @override
@@ -991,6 +1000,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get namingPreset => '文件命名预设';
+
+  @override
+  String get downloadGroupTasks => '任务';
+
+  @override
+  String get downloadGroupSaving => '保存';
 
   @override
   String get namingPresetId => '作品 ID（默认）';
@@ -1118,7 +1133,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get translateLlmApiKey => 'API Key';
 
   @override
-  String get translateLlmModel => '模型名（可选）';
+  String get translateLlmModel => '模型名';
+
+  @override
+  String get translateLlmModelOptional => '可选';
 
   @override
   String get translateCredentialsSave => '保存到安全存储';
@@ -1713,6 +1731,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get bottomBarItems => '底栏项目';
+
+  @override
+  String get navigationBottomBar => '底栏';
+
+  @override
+  String get navigationRanking => '排行分类';
 
   @override
   String get bottomBarMeLocked => '设置在这里，始终显示';

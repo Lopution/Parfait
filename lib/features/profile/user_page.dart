@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/inline_translation.dart';
 import '../../app/motion/app_overlays.dart';
 import '../../app/motion/motion_tokens.dart';
@@ -904,52 +905,65 @@ class _ProfileAbout extends ConsumerWidget {
       if (user.pawooUrl != null)
         (label: 'Pawoo', value: user.pawooUrl!, id: 'pawoo'),
     ];
+    // Rows ending in icon buttons pad themselves (LAYOUT-15); the rest sit
+    // in the page margin.
+    Widget inMargin(Widget child) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+      child: child,
+    );
+    final entries = <Widget>[
+      _ProfileAboutTextEntry(
+        label: context.l10n.profileId,
+        value: '${user.id}',
+      ),
+      if (user.account.isNotEmpty)
+        _ProfileAboutTextEntry(
+          label: context.l10n.profileAccount,
+          value: user.account,
+        ),
+      if (comment != null) _ProfileIntroduction(text: comment),
+      for (final link in links)
+        _ProfileSocialLinkRow(
+          key: ValueKey('profile-link-${link.id}'),
+          id: link.id,
+          label: link.label,
+          value: link.value,
+          onOpen: () =>
+              unawaited(_openProfileSocialLink(context, ref, link.value)),
+          onCopy: () => unawaited(_copyProfileSocialLink(context, link.value)),
+        ),
+      inMargin(const Divider()),
+      inMargin(
+        Text(
+          context.l10n.profileStats,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+      const SizedBox(height: FuncSpacing.sm),
+      for (final statistic in statistics)
+        inMargin(ProfileStatistic(statistic: statistic)),
+    ];
     return ContentWidthCap(
       maxWidth: ContentWidths.management,
       child: ListView(
         key: PageStorageKey('profile-about-${user.id}'),
         restorationId: 'profile-about-${user.id}',
-        padding: const EdgeInsets.fromLTRB(
-          FuncSpacing.xl,
-          FuncSpacing.md,
-          FuncSpacing.xl,
-          FuncSpacing.xxl,
+        padding: const EdgeInsets.only(
+          top: FuncSpacing.md,
+          bottom: FuncSpacing.xxl,
         ),
-        children: [
-          _ProfileAboutTextEntry(
-            label: context.l10n.profileId,
-            value: '${user.id}',
-          ),
-          if (user.account.isNotEmpty)
-            _ProfileAboutTextEntry(
-              label: context.l10n.profileAccount,
-              value: user.account,
-            ),
-          if (comment != null) _ProfileIntroduction(text: comment),
-          for (final link in links)
-            _ProfileSocialLinkRow(
-              key: ValueKey('profile-link-${link.id}'),
-              id: link.id,
-              label: link.label,
-              value: link.value,
-              onOpen: () =>
-                  unawaited(_openProfileSocialLink(context, ref, link.value)),
-              onCopy: () =>
-                  unawaited(_copyProfileSocialLink(context, link.value)),
-            ),
-          const Divider(),
-          Text(
-            context.l10n.profileStats,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: FuncSpacing.sm),
-          for (final statistic in statistics)
-            ProfileStatistic(statistic: statistic),
-        ],
+        children: entries,
       ),
     );
   }
 }
+
+/// The margin of an About row that ends in icon buttons: the last glyph,
+/// not its target, ends on the page margin (LAYOUT-15).
+const _buttonRowMargin = EdgeInsetsDirectional.only(
+  start: FuncSpacing.lg,
+  end: FuncSpacing.lg - EdgeIconButtons.glyphInset,
+);
 
 class _ProfileAboutTextEntry extends StatelessWidget {
   const _ProfileAboutTextEntry({required this.label, required this.value});
@@ -959,7 +973,10 @@ class _ProfileAboutTextEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
+    padding: const EdgeInsets.symmetric(
+      horizontal: FuncSpacing.lg,
+      vertical: FuncSpacing.sm,
+    ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -991,27 +1008,38 @@ class _ProfileIntroductionState extends ConsumerState<_ProfileIntroduction>
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                context.l10n.profileIntroduction,
-                style: const TextStyle(fontWeight: FontWeight.bold),
+        Padding(
+          padding: _buttonRowMargin,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  context.l10n.profileIntroduction,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
-            ),
-            if (widget.text.trim().isNotEmpty)
-              TranslateIconButton(
-                translating: translating,
-                shown: translationShown,
-                onPressed: () => unawaited(toggleTranslation([widget.text])),
-              ),
-          ],
+              if (widget.text.trim().isNotEmpty)
+                TranslateIconButton(
+                  translating: translating,
+                  shown: translationShown,
+                  onPressed: () => unawaited(toggleTranslation([widget.text])),
+                ),
+            ],
+          ),
         ),
-        SelectableText(widget.text),
-        TranslationPanel(
-          translating: translating,
-          translations: translations,
-          failure: translationFailure,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SelectableText(widget.text),
+              TranslationPanel(
+                translating: translating,
+                translations: translations,
+                failure: translationFailure,
+              ),
+            ],
+          ),
         ),
       ],
     ),
@@ -1036,7 +1064,9 @@ class _ProfileSocialLinkRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
+    padding: _buttonRowMargin.add(
+      const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
+    ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -97,6 +97,7 @@ class _TagActionsState extends ConsumerState<_TagActions>
     final l10n = context.l10n;
     final onToggleMute = widget.onToggleMute;
     final onMuteMode = widget.onMuteMode;
+    final failure = translationFailure;
     return SafeArea(
       child: SingleChildScrollView(
         child: Column(
@@ -113,13 +114,29 @@ class _TagActionsState extends ConsumerState<_TagActions>
               title: Text(l10n.tagActionCopy),
               onTap: _closing(widget.onCopy),
             ),
+            // A failure is this row's state: the reason as its subtitle,
+            // the error color on its icon (THEME-08).
             ListTile(
-              leading: const Icon(Icons.translate),
+              leading: Icon(
+                Icons.translate,
+                color: failure == null
+                    ? null
+                    : Theme.of(context).colorScheme.error,
+              ),
               title: Text(
                 translationShown
                     ? l10n.translationHide
                     : l10n.tagActionTranslate,
               ),
+              subtitle: failure == null
+                  ? null
+                  : Text(translationFailureText(context, failure)),
+              trailing: failure != null && translationNeedsSettings(failure)
+                  ? TextButton(
+                      onPressed: () => openTranslationSettings(context),
+                      child: Text(l10n.translationOpenSettings),
+                    )
+                  : null,
               enabled: !translating,
               onTap: () => unawaited(toggleTranslation([widget.tag])),
             ),
@@ -128,7 +145,8 @@ class _TagActionsState extends ConsumerState<_TagActions>
               child: TranslationPanel(
                 translating: translating,
                 translations: translations,
-                failure: translationFailure,
+                // Shown on the row above.
+                failure: null,
                 copyable: true,
               ),
             ),

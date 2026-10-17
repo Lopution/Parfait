@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/motion/app_overlays.dart';
 import '../../../app/widgets/app_top_bar.dart';
+import '../../../app/widgets/settings/settings_action_tile.dart';
+import '../../../app/widgets/settings/settings_group.dart';
+import '../../../app/widgets/settings/settings_group_content.dart';
 import '../../../core/translation/translation_service.dart';
 import '../../../core/translation/translation_credentials.dart';
 import '../../../l10n/context.dart';
@@ -263,86 +266,72 @@ class _TranslationCredentialsPageState
         ),
         body: settingsNarrowBody(
           ListView(
-            padding: const EdgeInsets.all(FuncSpacing.lg),
+            padding: const EdgeInsets.only(
+              top: FuncSpacing.sm,
+              bottom: FuncSpacing.xl,
+            ),
             children: [
-              if (widget.baidu)
-                _credentialField(
-                  controller: _appIdController,
-                  label: context.l10n.translateBaiduAppId,
-                  obscure: false,
-                )
-              else
-                _credentialField(
-                  controller: _baseUrlController,
-                  label: context.l10n.translateLlmBaseUrl,
-                  obscure: false,
-                  hint: 'https://api.example.com/v1',
-                ),
-              if (widget.baidu)
-                _credentialField(
-                  controller: _secretController,
-                  label: context.l10n.translateBaiduSecret,
-                  obscure: true,
-                )
-              else
-                _credentialField(
-                  controller: _apiKeyController,
-                  label: context.l10n.translateLlmApiKey,
-                  obscure: true,
-                ),
-              if (!widget.baidu)
-                _credentialField(
-                  controller: _modelController,
-                  label: context.l10n.translateLlmModel,
-                  obscure: false,
-                ),
-              const SizedBox(height: FuncSpacing.sm),
-              if (_status != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: FuncSpacing.md),
-                  child: Text(
-                    _status!,
-                    style: TextStyle(
-                      color: _statusIsError
-                          ? Theme.of(context).colorScheme.error
-                          : Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ),
-              FilledButton.icon(
-                onPressed: _busy ? null : _save,
-                icon: _busy && !_clearing
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save_outlined),
-                label: Text(context.l10n.translateCredentialsSave),
-              ),
-              const SizedBox(height: FuncSpacing.sm),
-              OutlinedButton.icon(
-                onPressed: _busy ? null : _clear,
-                icon: _busy && _clearing
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.delete_outline),
-                label: Text(context.l10n.translateCredentialsClear),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: FuncSpacing.lg),
-                child: Text(
+              // A form is one card: its fields, then its save at the end
+              // (THEME-13). The note covers the whole form, so it sits
+              // under the card.
+              SettingsGroup(
+                footer: Text(
                   settingsText(
                     context,
                     widget.baidu
                         ? 'translateBaiduHint'
                         : 'translateLlmCredentialHint',
                   ),
-                  style: Theme.of(context).textTheme.bodySmall,
                 ),
+                children: [
+                  SettingsGroupContent(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: FuncSpacing.sm),
+                        ..._fields(),
+                        if (_status != null)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: FuncSpacing.md,
+                            ),
+                            child: Text(
+                              _status!,
+                              style: TextStyle(
+                                color: _statusIsError
+                                    ? Theme.of(context).colorScheme.error
+                                    : Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        Align(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: FilledButton.icon(
+                            onPressed: _busy ? null : _save,
+                            icon: _busy && !_clearing
+                                ? const _BusyIndicator()
+                                : const Icon(Icons.save_outlined),
+                            label: Text(context.l10n.translateCredentialsSave),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              // Clearing is its own row, like a page's restore-defaults.
+              SettingsGroup(
+                children: [
+                  SettingsActionTile(
+                    icon: Icons.delete_outline,
+                    title: Text(context.l10n.translateCredentialsClear),
+                    trailing: _busy && _clearing
+                        ? const _BusyIndicator()
+                        : null,
+                    enabled: !_busy,
+                    onTap: _clear,
+                  ),
+                ],
               ),
             ],
           ),
@@ -351,11 +340,49 @@ class _TranslationCredentialsPageState
     );
   }
 
+  List<Widget> _fields() => [
+    if (widget.baidu)
+      _credentialField(
+        controller: _appIdController,
+        label: context.l10n.translateBaiduAppId,
+        obscure: false,
+      )
+    else
+      _credentialField(
+        controller: _baseUrlController,
+        label: context.l10n.translateLlmBaseUrl,
+        obscure: false,
+        hint: 'https://api.example.com/v1',
+      ),
+    if (widget.baidu)
+      _credentialField(
+        controller: _secretController,
+        label: context.l10n.translateBaiduSecret,
+        obscure: true,
+      )
+    else
+      _credentialField(
+        controller: _apiKeyController,
+        label: context.l10n.translateLlmApiKey,
+        obscure: true,
+      ),
+    if (!widget.baidu)
+      _credentialField(
+        controller: _modelController,
+        label: context.l10n.translateLlmModel,
+        // Under the field, not in the label: a long label is cut at
+        // narrow widths.
+        helper: context.l10n.translateLlmModelOptional,
+        obscure: false,
+      ),
+  ];
+
   Widget _credentialField({
     required TextEditingController controller,
     required String label,
     required bool obscure,
     String? hint,
+    String? helper,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: FuncSpacing.md),
@@ -364,8 +391,24 @@ class _TranslationCredentialsPageState
         obscureText: obscure,
         autocorrect: false,
         enableSuggestions: false,
-        decoration: InputDecoration(labelText: label, hintText: hint),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          helperText: helper,
+        ),
       ),
     );
   }
+}
+
+/// The spinner a busy credentials action shows in its icon's place.
+class _BusyIndicator extends StatelessWidget {
+  const _BusyIndicator();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(
+    width: 16,
+    height: 16,
+    child: CircularProgressIndicator(strokeWidth: 2),
+  );
 }

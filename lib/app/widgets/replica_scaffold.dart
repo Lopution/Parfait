@@ -8,7 +8,6 @@ class ReplicaScaffold extends StatelessWidget {
     super.key,
     required this.child,
     this.title,
-    this.centerTitle = true,
     this.actions,
     this.bottom,
     this.floatingActionButton,
@@ -17,7 +16,6 @@ class ReplicaScaffold extends StatelessWidget {
 
   final Widget child;
   final Widget? title;
-  final bool centerTitle;
   final List<Widget>? actions;
   final PreferredSizeWidget? bottom;
   final Widget? floatingActionButton;
@@ -34,7 +32,6 @@ class ReplicaScaffold extends StatelessWidget {
     final scaffold = Scaffold(
       appBar: AppTopBar(
         title: title,
-        centerTitle: centerTitle,
         automaticallyImplyLeading: false,
         actions: actions,
         bottom: bottom,

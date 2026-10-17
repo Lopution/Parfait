@@ -16,8 +16,8 @@ import 'entity_row.dart';
 ///   feed) — 56×72 cover, r4.
 /// - [NovelEntry.regular]: lists where novels are the primary content
 ///   (search results, new works, profile feed) — 68×88 cover, r6.
-/// - [NovelEntry.ranking]: ranked lists — compact density plus the rank
-///   leading the title.
+/// - [NovelEntry.ranking]: ranked lists — regular density (the novels are
+///   the page) plus the rank leading the title.
 ///
 /// Every variant is a full-bleed list row sharing the same identity: title,
 /// author, series and word count, a tag footnote, the bookmark count on the
@@ -92,8 +92,8 @@ class NovelEntry extends StatelessWidget {
          semanticLabel: semanticLabel,
        );
 
-  /// Ranked list density — compact cover plus the rank leading the title
-  /// line.
+  /// Ranked list density — the regular cover plus the rank leading the
+  /// title line.
   NovelEntry.ranking({
     Key? key,
     required NovelEntity entity,
@@ -107,9 +107,9 @@ class NovelEntry extends StatelessWidget {
   }) : this._(
          key: key,
          entity: entity,
-         coverWidth: 56,
-         coverHeight: 72,
-         coverRadius: 4,
+         coverWidth: 68,
+         coverHeight: 88,
+         coverRadius: 6,
          rank: rank,
          progress: progress,
          trailing: trailing,

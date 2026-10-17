@@ -119,6 +119,7 @@ class _AccountSettingsPageState extends ConsumerState<AccountSettingsPage> {
                     ),
                     children: [
                       SettingsGroup(
+                        title: Text(context.l10n.accountSignedIn),
                         children: [
                           for (final account in state.accounts)
                             Removable(

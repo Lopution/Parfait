@@ -680,6 +680,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get serverDisplaySettings => 'アカウント表示設定';
 
   @override
+  String get accountSignedIn => 'ログイン中のアカウント';
+
+  @override
   String get serverDisplayHint => 'Pixiv サーバーに保存され、このアカウントへの API 返却内容に作用します。';
 
   @override
@@ -944,6 +947,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get motionPageTransition => '画面遷移';
 
   @override
+  String get motionAnimation => 'アニメーション';
+
+  @override
+  String get motionHaptics => '触覚';
+
+  @override
   String get pageTransitionStyleSystem => 'システムのデフォルト';
 
   @override
@@ -1010,6 +1019,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get namingPreset => 'ファイル名プリセット';
+
+  @override
+  String get downloadGroupTasks => 'タスク';
+
+  @override
+  String get downloadGroupSaving => '保存';
 
   @override
   String get namingPresetId => '作品 ID（デフォルト）';
@@ -1137,7 +1152,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get translateLlmApiKey => 'API キー';
 
   @override
-  String get translateLlmModel => 'モデル名（任意）';
+  String get translateLlmModel => 'モデル名';
+
+  @override
+  String get translateLlmModelOptional => '任意';
 
   @override
   String get translateCredentialsSave => '安全なストレージに保存';
@@ -1740,6 +1758,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get bottomBarItems => 'ボトムバーの項目';
+
+  @override
+  String get navigationBottomBar => 'ボトムバー';
+
+  @override
+  String get navigationRanking => 'ランキングのカテゴリー';
 
   @override
   String get bottomBarMeLocked => '設定があるため常に表示';

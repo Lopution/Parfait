@@ -131,9 +131,11 @@ reviewed: 2026-10-17
 ### THEME-13 Text fields share one look
 - **Rule:** Text fields use the theme's outlined decoration with a
   floating label; call sites do not set `border`. A filter over loaded
-  content is a `SearchBar`. A form's save is a `FilledButton` at the end of
-  its group.
-- **Why:** Pages each styled their fields and save buttons differently.
+  content is a `SearchBar`; the theme's `SearchBarThemeData` makes it flat
+  on `surfaceContainerHigh`, and call sites set only its size. A form's
+  save is a `FilledButton` at the end of its card (SET-09).
+- **Why:** Pages each styled their fields, search bars and save buttons
+  differently.
 - **Check:** manual
 - **Code:** `lib/app/theme/replica_theme.dart`
 

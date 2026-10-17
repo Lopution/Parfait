@@ -583,9 +583,17 @@ void main() {
   });
 
   group('category sheet', () {
+    // A tile's label follows its icon in one Text.rich, so it is matched
+    // without the icon's placeholder.
     Finder inSheet(String text) => find.descendant(
       of: find.byType(BottomSheet),
-      matching: find.text(text),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Text &&
+            (widget.data ??
+                    widget.textSpan?.toPlainText(includePlaceholders: false)) ==
+                text,
+      ),
     );
     TabController tabs(WidgetTester tester) =>
         tester.widget<TabSlideStack>(find.byType(TabSlideStack)).controller;

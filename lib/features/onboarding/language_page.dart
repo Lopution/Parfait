@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/navigation/routes.dart';
+import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/replica_button.dart';
 import '../../app/widgets/replica_scaffold.dart';
@@ -76,7 +77,11 @@ class LanguagePage extends ConsumerWidget {
             ),
         ],
       ),
-      primaryAction: ReplicaButton(label: text('next'), onPressed: next),
+      // Inset like the group's cards, so the two share their edges.
+      primaryAction: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+        child: ReplicaButton(label: text('next'), onPressed: next),
+      ),
     );
   }
 }

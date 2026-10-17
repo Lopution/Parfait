@@ -701,6 +701,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get serverDisplaySettings => 'Настройки показа аккаунта';
 
   @override
+  String get accountSignedIn => 'Выполнен вход';
+
+  @override
   String get serverDisplayHint =>
       'Хранится на сервере Pixiv и влияет на то, что API возвращает этому аккаунту.';
 
@@ -976,6 +979,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get motionPageTransition => 'Переход между страницами';
 
   @override
+  String get motionAnimation => 'Анимация';
+
+  @override
+  String get motionHaptics => 'Тактильный отклик';
+
+  @override
   String get pageTransitionStyleSystem => 'Системный';
 
   @override
@@ -1047,6 +1056,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get namingPreset => 'Пресет имени файла';
+
+  @override
+  String get downloadGroupTasks => 'Задачи';
+
+  @override
+  String get downloadGroupSaving => 'Сохранение';
 
   @override
   String get namingPresetId => 'ID работы (по умолчанию)';
@@ -1176,7 +1191,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get translateLlmApiKey => 'API-ключ';
 
   @override
-  String get translateLlmModel => 'Модель (необязательно)';
+  String get translateLlmModel => 'Модель';
+
+  @override
+  String get translateLlmModelOptional => 'Необязательно';
 
   @override
   String get translateCredentialsSave => 'Сохранить в защищённое хранилище';
@@ -1792,6 +1810,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get bottomBarItems => 'Пункты нижней панели';
+
+  @override
+  String get navigationBottomBar => 'Нижняя панель';
+
+  @override
+  String get navigationRanking => 'Категории рейтинга';
 
   @override
   String get bottomBarMeLocked => 'Всегда на панели: здесь настройки';

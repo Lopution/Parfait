@@ -184,12 +184,13 @@ class _SettingsGroups extends ConsumerWidget {
     final muted = ref.watch(muteStoreProvider);
     final mutedCount =
         muted.tags.length + muted.users.length + muted.works.length;
-    SettingsTile page(SettingsPageRef page, {Widget? subtitle}) => SettingsTile(
-      setting: page,
-      icon: settingsPageIcons[page],
-      subtitle: subtitle,
-      onTap: () => openSettingsPage(context, page.path),
-    );
+    SettingsTile page(SettingsPageRef page, {Widget? subtitle}) =>
+        SettingsTile.topLevel(
+          setting: page,
+          icon: settingsPageIcons[page],
+          subtitle: subtitle,
+          onTap: () => openSettingsPage(context, page.path),
+        );
 
     // Tiles are grouped by intent under labeled section headers.
     // Destructive/transfer actions (backup) sit in their own "data" group.
@@ -322,7 +323,7 @@ class DeveloperSettingsGroup extends ConsumerWidget {
     return SettingsGroup(
       title: Text(context.l10n.settingsGroupDeveloper),
       children: [
-        SettingsTile(
+        SettingsTile.topLevel(
           setting: probe,
           icon: settingsPageIcons[probe],
           onTap: () => openSettingsPage(context, probe.path),
