@@ -117,11 +117,22 @@ reviewed: 2026-10-17
   gaps, two when narrow, then the settings index groups without the
   account group (`settingsIndexGroups(account: false)`), and under them
   `DeveloperSettingsGroup` (frame probe) when unlocked. Settings search
-  is the top bar's search button. An illustration cover opens the detail
-  pager over the row's illustrations in their order at the tap.
+  is the top bar's search button. A cover is square and shows the top of
+  a taller image, the middle of a wider one. An illustration cover opens
+  the detail pager over the row's illustrations in their order at the
+  tap. A cover whose work is in the illustration store flies to the
+  detail page and back (TRANS-09, its own scope per TRANS-07); one whose
+  work is not opens with no flight and takes none back. After an open
+  from the row the row keeps its order until the user leaves the page
+  (another tab, or a page not opened from the row over it), and takes the
+  new order when it next shows.
 - **Why:** User decision: settings filled two thirds of the page in a
   style of their own, and nothing showed what the user saw last. Left
   only at the bottom of the index and unsearchable, the probe could not
-  be found.
-- **Check:** `test/settings_test.dart` "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order"
+  be found. The flight needs the work's ratio on its first frame, and a
+  history record has none. Each work the pager shows moves to the front
+  of the history, so a row reordered mid-flight would land the image on
+  another work's cover; reordered at the landing, it swapped covers right
+  where the eye was (user decision: catch up on the next visit).
+- **Check:** `test/settings_test.dart` "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order" "a recent cover flies to its work and back, an unseen one not"
 - **Code:** `lib/features/settings/me_dashboard_page.dart`

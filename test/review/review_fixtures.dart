@@ -215,7 +215,8 @@ List<HistoryRecord> reviewHistory() => [
       snapshot: HistorySnapshot(
         title: 'illust ${1000 + i}',
         authorName: 'author',
-        coverUrl: 'https://i.pximg.net/${1000 + i}/square.jpg',
+        // As recorded from a work: its medium image.
+        coverUrl: 'https://i.pximg.net/${1000 + i}/medium.jpg',
       ),
     ),
   for (var i = 0; i < 3; i++)

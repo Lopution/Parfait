@@ -104,51 +104,24 @@ class IllustCard extends StatefulWidget {
 /// lets the element skip the whole card subtree. The body still rebuilds
 /// on its own provider and inherited dependencies.
 ///
-/// Inside a feed grid the card registers with the grid's
-/// [IllustPagerSource], which keeps a detail pager's image from flying back
-/// to it while it is off screen.
+/// Inside a feed grid the card is an [IllustPagerAnchor] of the grid's
+/// pager.
 class _IllustCardState extends State<IllustCard> {
-  late _IllustCardBody _body = _IllustCardBody(widget);
-  IllustPagerSource? _source;
   late Widget _shown = _wrap();
 
-  Widget _wrap() => switch (_source) {
-    final source? => HeroMode(
-      enabled: source.cardFlies(widget.entity.id),
-      child: _body,
-    ),
-    null => _body,
-  };
-
-  @override
-  void initState() {
-    super.initState();
-    _source = IllustPagerScope.maybeOf(context)
-      ?..attachCard(widget.entity.id, context, _rebuild);
-  }
-
-  @override
-  void dispose() {
-    _source?.detachCard(widget.entity.id, context);
-    super.dispose();
-  }
-
-  void _rebuild() => setState(() => _shown = _wrap());
+  Widget _wrap() => IllustPagerAnchor(
+    illustId: widget.entity.id,
+    child: _IllustCardBody(widget),
+  );
 
   @override
   void didUpdateWidget(IllustCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.entity.id != oldWidget.entity.id) {
-      _source
-        ?..detachCard(oldWidget.entity.id, context)
-        ..attachCard(widget.entity.id, context, _rebuild);
-    }
     if (!identical(widget.entity, oldWidget.entity) ||
         widget.heroScope != oldWidget.heroScope ||
         widget.rank != oldWidget.rank ||
         !identical(widget.meta, oldWidget.meta) ||
         !identical(widget.onLongPress, oldWidget.onLongPress)) {
-      _body = _IllustCardBody(widget);
       _shown = _wrap();
     }
   }

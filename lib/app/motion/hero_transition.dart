@@ -54,9 +54,10 @@ class IllustHeroCardFrame extends StatelessWidget {
 
   final Widget child;
 
-  /// Set when the card shows only the top of a taller image: the image's
-  /// width / height. The shuttle then grows the cropped top into the whole
-  /// image instead of starting from a shrunken full frame.
+  /// Set when the card shows only part of the image, the top of a taller
+  /// one or the middle of a wider one: the image's width / height. The
+  /// shuttle then grows the crop into the whole image instead of starting
+  /// from a shrunken full frame.
   final double? cropAspect;
 
   @override
@@ -65,14 +66,13 @@ class IllustHeroCardFrame extends StatelessWidget {
   }
 }
 
-/// Lays the shuttle image out full width and top-aligned at its own
-/// [aspect], whatever the flight rect: the card's top crop at one end, the
+/// Lays the shuttle image out at its own [aspect] covering the flight
+/// rect, top-aligned and centered across: the card's crop at one end, the
 /// whole image at the detail end (where the rect has the image's ratio),
-/// and a growing top crop between. The flight rect runs from the card's
-/// 1:2 to the taller image ratio, so it is never taller than the image and
-/// the image always fills it. Fitting the image inside the rect instead
-/// shrank it narrower than the rect mid-flight, then widened it back — a
-/// second shrink on top of the flight's own.
+/// and a growing crop between. A taller image runs full width, a wider
+/// one full height. Fitting the image inside the rect instead shrank it
+/// narrower than the rect mid-flight, then widened it back — a second
+/// shrink on top of the flight's own.
 class _CoverTopDelegate extends SingleChildLayoutDelegate {
   const _CoverTopDelegate({required this.aspect});
 
@@ -81,9 +81,14 @@ class _CoverTopDelegate extends SingleChildLayoutDelegate {
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
-    final width = constraints.maxWidth;
+    final rect = constraints.biggest;
+    final width = math.max(rect.width, rect.height * aspect);
     return BoxConstraints.tight(Size(width, width / aspect));
   }
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) =>
+      Offset((size.width - childSize.width) / 2, 0);
 
   @override
   bool shouldRelayout(_CoverTopDelegate oldDelegate) =>

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
@@ -232,76 +233,83 @@ void main() {
     },
   );
 
-  testWidgets('a cropped long image fills the flight rect width throughout', (
+  testWidgets('a cropped image covers the flight rect throughout', (
     tester,
   ) async {
     setViewSize(tester, const Size(390, 844));
-    // A 1:5 work: the card shows its top in a 1:2 box, the detail page the
-    // whole image at full width.
-    const aspect = 0.2;
-    final tag = illustHeroTag('feed', 7);
-    final navigatorKey = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(
-      MaterialApp(
-        navigatorKey: navigatorKey,
-        home: Align(
-          alignment: Alignment.topLeft,
-          child: SizedBox(
-            width: 180,
-            height: 360,
-            child: Hero(
-              tag: tag,
-              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-              child: const IllustHeroCardFrame(
-                cropAspect: aspect,
-                child: ColoredBox(color: Colors.red),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    unawaited(
-      navigatorKey.currentState!.push(
-        MaterialPageRoute<void>(
-          builder: (_) => Align(
+    // A 1:5 work whose feed card shows its top in a 1:2 box, and a 2:1 one
+    // whose square cover shows its middle; the detail page shows either
+    // whole at full width.
+    for (final (aspect, card) in [
+      (0.2, const Size(180, 360)),
+      (2.0, const Size(88, 88)),
+    ]) {
+      final tag = illustHeroTag('feed', 7);
+      final navigatorKey = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          key: ValueKey(aspect),
+          navigatorKey: navigatorKey,
+          home: Align(
             alignment: Alignment.topLeft,
-            child: SizedBox(
-              width: 390,
-              height: 390 / aspect,
+            child: SizedBox.fromSize(
+              size: card,
               child: Hero(
                 tag: tag,
                 flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-                child: const ColoredBox(
-                  key: ValueKey('art'),
-                  color: Colors.blue,
+                child: IllustHeroCardFrame(
+                  cropAspect: aspect,
+                  child: const ColoredBox(color: Colors.red),
                 ),
               ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
-    for (final ms in [80, 80, 80]) {
-      await tester.pump(Duration(milliseconds: ms));
-      final shuttle = find.descendant(
-        of: find.byType(HeroRectClip),
-        matching: find.byKey(const ValueKey('art')),
       );
-      final flight = tester.getRect(
-        find.descendant(
-          of: find.byType(HeroRectClip),
-          matching: find.byType(CustomSingleChildLayout),
+      unawaited(
+        navigatorKey.currentState!.push(
+          MaterialPageRoute<void>(
+            builder: (_) => Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 390,
+                height: 390 / aspect,
+                child: Hero(
+                  tag: tag,
+                  flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+                  child: const ColoredBox(
+                    key: ValueKey('art'),
+                    color: Colors.blue,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       );
-      final image = tester.getRect(shuttle);
-      // Never fitted inside the rect: that shrank it narrower mid-flight.
-      expect(image.width, closeTo(flight.width, 0.5));
-      expect(image.height, closeTo(flight.width / aspect, 0.5));
-      expect(image.top, closeTo(flight.top, 0.5));
+      await tester.pump();
+      for (final ms in [80, 80, 80]) {
+        await tester.pump(Duration(milliseconds: ms));
+        final shuttle = find.descendant(
+          of: find.byType(HeroRectClip),
+          matching: find.byKey(const ValueKey('art')),
+        );
+        final flight = tester.getRect(
+          find.descendant(
+            of: find.byType(HeroRectClip),
+            matching: find.byType(CustomSingleChildLayout),
+          ),
+        );
+        final image = tester.getRect(shuttle);
+        // Never fitted inside the rect: that shrank it narrower mid-flight.
+        final width = math.max(flight.width, flight.height * aspect);
+        expect(image.width, closeTo(width, 0.5), reason: '$aspect');
+        expect(image.height, closeTo(width / aspect, 0.5));
+        expect(image.top, closeTo(flight.top, 0.5));
+        expect(image.center.dx, closeTo(flight.center.dx, 0.5));
+      }
+      await tester.pumpAndSettle();
     }
-    await tester.pumpAndSettle();
   });
 
   testWidgets('mid-flight the detail endpoint paints no image of its own', (
