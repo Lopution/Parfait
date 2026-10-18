@@ -133,6 +133,61 @@ class IllustPagerScope extends InheritedWidget {
       source != oldWidget.source;
 }
 
+/// A work's card under an [IllustPagerScope]: it registers with the
+/// scope's pager so the image flies back to it only while some of it is
+/// on screen. Outside a scope it is [child] alone.
+class IllustPagerAnchor extends StatefulWidget {
+  const IllustPagerAnchor({
+    super.key,
+    required this.illustId,
+    required this.child,
+  });
+
+  final int illustId;
+  final Widget child;
+
+  @override
+  State<IllustPagerAnchor> createState() => _IllustPagerAnchorState();
+}
+
+class _IllustPagerAnchorState extends State<IllustPagerAnchor> {
+  IllustPagerSource? _source;
+
+  @override
+  void initState() {
+    super.initState();
+    _source = IllustPagerScope.maybeOf(context)
+      ?..attachCard(widget.illustId, context, _rebuild);
+  }
+
+  @override
+  void didUpdateWidget(IllustPagerAnchor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.illustId != oldWidget.illustId) {
+      _source
+        ?..detachCard(oldWidget.illustId, context)
+        ..attachCard(widget.illustId, context, _rebuild);
+    }
+  }
+
+  @override
+  void dispose() {
+    _source?.detachCard(widget.illustId, context);
+    super.dispose();
+  }
+
+  void _rebuild() => setState(() {});
+
+  @override
+  Widget build(BuildContext context) => switch (_source) {
+    final source? => HeroMode(
+      enabled: source.cardFlies(widget.illustId),
+      child: widget.child,
+    ),
+    null => widget.child,
+  };
+}
+
 /// The resolved column width for feed children, published by
 /// [IllustFeedGrid] so cards can size their preview + decode width without
 /// a per-card [LayoutBuilder] (one less element and layout callback per

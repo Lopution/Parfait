@@ -48,6 +48,24 @@ void main() {
   );
 
   testFilm(
+    'nav/hero-me-history',
+    location: '/recommended',
+    setup: ReviewSetup(history: reviewHistory()),
+    notes:
+        'From the Me tab\'s recent row into a work the home feed loaded, and '
+        'back. The square cover grows into the whole image on the detail '
+        'page and shrinks back into the same cover: the crop opens out '
+        'from the middle of the wide image, never a squeezed or letterboxed '
+        'frame, and the row keeps its order after the landing.',
+    script: (film, router) async {
+      await film.tap(find.text('我的'));
+      await film.tap(find.bySemanticsLabel('illust 1001'), hold: 6);
+      await film.frames(10);
+      await film.tap(back.last);
+    },
+  );
+
+  testFilm(
     'nav/viewer-open-close',
     location: '/recommended/illust/1000',
     notes:

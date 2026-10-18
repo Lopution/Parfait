@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../app/format/app_format.dart';
+import '../../app/motion/hero_transition.dart';
+import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
@@ -12,7 +15,8 @@ import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/entity_row.dart' show EntityBadge;
-import '../../app/widgets/feed/feed_grid.dart' show IllustPagerSource;
+import '../../app/widgets/feed/feed_grid.dart'
+    show IllustPagerAnchor, IllustPagerScope, IllustPagerSource;
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/fit_label.dart';
 import '../../app/widgets/func_bottom_nav.dart';
@@ -23,6 +27,8 @@ import '../../core/auth/account_store.dart';
 import '../../core/navigation/home_destination.dart';
 import '../../core/download/download_providers.dart';
 import '../../core/download/download_task.dart' show isTerminal;
+import '../../core/entity/illust_entity.dart';
+import '../../core/entity/illust_store.dart';
 import '../../core/history/history_models.dart';
 import '../../core/history/history_repository.dart';
 import '../../core/settings/settings_controller.dart';
@@ -194,6 +200,10 @@ class _RecentHistory extends ConsumerStatefulWidget {
   static const _count = 8;
   static const _cover = 88.0;
 
+  /// The row's own Hero scope (TRANS-07): the same work may sit on a feed
+  /// still mounted in another branch.
+  static const _heroScope = 'me-history';
+
   @override
   ConsumerState<_RecentHistory> createState() => _RecentHistoryState();
 }
@@ -203,28 +213,89 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory> {
   /// pushed detail route still holds it — its lifetime is the route's.
   final _pager = IllustPagerSource();
 
-  void _open(HistoryRecord record, List<HistoryRecord> records) {
+  /// The covers as shown. Each work opened from the row moves to the front
+  /// of the history, but the row keeps its order until the user leaves the
+  /// page, and takes the new one when it next shows: the image flying back
+  /// lands where its cover was when the pager aimed it, and no cover moves
+  /// under the eye.
+  List<HistoryRecord> _shown = const [];
+  bool _hold = false;
+
+  /// Whether a page opened from the row is up: hidden under it, the row
+  /// has not been left.
+  bool _opened = false;
+  Animation<double>? _cover;
+
+  /// Whether the open work flew in. One opened without a flight (its work
+  /// not in the store yet, no ratio to fly by) takes none back either.
+  bool _flies = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final cover = ModalRoute.of(context)?.secondaryAnimation;
+    if (identical(cover, _cover)) return;
+    _cover?.removeStatusListener(_onCover);
+    _cover = cover?..addStatusListener(_onCover);
+  }
+
+  @override
+  void dispose() {
+    _cover?.removeStatusListener(_onCover);
+    super.dispose();
+  }
+
+  void _onCover(AnimationStatus status) {
+    if (!status.isDismissed) return;
+    setState(() {
+      _opened = false;
+      _flies = true;
+    });
+  }
+
+  void _open(HistoryRecord record) {
     final id = record.contentId;
+    _hold = _opened = true;
     switch (record.contentType) {
       case HistoryContentType.novel:
         unawaited(openNovel(context, id));
       case HistoryContentType.illust:
-        // The order at the tap, not a live one: each work the pager shows
-        // is written to the history and moves to the front of the row, and
-        // a live list would re-seat the pager on every swipe.
         _pager.update([
-          for (final record in records)
+          for (final record in _shown)
             if (record.contentType == HistoryContentType.illust)
               record.contentId,
         ]);
-        unawaited(openIllust(context, id, pagerSource: _pager));
+        final entity = ref.read(illustStoreProvider).get(id);
+        final url = record.snapshot.coverUrl;
+        final flies = entity != null && url != null;
+        setState(() => _flies = flies);
+        unawaited(
+          openIllust(
+            context,
+            id,
+            initialEntity: entity,
+            heroScope: _RecentHistory._heroScope,
+            heroImageUrl: flies ? url : null,
+            heroImageDecodeWidth: flies
+                ? PixivImage.decodeWidthFor(_RecentCover.layoutWidth(entity))
+                : null,
+            pagerSource: _pager,
+          ),
+        );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final records = ref.watch(_recentHistoryProvider).value ?? const [];
-    if (records.isEmpty) return const SizedBox.shrink();
+    // Hidden — another tab, a page not opened from the row — the row is
+    // left; it catches up once it shows again.
+    final showing = TickerMode.valuesOf(context).enabled;
+    if (!showing && !_opened) _hold = false;
+    final records = ref.watch(_recentHistoryProvider).value;
+    if (records != null && showing && !_hold) _shown = records;
+    final shown = _shown;
+    if (shown.isEmpty) return const SizedBox.shrink();
+    final store = ref.watch(illustStoreProvider);
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: FuncSpacing.xl),
@@ -262,15 +333,31 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory> {
           ),
           SizedBox(
             height: _RecentHistory._cover,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-              itemCount: records.length,
-              separatorBuilder: (_, _) => const SizedBox(width: FuncSpacing.sm),
-              itemBuilder: (context, index) => _RecentCover(
-                record: records[index],
-                size: _RecentHistory._cover,
-                onTap: () => _open(records[index], records),
+            child: IllustPagerScope(
+              source: _pager,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+                itemCount: shown.length,
+                separatorBuilder: (_, _) =>
+                    const SizedBox(width: FuncSpacing.sm),
+                itemBuilder: (context, index) {
+                  final record = shown[index];
+                  final cover = _RecentCover(
+                    record: record,
+                    entity: record.contentType == HistoryContentType.illust
+                        ? store.get(record.contentId)
+                        : null,
+                    flies: _flies,
+                    onTap: () => _open(record),
+                  );
+                  return record.contentType == HistoryContentType.illust
+                      ? IllustPagerAnchor(
+                          illustId: record.contentId,
+                          child: cover,
+                        )
+                      : cover;
+                },
               ),
             ),
           ),
@@ -280,23 +367,63 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory> {
   }
 }
 
-/// A work of the row: its cover, a novel marked as one. One object to a
-/// screen reader, read by its title.
+/// A work of the row: its cover, the top of a tall one and the middle of
+/// a wide one, a novel marked as one. An illustration whose work is in the
+/// store carries the Hero to its detail page. One object to a screen
+/// reader, read by its title.
 class _RecentCover extends StatelessWidget {
   const _RecentCover({
     required this.record,
-    required this.size,
+    required this.entity,
+    required this.flies,
     required this.onTap,
   });
 
   final HistoryRecord record;
-  final double size;
+
+  /// The illustration's work from the store, for its ratio.
+  final IllustEntity? entity;
+  final bool flies;
   final VoidCallback onTap;
+
+  static const _size = _RecentHistory._cover;
+
+  /// The cover's decode width: a wide image covers the square by its
+  /// height, so it is decoded wider.
+  static double layoutWidth(IllustEntity? entity) =>
+      _size * math.max(1, entity?.pageAspectRatioAt(0) ?? 1);
 
   @override
   Widget build(BuildContext context) {
     final url = record.snapshot.coverUrl;
     final novel = record.contentType == HistoryContentType.novel;
+    final entity = this.entity;
+    Widget? image;
+    if (url != null) {
+      final tag = illustHeroTag(_RecentHistory._heroScope, record.contentId);
+      image = PixivImage.feed(
+        url,
+        layoutWidth: layoutWidth(entity),
+        alignment: Alignment.topCenter,
+        transitionKey: entity == null ? null : tag,
+      );
+      if (entity != null) {
+        image = HeroMode(
+          enabled: flies,
+          child: Hero(
+            tag: tag,
+            curve: MotionTokens.spatialCurve,
+            // The back gesture scrubs the image home with the finger.
+            transitionOnUserGestures: true,
+            flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+            child: IllustHeroCardFrame(
+              cropAspect: entity.pageAspectRatioAt(0),
+              child: image,
+            ),
+          ),
+        );
+      }
+    }
     return Semantics(
       container: true,
       button: true,
@@ -304,7 +431,7 @@ class _RecentCover extends StatelessWidget {
       onTap: onTap,
       excludeSemantics: true,
       child: SizedBox.square(
-        dimension: size,
+        dimension: _size,
         child: Material(
           color: Theme.of(context).colorScheme.surfaceContainer,
           shape: const RoundedRectangleBorder(borderRadius: FuncShape.card),
@@ -314,10 +441,10 @@ class _RecentCover extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (url == null)
-                  Icon(novel ? Icons.menu_book_outlined : Icons.image_outlined)
-                else
-                  PixivImage.feed(url, layoutWidth: size),
+                image ??
+                    Icon(
+                      novel ? Icons.menu_book_outlined : Icons.image_outlined,
+                    ),
                 if (novel)
                   const Positioned(
                     left: 7,

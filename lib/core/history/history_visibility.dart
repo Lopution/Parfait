@@ -9,11 +9,12 @@ import 'history_tracker.dart';
 
 typedef HistoryErrorCallback = void Function(Object error, StackTrace stack);
 
-/// Wraps content that should count only while its route is visible and the
-/// app is foregrounded.
+/// Wraps content that should count only while its route is visible, the
+/// app is foregrounded and the content is [active].
 class HistoryVisibility extends StatefulWidget {
   const HistoryVisibility({
     super.key,
+    this.active = true,
     required this.accountId,
     required this.contentType,
     required this.contentId,
@@ -28,6 +29,10 @@ class HistoryVisibility extends StatefulWidget {
     this.onError,
     required this.child,
   });
+
+  /// False while the content is built but not the one the user is on — a
+  /// pager's prebuilt neighbour, a page swiped through.
+  final bool active;
 
   final String accountId;
   final HistoryContentType contentType;
@@ -107,17 +112,18 @@ class _HistoryVisibilityState extends State<HistoryVisibility>
         oldWidget.contentId != widget.contentId) {
       _run(_tracker.finish());
       _tracker = _newTracker();
-      if (_effectiveVisible) _run(_tracker.start());
-      return;
+      _effectiveVisible = false;
+    } else {
+      _tracker
+        ..updateSnapshot(widget.snapshot)
+        ..updateSettings(
+          localHistoryEnabled: widget.localHistoryEnabled,
+          pixivHistoryEnabled: widget.pixivHistoryEnabled,
+          remote: widget.remote,
+          isAccountCurrent: widget.isAccountCurrent,
+        );
     }
-    _tracker
-      ..updateSnapshot(widget.snapshot)
-      ..updateSettings(
-        localHistoryEnabled: widget.localHistoryEnabled,
-        pixivHistoryEnabled: widget.pixivHistoryEnabled,
-        remote: widget.remote,
-        isAccountCurrent: widget.isAccountCurrent,
-      );
+    _updateVisibility();
   }
 
   @override
@@ -144,7 +150,7 @@ class _HistoryVisibilityState extends State<HistoryVisibility>
   }
 
   void _updateVisibility() {
-    final next = _routeVisible && _foreground;
+    final next = _routeVisible && _foreground && widget.active;
     if (next == _effectiveVisible) return;
     _effectiveVisible = next;
     _run(next ? _tracker.start() : _tracker.pauseAndCommit());

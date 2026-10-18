@@ -76,6 +76,9 @@ class HistoryTracker {
   bool _pixivHistoryEnabled;
   bool _active = false;
   bool _finished = false;
+
+  /// Whether the content was ever visible; content never seen leaves no row.
+  bool _started = false;
   Duration _visibleDuration = Duration.zero;
   Duration _pixivCommittedDuration = Duration.zero;
   Future<void> _operationTail = Future<void>.value();
@@ -101,6 +104,7 @@ class HistoryTracker {
   Future<void> start() {
     if (_finished || _active) return Future<void>.value();
     _active = true;
+    _started = true;
     _clock.start();
     // This initial commit provides crash/force-stop resilience even if the
     // route never gets a later pop callback.
@@ -120,6 +124,7 @@ class HistoryTracker {
   Future<void> finish() {
     if (_finished) return Future<void>.value();
     _finished = true;
+    if (!_started) return Future<void>.value();
     return pauseAndCommit();
   }
 

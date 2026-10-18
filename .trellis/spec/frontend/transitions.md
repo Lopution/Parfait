@@ -165,15 +165,17 @@ reviewed: 2026-10-17
 ### TRANS-11 Card rounding lives inside the Hero child
 - **Rule:** The card's corner clip (`IllustHeroCardFrame`) wraps the Hero
   child, and feed cards draw no outline. Only a flight with a card end
-  rounds its corners; detail ↔ viewer flies square. A top-cropped card
-  hands its `cropAspect` to the flight, which lays the image out full
-  width and top-aligned for the whole flight.
+  rounds its corners; detail ↔ viewer flies square. A card that shows
+  only part of the image (the top of a taller one, the middle of a wider
+  one) hands its `cropAspect` to the flight, which lays the image out
+  covering the rect, top-aligned and centered across, for the whole
+  flight.
 - **Why:** A clip outside the Hero snapped from square to rounded on pop;
   fitting the image inside the rect mid-flight read as a second shrink.
   A radius lerped by flight progress rounded the square detail ↔ viewer
   flight on its way.
-- **Check:** `test/hero_transition_test.dart` "a cropped long image fills the flight rect width throughout"
-- **Code:** `lib/app/widgets/feed/illust_card.dart`, `lib/app/motion/hero_transition.dart`
+- **Check:** `test/hero_transition_test.dart` "a cropped image covers the flight rect throughout"
+- **Code:** `lib/app/widgets/feed/illust_card.dart`, `lib/features/settings/me_dashboard_page.dart`, `lib/app/motion/hero_transition.dart`
 
 ### TRANS-12 Only the viewer's entry page flies back
 - **Rule:** The viewer carries a Hero only on the page it opened on. After a

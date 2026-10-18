@@ -37,6 +37,10 @@ import 'package:parfait/features/settings/network_settings_page.dart';
 import 'package:parfait/features/settings/saf_tree_name.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
+import 'package:parfait/app/motion/hero_rect_clip.dart';
+import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/history/history_models.dart';
+import 'helpers/illust_fixtures.dart';
 import 'package:parfait/app/widgets/settings/settings_menu_tile.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/l10n/app_localizations_zh.dart';
@@ -502,10 +506,121 @@ void main() {
     router.pop();
     await settle();
     await tester.pump(const Duration(seconds: 1));
-    expect(x(1), lessThan(x(2)), reason: 'back on the page, the row re-read');
 
+    // Cleared on the history page over the row: back, the row is gone.
+    await tester.tap(viewAll);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
     await settle(() => history.clear('100'));
+    router.pop();
+    await settle();
+    await tester.pump(const Duration(seconds: 1));
     expect(viewAll, findsNothing);
+  });
+
+  testWidgets('a recent cover flies to its work and back, an unseen one not', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(400, 1600));
+    answerConnectivityChannels();
+    late HistoryRepository history;
+    late ProviderContainer container;
+    await tester.runAsync(() async {
+      history = await openHistoryRepository(const []);
+      container = await makeHistoryWorld(history);
+    });
+    final store = container.read(illustStoreProvider);
+    final router = pixivRouter('/settings');
+    await tester.pumpWidget(localizedRouterApp(router, container: container));
+    // The detail page stamps its own record with the wall clock; these views
+    // come after it.
+    final later = DateTime.now().toUtc().add(const Duration(hours: 1));
+    // The row and the detail page's history writes run on the real loop.
+    Future<void> settle([Future<void> Function()? change]) =>
+        tester.runAsync(() async {
+          await change?.call();
+          for (var i = 0; i < 2; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+            await tester.pump();
+          }
+        });
+    Future<void> view(int id, int minute) => settle(
+      () => history.upsert(
+        historyRecord(id).copyWith(
+          lastViewedAt: later.add(Duration(minutes: minute)),
+          snapshot: HistorySnapshot(
+            title: 'work $id',
+            authorName: 'author $id',
+            coverUrl: 'https://i.pximg.net/img-master/$id.jpg',
+          ),
+        ),
+      ),
+    );
+    final row = find.byType(MeDashboardPage, skipOffstage: false);
+    // Opening a work rewrites its record with the work's own title, so the
+    // order is read by id.
+    final coverLabel = RegExp(r'^(?:work|illust) (\d+)$');
+    List<String?> order() => [
+      for (final cover in tester.widgetList<Semantics>(
+        find.descendant(
+          of: row,
+          matching: find.byWidgetPredicate(
+            (w) => w is Semantics && w.properties.button == true,
+            skipOffstage: false,
+          ),
+          skipOffstage: false,
+        ),
+      ))
+        ?coverLabel.firstMatch(cover.properties.label ?? '')?.group(1),
+    ];
+    final flight = find.byType(HeroRectClip);
+    Future<void> midway() async {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    store.mergeAll([parseIllust(illustJson(2))]);
+    await view(1, 1);
+    await view(2, 2);
+    await tester.tap(find.bySemanticsLabel('work 2'));
+    await midway();
+    expect(flight, findsOneWidget, reason: 'a work in the store flies in');
+    await tester.pump(const Duration(seconds: 1));
+    await view(1, 3);
+    router.pop();
+    await midway();
+    // The row hears of the newer view only once uncovered, mid-flight.
+    await settle();
+    expect(flight, findsOneWidget, reason: 'and back to its cover');
+    expect(order(), ['2', '1'], reason: 'which holds still while it lands');
+    await tester.pump(const Duration(seconds: 1));
+    await settle();
+    expect(order(), ['2', '1'], reason: 'and after, while the page stays');
+    router.go('/recommended');
+    await tester.pump();
+    expect(order(), ['2', '1'], reason: 'not while it slides away');
+    await tester.pump(const Duration(seconds: 1));
+    router.go('/settings');
+    await settle();
+    expect(order(), ['1', '2'], reason: 'it catches up when it shows again');
+    await tester.pump(const Duration(seconds: 1));
+
+    // Work 1 was not in the store at the tap: its page loads it, but the
+    // image that did not fly in does not fly back.
+    await tester.tap(find.bySemanticsLabel('work 1'));
+    store.mergeAll([parseIllust(illustJson(1))]);
+    await midway();
+    expect(flight, findsNothing);
+    await tester.pump(const Duration(seconds: 1));
+    await view(1, 4);
+    router.pop();
+    await midway();
+    expect(flight, findsNothing);
+    await tester.pump(const Duration(seconds: 1));
+    // The shell saves its destination as it closes: close it while the
+    // providers live.
+    await tester.pumpWidget(const SizedBox());
+    await settle();
   });
 
   testWidgets('translation summary re-probes when the provider switches', (
