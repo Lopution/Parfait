@@ -38,6 +38,7 @@ import '../../../app/motion/hero_transition.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import 'author_works_section.dart';
 import 'comments_preview_section.dart';
+import 'detail_page_activity.dart';
 import 'related_illusts_section.dart';
 import 'widgets/detail_action_bar.dart';
 import 'widgets/detail_image_pager.dart';
@@ -1118,18 +1119,26 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     final accountId = ref.watch(historyAccountIdProvider);
     if (accountId == null) return page;
     final pixivEnabled = ref.watch(pixivHistoryEnabledProvider);
-    return HistoryVisibility(
-      accountId: accountId,
-      contentType: HistoryContentType.illust,
-      contentId: entity.id,
-      snapshot: snapshotFromIllust(entity),
-      localHistoryEnabled: ref.watch(localHistoryEnabledProvider),
-      pixivHistoryEnabled: pixivEnabled,
-      repository: ref.watch(historyRepositoryProvider),
-      remote: pixivEnabled ? ref.watch(pixivHistoryRemoteProvider) : null,
-      isAccountCurrent: () =>
-          container.read(historyAccountIdProvider) == accountId,
-      child: page,
+    final localEnabled = ref.watch(localHistoryEnabledProvider);
+    final repository = ref.watch(historyRepositoryProvider);
+    final remote = pixivEnabled ? ref.watch(pixivHistoryRemoteProvider) : null;
+    // A pager's prebuilt neighbour is not viewed. The Builder takes the
+    // activity dependency, so a page change does not rebuild the page.
+    return Builder(
+      builder: (context) => HistoryVisibility(
+        active: DetailPageActivity.of(context),
+        accountId: accountId,
+        contentType: HistoryContentType.illust,
+        contentId: entity.id,
+        snapshot: snapshotFromIllust(entity),
+        localHistoryEnabled: localEnabled,
+        pixivHistoryEnabled: pixivEnabled,
+        repository: repository,
+        remote: remote,
+        isAccountCurrent: () =>
+            container.read(historyAccountIdProvider) == accountId,
+        child: page,
+      ),
     );
   }
 }

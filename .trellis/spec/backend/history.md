@@ -28,12 +28,17 @@ reviewed: 2026-10-12
 
 ### HIST-03 Count visible foreground time only, without timers
 - **Rule:** `HistoryTracker` accumulates stopwatch segments while the route
-  is visible and the app is in the foreground; no periodic timer. Pixiv
-  sync starts at 10 s and merges only the unsubmitted duration.
+  is visible, the app is in the foreground and the content is active
+  (`HistoryVisibility.active`); no periodic timer. In the detail pager
+  only the settled page is active (`DetailPageActivity`). Content never
+  visible writes no row, not even when it closes. Pixiv sync starts at
+  10 s and merges only the unsubmitted duration.
 - **Why:** A one-second periodic timer counted background time and woke
-  the app.
-- **Check:** `test/history_persistence_test.dart` "HistoryTracker counts only elapsed visible segments and no timer"
-- **Code:** `lib/core/history/history_tracker.dart`
+  the app. The pager's prebuilt neighbours share the route, so opening one
+  work recorded the works beside it too, and sent them to pixiv after ten
+  seconds; closing the pager wrote every page it had built.
+- **Check:** `test/history_persistence_test.dart` "HistoryTracker counts only elapsed visible segments and no timer"; `test/illust_detail_pager_test.dart` "only the settled page writes to the history"
+- **Code:** `lib/core/history/history_tracker.dart`, `lib/core/history/history_visibility.dart`
 
 ### HIST-04 The outbox never crosses accounts
 - **Rule:** Outbox flushes are serialized; a success deletes the row, a

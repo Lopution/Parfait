@@ -8,12 +8,15 @@ import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/history/history_repository.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_fixtures.dart';
+import 'helpers/connectivity_channels.dart';
 import 'helpers/detail_world.dart';
+import 'helpers/history_world.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
@@ -66,6 +69,9 @@ void main() {
     // uses post-frame callbacks instead of a periodic timer, which would
     // otherwise linger into test teardown.
     VisibilityDetectorController.instance.updateInterval = Duration.zero;
+    // Unanswered, the network policy's channel calls surface in the first
+    // test that turns the real loop.
+    answerConnectivityChannels();
   });
 
   testWidgets('swiping sideways moves through the feed order', (tester) async {
@@ -404,6 +410,49 @@ void main() {
     await tester.pump();
     expect(find.byType(IllustDetailPagerPage), findsOneWidget);
     expect(find.byType(PageView), findsOneWidget);
+  });
+
+  testWidgets('only the settled page writes to the history', (tester) async {
+    late HistoryRepository history;
+    await tester.runAsync(
+      () async => history = await openHistoryRepository(const []),
+    );
+    final (container, _, _) = await makeWorld(
+      extraOverrides: [historyRepositoryProvider.overrideWithValue(history)],
+    );
+    container.read(illustStoreProvider).mergeAll([
+      for (final id in [42, 43, 44]) parseIllust(illustJson(id)),
+    ]);
+    final source = IllustPagerSource()..update(const [42, 43, 44]);
+    await _pumpPager(tester, container, source: source, initialId: 43);
+    final account = container.read(historyAccountIdProvider)!;
+    // The ffi database answers on the real loop.
+    Future<List<int>?> recorded() => tester.runAsync(() async {
+      for (var i = 0; i < 3; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await tester.pump();
+      }
+      final page = await history.page(accountId: account);
+      return [for (final record in page.records) record.contentId];
+    });
+
+    expect(_detail(42), findsOneWidget);
+    expect(_detail(44), findsOneWidget);
+    expect(await recorded(), [43], reason: 'prebuilt neighbours unseen');
+
+    await mockNetworkImagesFor(() async {
+      final gesture = await tester.startGesture(_swipeOrigin(tester));
+      await gesture.moveBy(const Offset(-40, 0));
+      await gesture.moveBy(const Offset(-280, 0));
+      await gesture.up();
+      for (var frame = 0; _page(tester) != 2 && frame < 60; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await tester.pump(IllustDetailPagerPage.activeDwell);
+    });
+    // Closing commits each built page; one never seen leaves no row.
+    await tester.pumpWidget(const SizedBox());
+    expect((await recorded())!.toSet(), {43, 44});
   });
 
   group('related works on demand', () {
