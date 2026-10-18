@@ -1667,6 +1667,30 @@ abstract class AppLocalizations {
   /// **'详情质量'**
   String get detailQuality;
 
+  /// No description provided for @feedDensity.
+  ///
+  /// In zh, this message translates to:
+  /// **'网格密度'**
+  String get feedDensity;
+
+  /// No description provided for @feedDensityCompact.
+  ///
+  /// In zh, this message translates to:
+  /// **'紧凑'**
+  String get feedDensityCompact;
+
+  /// No description provided for @feedDensityStandard.
+  ///
+  /// In zh, this message translates to:
+  /// **'标准'**
+  String get feedDensityStandard;
+
+  /// No description provided for @feedDensityComfortable.
+  ///
+  /// In zh, this message translates to:
+  /// **'宽松'**
+  String get feedDensityComfortable;
+
   /// No description provided for @qualityMedium.
   ///
   /// In zh, this message translates to:

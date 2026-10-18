@@ -304,6 +304,26 @@ void main() {
     expect(unknown.pageTransitionStyle, PageTransitionStyle.system);
   });
 
+  test('feedDensity defaults to standard and round-trips by name', () {
+    expect(AppSettings.defaults().feedDensity, FeedDensity.standard);
+    for (final density in FeedDensity.values) {
+      final encoded = baseTestSettings().copyWith(feedDensity: density);
+      expect(
+        AppSettings.fromJson(
+          encoded.toJson(),
+          fallback: baseTestSettings(),
+        ).feedDensity,
+        density,
+      );
+    }
+    expect(
+      AppSettings.fromJson({
+        'feedDensity': 'dense',
+      }, fallback: baseTestSettings()).feedDensity,
+      FeedDensity.standard,
+    );
+  });
+
   test('animation speed factors scale from the normal tier', () {
     expect(AnimationSpeed.normal.factor, 1);
     expect(AnimationSpeed.fast.factor, closeTo(250 / 350, 1e-9));

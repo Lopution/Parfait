@@ -132,6 +132,15 @@ enum Setting implements SettingsEntry {
   blockR18(SettingsPageRef.browse, 'blockR18'),
   blockAI(SettingsPageRef.browse, 'blockAI'),
   hideMuted(SettingsPageRef.browse, 'hideMuted'),
+  feedDensity(
+    SettingsPageRef.browse,
+    'feedDensity',
+    optionKeys: [
+      'feedDensityCompact',
+      'feedDensityStandard',
+      'feedDensityComfortable',
+    ],
+  ),
   previewQuality(
     SettingsPageRef.browse,
     'previewQuality',

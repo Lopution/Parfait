@@ -853,6 +853,18 @@ class AppLocalizationsJa extends AppLocalizations {
   String get detailQuality => '詳細画質';
 
   @override
+  String get feedDensity => 'グリッドの密度';
+
+  @override
+  String get feedDensityCompact => 'コンパクト';
+
+  @override
+  String get feedDensityStandard => '標準';
+
+  @override
+  String get feedDensityComfortable => 'ゆったり';
+
+  @override
   String get qualityMedium => '中サイズ';
 
   @override

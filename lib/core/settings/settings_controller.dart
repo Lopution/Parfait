@@ -72,6 +72,9 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setPreviewQuality(PreviewQuality quality) =>
       _update((settings) => settings.copyWith(previewQuality: quality));
 
+  Future<void> setFeedDensity(FeedDensity density) =>
+      _update((settings) => settings.copyWith(feedDensity: density));
+
   Future<void> setViewQuality(ViewQuality quality) =>
       _update((settings) => settings.copyWith(viewQuality: quality));
 
@@ -229,6 +232,14 @@ final themeModeProvider = Provider<ThemeMode>((ref) {
   return ref.watch(
     settingsProvider.select(
       (async) => async.value?.themeMode ?? ThemeMode.system,
+    ),
+  );
+});
+
+final feedDensityProvider = Provider<FeedDensity>((ref) {
+  return ref.watch(
+    settingsProvider.select(
+      (async) => async.value?.feedDensity ?? FeedDensity.standard,
     ),
   );
 });

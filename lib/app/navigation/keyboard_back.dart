@@ -4,12 +4,12 @@ import 'package:material_ui/material_ui.dart';
 
 /// Esc goes back, the way the system back does: through the router, so a
 /// dialog or sheet closes first, a page's PopScope and the home shell's
-/// "back to the first destination" still apply. A menu or viewer that
+/// "back to the start page" still apply. A menu or viewer that
 /// handles Esc itself is nearer the focus and gets it first.
 ///
 /// Two differences from the system back: Esc in a text field only leaves
-/// the field, and at the first destination's root it does nothing rather
-/// than close the app.
+/// the field, and at the start page's root it does nothing rather than
+/// close the app.
 ///
 /// Esc gets its own intent: WidgetsApp maps it to DismissIntent, which
 /// every page route answers with a disabled action, so it never got past
@@ -49,7 +49,7 @@ class _BackAction extends Action<_BackIntent> {
       focus!.unfocus();
       return null;
     }
-    // False at the first destination's root: nothing left to go back to.
+    // False at the start page's root: nothing left to go back to.
     return router.routerDelegate.popRoute();
   }
 }

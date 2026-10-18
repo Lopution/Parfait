@@ -882,6 +882,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get detailQuality => 'Качество картинки в детальной странице';
 
   @override
+  String get feedDensity => 'Плотность сетки';
+
+  @override
+  String get feedDensityCompact => 'Компактная';
+
+  @override
+  String get feedDensityStandard => 'Обычная';
+
+  @override
+  String get feedDensityComfortable => 'Свободная';
+
+  @override
   String get qualityMedium => 'Среднее';
 
   @override

@@ -83,4 +83,29 @@ void main() {
       homeStartLastUsed,
     );
   });
+
+  test(
+    'back lands on the start page, the one used last where a run opened',
+    () {
+      final bar = _saved([_ranking, _me, _search], [_recommended, _newWorks]);
+      HomeDestination back(String? startPage, HomeDestination? launched) =>
+          homeBackDestination(
+            baseTestSettings().copyWith(
+              homeArrangement: bar,
+              homeStartPage: startPage,
+              lastHomeDestination: 'me',
+            ),
+            launched,
+          );
+      expect(back('search', _ranking), _search, reason: 'a new choice applies');
+      expect(back(null, _search), _ranking);
+      expect(back(homeStartLastUsed, _search), _search, reason: 'not me');
+      expect(
+        back(homeStartLastUsed, _newWorks),
+        _ranking,
+        reason: 'off the bar',
+      );
+      expect(back(homeStartLastUsed, null), _me, reason: 'no run yet');
+    },
+  );
 }

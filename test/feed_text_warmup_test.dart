@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -73,26 +74,30 @@ void main() {
     final warmed = <int>[];
     late StateSetter update;
     await tester.pumpWidget(
-      MaterialApp(
-        theme: replicaTheme(Brightness.light),
-        home: StatefulBuilder(
-          builder: (context, setState) {
-            update = setState;
-            return CustomScrollView(
-              slivers: [
-                IllustFeedGrid(
-                  itemCount: ids.length,
-                  itemIds: ids,
-                  warmTexts: (context, index) {
-                    warmed.add(ids[index]);
-                    return const [];
-                  },
-                  itemBuilder: (context, index) =>
-                      SizedBox(height: 100, child: Text('work ${ids[index]}')),
-                ),
-              ],
-            );
-          },
+      ProviderScope(
+        child: MaterialApp(
+          theme: replicaTheme(Brightness.light),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return CustomScrollView(
+                slivers: [
+                  IllustFeedGrid(
+                    itemCount: ids.length,
+                    itemIds: ids,
+                    warmTexts: (context, index) {
+                      warmed.add(ids[index]);
+                      return const [];
+                    },
+                    itemBuilder: (context, index) => SizedBox(
+                      height: 100,
+                      child: Text('work ${ids[index]}'),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

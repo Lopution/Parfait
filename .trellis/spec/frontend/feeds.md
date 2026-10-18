@@ -70,6 +70,18 @@ reviewed: 2026-10-17
 - **Check:** `test/responsive_layout_test.dart` "a refresh that moves visible works to the head lays out"
 - **Code:** `lib/app/widgets/feed/feed_grid.dart`
 
+### FEED-19 Grid columns follow the user's density
+- **Rule:** Every illustration grid is an `IllustFeedGrid` and takes its
+  column count from `illustColumnsFor(extent, density)`, the density
+  being the `feedDensity` setting: the narrowest card is 120, 180 or
+  360dp and the fewest columns 3, 2 or 1 (compact, standard,
+  comfortable), so a phone shows three, two or one and wider layouts add
+  columns in proportion. Standard is the default and the old grid.
+- **Why:** User decision: quick scanning wanted more columns, slow
+  looking a single one; a per-page setting would split one habit.
+- **Check:** `test/responsive_layout_test.dart` "illustColumnsFor derives columns from the extent and density" "IllustFeedGrid counts columns on the sliver extent, not the window"
+- **Code:** `lib/app/widgets/feed/feed_grid.dart`, `lib/core/settings/app_settings.dart`
+
 ### FEED-05 No feed prefetch
 - **Rule:** Feeds do not prefetch images. The grid's cache extent builds
   cards ahead and each card's image loads as it mounts.
@@ -241,7 +253,8 @@ reviewed: 2026-10-17
 
 ### FEED-16 Skeleton geometry matches the real layout
 - **Rule:** `IllustGridSkeleton` takes its columns from
-  `illustColumnsFor` and the same padding and spacing as the grid beneath
+  `illustColumnsFor` at the same density, and the same padding and
+  spacing as the grid beneath
   it; it fills and clips, never scrolls. `ProfileSkeleton` puts the avatar
   and name exactly where the real header does and keeps a real
   `BackButton` outside its excluded semantics.

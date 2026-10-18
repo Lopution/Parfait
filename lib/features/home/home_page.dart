@@ -9,6 +9,7 @@ import '../../app/widgets/app_snack_bar.dart';
 import '../../core/navigation/home_destination.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../core/platform/platform_caps.dart';
+import '../../core/settings/settings_controller.dart';
 import '../../l10n/context.dart';
 
 /// How long a first back at the start page keeps a second one armed to
@@ -30,6 +31,10 @@ class _HomePageState extends ConsumerState<HomePage>
   ModalRoute<dynamic>? _route;
   Timer? _exitArmed;
   VoidCallback? _hideExitHint;
+
+  /// The start page this run opened on, taken from the first settings it
+  /// had.
+  HomeDestination? _launched;
 
   @override
   void initState() {
@@ -107,22 +112,22 @@ class _HomePageState extends ConsumerState<HomePage>
   @override
   Widget build(BuildContext context) {
     final shell = widget.navigationShell;
-    // The first destination's own root confirms before it hands back to
-    // the system (on Android, the one platform with a root back). Every
-    // other branch root claims the back event and returns to the first.
-    final first = ref.watch(
-      homeArrangementProvider.select((arrangement) => arrangement.shown.first),
-    );
+    // The start page's own root confirms before it hands back to the
+    // system (on Android, the one platform with a root back). Every other
+    // branch root claims the back event and returns to the start page.
+    final settings = ref.watch(settingsProvider).value;
+    if (settings != null) _launched ??= homeStartDestination(settings);
+    final start = homeBackDestination(settings, _launched);
     final atStart =
-        shell.currentIndex == first.branchIndex &&
-        shell.shellRouteContext.routerState.uri.path == first.rootPath;
+        shell.currentIndex == start.branchIndex &&
+        shell.shellRouteContext.routerState.uri.path == start.rootPath;
     final confirmExit = ref.watch(platformCapsProvider).isAndroid;
     return PopScope<void>(
       canPop: atStart && !confirmExit,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        if (shell.currentIndex != first.branchIndex) {
-          shell.goBranch(first.branchIndex);
+        if (shell.currentIndex != start.branchIndex) {
+          shell.goBranch(start.branchIndex);
         } else if (atStart) {
           _backAtStart();
         }

@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 
 import 'review_support.dart';
 
@@ -10,6 +12,16 @@ void main() {
     location: '/recommended',
     variants: {...ShotVariant.values},
   );
+  // The grid at the other two densities (FEED-19).
+  for (final density in [FeedDensity.compact, FeedDensity.comfortable]) {
+    testShot(
+      'home/recommended-${density.name}',
+      location: '/recommended',
+      setup: ReviewSetup(
+        overrides: [feedDensityProvider.overrideWithValue(density)],
+      ),
+    );
+  }
   testShot('home/recommended-manga', location: '/recommended?type=manga');
   testShot('home/recommended-novel', location: '/recommended?type=novel');
   testShot('home/ranking', location: '/ranking');

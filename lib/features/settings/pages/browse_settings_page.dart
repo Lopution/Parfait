@@ -73,6 +73,23 @@ class BrowseSettingsPage extends ConsumerWidget {
             ),
             SettingsGroup(
               children: [
+                SettingsMenuTile<FeedDensity>(
+                  setting: Setting.feedDensity,
+                  value: settings.feedDensity,
+                  options: [
+                    for (final density in FeedDensity.values)
+                      AppMenuEntry(
+                        value: density,
+                        label: _densityText(context, density),
+                      ),
+                  ],
+                  onChanged: (density) => persistSettings(
+                    context,
+                    () => ref
+                        .read(settingsProvider.notifier)
+                        .setFeedDensity(density),
+                  ),
+                ),
                 SettingsMenuTile<PreviewQuality>(
                   setting: Setting.previewQuality,
                   value: settings.previewQuality,
@@ -120,6 +137,13 @@ class BrowseSettingsPage extends ConsumerWidget {
     );
   }
 }
+
+String _densityText(BuildContext context, FeedDensity density) =>
+    switch (density) {
+      FeedDensity.compact => context.l10n.feedDensityCompact,
+      FeedDensity.standard => context.l10n.feedDensityStandard,
+      FeedDensity.comfortable => context.l10n.feedDensityComfortable,
+    };
 
 List<AppMenuEntry<T>> _qualityOptions<T extends Object>(
   BuildContext context,

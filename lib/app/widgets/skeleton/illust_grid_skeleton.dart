@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/settings/settings_controller.dart';
 import '../../theme/func_semantic_tokens.dart';
 import '../feed/feed_grid.dart';
 import '../feed/illust_card.dart';
@@ -11,7 +13,7 @@ import 'func_skeleton.dart';
 /// column count, card width and paddings come from the same inputs as the
 /// real [IllustFeedGrid], so cards land on the same x positions when the
 /// data arrives — only the vertical extents differ.
-class IllustGridSkeleton extends StatelessWidget {
+class IllustGridSkeleton extends ConsumerWidget {
   const IllustGridSkeleton({
     super.key,
     required this.label,
@@ -33,13 +35,17 @@ class IllustGridSkeleton extends StatelessWidget {
   static const _imageRatios = [1.33, 1.0, 0.75, 1.5, 1.2];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final density = ref.watch(feedDensityProvider);
     return FuncSkeleton(
       label: label,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final horizontal = padding.horizontal;
-          final columns = illustColumnsFor(constraints.maxWidth - horizontal);
+          final columns = illustColumnsFor(
+            constraints.maxWidth - horizontal,
+            density,
+          );
           final columnWidth =
               (constraints.maxWidth -
                   horizontal -
