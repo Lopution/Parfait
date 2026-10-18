@@ -285,6 +285,48 @@ void main() {
       );
     });
 
+    test('announces writes to the local rows, not to the outbox', () async {
+      var changes = 0;
+      final subscription = repository.changes.listen((_) => changes++);
+      addTearDown(subscription.cancel);
+      Future<int> announced() async {
+        await pumpEventQueue();
+        return changes;
+      }
+
+      final record = _record('a', HistoryContentType.illust, 1);
+      await repository.upsert(record);
+      expect(await announced(), 1);
+
+      await repository.commitView(
+        record: record,
+        writeLocal: false,
+        enqueuePixiv: true,
+        unsubmittedPixivDuration: const Duration(seconds: 10),
+      );
+      await repository.clearOutbox('a');
+      await repository.delete(
+        accountId: 'a',
+        contentType: HistoryContentType.novel,
+        contentId: 1,
+      );
+      expect(await announced(), 1, reason: 'no row changed');
+
+      await repository.commitView(
+        record: record,
+        writeLocal: true,
+        enqueuePixiv: false,
+        unsubmittedPixivDuration: Duration.zero,
+      );
+      await repository.delete(
+        accountId: 'a',
+        contentType: HistoryContentType.illust,
+        contentId: 1,
+      );
+      await repository.clear('a');
+      expect(await announced(), 4);
+    });
+
     test('clear removes only the selected account and its outbox', () async {
       for (final account in ['a', 'b']) {
         await repository.commitView(

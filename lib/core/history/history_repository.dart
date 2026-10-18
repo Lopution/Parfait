@@ -45,6 +45,20 @@ class HistoryRepository {
   final HistoryDatabase _database;
   final DateTime Function() _now;
   Future<void> _flushTail = Future<void>.value();
+  final _changes = StreamController<void>.broadcast();
+
+  /// Fires after each write to the local rows: a view, a delete, a clear,
+  /// a restore. Outbox writes stay silent; no page shows the outbox.
+  Stream<void> get changes => _changes.stream;
+
+  void _changed() {
+    // A write still in flight when the provider is disposed lands after
+    // the stream closed; nobody is listening by then.
+    if (!_changes.isClosed) _changes.add(null);
+  }
+
+  /// Closes [changes].
+  void dispose() => unawaited(_changes.close());
 
   Future<void> upsert(HistoryRecord record) async {
     _validateRecord(record);
@@ -54,6 +68,7 @@ class HistoryRepository {
       record.toColumns(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    _changed();
   }
 
   Future<HistoryPageResult> page({
@@ -136,11 +151,13 @@ class HistoryRepository {
     _validateAccount(accountId);
     _validateContentId(contentId);
     final db = await _database.database;
-    return db.delete(
+    final deleted = await db.delete(
       HistoryDatabase.historyTable,
       where: 'account_id = ? AND content_type = ? AND content_id = ?',
       whereArgs: [accountId, contentType.storageValue, contentId],
     );
+    if (deleted > 0) _changed();
+    return deleted;
   }
 
   /// Clears local rows and their not-yet-submitted remote work for one account.
@@ -159,6 +176,7 @@ class HistoryRepository {
         whereArgs: [accountId],
       );
     });
+    _changed();
   }
 
   /// Removes only the unsent remote-Pixiv history outbox of [accountId]
@@ -212,6 +230,7 @@ class HistoryRepository {
         );
       }
     });
+    if (writeLocal) _changed();
   }
 
   Future<List<PixivHistoryOutboxEntry>> pendingOutbox({
@@ -386,7 +405,11 @@ final _historyDatabaseProvider = Provider<HistoryDatabase>((ref) {
 });
 
 final historyRepositoryProvider = Provider<HistoryRepository>((ref) {
-  return HistoryRepository(database: ref.watch(_historyDatabaseProvider));
+  final repository = HistoryRepository(
+    database: ref.watch(_historyDatabaseProvider),
+  );
+  ref.onDispose(repository.dispose);
+  return repository;
 });
 
 final pixivHistoryRemoteProvider = Provider<PixivHistoryRemote>((ref) {
