@@ -112,3 +112,11 @@ reviewed: 2026-10-17
   laid out their text again (4 ms on device).
 - **Check:** `test/novel_reader_test.dart` "the pages beside the page on screen are built at rest"; `test/novel_reader_chrome_test.dart` "immersive reader: chrome toggles, back closes chrome first"
 - **Code:** `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_stage.dart`
+
+### NOVEL-10 The progress hint keeps 4.5:1 on every palette
+- **Rule:** The bottom progress hint uses `bodySmall` and the page's text
+  color at `novelReaderHintAlpha`, set no fainter than keeps 4.5:1 on the
+  system and every reader palette.
+- **Why:** An 11sp hint at 45% of the text color measured about 2.9:1.
+- **Check:** `test/novel_reader_settings_test.dart` "the progress hint keeps 4.5:1 on every palette"
+- **Code:** `lib/features/novel/novel_reader_stage.dart`

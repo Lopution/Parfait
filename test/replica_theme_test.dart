@@ -36,6 +36,17 @@ void main() {
     }
   });
 
+  test('a disabled switch that is on takes no accent', () {
+    const lockedOn = {WidgetState.selected, WidgetState.disabled};
+    for (final brightness in Brightness.values) {
+      final theme = replicaTheme(brightness);
+      expect(
+        theme.switchTheme.trackColor!.resolve(lockedOn),
+        isNot(theme.colorScheme.primary),
+      );
+    }
+  });
+
   test('a system palette replaces only the accent roles', () {
     for (final brightness in Brightness.values) {
       final system = ColorScheme.fromSeed(

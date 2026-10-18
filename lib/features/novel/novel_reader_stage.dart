@@ -31,6 +31,12 @@ import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_choice_chip.dart';
 import '../../app/widgets/app_slider.dart';
 
+/// How far the bottom progress hint fades the page's text: no further
+/// than keeps 4.5:1 on every reader palette (the green one is the
+/// closest, about 5:1).
+@visibleForTesting
+const novelReaderHintAlpha = 0.75;
+
 /// Data seam for [NovelReaderStage]: everything that differs between the
 /// online novel page and the local TXT reader is injected here, so the
 /// stage itself stays source-agnostic.
@@ -434,9 +440,8 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
   /// diverge or the reserve stops matching the painted glyph height.
   TextStyle? _hintStyle(BuildContext context, NovelReaderPalette palette) =>
       Theme.of(context).textTheme.bodySmall?.copyWith(
-        fontSize: 11,
         color: (palette.foreground ?? Theme.of(context).colorScheme.onSurface)
-            .withValues(alpha: 0.45),
+            .withValues(alpha: novelReaderHintAlpha),
       );
 
   /// Bottom padding that keeps the last body line clear of the progress

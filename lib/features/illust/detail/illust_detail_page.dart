@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/rendering.dart' show RenderAbstractViewport;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -55,10 +56,11 @@ import '../../../app/layout/app_breakpoints.dart';
 import '../../../app/layout/two_pane.dart';
 import '../../../app/widgets/smooth_wheel_scroll.dart';
 
-/// A short first illustration gets a stable reading slot on narrow screens,
-/// whether it stands alone or opens a set. The image itself remains at its
-/// natural aspect ratio inside this slot. Manga reads page after page, so
-/// its first page keeps its natural height.
+/// A short first illustration on a narrow screen, alone or opening a set,
+/// sits where centering it in this share of the viewport puts it: a very
+/// wide image at the top was hard to see and to tap. Its slot ends with the
+/// image, so the title follows right under it. Manga reads page after
+/// page, so its first page keeps its natural height.
 const _shortFirstImageSlotFactor = 0.7;
 
 /// Where the first image sits in the detail scroll. The narrow layout
@@ -94,15 +96,22 @@ class _FirstImageLayout {
       aspectRatio,
     );
     final natural = panoramaHeight ?? viewport.width / aspectRatio;
-    // A panorama already has its own viewport; the centered reading slot is
-    // for an ordinary short illustration on a phone held upright. On wider
-    // single-column screens it only opens a gap under the image.
+    // A panorama already has its own viewport; the reading slot is for an
+    // ordinary short illustration on a phone held upright. On wider
+    // single-column screens it only opens a gap above the image.
     final slots =
         !useTwoPane &&
         viewport.width < AppBreakpoints.medium &&
         entity.type == IllustType.illust &&
         !entity.isUgoira &&
         panoramaHeight == null;
+    final band = slots
+        ? math.max(
+                0.0,
+                viewport.height * _shortFirstImageSlotFactor - natural,
+              ) /
+              2
+        : 0.0;
     return _FirstImageLayout._(
       useTwoPane: useTwoPane,
       statusInset: useTwoPane ? 0 : MediaQuery.paddingOf(context).top,
@@ -111,9 +120,7 @@ class _FirstImageLayout {
       shownPages: collapsible && !expanded ? 1 : entity.pageCount,
       natural: natural,
       slots: slots,
-      alone: slots
-          ? math.max(natural, viewport.height * _shortFirstImageSlotFactor)
-          : natural,
+      alone: band + natural,
     );
   }
 
@@ -130,16 +137,16 @@ class _FirstImageLayout {
   /// Whether the first image goes through the reading slot.
   final bool slots;
 
-  /// The first image's extent when shown alone: the slot, or its natural
-  /// height when that is taller.
+  /// The first image's extent when shown alone: the band above a short
+  /// image, then the image.
   final double alone;
 
-  /// The slot only frames an image shown alone: below an expanded set's
-  /// first page it would open a gap before page 2.
+  /// The band only frames an image shown alone: an expanded set reads from
+  /// the top, page after page.
   double get extent => shownPages == 1 ? alone : natural;
 
-  /// The image's top in the scroll: centered in its slot.
-  double get top => statusInset + (extent - natural) / 2;
+  /// The image's top in the scroll: at the end of its slot.
+  double get top => statusInset + extent - natural;
 
   /// Whether the image starts under the toolbar, so the bar's controls
   /// need lifting off it.
@@ -211,6 +218,13 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   /// rebuild every built page, the info block and the related grid just to
   /// move a counter.
   final ValueNotifier<int?> _topVisiblePage = ValueNotifier<int?>(null);
+
+  /// Whether the collapse button after the last page is on screen: the
+  /// floating one under the count steps aside then, so only one shows.
+  /// Read from the button's box, not a VisibilityDetector: a sliver child
+  /// scrolled off but still laid out stops painting and never reports.
+  final ValueNotifier<bool> _pagesToggleOnScreen = ValueNotifier(false);
+  final GlobalKey _pagesToggleKey = GlobalKey();
   final GlobalKey _infoAnchorKey = GlobalKey();
 
   /// Passed to the narrow layout's [SmoothWheelScroll] `controller:`
@@ -266,7 +280,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   @override
   void initState() {
     super.initState();
-    _narrowScroll.addListener(_updateImmersion);
+    _narrowScroll
+      ..addListener(_updateImmersion)
+      ..addListener(_schedulePagesToggleCheck);
   }
 
   @override
@@ -320,6 +336,37 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     if (!_narrowScroll.hasClients) return;
     final drawn = (_narrowScroll.offset - _immersionStart) / kToolbarHeight;
     _immersion.value = drawn.clamp(0.0, 1.0).toDouble();
+  }
+
+  bool _pagesToggleCheckScheduled = false;
+
+  /// A scroll is reported before the frame lays it out: the button's box
+  /// is read once that frame is done.
+  void _schedulePagesToggleCheck() {
+    if (_pagesToggleCheckScheduled) return;
+    _pagesToggleCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pagesToggleCheckScheduled = false;
+      if (mounted) _updatePagesToggleOnScreen();
+    });
+  }
+
+  /// At least half of the button inside the scroll view counts as on
+  /// screen.
+  void _updatePagesToggleOnScreen() {
+    final box = _pagesToggleKey.currentContext?.findRenderObject();
+    final Object? viewport = box == null
+        ? null
+        : RenderAbstractViewport.maybeOf(box);
+    if (box is! RenderBox || !box.hasSize || viewport is! RenderBox) {
+      _pagesToggleOnScreen.value = false;
+      return;
+    }
+    final top = box.localToGlobal(Offset.zero, ancestor: viewport).dy;
+    final height = box.size.height;
+    final shown =
+        math.min(top + height, viewport.size.height) - math.max(top, 0.0);
+    _pagesToggleOnScreen.value = shown >= height / 2;
   }
 
   /// Folds an expanded set back to page 1. A reader already past page 1
@@ -401,6 +448,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     _downloadEvents?.cancel();
     _narrowScroll.dispose();
     _topVisiblePage.dispose();
+    _pagesToggleOnScreen.dispose();
     _barCurve.dispose();
     _barVisibility.dispose();
     _immersion.dispose();
@@ -789,8 +837,12 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     final firstPageEnd = layout.firstPageEnd;
     _topChromeExtent = layout.useTwoPane ? 0 : topChrome;
     _immersionStart = layout.immersionStart;
+    // Layout changes move both without a scroll: expanding the set, pages
+    // taking their real ratios.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _updateImmersion();
+      if (!mounted) return;
+      _updateImmersion();
+      _updatePagesToggleOnScreen();
     });
 
     final imageSlivers = <Widget>[
@@ -879,12 +931,15 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       // Selecting keeps every page on screen: no folding mid-selection.
       if (collapsible && !(_pagesExpanded && _downloadMode))
         SliverToBoxAdapter(
-          child: _PagesToggleButton(
-            count: entity.pageCount,
-            expanded: _pagesExpanded,
-            onPressed: _pagesExpanded
-                ? () => _collapsePages(firstPageEnd)
-                : () => setState(() => _pagesExpanded = true),
+          child: KeyedSubtree(
+            key: _pagesToggleKey,
+            child: _PagesToggleButton(
+              count: entity.pageCount,
+              expanded: _pagesExpanded,
+              onPressed: _pagesExpanded
+                  ? () => _collapsePages(firstPageEnd)
+                  : () => setState(() => _pagesExpanded = true),
+            ),
           ),
         ),
     ];
@@ -1036,12 +1091,18 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
                 if (!entity.isUgoira && entity.pageCount > 1 && !_downloadMode)
                   Positioned.fill(
                     top: topChrome,
-                    child: ValueListenableBuilder<int?>(
-                      valueListenable: _topVisiblePage,
-                      builder: (context, page, _) => DetailPageCounter(
-                        page: page,
+                    child: ListenableBuilder(
+                      listenable: Listenable.merge([
+                        _topVisiblePage,
+                        _pagesToggleOnScreen,
+                      ]),
+                      builder: (context, _) => DetailPageCounter(
+                        page: _topVisiblePage.value,
                         count: entity.pageCount,
-                        onCollapse: collapsible && _pagesExpanded
+                        onCollapse:
+                            collapsible &&
+                                _pagesExpanded &&
+                                !_pagesToggleOnScreen.value
                             ? () => _collapsePages(firstPageEnd)
                             : null,
                       ),

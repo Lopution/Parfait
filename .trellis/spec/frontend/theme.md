@@ -83,12 +83,16 @@ reviewed: 2026-10-17
   `primaryContainer` / `onPrimaryContainer`. Category tones
   (`categoryTone`) are not the accent: they color only the icon circles
   of top-level entries, by the kind of place each opens, and stay fixed
-  under system colors; bookmarks keeps the default accent's hue.
+  under system colors; bookmarks keeps the default accent's hue. Tag
+  chips are neutral pills; only keyboard focus rings them in the accent.
+  A disabled control takes M3's disabled colors (`onSurface` at 0.38 for
+  content, 0.12 for containers), never the accent, even when it is on.
 - **Why:** User decision: the accent loses its meaning when it decorates.
   A system accent that recolored bookmarks collided with whichever
-  category shared its hue.
-- **Check:** manual
-- **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/category_colors.dart`
+  category shared its hue. A locked switch drawn in the accent read as
+  tappable.
+- **Check:** `test/replica_theme_test.dart` "a disabled switch that is on takes no accent"
+- **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/category_colors.dart`, `lib/app/widgets/tag_chips.dart`
 
 ### THEME-08 Status color goes on the icon, not the text
 - **Rule:** In status rows the icon carries the semantic color (success,

@@ -178,9 +178,12 @@ reviewed: 2026-10-17
 
 ### PAGE-11 Batch selection starts from a "manage" text button
 - **Rule:** A list with batch removal enters selection through a "manage"
-  `TextButton`, shown only when the list has entries. Selection swaps the
-  bar for `selectionAppBar`; back leaves selection before the page. Grid
-  entries use `SelectableTile`.
+  `TextButton`, shown only when the list has entries. Bulk removals with
+  no selection (clear history, clear completed downloads) are named
+  entries in the bar's ⋮, disabled while there is nothing to remove, so
+  "manage" never shifts. Selection swaps the bar for `selectionAppBar`;
+  back leaves selection before the page. Grid entries use
+  `SelectableTile`.
 - **Why:** An icon alone was unreadable in testing.
 - **Check:** `test/history_page_test.dart` "system back exits selection mode instead of popping"
 - **Code:** `lib/app/widgets/selectable_tile.dart`, `lib/app/widgets/selection_app_bar.dart`
@@ -214,11 +217,13 @@ reviewed: 2026-10-17
   or reparent rows with `GlobalKey`s. Progress bars show only on
   unfinished rows. A group of one is a plain row. A row's action buttons
   stand on its title row while its text keeps 160dp; only a narrower row
-  moves them to a line of their own.
+  moves them to a line of their own. The actions end the row, so a
+  group's line up with its rows', its expand icon just before them.
 - **Why:** Eager lists built hundreds of rows; reparented rows dropped
   their ink and showed square corners mid-animation. On every phone a
-  lone remove button took a line of its own under the row.
-- **Check:** `test/download_tasks_page_test.dart` "a five-hundred-item list only builds the visible rows" "a group of one is a plain task row" "on a phone a finished row keeps remove on its title row"
+  lone remove button took a line of its own under the row. A group's
+  remove button stood one icon left of its rows'.
+- **Check:** `test/download_tasks_page_test.dart` "a five-hundred-item list only builds the visible rows" "a group of one is a plain task row" "on a phone a finished row keeps remove on its title row" "a collapsed group expands on tap and folds its children in"
 - **Code:** `lib/features/settings/pages/download_tasks_page.dart`, `lib/app/widgets/sliver_surface_list.dart`
 
 ## Wide and short windows

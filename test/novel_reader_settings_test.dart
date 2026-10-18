@@ -4,14 +4,17 @@ import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/novel/reader_settings.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:parfait/features/novel/novel_reader.dart';
+import 'package:parfait/features/novel/novel_reader_stage.dart';
 
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
+import 'support/contrast.dart';
 
 void main() {
   group('NovelReaderSettings', () {
@@ -72,6 +75,32 @@ void main() {
           ThemeData.estimateBrightnessForColor(palette.background!),
           reason: '$theme brightness must track its background',
         );
+      }
+    });
+
+    test('the progress hint keeps 4.5:1 on every palette', () {
+      final pairs = [
+        for (final brightness in Brightness.values)
+          (
+            replicaTheme(brightness).colorScheme.onSurface,
+            replicaTheme(brightness).scaffoldBackgroundColor,
+          ),
+        for (final theme in [
+          NovelReaderTheme.paper,
+          NovelReaderTheme.sepia,
+          NovelReaderTheme.night,
+        ])
+          (
+            novelReaderPalette(theme).foreground!,
+            novelReaderPalette(theme).background!,
+          ),
+      ];
+      for (final (text, page) in pairs) {
+        final hint = Color.alphaBlend(
+          text.withValues(alpha: novelReaderHintAlpha),
+          page,
+        );
+        expect(contrastRatio(hint, page), greaterThanOrEqualTo(4.5));
       }
     });
   });

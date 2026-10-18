@@ -323,20 +323,30 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
             : AppTopBar(
                 title: Text(context.l10n.downloaderSettings),
                 actions: [
-                  if (tasks.any(
-                    (task) => task.status == DownloadStatus.succeeded,
-                  ))
-                    IconButton(
-                      tooltip: context.l10n.downloadClearCompleted,
-                      onPressed: () => _removeTasks(_completedTaskIds),
-                      icon: const Icon(Icons.cleaning_services_outlined),
-                    ),
                   // Spelled out: an icon alone did not read as "manage".
-                  if (tasks.isNotEmpty)
+                  // Clearing is named in the overflow, as on the history
+                  // page; it stays there, disabled, until a task is done,
+                  // so "manage" never shifts.
+                  if (tasks.isNotEmpty) ...[
                     TextButton(
                       onPressed: _enterManaging,
                       child: Text(context.l10n.manage),
                     ),
+                    AppMenuButton<VoidCallback>(
+                      entries: [
+                        AppMenuEntry(
+                          value: () =>
+                              unawaited(_removeTasks(_completedTaskIds)),
+                          icon: Icons.cleaning_services_outlined,
+                          label: context.l10n.downloadClearCompleted,
+                          enabled: tasks.any(
+                            (task) => task.status == DownloadStatus.succeeded,
+                          ),
+                        ),
+                      ],
+                      onSelected: (_, clear) => clear(),
+                    ),
+                  ],
                 ],
               ),
         body: tasks.isEmpty
@@ -665,12 +675,14 @@ class _DownloadRowLayout extends StatelessWidget {
                       Align(alignment: Alignment.centerRight, child: strip),
                   ],
                 )
+              // The actions end the row, so a group's sit in the same
+              // column as its rows', its expand icon just before them.
               : Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(child: rowContent),
-                    strip,
                     ?titleAction,
+                    strip,
                   ],
                 ),
         );

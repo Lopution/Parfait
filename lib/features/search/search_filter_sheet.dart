@@ -233,11 +233,11 @@ class _SearchFilterSheetState extends ConsumerState<_SearchFilterSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ..._matchGroup(context),
-                    const _GroupDivider(),
+                    _groupGap,
                     ..._timeGroup(context),
-                    const _GroupDivider(),
+                    _groupGap,
                     ..._workGroup(context),
-                    const _GroupDivider(),
+                    _groupGap,
                     ..._countGroup(context),
                   ],
                 ),
@@ -556,14 +556,9 @@ class _ActionBar extends StatelessWidget {
   }
 }
 
-/// The rule between two groups of related filters.
-class _GroupDivider extends StatelessWidget {
-  const _GroupDivider();
-
-  @override
-  Widget build(BuildContext context) =>
-      const Divider(height: FuncSpacing.xl * 1.5);
-}
+/// Groups of related filters stand apart by space alone, well past the
+/// [FuncSpacing.md] between the sections inside a group: no rules.
+const _groupGap = SizedBox(height: FuncSpacing.xxl);
 
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);

@@ -78,10 +78,11 @@ class DetailPageImage extends ConsumerStatefulWidget {
   static const double _panoramaMaxScreenShare = 0.7;
 
   /// Optional narrow-layout slot for the first image: its natural height,
-  /// or more for a short image shown alone. The Hero remains inside the
-  /// centered aspect-ratio box so its flight rect is the artwork, rather
-  /// than the empty space around it. A new height springs from the old, so
-  /// expanding a set glides page 1 up instead of jumping.
+  /// or a band above it for a short image shown alone. The image sits at
+  /// the slot's bottom, so what follows starts right under it. The Hero
+  /// remains inside the aspect-ratio box so its flight rect is the artwork,
+  /// rather than the band. A new height springs from the old, so expanding
+  /// a set glides page 1 up instead of jumping.
   final double? imageSlotHeight;
 
   /// Detail-quality URL once the detail payload is merged. Preferring it
@@ -295,7 +296,8 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
       context,
       MotionSpring.spatialFast,
     );
-    final framed = Center(
+    final framed = Align(
+      alignment: Alignment.bottomCenter,
       child: AspectRatio(
         aspectRatio: entity.pageAspectRatioAt(widget.index),
         child: image,

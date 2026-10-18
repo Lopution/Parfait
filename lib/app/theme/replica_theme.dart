@@ -4,6 +4,10 @@ import '../system_ui.dart';
 import 'func_semantic_tokens.dart';
 import 'func_tokens.dart';
 
+/// M3's opacities for a disabled control's content and its container.
+const _disabledContentAlpha = 0.38;
+const _disabledContainerAlpha = 0.12;
+
 /// [fontFamilyFallback] is for layout tests only: the locale layout
 /// harness loads its own Latin and CJK stand-ins and names them here.
 /// The app leaves it null and keeps the engine's system fallback chain
@@ -275,20 +279,37 @@ ThemeData replicaTheme(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
     ),
+    // A disabled switch takes M3's disabled colors: a locked one drawn in
+    // the accent read as tappable.
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
-        return states.contains(WidgetState.selected)
-            ? colorScheme.onPrimary
-            : colorScheme.outline;
+        final selected = states.contains(WidgetState.selected);
+        if (states.contains(WidgetState.disabled)) {
+          return selected
+              ? colorScheme.surface
+              : colorScheme.onSurface.withValues(alpha: _disabledContentAlpha);
+        }
+        return selected ? colorScheme.onPrimary : colorScheme.outline;
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
-        return states.contains(WidgetState.selected)
+        final selected = states.contains(WidgetState.selected);
+        if (states.contains(WidgetState.disabled)) {
+          return selected
+              ? colorScheme.onSurface.withValues(alpha: _disabledContainerAlpha)
+              : colorScheme.surfaceContainerHighest.withValues(
+                  alpha: _disabledContainerAlpha,
+                );
+        }
+        return selected
             ? colorScheme.primary
             : colorScheme.surfaceContainerHighest;
       }),
       trackOutlineColor: WidgetStateProperty.resolveWith((states) {
-        return states.contains(WidgetState.selected)
-            ? FuncTokens.transparent
+        if (states.contains(WidgetState.selected)) {
+          return FuncTokens.transparent;
+        }
+        return states.contains(WidgetState.disabled)
+            ? colorScheme.onSurface.withValues(alpha: _disabledContainerAlpha)
             : colorScheme.outline;
       }),
     ),
