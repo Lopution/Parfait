@@ -9,10 +9,14 @@ for every spec file are in the [spec root](../index.md).
 
 ## Pre-Development Checklist
 
-1. Run `python3 tool/check_spec.py --for <paths you will change>` and read
+1. For a new page, a visual or interaction change, or a design proposal,
+   read the [design language](../../../docs/design-language.md) (in
+   Chinese) first: the rules below implement its principles.
+2. Run `python3 tool/check_spec.py --for <paths you will change>` and read
    the files it lists. Without paths yet, pick from the table below.
-2. Read [guides](../guides/index.md).
-3. Rules marked "User decision" are not yours to change; ask first.
+3. Read [guides](../guides/index.md).
+4. Rules marked "User decision", and the design language's principles and
+   settled options, are not yours to change; ask first.
 
 ## Files
 
