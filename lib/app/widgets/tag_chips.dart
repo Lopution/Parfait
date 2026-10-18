@@ -17,13 +17,10 @@ const _hitMargin = EdgeInsets.symmetric(
   horizontal: FuncSpacing.xs,
 );
 
-/// Brand tint of the pill's fill and outline.
-const _fillAlpha = 0.08;
-const _outlineAlpha = 0.28;
-
 /// Shared tag chip: one presentation for every tag surface (illust detail,
-/// novel info, search) — a brand-tinted pill whose tap target extends to
-/// 48dp. Interactive instances go through [InkWell] so focus, keyboard and
+/// novel info, search) — a neutral pill whose tap target extends to 48dp.
+/// The accent stays off it (THEME-07); the hairline keeps it visible on a
+/// sheet of its own fill (THEME-09). Interactive instances go through [InkWell] so focus, keyboard and
 /// semantics come from the framework; press feedback is a scale, not ink,
 /// since ink would fill the whole target rather than the pill.
 ///
@@ -61,13 +58,11 @@ class _TagChipState extends State<TagChip> {
     final translated = widget.translated;
     final pill = DecoratedBox(
       decoration: ShapeDecoration(
-        color: tokens.brand.withValues(alpha: _fillAlpha),
+        color: tokens.surface,
         shape: StadiumBorder(
           side: _focused
               ? BorderSide(color: tokens.brand, width: 2)
-              : BorderSide(
-                  color: tokens.brand.withValues(alpha: _outlineAlpha),
-                ),
+              : BorderSide(color: tokens.divider),
         ),
       ),
       child: ConstrainedBox(
