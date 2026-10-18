@@ -15,6 +15,7 @@ import 'package:parfait/app/app.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/app/theme/system_colors.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/platform/intent_router.dart';
 import 'package:parfait/core/settings/app_settings.dart';
@@ -93,7 +94,6 @@ Future<GoRouter> pumpReviewApp(
   // VisibilityDetector debounces on a 500ms timer every repaint re-arms;
   // zero reports synchronously, so no timer outlives the scene.
   VisibilityDetectorController.instance.updateInterval = Duration.zero;
-  final theme = replicaTheme(brightness);
   final router = createPixivRouter(initialLocation: location);
   await tester.pumpWidget(
     UncontrolledProviderScope(
@@ -103,26 +103,42 @@ Future<GoRouter> pumpReviewApp(
         child: _maybeSemanticsOverlay(
           semanticsDebugger,
           Consumer(
-            builder: (context, ref, _) => MaterialApp.router(
-              theme: theme,
-              darkTheme: theme,
-              themeMode: brightness == Brightness.dark
-                  ? ThemeMode.dark
-                  : ThemeMode.light,
-              localizationsDelegates: appLocalizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: locale,
-              debugShowCheckedModeBanner: false,
-              routerConfig: router,
-              scrollBehavior: const FuncScrollBehavior(),
-              builder: (context, child) => AppChrome(
-                settings:
-                    ref.watch(settingsProvider).value ?? AppSettings.defaults(),
-                router: router,
-                intentSource: const _NoIntents(),
-                child: child!,
-              ),
-            ),
+            builder: (context, ref, _) {
+              // As the app: the setting gates the platform's palette.
+              final follow =
+                  ref.watch(settingsProvider).value?.followSystemColors ??
+                  false;
+              final system = follow
+                  ? ref.watch(systemColorSchemesProvider).value
+                  : null;
+              final theme = replicaTheme(
+                brightness,
+                systemColors: brightness == Brightness.dark
+                    ? system?.dark
+                    : system?.light,
+              );
+              return MaterialApp.router(
+                theme: theme,
+                darkTheme: theme,
+                themeMode: brightness == Brightness.dark
+                    ? ThemeMode.dark
+                    : ThemeMode.light,
+                localizationsDelegates: appLocalizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: locale,
+                debugShowCheckedModeBanner: false,
+                routerConfig: router,
+                scrollBehavior: const FuncScrollBehavior(),
+                builder: (context, child) => AppChrome(
+                  settings:
+                      ref.watch(settingsProvider).value ??
+                      AppSettings.defaults(),
+                  router: router,
+                  intentSource: const _NoIntents(),
+                  child: child!,
+                ),
+              );
+            },
           ),
         ),
       ),

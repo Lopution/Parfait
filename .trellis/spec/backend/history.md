@@ -59,3 +59,12 @@ reviewed: 2026-10-12
   each other's data.
 - **Check:** `test/history_persistence_test.dart`
 - **Code:** `lib/core/history/history_database.dart`
+
+### HIST-07 Writes to the local rows announce themselves
+- **Rule:** `HistoryRepository.changes` fires after each write that
+  changes the local rows: a view, a delete that removed a row, a clear, a
+  restore. Outbox writes stay silent. A page that keeps showing history
+  re-reads on it; the provider closes the stream on dispose.
+- **Why:** The Me tab's recent row kept what it read when first built.
+- **Check:** `test/history_persistence_test.dart` "announces writes to the local rows, not to the outbox"
+- **Code:** `lib/core/history/history_repository.dart`

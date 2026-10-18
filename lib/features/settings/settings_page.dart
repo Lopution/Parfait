@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../../app/layout/deferred_cache_scroll_view.dart';
+import '../../app/theme/category_colors.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -179,22 +180,6 @@ class _SettingsGroups extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final account = ref.watch(accountStoreProvider).value?.current;
-    // Root summaries answer "what is the current value" (Android summary
-    // convention): concrete values, never a description of the title.
-    final muted = ref.watch(muteStoreProvider);
-    final mutedCount =
-        muted.tags.length + muted.users.length + muted.works.length;
-    SettingsTile page(SettingsPageRef page, {Widget? subtitle}) =>
-        SettingsTile.topLevel(
-          setting: page,
-          icon: settingsPageIcons[page],
-          subtitle: subtitle,
-          onTap: () => openSettingsPage(context, page.path),
-        );
-
-    // Tiles are grouped by intent under labeled section headers.
-    // Destructive/transfer actions (backup) sit in their own "data" group.
     return settingsNarrowBody(
       DeferredCacheListView(
         // A bounded ~15-tile list: prebuilding it, from the second frame,
@@ -205,102 +190,137 @@ class _SettingsGroups extends ConsumerWidget {
           bottom: FuncSpacing.xl,
         ),
         children: [
-          SettingsGroup(
-            title: Text(context.l10n.accountSettings),
-            children: [
-              page(
-                SettingsPageRef.account,
-                subtitle: Text(account?.name ?? context.l10n.signedOut),
-              ),
-            ],
-          ),
-          SettingsGroup(
-            title: Text(context.l10n.settingsGroupAppearance),
-            children: [
-              page(
-                SettingsPageRef.theme,
-                subtitle: Text(themeModeLabel(context, settings.themeCode)),
-              ),
-              page(
-                SettingsPageRef.language,
-                subtitle: Text(languageDisplayName(settings.languageTag)),
-              ),
-              page(
-                SettingsPageRef.translate,
-                subtitle: _TranslationSummary(
-                  provider: settings.translationProvider,
-                ),
-              ),
-              page(
-                SettingsPageRef.motion,
-                subtitle: Text(
-                  settings.reduceMotion
-                      ? context.l10n.reduceMotion
-                      : animationSpeedLabel(context, settings.animationSpeed),
-                ),
-              ),
-            ],
-          ),
-          SettingsGroup(
-            title: Text(context.l10n.settingsGroupBrowse),
-            children: [
-              // No single value summarizes the page now that the image
-              // source lives in network settings — a static hint instead,
-              // same as the backup tile.
-              page(
-                SettingsPageRef.browse,
-                subtitle: Text(context.l10n.settingsBrowseHint),
-              ),
-              page(
-                SettingsPageRef.navigation,
-                subtitle: Text(context.l10n.settingsNavigationHint),
-              ),
-              page(
-                SettingsPageRef.muted,
-                subtitle: Text(
-                  mutedCount == 0
-                      ? context.l10n.mutedEmpty
-                      : context.l10n.settingsMutedSummary(mutedCount),
-                ),
-              ),
-            ],
-          ),
-          SettingsGroup(
-            title: Text(context.l10n.settingsGroupNetwork),
-            children: [
-              page(
-                SettingsPageRef.network,
-                subtitle: Text(networkModeLabel(context, settings.networkMode)),
-              ),
-              page(
-                SettingsPageRef.download,
-                subtitle: Text(
-                  '${namingPresetLabel(context, settings.namingRule.preset)} · '
-                  '${downloadDestinationLabel(context, settings.downloadDestination)}',
-                ),
-              ),
-            ],
-          ),
-          SettingsGroup(
-            title: Text(context.l10n.settingsGroupData),
-            children: [
-              // No natural current value exists for backup — the static hint
-              // tells the user what the page does instead (per design §4.8-1).
-              page(
-                SettingsPageRef.backup,
-                subtitle: Text(context.l10n.backupHint),
-              ),
-            ],
-          ),
-          SettingsGroup(
-            children: [
-              page(SettingsPageRef.about, subtitle: const _VersionSummary()),
-            ],
-          ),
+          ...settingsIndexGroups(context, ref, settings),
           const DeveloperSettingsGroup(),
         ],
       ),
     );
+  }
+}
+
+/// The settings pages grouped by intent, as the index lists them, each
+/// row with its summary. A group's circles share one category hue, a
+/// different one per neighbouring group; account and about are neutral.
+/// Destructive/transfer actions (backup) sit in their own "data" group.
+/// The Me page lists them too, without the account group: its account row
+/// opens that page.
+List<Widget> settingsIndexGroups(
+  BuildContext context,
+  WidgetRef ref,
+  AppSettings settings, {
+  bool account = true,
+}) {
+  final l10n = context.l10n;
+  final scheme = Theme.of(context).colorScheme;
+  final neutral = neutralCategoryTone(scheme);
+  CategoryTone hue(double hue) => categoryTone(scheme, hue);
+  final groups =
+      <({String? title, CategoryTone tone, List<SettingsPageRef> pages})>[
+        if (account)
+          (
+            title: l10n.accountSettings,
+            tone: neutral,
+            pages: const [SettingsPageRef.account],
+          ),
+        (
+          title: l10n.settingsGroupAppearance,
+          tone: hue(CategoryHue.purple),
+          pages: const [
+            SettingsPageRef.theme,
+            SettingsPageRef.language,
+            SettingsPageRef.translate,
+            SettingsPageRef.motion,
+          ],
+        ),
+        (
+          title: l10n.settingsGroupBrowse,
+          tone: hue(CategoryHue.blue),
+          pages: const [
+            SettingsPageRef.browse,
+            SettingsPageRef.navigation,
+            SettingsPageRef.muted,
+          ],
+        ),
+        (
+          title: l10n.settingsGroupNetwork,
+          tone: hue(CategoryHue.green),
+          pages: const [SettingsPageRef.network, SettingsPageRef.download],
+        ),
+        (
+          title: l10n.settingsGroupData,
+          tone: hue(CategoryHue.orange),
+          pages: const [SettingsPageRef.backup],
+        ),
+        (title: null, tone: neutral, pages: const [SettingsPageRef.about]),
+      ];
+  return [
+    for (final group in groups)
+      SettingsGroup(
+        title: group.title == null ? null : Text(group.title!),
+        children: [
+          for (final page in group.pages)
+            SettingsTile.topLevel(
+              setting: page,
+              icon: settingsPageIcons[page],
+              subtitle: _pageSummary(context, ref, settings, page),
+              tone: group.tone,
+              onTap: () => openSettingsPage(context, page.path),
+            ),
+        ],
+      ),
+  ];
+}
+
+/// The summary under a settings page's row. Root summaries answer "what
+/// is the current value" (Android summary convention): concrete values,
+/// never a description of the title. Pages without one natural value
+/// (browse, navigation, backup) carry a static hint instead.
+Widget _pageSummary(
+  BuildContext context,
+  WidgetRef ref,
+  AppSettings settings,
+  SettingsPageRef page,
+) {
+  final l10n = context.l10n;
+  switch (page) {
+    case SettingsPageRef.account:
+      final account = ref.watch(accountStoreProvider).value?.current;
+      return Text(account?.name ?? l10n.signedOut);
+    case SettingsPageRef.theme:
+      return Text(themeModeLabel(context, settings.themeCode));
+    case SettingsPageRef.language:
+      return Text(languageDisplayName(settings.languageTag));
+    case SettingsPageRef.translate:
+      return _TranslationSummary(provider: settings.translationProvider);
+    case SettingsPageRef.motion:
+      return Text(
+        settings.reduceMotion
+            ? l10n.reduceMotion
+            : animationSpeedLabel(context, settings.animationSpeed),
+      );
+    case SettingsPageRef.browse:
+      return Text(l10n.settingsBrowseHint);
+    case SettingsPageRef.navigation:
+      return Text(l10n.settingsNavigationHint);
+    case SettingsPageRef.muted:
+      final muted = ref.watch(muteStoreProvider);
+      final count = muted.tags.length + muted.users.length + muted.works.length;
+      return Text(
+        count == 0 ? l10n.mutedEmpty : l10n.settingsMutedSummary(count),
+      );
+    case SettingsPageRef.network:
+      return Text(networkModeLabel(context, settings.networkMode));
+    case SettingsPageRef.download:
+      return Text(
+        '${namingPresetLabel(context, settings.namingRule.preset)} · '
+        '${downloadDestinationLabel(context, settings.downloadDestination)}',
+      );
+    case SettingsPageRef.backup:
+      return Text(l10n.backupHint);
+    case SettingsPageRef.about:
+      return const _VersionSummary();
+    default:
+      throw ArgumentError.value(page, 'page', 'not on the settings index');
   }
 }
 
@@ -327,6 +347,7 @@ class DeveloperSettingsGroup extends ConsumerWidget {
         SettingsTile.topLevel(
           setting: probe,
           icon: settingsPageIcons[probe],
+          tone: neutralCategoryTone(Theme.of(context).colorScheme),
           onTap: () => openSettingsPage(context, probe.path),
         ),
       ],

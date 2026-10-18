@@ -25,6 +25,8 @@ import 'package:parfait/core/network/compat/pixiv_network_factory.dart'
     show PixivNetworkFactory, PixivPolicyHttpClient;
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/download/naming_rule.dart';
+import 'package:parfait/core/history/history_repository.dart';
+import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_sink.dart';
@@ -40,7 +42,9 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:parfait/l10n/app_localizations_zh.dart';
 import 'package:parfait/app/motion/removal.dart';
 
+import 'helpers/connectivity_channels.dart';
 import 'helpers/download_world.dart';
+import 'helpers/history_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/image_network.dart';
 import 'helpers/settings_world.dart';
@@ -241,46 +245,54 @@ void main() {
     });
   });
 
-  testWidgets('account summaries show the ID instead of the email', (
-    tester,
-  ) async {
-    const account = Account(
-      id: '42',
-      userId: 42,
-      name: 'tester',
-      mailAddress: 'private@example.invalid',
-    );
-    for (final page in const [MeDashboardPage(), AccountSettingsPage()]) {
-      await tester.pumpWidget(
-        ProviderScope(
-          // A fresh scope per page.
-          key: ValueKey(page),
-          overrides: [
-            settingsRepositoryProvider.overrideWithValue(
-              FakeSettingsRepository(baseTestSettings()),
-            ),
-            accountMetadataRepositoryProvider.overrideWithValue(
-              FakeAccountMetadataRepository(
-                accounts: const [account],
-                currentId: account.id,
-              ),
-            ),
-            credentialStoreProvider.overrideWithValue(
-              FakeCredentialStore(
-                values: const {
-                  '42': Credential(accessToken: 'a', refreshToken: 'r'),
-                },
-              ),
-            ),
-          ],
-          child: localizedApp(builder: promptHostBuilder, home: page),
-        ),
+  testWidgets(
+    'account rows never show the email; the account page shows the ID',
+    (tester) async {
+      const account = Account(
+        id: '42',
+        userId: 42,
+        name: 'tester',
+        mailAddress: 'private@example.invalid',
       );
-      await tester.pumpAndSettle();
-      expect(find.text('账号 ID：42'), findsOneWidget, reason: '$page');
-      expect(find.text('private@example.invalid'), findsNothing);
-    }
-  });
+      for (final (page, showsId) in const [
+        (MeDashboardPage(), false),
+        (AccountSettingsPage(), true),
+      ]) {
+        await tester.pumpWidget(
+          ProviderScope(
+            // A fresh scope per page.
+            key: ValueKey(page),
+            overrides: [
+              settingsRepositoryProvider.overrideWithValue(
+                FakeSettingsRepository(baseTestSettings()),
+              ),
+              accountMetadataRepositoryProvider.overrideWithValue(
+                FakeAccountMetadataRepository(
+                  accounts: const [account],
+                  currentId: account.id,
+                ),
+              ),
+              credentialStoreProvider.overrideWithValue(
+                FakeCredentialStore(
+                  values: const {
+                    '42': Credential(accessToken: 'a', refreshToken: 'r'),
+                  },
+                ),
+              ),
+            ],
+            child: localizedApp(builder: promptHostBuilder, home: page),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.text('账号 ID：42'),
+          showsId ? findsOneWidget : findsNothing,
+          reason: '$page',
+        );
+        expect(find.text('private@example.invalid'), findsNothing);
+      }
+    },
+  );
 
   testWidgets(
     'account switch spins the target row and disables the list mid-commit',
@@ -429,6 +441,71 @@ void main() {
     await pumpUntil(tester, () => !downloadsBadge().isLabelVisible);
     expect(downloadsBadge().isLabelVisible, isFalse);
     await manager.dispose();
+  });
+
+  testWidgets('the recent row follows the history and pages in its own order', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(400, 1600));
+    answerConnectivityChannels();
+    late HistoryRepository history;
+    late ProviderContainer container;
+    await tester.runAsync(() async {
+      history = await openHistoryRepository(const []);
+      container = await makeHistoryWorld(history);
+    });
+    final router = pixivRouter('/settings');
+    await tester.pumpWidget(localizedRouterApp(router, container: container));
+    // The row reads the ffi database, which answers on the real loop.
+    Future<void> settle([Future<void> Function()? change]) =>
+        tester.runAsync(() async {
+          await change?.call();
+          for (var i = 0; i < 2; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+            await tester.pump();
+          }
+        });
+    Future<void> view(int id, int minute) => settle(
+      () => history.upsert(
+        historyRecord(
+          id,
+        ).copyWith(lastViewedAt: DateTime.utc(2026, 9, 20, 10, minute)),
+      ),
+    );
+    Finder cover(int id) => find.byWidgetPredicate(
+      (w) => w is Semantics && w.properties.label == 'work $id',
+      skipOffstage: false,
+    );
+    double x(int id) => tester.getTopLeft(cover(id)).dx;
+    final viewAll = find.text('查看全部', skipOffstage: false);
+
+    await settle();
+    expect(viewAll, findsNothing, reason: 'no row without history');
+    await view(1, 1);
+    await view(2, 2);
+    expect(viewAll, findsOneWidget);
+    expect(x(2), lessThan(x(1)), reason: 'newest first');
+
+    await tester.tap(cover(2));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    final pager = tester.widget<IllustDetailPagerPage>(
+      find.byType(IllustDetailPagerPage),
+    );
+    expect(pager.source.ids, [2, 1]);
+
+    await view(1, 3);
+    expect(pager.source.ids, [
+      2,
+      1,
+    ], reason: 'the open pager keeps the order it was opened in');
+    router.pop();
+    await settle();
+    await tester.pump(const Duration(seconds: 1));
+    expect(x(1), lessThan(x(2)), reason: 'back on the page, the row re-read');
+
+    await settle(() => history.clear('100'));
+    expect(viewAll, findsNothing);
   });
 
   testWidgets('translation summary re-probes when the provider switches', (

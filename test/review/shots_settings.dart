@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/app/theme/system_colors.dart';
 import 'package:parfait/core/navigation/home_destination.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/arrangement.dart';
@@ -96,6 +97,39 @@ void main() {
     location: '/settings',
     variants: {ShotVariant.dark, ShotVariant.ru},
     before: rearrange,
+  );
+  // A blue system accent: actions and selection turn blue, the category
+  // circles keep their hues (bookmarks stays pink).
+  testShot(
+    'settings/me-system-colors',
+    location: '/settings',
+    setup: ReviewSetup(
+      history: reviewHistory(),
+      overrides: [
+        systemColorSchemesProvider.overrideWith(
+          (ref) async => SystemColorSchemes(
+            light: ColorScheme.fromSeed(seedColor: const Color(0xFF4A6FD0)),
+            dark: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF4A6FD0),
+              brightness: Brightness.dark,
+            ),
+          ),
+        ),
+      ],
+    ),
+    before: (tester, router) async {
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(Scaffold).first),
+      );
+      // The container lives in the real zone: its futures resolve there.
+      await tester.runAsync(() async {
+        await container
+            .read(settingsProvider.notifier)
+            .setFollowSystemColors(true);
+        await container.read(systemColorSchemesProvider.future);
+      });
+      await tester.pumpAndSettle();
+    },
   );
   testShot(
     'settings/bottom-bar-rearranged',

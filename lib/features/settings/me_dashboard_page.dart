@@ -6,28 +6,34 @@ import 'package:material_ui/material_ui.dart';
 import '../../app/format/app_format.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/person_avatar.dart';
+import '../../app/pixiv_image.dart';
+import '../../app/theme/category_colors.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/edge_icon_buttons.dart';
+import '../../app/widgets/entity_row.dart' show EntityBadge;
+import '../../app/widgets/feed/feed_grid.dart' show IllustPagerSource;
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/fit_label.dart';
 import '../../app/widgets/func_bottom_nav.dart';
 import '../../app/widgets/settings/settings_group.dart';
-import '../../app/widgets/settings/settings_tile.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/navigation/home_destination.dart';
 import '../../core/download/download_providers.dart';
 import '../../core/download/download_task.dart' show isTerminal;
+import '../../core/history/history_models.dart';
+import '../../core/history/history_repository.dart';
+import '../../core/settings/settings_controller.dart';
 import '../../l10n/context.dart';
 import 'settings_catalog.dart';
 import 'settings_helpers.dart';
-import 'settings_page.dart' show DeveloperSettingsGroup, settingsPageIcons;
+import 'settings_page.dart' show DeveloperSettingsGroup, settingsIndexGroups;
 
-/// The "me" destination: who is signed in, the places of their own content
-/// one tap away, and the settings pages. The content entries carry more
-/// weight than the settings — they are what the page is opened for.
+/// The "me" destination: who is signed in, what they saw last, the places
+/// of their own content one tap away, and the settings pages. Content
+/// comes first — it is what the page is opened for.
 class MeDashboardPage extends ConsumerWidget {
   const MeDashboardPage({super.key});
 
@@ -40,7 +46,17 @@ class MeDashboardPage extends ConsumerWidget {
       // every time the IME animates (e.g. the push that hides the search
       // keyboard) — a relayout storm across all five live branches.
       resizeToAvoidBottomInset: false,
-      appBar: AppTopBar(title: Text(context.l10n.homeMe)),
+      appBar: AppTopBar(
+        title: Text(context.l10n.homeMe),
+        actions: [
+          // The index's search field is on top; opening it is the search.
+          IconButton(
+            tooltip: context.l10n.settingsSearchHint,
+            icon: const Icon(Icons.search),
+            onPressed: () => openSettingsPage(context, settingsIndexPath),
+          ),
+        ],
+      ),
       body: _body(context, ref, accounts),
     );
   }
@@ -60,6 +76,7 @@ class MeDashboardPage extends ConsumerWidget {
     }
     if (accounts.isLoading && !accounts.hasValue) return const FeedLoading();
     final state = accounts.value;
+    final settings = ref.watch(settingsProvider).value;
     if (state?.status == AccountStatus.failure) {
       return SettingsLoadError(
         error: state?.error ?? StateError('account state unavailable'),
@@ -75,8 +92,10 @@ class MeDashboardPage extends ConsumerWidget {
         ),
         children: [
           SettingsGroup(children: [_AccountRow(account: state?.current)]),
+          const _RecentHistory(),
           const _ContentShortcuts(),
-          const _SettingsList(),
+          if (settings != null)
+            ...settingsIndexGroups(context, ref, settings, account: false),
           const DeveloperSettingsGroup(),
           const FuncNavBarSpacer(),
         ],
@@ -116,11 +135,7 @@ class _AccountRow extends StatelessWidget {
         value?.name ?? context.l10n.signedOut,
         style: FuncSemanticTokens.of(context).display,
       ),
-      subtitle: Text(
-        value == null
-            ? context.l10n.login
-            : context.l10n.labelValue(context.l10n.accountId, value.id),
-      ),
+      subtitle: value == null ? Text(context.l10n.login) : null,
       trailing: EdgeIconButtons(
         children: [
           IconButton(
@@ -153,23 +168,189 @@ final _activeDownloadCountProvider = StreamProvider.autoDispose<int>((
   }
 });
 
-/// One content entry: a card or a cell of [_ContentShortcuts].
-typedef _Entry = ({IconData icon, String label, VoidCallback onTap, int badge});
+/// The latest history records, newest first. Read again after every
+/// history write, so a work seen elsewhere is on the row by the time the
+/// page shows again.
+final _recentHistoryProvider = FutureProvider.autoDispose<List<HistoryRecord>>((
+  ref,
+) async {
+  final accountId = ref.watch(historyAccountIdProvider);
+  if (accountId == null) return const [];
+  final repository = ref.watch(historyRepositoryProvider);
+  final changes = repository.changes.listen((_) => ref.invalidateSelf());
+  ref.onDispose(changes.cancel);
+  final result = await repository.page(
+    accountId: accountId,
+    limit: _RecentHistory._count,
+  );
+  return result.records;
+});
 
-/// The user's own content: the three places opened most as cards with an
-/// accent icon each, the rest as rows of plain icons under them, followed
-/// by the home destinations the user took off the bar.
+/// The works seen last, as a row of covers; "view all" opens the history.
+/// Nothing while the history is empty.
+class _RecentHistory extends ConsumerStatefulWidget {
+  const _RecentHistory();
+
+  static const _count = 8;
+  static const _cover = 88.0;
+
+  @override
+  ConsumerState<_RecentHistory> createState() => _RecentHistoryState();
+}
+
+class _RecentHistoryState extends ConsumerState<_RecentHistory> {
+  /// The row's illustrations for the detail pager. Never disposed here: a
+  /// pushed detail route still holds it — its lifetime is the route's.
+  final _pager = IllustPagerSource();
+
+  void _open(HistoryRecord record, List<HistoryRecord> records) {
+    final id = record.contentId;
+    switch (record.contentType) {
+      case HistoryContentType.novel:
+        unawaited(openNovel(context, id));
+      case HistoryContentType.illust:
+        // The order at the tap, not a live one: each work the pager shows
+        // is written to the history and moves to the front of the row, and
+        // a live list would re-seat the pager on every swipe.
+        _pager.update([
+          for (final record in records)
+            if (record.contentType == HistoryContentType.illust)
+              record.contentId,
+        ]);
+        unawaited(openIllust(context, id, pagerSource: _pager));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final records = ref.watch(_recentHistoryProvider).value ?? const [];
+    if (records.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: FuncSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            // A group heading's inset: the group's and the title's own.
+            padding: const EdgeInsets.fromLTRB(
+              FuncSpacing.lg + FuncSpacing.lg,
+              0,
+              FuncSpacing.lg,
+              0,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      context.l10n.historySettings,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => unawaited(openHistory(context)),
+                  child: Text(context.l10n.detailViewAll),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: _RecentHistory._cover,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+              itemCount: records.length,
+              separatorBuilder: (_, _) => const SizedBox(width: FuncSpacing.sm),
+              itemBuilder: (context, index) => _RecentCover(
+                record: records[index],
+                size: _RecentHistory._cover,
+                onTap: () => _open(records[index], records),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A work of the row: its cover, a novel marked as one. One object to a
+/// screen reader, read by its title.
+class _RecentCover extends StatelessWidget {
+  const _RecentCover({
+    required this.record,
+    required this.size,
+    required this.onTap,
+  });
+
+  final HistoryRecord record;
+  final double size;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = record.snapshot.coverUrl;
+    final novel = record.contentType == HistoryContentType.novel;
+    return Semantics(
+      container: true,
+      button: true,
+      label: record.snapshot.title,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: SizedBox.square(
+        dimension: size,
+        child: Material(
+          color: Theme.of(context).colorScheme.surfaceContainer,
+          shape: const RoundedRectangleBorder(borderRadius: FuncShape.card),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (url == null)
+                  Icon(novel ? Icons.menu_book_outlined : Icons.image_outlined)
+                else
+                  PixivImage.feed(url, layoutWidth: size),
+                if (novel)
+                  const Positioned(
+                    left: 7,
+                    top: 7,
+                    child: EntityBadge(icon: Icons.menu_book_outlined),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One content entry: a cell of [_ContentShortcuts].
+typedef _Entry = ({
+  IconData icon,
+  String label,
+  VoidCallback onTap,
+  int badge,
+  CategoryTone tone,
+});
+
+/// The user's own content, one cell each on one card, every icon on the
+/// circle of its category; then the home destinations the user took off
+/// the bar.
 class _ContentShortcuts extends ConsumerWidget {
   const _ContentShortcuts();
 
-  static const _cardGap = FuncSpacing.md;
-
-  /// Plain entries in one row.
-  static const _columns = 4;
-
-  /// The narrowest plain entry at the default font size that holds a
-  /// two-line label of a few CJK characters or one long word. Narrower,
-  /// the plain entries go half as many to a row.
+  /// The narrowest entry at the default font size that holds a two-line
+  /// label of a few CJK characters or one long word. Narrower, the entries
+  /// go two to a row.
   static const _minCellWidth = 80.0;
 
   @override
@@ -178,59 +359,48 @@ class _ContentShortcuts extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final activeTasks = ref.watch(_activeDownloadCountProvider).value ?? 0;
     final offBar = ref.watch(homeArrangementProvider).hidden;
-    final List<(_Entry, _Accent)> cards = [
+    final List<_Entry> entries = [
       (
-        (
-          icon: Icons.favorite_border,
-          label: l10n.profileBookmarked,
-          onTap: () => unawaited(openMe(context, tab: MeTab.bookmarks)),
-          badge: 0,
-        ),
-        (fill: scheme.primaryContainer, ink: scheme.onPrimaryContainer),
+        icon: Icons.favorite_border,
+        label: l10n.profileBookmarked,
+        onTap: () => unawaited(openMe(context, tab: MeTab.bookmarks)),
+        badge: 0,
+        tone: categoryTone(scheme, CategoryHue.pink),
       ),
       (
-        (
-          icon: Icons.people_outline,
-          label: l10n.profileFollowing,
-          onTap: () => unawaited(openMe(context, tab: MeTab.following)),
-          badge: 0,
-        ),
-        (fill: scheme.tertiaryContainer, ink: scheme.onTertiaryContainer),
+        icon: Icons.people_outline,
+        label: l10n.profileFollowing,
+        onTap: () => unawaited(openMe(context, tab: MeTab.following)),
+        badge: 0,
+        tone: categoryTone(scheme, CategoryHue.blue),
       ),
-      (
-        (
-          icon: Icons.downloading_outlined,
-          label: l10n.downloaderSettings,
-          onTap: () => unawaited(openDownloadTasks(context)),
-          badge: activeTasks,
-        ),
-        (fill: scheme.secondaryContainer, ink: scheme.onSecondaryContainer),
-      ),
-    ];
-    final List<_Entry> cells = [
       (
         icon: Icons.library_books_outlined,
         label: l10n.watchlistTitle,
         onTap: () => unawaited(openWatchlist(context)),
         badge: 0,
-      ),
-      (
-        icon: Icons.history,
-        label: l10n.historySettings,
-        onTap: () => unawaited(openHistory(context)),
-        badge: 0,
+        tone: categoryTone(scheme, CategoryHue.orange),
       ),
       (
         icon: Icons.bookmark_border,
         label: l10n.watchLaterTitle,
         onTap: () => unawaited(openWatchLater(context)),
         badge: 0,
+        tone: categoryTone(scheme, CategoryHue.teal),
       ),
       (
         icon: Icons.menu_book_outlined,
         label: l10n.localNovelsTitle,
         onTap: () => unawaited(openLocalNovels(context)),
         badge: 0,
+        tone: categoryTone(scheme, CategoryHue.amber),
+      ),
+      (
+        icon: Icons.downloading_outlined,
+        label: l10n.downloaderSettings,
+        onTap: () => unawaited(openDownloadTasks(context)),
+        badge: activeTasks,
+        tone: categoryTone(scheme, CategoryHue.green),
       ),
       for (final destination in HomeDestination.values)
         if (offBar.contains(destination))
@@ -239,6 +409,7 @@ class _ContentShortcuts extends ConsumerWidget {
             label: homeDestinationLabel(context, destination),
             onTap: () => openHomeDestination(context, destination),
             badge: 0,
+            tone: neutralCategoryTone(scheme),
           ),
     ];
     return Padding(
@@ -246,75 +417,52 @@ class _ContentShortcuts extends ConsumerWidget {
         FuncSpacing.lg,
         0,
         FuncSpacing.lg,
-        FuncSpacing.md,
+        FuncSpacing.xl,
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
-          final cardWidth =
-              (width - (cards.length - 1) * _cardGap) / cards.length;
-          final cardFit = _wordFit(context, [
-            for (final (entry, _) in cards) entry.label,
-          ], cardWidth - 2 * _EntryLabel.inset);
           final minCell = MediaQuery.textScalerOf(context).scale(_minCellWidth);
-          final columns = width / _columns >= minCell
-              ? _columns
-              : _columns ~/ 2;
-          final cellFit = _wordFit(context, [
-            for (final entry in cells) entry.label,
+          final preferred = _columnsFor(entries.length);
+          final columns = width / preferred >= minCell ? preferred : 2;
+          final fit = _wordFit(context, [
+            for (final entry in entries) entry.label,
           ], width / columns - 2 * _EntryLabel.inset);
-          return Column(
-            children: [
-              // Cards of one row share the height of the tallest label.
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final (index, (entry, accent)) in cards.indexed) ...[
-                      if (index > 0) const SizedBox(width: _cardGap),
-                      Expanded(
-                        child: _AccentEntry(
-                          entry: entry,
-                          accent: accent,
-                          fit: cardFit,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+          return Material(
+            color: scheme.surfaceContainer,
+            shape: const RoundedRectangleBorder(borderRadius: FuncShape.card),
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: FuncSpacing.xs),
+              child: Column(
+                children: [
+                  for (var start = 0; start < entries.length; start += columns)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // A short last row keeps the column widths.
+                        for (var i = start; i < start + columns; i++)
+                          Expanded(
+                            child: i < entries.length
+                                ? _EntryCell(entry: entries[i], fit: fit)
+                                : const SizedBox.shrink(),
+                          ),
+                      ],
+                    ),
+                ],
               ),
-              const SizedBox(height: _cardGap),
-              // Four columns cannot line up with three cards, so the plain
-              // entries share one card whose edges meet theirs.
-              Material(
-                color: Theme.of(context).colorScheme.surfaceContainer,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: FuncShape.card,
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: [
-                    for (var start = 0; start < cells.length; start += columns)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // A short last row keeps the column widths.
-                          for (var i = start; i < start + columns; i++)
-                            Expanded(
-                              child: i < cells.length
-                                  ? _PlainEntry(entry: cells[i], fit: cellFit)
-                                  : const SizedBox.shrink(),
-                            ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           );
         },
       ),
     );
+  }
+
+  /// Four or three to a row, whichever leaves fewer empty cells; four on
+  /// a tie.
+  static int _columnsFor(int count) {
+    int empty(int columns) => (columns - count % columns) % columns;
+    return empty(3) < empty(4) ? 3 : 4;
   }
 
   /// Labels wrap to two lines between words but never inside one: the
@@ -341,73 +489,18 @@ class _ContentShortcuts extends ConsumerWidget {
   );
 }
 
-/// A card's icon colors: a container tone and the ink on it.
-typedef _Accent = ({Color fill, Color ink});
-
-/// A tonal card: the icon on its accent square, the label under it.
-class _AccentEntry extends StatelessWidget {
-  const _AccentEntry({
-    required this.entry,
-    required this.accent,
-    required this.fit,
-  });
+/// An entry: the icon on its category's circle, the label under it.
+class _EntryCell extends StatelessWidget {
+  const _EntryCell({required this.entry, required this.fit});
 
   final _Entry entry;
-  final _Accent accent;
   final LabelFit fit;
 
-  static const _iconSquare = 40.0;
+  static const _circle = 48.0;
 
   @override
   Widget build(BuildContext context) {
     final badge = entry.badge;
-    return Material(
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      shape: const RoundedRectangleBorder(borderRadius: FuncShape.card),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: entry.onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: _EntryLabel.inset,
-            vertical: FuncSpacing.md,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Badge(
-                isLabelVisible: badge > 0,
-                label: Text(AppFormat.count(context, badge)),
-                child: SizedBox.square(
-                  dimension: _iconSquare,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: accent.fill,
-                      borderRadius: FuncShape.card,
-                    ),
-                    child: Icon(entry.icon, color: accent.ink),
-                  ),
-                ),
-              ),
-              const SizedBox(height: FuncSpacing.sm),
-              _EntryLabel(entry.label, fit: fit),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A plain entry: the icon in the label's tone, no container.
-class _PlainEntry extends StatelessWidget {
-  const _PlainEntry({required this.entry, required this.fit});
-
-  final _Entry entry;
-  final LabelFit fit;
-
-  @override
-  Widget build(BuildContext context) {
     return InkWell(
       onTap: entry.onTap,
       borderRadius: FuncShape.card,
@@ -418,9 +511,19 @@ class _PlainEntry extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(
-              entry.icon,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            Badge(
+              isLabelVisible: badge > 0,
+              label: Text(AppFormat.count(context, badge)),
+              child: SizedBox.square(
+                dimension: _circle,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: entry.tone.fill,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(entry.icon, color: entry.tone.ink),
+                ),
+              ),
             ),
             const SizedBox(height: FuncSpacing.sm),
             _EntryLabel(entry.label, fit: fit),
@@ -455,52 +558,4 @@ class _EntryLabel extends StatelessWidget {
     overflow: TextOverflow.ellipsis,
     textScaler: fit.scaler(MediaQuery.textScalerOf(context)),
   );
-}
-
-/// The settings pages as the index lists them, without their summaries,
-/// each row a card of its own. The heading's search button opens the
-/// index, whose search field is on top.
-class _SettingsList extends StatelessWidget {
-  const _SettingsList();
-
-  /// The account page is the account row's; the frame probe is in the
-  /// developer group below.
-  static const _pages = [
-    SettingsPageRef.theme,
-    SettingsPageRef.language,
-    SettingsPageRef.translate,
-    SettingsPageRef.motion,
-    SettingsPageRef.browse,
-    SettingsPageRef.navigation,
-    SettingsPageRef.muted,
-    SettingsPageRef.network,
-    SettingsPageRef.download,
-    SettingsPageRef.backup,
-    SettingsPageRef.about,
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return SettingsGroup(
-      title: Row(
-        children: [
-          Expanded(child: Text(l10n.settingsTitle)),
-          IconButton(
-            tooltip: l10n.settingsSearchHint,
-            icon: const Icon(Icons.search, size: 20),
-            onPressed: () => openSettingsPage(context, settingsIndexPath),
-          ),
-        ],
-      ),
-      children: [
-        for (final page in _pages)
-          SettingsTile.topLevel(
-            setting: page,
-            icon: settingsPageIcons[page],
-            onTap: () => openSettingsPage(context, page.path),
-          ),
-      ],
-    );
-  }
 }

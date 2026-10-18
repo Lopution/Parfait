@@ -53,6 +53,7 @@ void main() {
   testShot(
     'home/settings',
     location: '/settings',
+    setup: ReviewSetup(history: reviewHistory()),
     variants: {...ShotVariant.values},
   );
   testShot(

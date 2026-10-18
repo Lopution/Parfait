@@ -1,7 +1,12 @@
+import 'package:material_color_utilities/material_color_utilities.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract final class FuncTokens {
   static const Color primary = Color(0xFFFF6289);
+
+  /// The hue (HCT) of [primary]. The bookmarks category keeps it under a
+  /// system accent (`category_colors.dart`).
+  static final double primaryHue = Hct.fromInt(primary.toARGB32()).hue;
 
   static const Color darkBackground = Color(0xFF181818);
   static const Color darkText = Color(0xFFD5D5D5);
