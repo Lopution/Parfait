@@ -18,7 +18,7 @@
   "login": "ログイン",
   "loginPageClosed": "ページが閉じられました。再度開いてください。",
   "loginCallbackInvalid": "ログインコールバックが無効です。もう一度ログインしてください",
-  "loginNetworkError": "ネットワークエラー (HTTP {status})",
+  "loginNetworkError": "ネットワークエラー（HTTP {status}）",
   "@loginNetworkError": {
     "placeholders": {
       "status": {
@@ -183,6 +183,9 @@
   "historyRecordLocal": "ローカルに閲覧履歴を記録",
   "historyRecordPixiv": "Pixivの閲覧履歴に記録",
   "historyEmpty": "閲覧履歴はありません",
+  "historyEmptyDetail": "閲覧した作品がここに表示されます",
+  "historyEmptyRecordingOff": "「{setting}」がオフです",
+  "historyTurnOnRecording": "オンにする",
   "historyLoadFailed": "履歴の読み込みに失敗しました",
   "historyDelete": "履歴を削除",
   "historyDeleteAll": "履歴をすべて削除",
@@ -356,7 +359,7 @@
   "mutedUsersSection": "ミュートユーザー",
   "mutedWorksSection": "ミュート作品",
   "mutedEmpty": "ミュート項目はありません",
-  "cardMenuHint": "作品カードを長押しして「{action}」を選択",
+  "cardMenuHint": "作品カードを長押しするか、作品ページの ⋮ をタップして「{action}」を選択",
   "muteTagInputHint": "ミュートするタグ",
   "muteWork": "この作品をミュート",
   "unmuteWork": "この作品のミュートを解除",
@@ -556,7 +559,7 @@
   },
   "downloadAuthorWorks": "すべての作品をダウンロード",
   "downloadAuthorWorksTitle": "作者の全作品をダウンロード",
-  "downloadAuthorEnumerating": "作品を列挙中…{count} 件",
+  "downloadAuthorEnumerating": "作品を取得中…{count} 件",
   "@downloadAuthorEnumerating": {
     "placeholders": {
       "count": {
@@ -584,7 +587,7 @@
     }
   },
   "downloadAuthorEmpty": "この作者にはダウンロード可能な作品がありません。",
-  "downloadAuthorFailed": "作品の列挙に失敗しました",
+  "downloadAuthorFailed": "作者の作品を取得できませんでした",
   "downloadCaption": "作品のキャプションを書き出す",
   "downloadCaptionHint": "イラスト・マンガのダウンロード時に、タイトル・作者・キャプションを同名の .txt として保存します",
   "aboutVersion": "バージョン",
@@ -925,6 +928,7 @@
   "searchOpenNovel": "小説 ID {id} を開く",
   "searchOpenUser": "ユーザー ID {id} を開く",
   "searchModifyQuery": "検索を編集",
+  "searchResetFilters": "フィルターをリセット",
   "searchUserAccount": "アカウント",
   "illustDetailTitle": "作品詳細",
   "detailMetaCountsSemantics": "閲覧 {views}、ブックマーク {bookmarks}",
@@ -964,6 +968,7 @@
   "illustDetailNotFound": "作品が存在しないか削除されました",
   "illustDetailLoadFailed": "作品の読み込みに失敗しました",
   "commentTitle": "コメント",
+  "commentTitleCount": "コメント（{count}）",
   "commentInput": "コメントを追加",
   "commentReply": "返信",
   "commentReplyTo": "返信先",
@@ -1142,6 +1147,7 @@
   "watchlistManga": "漫画",
   "watchlistNovel": "小説",
   "watchlistEmpty": "フォロー中のシリーズはまだありません",
+  "watchlistEmptyDetail": "シリーズページか小説リーダーで「{action}」をタップ",
   "watchlistLoadFailed": "ウォッチリストの読み込みに失敗しました",
   "watchlistLoadMoreFailed": "追加の読み込みに失敗しました",
   "watchlistAdd": "シリーズをフォロー",
@@ -1207,7 +1213,6 @@
   },
   "profileSeries": "シリーズ",
   "spotlightTitle": "スポットライト",
-  "spotlightSeeAll": "すべて",
   "spotlightArticleLoadFailed": "記事の読み込みに失敗しました",
   "spotlightChallengeVerifying": "pixivision を確認しています…",
   "spotlightChallengeManual": "pixivision の手動確認が必要です。下で完了してください",
@@ -1305,6 +1310,7 @@
   },
   "followRemoved": "フォローを解除しました",
   "muteRemoved": "ミュートを解除しました",
+  "muteAdded": "ミュートしました",
   "watchlistOpenContents": "目次を開く",
   "@watchlistOpenContents": {
     "description": "Watchlist sheet action: open the manga series contents page"

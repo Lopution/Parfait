@@ -26,12 +26,19 @@ final illustCardActionsProvider = Provider<List<CardAction>>((ref) {
   // No bookmark entry: every card carries its heart, one tap away.
   return const [
     _DownloadAction(),
-    _WatchLaterAction(),
-    _MuteWorkAction(),
-    _MuteUserAction(),
+    watchLaterCardAction,
+    ...muteCardActions,
     _ShareAction(),
   ];
 });
+
+// The detail page's ⋮ menu carries these too, so none of them needs the
+// long-press. Download and share have detail buttons of their own.
+
+const CardAction watchLaterCardAction = _WatchLaterAction();
+
+/// Mute the work, mute its author.
+const List<CardAction> muteCardActions = [_MuteWorkAction(), _MuteUserAction()];
 
 class _DownloadAction extends CardAction {
   const _DownloadAction();
@@ -41,7 +48,7 @@ class _DownloadAction extends CardAction {
 
   @override
   IconData iconFor(WidgetRef ref, IllustEntity entity) =>
-      Icons.file_download_outlined;
+      Icons.download_outlined;
 
   @override
   String labelFor(WidgetRef ref, IllustEntity entity, AppLocalizations l10n) =>
@@ -163,6 +170,7 @@ class _MuteWorkAction extends CardAction {
     final store = ref.read(muteStoreProvider.notifier);
     // What the list kept for it, so Undo brings that entry back as it was.
     final removed = ref.read(muteStoreProvider).works[entity.id];
+    final confirm = muteConfirmation(context);
     try {
       if (removed != null) {
         await store.unmuteWork(entity.id);
@@ -185,7 +193,9 @@ class _MuteWorkAction extends CardAction {
       }
       return;
     }
-    if (removed != null && context.mounted) {
+    if (removed == null) {
+      confirm();
+    } else if (context.mounted) {
       showUnmuteUndo(context, MuteKey.work(entity.id), work: removed);
     }
   }
@@ -209,34 +219,16 @@ class _MuteUserAction extends CardAction {
       _muted(ref, entity) ? l10n.unmuteAuthor : l10n.muteAuthor;
 
   @override
-  Future<void> run(
-    BuildContext context,
-    WidgetRef ref,
-    IllustEntity entity,
-  ) async {
-    final user = MutedUser(
-      userId: entity.user.id,
-      name: entity.user.name,
-      account: entity.user.account,
-      profileImageUrl: entity.user.profileImageUrl,
-    );
-    final wasMuted = ref.read(muteStoreProvider).isUserMuted(user.userId);
-    try {
-      await ref.read(muteStoreProvider.notifier).toggleUser(user);
-    } catch (error) {
-      if (context.mounted) {
-        showErrorSnackBar(
-          context,
-          action: context.l10n.muteFailed,
-          error: error,
-        );
-      }
-      return;
-    }
-    if (wasMuted && context.mounted) {
-      showUnmuteUndo(context, MuteKey.user(user.userId), user: user);
-    }
-  }
+  Future<void> run(BuildContext context, WidgetRef ref, IllustEntity entity) =>
+      toggleUserMute(
+        context,
+        MutedUser(
+          userId: entity.user.id,
+          name: entity.user.name,
+          account: entity.user.account,
+          profileImageUrl: entity.user.profileImageUrl,
+        ),
+      );
 }
 
 class _ShareAction extends CardAction {

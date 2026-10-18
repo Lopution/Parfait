@@ -137,9 +137,14 @@ reviewed: 2026-10-17
   `TranslationPanel`. Entries: the caption heading (or title) on the
   detail page, the novel info sheet title, the user introduction, the
   comment translate pill, the tag actions sheet, and the novel reader's bilingual
-  mode. A setup failure offers a button to translation settings.
+  mode. A setup failure offers a button to translation settings;
+  translation turned off or not configured reads as a notice, not in the
+  error colour. After a failure the entry keeps its "translate" label and
+  tapping it tries again.
   Translations are never persisted and never replace the original.
-- **Why:** User decision, following Shaft.
+- **Why:** User decision, following Shaft. The tag sheet's entry read
+  "hide translation" with nothing shown, and an unset service looked like
+  a fault.
 - **Check:** `test/illust_detail_actions_test.dart` "translate answers inside the menu, or points to settings", `test/comment_item_test.dart` "translate is disabled while a translation runs"
 - **Code:** `lib/app/widgets/inline_translation.dart`
 

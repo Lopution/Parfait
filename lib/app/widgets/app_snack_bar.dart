@@ -28,3 +28,13 @@ VoidCallback showAppSnackBar(
     replaceCurrent: replaceCurrent,
   );
 }
+
+/// [showAppSnackBar] for feedback that lands after an await: the host is
+/// taken now, so the returned callback still shows [message] once the
+/// context that asked is gone.
+VoidCallback deferAppSnackBar(BuildContext context, String message) {
+  final host = PromptHost.of(context);
+  return () {
+    if (host.mounted) host.show(message);
+  };
+}

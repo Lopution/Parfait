@@ -83,6 +83,9 @@ class _WatchlistFeedBody extends ConsumerWidget {
               return FeedEmpty(
                 icon: Icons.library_books_outlined,
                 title: context.l10n.watchlistEmpty,
+                detail: context.l10n.watchlistEmptyDetail(
+                  context.l10n.watchlistAdd,
+                ),
               );
             }
             return PullToRefresh(

@@ -215,7 +215,7 @@ class _DownloadActionState extends ConsumerState<_DownloadAction> {
             Icons.error_outline,
             color: colors.error,
           ),
-          IllustPageSaveState.none => const Icon(Icons.file_download_outlined),
+          IllustPageSaveState.none => const Icon(Icons.download_outlined),
         },
       ),
     );

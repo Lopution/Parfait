@@ -162,21 +162,15 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
     unawaited(toggleBookmark(context, key));
   }
 
-  Future<void> _showBookmarkSheet({required bool bookmarked}) async {
+  Future<void> _showBookmarkSheet() async {
     AppHaptics.longPress();
     final key = _key;
-    final added = await showAppBottomSheet<bool>(
-      context: context,
-      backgroundColor: FuncTokens.transparent,
-      isScrollControlled: true,
-      builder: (sheetContext) => _BookmarkEditSheet(
-        bookmarkKey: key,
-        title: widget.title,
-        isNovel: widget.isNovel,
-        initiallyBookmarked: bookmarked,
-      ),
+    final added = await showBookmarkEditSheet(
+      context,
+      key,
+      title: widget.title,
     );
-    _popIfAdded(added ?? false, key);
+    _popIfAdded(added, key);
   }
 
   @override
@@ -211,9 +205,7 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
 
     // Long-press opens the sheet in both directions: create for a fresh work,
     // edit (prefilled from bookmark detail) for an already-bookmarked one.
-    final onLongPress = unsettled
-        ? null
-        : () => _showBookmarkSheet(bookmarked: bookmarked);
+    final onLongPress = unsettled ? null : _showBookmarkSheet;
     final heart = Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.center,
@@ -319,6 +311,34 @@ class _BurstPainter extends CustomPainter {
   bool shouldRepaint(_BurstPainter oldDelegate) =>
       oldDelegate.progress != progress ||
       !listEquals(oldDelegate.colors, colors);
+}
+
+/// Opens the bookmark create/edit sheet for [key], the heart's long-press
+/// and a menu's "Edit bookmark". Resolves true when the sheet added the
+/// bookmark. Callers skip it while the bookmark's request is unsettled.
+Future<bool> showBookmarkEditSheet(
+  BuildContext context,
+  BookmarkKey key, {
+  required String title,
+}) async {
+  final bookmarked =
+      ProviderScope.containerOf(
+        context,
+        listen: false,
+      ).read(bookmarkStoreProvider)[key]?.shown ??
+      false;
+  final added = await showAppBottomSheet<bool>(
+    context: context,
+    backgroundColor: FuncTokens.transparent,
+    isScrollControlled: true,
+    builder: (sheetContext) => _BookmarkEditSheet(
+      bookmarkKey: key,
+      title: title,
+      isNovel: key.type == BookmarkEntityType.novel,
+      initiallyBookmarked: bookmarked,
+    ),
+  );
+  return added ?? false;
 }
 
 /// Bookmark create/edit sheet: restrict selector plus a tag editor — selected

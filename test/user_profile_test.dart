@@ -307,6 +307,48 @@ void main() {
     },
   );
 
+  testWidgets("someone else's overflow mutes them, then offers the unmute", (
+    tester,
+  ) async {
+    var muted = false;
+    Widget app() => localizedApp(
+      builder: promptHostBuilder,
+      home: Scaffold(
+        body: CustomScrollView(
+          slivers: [
+            _MeasuredProfileHeader(
+              delegateFor: (extent, onMeasured) => ReplicaProfileHeaderDelegate(
+                user: sampleUser(42),
+                isMe: false,
+                selectedTabIndex: 0,
+                onShare: (_) {},
+                isMuted: muted,
+                onToggleMute: () => muted = !muted,
+                expandedExtent: extent,
+                onExpandedExtentMeasured: onMeasured,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    Future<void> openMenu() async {
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.pumpWidget(app());
+    await tester.pump();
+    await openMenu();
+    await tester.tap(find.text('屏蔽作者'));
+    await tester.pumpAndSettle();
+    expect(muted, isTrue);
+
+    await tester.pumpWidget(app());
+    await openMenu();
+    expect(find.text('解除屏蔽作者'), findsOneWidget);
+  });
+
   testWidgets(
     "the overflow lists the name row's actions once they scroll away",
     (tester) async {

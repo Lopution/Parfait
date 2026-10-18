@@ -213,7 +213,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginNetworkError.
   ///
   /// In zh, this message translates to:
-  /// **'网络错误 (HTTP {status})'**
+  /// **'网络错误（HTTP {status}）'**
   String loginNetworkError(String status);
 
   /// No description provided for @loginPageLoadFailed.
@@ -627,7 +627,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkEffectiveRoutesEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'还没有路由记录——逛一逛再刷新。'**
+  /// **'暂无路由记录，浏览一会儿后再刷新。'**
   String get networkEffectiveRoutesEmpty;
 
   /// No description provided for @networkRouteForImages.
@@ -699,7 +699,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkAdvancedReset.
   ///
   /// In zh, this message translates to:
-  /// **'恢复默认值'**
+  /// **'恢复默认'**
   String get networkAdvancedReset;
 
   /// No description provided for @networkAdvancedResetConfirm.
@@ -1115,6 +1115,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暂无浏览历史'**
   String get historyEmpty;
+
+  /// No description provided for @historyEmptyDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'看过的作品会显示在这里'**
+  String get historyEmptyDetail;
+
+  /// Empty history page while local recording is off. setting is historyRecordLocal.
+  ///
+  /// In zh, this message translates to:
+  /// **'「{setting}」已关闭'**
+  String historyEmptyRecordingOff(String setting);
+
+  /// Button on the empty history page: turns local recording on.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启记录'**
+  String get historyTurnOnRecording;
 
   /// No description provided for @historyLoadFailed.
   ///
@@ -1736,7 +1754,7 @@ abstract class AppLocalizations {
   /// Hint on an empty list: where its entries are made. action is the label of a work card menu action (muteAuthor, muteWork, cardActionWatchLater).
   ///
   /// In zh, this message translates to:
-  /// **'长按作品卡片，选择「{action}」'**
+  /// **'长按作品卡片，或在作品页点 ⋮，选择「{action}」'**
   String cardMenuHint(String action);
 
   /// No description provided for @muteTagInputHint.
@@ -2540,7 +2558,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadAuthorEnumerating.
   ///
   /// In zh, this message translates to:
-  /// **'正在枚举作品…已找到 {count} 个'**
+  /// **'正在获取作品…已找到 {count} 个'**
   String downloadAuthorEnumerating(int count);
 
   /// No description provided for @downloadAuthorConfirmBody.
@@ -2564,7 +2582,7 @@ abstract class AppLocalizations {
   /// No description provided for @downloadAuthorFailed.
   ///
   /// In zh, this message translates to:
-  /// **'枚举作品失败'**
+  /// **'获取作者作品失败'**
   String get downloadAuthorFailed;
 
   /// No description provided for @downloadCaption.
@@ -3008,7 +3026,7 @@ abstract class AppLocalizations {
   /// No description provided for @errorLocalNetwork.
   ///
   /// In zh, this message translates to:
-  /// **'连接局域网地址需要“附近设备”权限，请在系统设置中允许'**
+  /// **'连接局域网地址需要「附近设备」权限，请在系统设置中允许'**
   String get errorLocalNetwork;
 
   /// No description provided for @errorRateLimited.
@@ -3404,7 +3422,7 @@ abstract class AppLocalizations {
   /// Footnote of the bottom bar editor; me, search and recommended are the destination names
   ///
   /// In zh, this message translates to:
-  /// **'底栏至少保留 {min} 项。未显示的页面可从“{me}”进入；{search}不在底栏时，{recommended}顶栏会显示搜索按钮。'**
+  /// **'底栏至少保留 {min} 项。未显示的页面可从「{me}」进入；{search}不在底栏时，{recommended}顶栏会显示搜索按钮。'**
   String bottomBarNote(int min, String me, String search, String recommended);
 
   /// No description provided for @homeStartPage.
@@ -4271,6 +4289,12 @@ abstract class AppLocalizations {
   /// **'修改搜索'**
   String get searchModifyQuery;
 
+  /// Button on an empty search result while filters are on: clears this tab's filters.
+  ///
+  /// In zh, this message translates to:
+  /// **'重置筛选'**
+  String get searchResetFilters;
+
   /// No description provided for @searchUserAccount.
   ///
   /// In zh, this message translates to:
@@ -4420,6 +4444,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'评论'**
   String get commentTitle;
+
+  /// Heading of a work's comments with their number. count is already formatted.
+  ///
+  /// In zh, this message translates to:
+  /// **'评论（{count}）'**
+  String commentTitleCount(String count);
 
   /// No description provided for @commentInput.
   ///
@@ -5234,7 +5264,7 @@ abstract class AppLocalizations {
   /// No description provided for @bookmarkTagsEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'还没有收藏标签'**
+  /// **'暂无收藏标签'**
   String get bookmarkTagsEmpty;
 
   /// No description provided for @bookmarkTagsLoadFailed.
@@ -5342,8 +5372,14 @@ abstract class AppLocalizations {
   /// No description provided for @watchlistEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'还没有追更的系列'**
+  /// **'暂无追更的系列'**
   String get watchlistEmpty;
+
+  /// Empty watchlist: where series are added (the series page, the novel reader). action is watchlistAdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'在系列页或小说阅读器中点「{action}」'**
+  String watchlistEmptyDetail(String action);
 
   /// No description provided for @watchlistLoadFailed.
   ///
@@ -5390,7 +5426,7 @@ abstract class AppLocalizations {
   /// No description provided for @localNovelsEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'还没有导入的本地小说'**
+  /// **'暂无导入的本地小说'**
   String get localNovelsEmpty;
 
   /// No description provided for @localNovelsLoadFailed.
@@ -5482,12 +5518,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'特辑'**
   String get spotlightTitle;
-
-  /// Search guide: trailing link of the Spotlight section header; opens the full Spotlight list.
-  ///
-  /// In zh, this message translates to:
-  /// **'全部'**
-  String get spotlightSeeAll;
 
   /// No description provided for @spotlightArticleLoadFailed.
   ///
@@ -5806,6 +5836,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已解除屏蔽'**
   String get muteRemoved;
+
+  /// SnackBar after muting a work or a user from a menu (work card, detail page, profile).
+  ///
+  /// In zh, this message translates to:
+  /// **'已屏蔽'**
+  String get muteAdded;
 
   /// Watchlist sheet action: open the manga series contents page
   ///

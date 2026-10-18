@@ -114,17 +114,19 @@ class _TagActionsState extends ConsumerState<_TagActions>
               title: Text(l10n.tagActionCopy),
               onTap: _closing(widget.onCopy),
             ),
-            // A failure is this row's state: the reason as its subtitle,
-            // the error color on its icon (THEME-08).
+            // A failure is this row's state: the reason as its subtitle, the
+            // error color on its icon only for an error — translation that
+            // is off or not set up is not one (THEME-08). The row hides a
+            // translation; after a failure it asks again.
             ListTile(
               leading: Icon(
                 Icons.translate,
-                color: failure == null
+                color: failure == null || translationNotSetUp(failure)
                     ? null
                     : Theme.of(context).colorScheme.error,
               ),
               title: Text(
-                translationShown
+                translations != null
                     ? l10n.translationHide
                     : l10n.tagActionTranslate,
               ),
@@ -138,7 +140,11 @@ class _TagActionsState extends ConsumerState<_TagActions>
                     )
                   : null,
               enabled: !translating,
-              onTap: () => unawaited(toggleTranslation([widget.tag])),
+              onTap: () => unawaited(
+                failure == null
+                    ? toggleTranslation([widget.tag])
+                    : retryTranslation([widget.tag]),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),

@@ -41,11 +41,10 @@ class CommentsPreviewSlivers extends ConsumerWidget {
     final count =
         ref.watch(commentTotalsProvider.select((t) => t[query.workKey])) ??
         ref.read(illustStoreProvider).get(illustId)?.totalComments;
-    final title = context.l10n.commentTitle;
     final header = DetailSectionHeader(
       title: count == null
-          ? title
-          : '$title (${AppFormat.count(context, count)})',
+          ? context.l10n.commentTitle
+          : context.l10n.commentTitleCount(AppFormat.count(context, count)),
       actionLabel: context.l10n.detailViewAll,
       onAction: openAll,
     );

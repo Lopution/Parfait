@@ -351,7 +351,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('网络错误 (HTTP 400 accounts.pixiv.net)'), findsOneWidget);
+    expect(find.text('网络错误（HTTP 400 accounts.pixiv.net）'), findsOneWidget);
     expect(find.text('重新打开'), findsNothing);
     expect(
       await navigateTo(delegate, 'https://accounts.pixiv.net/login?retry=1'),
@@ -403,14 +403,14 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('网络错误 (HTTP 400 accounts.pixiv.net)'), findsOneWidget);
+    expect(find.text('网络错误（HTTP 400 accounts.pixiv.net）'), findsOneWidget);
 
     await tester.tap(find.text('重新加载'));
     await tester.pump();
 
     // Reload re-runs the current document — the route stays put.
     expect(controller.reloadCount, 1);
-    expect(find.text('网络错误 (HTTP 400 accounts.pixiv.net)'), findsNothing);
+    expect(find.text('网络错误（HTTP 400 accounts.pixiv.net）'), findsNothing);
     expect(find.byType(LoginWebViewPage), findsOneWidget);
   });
 
@@ -551,7 +551,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('网络错误 (HTTP 403 accounts.pixiv.net)'), findsOneWidget);
+    expect(find.text('网络错误（HTTP 403 accounts.pixiv.net）'), findsOneWidget);
     expect(find.textContaining('ref=x'), findsNothing);
   });
 

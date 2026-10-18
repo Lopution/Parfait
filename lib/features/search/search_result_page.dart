@@ -475,6 +475,47 @@ class _SearchTabBody extends ConsumerWidget {
   }
 }
 
+/// No results. With filters on they are the likely cause: the way out is
+/// resetting them, as the chip row's reset does (the chips stay for
+/// editing them). Without filters it is editing the search.
+class _EmptySearchResult extends StatelessWidget {
+  const _EmptySearchResult({required this.query});
+
+  final SearchQuery query;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    bool active(SearchFilters filters) =>
+        searchFilterLabels(context, filters).isNotEmpty;
+    final reset = switch (query) {
+      final IllustSearchQuery illust when active(illust.filters) =>
+        illust.copyWith(filters: IllustSearchFilters.defaults),
+      final NovelSearchQuery novel when active(novel.filters) => novel.copyWith(
+        filters: NovelSearchFilters.defaults,
+      ),
+      _ => null,
+    };
+    return FeedEmpty(
+      icon: Icons.search,
+      title: l10n.searchNoResults,
+      actionLabel: reset == null
+          ? l10n.searchModifyQuery
+          : l10n.searchResetFilters,
+      actionIcon: reset == null
+          ? Icons.edit_outlined
+          : Icons.filter_alt_off_outlined,
+      onAction: reset == null
+          ? () => swapToSearchInput(
+              context,
+              keyword: query.keyword,
+              type: query.type,
+            )
+          : () => replaceSearchResults(context, reset),
+    );
+  }
+}
+
 class _SearchLoading extends StatelessWidget {
   const _SearchLoading({required this.query});
 
@@ -505,18 +546,7 @@ class _IllustSearchFeed extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final entities = ref.watch(illustStoreProvider).getAll(feed.ids);
-    if (entities.isEmpty) {
-      return FeedEmpty(
-        icon: Icons.search,
-        title: context.l10n.searchNoResults,
-        actionLabel: context.l10n.searchModifyQuery,
-        onAction: () => swapToSearchInput(
-          context,
-          keyword: query.keyword,
-          type: query.type,
-        ),
-      );
-    }
+    if (entities.isEmpty) return _EmptySearchResult(query: query);
     return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(
@@ -587,18 +617,7 @@ class _NovelSearchFeed extends ConsumerWidget {
       for (final id in feed.ids)
         if (stored[id] != null) stored[id]!,
     ];
-    if (entities.isEmpty) {
-      return FeedEmpty(
-        icon: Icons.search,
-        title: context.l10n.searchNoResults,
-        actionLabel: context.l10n.searchModifyQuery,
-        onAction: () => swapToSearchInput(
-          context,
-          keyword: query.keyword,
-          type: query.type,
-        ),
-      );
-    }
+    if (entities.isEmpty) return _EmptySearchResult(query: query);
     return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(
@@ -666,18 +685,7 @@ class _UserSearchFeed extends ConsumerWidget {
       for (final id in feed.ids)
         if (stored[id] != null) stored[id]!,
     ];
-    if (users.isEmpty) {
-      return FeedEmpty(
-        icon: Icons.search,
-        title: context.l10n.searchNoResults,
-        actionLabel: context.l10n.searchModifyQuery,
-        onAction: () => swapToSearchInput(
-          context,
-          keyword: query.keyword,
-          type: query.type,
-        ),
-      );
-    }
+    if (users.isEmpty) return _EmptySearchResult(query: query);
     return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
       child: NotificationListener<ScrollNotification>(

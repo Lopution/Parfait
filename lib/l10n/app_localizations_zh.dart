@@ -65,7 +65,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String loginNetworkError(String status) {
-    return '网络错误 (HTTP $status)';
+    return '网络错误（HTTP $status）';
   }
 
   @override
@@ -289,7 +289,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkEffectiveRoutes => '当前生效路由';
 
   @override
-  String get networkEffectiveRoutesEmpty => '还没有路由记录——逛一逛再刷新。';
+  String get networkEffectiveRoutesEmpty => '暂无路由记录，浏览一会儿后再刷新。';
 
   @override
   String get networkRouteForImages => '图片加载';
@@ -325,7 +325,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkAdvancedHint => '面向高级用户的底层选项。';
 
   @override
-  String get networkAdvancedReset => '恢复默认值';
+  String get networkAdvancedReset => '恢复默认';
 
   @override
   String get networkAdvancedResetConfirm => '将 DoH 端点与 ECH 前置主机恢复为默认值。';
@@ -536,6 +536,17 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get historyEmpty => '暂无浏览历史';
+
+  @override
+  String get historyEmptyDetail => '看过的作品会显示在这里';
+
+  @override
+  String historyEmptyRecordingOff(String setting) {
+    return '「$setting」已关闭';
+  }
+
+  @override
+  String get historyTurnOnRecording => '开启记录';
 
   @override
   String get historyLoadFailed => '历史记录加载失败';
@@ -867,7 +878,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String cardMenuHint(String action) {
-    return '长按作品卡片，选择「$action」';
+    return '长按作品卡片，或在作品页点 ⋮，选择「$action」';
   }
 
   @override
@@ -1293,7 +1304,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String downloadAuthorEnumerating(int count) {
-    return '正在枚举作品…已找到 $count 个';
+    return '正在获取作品…已找到 $count 个';
   }
 
   @override
@@ -1310,7 +1321,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadAuthorEmpty => '该作者没有可下载的作品。';
 
   @override
-  String get downloadAuthorFailed => '枚举作品失败';
+  String get downloadAuthorFailed => '获取作者作品失败';
 
   @override
   String get downloadCaption => '同时导出作品简介';
@@ -1536,7 +1547,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorTimeout => '连接超时';
 
   @override
-  String get errorLocalNetwork => '连接局域网地址需要“附近设备”权限，请在系统设置中允许';
+  String get errorLocalNetwork => '连接局域网地址需要「附近设备」权限，请在系统设置中允许';
 
   @override
   String get errorRateLimited => '请求过于频繁，请稍后重试';
@@ -1743,7 +1754,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String bottomBarNote(int min, String me, String search, String recommended) {
-    return '底栏至少保留 $min 项。未显示的页面可从“$me”进入；$search不在底栏时，$recommended顶栏会显示搜索按钮。';
+    return '底栏至少保留 $min 项。未显示的页面可从「$me」进入；$search不在底栏时，$recommended顶栏会显示搜索按钮。';
   }
 
   @override
@@ -2215,6 +2226,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchModifyQuery => '修改搜索';
 
   @override
+  String get searchResetFilters => '重置筛选';
+
+  @override
   String get searchUserAccount => '账号';
 
   @override
@@ -2298,6 +2312,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get commentTitle => '评论';
+
+  @override
+  String commentTitleCount(String count) {
+    return '评论（$count）';
+  }
 
   @override
   String get commentInput => '添加评论';
@@ -2709,7 +2728,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get bookmarkTagSuggestions => '常用标签';
 
   @override
-  String get bookmarkTagsEmpty => '还没有收藏标签';
+  String get bookmarkTagsEmpty => '暂无收藏标签';
 
   @override
   String get bookmarkTagsLoadFailed => '收藏标签加载失败';
@@ -2769,7 +2788,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get watchlistNovel => '小说';
 
   @override
-  String get watchlistEmpty => '还没有追更的系列';
+  String get watchlistEmpty => '暂无追更的系列';
+
+  @override
+  String watchlistEmptyDetail(String action) {
+    return '在系列页或小说阅读器中点「$action」';
+  }
 
   @override
   String get watchlistLoadFailed => '追更列表加载失败';
@@ -2793,7 +2817,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get localNovelsTitle => '本地小说';
 
   @override
-  String get localNovelsEmpty => '还没有导入的本地小说';
+  String get localNovelsEmpty => '暂无导入的本地小说';
 
   @override
   String get localNovelsLoadFailed => '本地小说加载失败';
@@ -2851,9 +2875,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get spotlightTitle => '特辑';
-
-  @override
-  String get spotlightSeeAll => '全部';
 
   @override
   String get spotlightArticleLoadFailed => '文章加载失败';
@@ -3023,6 +3044,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get muteRemoved => '已解除屏蔽';
+
+  @override
+  String get muteAdded => '已屏蔽';
 
   @override
   String get watchlistOpenContents => '打开目录';

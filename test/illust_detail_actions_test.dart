@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/app/layout/two_pane.dart';
+import 'package:parfait/core/bookmark/bookmark_tag_providers.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
@@ -334,6 +335,34 @@ void main() {
       expect(share.payloads.single.url, 'https://www.pixiv.net/artworks/42');
     });
 
+    testWidgets('the ⋮ menu carries the long-press actions too', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld(
+        extraOverrides: [
+          userBookmarkTagSuggestionsProvider.overrideWith(
+            (ref, _) async => const [],
+          ),
+        ],
+      );
+      await pumpDetail(tester, container);
+
+      await openDetailMenu(tester);
+      expect(find.text('Watch later'), findsOneWidget);
+      expect(find.text('Mute author'), findsOneWidget);
+      await tester.tap(find.text('Mute this work'));
+      await tester.pumpAndSettle();
+      expect(container.read(muteStoreProvider).isWorkMuted(42), isTrue);
+      expect(find.text('Muted'), findsOneWidget);
+
+      await openDetailMenu(tester);
+      expect(find.text('Unmute this work'), findsOneWidget);
+      await tester.tap(find.text('Bookmark illustration'));
+      await tester.pumpAndSettle();
+      // The heart's long-press sheet, titled as the menu entry was.
+      expect(find.text('Bookmark illustration'), findsOneWidget);
+    });
+
     testWidgets('a long six-page work still reaches InfoBlock via the menu', (
       tester,
     ) async {
@@ -447,13 +476,19 @@ void main() {
       await tester.tap(find.text('翻译标签名'));
       await tester.pumpAndSettle();
       expect(find.text('去设置'), findsOneWidget);
+      // Off is not an error, and there is nothing to hide: the row keeps
+      // its name and the next tap asks again.
+      final rowIcon = find.descendant(
+        of: find.widgetWithText(ListTile, '翻译标签名'),
+        matching: find.byIcon(Icons.translate),
+      );
+      expect(tester.widget<Icon>(rowIcon).color, isNull);
 
       provider = TranslationProvider.google;
-      await tester.tap(find.text('收起翻译'));
-      await tester.pumpAndSettle();
       await tester.tap(find.text('翻译标签名'));
       await tester.pumpAndSettle();
       expect(find.text('TAG-IN-ZH'), findsOneWidget);
+      expect(find.text('收起翻译'), findsOneWidget);
       expect(engine.sources, ['original']);
     });
 

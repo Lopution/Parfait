@@ -126,13 +126,14 @@ reviewed: 2026-10-17
 - **Rule:** On narrow layouts download and bookmark sit in one floating
   capsule (`DetailActionBar`), the heart on a tonal circle: 56dp high, the
   surface 85% opaque with an outline and no shadow. Comments open from the
-  page's comment preview. The top bar carries only the ⋮ menu. Share, page
-  selection and work info are ⋮ entries with text labels; no action
-  depends only on a long press.
+  page's comment preview. The top bar carries only the ⋮ menu. Share,
+  editing the bookmark, watch later, page selection, work info and the
+  two mutes are ⋮ entries with text labels; no action depends only on a
+  long press (FB-03).
 - **Why:** User decision. An M3 floating toolbar with a separate bookmark
   FAB was tried and rejected; a comments button repeated the preview's
   entry, and a larger opaque capsule weighed on the page.
-- **Check:** manual
+- **Check:** `test/illust_detail_actions_test.dart` "the ⋮ menu carries the long-press actions too"; the capsule manual
 - **Code:** `lib/features/illust/detail/widgets/detail_action_bar.dart`
 
 ### DETAIL-14 Landscape detail is a stage and an info column
