@@ -43,14 +43,17 @@ reviewed: 2026-10-17
 - **Check:** `test/selection_controls_haptics_test.dart`
 - **Code:** `lib/app/widgets/settings/settings_menu_tile.dart`, `lib/app/widgets/settings/settings_choice_tile.dart`
 
-### SET-08 Page entries carry a circled icon, setting rows a bare one
+### SET-08 Page entries carry a circle in their group's color
 - **Rule:** A row that opens a settings page from the index or the Me tab
-  is `SettingsTile.topLevel`, its icon on a tonal circle. Rows inside a
-  settings page show the bare icon.
-- **Why:** User decision: the circle marks the top level; on sub-pages it
-  outweighed the setting rows around it.
+  is `SettingsTile.topLevel`, its icon on a circle in its group's
+  category tone (THEME-07): appearance purple, browse blue, network and
+  download green, data orange; account, about and developer neutral.
+  Rows inside a settings page show the bare icon.
+- **Why:** User decision: the circle marks the top level, and one color
+  per group tells the groups apart before their titles are read; on
+  sub-pages the circle outweighed the setting rows around it.
 - **Check:** manual
-- **Code:** `lib/app/widgets/settings/settings_tile.dart`
+- **Code:** `lib/app/widgets/settings/settings_tile.dart`, `lib/features/settings/settings_page.dart`
 
 ### SET-09 A form is one card with its save at the end
 - **Rule:** A form's fields and its `FilledButton` save sit in one
@@ -104,17 +107,21 @@ reviewed: 2026-10-17
 
 ## Me tab
 
-### SET-07 The Me tab follows Shaft's me page
-- **Rule:** The Me root is the account row, then three equal cards
-  (bookmarks, following, download tasks with an active-task badge), rows
-  of four plain entries (watchlist, history, watch later, local novels,
-  then each destination the user took off the bottom bar) in one card
-  whose edges meet the three, two to a row when narrow, then every
-  settings page as a
-  `SettingsTile` in one always-listed group headed by a search button,
-  and under it `DeveloperSettingsGroup` (frame probe) when unlocked.
-- **Why:** User decision after comparing with Shaft: three cards, no
-  fold. Left only at the bottom of the index and unsearchable, the probe
-  could not be found.
-- **Check:** `test/settings_test.dart` "the dashboard badge counts downloads as they start and end"
+### SET-07 The Me tab puts content before settings
+- **Rule:** The Me root is the account row (no account ID), then the
+  last eight history records as a row of covers with "see all" (hidden
+  when the history is empty), then one card of content entries
+  (bookmarks, following, watchlist, watch later, local novels, download
+  tasks with an active-task badge, then each destination the user took
+  off the bottom bar) three or four to a row, whichever leaves fewer
+  gaps, two when narrow, then the settings index groups without the
+  account group (`settingsIndexGroups(account: false)`), and under them
+  `DeveloperSettingsGroup` (frame probe) when unlocked. Settings search
+  is the top bar's search button. An illustration cover opens the detail
+  pager over the row's illustrations in their order at the tap.
+- **Why:** User decision: settings filled two thirds of the page in a
+  style of their own, and nothing showed what the user saw last. Left
+  only at the bottom of the index and unsearchable, the probe could not
+  be found.
+- **Check:** `test/settings_test.dart` "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order"
 - **Code:** `lib/features/settings/me_dashboard_page.dart`

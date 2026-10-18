@@ -80,10 +80,15 @@ reviewed: 2026-10-17
   indicators only. `secondary` and `secondaryContainer` are neutral grays:
   tonal buttons and progress tracks are not pink. Group titles use
   `onSurfaceVariant`, never `primary`. Selected controls use
-  `primaryContainer` / `onPrimaryContainer`.
+  `primaryContainer` / `onPrimaryContainer`. Category tones
+  (`categoryTone`) are not the accent: they color only the icon circles
+  of top-level entries, by the kind of place each opens, and stay fixed
+  under system colors; bookmarks keeps the default accent's hue.
 - **Why:** User decision: the accent loses its meaning when it decorates.
+  A system accent that recolored bookmarks collided with whichever
+  category shared its hue.
 - **Check:** manual
-- **Code:** `lib/app/theme/replica_theme.dart`
+- **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/category_colors.dart`
 
 ### THEME-08 Status color goes on the icon, not the text
 - **Rule:** In status rows the icon carries the semantic color (success,
