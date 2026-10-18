@@ -165,6 +165,26 @@ void main() {
     expect(find.text('work 1'), findsOneWidget);
   });
 
+  testWidgets('an empty history with recording off offers to turn it on', (
+    tester,
+  ) async {
+    final container = await _seedPage(tester, const []);
+    Future<void> settle() => tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await tester.pump();
+    });
+    await tester.runAsync(
+      () => container.read(settingsProvider.notifier).setHistoryEnabled(false),
+    );
+    await settle();
+    expect(find.text('「记录本地浏览历史」已关闭'), findsOneWidget);
+
+    await tester.tap(find.text('开启记录'));
+    await settle();
+    expect(container.read(settingsProvider).value!.enableHistory, isTrue);
+    expect(find.text('看过的作品会显示在这里'), findsOneWidget);
+  });
+
   testWidgets('overflow menu toggles record switches and shows checks', (
     tester,
   ) async {

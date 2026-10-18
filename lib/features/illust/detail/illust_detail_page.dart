@@ -594,7 +594,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
           onPressed: selected.isEmpty
               ? null
               : () => unawaited(_submitSelection(entity)),
-          icon: const Icon(Icons.file_download_outlined),
+          icon: const Icon(Icons.download_outlined),
         ),
       ],
     );

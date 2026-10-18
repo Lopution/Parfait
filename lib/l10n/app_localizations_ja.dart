@@ -65,7 +65,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String loginNetworkError(String status) {
-    return 'ネットワークエラー (HTTP $status)';
+    return 'ネットワークエラー（HTTP $status）';
   }
 
   @override
@@ -552,6 +552,17 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get historyEmpty => '閲覧履歴はありません';
+
+  @override
+  String get historyEmptyDetail => '閲覧した作品がここに表示されます';
+
+  @override
+  String historyEmptyRecordingOff(String setting) {
+    return '「$setting」がオフです';
+  }
+
+  @override
+  String get historyTurnOnRecording => 'オンにする';
 
   @override
   String get historyLoadFailed => '履歴の読み込みに失敗しました';
@@ -1316,7 +1327,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String downloadAuthorEnumerating(int count) {
-    return '作品を列挙中…$count 件';
+    return '作品を取得中…$count 件';
   }
 
   @override
@@ -1333,7 +1344,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get downloadAuthorEmpty => 'この作者にはダウンロード可能な作品がありません。';
 
   @override
-  String get downloadAuthorFailed => '作品の列挙に失敗しました';
+  String get downloadAuthorFailed => '作者の作品を取得できませんでした';
 
   @override
   String get downloadCaption => '作品のキャプションを書き出す';
@@ -2244,6 +2255,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchModifyQuery => '検索を編集';
 
   @override
+  String get searchResetFilters => 'フィルターをリセット';
+
+  @override
   String get searchUserAccount => 'アカウント';
 
   @override
@@ -2327,6 +2341,11 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get commentTitle => 'コメント';
+
+  @override
+  String commentTitleCount(String count) {
+    return 'コメント（$count）';
+  }
 
   @override
   String get commentInput => 'コメントを追加';
@@ -2801,6 +2820,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get watchlistEmpty => 'フォロー中のシリーズはまだありません';
 
   @override
+  String watchlistEmptyDetail(String action) {
+    return 'シリーズページか小説リーダーで「$action」をタップ';
+  }
+
+  @override
   String get watchlistLoadFailed => 'ウォッチリストの読み込みに失敗しました';
 
   @override
@@ -2881,9 +2905,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get spotlightTitle => 'スポットライト';
-
-  @override
-  String get spotlightSeeAll => 'すべて';
 
   @override
   String get spotlightArticleLoadFailed => '記事の読み込みに失敗しました';

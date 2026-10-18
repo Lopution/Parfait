@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
@@ -151,6 +152,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byTooltip('筛选'), findsOneWidget);
     expect(find.byType(ActionChip), findsNothing);
+  });
+
+  testWidgets('an empty result with filters on offers resetting them', (
+    tester,
+  ) async {
+    await _pumpRouter(
+      tester,
+      initialLocation: '/search/results?q=cat&type=illust&wmin=1000',
+    );
+    Finder inEmpty(String text) =>
+        find.descendant(of: find.byType(FeedEmpty), matching: find.text(text));
+    expect(inEmpty('修改搜索'), findsNothing);
+
+    await tester.tap(inEmpty('重置筛选'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ActionChip), findsNothing);
+    expect(inEmpty('修改搜索'), findsOneWidget);
   });
 
   testWidgets('the user filter slot stays in place and explains its scope', (

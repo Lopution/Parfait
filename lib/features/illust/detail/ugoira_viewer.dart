@@ -782,7 +782,7 @@ class _ExportButton extends StatelessWidget {
       // ancestor scheduling frames (and would never let pumpAndSettle
       // settle in tests).
       tooltip = l10n.ugoiraSaveGif;
-      icon = const Icon(Icons.file_download_outlined);
+      icon = const Icon(Icons.download_outlined);
       onPressed = null;
     } else if (exporting) {
       final percent = ((snapshot?.progress ?? 0) * 100).round();
@@ -802,7 +802,7 @@ class _ExportButton extends StatelessWidget {
       onPressed = onExport;
     } else {
       tooltip = l10n.ugoiraSaveGif;
-      icon = const Icon(Icons.file_download_outlined);
+      icon = const Icon(Icons.download_outlined);
       onPressed = onExport;
     }
 

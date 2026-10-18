@@ -342,7 +342,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkAdvancedHint => 'Low-level options for advanced users.';
 
   @override
-  String get networkAdvancedReset => 'Reset to defaults';
+  String get networkAdvancedReset => 'Restore defaults';
 
   @override
   String get networkAdvancedResetConfirm =>
@@ -567,6 +567,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get historyEmpty => 'No browsing history';
+
+  @override
+  String get historyEmptyDetail => 'Works you view show up here';
+
+  @override
+  String historyEmptyRecordingOff(String setting) {
+    return '\"$setting\" is off';
+  }
+
+  @override
+  String get historyTurnOnRecording => 'Turn on';
 
   @override
   String get historyLoadFailed => 'Failed to load history';
@@ -1360,7 +1371,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String downloadAuthorEnumerating(int count) {
-    return 'Enumerating works… $count found';
+    return 'Getting works… $count found';
   }
 
   @override
@@ -1377,7 +1388,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadAuthorEmpty => 'This author has no downloadable works.';
 
   @override
-  String get downloadAuthorFailed => 'Failed to enumerate works';
+  String get downloadAuthorFailed => 'Failed to get the author\'s works';
 
   @override
   String get downloadCaption => 'Export work caption';
@@ -1773,7 +1784,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rankingHiddenEmpty => 'Every category is shown';
 
   @override
-  String get restoreDefault => 'Restore default';
+  String get restoreDefault => 'Restore defaults';
 
   @override
   String get rankingBlocked => 'Blocked in browse settings';
@@ -2313,6 +2324,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchModifyQuery => 'Edit search';
 
   @override
+  String get searchResetFilters => 'Reset filters';
+
+  @override
   String get searchUserAccount => 'Account';
 
   @override
@@ -2398,6 +2412,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commentTitle => 'Comments';
+
+  @override
+  String commentTitleCount(String count) {
+    return 'Comments ($count)';
+  }
 
   @override
   String get commentInput => 'Add a comment';
@@ -2885,6 +2904,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchlistEmpty => 'No series in your watchlist yet';
 
   @override
+  String watchlistEmptyDetail(String action) {
+    return 'Tap \"$action\" on a series page or in the novel reader';
+  }
+
+  @override
   String get watchlistLoadFailed => 'Failed to load watchlist';
 
   @override
@@ -2965,9 +2989,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get spotlightTitle => 'Spotlight';
-
-  @override
-  String get spotlightSeeAll => 'See all';
 
   @override
   String get spotlightArticleLoadFailed => 'Failed to load article';

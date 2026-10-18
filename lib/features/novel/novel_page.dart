@@ -241,7 +241,9 @@ class NovelPage extends ConsumerWidget {
               icon: const Icon(Icons.comment_outlined),
               label: Text(
                 novel.totalComments > 0
-                    ? '${context.l10n.commentTitle} (${AppFormat.count(context, novel.totalComments)})'
+                    ? context.l10n.commentTitleCount(
+                        AppFormat.count(context, novel.totalComments),
+                      )
                     : context.l10n.commentTitle,
               ),
             ),

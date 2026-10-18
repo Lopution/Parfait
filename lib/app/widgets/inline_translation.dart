@@ -57,6 +57,12 @@ mixin InlineTranslation<T extends ConsumerStatefulWidget> on ConsumerState<T> {
       translationFailure = failure;
     });
   }
+
+  /// Asks again after a failure, in place of it.
+  Future<void> retryTranslation(List<String> sources) {
+    setState(() => translationFailure = null);
+    return toggleTranslation(sources);
+  }
 }
 
 /// The translate button of a heading row: the translate glyph, primary
@@ -210,8 +216,15 @@ class _TranslationFailure extends StatelessWidget {
       child: Row(
         children: [
           // THEME-08: the status color is the icon's; the text stays
-          // neutral.
-          Icon(Icons.error_outline, size: _iconSize, color: scheme.error),
+          // neutral. Translation that is off or not set up is a state, not
+          // an error.
+          translationNotSetUp(kind)
+              ? Icon(
+                  Icons.info_outline,
+                  size: _iconSize,
+                  color: scheme.onSurfaceVariant,
+                )
+              : Icon(Icons.error_outline, size: _iconSize, color: scheme.error),
           const SizedBox(width: FuncSpacing.sm),
           Expanded(
             child: Text(
@@ -230,10 +243,15 @@ class _TranslationFailure extends StatelessWidget {
   }
 }
 
+/// Translation is off or has no engine set up: a state the user chose or
+/// has not got to, not an error.
+bool translationNotSetUp(TranslationFailureKind kind) =>
+    kind == TranslationFailureKind.disabled ||
+    kind == TranslationFailureKind.notConfigured;
+
 /// The engine is off or not set up: the fix is in the translation settings.
 bool translationNeedsSettings(TranslationFailureKind kind) =>
-    kind == TranslationFailureKind.disabled ||
-    kind == TranslationFailureKind.notConfigured ||
+    translationNotSetUp(kind) ||
     kind == TranslationFailureKind.invalidCredentials;
 
 /// Opens the translation settings. From inside a sheet or a dialog the popup

@@ -382,7 +382,7 @@ class _SpotlightSection extends ConsumerWidget {
       children: [
         _SectionHeader(
           title: l10n.spotlightTitle,
-          action: l10n.spotlightSeeAll,
+          action: l10n.detailViewAll,
           onTap: () => openSpotlight(context),
         ),
         StateFade(

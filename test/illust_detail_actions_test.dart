@@ -447,13 +447,19 @@ void main() {
       await tester.tap(find.text('翻译标签名'));
       await tester.pumpAndSettle();
       expect(find.text('去设置'), findsOneWidget);
+      // Off is not an error, and there is nothing to hide: the row keeps
+      // its name and the next tap asks again.
+      final rowIcon = find.descendant(
+        of: find.widgetWithText(ListTile, '翻译标签名'),
+        matching: find.byIcon(Icons.translate),
+      );
+      expect(tester.widget<Icon>(rowIcon).color, isNull);
 
       provider = TranslationProvider.google;
-      await tester.tap(find.text('收起翻译'));
-      await tester.pumpAndSettle();
       await tester.tap(find.text('翻译标签名'));
       await tester.pumpAndSettle();
       expect(find.text('TAG-IN-ZH'), findsOneWidget);
+      expect(find.text('收起翻译'), findsOneWidget);
       expect(engine.sources, ['original']);
     });
 

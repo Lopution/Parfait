@@ -37,10 +37,13 @@ reviewed: 2026-10-17
 - **Rule:** An empty view offers `refresh` only for a live feed. Content
   that is simply not there (a user without works, an empty history, no
   search results) offers no refresh and no retry, at most another action
-  (edit the search, import). `retry` belongs to failures.
+  (edit the search, import). `retry` belongs to failures. When a choice
+  of the user's explains the emptiness, the view names it and offers to
+  undo it: history recording off offers to turn it on, a search with
+  filters on offers to reset them.
 - **Why:** Refresh on a permanently empty page did nothing and read as
-  broken.
-- **Check:** manual
+  broken. An empty page caused by a switch or a filter gave no hint why.
+- **Check:** `test/history_page_test.dart` "an empty history with recording off offers to turn it on", `test/search_result_page_test.dart` "an empty result with filters on offers resetting them"
 - **Code:** `lib/app/widgets/feed/feed_states.dart`
 
 ### FEED-03 Failures retry once when the network returns

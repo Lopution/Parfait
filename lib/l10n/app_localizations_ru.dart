@@ -343,7 +343,7 @@ class AppLocalizationsRu extends AppLocalizations {
       'Низкоуровневые параметры для опытных пользователей.';
 
   @override
-  String get networkAdvancedReset => 'Сбросить настройки';
+  String get networkAdvancedReset => 'Сбросить';
 
   @override
   String get networkAdvancedResetConfirm =>
@@ -568,6 +568,17 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get historyEmpty => 'История просмотров пуста';
+
+  @override
+  String get historyEmptyDetail => 'Здесь появятся просмотренные работы';
+
+  @override
+  String historyEmptyRecordingOff(String setting) {
+    return '«$setting» выключено';
+  }
+
+  @override
+  String get historyTurnOnRecording => 'Включить';
 
   @override
   String get historyLoadFailed => 'Не удалось загрузить историю';
@@ -1355,7 +1366,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String downloadAuthorEnumerating(int count) {
-    return 'Перечисление работ… найдено $count';
+    return 'Получение работ… найдено $count';
   }
 
   @override
@@ -1372,7 +1383,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloadAuthorEmpty => 'У этого автора нет работ для скачивания.';
 
   @override
-  String get downloadAuthorFailed => 'Не удалось перечислить работы';
+  String get downloadAuthorFailed => 'Не удалось получить работы автора';
 
   @override
   String get downloadCaption => 'Экспортировать описание работы';
@@ -1769,7 +1780,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get rankingHiddenEmpty => 'Показаны все категории';
 
   @override
-  String get restoreDefault => 'По умолчанию';
+  String get restoreDefault => 'Сбросить';
 
   @override
   String get rankingBlocked => 'Скрыто в настройках просмотра';
@@ -2314,6 +2325,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchModifyQuery => 'Изменить запрос';
 
   @override
+  String get searchResetFilters => 'Сбросить фильтры';
+
+  @override
   String get searchUserAccount => 'Аккаунт';
 
   @override
@@ -2398,6 +2412,11 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get commentTitle => 'Комментарии';
+
+  @override
+  String commentTitleCount(String count) {
+    return 'Комментарии ($count)';
+  }
 
   @override
   String get commentInput => 'Добавить комментарий';
@@ -2877,6 +2896,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get watchlistEmpty => 'Вы пока не отслеживаете ни одной серии';
 
   @override
+  String watchlistEmptyDetail(String action) {
+    return 'Нажмите «$action» на странице серии или в читалке';
+  }
+
+  @override
   String get watchlistLoadFailed => 'Не удалось загрузить список';
 
   @override
@@ -2957,9 +2981,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get spotlightTitle => 'Спотлайт';
-
-  @override
-  String get spotlightSeeAll => 'Все';
 
   @override
   String get spotlightArticleLoadFailed => 'Не удалось загрузить статью';

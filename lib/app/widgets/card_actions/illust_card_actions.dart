@@ -41,7 +41,7 @@ class _DownloadAction extends CardAction {
 
   @override
   IconData iconFor(WidgetRef ref, IllustEntity entity) =>
-      Icons.file_download_outlined;
+      Icons.download_outlined;
 
   @override
   String labelFor(WidgetRef ref, IllustEntity entity, AppLocalizations l10n) =>

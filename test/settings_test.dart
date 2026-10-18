@@ -933,7 +933,7 @@ void main() {
       find.descendant(of: imageRoute, matching: find.text('ECH')),
       findsOneWidget,
     );
-    expect(find.textContaining('还没有路由记录'), findsNothing);
+    expect(find.textContaining('暂无路由记录'), findsNothing);
 
     // Unmount and unwind the third-party reachability probe timeouts.
     await tester.pumpWidget(const SizedBox());

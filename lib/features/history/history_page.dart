@@ -353,9 +353,29 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
       ),
       data: (state) {
         if (state.ids.isEmpty) {
+          // With local recording off nothing will show up here: say so and
+          // offer the switch instead.
+          final l10n = context.l10n;
+          final recording =
+              ref.watch(settingsProvider).value?.enableHistory ?? true;
           return FeedEmpty(
             icon: Icons.history,
-            title: context.l10n.historyEmpty,
+            title: l10n.historyEmpty,
+            detail: recording
+                ? l10n.historyEmptyDetail
+                : l10n.historyEmptyRecordingOff(l10n.historyRecordLocal),
+            actionLabel: recording ? null : l10n.historyTurnOnRecording,
+            actionIcon: Icons.history,
+            onAction: recording
+                ? null
+                : () => unawaited(
+                    persistSettings(
+                      context,
+                      () => ref
+                          .read(settingsProvider.notifier)
+                          .setHistoryEnabled(true),
+                    ),
+                  ),
           );
         }
         final entries = [

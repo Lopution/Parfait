@@ -18,7 +18,7 @@
   "login": "登录",
   "loginPageClosed": "页面已关闭，请重新打开",
   "loginCallbackInvalid": "登录回调无效，请重新登录",
-  "loginNetworkError": "网络错误 (HTTP {status})",
+  "loginNetworkError": "网络错误（HTTP {status}）",
   "@loginNetworkError": {
     "placeholders": {
       "status": {
@@ -101,7 +101,7 @@
   "networkModeCompatPrefer": "兼容优先",
   "networkModeCompatPreferHint": "优先尝试兼容通道，不行再直连；适合直连已被阻断的网络。",
   "networkEffectiveRoutes": "当前生效路由",
-  "networkEffectiveRoutesEmpty": "还没有路由记录——逛一逛再刷新。",
+  "networkEffectiveRoutesEmpty": "暂无路由记录，浏览一会儿后再刷新。",
   "networkRouteForImages": "图片加载",
   "networkRouteKindDirect": "直连",
   "networkRouteKindCompat": "兼容通道",
@@ -113,7 +113,7 @@
   "networkChecking": "检测中…",
   "networkAdvanced": "高级设置",
   "networkAdvancedHint": "面向高级用户的底层选项。",
-  "networkAdvancedReset": "恢复默认值",
+  "networkAdvancedReset": "恢复默认",
   "networkAdvancedResetConfirm": "将 DoH 端点与 ECH 前置主机恢复为默认值。",
   "networkDoh": "严格回退使用 DoH 解析",
   "networkDohHint": "启用后，回退阶梯使用 DoH 解析（默认 Cloudflare DoH：域名端点 + 静态 Anycast IP，免系统 DNS 投毒；自定义端点解析域名）；关闭则仅用系统 DNS。",
@@ -183,6 +183,20 @@
   "historyRecordLocal": "记录本地浏览历史",
   "historyRecordPixiv": "记录到 Pixiv 浏览历史",
   "historyEmpty": "暂无浏览历史",
+  "historyEmptyDetail": "看过的作品会显示在这里",
+  "historyEmptyRecordingOff": "「{setting}」已关闭",
+  "@historyEmptyRecordingOff": {
+    "description": "Empty history page while local recording is off. setting is historyRecordLocal.",
+    "placeholders": {
+      "setting": {
+        "type": "String"
+      }
+    }
+  },
+  "historyTurnOnRecording": "开启记录",
+  "@historyTurnOnRecording": {
+    "description": "Button on the empty history page: turns local recording on."
+  },
   "historyLoadFailed": "历史记录加载失败",
   "historyDelete": "删除历史记录",
   "historyDeleteAll": "删除全部历史记录",
@@ -638,7 +652,7 @@
   },
   "downloadAuthorWorks": "下载全部作品",
   "downloadAuthorWorksTitle": "下载作者全部作品",
-  "downloadAuthorEnumerating": "正在枚举作品…已找到 {count} 个",
+  "downloadAuthorEnumerating": "正在获取作品…已找到 {count} 个",
   "@downloadAuthorEnumerating": {
     "placeholders": {
       "count": {
@@ -666,7 +680,7 @@
     }
   },
   "downloadAuthorEmpty": "该作者没有可下载的作品。",
-  "downloadAuthorFailed": "枚举作品失败",
+  "downloadAuthorFailed": "获取作者作品失败",
   "downloadCaption": "同时导出作品简介",
   "downloadCaptionHint": "下载插画/漫画时，把标题、作者与简介保存为同名 .txt",
   "aboutVersion": "版本",
@@ -754,7 +768,7 @@
   "continueAction": "继续",
   "errorNetwork": "网络连接失败",
   "errorTimeout": "连接超时",
-  "errorLocalNetwork": "连接局域网地址需要“附近设备”权限，请在系统设置中允许",
+  "errorLocalNetwork": "连接局域网地址需要「附近设备」权限，请在系统设置中允许",
   "errorRateLimited": "请求过于频繁，请稍后重试",
   "errorUnauthorized": "需要重新登录",
   "errorServer": "服务器错误",
@@ -880,7 +894,7 @@
   "@bottomBarMeLocked": {
     "description": "Subtitle of the Me item in the bottom bar editor: it cannot be hidden because the settings are there"
   },
-  "bottomBarNote": "底栏至少保留 {min} 项。未显示的页面可从“{me}”进入；{search}不在底栏时，{recommended}顶栏会显示搜索按钮。",
+  "bottomBarNote": "底栏至少保留 {min} 项。未显示的页面可从「{me}」进入；{search}不在底栏时，{recommended}顶栏会显示搜索按钮。",
   "@bottomBarNote": {
     "description": "Footnote of the bottom bar editor; me, search and recommended are the destination names",
     "placeholders": {
@@ -1210,6 +1224,10 @@
     }
   },
   "searchModifyQuery": "修改搜索",
+  "searchResetFilters": "重置筛选",
+  "@searchResetFilters": {
+    "description": "Button on an empty search result while filters are on: clears this tab's filters."
+  },
   "searchUserAccount": "账号",
   "illustDetailTitle": "作品详情",
   "detailMetaCountsSemantics": "{views} 次浏览，{bookmarks} 次收藏",
@@ -1319,6 +1337,15 @@
   "illustDetailNotFound": "作品不存在或已被删除",
   "illustDetailLoadFailed": "作品加载失败",
   "commentTitle": "评论",
+  "commentTitleCount": "评论（{count}）",
+  "@commentTitleCount": {
+    "description": "Heading of a work's comments with their number. count is already formatted.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
   "commentInput": "添加评论",
   "commentReply": "回复",
   "commentReplyTo": "回复给",
@@ -1481,7 +1508,7 @@
   "bookmarkTagFilterEmpty": "已加载内容中无匹配",
   "bookmarkTagFilterHint": "筛选已加载作品",
   "bookmarkTagSuggestions": "常用标签",
-  "bookmarkTagsEmpty": "还没有收藏标签",
+  "bookmarkTagsEmpty": "暂无收藏标签",
   "bookmarkTagsLoadFailed": "收藏标签加载失败",
   "bookmarkTagsEnd": "已显示全部标签",
   "seriesTitle": "系列",
@@ -1530,7 +1557,16 @@
   "watchlistTitle": "追更",
   "watchlistManga": "漫画",
   "watchlistNovel": "小说",
-  "watchlistEmpty": "还没有追更的系列",
+  "watchlistEmpty": "暂无追更的系列",
+  "watchlistEmptyDetail": "在系列页或小说阅读器中点「{action}」",
+  "@watchlistEmptyDetail": {
+    "description": "Empty watchlist: where series are added (the series page, the novel reader). action is watchlistAdd.",
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
   "watchlistLoadFailed": "追更列表加载失败",
   "watchlistLoadMoreFailed": "加载更多失败",
   "watchlistAdd": "追更",
@@ -1538,7 +1574,7 @@
   "watchlistFailed": "追更操作失败",
   "watchlistNewContent": "更新",
   "localNovelsTitle": "本地小说",
-  "localNovelsEmpty": "还没有导入的本地小说",
+  "localNovelsEmpty": "暂无导入的本地小说",
   "localNovelsLoadFailed": "本地小说加载失败",
   "localNovelsImport": "导入 TXT",
   "localNovelsImportFailed": "导入失败",
@@ -1596,10 +1632,6 @@
   },
   "profileSeries": "系列",
   "spotlightTitle": "特辑",
-  "spotlightSeeAll": "全部",
-  "@spotlightSeeAll": {
-    "description": "Search guide: trailing link of the Spotlight section header; opens the full Spotlight list."
-  },
   "spotlightArticleLoadFailed": "文章加载失败",
   "spotlightChallengeVerifying": "正在通过 pixivision 验证…",
   "spotlightChallengeManual": "pixivision 需要人工验证，请完成下方验证",
