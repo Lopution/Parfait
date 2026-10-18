@@ -878,7 +878,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String cardMenuHint(String action) {
-    return '长按作品卡片，选择「$action」';
+    return '长按作品卡片，或在作品页点 ⋮，选择「$action」';
   }
 
   @override
@@ -3044,6 +3044,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get muteRemoved => '已解除屏蔽';
+
+  @override
+  String get muteAdded => '已屏蔽';
 
   @override
   String get watchlistOpenContents => '打开目录';

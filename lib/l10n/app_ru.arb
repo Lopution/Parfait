@@ -359,7 +359,7 @@
   "mutedUsersSection": "Пользователи",
   "mutedWorksSection": "Работы",
   "mutedEmpty": "Ничего не заглушено",
-  "cardMenuHint": "Нажмите и удерживайте карточку работы и выберите «{action}»",
+  "cardMenuHint": "Нажмите и удерживайте карточку работы или нажмите ⋮ на её странице и выберите «{action}»",
   "muteTagInputHint": "Тег для заглушения",
   "muteWork": "Заглушить работу",
   "unmuteWork": "Снять заглушение работы",
@@ -1310,6 +1310,7 @@
   },
   "followRemoved": "Вы отписались",
   "muteRemoved": "Скрытие снято",
+  "muteAdded": "Заглушено",
   "watchlistOpenContents": "Открыть содержание",
   "@watchlistOpenContents": {
     "description": "Watchlist sheet action: open the manga series contents page"

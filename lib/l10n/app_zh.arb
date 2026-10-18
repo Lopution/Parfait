@@ -376,7 +376,7 @@
   "mutedUsersSection": "屏蔽用户",
   "mutedWorksSection": "屏蔽作品",
   "mutedEmpty": "暂无屏蔽条目",
-  "cardMenuHint": "长按作品卡片，选择「{action}」",
+  "cardMenuHint": "长按作品卡片，或在作品页点 ⋮，选择「{action}」",
   "@cardMenuHint": {
     "description": "Hint on an empty list: where its entries are made. action is the label of a work card menu action (muteAuthor, muteWork, cardActionWatchLater).",
     "placeholders": {
@@ -1757,6 +1757,10 @@
   "muteRemoved": "已解除屏蔽",
   "@muteRemoved": {
     "description": "SnackBar after unmuting a tag, user or work; offers undo"
+  },
+  "muteAdded": "已屏蔽",
+  "@muteAdded": {
+    "description": "SnackBar after muting a work or a user from a menu (work card, detail page, profile)."
   },
   "watchlistOpenContents": "打开目录",
   "@watchlistOpenContents": {

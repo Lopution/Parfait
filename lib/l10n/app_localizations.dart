@@ -1754,7 +1754,7 @@ abstract class AppLocalizations {
   /// Hint on an empty list: where its entries are made. action is the label of a work card menu action (muteAuthor, muteWork, cardActionWatchLater).
   ///
   /// In zh, this message translates to:
-  /// **'长按作品卡片，选择「{action}」'**
+  /// **'长按作品卡片，或在作品页点 ⋮，选择「{action}」'**
   String cardMenuHint(String action);
 
   /// No description provided for @muteTagInputHint.
@@ -5836,6 +5836,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已解除屏蔽'**
   String get muteRemoved;
+
+  /// SnackBar after muting a work or a user from a menu (work card, detail page, profile).
+  ///
+  /// In zh, this message translates to:
+  /// **'已屏蔽'**
+  String get muteAdded;
 
   /// Watchlist sheet action: open the manga series contents page
   ///

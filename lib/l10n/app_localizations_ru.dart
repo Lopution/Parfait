@@ -926,7 +926,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String cardMenuHint(String action) {
-    return 'Нажмите и удерживайте карточку работы и выберите «$action»';
+    return 'Нажмите и удерживайте карточку работы или нажмите ⋮ на её странице и выберите «$action»';
   }
 
   @override
@@ -3157,6 +3157,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get muteRemoved => 'Скрытие снято';
+
+  @override
+  String get muteAdded => 'Заглушено';
 
   @override
   String get watchlistOpenContents => 'Открыть содержание';

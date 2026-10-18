@@ -896,7 +896,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String cardMenuHint(String action) {
-    return '作品カードを長押しして「$action」を選択';
+    return '作品カードを長押しするか、作品ページの ⋮ をタップして「$action」を選択';
   }
 
   @override
@@ -3074,6 +3074,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get muteRemoved => 'ミュートを解除しました';
+
+  @override
+  String get muteAdded => 'ミュートしました';
 
   @override
   String get watchlistOpenContents => '目次を開く';

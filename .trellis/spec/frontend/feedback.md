@@ -53,8 +53,13 @@ reviewed: 2026-10-17
   row's secondary actions open from a ⋮ `AppMenuButton` on the row, not a
   one-entry sheet. The card long-press sheet names its subject (thumbnail,
   title, author) and has no bookmark entry, since every card has a heart.
-- **Why:** Duplicate entries made users unsure which control acted.
-- **Check:** manual
+  A long press is a shortcut, never the only way: the detail page's ⋮
+  carries the card sheet's actions and the heart's bookmark sheet, and a
+  profile's ⋮ mutes or unmutes its user.
+- **Why:** Duplicate entries made users unsure which control acted. Watch
+  later, the mutes and tagged bookmarks were reachable only by a long
+  press nothing on screen hinted at.
+- **Check:** `test/illust_detail_actions_test.dart` "the ⋮ menu carries the long-press actions too", `test/user_profile_test.dart` "someone else's overflow mutes them, then offers the unmute"
 - **Code:** `lib/app/widgets/card_actions`
 
 ## Prompts
@@ -63,7 +68,8 @@ reviewed: 2026-10-17
 - **Rule:** Transient messages use `showAppSnackBar` (errors:
   `showErrorSnackBar`). `SnackBar`, `SnackBarAction`, `showSnackBar` and
   `ScaffoldMessenger` do not appear in `lib/`; direct `PromptHost` access is
-  pinned to a few files.
+  pinned to a few files. Feedback that lands after an await takes its
+  host first through `deferAppSnackBar`.
 - **Why:** The Scaffold path anchored to geometry the floating shell bar
   does not have and read the polluted accessibility flag.
 - **Check:** `test/architecture/feedback_channels_test.dart` "prompts have exactly one host"
@@ -91,8 +97,11 @@ reviewed: 2026-10-17
   batch removals) run immediately and offer Undo through
   `showUndoSnackBar`; only irreversible ones (deleting a file, clearing
   history, cancelling downloads) confirm first. Unbookmark offers no Undo:
-  tapping the heart again is the undo.
-- **Why:** User decision, following Shaft.
+  tapping the heart again is the undo. A mute offers no Undo either, the
+  same entry now unmutes; it confirms with a plain prompt, since the
+  detail page and a profile do not change otherwise.
+- **Why:** User decision, following Shaft. A mute from the detail page
+  or a profile gave no sign it had landed.
 - **Check:** `test/undo_flows_test.dart` "a removed bookmark offers no Undo; the heart brings it back"
 - **Code:** `lib/app/widgets/undo_snack_bar.dart`
 

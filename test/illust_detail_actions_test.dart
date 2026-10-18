@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/app/layout/two_pane.dart';
+import 'package:parfait/core/bookmark/bookmark_tag_providers.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
@@ -332,6 +333,34 @@ void main() {
 
       expect(share.payloads, hasLength(1));
       expect(share.payloads.single.url, 'https://www.pixiv.net/artworks/42');
+    });
+
+    testWidgets('the ⋮ menu carries the long-press actions too', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld(
+        extraOverrides: [
+          userBookmarkTagSuggestionsProvider.overrideWith(
+            (ref, _) async => const [],
+          ),
+        ],
+      );
+      await pumpDetail(tester, container);
+
+      await openDetailMenu(tester);
+      expect(find.text('Watch later'), findsOneWidget);
+      expect(find.text('Mute author'), findsOneWidget);
+      await tester.tap(find.text('Mute this work'));
+      await tester.pumpAndSettle();
+      expect(container.read(muteStoreProvider).isWorkMuted(42), isTrue);
+      expect(find.text('Muted'), findsOneWidget);
+
+      await openDetailMenu(tester);
+      expect(find.text('Unmute this work'), findsOneWidget);
+      await tester.tap(find.text('Bookmark illustration'));
+      await tester.pumpAndSettle();
+      // The heart's long-press sheet, titled as the menu entry was.
+      expect(find.text('Bookmark illustration'), findsOneWidget);
     });
 
     testWidgets('a long six-page work still reaches InfoBlock via the menu', (

@@ -101,6 +101,8 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
     this.onFollowPrivately,
     this.onCopyLink,
     this.onDownloadAll,
+    this.isMuted = false,
+    this.onToggleMute,
     required this.onExpandedExtentMeasured,
     this.expandedExtent,
     this.topInset = 0,
@@ -121,6 +123,11 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   /// Works tab only: bulk-downloads every illust/manga work of the author.
   final VoidCallback? onDownloadAll;
+
+  /// Someone else's profile: mutes or unmutes them, as a work card's
+  /// "Mute author" does.
+  final bool isMuted;
+  final VoidCallback? onToggleMute;
 
   /// Measured expanded height (identity block + banner). Null until the
   /// first layout reports it; the header renders one transparent estimate
@@ -204,6 +211,13 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         label: context.l10n.copyLink,
         icon: Icons.copy_outlined,
         onSelected: (_) => onCopyLink!(),
+      ),
+    if (!isMe && onToggleMute != null)
+      _ProfileHeaderAction(
+        value: 'toggleMute',
+        label: isMuted ? context.l10n.unmuteAuthor : context.l10n.muteAuthor,
+        icon: isMuted ? Icons.person_off : Icons.person_off_outlined,
+        onSelected: (_) => onToggleMute!(),
       ),
   ];
 
@@ -374,6 +388,8 @@ class ReplicaProfileHeaderDelegate extends SliverPersistentHeaderDelegate {
         oldDelegate.onFollowPrivately != onFollowPrivately ||
         oldDelegate.onCopyLink != onCopyLink ||
         oldDelegate.onDownloadAll != onDownloadAll ||
+        oldDelegate.isMuted != isMuted ||
+        oldDelegate.onToggleMute != onToggleMute ||
         oldDelegate.onShare != onShare ||
         !listEquals(oldDelegate.stats, stats) ||
         oldDelegate.expandedExtent != expandedExtent ||

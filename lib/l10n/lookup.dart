@@ -339,6 +339,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'motionHaptics' => l10n.motionHaptics,
   'motionPageTransition' => l10n.motionPageTransition,
   'motionSettings' => l10n.motionSettings,
+  'muteAdded' => l10n.muteAdded,
   'muteAuthor' => l10n.muteAuthor,
   'muteFailed' => l10n.muteFailed,
   'muteRemoved' => l10n.muteRemoved,

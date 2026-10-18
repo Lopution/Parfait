@@ -24,6 +24,9 @@ import '../../core/auth/account_store.dart';
 import '../../core/download/author_works_enumerator.dart';
 import '../../core/network/api_error.dart';
 import '../../core/platform/android_intent_channel.dart';
+import '../../app/widgets/unmute_undo.dart';
+import '../../core/mute/mute_models.dart';
+import '../../core/mute/mute_store.dart';
 import '../../core/user/follow_store.dart';
 import '../../core/user/user_entity.dart';
 import '../../core/user/user_repository.dart';
@@ -562,6 +565,9 @@ class _UserPageState extends ConsumerState<UserPage>
               false;
     final canBulkDownload =
         selectedTab == _ProfileTab.illust || selectedTab == _ProfileTab.manga;
+    final muted = ref.watch(
+      muteStoreProvider.select((state) => state.isUserMuted(user.id)),
+    );
     return Column(
       children: [
         Reveal(
@@ -644,6 +650,20 @@ class _UserPageState extends ConsumerState<UserPage>
                   stats: _headerStats(user),
                   onEditProfile: widget.isMe ? widget.onEditProfile : null,
                   onDownloadAll: canBulkDownload ? _downloadAuthorWorks : null,
+                  isMuted: muted,
+                  onToggleMute: widget.isMe
+                      ? null
+                      : () => unawaited(
+                          toggleUserMute(
+                            context,
+                            MutedUser(
+                              userId: user.id,
+                              name: user.name,
+                              account: user.account,
+                              profileImageUrl: user.profileImageUrl,
+                            ),
+                          ),
+                        ),
                   topInset: MediaQuery.viewPaddingOf(context).top,
                 ),
               ),

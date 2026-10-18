@@ -76,6 +76,15 @@ void main() {
       await tester.tap(find.byIcon(Icons.translate).last);
     },
   );
+  // The ⋮ menu: the bar's own actions, then the card sheet's.
+  testShot(
+    'illust/detail-menu',
+    location: detail,
+    variants: overflowVariants,
+    before: (tester, router) async {
+      await tester.tap(find.byIcon(Icons.more_vert));
+    },
+  );
   // Below the info: the comment preview and the author's other works.
   testShot(
     'illust/detail-more',

@@ -924,7 +924,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String cardMenuHint(String action) {
-    return 'Long-press a work\'s card and choose \"$action\"';
+    return 'Long-press a work\'s card, or tap ⋮ on its page, and choose \"$action\"';
   }
 
   @override
@@ -3166,6 +3166,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get muteRemoved => 'Unmuted';
+
+  @override
+  String get muteAdded => 'Muted';
 
   @override
   String get watchlistOpenContents => 'Open contents';

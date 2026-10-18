@@ -359,7 +359,7 @@
   "mutedUsersSection": "ミュートユーザー",
   "mutedWorksSection": "ミュート作品",
   "mutedEmpty": "ミュート項目はありません",
-  "cardMenuHint": "作品カードを長押しして「{action}」を選択",
+  "cardMenuHint": "作品カードを長押しするか、作品ページの ⋮ をタップして「{action}」を選択",
   "muteTagInputHint": "ミュートするタグ",
   "muteWork": "この作品をミュート",
   "unmuteWork": "この作品のミュートを解除",
@@ -1310,6 +1310,7 @@
   },
   "followRemoved": "フォローを解除しました",
   "muteRemoved": "ミュートを解除しました",
+  "muteAdded": "ミュートしました",
   "watchlistOpenContents": "目次を開く",
   "@watchlistOpenContents": {
     "description": "Watchlist sheet action: open the manga series contents page"

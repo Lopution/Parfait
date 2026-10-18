@@ -359,7 +359,7 @@
   "mutedUsersSection": "Muted users",
   "mutedWorksSection": "Muted works",
   "mutedEmpty": "Nothing muted yet",
-  "cardMenuHint": "Long-press a work's card and choose \"{action}\"",
+  "cardMenuHint": "Long-press a work's card, or tap ⋮ on its page, and choose \"{action}\"",
   "muteTagInputHint": "Tag to mute",
   "muteWork": "Mute this work",
   "unmuteWork": "Unmute this work",
@@ -1310,6 +1310,7 @@
   },
   "followRemoved": "Unfollowed",
   "muteRemoved": "Unmuted",
+  "muteAdded": "Muted",
   "watchlistOpenContents": "Open contents",
   "@watchlistOpenContents": {
     "description": "Watchlist sheet action: open the manga series contents page"

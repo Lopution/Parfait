@@ -29,6 +29,8 @@ const _filledStates = <String, Set<String>>{
     'person_off',
     'visibility_off',
   },
+  // The profile menu's mute entry while the user is muted.
+  'lib/features/profile/profile_header_delegate.dart': {'person_off'},
 };
 
 /// Icon buttons without a tooltip, per file.

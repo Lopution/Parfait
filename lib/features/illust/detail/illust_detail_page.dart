@@ -7,6 +7,12 @@ import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../app/navigation/route_animation.dart';
 import '../../../app/widgets/app_top_bar.dart';
+import '../../../app/widgets/bookmark_switch_button.dart'
+    show showBookmarkEditSheet;
+import '../../../app/widgets/card_actions/card_action.dart';
+import '../../../app/widgets/card_actions/illust_card_actions.dart';
+import '../../../core/bookmark/bookmark_models.dart';
+import '../../../core/bookmark/bookmark_store.dart';
 import '../../../core/download/download_providers.dart';
 import '../../../core/download/download_task.dart'
     show DownloadEvent, DownloadGroupSubmission;
@@ -644,15 +650,30 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       actions: [
         if (entity != null)
           _DetailMoreMenu(
+            entity: entity,
             actions: [
               _DetailMenuAction.share,
+              if (rendersContent) ...[
+                _DetailMenuAction.editBookmark,
+                watchLaterCardAction,
+              ],
               if (entity.pageCount > 1 && !entity.isUgoira)
                 _DetailMenuAction.selectPages,
-              if (rendersContent) _DetailMenuAction.info,
+              if (rendersContent) ...[
+                _DetailMenuAction.info,
+                ...muteCardActions,
+              ],
             ],
             onSelected: (buttonContext, action) => switch (action) {
               _DetailMenuAction.share => unawaited(
                 _share(buttonContext, ref, entity),
+              ),
+              _DetailMenuAction.editBookmark => unawaited(
+                showBookmarkEditSheet(
+                  context,
+                  BookmarkKey(BookmarkEntityType.illust, entity.id),
+                  title: entity.title,
+                ),
               ),
               _DetailMenuAction.selectPages => _enterDownloadMode(),
               _DetailMenuAction.info => unawaited(_scrollToInfo()),
@@ -1090,44 +1111,83 @@ class _PagesToggleButton extends StatelessWidget {
   }
 }
 
-/// Actions carried by the detail AppBar's ⋮ menu: share, the page-
-/// selection entry (multi-page works only) and the artwork-info jump.
-enum _DetailMenuAction { share, selectPages, info }
+/// The detail page's own ⋮ actions: share, the bookmark sheet (the
+/// heart's long-press), the page-selection entry (multi-page works only)
+/// and the artwork-info jump.
+enum _DetailMenuAction { share, editBookmark, selectPages, info }
 
 /// The ⋮ menu holding the less-frequent detail actions. Every entry
 /// carries an icon plus its localized text label — nothing here depends
-/// on a long-press to be discoverable (R3).
-class _DetailMoreMenu extends StatelessWidget {
-  const _DetailMoreMenu({required this.actions, required this.onSelected});
+/// on a long-press to be discoverable (R3). Besides the page's own
+/// actions it carries the feed card's long-press actions for this work,
+/// which run as they do from a card.
+class _DetailMoreMenu extends ConsumerWidget {
+  const _DetailMoreMenu({
+    required this.entity,
+    required this.actions,
+    required this.onSelected,
+  });
 
-  final List<_DetailMenuAction> actions;
+  final IllustEntity entity;
 
-  /// Receives the ⋮ button's own context so share can anchor its popover
-  /// to the button.
+  /// [_DetailMenuAction]s and [CardAction]s, in menu order.
+  final List<Object> actions;
+
+  /// Runs the page's own actions. Receives the ⋮ button's own context so
+  /// share can anchor its popover to the button.
   final void Function(BuildContext buttonContext, _DetailMenuAction action)
   onSelected;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    (IconData, String) labelOf(_DetailMenuAction action) => switch (action) {
-      _DetailMenuAction.share => (Icons.share_outlined, l10n.cardActionShare),
-      _DetailMenuAction.selectPages => (
-        Icons.checklist_outlined,
-        l10n.downloadSelectPages,
+    // Named as the sheet it opens is. The heart skips its sheet while a
+    // request is in flight; so does the menu.
+    final (bookmarked: bookmarked, unsettled: bookmarkUnsettled) = ref.watch(
+      bookmarkStoreProvider.select((store) {
+        final entry = store[BookmarkKey(BookmarkEntityType.illust, entity.id)];
+        return (
+          bookmarked: entry?.shown ?? false,
+          unsettled: entry?.isUnsettled ?? false,
+        );
+      }),
+    );
+    AppMenuEntry<Object> entryOf(Object action) => switch (action) {
+      _DetailMenuAction.share => AppMenuEntry(
+        value: action,
+        icon: Icons.share_outlined,
+        label: l10n.cardActionShare,
       ),
-      _DetailMenuAction.info => (Icons.info_outline, l10n.illustInfoJump),
+      _DetailMenuAction.editBookmark => AppMenuEntry(
+        value: action,
+        icon: Icons.favorite_border,
+        label: bookmarked ? l10n.bookmarkEditTitle : l10n.bookmarkIllust,
+        enabled: !bookmarkUnsettled,
+      ),
+      _DetailMenuAction.selectPages => AppMenuEntry(
+        value: action,
+        icon: Icons.checklist_outlined,
+        label: l10n.downloadSelectPages,
+      ),
+      _DetailMenuAction.info => AppMenuEntry(
+        value: action,
+        icon: Icons.info_outline,
+        label: l10n.illustInfoJump,
+      ),
+      final CardAction card => AppMenuEntry(
+        value: card,
+        icon: card.iconFor(ref, entity),
+        label: card.labelFor(ref, entity, l10n),
+      ),
+      _ => throw ArgumentError.value(action, 'action', 'not a menu action'),
     };
-    return AppMenuButton<_DetailMenuAction>(
-      onSelected: onSelected,
-      entries: [
-        for (final action in actions)
-          AppMenuEntry(
-            value: action,
-            icon: labelOf(action).$1,
-            label: labelOf(action).$2,
-          ),
-      ],
+    return AppMenuButton<Object>(
+      onSelected: (buttonContext, action) => switch (action) {
+        final _DetailMenuAction own => onSelected(buttonContext, own),
+        final CardAction card => unawaited(card.run(context, ref, entity)),
+        _ => throw ArgumentError.value(action, 'action', 'not a menu action'),
+      },
+      entries: [for (final action in actions) entryOf(action)],
     );
   }
 }
