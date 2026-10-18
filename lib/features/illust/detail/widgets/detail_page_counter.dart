@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../app/motion/motion_tokens.dart';
+import '../../../../app/motion/reveal.dart';
 import '../../../../app/navigation/route_animation.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
 import '../../../../app/theme/func_tokens.dart';
@@ -14,7 +15,8 @@ import '../../../../l10n/context.dart';
 ///
 /// With [onCollapse], an expanded illustration set gets a collapse pill
 /// under the count that comes and goes with it, so folding the set back
-/// never needs a scroll to its end.
+/// never needs a scroll to its end. Callers drop [onCollapse] while the
+/// collapse button at the end is on screen; the pill fades out for it.
 class DetailPageCounter extends StatefulWidget {
   const DetailPageCounter({
     super.key,
@@ -158,7 +160,11 @@ class _DetailPageCounterState extends State<DetailPageCounter>
                       ),
                     ),
                   ),
-                  if (onCollapse != null) _CollapsePill(onPressed: onCollapse),
+                  Reveal(
+                    child: onCollapse == null
+                        ? null
+                        : _CollapsePill(onPressed: onCollapse),
+                  ),
                 ],
               ),
             ),

@@ -447,8 +447,8 @@ class _PagerSlotState extends State<_PagerSlot> {
 }
 
 /// A page not built yet: the work's image where the detail page will draw
-/// it ([detailFirstImageFrame]: below the status bar, centered in its
-/// reading slot, a panorama cropped to its viewport) from a decode the feed
+/// it ([detailFirstImageFrame]: below the status bar, past a short image's
+/// band, a panorama cropped to its viewport) from a decode the feed
 /// already made, so a fast swipe shows the artwork in place instead of an
 /// empty surface. Bare surface when nothing of it was decoded, and in the
 /// two-pane layout.

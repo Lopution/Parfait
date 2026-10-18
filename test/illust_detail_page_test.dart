@@ -348,8 +348,8 @@ void main() {
       ),
     );
 
-    testWidgets('centers a short first image below the status bar without '
-        'changing its Hero rect', (tester) async {
+    testWidgets('sets a short first image a band below the status bar, '
+        'its Hero rect the image', (tester) async {
       tester.view.padding = const FakeViewPadding(top: 24);
 
       final (container, _, _) = await makeWorld(
@@ -373,13 +373,17 @@ void main() {
         (widget) => widget is Hero && widget.tag == illustHeroTag('feed', 42),
       );
       final naturalHeight = 390 / (1600 / 900);
+      // Where centering in 0.7 of the viewport would put it.
+      final band = (844 * 0.7 - naturalHeight) / 2;
       expect(slot.top, closeTo(24, 0.5));
-      expect(slot.height, closeTo(844 * 0.7, 0.5));
+      expect(slot.height, closeTo(band + naturalHeight, 0.5));
       // The image starts below the toolbar: the controls sit bare.
       expect(lifted(tester), isFalse);
       expect(barGradient(), findsNothing);
       expect(tester.getRect(hero).height, closeTo(naturalHeight, 0.5));
-      expect(tester.getRect(hero).center.dy, closeTo(slot.center.dy, 0.5));
+      expect(tester.getRect(hero).top, closeTo(24 + band, 0.5));
+      // No band below: what follows starts right under the image.
+      expect(tester.getRect(hero).bottom, closeTo(slot.bottom, 0.5));
       // The pager's stand-in for an unbuilt page draws at the same frame,
       // so a swipe does not land on a jump.
       final frame = detailFirstImageFrame(
@@ -421,10 +425,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Collapsed, the set shows page 1 only.
+      // Collapsed, the set shows page 1 only, the band above it and the
+      // expand button right under it.
+      const natural = 219.375;
+      final slot = tester.getRect(find.byType(DetailPageImage));
+      expect(slot.height, closeTo((844 * 0.7 + natural) / 2, 0.5));
       expect(
-        tester.getSize(find.byType(DetailPageImage)).height,
-        closeTo(844 * 0.7, 0.5),
+        tester.getRect(find.byKey(const Key('illust-expand-pages'))).top,
+        closeTo(slot.bottom, 0.5),
       );
       expect(lifted(tester), isFalse);
 
@@ -433,8 +441,8 @@ void main() {
       await tester.tap(find.byKey(const Key('illust-expand-pages')));
       await tester.pumpAndSettle();
       expect(
-        tester.getSize(find.byType(DetailPageImage).first).height,
-        closeTo(219.375, 0.5),
+        tester.getRect(find.byType(DetailPageImage).first),
+        rectMoreOrLessEquals(Rect.fromLTWH(0, 0, 390, natural), epsilon: 0.5),
       );
       expect(lifted(tester), isTrue);
       expect(barGradient(), findsNothing);
@@ -523,13 +531,25 @@ void main() {
       expect(pill, findsOneWidget);
       expect(tester.getSize(pill).height, greaterThanOrEqualTo(48));
 
-      // Read on into page 3, then fold from the pill.
+      // Page 3 with the set's own collapse button under it: the count
+      // stays, the pill steps aside — one "collapse" at a time.
       final position = tester
           .state<ScrollableState>(find.byType(Scrollable).first)
           .position;
       position.jumpTo(position.maxScrollExtent / 2);
       await tester.pumpAndSettle();
+      final toggle = find.byKey(const Key('illust-collapse-pages'));
       expect(page(2), findsOneWidget);
+      expect(toggle, findsOneWidget);
+      expect(find.byType(PageCountPill), findsOneWidget);
+      expect(pill, findsNothing);
+
+      // The button below the screen again: the pill returns, and folds
+      // the set from there.
+      position.jumpTo(position.pixels + tester.getTopLeft(toggle).dy - 550);
+      await tester.pumpAndSettle();
+      expect(page(2), findsOneWidget);
+      expect(pill, findsOneWidget);
       await tester.tap(pill);
       await tester.pumpAndSettle();
 

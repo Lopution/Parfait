@@ -24,15 +24,19 @@ reviewed: 2026-10-17
 - **Check:** manual
 - **Code:** `lib/features/illust/detail/widgets/page_image.dart`
 
-### DETAIL-02 A short first image sits in a fixed slot, the Hero inside it
+### DETAIL-02 A short first image sits low in its slot, the Hero inside it
 - **Rule:** On compact widths (under 600dp) a short first illustration
-  (single, or first of a set; not manga, ugoira or two-pane) is centered
-  at its own ratio in a slot of 0.7 × viewport height. The Hero, placeholder and error states
+  (single, or first of a set; not manga, ugoira, a panorama or two-pane)
+  shown alone sits where centering it in 0.7 × viewport height would put
+  it. Its slot is the band above it plus its ratio box; nothing below, so
+  the expand button and the title follow right under the image. An
+  expanded set drops the band. The Hero, placeholder and error states
   stay inside the ratio box, not the slot. Page 1 always goes through the
   slot box so expanding a set never remounts it.
-- **Why:** The flight landed on empty slot space; remounting page 1 lost
-  its decode. On a portrait tablet the slot only opened a gap under the
-  image.
+- **Why:** A wide image at the very top was hard to see and to tap; the
+  matching band below it only pushed the title down. The flight landed on
+  empty slot space; remounting page 1 lost its decode. On a portrait
+  tablet the slot only opened a gap.
 - **Check:** `test/illust_detail_page_test.dart` "gives the first image of a set the same slot"
 - **Code:** `lib/features/illust/detail/widgets/page_image.dart`
 
@@ -163,9 +167,13 @@ reviewed: 2026-10-17
   `DetailPageCounter`: hidden for single-page and ugoira works and during
   selection, shown after the entry transition, `IgnorePointer`, fading in
   and out. A page whose only visible strip is behind the status bar and
-  toolbar counts as off screen.
+  toolbar counts as off screen. Its collapse pill fades out while the
+  collapse button at the end of the set is half on screen, so one
+  collapse shows at a time; that position is read from the button's
+  render box after layout, since a sliver child scrolled off but still in
+  the cache extent stops painting and never reports hidden.
 - **Why:** Several counters disagreed; the counter hung over the info
-  block.
+  block. Two collapse controls at once read as two different actions.
 - **Check:** `test/illust_detail_page_test.dart`
 - **Code:** `lib/features/illust/detail/widgets/detail_page_counter.dart`
 

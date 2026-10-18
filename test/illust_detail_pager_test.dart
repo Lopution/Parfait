@@ -476,14 +476,16 @@ void main() {
 
         await gesture.moveBy(const Offset(-200, 0));
         await gesture.up();
-        await tester.pumpAndSettle();
+        // Settling starts the dwell; the frames after it would outlast it.
+        for (var frame = 0; _page(tester) != 1 && frame < 60; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
         expect(_page(tester), 1);
-        expect(log, [42], reason: 'a page swiped through sends nothing');
+        expect(log, [42], reason: 'a page just settled on sends nothing yet');
 
-        // The detail page reserves a 70%-height slot for short single-page
-        // artwork on narrow screens. Reveal the current page's related
-        // section explicitly so this activity-gate test does not depend on
-        // the synthetic 2400dp viewport's content budget.
+        // Reveal the current page's related section explicitly so this
+        // activity-gate test does not depend on the synthetic 2400dp
+        // viewport's content budget.
         final currentScroll = find.descendant(
           of: _detail(43),
           matching: find.byType(Scrollable),
