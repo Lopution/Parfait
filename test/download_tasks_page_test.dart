@@ -432,6 +432,14 @@ void main() {
       findsOneWidget,
     );
     _expectSurfaceSpans(tester, header, lastChild);
+    // The header's actions end its row as its children's do, the expand
+    // icon before them: one column of actions.
+    double actionsEnd(Finder row) => tester
+        .getRect(
+          find.descendant(of: row, matching: find.byType(IconButton)).last,
+        )
+        .right;
+    expect(actionsEnd(header), actionsEnd(lastChild));
     expect(tester.element(headerInk), same(headerElement));
     final headerRect = tester.getRect(header);
     final surface = find.byType(SliverSurfaceList);
@@ -708,10 +716,16 @@ void main() {
       for (var id = 1; id <= 3; id++) {
         manager.submit(downloadRequest(id));
       }
-      final clear = find.byTooltip('清除已完成');
+      // A named entry in the overflow, not a bare icon.
+      final clear = find.widgetWithText(MenuItemButton, '清除已完成');
+      Future<void> toggleMenu() async {
+        await tester.tap(find.byIcon(Icons.more_vert));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+
       await mockNetworkImagesFor(() async {
         await _pumpPage(tester, container);
-        expect(clear, findsNothing);
         await pumpUntil(
           tester,
           () => manager.tasks.every((t) => isTerminal(t.status)),
@@ -719,13 +733,18 @@ void main() {
         await tester.pump();
         final order = [for (final task in manager.tasks) task.id];
 
+        await toggleMenu();
         await tester.tap(clear);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+        // The menu closes, then the rows play their exit.
+        for (var i = 0; i < 3; i++) {
+          await tester.pump(const Duration(milliseconds: 300));
+        }
         expect(manager.tasks.single.status, DownloadStatus.failed);
         expect(find.text('已移除 2 条记录'), findsOneWidget);
         // Only failures left: nothing to clear.
-        expect(clear, findsNothing);
+        await toggleMenu();
+        expect(tester.widget<MenuItemButton>(clear).onPressed, isNull);
+        await toggleMenu();
 
         await _tapUndo(tester);
         await tester.pump();
