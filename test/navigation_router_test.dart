@@ -535,6 +535,7 @@ void main() {
             hidden: [HomeDestination.recommended, HomeDestination.search],
           ).toEntries((d) => d.name),
           homeStartPage: homeStartLastUsed,
+          lastHomeDestination: HomeDestination.newWorks.name,
         ),
       );
       final router = pixivRouter(location);
@@ -563,7 +564,7 @@ void main() {
       final router = await pumpBar(tester, '/settings');
       router.go('/');
       await settle(tester);
-      expect(router.state.uri.path, '/ranking');
+      expect(router.state.uri.path, '/new');
       expect(onBar(AppIcons.home), findsNothing);
       expect(onBar(AppIcons.search), findsNothing);
       final xs = [
@@ -595,16 +596,17 @@ void main() {
 
       await tester.binding.handlePopRoute();
       await settle(tester);
-      expect(router.state.uri.path, '/ranking', reason: 'back to the first');
+      expect(router.state.uri.path, '/new', reason: 'back to the start page');
 
-      addTearDown(
-        () => tester.binding.handleAppLifecycleStateChanged(
-          AppLifecycleState.resumed,
-        ),
-      );
+      router.go('/ranking');
+      await settle(tester);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       await tester.pump();
       expect(repository.saved.last.lastHomeDestination, 'ranking');
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.binding.handlePopRoute();
+      await settle(tester);
+      expect(router.state.uri.path, '/new', reason: 'where this run opened');
     });
 
     testWidgets('the bar editor hides, keeps two and restores', (tester) async {

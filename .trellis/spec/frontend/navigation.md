@@ -44,20 +44,23 @@ reviewed: 2026-10-17
 - **Check:** `test/navigation_router_test.dart` "shell owns the active tab and preserves branch stacks"
 - **Code:** `lib/app/app.dart`, `lib/app/navigation/routes.dart`
 
-### NAV-03 Back at a branch root returns to the first; the first confirms
-- **Rule:** At any branch root other than the first destination on the
-  bottom bar, also one the user took off the bar, back switches to that
-  first destination. At the first destination's root on Android, back
-  shows `homeExitHint` and arms `homeExitWindow` (2 s); a second back
-  inside it leaves the app. A push, an overlay, a branch switch or the
-  app leaving the foreground ends the window and takes the hint down.
-  Other platforms hand that back to the system.
+### NAV-03 Back at a branch root returns to the start page, which confirms
+- **Rule:** At any branch root other than the start page, also one the
+  user took off the bar, back switches to the start page
+  (`homeBackDestination`): the chosen one, read live, or with "last
+  used" the one this run opened on, never the one written since. At the
+  start page's root on Android, back shows `homeExitHint` and arms
+  `homeExitWindow` (2 s); a second back inside it leaves the app. A push,
+  an overlay, a branch switch or the app leaving the foreground ends the
+  window and takes the hint down. Other platforms hand that back to the
+  system.
 - **Why:** User decisions: the double back first went so the system
   could preview going home, then came back without a setting, at the cost
-  of that preview on the start page. A hint left on screen after its
-  window, or a window that outlived a covered page, turned a later back
-  into an exit or a lie.
-- **Check:** `test/navigation_router_test.dart` "branch back returns to the recommended root" "a rearranged bar starts, goes back and reaches hidden pages" "a second back at the start exits"
+  of that preview on the start page. Back landed on the first page on the
+  bar even for a user who opens the app elsewhere. A hint left on screen
+  after its window, or a window that outlived a covered page, turned a
+  later back into an exit or a lie.
+- **Check:** `test/navigation_router_test.dart` "branch back returns to the recommended root" "a rearranged bar starts, goes back and reaches hidden pages" "a second back at the start exits"; `test/home_destination_test.dart` "back lands on the start page, the one used last where a run opened"
 - **Code:** `lib/features/home/home_page.dart`
 
 ### NAV-04 Content opens on the current stack

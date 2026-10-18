@@ -102,6 +102,23 @@ HomeDestination homeStartDestination(AppSettings? settings) {
       : arrangement.shown.first;
 }
 
+/// Where back at a branch root lands: the start page, read live so a new
+/// choice applies at once. The one used last is [launched], the one this
+/// run opened on; the one on screen would leave back nowhere to go.
+HomeDestination homeBackDestination(
+  AppSettings? settings,
+  HomeDestination? launched,
+) {
+  final arrangement = resolveHomeArrangement(settings?.homeArrangement);
+  final lastUsed =
+      effectiveHomeStartPage(arrangement, settings?.homeStartPage) ==
+      homeStartLastUsed;
+  if (!lastUsed || launched == null) return homeStartDestination(settings);
+  return arrangement.shown.contains(launched)
+      ? launched
+      : arrangement.shown.first;
+}
+
 /// The user's bar; the default until settings have loaded.
 final homeArrangementProvider = Provider<Arrangement<HomeDestination>>(
   (ref) => resolveHomeArrangement(
