@@ -835,6 +835,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get detailQuality => '详情质量';
 
   @override
+  String get feedDensity => '网格密度';
+
+  @override
+  String get feedDensityCompact => '紧凑';
+
+  @override
+  String get feedDensityStandard => '标准';
+
+  @override
+  String get feedDensityComfortable => '宽松';
+
+  @override
   String get qualityMedium => '中图';
 
   @override

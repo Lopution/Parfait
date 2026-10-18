@@ -3,15 +3,15 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
+import '../../../core/settings/app_settings.dart';
+import '../../../core/settings/settings_controller.dart';
 import '../../layout/sliver_width_builder.dart';
 import '../../motion/motion_tokens.dart';
 import '../../theme/func_semantic_tokens.dart';
 import 'feed_text_warmup.dart';
-
-/// Minimum card width used to derive the masonry column count.
-const _kMinCardExtent = 180.0;
 
 /// How far beyond the viewport feed children are built and start resolving
 /// their images.
@@ -150,12 +150,24 @@ class FeedItemExtent extends InheritedWidget {
   bool updateShouldNotify(FeedItemExtent oldWidget) => width != oldWidget.width;
 }
 
-/// Column count for a masonry grid with the given cross-axis extent.
-/// Phone widths stay at 2 columns (beta56 behaviour); wide and foldable
-/// layouts add columns naturally. Never below 2.
-int illustColumnsFor(double crossAxisExtent) {
-  if (crossAxisExtent <= 0) return 2;
-  return math.max(2, (crossAxisExtent / _kMinCardExtent).floor());
+/// The narrowest card and the fewest columns at each density: a phone
+/// fits three, two or one, and wider layouts add columns in proportion.
+({double minCardExtent, int minColumns}) _densityGrid(FeedDensity density) =>
+    switch (density) {
+      FeedDensity.compact => (minCardExtent: 120, minColumns: 3),
+      FeedDensity.standard => (minCardExtent: 180, minColumns: 2),
+      FeedDensity.comfortable => (minCardExtent: 360, minColumns: 1),
+    };
+
+/// Column count for a masonry grid with the given cross-axis extent at
+/// [density].
+int illustColumnsFor(double crossAxisExtent, FeedDensity density) {
+  final grid = _densityGrid(density);
+  if (crossAxisExtent <= 0) return grid.minColumns;
+  return math.max(
+    grid.minColumns,
+    (crossAxisExtent / grid.minCardExtent).floor(),
+  );
 }
 
 /// Shared masonry sliver used by every feed (recommended, ranking, new,
@@ -163,7 +175,7 @@ int illustColumnsFor(double crossAxisExtent) {
 /// cross-axis extent the sliver receives — under the wide NavigationRail the
 /// content width is smaller than the window, so reading `MediaQuery` here
 /// would over-count columns.
-class IllustFeedGrid extends StatefulWidget {
+class IllustFeedGrid extends ConsumerStatefulWidget {
   /// Feed defaults shared with [IllustGridSkeleton]: the skeleton reads
   /// these so a loading feed already occupies the same slots.
   static const defaultPadding = EdgeInsets.symmetric(
@@ -212,10 +224,10 @@ class IllustFeedGrid extends StatefulWidget {
   final List<WarmText> Function(BuildContext context, int index)? warmTexts;
 
   @override
-  State<IllustFeedGrid> createState() => _IllustFeedGridState();
+  ConsumerState<IllustFeedGrid> createState() => _IllustFeedGridState();
 }
 
-class _IllustFeedGridState extends State<IllustFeedGrid> {
+class _IllustFeedGridState extends ConsumerState<IllustFeedGrid> {
   /// Work ids + next-page hook for the detail pager. Never disposed by the
   /// grid: a pushed detail route still holds it — its lifetime is the
   /// route's, not the widget's.
@@ -273,12 +285,13 @@ class _IllustFeedGridState extends State<IllustFeedGrid> {
   @override
   Widget build(BuildContext context) {
     _queueWarmup(context);
+    final density = ref.watch(feedDensityProvider);
     final horizontal = widget.padding
         .resolve(Directionality.of(context))
         .horizontal;
     return SliverWidthBuilder(
       builder: (context, crossAxisExtent) {
-        final columns = illustColumnsFor(crossAxisExtent - horizontal);
+        final columns = illustColumnsFor(crossAxisExtent - horizontal, density);
         final columnWidth =
             (crossAxisExtent -
                 horizontal -

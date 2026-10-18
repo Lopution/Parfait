@@ -144,6 +144,23 @@ enum AnimationSpeed {
   }
 }
 
+/// How many columns the illustration grids fit: [standard] is two on a
+/// phone, [compact] three for quick scanning, [comfortable] one for slow
+/// looking. Consumed by `illustColumnsFor`. Persisted by [name].
+enum FeedDensity {
+  compact,
+  standard,
+  comfortable;
+
+  static FeedDensity? tryFromName(Object? value) {
+    if (value is! String) return null;
+    for (final density in values) {
+      if (density.name == value) return density;
+    }
+    return null;
+  }
+}
+
 /// Page route transition style. [system] is the platform's own transition
 /// (Android predictive back, the slide elsewhere); [slide] is the official
 /// Cupertino slide. Persisted by [name]; a retired name (`sharedAxis`,
@@ -230,6 +247,7 @@ class AppSettings {
     this.dohEndpointOverride,
     this.echFrontHost = defaultEchFrontHost,
     this.previewQuality = PreviewQuality.medium,
+    this.feedDensity = FeedDensity.standard,
     this.viewQuality = ViewQuality.original,
     this.detailQuality = DetailQuality.large,
     this.networkMode = NetworkMode.automatic,
@@ -319,6 +337,7 @@ class AppSettings {
   final String echFrontHost;
 
   final PreviewQuality previewQuality;
+  final FeedDensity feedDensity;
   final ViewQuality viewQuality;
   final DetailQuality detailQuality;
   final NetworkMode networkMode;
@@ -469,6 +488,8 @@ class AppSettings {
           : legacyPreview is bool
           ? PreviewQuality.fromLegacyBool(legacyPreview)
           : base.previewQuality,
+      feedDensity:
+          FeedDensity.tryFromName(json['feedDensity']) ?? base.feedDensity,
       viewQuality: json['viewQualityCode'] is int
           ? ViewQuality.fromCode(json['viewQualityCode'])
           : legacyScale is bool
@@ -573,6 +594,7 @@ class AppSettings {
       'dohEndpointOverride': dohEndpointOverride,
       'echFrontHost': echFrontHost,
       'previewQualityCode': previewQuality.code,
+      'feedDensity': feedDensity.name,
       'viewQualityCode': viewQuality.code,
       'detailQualityCode': detailQuality.code,
       'networkModeCode': networkMode.code,
@@ -718,6 +740,7 @@ class AppSettings {
     Object? dohEndpointOverride = _unset,
     String? echFrontHost,
     PreviewQuality? previewQuality,
+    FeedDensity? feedDensity,
     ViewQuality? viewQuality,
     DetailQuality? detailQuality,
     NetworkMode? networkMode,
@@ -773,6 +796,7 @@ class AppSettings {
           : dohEndpointOverride as String?,
       echFrontHost: echFrontHost ?? this.echFrontHost,
       previewQuality: previewQuality ?? this.previewQuality,
+      feedDensity: feedDensity ?? this.feedDensity,
       viewQuality: viewQuality ?? this.viewQuality,
       detailQuality: detailQuality ?? this.detailQuality,
       networkMode: networkMode ?? this.networkMode,

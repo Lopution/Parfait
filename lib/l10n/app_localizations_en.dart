@@ -880,6 +880,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get detailQuality => 'Detail quality';
 
   @override
+  String get feedDensity => 'Grid density';
+
+  @override
+  String get feedDensityCompact => 'Compact';
+
+  @override
+  String get feedDensityStandard => 'Standard';
+
+  @override
+  String get feedDensityComfortable => 'Comfortable';
+
+  @override
   String get qualityMedium => 'Medium';
 
   @override

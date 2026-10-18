@@ -1,4 +1,5 @@
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
@@ -47,23 +48,25 @@ void main() {
     final controller = ScrollController();
     addTearDown(controller.dispose);
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: CustomScrollView(
-            controller: controller,
-            scrollCacheExtent: kFeedCacheExtent,
-            slivers: [
-              IllustFeedGrid(
-                itemCount: 300,
-                itemBuilder: (context, index) => SizedBox(
-                  height: 160.0 + index % 3 * 60,
-                  child: TextButton(
-                    onPressed: () {},
-                    child: Text('work $index'),
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: CustomScrollView(
+              controller: controller,
+              scrollCacheExtent: kFeedCacheExtent,
+              slivers: [
+                IllustFeedGrid(
+                  itemCount: 300,
+                  itemBuilder: (context, index) => SizedBox(
+                    height: 160.0 + index % 3 * 60,
+                    child: TextButton(
+                      onPressed: () {},
+                      child: Text('work $index'),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:material_ui/material_ui.dart';
@@ -9,20 +10,28 @@ import 'package:parfait/app/layout/deferred_cache_scroll_view.dart';
 import 'package:parfait/app/layout/sliver_width_builder.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
+import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 import 'helpers/view_size.dart';
 
 void main() {
-  test('illustColumnsFor derives columns from the available extent', () {
-    // Widths from the acceptance matrix: 320/390/600/840/1200 + landscape.
-    expect(illustColumnsFor(320), 2);
-    expect(illustColumnsFor(390), 2);
-    expect(illustColumnsFor(600), 3);
-    expect(illustColumnsFor(840), 4);
-    expect(illustColumnsFor(1200), 6);
-    expect(illustColumnsFor(1600), 8);
-    // Degenerate extents never go below two columns.
-    expect(illustColumnsFor(0), 2);
-    expect(illustColumnsFor(-50), 2);
+  test('illustColumnsFor derives columns from the extent and density', () {
+    // Widths from the acceptance matrix: 320/390/600/840/1200 + landscape,
+    // less the grid's padding on a phone and a tablet; degenerate extents
+    // keep each density's fewest.
+    const columns = {
+      FeedDensity.compact: [3, 3, 5, 7, 10, 13, 8, 3, 3],
+      FeedDensity.standard: [2, 2, 3, 4, 6, 8, 5, 2, 2],
+      FeedDensity.comfortable: [1, 1, 1, 2, 3, 4, 2, 1, 1],
+    };
+    const extents = <double>[320, 374, 600, 840, 1200, 1600, 984, 0, -50];
+    for (final MapEntry(key: density, value: expected) in columns.entries) {
+      expect(
+        [for (final extent in extents) illustColumnsFor(extent, density)],
+        expected,
+        reason: density.name,
+      );
+    }
   });
 
   test('card lists take a column per 400dp, at most three', () {
@@ -151,38 +160,50 @@ void main() {
       // four the window width would imply.
       setViewSize(tester, const Size(800, 600));
 
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: replicaTheme(Brightness.light),
-          home: Scaffold(
-            body: Row(
-              children: [
-                const SizedBox(width: 400),
-                Expanded(
-                  child: CustomScrollView(
-                    slivers: [
-                      IllustFeedGrid(
-                        itemCount: 4,
-                        itemBuilder: (context, index) =>
-                            const SizedBox(height: 40),
+      // 400 - 2*8 horizontal padding = 384: three, two or one column.
+      const columns = {
+        FeedDensity.standard: 2,
+        FeedDensity.compact: 3,
+        FeedDensity.comfortable: 1,
+      };
+      for (final MapEntry(key: density, value: expected) in columns.entries) {
+        await tester.pumpWidget(
+          ProviderScope(
+            key: ValueKey(density),
+            overrides: [feedDensityProvider.overrideWithValue(density)],
+            child: MaterialApp(
+              theme: replicaTheme(Brightness.light),
+              home: Scaffold(
+                body: Row(
+                  children: [
+                    const SizedBox(width: 400),
+                    Expanded(
+                      child: CustomScrollView(
+                        slivers: [
+                          IllustFeedGrid(
+                            itemCount: 4,
+                            itemBuilder: (context, index) =>
+                                const SizedBox(height: 40),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      final grid = tester.widget<SliverMasonryGrid>(
-        find.byType(SliverMasonryGrid),
-      );
-      final delegate =
-          grid.gridDelegate as SliverSimpleGridDelegateWithFixedCrossAxisCount;
-      // 400 - 2*10 horizontal padding = 380 -> floor(380/180) = 2.
-      expect(delegate.crossAxisCount, 2);
+        final grid = tester.widget<SliverMasonryGrid>(
+          find.byType(SliverMasonryGrid),
+        );
+        final delegate =
+            grid.gridDelegate
+                as SliverSimpleGridDelegateWithFixedCrossAxisCount;
+        expect(delegate.crossAxisCount, expected, reason: density.name);
+      }
     },
   );
 
@@ -199,26 +220,28 @@ void main() {
     var ids = before;
     late StateSetter refresh;
     await tester.pumpWidget(
-      MaterialApp(
-        theme: replicaTheme(Brightness.light),
-        home: StatefulBuilder(
-          builder: (context, setState) {
-            refresh = setState;
-            return Scaffold(
-              body: CustomScrollView(
-                slivers: [
-                  IllustFeedGrid(
-                    itemCount: ids.length,
-                    itemIds: ids,
-                    itemBuilder: (context, index) => SizedBox(
-                      height: 60 + (ids[index] * 37 % 7) * 30,
-                      child: Text('work ${ids[index]}'),
+      ProviderScope(
+        child: MaterialApp(
+          theme: replicaTheme(Brightness.light),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              refresh = setState;
+              return Scaffold(
+                body: CustomScrollView(
+                  slivers: [
+                    IllustFeedGrid(
+                      itemCount: ids.length,
+                      itemIds: ids,
+                      itemBuilder: (context, index) => SizedBox(
+                        height: 60 + (ids[index] * 37 % 7) * 30,
+                        child: Text('work ${ids[index]}'),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
