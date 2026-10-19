@@ -1,4 +1,5 @@
 import 'package:flutter/gestures.dart';
+import 'package:flutter/physics.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../motion/motion_tokens.dart';
@@ -31,11 +32,11 @@ class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
   double _dragOrigin = 0;
   bool _active = false;
   AnimationController? _settle;
-  Animation<double>? _settleAnim;
   int _settleTarget = 0;
 
   TabController get _tc => widget.tabController;
   bool get _ltr => Directionality.of(context) == TextDirection.ltr;
+  double get _position => _tc.animation?.value ?? _tc.index.toDouble();
 
   @override
   void didUpdateWidget(TabSwipeSwitcher oldWidget) {
@@ -44,7 +45,6 @@ class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
     // A new controller (the tab list changed): a settle in flight and the
     // drag origin index the old list.
     _settle?.stop();
-    _settleAnim = null;
     _dragOrigin = _tc.index.toDouble();
   }
 
@@ -61,7 +61,7 @@ class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
     if (_tc.indexIsChanging) {
       _tc.index = _tc.animation!.value.round().clamp(0, _tc.length - 1);
     }
-    _dragOrigin = _tc.animation?.value ?? _tc.index.toDouble();
+    _dragOrigin = _position;
     widget.onPrepareAdjacent?.call(_dragOrigin.round());
   }
 
@@ -70,8 +70,7 @@ class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
     final width = MediaQuery.sizeOf(context).width;
     if (width <= 0 || _tc.length < 2) return;
     final delta = (_ltr ? -details.delta.dx : details.delta.dx) / width;
-    final position = _tc.animation?.value ?? _tc.index.toDouble();
-    _writeTab((position + delta).clamp(0.0, _tc.length - 1.0));
+    _writeTab((_position + delta).clamp(0.0, _tc.length - 1.0));
   }
 
   void _writeTab(double target) {
@@ -87,67 +86,67 @@ class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
     final width = MediaQuery.sizeOf(context).width;
     final velocity = details.primaryVelocity ?? 0;
     final fling = velocity.abs() >= TabSwipeSwitcher.minFlingVelocity;
-    final position = _tc.animation?.value ?? _tc.index.toDouble();
+    final position = _position;
     final base = _dragOrigin.round().clamp(0, _tc.length - 1);
     final moved = position - base;
     final committed =
         fling ||
         _rawDx.abs() >= width * TabSwipeSwitcher.distanceFraction ||
         moved.abs() >= TabSwipeSwitcher.distanceFraction;
-    if (!committed) {
-      _settleTo(base);
-      return;
-    }
     final forward = ((fling ? velocity : _rawDx) < 0) == _ltr;
-    final target = (base + (forward ? 1 : -1)).clamp(0, _tc.length - 1);
-    if (target == base) {
-      _settleTo(base);
-      return;
-    }
-    _landOn(target);
-  }
-
-  void _landOn(int target) {
-    if (target == _tc.index) {
-      _settleTo(target);
-      return;
-    }
-    _tc.animateTo(
-      target,
-      duration: MotionTokens.resolve(context, MotionTokens.tabSwitch),
-    );
+    // The next tab in the release's direction from where the tabs are, as
+    // ViewPager picks: flinging back from past halfway returns to the
+    // first tab rather than skipping over it.
+    final target = committed
+        ? (forward ? position.ceil() : position.floor()).clamp(
+            0,
+            _tc.length - 1,
+          )
+        : base;
+    _settleTo(target, velocity: velocity);
   }
 
   void _onDragCancel() {
     if (!_active) return;
     _active = false;
-    _settle?.stop();
     _settleTo(_tc.index);
   }
 
-  void _settleTo(int target) {
-    final from = _tc.animation?.value ?? _tc.index.toDouble();
+  /// Carries the tabs to [target] on the [MotionSpring.spatialDefault]
+  /// spring, starting at the finger's release [velocity] (pixels per
+  /// second): a fling lands without slowing first, and a spring-back turns
+  /// round instead of stalling. The index changes once, on landing, as a
+  /// tab bar's own switch notifies its listeners after the animation.
+  void _settleTo(int target, {double velocity = 0}) {
+    final from = _position;
     _settleTarget = target;
-    final duration = MotionTokens.resolve(context, MotionTokens.spatial);
-    if (duration == Duration.zero || (from - target).abs() < 1e-4) {
+    final spring = MotionTokens.spring(context, MotionSpring.spatialDefault);
+    final width = MediaQuery.sizeOf(context).width;
+    if (spring == null || width <= 0 || (from - target).abs() < 1e-4) {
+      _settle?.stop();
       _tc.index = target;
       _tc.offset = 0;
       return;
     }
-    final controller = _settle ??= AnimationController(vsync: this)
+    final controller = _settle ??= AnimationController.unbounded(vsync: this)
       ..addListener(_applySettle)
       ..addStatusListener(_finishSettle);
-    controller.duration = duration;
-    _settleAnim = Tween<double>(begin: from, end: target.toDouble()).animate(
-      CurvedAnimation(parent: controller, curve: MotionTokens.spatialCurve),
+    final tabsPerSecond = (_ltr ? -velocity : velocity) / width;
+    controller.animateWith(
+      SpringSimulation(
+        spring,
+        from,
+        target.toDouble(),
+        tabsPerSecond,
+        snapToEnd: true,
+      ),
     );
-    controller.forward(from: 0);
   }
 
+  // A tap on the tab bar mid-settle animates the controller itself.
   void _applySettle() {
-    final anim = _settleAnim;
-    if (anim == null || _tc.indexIsChanging) return;
-    _tc.offset = (anim.value - _tc.index).clamp(-1.0, 1.0);
+    if (_tc.indexIsChanging) return;
+    _tc.offset = (_settle!.value - _tc.index).clamp(-1.0, 1.0);
   }
 
   void _finishSettle(AnimationStatus status) {

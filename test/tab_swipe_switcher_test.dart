@@ -101,6 +101,42 @@ void main() {
     });
   }
 
+  // The settle leaves at the finger's speed: a fling lands without slowing
+  // first, a short drag turns round from its own momentum.
+  for (final (name, dx, landsOn) in [
+    ('a fling lands on the next tab', -120.0, 1),
+    ('a short drag springs back', -60.0, 0),
+  ]) {
+    testWidgets('$name from the finger\'s speed', (tester) async {
+      final controller = TabController(length: 3, vsync: const TestVSync());
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TabSwipeSwitcher(
+            tabController: controller,
+            child: const SizedBox.expand(),
+          ),
+        ),
+      );
+      setDeviceTouchSlop(tester);
+      const seconds = 0.2;
+      await tester.timedDrag(
+        find.byType(TabSwipeSwitcher),
+        Offset(dx, 0),
+        const Duration(milliseconds: 200),
+      );
+      final width = tester.getSize(find.byType(TabSwipeSwitcher)).width;
+      final fingerSpeed = -dx / width / seconds;
+      await tester.pump();
+      final released = controller.animation!.value;
+      await tester.pump(const Duration(microseconds: 100));
+      final speed = (controller.animation!.value - released) / 0.0001;
+      expect(speed, closeTo(fingerSpeed, fingerSpeed * 0.15));
+      await tester.pumpAndSettle();
+      expect((controller.index, controller.offset), (landsOn, 0.0));
+    });
+  }
+
   testWidgets('a slow but deliberate sideways drag still switches', (
     tester,
   ) async {
