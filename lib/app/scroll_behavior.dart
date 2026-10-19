@@ -34,7 +34,9 @@ class FuncScrollBehavior extends MaterialScrollBehavior {
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) =>
       textScrollPhysics(context) ??
-      const FuncScrollPhysics(parent: AlwaysScrollableScrollPhysics());
+      const NoDragDeadZonePhysics(
+        parent: FuncScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      );
 
   @override
   Widget buildOverscrollIndicator(
@@ -156,6 +158,23 @@ class FuncScrollPhysics extends BouncingScrollPhysics {
       max: position.maxScrollExtent,
     );
   }
+}
+
+/// [parent] without the drag dead zone of [BouncingScrollPhysics]: iOS
+/// holds a drag for 3.5 more pixels past the touch slop, at its start and
+/// again after every pause, which reads as sticky on a slow drag. Android
+/// follows the finger once the slop is crossed. Bouncing physics declares
+/// the threshold non-nullable, so it is dropped by this wrapper on top;
+/// everything else is the parent's.
+class NoDragDeadZonePhysics extends ScrollPhysics {
+  const NoDragDeadZonePhysics({required ScrollPhysics super.parent});
+
+  @override
+  NoDragDeadZonePhysics applyTo(ScrollPhysics? ancestor) =>
+      NoDragDeadZonePhysics(parent: buildParent(ancestor)!);
+
+  @override
+  double? get dragStartDistanceMotionThreshold => null;
 }
 
 /// Runs [_inner] until it would leave [min]..[max], then rests at the edge.

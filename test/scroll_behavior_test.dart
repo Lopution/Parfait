@@ -120,4 +120,36 @@ void main() {
       await tester.pumpAndSettle();
     });
   }
+
+  // Bouncing physics (iOS) hold back the move that crosses the slop and
+  // ease in from 1.17px; Android lists follow the finger at once.
+  for (final inRefreshList in [false, true]) {
+    testWidgets('the list follows the finger from the move past the slop'
+        '${inRefreshList ? ' (refresh list)' : ''}', (tester) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      Widget list = ListView.builder(
+        controller: controller,
+        itemCount: 60,
+        itemBuilder: (_, index) => SizedBox(height: 80, child: Text('$index')),
+      );
+      if (inRefreshList) {
+        list = PullToRefresh(onRefresh: () async {}, child: list);
+      }
+      await tester.pumpWidget(
+        localizedApp(
+          scrollBehavior: const FuncScrollBehavior(),
+          home: Scaffold(body: list),
+        ),
+      );
+      controller.jumpTo(800);
+
+      final gesture = await tester.startGesture(const Offset(200, 300));
+      await gesture.moveBy(const Offset(0, -(kTouchSlop + 1)));
+      await tester.pump();
+      expect(controller.offset, 800 + kTouchSlop + 1);
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+  }
 }

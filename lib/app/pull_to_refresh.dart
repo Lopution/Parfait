@@ -279,8 +279,15 @@ ScrollBehavior _nestedScrollBehavior(ScrollPhysics? physics) =>
 /// EasyRefresh's scroll behavior with the app's mouse scrollbar: its own
 /// shows one on desktop only, so feeds on a tablet with a mouse had none.
 class _FeedScrollBehavior extends ERScrollBehavior {
-  const _FeedScrollBehavior(ScrollPhysics? physics)
-    : super(physics ?? const ScrollPhysics());
+  _FeedScrollBehavior(ScrollPhysics? physics)
+    : super(
+        physics == null
+            ? const ScrollPhysics()
+            // Its _ERScrollPhysics is bouncing too. The refresh, edge and
+            // fling behaviour stay EasyRefresh's: it finds its own physics
+            // by walking the parent chain.
+            : NoDragDeadZonePhysics(parent: physics),
+      );
 
   /// A text control in the feed keeps the app's text physics instead of
   /// the refresh physics, which would let it drag (and arm the header).
