@@ -5,6 +5,7 @@ applies_to:
   - lib/app/widgets/**
   - lib/core/platform/native_warmup.dart
   - lib/core/platform/app_root_pipeline_owner.dart
+  - lib/core/platform/touch_resampler.dart
   - lib/app/navigation/route_animation.dart
   - lib/app/layout/sliver_width_builder.dart
   - lib/app/startup_gate.dart
@@ -231,6 +232,25 @@ reviewed: 2026-10-19
   when the warm-up ended remounted the app.
 - **Check:** `test/startup_gate_test.dart` "the warm-up draws the ripple and keeps the app mounted"
 - **Code:** `lib/app/startup_gate.dart`
+
+### MOTION-19 Touch moves reach the app once per frame, resampled
+- **Rule:** `_ParfaitBinding` hands every pointer event to
+  `TouchResampler`: a finger's moves go out at the start of each frame,
+  real samples up to 10 ms before its vsync and one move interpolated to
+  that time when a later sample is in, also on a frame that took no new
+  sample. It never predicts past the newest sample. Every other event
+  goes out at once, after the queued moves. An interpolated move is
+  `synthesized`, and code that measures a finger's speed skips
+  synthesized moves as recognizers do.
+- **Why:** Flutter's embedding dispatches each touch as it arrives and a
+  frame takes the newest, so per-frame movement went uneven while every
+  frame was on time. Android also predicts up to 8 ms, but Flutter
+  recognizers take each move as an observation: a predicted point bent a
+  pinch's scale velocity (`ScaleGestureRecognizer` tracks synthesized
+  moves), and a real sample arriving behind a prediction either stepped
+  the finger back or went missing from the fling speed.
+- **Check:** `test/touch_resampler_test.dart` "a frame shows where the finger was 10 ms before its vsync" "a frame between two samples moves on without a new one" "leaves at the speed of its real samples"
+- **Code:** `lib/core/platform/touch_resampler.dart`, `lib/main.dart`, `lib/core/debug/trace_marks.dart`
 
 ### MOTION-15 Width-dependent slivers rebuild only on a width change
 - **Rule:** A sliver built from its width uses `SliverWidthBuilder`, never

@@ -17,6 +17,7 @@ import 'core/network/rhttp_gate.dart';
 import 'core/platform/app_root_pipeline_owner.dart';
 import 'core/platform/native_warmup.dart';
 import 'core/platform/platform_caps.dart';
+import 'core/platform/touch_resampler.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Entrypoint: initializes the Rust transport (rhttp) before the first
@@ -69,13 +70,40 @@ class _ParfaitBinding extends WidgetsFlutterBinding {
   @override
   PipelineOwner createRootPipelineOwner() => AppRootPipelineOwner();
 
+  late final _touch = TouchResampler(
+    dispatch: super.handlePointerEvent,
+    requestFrame: scheduleFrame,
+  );
+
+  // Without frames (in the background) a queued move would wait for good.
+  @override
+  void handlePointerEvent(PointerEvent event) {
+    if (!kTouchResample) return super.handlePointerEvent(event);
+    _touch.add(event, queue: framesEnabled);
+  }
+
+  @override
+  void handleAppLifecycleStateChanged(AppLifecycleState state) {
+    super.handleAppLifecycleStateChanged(state);
+    if (!framesEnabled) _touch.flush();
+  }
+
   // Frame-probe hooks: split each frame's UI-thread time by phase while the
   // probe records. When it does not, each hook is a plain super call.
+  //
+  // The frame's touch moves go out first, so this frame's animations and
+  // layout already see them. A move still queued asks for the next frame
+  // only after super, which clears the scheduled-frame flag.
   @override
   void handleBeginFrame(Duration? rawTimeStamp) {
     FrameProbe.instance
       ..beginUiFrame()
-      ..timePhase(UiPhase.animate, () => super.handleBeginFrame(rawTimeStamp));
+      ..timePhase(UiPhase.animate, () {
+        // The warm-up frame has no vsync time to sample at.
+        if (rawTimeStamp != null) _touch.sample(rawTimeStamp);
+        super.handleBeginFrame(rawTimeStamp);
+        if (_touch.hasPending) scheduleFrame();
+      });
   }
 
   @override
