@@ -152,7 +152,10 @@ class ImageWorkerHost {
       _cache = DiskImageCache.open(Directory(cacheDir), clock: _clock);
       _routeMemoryState = _buildMemory(config);
       _applyConfig(config, initial: true);
-      _scheduler = ImageFetchScheduler<(File, int)>(execute: _fetch);
+      _scheduler = ImageFetchScheduler<(File, int)>(
+        execute: _fetch,
+        abortable: _isOriginal,
+      );
       _send(ReadyEvent(_inbox.sendPort));
     } on Object catch (error) {
       // Explicit failure: the main isolate must see init fail, not wait
@@ -325,10 +328,17 @@ class ImageWorkerHost {
     );
   }
 
+  /// Originals are the transfers stopped once nobody wants them: several
+  /// megabytes each, while a thumbnail is done in a moment and a restart
+  /// would cost it a new connection.
+  static bool _isOriginal(String url) =>
+      Uri.parse(url).path.contains(_segmentedPath);
+
   /// The single admitted-flight body: one policy GET (an original: its
   /// ranges), then an atomic commit into the cache. Called by the scheduler
-  /// only after the fetch holds its lane permit.
-  Future<(File, int)> _fetch(String url) async {
+  /// only after the fetch holds its lane permit; [cancel] ends every
+  /// request of the transfer, and the partial file is deleted.
+  Future<(File, int)> _fetch(String url, NetworkCancelSignal cancel) async {
     // A flight for the URL may have committed between this request's own
     // lookup and its submit; the re-check is a stat, the miss a download.
     final cached = await _cache.lookup(url);
@@ -336,9 +346,9 @@ class ImageWorkerHost {
       return (cached, await cached.length());
     }
     final uri = Uri.parse(url);
-    final (body, segmented) = uri.path.contains(_segmentedPath)
-        ? await _openInRanges(uri)
-        : (await _wholeBody(await _request(uri), uri), null);
+    final (body, segmented) = _isOriginal(url)
+        ? await _openInRanges(uri, cancel)
+        : (await _wholeBody(await _request(uri, cancel: cancel), uri), null);
     if (segmented != null) _segmentedFetches.add(segmented);
     try {
       final file = await _cache.store(
@@ -356,10 +366,14 @@ class ImageWorkerHost {
   /// when the server answers a sized 206 from byte 0. A 200 (`Range`
   /// ignored) is the whole file; anything else fails like any image. The
   /// worker sends no conditional headers, so every range asks the same.
-  Future<(_Body, SegmentedFetch?)> _openInRanges(Uri uri) async {
+  Future<(_Body, SegmentedFetch?)> _openInRanges(
+    Uri uri,
+    NetworkCancelSignal cancel,
+  ) async {
     final first = await _request(
       uri,
       range: (0, SegmentedFetch.defaultSegmentBytes - 1),
+      cancel: cancel,
     );
     final range = parseContentRange(first.headers['content-range']);
     final total = range?.total;
@@ -384,7 +398,10 @@ class ImageWorkerHost {
           ),
       budget: _segmentBudget,
     );
-    final body = segmented.continueFrom(RangeResponse.fromHttp(first));
+    final body = segmented.continueFrom(
+      RangeResponse.fromHttp(first),
+      cancel: cancel,
+    );
     return ((stream: body, length: total), segmented);
   }
 

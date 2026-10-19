@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../network/compat/network_contracts.dart';
 import 'lane_permit_gate.dart';
 
 /// Schedules image fetches for the worker isolate: two lanes, same-URL
@@ -18,14 +19,18 @@ import 'lane_permit_gate.dart';
 ///   [ImageFetchDropped]). A queued fetch left with zero interests is
 ///   dropped after [cancelGrace] — the grace absorbs the unmount/remount
 ///   of a Hero flight or a list re-layout without losing queue position.
-/// - A transfer that already started is **never interrupted**: its bytes
-///   still land in the disk cache for the next visit.
+/// - A transfer that already started runs to the end, so its bytes land
+///   in the disk cache for the next visit, unless it is [abortable]: an
+///   original whose last interest left stops at once, and a new request
+///   for its URL starts a fresh flight. The caller's own release grace
+///   (`ImageDemand`) has already passed by the time its cancel arrives.
 ///
 /// The transport itself is injected via [execute] — the scheduler only owns
 /// ordering and lifetimes, which keeps it testable without sockets.
 class ImageFetchScheduler<T> {
   ImageFetchScheduler({
     required this.execute,
+    this.abortable = _never,
     this.foregroundSlots = defaultForegroundSlots,
     this.backgroundSlots = defaultBackgroundSlots,
     this.cancelGrace = const Duration(milliseconds: 500),
@@ -36,7 +41,15 @@ class ImageFetchScheduler<T> {
 
   /// Runs one admitted fetch to completion (transport + disk write lives
   /// in the caller). Its result/error is fanned out to every interest.
-  final Future<T> Function(String url) execute;
+  /// [cancel] fires when an [abortable] transfer loses its last interest.
+  final Future<T> Function(String url, NetworkCancelSignal cancel) execute;
+
+  /// Whether a streaming transfer for a URL stops when nobody wants it:
+  /// megabytes the user has swiped past, whose bandwidth the page on screen
+  /// needs.
+  final bool Function(String url) abortable;
+
+  static bool _never(String url) => false;
 
   final int foregroundSlots;
   final int backgroundSlots;
@@ -89,14 +102,20 @@ class ImageFetchScheduler<T> {
 
   /// Drops [requestId]'s interest; the requester completes with
   /// [ImageFetchDropped]. A queued fetch with no interests left arms the
-  /// cancel-grace timer; a streaming one is left alone.
+  /// cancel-grace timer; a streaming one runs on unless [abortable].
   void cancel(int requestId) {
     final fetch = _interests.remove(requestId);
     if (fetch == null) return;
     final interest = fetch.interests.remove(requestId);
     interest?.$1.completeError(ImageFetchDropped(fetch.url));
-    if (fetch.interests.isEmpty && !fetch.streaming) {
+    if (fetch.interests.isNotEmpty) return;
+    if (!fetch.streaming) {
       fetch.dropTimer ??= Timer(cancelGrace, () => _drop(fetch));
+    } else if (abortable(fetch.url)) {
+      // Off the books first: a request for the URL from now on must not
+      // join a transfer that is ending.
+      if (identical(_fetches[fetch.url], fetch)) _fetches.remove(fetch.url);
+      fetch.abort.cancel();
     }
   }
 
@@ -146,7 +165,7 @@ class ImageFetchScheduler<T> {
       fetch.streaming = true;
       fetch.dropTimer?.cancel();
       fetch.dropTimer = null;
-      final result = await execute(fetch.url);
+      final result = await execute(fetch.url, fetch.abort);
       for (final completer in _settle(fetch)) {
         completer.complete(result);
       }
@@ -186,4 +205,19 @@ class _Fetch<T> {
   Timer? dropTimer;
   var streaming = false;
   var foreground = false;
+  final abort = _Abort();
+}
+
+class _Abort implements NetworkCancelSignal {
+  final _cancelled = Completer<void>();
+
+  @override
+  bool get isCancelled => _cancelled.isCompleted;
+
+  @override
+  Future<void> get whenCancel => _cancelled.future;
+
+  void cancel() {
+    if (!_cancelled.isCompleted) _cancelled.complete();
+  }
 }

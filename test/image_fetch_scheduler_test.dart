@@ -4,6 +4,7 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/image/image_fetch_scheduler.dart';
 import 'package:parfait/core/image/lane_permit_gate.dart';
+import 'package:parfait/core/network/compat/network_contracts.dart';
 
 /// A scheduler whose `execute` is an in-memory gate: every admitted URL
 /// gets a completer the test resolves explicitly, so "streaming" fetches
@@ -13,10 +14,12 @@ class _Harness {
     scheduler = ImageFetchScheduler<String>(
       foregroundSlots: foreground,
       backgroundSlots: background,
-      execute: (url) {
+      abortable: (url) => url.startsWith('original'),
+      execute: (url, cancel) {
         started.add(url);
         final completer = Completer<String>();
         pending[url] = completer;
+        cancels.add(cancel);
         return completer.future;
       },
     );
@@ -25,6 +28,7 @@ class _Harness {
   late final ImageFetchScheduler<String> scheduler;
   final started = <String>[];
   final pending = <String, Completer<String>>{};
+  final cancels = <NetworkCancelSignal>[];
 
   void finish(String url, [String result = 'ok']) {
     pending.remove(url)!.complete(result);
@@ -260,8 +264,38 @@ void main() {
       // The flight continues to completion for the disk cache — the gate
       // is released only when the transfer ends.
       expect(harness.scheduler.inFlight, 1);
+      expect(harness.cancels.single.isCancelled, isFalse);
       harness.finish('fg');
       async.flushMicrotasks();
+      expect(harness.scheduler.inFlight, 0);
+    });
+  });
+
+  test('an original nobody wants stops; one still shared runs on', () {
+    fakeAsync((async) {
+      final harness = _Harness();
+      ImageFetchPriority fg() => ImageFetchPriority.foreground;
+      _Capture(harness.scheduler.submit(1, 'original', priority: fg()));
+      _Capture(harness.scheduler.submit(2, 'original', priority: fg()));
+      async.flushMicrotasks();
+      final first = harness.cancels.single;
+
+      harness.scheduler.cancel(1);
+      expect(first.isCancelled, isFalse);
+      harness.scheduler.cancel(2);
+      expect(first.isCancelled, isTrue);
+
+      // Swiped back at once: a fresh flight, not the ending one.
+      final back = _Capture(
+        harness.scheduler.submit(3, 'original', priority: fg()),
+      );
+      harness.fail('original', StateError('aborted'));
+      async.flushMicrotasks();
+      expect(harness.started, ['original', 'original']);
+      expect(harness.cancels.last.isCancelled, isFalse);
+      harness.finish('original');
+      async.flushMicrotasks();
+      expect(back.value, 'ok');
       expect(harness.scheduler.inFlight, 0);
     });
   });

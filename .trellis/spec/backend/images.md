@@ -6,7 +6,7 @@ applies_to:
   - lib/app/pixiv_image.dart
   - lib/app/image_tier_cache.dart
   - lib/app/widgets/image_load_progress.dart
-reviewed: 2026-10-13
+reviewed: 2026-10-19
 ---
 
 # Image pipeline and animated media
@@ -83,12 +83,18 @@ reviewed: 2026-10-13
 - **Rule:** Every mounted `PixivImage` holds its URL in
   `ImageWorker.demand` (new before releasing old). A URL stays wanted for
   500 ms after release. An in-flight request nobody wants is cancelled: a
-  queued fetch drops with `ImageFetchDropped`, a streaming one finishes.
-  A first `hold` or any `holdFor` promotes a queued background fetch.
+  queued fetch drops with `ImageFetchDropped`, a streaming one finishes,
+  except an original (`/img-original/`): its first range and every
+  further range stop, its partial file is deleted, and its URL leaves the
+  books at once, so asking again starts a fresh flight. A first `hold` or
+  any `holdFor` promotes a queued background fetch.
 - **Why:** Flinging a feed queued hundreds of images the user never saw;
-  Hero flights and re-layouts briefly release and re-hold.
-- **Check:** `test/image_fetch_scheduler_test.dart` "a foreground interest promotes a queued background fetch" "a transfer already streaming is never interrupted by a cancel", `test/image_demand_test.dart` "a released URL stays wanted for the grace period"
-- **Code:** `lib/core/image/image_demand.dart`, `lib/core/image/image_fetch_scheduler.dart`
+  Hero flights and re-layouts briefly release and re-hold. Originals the
+  user swiped past in the viewer kept downloading megabytes each and
+  slowed the one on screen; a thumbnail is done in a moment, and stopping
+  it would cost the next one a new connection.
+- **Check:** `test/image_fetch_scheduler_test.dart` "a foreground interest promotes a queued background fetch" "a transfer already streaming is never interrupted by a cancel" "an original nobody wants stops; one still shared runs on", `test/image_worker_host_test.dart` "an original nobody wants stops, and asking again starts afresh", `test/image_demand_test.dart` "a released URL stays wanted for the grace period"
+- **Code:** `lib/core/image/image_demand.dart`, `lib/core/image/image_fetch_scheduler.dart`, `lib/core/image/image_worker_host.dart`
 
 ### IMG-07 Two lanes: foreground 8, background 2
 - **Rule:** Background priority is only for `PixivImage.preload` without a
