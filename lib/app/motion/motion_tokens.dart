@@ -109,9 +109,6 @@ abstract final class MotionTokens {
   static const branchSwitch = Duration(milliseconds: 300);
   static const branchSwitchCurve = Curves.easeInOutCubicEmphasized;
 
-  /// In-page tab switch, matching the app bar's kTabScrollDuration.
-  static const tabSwitch = Duration(milliseconds: 300);
-
   /// Chrome showing and hiding: bars hidden on scroll (the shell's bottom
   /// bar, the detail action bar), the immersive top bar, the viewer's and
   /// the novel reader's bars, a filter summary, and the short pull down

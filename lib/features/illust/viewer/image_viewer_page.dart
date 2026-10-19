@@ -606,7 +606,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                                     controller: _pageController,
                                     physics: _activeZoomed
                                         ? const NeverScrollableScrollPhysics()
-                                        : const PageScrollPhysics(),
+                                        : const PageSnapPhysics(),
                                     itemCount: _pageCount,
                                     itemBuilder: (context, page) =>
                                         PagingSlopPage(

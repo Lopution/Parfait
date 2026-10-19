@@ -177,6 +177,36 @@ class NoDragDeadZonePhysics extends ScrollPhysics {
   double? get dragStartDistanceMotionThreshold => null;
 }
 
+/// A pager's snap to its page on Material's default spatial spring
+/// (damping ratio 0.9, stiffness 700): about 300 ms from release to the
+/// end of the scroll. The framework's scroll spring (mass 0.5, stiffness
+/// 100, overdamped) looks settled after about 0.45 s and ends the scroll
+/// after about 0.7 s, and a pager builds its next pages only when the
+/// scroll ends. ViewPager lands within 600 ms on a quintic ease-out.
+///
+/// Give it as a [PageView]'s physics: the page physics on top still picks
+/// the target page and starts the snap at the release velocity, and the
+/// app's list physics below keep their own spring for the bounce past the
+/// first and last page. Like a fling, the snap carries on the finger's
+/// motion, so the reduced-motion gate and the animation speed leave it
+/// alone, as they leave ViewPager's scroller.
+class PageSnapPhysics extends ScrollPhysics {
+  const PageSnapPhysics({super.parent});
+
+  static final _spring = SpringDescription.withDampingRatio(
+    mass: 1,
+    stiffness: 700,
+    ratio: 0.9,
+  );
+
+  @override
+  PageSnapPhysics applyTo(ScrollPhysics? ancestor) =>
+      PageSnapPhysics(parent: buildParent(ancestor));
+
+  @override
+  SpringDescription get spring => _spring;
+}
+
 /// Runs [_inner] until it would leave [min]..[max], then rests at the edge.
 class _EdgeStopSimulation extends Simulation {
   _EdgeStopSimulation(this._inner, {required this.min, required this.max})

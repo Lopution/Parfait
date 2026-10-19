@@ -136,6 +136,23 @@ reviewed: 2026-10-19
 - **Check:** `test/motion_test.dart` "a scroll takeover releases the pressed scale", `test/illust_detail_pager_test.dart` "scrolls the detail" "a panorama scrolls first and hands the swipe on at its edge", `test/tab_swipe_switcher_test.dart` "leaves the tabs", `test/hero_transition_test.dart` "only the entry page flies back"
 - **Code:** `lib/app/scroll_behavior.dart`, `lib/app/motion/drag_to_dismiss.dart`, `lib/app/motion/press_scale.dart`, `lib/app/widgets/tab_swipe_switcher.dart`
 
+### MOTION-20 A released swipe lands from the finger's speed
+- **Rule:** A sideways swipe released between tabs or pages lands on a
+  spring that starts at the release velocity. `TabSwipeSwitcher` carries
+  both the switch and the spring-back on `MotionSpring.spatialDefault`,
+  picks the next tab in the release's direction from where the tabs are
+  (as ViewPager does), and changes the index once, on landing. A
+  `PageView` the user swipes takes `PageSnapPhysics`, which swaps only the
+  page snap's spring (about 300 ms to the end of the scroll); the
+  overscroll bounce keeps the list physics' spring.
+- **Why:** The tab switch ran a fixed 300 ms ease and the spring-back
+  started at rest, so a fast fling slowed down on release and a
+  spring-back stalled before turning. The framework's page spring ended
+  the scroll after about 0.7 s, and the detail pager builds a page's
+  content and its neighbours only then.
+- **Check:** `test/tab_swipe_switcher_test.dart` "from the finger's speed", `test/scroll_behavior_test.dart` "ends its page snap in about 300 ms"
+- **Code:** `lib/app/widgets/tab_swipe_switcher.dart`, `lib/app/scroll_behavior.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/features/illust/viewer/image_viewer_page.dart`
+
 ### MOTION-07 Feed cards land in place
 - **Rule:** Grid content has no entrance animation and no `StateFade`
   around it; only images fade (TRANS-16).
