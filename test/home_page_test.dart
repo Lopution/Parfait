@@ -12,11 +12,8 @@ import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/core/platform/intent_router.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
-import 'package:parfait/features/new/new_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
-import 'package:parfait/features/search/search_page.dart';
-import 'package:parfait/features/settings/settings_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
@@ -122,18 +119,6 @@ void main() {
     },
   );
 
-  testWidgets('C7: cold start builds only the current tab', (tester) async {
-    await _pumpHome(tester);
-
-    expect(find.byType(RecommendedHomePage), findsOneWidget);
-    // IndexedStack offstages inactive children; search offstage so a
-    // prebuilt tab cannot hide behind skipOffstage: true.
-    expect(find.byType(RankingPage, skipOffstage: false), findsNothing);
-    expect(find.byType(NewPage, skipOffstage: false), findsNothing);
-    expect(find.byType(SearchHomePage, skipOffstage: false), findsNothing);
-    expect(find.byType(SettingsPage, skipOffstage: false), findsNothing);
-  });
-
   testWidgets('C7: visited tabs stay alive and keep the first tab controller', (
     tester,
   ) async {
@@ -152,7 +137,6 @@ void main() {
       findsOneWidget,
     );
     expect(find.byType(RankingPage, skipOffstage: false), findsOneWidget);
-    expect(find.byType(SettingsPage, skipOffstage: false), findsNothing);
 
     await tester.tap(find.byIcon(AppIcons.home));
     await tester.pump();
@@ -168,7 +152,6 @@ void main() {
       isTrue,
     );
     expect(find.byType(RankingPage, skipOffstage: false), findsOneWidget);
-    expect(find.byType(SettingsPage, skipOffstage: false), findsNothing);
   });
 
   testWidgets('C8: UserRoute delivered to home pushes the user page', (

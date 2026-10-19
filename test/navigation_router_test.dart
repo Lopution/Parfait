@@ -15,7 +15,6 @@ import 'package:parfait/features/bookmark/bookmark_tags_page.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
-import 'package:parfait/features/new/new_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/search/reverse_image_search_page.dart';
 import 'package:parfait/features/search/search_page.dart';
@@ -64,18 +63,13 @@ void main() {
 
     expect(find.byType(StatefulNavigationShell), findsOneWidget);
     expect(find.byType(RecommendedHomePage), findsOneWidget);
-    expect(find.byType(RankingPage, skipOffstage: false), findsNothing);
-    expect(find.byType(NewPage, skipOffstage: false), findsNothing);
-    expect(find.byType(SearchHomePage, skipOffstage: false), findsNothing);
-    expect(find.byType(SettingsPage, skipOffstage: false), findsNothing);
 
     await tester.tap(find.byIcon(AppIcons.ranking));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(router.state.uri.path, '/ranking');
-    expect(find.byType(RankingPage, skipOffstage: false), findsOneWidget);
-    expect(find.byType(NewPage, skipOffstage: false), findsNothing);
+    expect(find.byType(RankingPage), findsOneWidget);
 
     await tester.tap(find.byIcon(AppIcons.home));
     await tester.pump();
@@ -207,7 +201,7 @@ void main() {
     expect(router.state.uri.path, '/ranking/tag/%E7%8C%AB');
     expect(find.byType(TagSearchPage), findsOneWidget);
     expect(find.byType(RankingPage, skipOffstage: false), findsOneWidget);
-    expect(find.byType(SearchHomePage, skipOffstage: false), findsNothing);
+    expect(find.byType(SearchHomePage), findsNothing);
 
     await tester.binding.handlePopRoute();
     await tester.pump();

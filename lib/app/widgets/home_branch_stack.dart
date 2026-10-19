@@ -12,6 +12,7 @@ import '../../core/settings/settings_controller.dart';
 import '../layout/app_breakpoints.dart';
 import '../motion/motion_tokens.dart';
 import '../motion/scroll_hide.dart';
+import '../motion/still_work.dart';
 import '../pull_to_refresh.dart';
 import '../navigation/home_shell_metrics.dart';
 import 'func_bottom_nav.dart';
@@ -55,6 +56,12 @@ void reTapScrollToTop(BuildContext context, ScrollController controller) {
 /// outgoing and incoming branch side by side, toward where the chosen
 /// destination sits on the bar. The bar and rail show the user's
 /// destinations in their order.
+///
+/// The branch on screen mounts at once; the other destinations on the bar
+/// mount one at a time on a still screen ([StillWork]), so a first switch
+/// to one does not build its whole page inside the switch. A mounted
+/// branch stays mounted. The router preloads every branch only to hand
+/// over its Navigator: it builds a page once mounted here.
 class HomeBranchStack extends ConsumerStatefulWidget {
   const HomeBranchStack({
     super.key,
@@ -78,7 +85,7 @@ class HomeBranchStack extends ConsumerStatefulWidget {
 }
 
 class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
-    with TickerProviderStateMixin, WidgetsBindingObserver {
+    with TickerProviderStateMixin, WidgetsBindingObserver, StillWork {
   late final AnimationController _switch = AnimationController(
     vsync: this,
     value: 1,
@@ -103,6 +110,12 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
   final ValueNotifier<double> _navBarVisibleExtent = ValueNotifier(0);
   int _current = 0;
   int? _outgoing;
+
+  /// Branches mounted so far.
+  final _mounted = <int>{};
+
+  /// The branches on the bar, in its order, as of the last build.
+  List<int> _barBranches = const [];
   final _scrollHide = ScrollHideTracker();
 
   /// `accessibleNavigation` below TouchExplorationScope: TalkBack is
@@ -116,6 +129,8 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
   void initState() {
     super.initState();
     _current = widget.shell.currentIndex;
+    _mounted.add(_current);
+    scheduleStillWork();
     _navVisibility = AnimationController(vsync: this, value: 1);
     _container = ProviderScope.containerOf(context, listen: false);
     WidgetsBinding.instance.addObserver(this);
@@ -167,6 +182,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     super.didUpdateWidget(oldWidget);
     final index = widget.shell.currentIndex;
     if (index == _current) return;
+    _mounted.add(index);
     _outgoing = _current;
     _current = index;
     final generation = ++_switchGeneration;
@@ -204,6 +220,18 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     _navVisibility.dispose();
     _navBarVisibleExtent.dispose();
     super.dispose();
+  }
+
+  @override
+  bool runStillWork() {
+    for (final branch in _barBranches) {
+      if (_mounted.contains(branch) || branch >= widget.children.length) {
+        continue;
+      }
+      setState(() => _mounted.add(branch));
+      return true;
+    }
+    return false;
   }
 
   void _select(int index) {
@@ -288,6 +316,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
   Widget build(BuildContext context) {
     final arrangement = ref.watch(homeArrangementProvider);
     final order = [...arrangement.shown, ...arrangement.hidden];
+    _barBranches = [for (final d in arrangement.shown) d.branchIndex];
     final enclosingRouteIsCurrent = ModalRoute.of(context)?.isCurrent ?? true;
     final width = MediaQuery.sizeOf(context).width;
     final rail = AppBreakpoints.useNavigationRail(width);
@@ -298,7 +327,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     final bottomBarExtent = rail
         ? 0.0
         : FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom);
-    final strip = Stack(
+    final branches = Stack(
       fit: StackFit.expand,
       clipBehavior: Clip.hardEdge,
       children: [
@@ -313,22 +342,29 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
               enabled: i == _current,
               child: IgnorePointer(
                 ignoring: i != _current,
-                child: ExcludeSemantics(
+                // A branch mounting off screen pushes its first route, which
+                // would take the focus from the text field on screen.
+                child: ExcludeFocus(
                   excluding: i != _current,
-                  child: BranchActivityScope(
-                    active: enclosingRouteIsCurrent && i == _current,
-                    child: SlideTransition(
-                      position: _slideOf(i, rail: rail, order: order),
-                      // Always in the tree, so starting a switch never
-                      // remounts a branch; only the outgoing branch paints
-                      // from a texture.
-                      child: SnapshotWidget(
-                        // A branch showing a platform view paints live.
-                        mode: SnapshotMode.permissive,
-                        controller: i == _outgoing
-                            ? _switchSnapshot
-                            : _idleSnapshot,
-                        child: widget.children[i],
+                  child: ExcludeSemantics(
+                    excluding: i != _current,
+                    child: BranchActivityScope(
+                      active: enclosingRouteIsCurrent && i == _current,
+                      child: SlideTransition(
+                        position: _slideOf(i, rail: rail, order: order),
+                        // Always in the tree, so starting a switch never
+                        // remounts a branch; only the outgoing branch paints
+                        // from a texture.
+                        child: SnapshotWidget(
+                          // A branch showing a platform view paints live.
+                          mode: SnapshotMode.permissive,
+                          controller: i == _outgoing
+                              ? _switchSnapshot
+                              : _idleSnapshot,
+                          child: _mounted.contains(i)
+                              ? widget.children[i]
+                              : const SizedBox.shrink(),
+                        ),
                       ),
                     ),
                   ),
@@ -348,6 +384,10 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
             ),
           ),
       ],
+    );
+    final strip = NotificationListener<ScrollNotification>(
+      onNotification: trackStillScroll,
+      child: branches,
     );
     return HomeShellChrome(
       bottomBarExtent: bottomBarExtent,
