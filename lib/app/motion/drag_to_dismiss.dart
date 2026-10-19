@@ -130,6 +130,8 @@ class _DragToDismissState extends State<DragToDismiss>
               GestureRecognizerFactoryWithHandlers<_DismissDragRecognizer>(
                 () => _DismissDragRecognizer(debugOwner: this),
                 (recognizer) => recognizer
+                  // The device slop, as the pager it competes with uses.
+                  ..gestureSettings = MediaQuery.maybeGestureSettingsOf(context)
                   ..allowPointer = widget.allowPointer
                   ..onStart = _onVerticalDragStart
                   ..onUpdate = _onVerticalDragUpdate

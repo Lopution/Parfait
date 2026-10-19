@@ -19,6 +19,7 @@ import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 
 import 'helpers/recording_haptics.dart';
+import 'helpers/touch.dart';
 
 Widget _wrap(
   Widget child, {
@@ -353,6 +354,7 @@ void main() {
     testWidgets('inside a scrollable a swipe never shows the press', (
       tester,
     ) async {
+      setDeviceTouchSlop(tester);
       await tester.pumpWidget(scrollingCard());
       final gesture = await tester.startGesture(
         tester.getCenter(find.byType(PressScale)),
@@ -360,15 +362,16 @@ void main() {
       await tester.pump(kPressTimeout ~/ 2);
       expect(_pressScale(tester), 1.0);
 
-      // The drag claims the pointer before the deadline: the pending press
-      // is dropped, not shown late.
-      await gesture.moveBy(const Offset(0, -80));
+      // The drag claims the pointer before the deadline, past the device's
+      // slop: the pending press is dropped, not shown late.
+      await gesture.moveBy(const Offset(0, -12));
       await tester.pump(kPressTimeout);
       expect(_pressScale(tester), 1.0);
       await gesture.up();
     });
 
     testWidgets('a scroll takeover releases the pressed scale', (tester) async {
+      setDeviceTouchSlop(tester);
       await tester.pumpWidget(scrollingCard());
       final gesture = await tester.startGesture(
         tester.getCenter(find.byType(PressScale)),
@@ -379,8 +382,9 @@ void main() {
       expect(_pressScale(tester), closeTo(MotionTokens.pressScale, 1e-3));
 
       // The drag becomes a scroll: the ListView's recognizer claims the
-      // pointer and the press springs back while the finger is still down.
-      await gesture.moveBy(const Offset(0, -80));
+      // pointer past the device's slop and the press springs back while
+      // the finger is still down.
+      await gesture.moveBy(const Offset(0, -12));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(_pressScale(tester), closeTo(1, 1e-3));

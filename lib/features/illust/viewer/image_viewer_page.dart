@@ -16,6 +16,7 @@ import '../../../app/navigation/route_animation.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/motion/hero_transition.dart';
 import '../../../app/pixiv_image.dart';
+import '../../../app/scroll_behavior.dart';
 import '../../../app/widgets/app_slider.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/download/download_providers.dart';
@@ -598,13 +599,24 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                                     ),
                                   ),
                                 )
-                              : PageView.builder(
-                                  controller: _pageController,
-                                  physics: _activeZoomed
-                                      ? const NeverScrollableScrollPhysics()
-                                      : const PageScrollPhysics(),
-                                  itemCount: _pageCount,
-                                  itemBuilder: _buildPage,
+                              // The paging slop: a drag leaning towards
+                              // vertical dismisses instead of paging.
+                              : PagingSlop(
+                                  child: PageView.builder(
+                                    controller: _pageController,
+                                    physics: _activeZoomed
+                                        ? const NeverScrollableScrollPhysics()
+                                        : const PageScrollPhysics(),
+                                    itemCount: _pageCount,
+                                    itemBuilder: (context, page) =>
+                                        PagingSlopPage(
+                                          // Unzoomed, the image's pan must
+                                          // not tie with the pager; zoomed,
+                                          // the pager is off.
+                                          restore: _isZoomed(page),
+                                          child: _buildPage(context, page),
+                                        ),
+                                  ),
                                 ),
                         ),
                       ),

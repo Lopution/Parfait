@@ -34,7 +34,9 @@ class FuncScrollBehavior extends MaterialScrollBehavior {
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) =>
       textScrollPhysics(context) ??
-      const FuncScrollPhysics(parent: AlwaysScrollableScrollPhysics());
+      const NoDragDeadZonePhysics(
+        parent: FuncScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      );
 
   @override
   Widget buildOverscrollIndicator(
@@ -158,6 +160,23 @@ class FuncScrollPhysics extends BouncingScrollPhysics {
   }
 }
 
+/// [parent] without the drag dead zone of [BouncingScrollPhysics]: iOS
+/// holds a drag for 3.5 more pixels past the touch slop, at its start and
+/// again after every pause, which reads as sticky on a slow drag. Android
+/// follows the finger once the slop is crossed. Bouncing physics declares
+/// the threshold non-nullable, so it is dropped by this wrapper on top;
+/// everything else is the parent's.
+class NoDragDeadZonePhysics extends ScrollPhysics {
+  const NoDragDeadZonePhysics({required ScrollPhysics super.parent});
+
+  @override
+  NoDragDeadZonePhysics applyTo(ScrollPhysics? ancestor) =>
+      NoDragDeadZonePhysics(parent: buildParent(ancestor)!);
+
+  @override
+  double? get dragStartDistanceMotionThreshold => null;
+}
+
 /// Runs [_inner] until it would leave [min]..[max], then rests at the edge.
 class _EdgeStopSimulation extends Simulation {
   _EdgeStopSimulation(this._inner, {required this.min, required this.max})
@@ -180,4 +199,84 @@ class _EdgeStopSimulation extends Simulation {
 
   @override
   bool isDone(double time) => _past(time) || _inner.isDone(time);
+}
+
+/// How much further than the device's touch slop a sideways pager's own
+/// drag has to travel before it starts: Android's ViewPager uses the paging
+/// slop, twice the touch slop. Against a vertical list starting at the
+/// touch slop, a straight swipe steeper than about 27° (tan 0.5) scrolls
+/// the list instead of paging. A single move that crosses both slops goes
+/// to whichever recognizer handles it first, so this approximates the
+/// ViewPager split rather than reproducing it.
+const pagingSlopFactor = 2.0;
+
+/// The gesture settings of a sideways pager's own drag: [device]'s touch
+/// slop times [pagingSlopFactor]. A recognizer given these also takes its
+/// default fling distance from them; keep the device slop there, or a
+/// short quick flick stops counting.
+DeviceGestureSettings pagingGestureSettings(DeviceGestureSettings? device) =>
+    DeviceGestureSettings(
+      touchSlop: (device?.touchSlop ?? kTouchSlop) * pagingSlopFactor,
+    );
+
+/// Gives [child], a [PageView], the paging slop ([pagingSlopFactor]) for
+/// its own drag. Its Scrollable reads the slop from [MediaQuery]; each page
+/// wraps itself in [PagingSlopPage] to get the device's slop back, so taps,
+/// zooms and drags on the page keep theirs. The pager's fling distance
+/// comes from its physics and stays unchanged.
+class PagingSlop extends StatelessWidget {
+  const PagingSlop({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = MediaQuery.of(context);
+    final device = data.gestureSettings;
+    return _DeviceGestureSettings(
+      settings: device,
+      child: MediaQuery(
+        data: data.copyWith(gestureSettings: pagingGestureSettings(device)),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// A page of a [PagingSlop] pager, back on the device's gesture settings
+/// while [restore] holds.
+///
+/// A pan or scale recognizer on the page accepts at twice the touch slop,
+/// which ties with the pager's paging slop, and the inner recognizer wins a
+/// tie. Such a page (the viewer's zoomable image) passes false while the
+/// pager can page, keeping its own slop above the pager's.
+class PagingSlopPage extends StatelessWidget {
+  const PagingSlopPage({super.key, this.restore = true, required this.child});
+
+  final bool restore;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final device = context
+        .dependOnInheritedWidgetOfExactType<_DeviceGestureSettings>()
+        ?.settings;
+    if (device == null) return child;
+    final data = MediaQuery.of(context);
+    // Always a MediaQuery, so flipping [restore] keeps the page's state.
+    return MediaQuery(
+      data: restore ? data.copyWith(gestureSettings: device) : data,
+      child: child,
+    );
+  }
+}
+
+class _DeviceGestureSettings extends InheritedWidget {
+  const _DeviceGestureSettings({required this.settings, required super.child});
+
+  final DeviceGestureSettings settings;
+
+  @override
+  bool updateShouldNotify(_DeviceGestureSettings oldWidget) =>
+      settings != oldWidget.settings;
 }

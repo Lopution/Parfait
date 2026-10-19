@@ -1,6 +1,8 @@
+import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../motion/motion_tokens.dart';
+import '../scroll_behavior.dart';
 
 /// Sideways drag for a page's own tabs. The gesture stops at the first and
 /// last tab; it never changes the home branch.
@@ -154,14 +156,33 @@ class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
     _tc.offset = 0;
   }
 
+  /// A [GestureDetector] horizontal drag with the paging slop: a swipe
+  /// that leans towards vertical scrolls the tab's list instead. The fling
+  /// distance stays the device slop.
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final multitouch = ScrollConfiguration.of(
+      context,
+    ).getMultitouchDragStrategy(context);
+    final device = MediaQuery.maybeGestureSettingsOf(context);
+    return RawGestureDetector(
       behavior: HitTestBehavior.translucent,
-      onHorizontalDragStart: _onDragStart,
-      onHorizontalDragUpdate: _onDragUpdate,
-      onHorizontalDragEnd: _onDragEnd,
-      onHorizontalDragCancel: _onDragCancel,
+      gestures: {
+        HorizontalDragGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<
+              HorizontalDragGestureRecognizer
+            >(
+              () => HorizontalDragGestureRecognizer(debugOwner: this),
+              (recognizer) => recognizer
+                ..onStart = _onDragStart
+                ..onUpdate = _onDragUpdate
+                ..onEnd = _onDragEnd
+                ..onCancel = _onDragCancel
+                ..multitouchDragStrategy = multitouch
+                ..gestureSettings = pagingGestureSettings(device)
+                ..minFlingDistance = device?.touchSlop ?? kTouchSlop,
+            ),
+      },
       child: widget.child,
     );
   }

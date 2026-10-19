@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/navigation/home_shell_metrics.dart';
 import '../../../app/layout/app_breakpoints.dart';
 import '../../../app/pixiv_image.dart';
+import '../../../app/scroll_behavior.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
 import '../../../core/entity/illust_store.dart';
 import 'detail_page_activity.dart';
@@ -280,38 +281,44 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
       onSettled: _onRouteSettled,
       child: NotificationListener<ScrollNotification>(
         onNotification: _onScroll,
-        child: PageView.builder(
-          controller: _controller,
-          // Keep adjacent pages built ahead of the swipe — their entities
-          // are already in IllustStore from the feed fetch, so the
-          // incoming page lands rendered instead of spinning up on first
-          // contact. [_ready] decides which of them build a real detail.
-          allowImplicitScrolling: true,
-          itemCount: ids.length,
-          onPageChanged: _onPageChanged,
-          // A feed page landing mid-paging can shift the list: built pages
-          // move with their work instead of rebuilding as another one.
-          findChildIndexCallback: (key) {
-            if (key is! ValueKey<int>) return null;
-            final index = widget.source.ids.indexOf(key.value);
-            return index < 0 ? null : index;
-          },
-          itemBuilder: (context, index) {
-            final landing = ids[index] == _initialId;
-            return _PagerSlot(
-              key: ValueKey(ids[index]),
-              index: index,
-              ready: _ready,
-              current: _index,
-              activeId: _activeId,
-              illustId: ids[index],
-              heroScope: widget.heroScope,
-              heroImageUrl: landing ? widget.heroImageUrl : null,
-              heroImageDecodeWidth: landing
-                  ? widget.heroImageDecodeWidth
-                  : null,
-            );
-          },
+        // The paging slop: a swipe leaning towards vertical scrolls the
+        // detail instead of turning the page.
+        child: PagingSlop(
+          child: PageView.builder(
+            controller: _controller,
+            // Keep adjacent pages built ahead of the swipe — their entities
+            // are already in IllustStore from the feed fetch, so the
+            // incoming page lands rendered instead of spinning up on first
+            // contact. [_ready] decides which of them build a real detail.
+            allowImplicitScrolling: true,
+            itemCount: ids.length,
+            onPageChanged: _onPageChanged,
+            // A feed page landing mid-paging can shift the list: built pages
+            // move with their work instead of rebuilding as another one.
+            findChildIndexCallback: (key) {
+              if (key is! ValueKey<int>) return null;
+              final index = widget.source.ids.indexOf(key.value);
+              return index < 0 ? null : index;
+            },
+            itemBuilder: (context, index) {
+              final landing = ids[index] == _initialId;
+              return PagingSlopPage(
+                key: ValueKey(ids[index]),
+                child: _PagerSlot(
+                  index: index,
+                  ready: _ready,
+                  current: _index,
+                  activeId: _activeId,
+                  illustId: ids[index],
+                  heroScope: widget.heroScope,
+                  heroImageUrl: landing ? widget.heroImageUrl : null,
+                  heroImageDecodeWidth: landing
+                      ? widget.heroImageDecodeWidth
+                      : null,
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -326,7 +333,6 @@ typedef _ReadyWindow = ({int center, Set<int> neighbours});
 /// its detail keeps it for as long as the pager keeps the page.
 class _PagerSlot extends StatefulWidget {
   const _PagerSlot({
-    super.key,
     required this.index,
     required this.ready,
     required this.current,

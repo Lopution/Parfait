@@ -9,6 +9,7 @@ import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_repository.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -18,6 +19,7 @@ import 'helpers/connectivity_channels.dart';
 import 'helpers/detail_world.dart';
 import 'helpers/history_world.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/touch.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
 
@@ -99,6 +101,44 @@ void main() {
     expect(_page(tester), 0);
   });
 
+  // Android's ViewPager turns a page only on a drag at least twice as
+  // horizontal as vertical; a swipe leaning further scrolls the detail.
+  for (final (degrees, pages) in [(20.0, true), (35.0, false)]) {
+    testWidgets('a swipe ${degrees.round()}° off horizontal '
+        '${pages ? 'turns the page' : 'scrolls the detail'}', (tester) async {
+      final (container, _, _) = await makeWorld();
+      container.read(illustStoreProvider).mergeAll([
+        for (final id in [42, 43]) parseIllust(illustJson(id)),
+      ]);
+      // On a desktop host the detail waits for the mouse wheel and lets
+      // the first touch through to the pager.
+      PlatformCaps.debugSystemOverride = const PlatformCaps(isAndroid: true);
+      addTearDown(() => PlatformCaps.debugSystemOverride = null);
+      final source = IllustPagerSource()..update(const [42, 43]);
+      await _pumpPager(tester, container, source: source, initialId: 42);
+      setDeviceTouchSlop(tester);
+      await tester.pump();
+
+      final gesture = await dragLeftUp(
+        tester,
+        _swipeOrigin(tester),
+        degrees: degrees,
+      );
+      expect(_page(tester) > 0, pages, reason: 'the page turned');
+      final detailScrolled = tester
+          .stateList<ScrollableState>(
+            find.descendant(of: _detail(42), matching: find.byType(Scrollable)),
+          )
+          .any(
+            (s) =>
+                s.axisDirection == AxisDirection.down && s.position.pixels > 0,
+          );
+      expect(detailScrolled, !pages, reason: 'the detail scrolled');
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+  }
+
   testWidgets('a panorama scrolls first and hands the swipe on at its edge', (
     tester,
   ) async {
@@ -109,6 +149,10 @@ void main() {
     ]);
     final source = IllustPagerSource()..update(const [90, 91]);
     await _pumpPager(tester, container, source: source, initialId: 90);
+    // On a device the pager's slop is the panorama's doubled: the panorama
+    // must still win the swipe.
+    setDeviceTouchSlop(tester);
+    await tester.pump();
 
     ScrollPosition panorama() => tester
         .state<ScrollableState>(
@@ -121,7 +165,12 @@ void main() {
     final start = panorama().pixels;
     expect(start, closeTo(panorama().maxScrollExtent / 2, 0.5));
 
-    await tester.dragFrom(_swipeOrigin(tester), const Offset(-150, 0));
+    // In small steps: one jump crosses every slop at once.
+    await tester.timedDragFrom(
+      _swipeOrigin(tester),
+      const Offset(-150, 0),
+      const Duration(milliseconds: 500),
+    );
     await tester.pumpAndSettle();
     expect(panorama().pixels, greaterThan(start + 100));
     expect(_page(tester), 0);

@@ -394,6 +394,11 @@ class _PanoramaFrameState extends State<_PanoramaFrame> {
                   () => _EdgeAwareDragRecognizer(canScroll: _canScroll),
                   (recognizer) {
                     recognizer
+                      // The device slop: the pager around it waits for
+                      // twice that, so the panorama moves first.
+                      ..gestureSettings = MediaQuery.maybeGestureSettingsOf(
+                        context,
+                      )
                       ..onStart = (details) {
                         _drag = controller.position.drag(
                           details,
