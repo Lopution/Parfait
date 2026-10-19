@@ -9,6 +9,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/touch.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
 
@@ -66,6 +67,39 @@ void main() {
     expect(_tabIndex(tester, find.byType(RecommendedHomePage)), 0);
     expect(_path(router), '/recommended');
   });
+
+  // The tabs take only a drag at least twice as horizontal as vertical, as
+  // Android's ViewPager does; a swipe leaning further scrolls the feed.
+  for (final (degrees, switches) in [(20.0, true), (35.0, false)]) {
+    testWidgets('a swipe ${degrees.round()}° off horizontal '
+        '${switches ? 'moves the tabs' : 'leaves the tabs'}', (tester) async {
+      final controller = TabController(length: 2, vsync: const TestVSync());
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TabSwipeSwitcher(
+            tabController: controller,
+            child: ListView(
+              children: [
+                for (var i = 0; i < 30; i++) const SizedBox(height: 80),
+              ],
+            ),
+          ),
+        ),
+      );
+      setDeviceTouchSlop(tester);
+      await tester.pump();
+
+      final gesture = await dragLeftUp(
+        tester,
+        tester.getCenter(find.byType(ListView)),
+        degrees: degrees,
+      );
+      expect(controller.offset > 0, switches);
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+  }
 
   testWidgets('a slow but deliberate sideways drag still switches', (
     tester,

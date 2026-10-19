@@ -20,8 +20,8 @@ import 'motion_tokens.dart';
 /// already ran — a scroll takeover before that deadline would report
 /// nothing at all. The arena never notifies losers either way, so the
 /// takeover is detected here instead: once the drag delta along an ancestor
-/// Scrollable's axis passes [kTouchSlop], that scrollable has claimed the
-/// gesture and the press releases.
+/// Scrollable's axis passes the slop that scrollable's recognizer uses, it
+/// has claimed the gesture and the press releases.
 ///
 /// Inside a Scrollable the press itself still waits [kPressTimeout]: most
 /// touches there are swipes that cross the slop within it, and pressing at
@@ -58,16 +58,14 @@ class _PressScaleState extends State<PressScale>
   var _active = false;
   Offset? _downPosition;
   Timer? _pressDelay;
-  bool _insideVerticalScrollable = false;
-  bool _insideHorizontalScrollable = false;
+  ScrollableState? _verticalScrollable;
+  ScrollableState? _horizontalScrollable;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _insideVerticalScrollable =
-        Scrollable.maybeOf(context, axis: Axis.vertical) != null;
-    _insideHorizontalScrollable =
-        Scrollable.maybeOf(context, axis: Axis.horizontal) != null;
+    _verticalScrollable = Scrollable.maybeOf(context, axis: Axis.vertical);
+    _horizontalScrollable = Scrollable.maybeOf(context, axis: Axis.horizontal);
     _syncActive();
     _drive();
   }
@@ -138,7 +136,7 @@ class _PressScaleState extends State<PressScale>
 
   void _onPointerDown(PointerDownEvent event) {
     _downPosition = event.position;
-    if (!_insideVerticalScrollable && !_insideHorizontalScrollable) {
+    if (_verticalScrollable == null && _horizontalScrollable == null) {
       _setPressed(true);
       return;
     }
@@ -154,10 +152,27 @@ class _PressScaleState extends State<PressScale>
     // drag recognizer wins the arena — the claim itself is what matters,
     // so release exactly at the axis the scrollable owns once the delta
     // crosses the same slop the recognizer uses.
-    if ((delta.dy.abs() > kTouchSlop && _insideVerticalScrollable) ||
-        (delta.dx.abs() > kTouchSlop && _insideHorizontalScrollable)) {
+    if (_claims(_verticalScrollable, delta.dy, event.kind) ||
+        _claims(_horizontalScrollable, delta.dx, event.kind)) {
       _release();
     }
+  }
+
+  /// Whether [scrollable]'s drag recognizer has claimed a pointer of [kind]
+  /// that moved [delta] along its axis. The recognizer reads the gesture
+  /// settings where the scrollable sits, which a pager doubles
+  /// (`PagingSlop`), so the same settings are read from there.
+  static bool _claims(
+    ScrollableState? scrollable,
+    double delta,
+    PointerDeviceKind kind,
+  ) {
+    if (scrollable == null) return false;
+    final settings = scrollable.context
+        .getInheritedWidgetOfExactType<MediaQuery>()
+        ?.data
+        .gestureSettings;
+    return delta.abs() > computeHitSlop(kind, settings);
   }
 
   void _onPointerEnd(PointerEvent event) => _release();

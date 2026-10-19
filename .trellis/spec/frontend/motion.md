@@ -8,7 +8,7 @@ applies_to:
   - lib/app/navigation/route_animation.dart
   - lib/app/layout/sliver_width_builder.dart
   - lib/app/startup_gate.dart
-reviewed: 2026-10-17
+reviewed: 2026-10-19
 ---
 
 # Motion, press feedback and the rebuild budget
@@ -115,6 +115,25 @@ reviewed: 2026-10-17
   an invisible margin looked like a misfire.
 - **Check:** `test/motion_test.dart` "inside a scrollable a swipe never shows the press" "the press-feedback setting turns the scale off"
 - **Code:** `lib/app/motion/press_scale.dart`
+
+### MOTION-18 Drags take the device's slop; sideways pagers double it
+- **Rule:** A hand-built drag recognizer takes
+  `MediaQuery.maybeGestureSettingsOf(context)`, and a slop check uses
+  `computeHitSlop` with the settings its competing scrollable reads; never
+  `kTouchSlop`. A sideways pager (detail pages, viewer pages, tab swipe)
+  accepts only past `pagingSlopFactor` times the device slop, as Android's
+  ViewPager does: `PagingSlop` wraps the `PageView`, `PagingSlopPage`
+  gives each page the device slop back. A page whose pan accepts at twice
+  the slop (`InteractiveViewer`) keeps the paging slop while the pager can
+  page. A recognizer given the paging slop keeps the device slop as its
+  `minFlingDistance`.
+- **Why:** Android's slop is 8dp, `kTouchSlop` 18: pull-to-dismiss and a
+  panorama lost to the pager, a card stayed pressed while its list
+  scrolled. With equal slops a swipe up to 45° off horizontal turned the
+  page instead of scrolling the detail. Restored, the viewer image's pan
+  tied with the pager and the inner one won.
+- **Check:** `test/motion_test.dart` "a scroll takeover releases the pressed scale", `test/illust_detail_pager_test.dart` "scrolls the detail" "a panorama scrolls first and hands the swipe on at its edge", `test/tab_swipe_switcher_test.dart` "leaves the tabs", `test/hero_transition_test.dart` "only the entry page flies back"
+- **Code:** `lib/app/scroll_behavior.dart`, `lib/app/motion/drag_to_dismiss.dart`, `lib/app/motion/press_scale.dart`, `lib/app/widgets/tab_swipe_switcher.dart`
 
 ### MOTION-07 Feed cards land in place
 - **Rule:** Grid content has no entrance animation and no `StateFade`
