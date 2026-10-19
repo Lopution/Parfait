@@ -42,6 +42,7 @@ import '../../../l10n/context.dart';
 import '../../../l10n/lookup.dart';
 import '../../../app/widgets/smooth_wheel_scroll.dart';
 import '../../../app/layout/card_columns.dart';
+import '../../../app/widgets/feed/load_more_listener.dart';
 
 String _recommendedText(BuildContext context, String key) {
   return l10nLookup(context.l10n, key);
@@ -424,15 +425,9 @@ class _RecommendedFeedBody extends ConsumerWidget {
     return PullToRefresh(
       scrollController: scrollController,
       onRefresh: onRefresh,
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (notification is ScrollUpdateNotification &&
-              notification.metrics.extentAfter <
-                  notification.metrics.viewportDimension * 1.2) {
-            onLoadMore();
-          }
-          return false;
-        },
+      child: LoadMoreListener(
+        itemCount: feed.ids.length,
+        onLoadMore: onLoadMore,
         child: SmoothWheelScroll(
           // Explicit per-type controller so re-tap can reach the active
           // feed; without it desktop wheel scrolling would own a private

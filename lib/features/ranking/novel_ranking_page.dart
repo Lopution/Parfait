@@ -18,6 +18,7 @@ import '../../core/ranking/ranking_catalog.dart';
 import '../../l10n/context.dart';
 import 'ranking_tabs.dart';
 import '../../app/layout/card_columns.dart';
+import '../../app/widgets/feed/load_more_listener.dart';
 
 /// The novel ranking, pushed from the illust ranking: [RankingTabs] over
 /// the novel categories, each a list of ranked novels.
@@ -113,15 +114,10 @@ class _NovelRankingModeBody extends ConsumerWidget {
         return PullToRefresh(
           onRefresh: () =>
               ref.read(novelRankingFeedProvider(feedKey).notifier).refresh(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollUpdateNotification &&
-                  notification.metrics.extentAfter <
-                      notification.metrics.viewportDimension * 1.2) {
-                ref.read(novelRankingFeedProvider(feedKey).notifier).loadMore();
-              }
-              return false;
-            },
+          child: LoadMoreListener(
+            itemCount: feed.ids.length,
+            onLoadMore: () =>
+                ref.read(novelRankingFeedProvider(feedKey).notifier).loadMore(),
             child: SmoothWheelScroll(
               controller: scrollController,
               basePhysics: const AlwaysScrollableScrollPhysics(),

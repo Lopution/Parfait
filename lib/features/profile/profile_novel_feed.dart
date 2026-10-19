@@ -10,6 +10,7 @@ import '../../core/novel/novel_feed_controller.dart';
 import '../../core/novel/novel_store.dart';
 import '../../l10n/context.dart';
 import '../../app/layout/card_columns.dart';
+import '../../app/widgets/feed/load_more_listener.dart';
 
 class ProfileNovelFeed extends ConsumerWidget {
   const ProfileNovelFeed({super.key, required this.userId});
@@ -50,16 +51,10 @@ class ProfileNovelFeed extends ConsumerWidget {
           isNested: true,
           onRefresh: () =>
               ref.read(userNovelFeedProvider(userId).notifier).refresh(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification.metrics.axis == Axis.vertical &&
-                  notification is ScrollUpdateNotification &&
-                  notification.metrics.extentAfter <
-                      notification.metrics.viewportDimension * 1.2) {
-                ref.read(userNovelFeedProvider(userId).notifier).loadMore();
-              }
-              return false;
-            },
+          child: LoadMoreListener(
+            itemCount: feed.ids.length,
+            onLoadMore: () =>
+                ref.read(userNovelFeedProvider(userId).notifier).loadMore(),
             child: CustomScrollView(
               key: PageStorageKey('profile-novel-$userId'),
               restorationId: 'profile-novel-$userId',

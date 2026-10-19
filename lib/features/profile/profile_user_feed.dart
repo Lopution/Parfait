@@ -15,6 +15,7 @@ import '../../l10n/context.dart';
 import '../../app/widgets/follow_switch_button.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/layout/card_columns.dart';
+import '../../app/widgets/feed/load_more_listener.dart';
 
 class ProfileUserFeed extends ConsumerWidget {
   const ProfileUserFeed({super.key, required this.feedKey});
@@ -56,16 +57,10 @@ class ProfileUserFeed extends ConsumerWidget {
           isNested: true,
           onRefresh: () =>
               ref.read(profileUserFeedProvider(feedKey).notifier).refresh(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification.metrics.axis == Axis.vertical &&
-                  notification is ScrollUpdateNotification &&
-                  notification.metrics.extentAfter <
-                      notification.metrics.viewportDimension * 1.2) {
-                ref.read(profileUserFeedProvider(feedKey).notifier).loadMore();
-              }
-              return false;
-            },
+          child: LoadMoreListener(
+            itemCount: feed.ids.length,
+            onLoadMore: () =>
+                ref.read(profileUserFeedProvider(feedKey).notifier).loadMore(),
             child: CustomScrollView(
               key: PageStorageKey(feedKey),
               restorationId: 'profile-${feedKey.toString()}',

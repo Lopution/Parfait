@@ -359,15 +359,16 @@ void main() {
   });
 
   test('userBookmarkTagsProvider pages via next_url', () async {
+    final page = <String, dynamic>{
+      'bookmark_tags': [
+        {'name': 'a', 'count': 1},
+      ],
+      'next_url':
+          'https://app-api.pixiv.net/v1/user/bookmark-tags/illust'
+          '?user_id=100&restrict=public&offset=30',
+    };
     final (container, requests) = await _makeWorld({
-      'GET /v1/user/bookmark-tags/illust': <String, dynamic>{
-        'bookmark_tags': [
-          {'name': 'a', 'count': 1},
-        ],
-        'next_url':
-            'https://app-api.pixiv.net/v1/user/bookmark-tags/illust'
-            '?user_id=100&restrict=public&offset=30',
-      },
+      'GET /v1/user/bookmark-tags/illust': page,
     });
     const query = (BookmarkEntityType.illust, BookmarkRestrict.public);
 
@@ -382,6 +383,16 @@ void main() {
     expect(state.tags, hasLength(2));
     expect(requests, hasLength(2));
     expect(requests.last.uri.queryParameters['offset'], '30');
+
+    // That page was the last: no further page is asked for.
+    page['next_url'] = null;
+    await container.read(userBookmarkTagsProvider(query).notifier).loadMore();
+    await container.read(userBookmarkTagsProvider(query).notifier).loadMore();
+    expect(
+      container.read(userBookmarkTagsProvider(query)).value!.hasMore,
+      isFalse,
+    );
+    expect(requests, hasLength(3));
   });
 
   testWidgets('BookmarkTagsPage lists each visibility in its own tab', (
@@ -446,8 +457,8 @@ void main() {
     const query = (BookmarkEntityType.illust, BookmarkRestrict.public);
 
     await container.read(userBookmarkTagsProvider(query).future);
-    await container.read(userBookmarkTagsProvider(query).notifier).loadMore();
 
+    // One tag leaves the list short: the page asks for the next at once.
     await tester.pumpWidget(
       localizedApp(container: container, home: BookmarkTagsPage()),
     );

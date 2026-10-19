@@ -150,7 +150,7 @@ void main() {
           closeTo(SpotlightArticleCard.imageAspectRatio, 0.01),
         );
         expect(find.text('label 101'), findsNothing);
-        expect(fixture.requests.single.queryParameters['category'], 'all');
+        expect(fixture.requests.first.queryParameters['category'], 'all');
 
         // Thumbnails are pximg URLs: they must carry the Pixiv referer
         // (PixivImage) and decode for the card's width.

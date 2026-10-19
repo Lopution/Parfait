@@ -24,6 +24,7 @@ import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/layout/content_widths.dart';
+import '../../app/widgets/feed/load_more_listener.dart';
 
 class CommentsPage extends ConsumerStatefulWidget {
   const CommentsPage({
@@ -389,15 +390,10 @@ class _CommentFeedView extends ConsumerWidget {
         return PullToRefresh(
           onRefresh: () =>
               ref.read(commentFeedProvider(query).notifier).refresh(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollUpdateNotification &&
-                  notification.metrics.extentAfter <
-                      notification.metrics.viewportDimension * 1.2) {
-                ref.read(commentFeedProvider(query).notifier).loadMore();
-              }
-              return false;
-            },
+          child: LoadMoreListener(
+            itemCount: comments.length,
+            onLoadMore: () =>
+                ref.read(commentFeedProvider(query).notifier).loadMore(),
             child: SmoothWheelScroll(
               basePhysics: const AlwaysScrollableScrollPhysics(),
               builder: (context, controller, physics) => ListView.builder(

@@ -463,6 +463,44 @@ void main() {
     });
   });
 
+  test(
+    'an original nobody wants stops, and asking again starts afresh',
+    () async {
+      const original = 'https://i.pximg.net/img-original/big_p0.png';
+      final bytes = patternBytes(3 * SegmentedFetch.defaultSegmentBytes);
+      final client = RangeServingClient({original: bytes}, hold: true);
+      final harness = _Harness();
+      addTearDown(harness.stop);
+      await harness.start(fetchClient: () => client);
+
+      harness.fetch(1, original);
+      await pollUntil(() => client.readHeld > 1);
+      harness.cancel(1);
+      await pollUntil(() => client.readHeld == 0);
+      // The partial file is gone with the transfer.
+      await pollUntil(() => harness.dir.listSync().isEmpty);
+
+      final opened = client.requests.length;
+      harness.fetch(2, original);
+      await pollUntil(() => client.requests.length > opened);
+      expect(
+        client.ranges[opened],
+        'bytes=0-${SegmentedFetch.defaultSegmentBytes - 1}',
+      );
+      final result = harness.eventFor(2);
+      var done = false;
+      unawaited(result.whenComplete(() => done = true));
+      while (!done) {
+        client.releaseHeld();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(
+        await File((await result as ResultEvent).path).readAsBytes(),
+        bytes,
+      );
+    },
+  );
+
   test('a lookup answers from disk and never fetches', () async {
     final harness = _Harness();
     addTearDown(harness.stop);

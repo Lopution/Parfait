@@ -18,6 +18,7 @@ import '../../core/spotlight/spotlight_store.dart';
 import '../../l10n/context.dart';
 import '../../l10n/lookup.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/feed/load_more_listener.dart';
 
 /// pixivision spotlight article list: category tabs (all/illust/manga) over
 /// independent paged feeds. Cards open the in-app article page through
@@ -177,15 +178,9 @@ class _SpotlightCategoryFeed extends ConsumerWidget {
         ];
         return PullToRefresh(
           onRefresh: () => ref.read(provider.notifier).refresh(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              final metrics = notification.metrics;
-              if (metrics.maxScrollExtent > 0 &&
-                  metrics.pixels >= metrics.maxScrollExtent - 500) {
-                ref.read(provider.notifier).loadMore();
-              }
-              return false;
-            },
+          child: LoadMoreListener(
+            itemCount: feed.ids.length,
+            onLoadMore: () => ref.read(provider.notifier).loadMore(),
             child: SmoothWheelScroll(
               controller: scrollController,
               basePhysics: const AlwaysScrollableScrollPhysics(),

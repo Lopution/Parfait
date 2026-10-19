@@ -108,6 +108,9 @@ class RangeServingClient extends http.BaseClient {
     ]);
   }
 
+  /// Held bodies a reader still listens to.
+  int get readHeld => _held.where((held) => held.$1.hasListener).length;
+
   /// Sends and ends every held body; a body nobody reads yet keeps its
   /// bytes until it is listened to.
   void releaseHeld() {

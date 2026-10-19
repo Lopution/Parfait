@@ -14,6 +14,7 @@ import '../../../core/illust/recommended_illust_controller.dart';
 import '../../../l10n/context.dart';
 import '../../../app/widgets/smooth_wheel_scroll.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
+import '../../../app/widgets/feed/load_more_listener.dart';
 
 /// Grid padding shared by the feed sliver and its first-load skeleton:
 /// horizontal margins plus the status-bar inset (this tab has no AppBar).
@@ -90,17 +91,11 @@ class RecommendedIllustPage extends ConsumerWidget {
             onRefresh: () => ref
                 .read(recommendedIllustControllerProvider.notifier)
                 .refresh(),
-            child: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (notification is ScrollUpdateNotification &&
-                    notification.metrics.extentAfter <
-                        notification.metrics.viewportDimension * 1.2) {
-                  ref
-                      .read(recommendedIllustControllerProvider.notifier)
-                      .loadMore();
-                }
-                return false;
-              },
+            child: LoadMoreListener(
+              itemCount: feed.ids.length,
+              onLoadMore: () => ref
+                  .read(recommendedIllustControllerProvider.notifier)
+                  .loadMore(),
               child: SmoothWheelScroll(
                 builder: (context, controller, physics) =>
                     DeferredCacheScrollView(

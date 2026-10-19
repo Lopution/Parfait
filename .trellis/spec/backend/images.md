@@ -6,7 +6,7 @@ applies_to:
   - lib/app/pixiv_image.dart
   - lib/app/image_tier_cache.dart
   - lib/app/widgets/image_load_progress.dart
-reviewed: 2026-10-13
+reviewed: 2026-10-19
 ---
 
 # Image pipeline and animated media
@@ -43,9 +43,13 @@ reviewed: 2026-10-13
 ### IMG-03 A decode is identified by URL and width
 - **Rule:** Decode identity is `(url, decode width)`. A stand-in (Hero
   hand-off, tier underlay) paints only a decode that actually completed;
-  never a guessed width.
-- **Why:** A guessed width is another cache entry and fetched again.
-- **Check:** `test/pixiv_image_pipelines_test.dart` "a card frame stands in while the original loads"
+  never a guessed width. A request whose own width has not decoded paints
+  the URL's uncapped decode or its last decode when that is at least as
+  wide.
+- **Why:** A guessed width is another cache entry and fetched again; a
+  detail page returning from the viewer's wider preview dropped to its
+  placeholder.
+- **Check:** `test/pixiv_image_pipelines_test.dart` "a card frame stands in while the original loads" "a wider decode paints a narrower request at once"
 - **Code:** `lib/app/pixiv_image.dart`, `lib/app/image_tier_cache.dart`
 
 ### IMG-04 A dead worker is replaced a bounded number of times
@@ -83,12 +87,18 @@ reviewed: 2026-10-13
 - **Rule:** Every mounted `PixivImage` holds its URL in
   `ImageWorker.demand` (new before releasing old). A URL stays wanted for
   500 ms after release. An in-flight request nobody wants is cancelled: a
-  queued fetch drops with `ImageFetchDropped`, a streaming one finishes.
-  A first `hold` or any `holdFor` promotes a queued background fetch.
+  queued fetch drops with `ImageFetchDropped`, a streaming one finishes,
+  except an original (`/img-original/`): its first range and every
+  further range stop, its partial file is deleted, and its URL leaves the
+  books at once, so asking again starts a fresh flight. A first `hold` or
+  any `holdFor` promotes a queued background fetch.
 - **Why:** Flinging a feed queued hundreds of images the user never saw;
-  Hero flights and re-layouts briefly release and re-hold.
-- **Check:** `test/image_fetch_scheduler_test.dart` "a foreground interest promotes a queued background fetch" "a transfer already streaming is never interrupted by a cancel", `test/image_demand_test.dart` "a released URL stays wanted for the grace period"
-- **Code:** `lib/core/image/image_demand.dart`, `lib/core/image/image_fetch_scheduler.dart`
+  Hero flights and re-layouts briefly release and re-hold. Originals the
+  user swiped past in the viewer kept downloading megabytes each and
+  slowed the one on screen; a thumbnail is done in a moment, and stopping
+  it would cost the next one a new connection.
+- **Check:** `test/image_fetch_scheduler_test.dart` "a foreground interest promotes a queued background fetch" "a transfer already streaming is never interrupted by a cancel" "an original nobody wants stops; one still shared runs on", `test/image_worker_host_test.dart` "an original nobody wants stops, and asking again starts afresh", `test/image_demand_test.dart` "a released URL stays wanted for the grace period"
+- **Code:** `lib/core/image/image_demand.dart`, `lib/core/image/image_fetch_scheduler.dart`, `lib/core/image/image_worker_host.dart`
 
 ### IMG-07 Two lanes: foreground 8, background 2
 - **Rule:** Background priority is only for `PixivImage.preload` without a

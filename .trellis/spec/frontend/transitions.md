@@ -9,7 +9,7 @@ applies_to:
   - lib/app/widgets/feed/illust_card*.dart
   - lib/features/illust/**
   - android/app/src/main/AndroidManifest.xml
-reviewed: 2026-10-17
+reviewed: 2026-10-19
 ---
 
 # Page transitions, back gesture and Hero flights
@@ -241,3 +241,14 @@ reviewed: 2026-10-17
   rebuilt pages as other works when the list shifted.
 - **Check:** `test/illust_detail_pager_test.dart` "a page landing mid-paging keeps the built detail pages"
 - **Code:** `lib/features/illust/detail/illust_detail_pager_page.dart`
+
+### TRANS-19 The viewer decodes a preview first, the whole file once zoomed
+- **Rule:** A viewer page decodes at `ImageViewerPage.previewDecodeWidth`
+  (twice the screen width) until it is zoomed to `fullDecodeScale` (1.5),
+  then decodes the whole file and keeps it. Every page has a transition
+  key, so the preview paints while the whole file decodes. The return
+  Hero and `openImageViewer`'s preload use the page's decode width.
+- **Why:** An original decoded whole is tens of megabytes and slow on a
+  swipe; a return shuttle at another width decoded a second time.
+- **Check:** `test/illust_detail_viewer_test.dart` "a page decodes a preview until zoomed, then the whole file", `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight"
+- **Code:** `lib/features/illust/viewer/image_viewer_page.dart`, `lib/app/navigation/routes.dart`

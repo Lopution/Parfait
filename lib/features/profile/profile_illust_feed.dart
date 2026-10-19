@@ -15,6 +15,7 @@ import '../../core/profile/profile_feed_controller.dart';
 import '../../core/profile/profile_models.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/feed/load_more_listener.dart';
 
 /// Grid padding shared by this feed and `ProfileSkeleton`'s grid block.
 const gridPadding = EdgeInsets.all(FuncSpacing.sm);
@@ -70,18 +71,11 @@ class ProfileIllustFeed extends ConsumerWidget {
           isNested: true,
           onRefresh: () =>
               ref.read(profileIllustFeedProvider(feedKey).notifier).refresh(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification.metrics.axis == Axis.vertical &&
-                  notification is ScrollUpdateNotification &&
-                  notification.metrics.extentAfter <
-                      notification.metrics.viewportDimension * 1.2) {
-                ref
-                    .read(profileIllustFeedProvider(feedKey).notifier)
-                    .loadMore();
-              }
-              return false;
-            },
+          child: LoadMoreListener(
+            itemCount: feed.ids.length,
+            onLoadMore: () => ref
+                .read(profileIllustFeedProvider(feedKey).notifier)
+                .loadMore(),
             // No SmoothWheelScroll here: this is the inner scrollable of a
             // NestedScrollView — driving its position via animateTo bypasses
             // the nested coordinator, so the profile header would never
