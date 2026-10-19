@@ -1,12 +1,21 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:parfait/app/widgets/tab_swipe_switcher.dart';
+import 'package:parfait/core/image/image_worker.dart';
+import 'package:parfait/core/image/image_worker_client.dart';
+import 'package:parfait/core/image/image_worker_protocol.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
+import 'package:parfait/core/image/lane_permit_gate.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/image_network.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/touch.dart';
@@ -40,6 +49,40 @@ TabController _tabController(WidgetTester tester, Finder page) => tester
 
 int _tabIndex(WidgetTester tester, Finder page) =>
     _tabController(tester, page).index;
+
+/// Four tabs showing the second, images from [worker]; returns the tabs
+/// built ahead, in order.
+Future<List<int>> _pumpPreparing(
+  WidgetTester tester,
+  ImageWorker worker,
+) async {
+  final controller = TabController(
+    length: 4,
+    vsync: const TestVSync(),
+    initialIndex: 1,
+  );
+  addTearDown(controller.dispose);
+  final prepared = <int>[];
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [imageWorkerProvider.overrideWithValue(worker)],
+      child: MaterialApp(
+        home: TabSwipeSwitcher(
+          tabController: controller,
+          prepareTab: (index) {
+            if (prepared.contains(index)) return false;
+            prepared.add(index);
+            return true;
+          },
+          // A list to share the arena with, as a feed does: alone, the
+          // drag would start on the down.
+          child: ListView(children: const [SizedBox(height: 2000)]),
+        ),
+      ),
+    ),
+  );
+  return prepared;
+}
 
 void main() {
   testWidgets('sideways flings step the page\'s own top tabs', (tester) async {
@@ -184,5 +227,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect((short.index, short.offset), (1, 0.0));
+  });
+
+  testWidgets('the tabs either side build one per still frame, next first', (
+    tester,
+  ) async {
+    final prepared = await _pumpPreparing(tester, stalledImageWorker());
+    expect(prepared, [2], reason: 'after the first frame, not in it');
+    await tester.pump();
+    expect(prepared, [2, 0]);
+    await tester.pumpAndSettle();
+    expect(prepared, [2, 0]);
+  });
+
+  testWidgets('a loading image and a held finger hold the tabs back', (
+    tester,
+  ) async {
+    final start = Completer<ImageWorkerClient>();
+    final worker = ImageWorker(
+      start: (_, _) => start.future,
+      config: () async => testImageWorkerConfig,
+    );
+    final load = worker.fetch(
+      'https://i.pximg.net/a.jpg',
+      priority: ImageFetchPriority.foreground,
+    );
+    final prepared = await _pumpPreparing(tester, worker);
+    final finger = await tester.startGesture(const Offset(10, 10));
+    start.completeError(StateError('no worker'));
+    await expectLater(load, throwsA(isA<ImageWorkerUnavailable>()));
+    expect(worker.foregroundLoads.value, 0, reason: 'a failure counts');
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(prepared, isEmpty);
+
+    await finger.up();
+    await tester.pump();
+    expect(prepared, [2]);
   });
 }

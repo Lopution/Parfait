@@ -136,13 +136,11 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage>
     announceTabScroll(_notificationContext, _scrollControllerFor(type));
   }
 
-  void _prepareAdjacent(int index) {
-    final neighbours = {
-      for (final i in [index - 1, index + 1])
-        if (i >= 0 && i < _types.length) _types[i],
-    };
-    if (_loaded.containsAll(neighbours)) return;
-    setState(() => _loaded.addAll(neighbours));
+  bool _prepareTab(int index) {
+    final type = _types[index];
+    if (_loaded.contains(type)) return false;
+    setState(() => _loaded.add(type));
+    return true;
   }
 
   void _onTabTap(int index) {
@@ -202,7 +200,7 @@ class _SearchHomePageState extends ConsumerState<SearchHomePage>
           _notificationContext = context;
           return TabSwipeSwitcher(
             tabController: _tabController,
-            onPrepareAdjacent: _prepareAdjacent,
+            prepareTab: _prepareTab,
             child: TabSlideStack(
               controller: _tabController,
               children: [

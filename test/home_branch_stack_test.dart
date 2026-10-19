@@ -13,6 +13,7 @@ import 'package:parfait/app/touch_exploration_scope.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/app/widgets/home_branch_stack.dart';
 import 'package:parfait/core/platform/accessibility.dart';
+import 'package:parfait/core/ranking/ranking_catalog.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
 import 'package:parfait/features/new/new_page.dart';
@@ -40,6 +41,7 @@ Future<GoRouter> _pumpHome(
   double height = 844,
   bool reduceMotion = false,
   Stream<bool> touchExploration = const Stream.empty(),
+  bool firstFrameOnly = false,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   setViewSize(tester, Size(width, height));
@@ -63,6 +65,7 @@ Future<GoRouter> _pumpHome(
       child: app,
     ),
   );
+  if (firstFrameOnly) return router;
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
   return router;
@@ -81,13 +84,13 @@ List<int> _recordReTaps(WidgetTester tester, Finder page) {
 }
 
 /// The IgnorePointer HomeBranchStack puts around each branch child — the
-/// one whose own child is the branch's ExcludeSemantics, not any pointer
-/// guard a route inside the branch Navigator may add.
+/// one whose own child is the branch's ExcludeFocus, not any pointer guard
+/// a route inside the branch Navigator may add.
 IgnorePointer _branchPointer(WidgetTester tester, Finder page) => tester
     .widgetList<IgnorePointer>(
       find.ancestor(of: page, matching: find.byType(IgnorePointer)),
     )
-    .singleWhere((w) => w.child is ExcludeSemantics);
+    .singleWhere((w) => w.child is ExcludeFocus);
 
 ExcludeSemantics _branchSemantics(WidgetTester tester, Finder page) => tester
     .widgetList<ExcludeSemantics>(
@@ -325,22 +328,42 @@ void main() {
     expect(find.byType(RecommendedHomePage), findsOneWidget);
   });
 
-  testWidgets('cold start builds no unvisited branch', (tester) async {
-    await _pumpHome(tester);
-    for (final type in [
-      RankingPage,
-      NewPage,
-      SearchHomePage,
-      MeDashboardPage,
-    ]) {
-      expect(find.byType(type, skipOffstage: false), findsNothing);
-    }
+  const otherBranches = [RankingPage, NewPage, SearchHomePage, MeDashboardPage];
+  int builtBranches() => otherBranches
+      .where(
+        (type) => find.byType(type, skipOffstage: false).evaluate().isNotEmpty,
+      )
+      .length;
 
-    await tester.tap(_barIcon(AppIcons.ranking));
+  testWidgets('the other branches build one per still frame, after the first', (
+    tester,
+  ) async {
+    await _pumpHome(tester, firstFrameOnly: true);
+    expect(builtBranches(), 0);
+    var built = 0;
+    for (var frame = 0; frame < 30 && built < otherBranches.length; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(builtBranches() - built, lessThanOrEqualTo(1));
+      built = builtBranches();
+    }
+    expect(built, otherBranches.length);
+
+    // A branch built ahead and never shown saves no setting on leaving.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(RankingPage, skipOffstage: false)),
+    );
+    expect(container.read(illustRankingCatalog.lastViewedProvider), isNull);
+  });
+
+  testWidgets('a switch before its turn builds the branch at once', (
+    tester,
+  ) async {
+    await _pumpHome(tester, firstFrameOnly: true);
+    await tester.tap(_barIcon(AppIcons.search));
     await tester.pump();
-    expect(find.byType(RankingPage), findsOneWidget);
+    expect(find.byType(SearchHomePage), findsOneWidget);
   });
 
   group('re-tap channel', () {

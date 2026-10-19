@@ -106,6 +106,10 @@ class _RankingTabsState<M extends RankingCategory>
   /// A route write [_writeRoute] held back while the page was off screen.
   bool _routeStale = false;
 
+  /// Whether the page has been on screen: a branch built ahead and never
+  /// shown remembers no category.
+  bool _shown = false;
+
   /// For the write in [dispose], where `ref` is gone.
   late final ProviderContainer _container;
 
@@ -157,6 +161,7 @@ class _RankingTabsState<M extends RankingCategory>
     if (!identical(onScreen, _onScreen)) {
       _onScreen?.removeListener(_onScreenChanged);
       _onScreen = onScreen..addListener(_onScreenChanged);
+      _shown |= onScreen.value.enabled;
     }
   }
 
@@ -333,6 +338,7 @@ class _RankingTabsState<M extends RankingCategory>
   }
 
   void _onScreenChanged() {
+    _shown |= _onScreen?.value.enabled ?? false;
     if (!_routeStale || _onScreen?.value.enabled != true) return;
     // The notifier flips while the tree builds; navigate after the frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -348,7 +354,9 @@ class _RankingTabsState<M extends RankingCategory>
   /// A lost write only loses that landing: logged, not shown.
   void _remember() {
     final mode = _selected;
-    if (_container.read(_catalog.lastViewedProvider) == mode) return;
+    if (!_shown || _container.read(_catalog.lastViewedProvider) == mode) {
+      return;
+    }
     unawaited(
       _catalog
           .saveLastViewed(_container.read(settingsProvider.notifier), mode)
@@ -374,16 +382,11 @@ class _RankingTabsState<M extends RankingCategory>
     );
   }
 
-  /// Every drag start lands here; only a first visit to a neighbour needs
-  /// a rebuild.
-  void _prepareAdjacent(int index) {
-    final last = _modes.length - 1;
-    final neighbours = {
-      _modes[(index - 1).clamp(0, last)],
-      _modes[(index + 1).clamp(0, last)],
-    };
-    if (_loadedModes.containsAll(neighbours)) return;
-    setState(() => _loadedModes.addAll(neighbours));
+  bool _prepareTab(int index) {
+    final mode = _modes[index];
+    if (_loadedModes.contains(mode)) return false;
+    setState(() => _loadedModes.add(mode));
+    return true;
   }
 
   /// Branch-level re-tap (bottom bar same-destination tap): the channel
@@ -530,7 +533,7 @@ class _RankingTabsState<M extends RankingCategory>
             tabController: _tabController,
             // Warm the neighbor slots before a drag uncovers them — the
             // strip slide shows real feeds instead of blank placeholders.
-            onPrepareAdjacent: _prepareAdjacent,
+            prepareTab: _prepareTab,
             child: TabSlideStack(
               controller: _tabController,
               children: [

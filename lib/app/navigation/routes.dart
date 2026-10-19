@@ -1035,7 +1035,8 @@ StatefulShellBranch _branch({
     navigatorKey: navigatorKey,
     observers: [observer],
     restorationScopeId: restorationScopeId,
-    preload: false,
+    // Hands HomeBranchStack every branch's Navigator; it mounts them.
+    preload: true,
     routes: [
       GoRoute(
         path: path,

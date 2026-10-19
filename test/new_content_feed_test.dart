@@ -243,8 +243,11 @@ void main() {
       await tester.pump();
       await tester.pump();
       await tester.pumpAndSettle();
+      // The tab next to it is built too, off screen.
       final controller = tester
-          .widget<CustomScrollView>(find.bySubtype<CustomScrollView>())
+          .widget<CustomScrollView>(
+            find.bySubtype<CustomScrollView>().hitTestable(),
+          )
           .controller!;
       expect(controller.offset, 0);
 
@@ -293,7 +296,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      final illustFeed = find.bySubtype<CustomScrollView>();
+      final illustFeed = find.bySubtype<CustomScrollView>().hitTestable();
       final illustController = tester
           .widget<CustomScrollView>(illustFeed)
           .controller!;

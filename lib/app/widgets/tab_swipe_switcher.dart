@@ -3,20 +3,27 @@ import 'package:flutter/physics.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../motion/motion_tokens.dart';
+import '../motion/still_work.dart';
 import '../scroll_behavior.dart';
 
 /// Sideways drag for a page's own tabs. The gesture stops at the first and
 /// last tab; it never changes the home branch.
+///
+/// [prepareTab] builds the tab at an index and says whether it had to: the
+/// tabs next to the one on screen are built ahead of a swipe, one at a time
+/// on a still screen ([StillWork]), next before previous, as ViewPager
+/// keeps its neighbours. A swipe that starts before then builds them in
+/// its first frame rather than slide in an empty tab.
 class TabSwipeSwitcher extends StatefulWidget {
   const TabSwipeSwitcher({
     super.key,
     required this.tabController,
-    this.onPrepareAdjacent,
+    this.prepareTab,
     required this.child,
   });
 
   final TabController tabController;
-  final ValueChanged<int>? onPrepareAdjacent;
+  final bool Function(int index)? prepareTab;
   final Widget child;
 
   static const minFlingVelocity = 400.0;
@@ -27,7 +34,7 @@ class TabSwipeSwitcher extends StatefulWidget {
 }
 
 class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, StillWork {
   double _rawDx = 0;
   double _dragOrigin = 0;
   bool _active = false;
@@ -39,19 +46,48 @@ class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
   double get _position => _tc.animation?.value ?? _tc.index.toDouble();
 
   @override
+  void initState() {
+    super.initState();
+    _tc.addListener(_onTabChanged);
+    scheduleStillWork();
+  }
+
+  @override
   void didUpdateWidget(TabSwipeSwitcher oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.tabController == oldWidget.tabController) return;
+    oldWidget.tabController.removeListener(_onTabChanged);
+    _tc.addListener(_onTabChanged);
     // A new controller (the tab list changed): a settle in flight and the
     // drag origin index the old list.
     _settle?.stop();
     _dragOrigin = _tc.index.toDouble();
+    scheduleStillWork();
   }
 
   @override
   void dispose() {
+    _tc.removeListener(_onTabChanged);
     _settle?.dispose();
     super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (!_tc.indexIsChanging) scheduleStillWork();
+  }
+
+  @override
+  bool get stillWorkWaitsForImages => widget.prepareTab != null;
+
+  @override
+  bool runStillWork() {
+    final prepare = widget.prepareTab;
+    if (prepare == null) return false;
+    final index = _tc.index;
+    for (final i in [index + 1, index - 1]) {
+      if (i >= 0 && i < _tc.length && prepare(i)) return true;
+    }
+    return false;
   }
 
   void _onDragStart(DragStartDetails details) {
@@ -62,7 +98,11 @@ class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
       _tc.index = _tc.animation!.value.round().clamp(0, _tc.length - 1);
     }
     _dragOrigin = _position;
-    widget.onPrepareAdjacent?.call(_dragOrigin.round());
+    final prepare = widget.prepareTab;
+    final origin = _dragOrigin.round();
+    for (final i in [origin + 1, origin - 1]) {
+      if (prepare != null && i >= 0 && i < _tc.length) prepare(i);
+    }
   }
 
   void _onDragUpdate(DragUpdateDetails details) {
@@ -182,7 +222,10 @@ class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
                 ..minFlingDistance = device?.touchSlop ?? kTouchSlop,
             ),
       },
-      child: widget.child,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: trackStillScroll,
+        child: widget.child,
+      ),
     );
   }
 }

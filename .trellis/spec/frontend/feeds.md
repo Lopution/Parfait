@@ -107,8 +107,9 @@ reviewed: 2026-10-19
 - **Code:** `lib/app/widgets/feed/feed_text_warmup.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/format/content_locale.dart`
 
 ### FEED-18 A list builds its cache area from its second frame
-- **Rule:** A list with `kFeedCacheExtent`, and the settings list, is a
-  `DeferredCacheScrollView` or `DeferredCacheListView`: its first frame
+- **Rule:** A list with `kFeedCacheExtent`, the settings list and the
+  artwork detail page are a `DeferredCacheScrollView` or
+  `DeferredCacheListView`: the first frame
   builds what is on screen, and the cache extent applies from the next
   frame, which builds only the children it adds. Code and tests look a
   scroll view up by subtype (`is CustomScrollView`, `find.bySubtype`),
@@ -116,8 +117,9 @@ reviewed: 2026-10-19
 - **Why:** A feed mounts on a busy frame (a push, a branch switch, its
   first data), and building half a screen more there took the first
   visit to ranking, new works, an author or the settings to 13–25 ms.
-- **Check:** `test/responsive_layout_test.dart` "a deferred cache builds the screen, then only the cache area"
-- **Code:** `lib/app/layout/deferred_cache_scroll_view.dart`, `lib/app/motion/hero_transition.dart`
+  A detail page's first frame is its push.
+- **Check:** `test/responsive_layout_test.dart` "a deferred cache builds the screen, then only the cache area", `test/illust_detail_page_test.dart` "the push frame builds no list item off screen"
+- **Code:** `lib/app/layout/deferred_cache_scroll_view.dart`, `lib/app/motion/hero_transition.dart`, `lib/features/illust/detail/illust_detail_page.dart`
 
 ## Pull to refresh
 

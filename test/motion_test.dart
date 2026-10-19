@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart' show kPressTimeout;
+import 'package:flutter/rendering.dart' show OpacityLayer;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -673,9 +674,26 @@ void main() {
       await tester.pumpWidget(
         _wrap(const StateFade.onMount(child: Text('empty'))),
       );
-      expect(opacity(tester, 'empty'), 0);
+      expect(opacity(tester, 'empty'), 1 / 255);
       await tester.pumpAndSettle();
       expect(opacity(tester, 'empty'), 1);
+    });
+
+    testWidgets('a new state paints in its first frame and fades after it', (
+      tester,
+    ) async {
+      await tester.pumpWidget(faded('skeleton'));
+      await tester.pumpWidget(faded('content'));
+      // Alpha 1 of 255, the lowest that paints.
+      expect(
+        tester.layers.whereType<OpacityLayer>().map((layer) => layer.alpha),
+        contains(1),
+      );
+      // The fade's clock starts after that frame, however long it took.
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(opacity(tester, 'content'), 1 / 255);
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(opacity(tester, 'content'), inExclusiveRange(1 / 255, 1));
     });
 
     testWidgets('reduced motion and frozen tickers show the state at once', (

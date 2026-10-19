@@ -124,6 +124,36 @@ void main() {
       },
     );
 
+    testWidgets('the push frame builds no list item off screen', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      // Lazy list items; a sliver itself is built wherever it sits.
+      int listItems() => find
+          .descendant(
+            of: find.bySubtype<CustomScrollView>().first,
+            matching: find.byType(IndexedSemantics, skipOffstage: false),
+            skipOffstage: false,
+          )
+          .evaluate()
+          .length;
+
+      // Short enough that the info list runs past the screen.
+      await pumpDetail(
+        tester,
+        container,
+        surface: const Size(390, 560),
+        firstFrameOnly: true,
+      );
+      final pushFrame = listItems();
+      // The cache area fills in on the next frame.
+      await mockNetworkImagesFor(tester.pump);
+      expect(listItems(), greaterThan(pushFrame));
+      await mockNetworkImagesFor(
+        () => tester.pump(const Duration(milliseconds: 50)),
+      );
+    });
+
     testWidgets(
       'without a store snapshot the first load shows the detail skeleton',
       (tester) async {
@@ -638,7 +668,10 @@ void main() {
       await mockNetworkImagesFor(() async {
         await tester.pump(const Duration(milliseconds: 300));
         // A short scroll that keeps the section below the fold.
-        await tester.drag(find.byType(CustomScrollView), const Offset(0, -80));
+        await tester.drag(
+          find.bySubtype<CustomScrollView>(),
+          const Offset(0, -80),
+        );
         await tester.pump(const Duration(milliseconds: 300));
       });
       expect(log, isEmpty, reason: 'opening the page sends no request');
@@ -650,7 +683,10 @@ void main() {
       // Scrolling away and back, and the bottom-of-page paging check, do
       // not send the first request again.
       await mockNetworkImagesFor(() async {
-        await tester.drag(find.byType(CustomScrollView), const Offset(0, 900));
+        await tester.drag(
+          find.bySubtype<CustomScrollView>(),
+          const Offset(0, 900),
+        );
         await tester.pump(const Duration(milliseconds: 200));
         await scrollToRelated(tester);
       });
@@ -707,7 +743,7 @@ void main() {
         // The top bar redraws as it scrolls (immersion); the page body is
         // what must stay put.
         CustomScrollView body() =>
-            tester.widget<CustomScrollView>(find.byType(CustomScrollView));
+            tester.widget<CustomScrollView>(find.bySubtype<CustomScrollView>());
         final scrollView = body();
 
         // Jump past page 2's bottom edge so page 3 is the only visible

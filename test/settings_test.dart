@@ -476,12 +476,20 @@ void main() {
         ).copyWith(lastViewedAt: DateTime.utc(2026, 9, 20, 10, minute)),
       ),
     );
-    Finder cover(int id) => find.byWidgetPredicate(
-      (w) => w is Semantics && w.properties.label == 'work $id',
+    // The search branch, built ahead, has its own recent row.
+    Finder onMe(Finder finder) => find.descendant(
+      of: find.byType(MeDashboardPage),
+      matching: finder,
       skipOffstage: false,
     );
+    Finder cover(int id) => onMe(
+      find.byWidgetPredicate(
+        (w) => w is Semantics && w.properties.label == 'work $id',
+        skipOffstage: false,
+      ),
+    );
     double x(int id) => tester.getTopLeft(cover(id)).dx;
-    final viewAll = find.text('查看全部', skipOffstage: false);
+    final viewAll = onMe(find.text('查看全部', skipOffstage: false));
 
     await settle();
     expect(viewAll, findsNothing, reason: 'no row without history');

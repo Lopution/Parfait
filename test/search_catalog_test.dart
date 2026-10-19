@@ -822,6 +822,9 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(repository.trendingTagsCallCount, 1);
+      // The tab next to it loads its own tags on a still screen.
+      await tester.pumpAndSettle();
+      final settled = repository.trendingTagsCallCount;
 
       // Fully unmount the page: with an autoDispose provider this removed the
       // last listener and the next visit re-requested the endpoint.
@@ -829,10 +832,10 @@ void main() {
       await tester.pumpAndSettle();
       showSearch.value = true;
       await tester.pumpAndSettle();
+      expect(repository.trendingTagsCallCount, settled);
     });
 
-    expect(repository.trendingTagsCallCount, 1);
-    expect(find.text('#风景'), findsOneWidget);
+    expect(find.text('#风景').hitTestable(), findsOneWidget);
   });
 
   testWidgets('result route parameters round-trip every filter field', (
@@ -978,9 +981,10 @@ void main() {
 
     // Query context stays visible on the empty surface, and the page
     // offers a direct edit entry — not just a blind refresh.
+    // The novel results next to it are built too, off screen.
     expect(find.text('nothing'), findsOneWidget);
-    expect(find.text('修改搜索'), findsOneWidget);
-    await tester.tap(find.text('修改搜索'));
+    expect(find.text('修改搜索').hitTestable(), findsOneWidget);
+    await tester.tap(find.text('修改搜索').hitTestable());
     await tester.pumpAndSettle();
     expect(find.byType(SearchInputPage), findsOneWidget);
     expect(
