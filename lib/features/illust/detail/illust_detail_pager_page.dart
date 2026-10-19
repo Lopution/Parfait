@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/navigation/home_shell_metrics.dart';
 import '../../../app/layout/app_breakpoints.dart';
+import '../../../app/motion/still_work.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/scroll_behavior.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
@@ -59,7 +60,8 @@ class IllustDetailPagerPage extends ConsumerStatefulWidget {
       _IllustDetailPagerPageState();
 }
 
-class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
+class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage>
+    with StillWork {
   late final PageController _controller;
 
   /// The route's landing page. Its work alone carries the feed card's hero
@@ -88,17 +90,13 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
   /// whole detail page there was a 40ms+ swipe hitch on device, so a page
   /// outside this window stays a bare surface until the scroll settles.
   ///
-  /// Neighbours join one per frame once nothing animates: a detail page
-  /// costs ~11ms of layout on device, and admitting both at the end of the
-  /// push transition laid out two of them in one 23ms frame. Waiting for
-  /// a still screen keeps that frame off any running animation.
+  /// Neighbours join one per frame on a still screen ([StillWork]): a
+  /// detail page costs ~11ms of layout on device, and admitting both at the
+  /// end of the push transition laid out two of them in one 23ms frame.
   late final ValueNotifier<_ReadyWindow> _ready;
 
   /// Neighbours wait for the push transition to finish.
   var _routeSettled = false;
-  var _admitScheduled = false;
-  var _framesWaited = 0;
-  static const _maxStillWaitFrames = 60;
 
   @override
   void initState() {
@@ -157,39 +155,28 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
   }
 
   void _scheduleAdmit() {
-    if (!_routeSettled || _admitScheduled || _nextNeighbour() == null) return;
-    _admitScheduled = true;
-    _framesWaited = 0;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _admitWhenStill());
-    WidgetsBinding.instance.scheduleFrame();
+    if (_routeSettled) scheduleStillWork();
   }
 
-  /// Admits one neighbour once no animation is running, checking again
-  /// after every frame until then — a running animation keeps frames
-  /// coming. Not a [Priority.idle] scheduler task: while an animation runs
-  /// the scheduler re-queues such a task in a tight event-loop spin.
-  /// A looping indicator never stops, so the wait is capped.
-  void _admitWhenStill() {
-    if (!mounted) return;
-    final scheduler = SchedulerBinding.instance;
-    if (scheduler.transientCallbackCount > 0 &&
-        _framesWaited++ < _maxStillWaitFrames) {
-      scheduler.addPostFrameCallback((_) => _admitWhenStill());
-      return;
-    }
-    _admitScheduled = false;
+  /// The page's own images are not waited for: a neighbour shows its
+  /// image as a stand-in anyway.
+  @override
+  bool get stillWorkWaitsForImages => false;
+
+  @override
+  bool runStillWork() {
     final next = _nextNeighbour();
-    if (next == null) return;
+    if (next == null) return false;
     final window = _ready.value;
     _ready.value = (
       center: window.center,
       neighbours: {...window.neighbours, next},
     );
-    // The next one waits until this one has had its frame.
-    _scheduleAdmit();
+    return true;
   }
 
   bool _onScroll(ScrollNotification notification) {
+    trackStillScroll(notification);
     if (notification.depth != 0) return false;
     switch (notification) {
       case ScrollStartNotification():

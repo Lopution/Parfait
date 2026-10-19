@@ -194,15 +194,11 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
     );
   }
 
-  /// Every drag start lands here; only a first visit to a neighbour needs
-  /// a rebuild.
-  void _prepareAdjacent(int index) {
-    final neighbours = {
-      _types[(index - 1).clamp(0, _types.length - 1)],
-      _types[(index + 1).clamp(0, _types.length - 1)],
-    };
-    if (_loaded.containsAll(neighbours)) return;
-    setState(() => _loaded.addAll(neighbours));
+  bool _prepareTab(int index) {
+    final type = _types[index];
+    if (_loaded.contains(type)) return false;
+    setState(() => _loaded.add(type));
+    return true;
   }
 
   @override
@@ -237,9 +233,7 @@ class _RecommendedHomePageState extends State<RecommendedHomePage>
           _notificationContext = context;
           return TabSwipeSwitcher(
             tabController: _tabController,
-            // A neighbor the finger is about to uncover has to exist before
-            // the slide starts — same offscreen-page warmup ViewPager does.
-            onPrepareAdjacent: _prepareAdjacent,
+            prepareTab: _prepareTab,
             child: TabSlideStack(
               controller: _tabController,
               children: [

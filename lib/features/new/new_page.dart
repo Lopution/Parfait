@@ -147,15 +147,11 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
         ),
       );
 
-  /// Every drag start lands here; only a first visit to a neighbour needs
-  /// a rebuild.
-  void _prepareAdjacent(int index) {
-    final neighbours = {
-      for (final i in [index - 1, index + 1])
-        if (i >= 0 && i < _scopes.length) _keyFor(_scopes[i]),
-    };
-    if (_loadedKeys.containsAll(neighbours)) return;
-    setState(() => _loadedKeys.addAll(neighbours));
+  bool _prepareTab(int index) {
+    final key = _keyFor(_scopes[index]);
+    if (_loadedKeys.contains(key)) return false;
+    setState(() => _loadedKeys.add(key));
+    return true;
   }
 
   void _onTabChanged() {
@@ -230,9 +226,7 @@ class _NewPageState extends State<NewPage> with SingleTickerProviderStateMixin {
           _notificationContext = context;
           return TabSwipeSwitcher(
             tabController: _tabController,
-            // A neighbor the finger is about to uncover has to exist before
-            // the slide starts — same offscreen-page warmup ViewPager does.
-            onPrepareAdjacent: _prepareAdjacent,
+            prepareTab: _prepareTab,
             child: TabSlideStack(
               controller: _tabController,
               children: [

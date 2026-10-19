@@ -161,8 +161,11 @@ void main() {
       tester,
       initialLocation: '/search/results?q=cat&type=illust&wmin=1000',
     );
-    Finder inEmpty(String text) =>
-        find.descendant(of: find.byType(FeedEmpty), matching: find.text(text));
+    // The novel results next to it are built too, off screen.
+    Finder inEmpty(String text) => find.descendant(
+      of: find.byType(FeedEmpty).hitTestable(),
+      matching: find.text(text),
+    );
     expect(inEmpty('修改搜索'), findsNothing);
 
     await tester.tap(inEmpty('重置筛选'));

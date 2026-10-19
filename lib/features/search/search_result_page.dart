@@ -210,15 +210,11 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
     );
   }
 
-  void _prepareAdjacent(int index) {
-    final types = SearchResultType.values;
-    final last = types.length - 1;
-    final neighbours = {
-      types[(index - 1).clamp(0, last)],
-      types[(index + 1).clamp(0, last)],
-    };
-    if (_loadedTypes.containsAll(neighbours)) return;
-    setState(() => _loadedTypes.addAll(neighbours));
+  bool _prepareTab(int index) {
+    final type = SearchResultType.values[index];
+    if (_loadedTypes.contains(type)) return false;
+    setState(() => _loadedTypes.add(type));
+    return true;
   }
 
   void _syncFilterSummary(List<String> labels) {
@@ -395,7 +391,7 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage>
           _notificationContext = context;
           return TabSwipeSwitcher(
             tabController: _tabController,
-            onPrepareAdjacent: _prepareAdjacent,
+            prepareTab: _prepareTab,
             child: TabSlideStack(
               controller: _tabController,
               children: [

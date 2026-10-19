@@ -394,8 +394,12 @@ void main() {
         await mockNetworkImagesFor(() async {
           await pumpRanking(tester, container, '/ranking?mode=day&date=$raw');
         });
+        // The week tab next to it builds on a still screen, undated.
         expect(
-          fixture.requests.single.queryParameters.containsKey('date'),
+          fixture.requests
+              .singleWhere((u) => u.queryParameters['mode'] == 'day')
+              .queryParameters
+              .containsKey('date'),
           false,
         );
         expect(find.text('回到最新'), findsNothing);
@@ -471,20 +475,17 @@ void main() {
               MotionScope(reduce: reduce, child: child!),
         );
 
-        // Neighbour warm-up can interleave requests, so assert on the
-        // request the landing produced (not merely the last one).
-        int requestsFor(String apiMode) => fixture.requests
-            .where((u) => u.queryParameters['mode'] == apiMode)
-            .length;
-
         // Tap path: day → week. The strip animates (or snaps under
         // reduce) — either way the same mode lands and the durable
-        // route value is written.
-        final weekBefore = requestsFor('week');
+        // route value is written. The week feed built ahead, on a still
+        // screen.
         await tester.tap(find.byType(Tab).at(1));
         await tester.pumpAndSettle();
         expect(router.state.uri.queryParameters['mode'], 'week');
-        expect(requestsFor('week'), greaterThan(weekBefore));
+        expect(
+          fixture.requests.where((u) => u.queryParameters['mode'] == 'week'),
+          isNotEmpty,
+        );
 
         // Drag path back: a committed rightward fling lands on the same
         // slot a tap would — same mode, same route write. The day feed
@@ -555,10 +556,13 @@ void main() {
     await mockNetworkImagesFor(() async {
       await _pumpRanking(tester, container);
 
-      final feedView = find.descendant(
-        of: find.byType(RankingPage),
-        matching: find.bySubtype<CustomScrollView>(),
-      );
+      // The week feed next to it is built too, off screen.
+      final feedView = find
+          .descendant(
+            of: find.byType(RankingPage),
+            matching: find.bySubtype<CustomScrollView>(),
+          )
+          .hitTestable();
       expect(feedView, findsOneWidget);
       final controller = tester.widget<CustomScrollView>(feedView).controller!;
       controller.jumpTo(400);
@@ -702,7 +706,6 @@ void main() {
         await tester.pumpWidget(const SizedBox());
         await _pumpRanking(tester, container);
         expect(tabs(tester).index, 1);
-        expect(fixture.requests.last.queryParameters['mode'], 'week');
       });
     });
   });

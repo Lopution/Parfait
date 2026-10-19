@@ -85,13 +85,11 @@ class _SpotlightFeedPageState extends State<SpotlightFeedPage>
     announceTabScroll(_notificationContext, _scrollControllerFor(category));
   }
 
-  void _prepareAdjacent(int index) {
-    final neighbours = {
-      for (final i in [index - 1, index + 1])
-        if (i >= 0 && i < _categories.length) _categories[i],
-    };
-    if (_loaded.containsAll(neighbours)) return;
-    setState(() => _loaded.addAll(neighbours));
+  bool _prepareTab(int index) {
+    final category = _categories[index];
+    if (_loaded.contains(category)) return false;
+    setState(() => _loaded.add(category));
+    return true;
   }
 
   @override
@@ -112,7 +110,7 @@ class _SpotlightFeedPageState extends State<SpotlightFeedPage>
           _notificationContext = context;
           return TabSwipeSwitcher(
             tabController: _tabController,
-            onPrepareAdjacent: _prepareAdjacent,
+            prepareTab: _prepareTab,
             child: TabSlideStack(
               controller: _tabController,
               children: [

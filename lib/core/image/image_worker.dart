@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io' show File;
 
+import 'package:flutter/foundation.dart';
+
 import '../logging/crash_log.dart';
 import 'image_demand.dart';
 import '../network/compat/network_contracts.dart';
@@ -107,13 +109,27 @@ class ImageWorker implements ImageFetcher {
     return client.routeSnapshot().timeout(statusTimeout);
   }
 
+  /// On-screen fetches not yet answered, a failure or a cancel included:
+  /// foreground ones, which image widgets make. A screen's deferred work
+  /// waits for them (`StillWork`). A widget joining a preload's fetch makes
+  /// none, so this misses an image a preload started.
+  ValueListenable<int> get foregroundLoads => _foregroundLoads;
+  final _foregroundLoads = ValueNotifier(0);
+
   @override
   Future<FetchResult> fetch(
     String url, {
     required ImageFetchPriority priority,
   }) async {
-    final client = await _ready();
-    return client.fetch(url, priority: priority);
+    if (priority != ImageFetchPriority.foreground) {
+      return (await _ready()).fetch(url, priority: priority);
+    }
+    _foregroundLoads.value++;
+    try {
+      return await (await _ready()).fetch(url, priority: priority);
+    } finally {
+      _foregroundLoads.value--;
+    }
   }
 
   /// [url]'s file in the worker's disk cache, or null on a miss; never
