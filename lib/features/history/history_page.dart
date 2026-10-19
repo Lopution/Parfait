@@ -36,6 +36,7 @@ import '../../l10n/context.dart';
 import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/settings/persist_settings.dart';
+import '../../app/widgets/feed/load_more_listener.dart';
 
 /// The three rows of the history page's overflow menu.
 enum _HistoryMenuAction { recordLocal, recordPixiv, deleteAll }
@@ -287,7 +288,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   }
 }
 
-class _HistoryBody extends ConsumerStatefulWidget {
+class _HistoryBody extends ConsumerWidget {
   const _HistoryBody({
     super.key,
     required this.accountId,
@@ -306,41 +307,8 @@ class _HistoryBody extends ConsumerStatefulWidget {
   final ValueChanged<int> onEnterManaging;
 
   @override
-  ConsumerState<_HistoryBody> createState() => _HistoryBodyState();
-}
-
-class _HistoryBodyState extends ConsumerState<_HistoryBody> {
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _scrollController
-      ..removeListener(_onScroll)
-      ..dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    if (_scrollController.position.extentAfter <
-        _scrollController.position.viewportDimension * 1.2) {
-      unawaited(
-        ref
-            .read(historyFeedControllerProvider(widget.accountId).notifier)
-            .loadMore(),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final feed = ref.watch(historyFeedControllerProvider(widget.accountId));
+  Widget build(BuildContext context, WidgetRef ref) {
+    final feed = ref.watch(historyFeedControllerProvider(accountId));
     return feed.when(
       loading: () => const FeedLoading(),
       error: (error, _) => FeedError(
@@ -348,7 +316,7 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
         error: error,
         retryLabel: context.l10n.retry,
         onRetry: () => ref
-            .read(historyFeedControllerProvider(widget.accountId).notifier)
+            .read(historyFeedControllerProvider(accountId).notifier)
             .retryInitial(),
       ),
       data: (state) {
@@ -380,83 +348,92 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
         }
         final entries = [
           for (final key in state.ids)
-            if (_controllerRecord(key) != null)
-              (key: key, record: _controllerRecord(key)!),
+            if (_controllerRecord(ref, key) != null)
+              (key: key, record: _controllerRecord(ref, key)!),
         ];
 
         return PullToRefresh(
           onRefresh: () => ref
-              .read(historyFeedControllerProvider(widget.accountId).notifier)
+              .read(historyFeedControllerProvider(accountId).notifier)
               .refresh(),
-          child: SmoothWheelScroll(
-            controller: _scrollController,
-            builder: (context, controller, physics) => DeferredCacheScrollView(
-              key: PageStorageKey('history-${widget.accountId}'),
-              controller: controller,
-              physics: physics,
-              scrollCacheExtent: kFeedCacheExtent,
-              restorationId: 'history-${widget.accountId}',
-              slivers: [
-                IllustFeedGrid(
-                  padding: const EdgeInsets.all(FuncSpacing.sm),
-                  mainAxisSpacing: FuncSpacing.sm,
-                  itemCount: entries.length,
-                  warmTexts: (context, index) {
-                    final record = entries[index].record;
-                    final entity =
-                        record.contentType == HistoryContentType.illust
-                        ? ref.read(illustStoreProvider).get(record.contentId)
-                        : null;
-                    return entity == null
-                        ? const []
-                        : IllustCard.warmTexts(context, entity);
-                  },
-                  itemBuilder: (context, index) => Removable(
-                    id: entries[index].key,
-                    style: RemovalStyle.tile,
-                    child: _HistoryEntry(
-                      record: entries[index].record,
-                      recordKey: entries[index].key,
-                      managing: widget.managing,
-                      selected: widget.selectedKeys.contains(
-                        entries[index].key,
+          child: LoadMoreListener(
+            itemCount: state.ids.length,
+            onLoadMore: () => ref
+                .read(historyFeedControllerProvider(accountId).notifier)
+                .loadMore(),
+            child: SmoothWheelScroll(
+              builder: (context, controller, physics) =>
+                  DeferredCacheScrollView(
+                    key: PageStorageKey('history-$accountId'),
+                    controller: controller,
+                    physics: physics,
+                    scrollCacheExtent: kFeedCacheExtent,
+                    restorationId: 'history-$accountId',
+                    slivers: [
+                      IllustFeedGrid(
+                        padding: const EdgeInsets.all(FuncSpacing.sm),
+                        mainAxisSpacing: FuncSpacing.sm,
+                        itemCount: entries.length,
+                        warmTexts: (context, index) {
+                          final record = entries[index].record;
+                          final entity =
+                              record.contentType == HistoryContentType.illust
+                              ? ref
+                                    .read(illustStoreProvider)
+                                    .get(record.contentId)
+                              : null;
+                          return entity == null
+                              ? const []
+                              : IllustCard.warmTexts(context, entity);
+                        },
+                        itemBuilder: (context, index) => Removable(
+                          id: entries[index].key,
+                          style: RemovalStyle.tile,
+                          child: _HistoryEntry(
+                            record: entries[index].record,
+                            recordKey: entries[index].key,
+                            managing: managing,
+                            selected: selectedKeys.contains(entries[index].key),
+                            onToggle: onToggle,
+                            onEnterManaging: onEnterManaging,
+                          ),
+                        ),
                       ),
-                      onToggle: widget.onToggle,
-                      onEnterManaging: widget.onEnterManaging,
-                    ),
+                      SliverToBoxAdapter(
+                        child: switch ((
+                          state.showLoadMoreSpinner,
+                          state.loadMoreError,
+                        )) {
+                          (true, _) => const Padding(
+                            padding: EdgeInsets.all(FuncSpacing.lg),
+                            child: FeedLoading(),
+                          ),
+                          (_, final error?) => Padding(
+                            padding: const EdgeInsets.all(FuncSpacing.lg),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  context.l10n.historyLoadFailed,
+                                  textAlign: TextAlign.center,
+                                ),
+                                Text(
+                                  errorCategoryText(
+                                    context,
+                                    categorizeError(error),
+                                  ),
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                  textAlign: TextAlign.center,
+                                ),
+                                ErrorDetails(error: error),
+                              ],
+                            ),
+                          ),
+                          _ => const SizedBox(height: FuncSpacing.lg),
+                        },
+                      ),
+                    ],
                   ),
-                ),
-                SliverToBoxAdapter(
-                  child: switch ((
-                    state.showLoadMoreSpinner,
-                    state.loadMoreError,
-                  )) {
-                    (true, _) => const Padding(
-                      padding: EdgeInsets.all(FuncSpacing.lg),
-                      child: FeedLoading(),
-                    ),
-                    (_, final error?) => Padding(
-                      padding: const EdgeInsets.all(FuncSpacing.lg),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            context.l10n.historyLoadFailed,
-                            textAlign: TextAlign.center,
-                          ),
-                          Text(
-                            errorCategoryText(context, categorizeError(error)),
-                            style: Theme.of(context).textTheme.bodySmall,
-                            textAlign: TextAlign.center,
-                          ),
-                          ErrorDetails(error: error),
-                        ],
-                      ),
-                    ),
-                    _ => const SizedBox(height: FuncSpacing.lg),
-                  },
-                ),
-              ],
             ),
           ),
         );
@@ -464,8 +441,8 @@ class _HistoryBodyState extends ConsumerState<_HistoryBody> {
     );
   }
 
-  HistoryRecord? _controllerRecord(int key) => ref
-      .read(historyFeedControllerProvider(widget.accountId).notifier)
+  HistoryRecord? _controllerRecord(WidgetRef ref, int key) => ref
+      .read(historyFeedControllerProvider(accountId).notifier)
       .recordFor(key);
 }
 

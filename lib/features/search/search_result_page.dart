@@ -40,6 +40,7 @@ import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../app/layout/card_columns.dart';
+import '../../app/widgets/feed/load_more_listener.dart';
 
 /// Grid padding shared by the result sliver and its first-load skeleton.
 const _illustGridPadding = EdgeInsets.all(FuncSpacing.sm);
@@ -545,15 +546,10 @@ class _IllustSearchFeed extends ConsumerWidget {
     if (entities.isEmpty) return _EmptySearchResult(query: query);
     return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (notification is ScrollUpdateNotification &&
-              notification.metrics.extentAfter <
-                  notification.metrics.viewportDimension * 1.2) {
-            ref.read(searchFeedProvider(query).notifier).loadMore();
-          }
-          return false;
-        },
+      child: LoadMoreListener(
+        itemCount: feed.ids.length,
+        onLoadMore: () =>
+            ref.read(searchFeedProvider(query).notifier).loadMore(),
         child: SmoothWheelScroll(
           controller: scrollController,
           basePhysics: const AlwaysScrollableScrollPhysics(),
@@ -616,15 +612,10 @@ class _NovelSearchFeed extends ConsumerWidget {
     if (entities.isEmpty) return _EmptySearchResult(query: query);
     return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (notification is ScrollUpdateNotification &&
-              notification.metrics.extentAfter <
-                  notification.metrics.viewportDimension * 1.2) {
-            ref.read(searchFeedProvider(query).notifier).loadMore();
-          }
-          return false;
-        },
+      child: LoadMoreListener(
+        itemCount: feed.ids.length,
+        onLoadMore: () =>
+            ref.read(searchFeedProvider(query).notifier).loadMore(),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final columns = CardColumns.of(constraints.maxWidth);
@@ -684,15 +675,10 @@ class _UserSearchFeed extends ConsumerWidget {
     if (users.isEmpty) return _EmptySearchResult(query: query);
     return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
-      child: NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          if (notification is ScrollUpdateNotification &&
-              notification.metrics.extentAfter <
-                  notification.metrics.viewportDimension * 1.2) {
-            ref.read(searchFeedProvider(query).notifier).loadMore();
-          }
-          return false;
-        },
+      child: LoadMoreListener(
+        itemCount: feed.ids.length,
+        onLoadMore: () =>
+            ref.read(searchFeedProvider(query).notifier).loadMore(),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final columns = CardColumns.of(constraints.maxWidth);

@@ -11,6 +11,7 @@ import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_tab_bar.dart';
 import '../../app/layout/content_widths.dart';
+import '../../app/widgets/feed/load_more_listener.dart';
 
 /// The signed-in user's bookmark tag collection (`/v1/user/bookmark-tags/`)
 /// in two tabs, public and private. Tapping a tag opens the filtered
@@ -135,16 +136,10 @@ class _TagList extends ConsumerWidget {
         title: l10n.bookmarkTagsEmpty,
       );
     }
-    return NotificationListener<ScrollNotification>(
-      onNotification: (notification) {
-        if (notification.metrics.axis == Axis.vertical &&
-            notification is ScrollUpdateNotification &&
-            notification.metrics.extentAfter <
-                notification.metrics.viewportDimension) {
-          ref.read(userBookmarkTagsProvider(query).notifier).loadMore();
-        }
-        return false;
-      },
+    return LoadMoreListener(
+      itemCount: state.tags.length,
+      onLoadMore: () =>
+          ref.read(userBookmarkTagsProvider(query).notifier).loadMore(),
       child: ListView.builder(
         itemCount: state.tags.length + 1,
         itemBuilder: (context, index) {

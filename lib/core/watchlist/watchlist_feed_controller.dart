@@ -74,6 +74,8 @@ class _WatchlistFeedController extends AsyncNotifier<WatchlistFeedState> {
         current.copyWith(
           entries: [...current.entries, ...page.entries],
           nextUrl: page.nextUrl,
+          // The last page carries no cursor; keeping the old one reloads it.
+          clearNextUrl: page.nextUrl == null,
           loadingMore: false,
           clearLoadMoreError: true,
         ),

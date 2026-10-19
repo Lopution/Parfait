@@ -16,6 +16,7 @@ import '../../core/series/series_models.dart';
 import '../../core/series/series_store.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/feed/load_more_listener.dart';
 
 /// Profile work-tab section: the user's public illust series as a card
 /// grid (`/v1/user/illust-series`). Mounted inside the profile
@@ -74,16 +75,10 @@ class UserSeriesFeed extends ConsumerWidget {
           isNested: true,
           onRefresh: () =>
               ref.read(userSeriesFeedProvider(userId).notifier).refresh(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification.metrics.axis == Axis.vertical &&
-                  notification is ScrollUpdateNotification &&
-                  notification.metrics.extentAfter <
-                      notification.metrics.viewportDimension * 1.2) {
-                ref.read(userSeriesFeedProvider(userId).notifier).loadMore();
-              }
-              return false;
-            },
+          child: LoadMoreListener(
+            itemCount: feed.ids.length,
+            onLoadMore: () =>
+                ref.read(userSeriesFeedProvider(userId).notifier).loadMore(),
             child: DeferredCacheScrollView(
               key: PageStorageKey('user-series-$userId'),
               restorationId: 'user-series-$userId',

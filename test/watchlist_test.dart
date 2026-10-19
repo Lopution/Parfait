@@ -10,6 +10,7 @@ import 'package:parfait/core/actionqueue/action_models.dart';
 import 'package:parfait/core/actionqueue/action_store.dart';
 import 'package:parfait/core/mutation/mutation_models.dart';
 import 'package:parfait/core/watchlist/watchlist_actions.dart';
+import 'package:parfait/core/watchlist/watchlist_feed_controller.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_repository.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
@@ -112,6 +113,24 @@ void main() {
       expect(entry.coverUrl, 'https://i.pximg.net/c/x.jpg');
       expect(page.nextUrl, isNull);
       expect(world.fixture.requests.single.url.path, '/v1/watchlist/manga');
+    });
+
+    test('the last page ends the feed', () async {
+      final world = await _makeWorld();
+      addTearDown(world.container.dispose);
+      world.fixture.watchlistBody = {
+        'series': <Object>[],
+        'next_url': 'https://app-api.pixiv.net/v1/watchlist/manga?offset=30',
+      };
+      final feed = watchlistFeedProvider(WatchlistType.manga);
+      await world.container.read(feed.future);
+      // The default page carries no next_url.
+      world.fixture.watchlistBody = null;
+      for (var i = 0; i < 2; i++) {
+        await world.container.read(feed.notifier).loadMore();
+      }
+      expect(world.container.read(feed).value!.hasMore, isFalse);
+      expect(world.fixture.requests, hasLength(2));
     });
 
     test('rejects a next_url that points at a different endpoint', () async {

@@ -18,6 +18,7 @@ import '../../core/network/api_error.dart';
 import '../../core/ranking/ranking_catalog.dart';
 import '../../l10n/context.dart';
 import 'ranking_tabs.dart';
+import '../../app/widgets/feed/load_more_listener.dart';
 
 /// The illust ranking, a home branch root: [RankingTabs] over the illust
 /// categories, each a grid of ranked works.
@@ -116,17 +117,11 @@ class _RankingModeBody extends ConsumerWidget {
           onRefresh: () => ref
               .read(rankingFeedControllerProvider(feedKey).notifier)
               .refresh(),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollUpdateNotification &&
-                  notification.metrics.extentAfter <
-                      notification.metrics.viewportDimension * 1.2) {
-                ref
-                    .read(rankingFeedControllerProvider(feedKey).notifier)
-                    .loadMore();
-              }
-              return false;
-            },
+          child: LoadMoreListener(
+            itemCount: feed.ids.length,
+            onLoadMore: () => ref
+                .read(rankingFeedControllerProvider(feedKey).notifier)
+                .loadMore(),
             child: SmoothWheelScroll(
               controller: scrollController,
               basePhysics: const AlwaysScrollableScrollPhysics(),

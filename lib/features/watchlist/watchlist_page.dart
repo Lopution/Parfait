@@ -24,6 +24,7 @@ import '../../core/watchlist/watchlist_models.dart';
 import '../../core/watchlist/watchlist_store.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/feed/load_more_listener.dart';
 
 /// 追更列表: manga and novel series segments (`/v1/watchlist/*`).
 /// A tile shows a "new content" badge while its `latest_content_id` is
@@ -91,15 +92,10 @@ class _WatchlistFeedBody extends ConsumerWidget {
             return PullToRefresh(
               onRefresh: () =>
                   ref.read(watchlistFeedProvider(type).notifier).refresh(),
-              child: NotificationListener<ScrollNotification>(
-                onNotification: (notification) {
-                  final metrics = notification.metrics;
-                  if (metrics.maxScrollExtent > 0 &&
-                      metrics.pixels >= metrics.maxScrollExtent - 400) {
-                    ref.read(watchlistFeedProvider(type).notifier).loadMore();
-                  }
-                  return false;
-                },
+              child: LoadMoreListener(
+                itemCount: feed.entries.length,
+                onLoadMore: () =>
+                    ref.read(watchlistFeedProvider(type).notifier).loadMore(),
                 child: ListView.builder(
                   itemCount: feed.entries.length + 1,
                   itemBuilder: (context, index) {

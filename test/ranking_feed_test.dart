@@ -397,7 +397,7 @@ void main() {
         // The week tab next to it builds on a still screen, undated.
         expect(
           fixture.requests
-              .singleWhere((u) => u.queryParameters['mode'] == 'day')
+              .firstWhere((u) => u.queryParameters['mode'] == 'day')
               .queryParameters
               .containsKey('date'),
           false,

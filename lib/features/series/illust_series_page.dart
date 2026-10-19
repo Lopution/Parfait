@@ -28,6 +28,7 @@ import '../../app/widgets/watchlist_toggle.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/layout/card_columns.dart';
+import '../../app/widgets/feed/load_more_listener.dart';
 
 /// One illust series: a header (cover/title/author/work count/caption) plus
 /// the paginated episode list (`/v1/illust/series`, newest first). Episodes
@@ -79,20 +80,11 @@ class IllustSeriesPage extends ConsumerWidget {
           return PullToRefresh(
             onRefresh: () =>
                 ref.read(illustSeriesFeedProvider(seriesId).notifier).refresh(),
-            child: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                // Same -500px threshold as the detail page's related works:
-                // loadMore is internally guarded against re-entry and the
-                // exhausted state.
-                final metrics = notification.metrics;
-                if (metrics.maxScrollExtent > 0 &&
-                    metrics.pixels >= metrics.maxScrollExtent - 500) {
-                  ref
-                      .read(illustSeriesFeedProvider(seriesId).notifier)
-                      .loadMore();
-                }
-                return false;
-              },
+            child: LoadMoreListener(
+              itemCount: feed.ids.length,
+              onLoadMore: () => ref
+                  .read(illustSeriesFeedProvider(seriesId).notifier)
+                  .loadMore(),
               child: SmoothWheelScroll(
                 basePhysics: const AlwaysScrollableScrollPhysics(),
                 builder: (context, controller, physics) =>

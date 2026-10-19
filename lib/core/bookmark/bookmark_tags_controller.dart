@@ -77,6 +77,8 @@ class _UserBookmarkTagsController extends AsyncNotifier<UserBookmarkTagsState> {
         current.copyWith(
           tags: [...current.tags, ...page.tags],
           nextUrl: page.nextUrl,
+          // The last page carries no cursor; keeping the old one reloads it.
+          clearNextUrl: page.nextUrl == null,
           loadingMore: false,
           clearLoadMoreError: true,
         ),

@@ -90,6 +90,26 @@ reviewed: 2026-10-19
 - **Check:** manual
 - **Code:** `lib/app/widgets/feed/feed_grid.dart`
 
+### FEED-20 The next page is asked for three screens ahead
+- **Rule:** A paged list sits in a `LoadMoreListener`, never a hand-made
+  scroll listener: it asks for the next page while the end is less than
+  three viewports below, on a user scroll, once after the list mounts and
+  once after each commit (an item count change). A commit is checked at
+  once only while the list cannot scroll; otherwise on the next metrics
+  notification, because rows appended past the laid-out ones keep the old
+  estimated end until a layout reaches them. A size change alone never
+  asks, and a nested scrollable never counts. Deduping, pacing
+  (PAGING-07) and errors stay in the controller, and a controller clears
+  its cursor on the last page.
+  The artwork detail's related works keep their own on-demand trigger.
+- **Why:** At 1.2 screens a fast reader reached the bottom spinner, and a
+  short page that could not scroll stopped paging until the user dragged.
+  Asking on a size change retried a failed page as soon as its error tail
+  replaced the spinner; reading the stale estimate asked page after page
+  without a scroll; a kept cursor reloaded the last page forever.
+- **Check:** `test/load_more_listener_test.dart`, `test/watchlist_test.dart` "the last page ends the feed", `test/feed_generation_commit_test.dart` "refresh wins over a late append and drops its entity/cursor commit"
+- **Code:** `lib/app/widgets/feed/load_more_listener.dart`
+
 ### FEED-06 Card text is laid out between frames before its card
 - **Rule:** Content text on feed cards sets
   `locale: contentLocale(context, text)`. Every `IllustFeedGrid` of
