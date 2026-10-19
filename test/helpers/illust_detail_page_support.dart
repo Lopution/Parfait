@@ -43,7 +43,10 @@ class RecordingShareService implements ShareService {
 /// one more.
 Future<void> scrollToRelated(WidgetTester tester) async {
   for (var i = 0; i < 2; i++) {
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1400));
+    await tester.drag(
+      find.bySubtype<CustomScrollView>(),
+      const Offset(0, -1400),
+    );
     await tester.pump(const Duration(milliseconds: 100));
   }
   await tester.pump();
@@ -80,6 +83,7 @@ Future<void> pumpDetail(
   bool reduceMotion = false,
   double textScale = 1,
   Size surface = const Size(390, 844),
+  bool firstFrameOnly = false,
 }) async {
   setViewSize(tester, surface);
   if (seedStore) {
@@ -134,6 +138,7 @@ Future<void> pumpDetail(
     await tester.pumpWidget(
       UncontrolledProviderScope(container: container, child: app),
     );
+    if (firstFrameOnly) return;
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
   });

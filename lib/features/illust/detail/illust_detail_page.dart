@@ -54,6 +54,7 @@ import '../../../app/widgets/errors/error_details.dart';
 import '../../../l10n/context.dart';
 import '../../../app/navigation/home_shell_metrics.dart';
 import '../../../app/layout/app_breakpoints.dart';
+import '../../../app/layout/deferred_cache_scroll_view.dart';
 import '../../../app/layout/two_pane.dart';
 import '../../../app/widgets/smooth_wheel_scroll.dart';
 
@@ -1003,7 +1004,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     final metaScroll = NotificationListener<ScrollNotification>(
       onNotification: onScrollNotification,
       child: SmoothWheelScroll(
-        builder: (context, controller, physics) => CustomScrollView(
+        // The first frame of a detail page is its push: only the
+        // viewport builds there.
+        builder: (context, controller, physics) => DeferredCacheScrollView(
           controller: controller,
           physics: physics,
           slivers: metaSlivers,
@@ -1075,11 +1078,12 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
                   onNotification: onScrollNotification,
                   child: SmoothWheelScroll(
                     controller: _narrowScroll,
-                    builder: (context, controller, physics) => CustomScrollView(
-                      controller: controller,
-                      physics: physics,
-                      slivers: [...imageSlivers, ...metaSlivers],
-                    ),
+                    builder: (context, controller, physics) =>
+                        DeferredCacheScrollView(
+                          controller: controller,
+                          physics: physics,
+                          slivers: [...imageSlivers, ...metaSlivers],
+                        ),
                   ),
                 ),
                 // The shared page counter floats over the top-end of the

@@ -132,7 +132,7 @@ void main() {
       await tester.pumpAndSettle();
       final screen = tester.getSize(find.byType(IllustDetailPage));
       final rest = toolbarRect(tester);
-      final scroll = find.byType(CustomScrollView);
+      final scroll = find.bySubtype<CustomScrollView>();
 
       await tester.drag(scroll, const Offset(0, -300));
       await tester.pumpAndSettle();
