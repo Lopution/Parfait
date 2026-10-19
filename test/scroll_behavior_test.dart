@@ -152,4 +152,46 @@ void main() {
       await tester.pumpAndSettle();
     });
   }
+
+  // A slow swipe past half and a short flick each land their page and end
+  // the scroll in about 300 ms; the framework's spring took about 0.7 s.
+  for (final (name, dx, ms) in [
+    ('a slow swipe', -220.0, 400),
+    ('a flick', -60.0, 60),
+  ]) {
+    testWidgets('$name ends its page snap in about 300 ms', (tester) async {
+      // A phone: 390 dp wide at 3x, which sets the snap's tolerance.
+      tester.view
+        ..physicalSize = const Size(1170, 2532)
+        ..devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final controller = PageController();
+      addTearDown(controller.dispose);
+      var ended = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotificationListener<ScrollEndNotification>(
+            onNotification: (_) => ended = true,
+            child: PageView(
+              controller: controller,
+              physics: const PageSnapPhysics(),
+              children: [for (var i = 0; i < 3; i++) Text('$i')],
+            ),
+          ),
+        ),
+      );
+      await tester.timedDrag(
+        find.byType(PageView),
+        Offset(dx, 0),
+        Duration(milliseconds: ms),
+      );
+      var frames = 0;
+      while (!ended && frames < 60) {
+        await tester.pump(const Duration(milliseconds: 16));
+        frames++;
+      }
+      expect(frames * 16, lessThanOrEqualTo(350));
+      expect(controller.page, 1);
+    });
+  }
 }

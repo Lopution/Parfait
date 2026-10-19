@@ -286,6 +286,7 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage> {
         child: PagingSlop(
           child: PageView.builder(
             controller: _controller,
+            physics: const PageSnapPhysics(),
             // Keep adjacent pages built ahead of the swipe — their entities
             // are already in IllustStore from the feed fetch, so the
             // incoming page lands rendered instead of spinning up on first
