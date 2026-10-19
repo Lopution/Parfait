@@ -70,7 +70,9 @@ abstract final class TraceMarks {
       case PointerDownEvent():
         _pointers[event.pointer] = _PointerTrack(event);
         sink('down');
-      case PointerMoveEvent():
+      // A resampled move is left out, as recognizers leave it out of the
+      // fling speed.
+      case PointerMoveEvent(synthesized: false):
         _pointers[event.pointer]?.add(event);
       case PointerUpEvent():
         final track = _pointers.remove(event.pointer);
