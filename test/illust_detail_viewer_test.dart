@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:parfait/core/download/download_providers.dart';
 import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
+import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -472,6 +473,35 @@ void main() {
         });
       },
     );
+
+    testWidgets('a page decodes a preview until zoomed, then the whole file', (
+      tester,
+    ) async {
+      await mockNetworkImagesFor(() async {
+        await pumpViewer(tester, urls: [twoPages.first]);
+        PixivImage page() => tester.widget<PixivImage>(find.byType(PixivImage));
+        final preview = ImageViewerPage.previewDecodeWidth(
+          tester.element(find.byType(PageView)),
+        );
+        expect(page().memCacheWidth, preview);
+        // Without a Hero the preview still stands in while the file decodes.
+        expect(page().transitionKey, isNotNull);
+
+        final zoom = tester
+            .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+            .transformationController!;
+        for (final (scale, width) in [
+          (1.4, preview),
+          (ImageViewerPage.fullDecodeScale, null),
+          // Back at fit, the page keeps the whole file: no swap back.
+          (1.0, null),
+        ]) {
+          zoom.value = Matrix4.diagonal3Values(scale, scale, 1);
+          await tester.pump();
+          expect(page().memCacheWidth, width, reason: 'at $scale');
+        }
+      });
+    });
 
     testWidgets('system back while zoomed resets to fit and keeps the route', (
       tester,

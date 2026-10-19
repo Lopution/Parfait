@@ -804,17 +804,23 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
     }
     final worker = ref.watch(imageWorkerProvider);
     _HistoryEntry entryAt(int? width) => (imageUrl, width);
-    // A URL's only decoded entry can be the viewer's uncapped frame (the
-    // viewer decodes without a memCacheWidth cap). Requesting a fresh
-    // capped decode of it leaves a placeholder/swap window — the flash
-    // when a detail page re-lands after the viewer fetched the original.
-    // The uncapped entry is decoded and strictly sharper than the
-    // requested width, so paint it directly.
+    // A URL's only decoded entry can be the viewer's frame (its preview,
+    // twice the screen wide, or the whole file once zoomed). Requesting a
+    // fresh narrower decode of it leaves a placeholder/swap window — the
+    // flash when a detail page re-lands after the viewer fetched the
+    // original. A decode at least as wide is sharp enough: paint it.
     var current = entryAt(widget.memCacheWidth);
-    if (current.$2 != null &&
-        !PixivImage._imageCompleted(current) &&
-        PixivImage._imageCompleted(entryAt(null))) {
-      current = entryAt(null);
+    if (current.$2 case final width?
+        when !PixivImage._imageCompleted(current)) {
+      final wider = switch (PixivImage._lastDecodeOfUrl[imageUrl]) {
+        final last? when (last.$2 ?? width) >= width => last,
+        _ => null,
+      };
+      if (PixivImage._imageCompleted(entryAt(null))) {
+        current = entryAt(null);
+      } else if (wider != null) {
+        current = wider;
+      }
     }
     final (_, effectiveWidth) = current;
     _hold(worker.demand, imageUrl);

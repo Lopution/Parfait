@@ -172,6 +172,28 @@ void main() {
     await unmountPastReleaseGrace(tester);
   });
 
+  testWidgets('a wider decode paints a narrower request at once', (
+    tester,
+  ) async {
+    // The viewer decodes a page twice the screen wide; the detail page
+    // asking for it at screen width must not drop to its placeholder.
+    const url = 'https://i.pximg.net/img-master/wider_master.jpg';
+    final world = _World();
+    for (final (width, painted) in [(400, false), (200, true), (800, false)]) {
+      await tester.pumpWidget(
+        world.host(
+          KeyedSubtree(
+            key: UniqueKey(),
+            child: PixivImage(url: url, memCacheWidth: width),
+          ),
+        ),
+      );
+      expect(_painted(tester), painted, reason: 'width $width');
+      await pumpIoUntil(tester, () => _painted(tester));
+    }
+    await unmountPastReleaseGrace(tester);
+  });
+
   testWidgets('a preload lands on the entry of the widget that will show '
       'it', (tester) async {
     const preview = 'https://i.pximg.net/img-master/preload_square.jpg';

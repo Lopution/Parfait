@@ -195,10 +195,19 @@ void main() {
         final detail = find.byType(IllustDetailPage);
         await tester.tap(find.byType(DetailPageImage).first);
         await tester.pumpAndSettle();
+        int? decodeWidthIn(Finder scope) => tester
+            .widget<PixivImage>(
+              find.descendant(of: scope, matching: find.byType(PixivImage)),
+            )
+            .memCacheWidth;
+        final shown = decodeWidthIn(find.byType(ImageViewerPage));
+        expect(shown, isNotNull, reason: 'the viewer shows its preview');
         await tester.tap(find.byType(BackButton));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 200));
         expect(find.byType(HeroRectClip), findsOneWidget, reason: 'in flight');
+        // The shuttle paints the decode the viewer showed: no second decode.
+        expect(decodeWidthIn(find.byType(HeroRectClip)), shown);
         // The stage fades out whole: no hole where the image sat. The image
         // flies square: neither end is a card.
         expect(

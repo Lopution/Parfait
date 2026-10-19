@@ -100,6 +100,22 @@ class ImageViewerPage extends ConsumerStatefulWidget {
   static const double minScale = 0.9;
   static const double maxScale = 6.0;
 
+  /// A page first decodes at twice the screen's width, sharp up to a 2x
+  /// zoom, instead of the whole file: an original is thousands of pixels
+  /// on a side, tens of megabytes decoded, and slow to decode on a swipe.
+  static const previewScale = 2.0;
+
+  /// The zoom at which a page decodes the whole file, from then on: early
+  /// enough that it is ready before the preview runs out of pixels.
+  static const fullDecodeScale = 1.5;
+
+  /// The decode width of a page's preview; [openImageViewer] warms the same.
+  static int previewDecodeWidth(BuildContext context) =>
+      PixivImage.decodeWidthFor(
+        MediaQuery.sizeOf(context).width * previewScale,
+        devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+      );
+
   @override
   ConsumerState<ImageViewerPage> createState() => _ImageViewerPageState();
 }
@@ -109,6 +125,10 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   late final PageController _pageController;
   late final AnimationController _zoomController;
   final _transformations = <int, TransformationController>{};
+
+  /// Pages zoomed past [ImageViewerPage.fullDecodeScale]: they keep the
+  /// whole-file decode, so a zoom around the threshold never swaps back.
+  final _fullDecode = <int>{};
 
   /// Per-page download progress for the ring over the page.
   final _progress = <int, ValueNotifier<ImageLoadProgress>>{};
@@ -298,6 +318,11 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   }
 
   void _onTransformed() {
+    final scale = _transformationFor(_activePage).value.getMaxScaleOnAxis();
+    if (scale >= ImageViewerPage.fullDecodeScale &&
+        _fullDecode.add(_activePage)) {
+      setState(() {});
+    }
     final zoomed = _activeZoomed;
     if (zoomed != _activeZoomedSnapshot) {
       // Only rebuild when the physics actually flip (zoomed vs not); the
@@ -755,6 +780,12 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
     return Builder(
       builder: (context) {
         final heroTag = widget.heroTagForPage?.call(page);
+        final decodeWidth = _fullDecode.contains(page)
+            ? null
+            : ImageViewerPage.previewDecodeWidth(context);
+        // Every page hands over between its decodes: the preview paints
+        // while the whole file decodes, with or without a Hero.
+        final transitionKey = heroTag ?? (#viewerPage, widget.urls[page]);
         // Screen readers get a per-page image node ("第 n 页，共 N 页") —
         // without it the media surface announces nothing (PRD R4 a11y).
         final viewer = Semantics(
@@ -781,7 +812,8 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                 child: PixivImage(
                   url: widget.urls[page],
                   fit: BoxFit.contain,
-                  transitionKey: heroTag,
+                  memCacheWidth: decodeWidth,
+                  transitionKey: transitionKey,
                   tierKey: widget.tierKeyForPage?.call(page),
                   tier: widget.tier,
                   // The stage is already black — the default container
@@ -809,7 +841,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
           child: IllustHeroFlightChild(
             containsImage: true,
             // The return shuttle paints the exact provider the
-            // viewer is showing (same URL + uncapped decode =>
+            // viewer is showing (same URL + same decode width =>
             // same decoded cache entry => identical pixels).
             // Painting the fixed detail tier here downgraded an
             // already-loaded original to large at flight start —
@@ -818,6 +850,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
               child: PixivImage(
                 url: widget.urls[page],
                 fit: BoxFit.contain,
+                memCacheWidth: decodeWidth,
                 transitionKey: heroTag,
                 tierKey: widget.tierKeyForPage?.call(page),
                 tier: widget.tier,

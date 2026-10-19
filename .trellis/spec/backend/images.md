@@ -43,9 +43,13 @@ reviewed: 2026-10-19
 ### IMG-03 A decode is identified by URL and width
 - **Rule:** Decode identity is `(url, decode width)`. A stand-in (Hero
   hand-off, tier underlay) paints only a decode that actually completed;
-  never a guessed width.
-- **Why:** A guessed width is another cache entry and fetched again.
-- **Check:** `test/pixiv_image_pipelines_test.dart` "a card frame stands in while the original loads"
+  never a guessed width. A request whose own width has not decoded paints
+  the URL's uncapped decode or its last decode when that is at least as
+  wide.
+- **Why:** A guessed width is another cache entry and fetched again; a
+  detail page returning from the viewer's wider preview dropped to its
+  placeholder.
+- **Check:** `test/pixiv_image_pipelines_test.dart` "a card frame stands in while the original loads" "a wider decode paints a narrower request at once"
 - **Code:** `lib/app/pixiv_image.dart`, `lib/app/image_tier_cache.dart`
 
 ### IMG-04 A dead worker is replaced a bounded number of times
