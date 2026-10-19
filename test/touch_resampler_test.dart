@@ -38,8 +38,9 @@ class _Subject {
 }
 
 /// A finger's samples arriving [latency] after their time stamps, with
-/// frames at [frameInterval] (vsync times, phase [framePhase]). Returns
-/// every event the resampler dispatched.
+/// frames at [frameInterval] (vsync times, phase [framePhase]) whose begin
+/// callback runs 2 ms after the vsync. Returns every event the resampler
+/// dispatched.
 List<PointerEvent> _play(
   List<PointerEvent> samples, {
   num latency = 0,
@@ -50,7 +51,7 @@ List<PointerEvent> _play(
   var frame = framePhase;
   for (final event in samples) {
     final arrival = event.timeStamp + _ms(latency);
-    while (_ms(frame) <= arrival) {
+    while (_ms(frame + 2) <= arrival) {
       subject.resampler.sample(_ms(frame));
       frame += frameInterval;
     }
@@ -87,7 +88,7 @@ List<PointerEvent> _drag(List<double> speeds) {
 }
 
 void main() {
-  test('a frame shows where the finger was 5 ms before its vsync', () {
+  test('a frame shows where the finger was 10 ms before its vsync', () {
     final subject = _Subject();
     final resampler = subject.resampler;
     resampler.add(_down(0, Offset.zero));
@@ -100,7 +101,7 @@ void main() {
     expect(subject.moves, isEmpty);
     expect(subject.frameRequests, greaterThan(0));
 
-    resampler.sample(_ms(26));
+    resampler.sample(_ms(31));
     final moves = subject.moves;
     expect(moves.map((e) => e.timeStamp), [
       for (var t = 4; t <= 20; t += 4) _ms(t),
@@ -117,51 +118,30 @@ void main() {
     expect(resampler.hasPending, isTrue, reason: 'the 24 ms sample waits');
   });
 
-  // Without a later sample the position is predicted from the last two,
-  // at most half their gap and 8 ms ahead; a stale pair predicts nothing.
-  for (final (gap, lead) in [(10, 5), (18, 8), (30, null)]) {
-    test('after a $gap ms gap a frame predicts ${lead ?? 'nothing'}', () {
-      final subject = _Subject();
-      final resampler = subject.resampler;
-      resampler
-        ..add(_down(0, Offset.zero))
-        ..add(_move(gap, Offset(0, gap.toDouble())))
-        ..add(_move(gap * 2, Offset(0, gap * 2.0)))
-        ..sample(_ms(gap * 2 + 40));
-      final last = subject.moves.last;
-      if (lead == null) {
-        expect(last.synthesized, isFalse);
-        expect(last.position, Offset(0, gap * 2.0));
-      } else {
-        expect(last.synthesized, isTrue);
-        expect(last.timeStamp, _ms(gap * 2 + lead));
-        expect(last.position, Offset(0, gap * 2.0 + lead));
-      }
-    });
-  }
-
-  test('a sample older than a prediction shown never steps back', () {
+  test('a frame between two samples moves on without a new one', () {
     final subject = _Subject();
-    final resampler = subject.resampler;
-    resampler
+    subject.resampler
+      ..add(_down(0, Offset.zero))
+      ..add(_move(8, const Offset(0, 8)))
+      ..add(_move(24, const Offset(0, 24)))
+      ..sample(_ms(25))
+      ..sample(_ms(30));
+    expect(subject.moves.map((e) => (e.timeStamp, e.position.dy)), [
+      (_ms(8), 8),
+      (_ms(15), 15),
+      (_ms(20), 20),
+    ]);
+  });
+
+  test('without a later sample a frame keeps the newest real one', () {
+    final subject = _Subject();
+    subject.resampler
       ..add(_down(0, Offset.zero))
       ..add(_move(10, const Offset(0, 10)))
       ..add(_move(20, const Offset(0, 20)))
-      ..sample(_ms(40));
-    expect(subject.moves.last.position, const Offset(0, 25));
-
-    resampler
-      ..add(_move(24, const Offset(0, 24)))
-      ..add(_move(30, const Offset(0, 30)))
-      ..sample(_ms(50));
-    final shown = subject.moves.map((e) => e.position.dy).toList();
-    final times = subject.moves.map((e) => e.timeStamp).toList();
-    expect(shown, isNot(contains(24)));
-    for (var i = 1; i < shown.length; i++) {
-      expect(shown[i], greaterThanOrEqualTo(shown[i - 1]));
-      expect(times[i], greaterThanOrEqualTo(times[i - 1]));
-    }
-    expect(shown.last, 33, reason: 'predicted on from the new samples');
+      ..sample(_ms(60));
+    expect(subject.moves.last.position, const Offset(0, 20));
+    expect(subject.moves.any((e) => e.synthesized), isFalse);
   });
 
   test('an up goes out after the moves still queued, in order', () {
@@ -192,7 +172,7 @@ void main() {
         ..add(_move(t, Offset(0, t.toDouble())))
         ..add(_move(t, Offset(100 + t * 2.0, 0), pointer: 2));
     }
-    resampler.sample(_ms(26));
+    resampler.sample(_ms(31));
     final resampled = {
       for (final e in subject.moves.where((e) => e.synthesized)) e.pointer: e,
     };
@@ -233,26 +213,22 @@ void main() {
   });
 
   // Recognizers leave resampled moves out of their velocity, as Android's
-  // VelocityTracker does; a lift-off keeps the real samples' speed even
-  // when samples arrive after the frame that predicted past them.
+  // VelocityTracker does; every real sample still goes out, however late.
   for (final (name, speeds) in [
-    ('a short fling', [2.0, 2.0, 2.0, 2.0, 2.0, 2.0]),
     ('a slowing drag', [for (var i = 0; i < 16; i++) 3.0 - i * 0.15]),
     (
       'a drag held still before the lift',
-      [...List.filled(8, 2.0), ...List.filled(10, 0.0)],
+      [...List.filled(8, 2.0), ...List.filled(4, 0.0)],
     ),
   ]) {
     testWidgets('$name leaves at the speed of its real samples', (_) async {
       final samples = _drag(speeds);
       final direct = _liftVelocity(samples).pixelsPerSecond.dy;
-      for (final latency in [0, 6]) {
-        final resampled = _liftVelocity(
-          _play(samples, latency: latency),
-        ).pixelsPerSecond.dy;
+      for (final latency in [0, 6, 12]) {
+        final resampled = _liftVelocity(_play(samples, latency: latency));
         expect(
-          resampled,
-          closeTo(direct, direct.abs() * 0.05 + 1),
+          resampled.pixelsPerSecond.dy,
+          direct,
           reason: 'latency $latency ms',
         );
       }
@@ -287,7 +263,7 @@ void main() {
       send(_down(0, start));
       for (var t = 8; t <= 96; t += 8) {
         send(_move(t, start - Offset(0, t * 2.0), delta: const Offset(0, -16)));
-        if (resample) resampler.sample(_ms(t + 3));
+        if (resample) resampler.sample(_ms(t + 6));
         await tester.pump();
       }
       send(_up(97, start - const Offset(0, 192)));
