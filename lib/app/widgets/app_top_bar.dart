@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:flutter/foundation.dart';
 
+import '../motion/hero_transition.dart' show HeroChrome;
 import '../motion/motion_tokens.dart';
 import '../system_ui.dart';
 import '../theme/func_semantic_tokens.dart';
@@ -64,8 +65,8 @@ class AppTopBar extends StatefulWidget implements PreferredSizeWidget {
   final bool overArtwork;
 
   /// Fades the whole bar in, with the page a Hero flight brings in, so its
-  /// controls arrive with a fade rather than a cut. Null shows the bar at
-  /// once.
+  /// controls arrive with a fade rather than a cut; the bar also stays out
+  /// of a flight over it ([HeroChrome]). Null shows the bar at once.
   final Animation<double>? entrance;
 
   /// Whether the bar currently hides what scrolls under it. A Hero flight
@@ -135,7 +136,9 @@ class _AppTopBarState extends State<AppTopBar> {
     final entrance = widget.entrance;
     return entrance == null
         ? switched
-        : FadeTransition(opacity: entrance, child: switched);
+        : HeroChrome(
+            child: FadeTransition(opacity: entrance, child: switched),
+          );
   }
 
   /// [drawn] is the bar's presence: 1 the normal bar, 0 fully immersed.

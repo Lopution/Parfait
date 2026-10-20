@@ -8,7 +8,7 @@ import 'package:material_ui/material_ui.dart'
         PredictiveBackPageTransitionsBuilder;
 
 import '../../core/settings/app_settings.dart' show PageTransitionStyle;
-import '../motion/hero_transition.dart' show HeroLiftHole;
+import '../motion/hero_transition.dart' show HeroLiftHole, HeroPageCover;
 import '../motion/motion_tokens.dart';
 import '../motion/page_transitions.dart';
 import '../widgets/home_branch_stack.dart' show BranchActivityScope;
@@ -90,10 +90,32 @@ class _FuncPageRoute<T> extends PageRoute<T> {
     controller!,
   );
 
+  /// The route a shared-element page covers, for [HeroPageCover].
+  Route<dynamic>? _covered;
+
   @override
   void didChangePrevious(Route<dynamic>? previousRoute) {
     if (previousRoute != null) _above[previousRoute] = this;
+    if (_page.sharedElement && previousRoute != _covered) {
+      _uncover();
+      if (previousRoute != null) {
+        HeroPageCover.add(previousRoute, this, _sharedElementFade);
+      }
+      _covered = previousRoute;
+    }
     super.didChangePrevious(previousRoute);
+  }
+
+  void _uncover() {
+    if (_covered case final covered?) {
+      HeroPageCover.remove(covered, this);
+    }
+  }
+
+  @override
+  void dispose() {
+    _uncover();
+    super.dispose();
   }
 
   @override
@@ -310,23 +332,67 @@ bool underSharedElement(Route<dynamic> route) {
 /// played backwards would hold the page until the image had nearly
 /// landed. Reads the controller: the route animation reports complete
 /// for the frame a Hero measures the opening page.
+///
+/// A leave that cuts an opening short fades out from the opacity the
+/// opening got to, over the same share of what is left: switching curves
+/// at the turn dropped the half-shown page in one frame.
 class _SharedElementFade extends Animation<double>
     with AnimationWithParentMixin<double> {
-  _SharedElementFade(this.route, this.parent);
+  // Built once the opening has started: when the pushed route announces
+  // the route below it, or with its first transition.
+  _SharedElementFade(this.route, this.parent)
+    : _status = parent.status,
+      _opening = parent.status == AnimationStatus.forward {
+    parent.addStatusListener(_onStatus);
+  }
 
   final _FuncPageRoute<dynamic> route;
 
   @override
   final Animation<double> parent;
 
+  /// The route value and the opacity when the leave began: 1 and 1 unless
+  /// it turned an opening around.
+  double _leaveFrom = 1;
+  double _leaveOpacity = 1;
+
+  /// Whether the page is running its opening: a back gesture's scrub runs
+  /// forward too, from a page that had opened.
+  bool _opening;
+  AnimationStatus _status;
+
+  void _onStatus(AnimationStatus status) {
+    final previous = _status;
+    _status = status;
+    switch (status) {
+      case AnimationStatus.forward:
+        _opening |= previous == AnimationStatus.dismissed;
+      case AnimationStatus.reverse:
+        if (_opening) {
+          _leaveFrom = parent.value;
+          _leaveOpacity = MotionTokens.sharedElementFadeIn.transform(
+            parent.value,
+          );
+        }
+        _opening = false;
+      case AnimationStatus.completed || AnimationStatus.dismissed:
+        _opening = false;
+        _leaveFrom = 1;
+        _leaveOpacity = 1;
+    }
+  }
+
   @override
   double get value {
     final leaving =
         parent.status == AnimationStatus.reverse || route.popGestureInProgress;
-    return (leaving
-            ? MotionTokens.sharedElementFadeOut
-            : MotionTokens.sharedElementFadeIn)
-        .transform(parent.value);
+    if (!leaving) {
+      return MotionTokens.sharedElementFadeIn.transform(parent.value);
+    }
+    final left = _leaveFrom > 0
+        ? (parent.value / _leaveFrom).clamp(0.0, 1.0)
+        : 0.0;
+    return _leaveOpacity * MotionTokens.sharedElementFadeOut.transform(left);
   }
 }
 

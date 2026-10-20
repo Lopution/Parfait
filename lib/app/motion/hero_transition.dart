@@ -9,6 +9,7 @@ import '../navigation/home_shell_metrics.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../widgets/app_top_bar.dart';
 import 'hero_rect_clip.dart';
+import 'motion_tokens.dart';
 
 /// Hero flight geometry shared by the feed cards and the detail page.
 /// The Hero tag and shuttle builder are the single artwork transition
@@ -63,6 +64,143 @@ class IllustHeroCardFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(borderRadius: FuncShape.card, child: child);
+  }
+}
+
+/// Chrome drawn over a Hero image: a card's badges, the detail page's top
+/// bar, page counter and action bar. The flying image is painted above
+/// every page, so chrome over either end of a flight was covered as the
+/// flight set off and uncovered whole as it landed, and a card's badges
+/// floated over its empty slot. While a flight runs, the chrome its ends
+/// overlap is hidden; once the image has landed it fades in.
+class HeroChrome extends StatefulWidget {
+  const HeroChrome({super.key, required this.child});
+
+  final Widget child;
+
+  /// Each route's chrome, for the flights that start or land on it.
+  static final _byRoute = Expando<Set<_HeroChromeState>>();
+
+  static Iterable<_HeroChromeState> _on(Route<dynamic> route) =>
+      _byRoute[route] ?? const {};
+
+  @override
+  State<HeroChrome> createState() => _HeroChromeState();
+}
+
+class _HeroChromeState extends State<HeroChrome>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _shown = AnimationController(
+    vsync: this,
+    value: 1,
+  );
+  late final CurvedAnimation _opacity = CurvedAnimation(
+    parent: _shown,
+    curve: MotionTokens.stateFadeCurve,
+  );
+  Route<dynamic>? _route;
+
+  /// Flights holding the chrome hidden.
+  int _holds = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Resolved here: a flight may land while this chrome's page goes.
+    _shown.duration = MotionTokens.resolve(context, MotionTokens.stateFade);
+    final route = ModalRoute.of(context);
+    if (route == _route) return;
+    _unregister();
+    _route = route;
+    _register();
+  }
+
+  // Only chrome in the tree is measured against a flight.
+  void _register() {
+    if (_route case final route?) (HeroChrome._byRoute[route] ??= {}).add(this);
+  }
+
+  void _unregister() {
+    if (_route case final route?) HeroChrome._byRoute[route]?.remove(this);
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _register();
+  }
+
+  @override
+  void deactivate() {
+    _unregister();
+    super.deactivate();
+  }
+
+  /// Whether the chrome overlaps [rect], in global coordinates.
+  bool _over(Rect rect) {
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return false;
+    return MatrixUtils.transformRect(
+      box.getTransformTo(null),
+      Offset.zero & box.size,
+    ).overlaps(rect);
+  }
+
+  void _hold() {
+    _holds++;
+    _shown.value = 0;
+  }
+
+  void _release() {
+    _holds--;
+    if (_holds == 0 && mounted) _shown.forward();
+  }
+
+  @override
+  void dispose() {
+    _unregister();
+    _opacity.dispose();
+    _shown.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      FadeTransition(opacity: _opacity, child: widget.child);
+}
+
+/// How much the shared-element pages over a route cover it: a flight
+/// between the route and a page over it is cut by the chrome of the page
+/// that shows, so the clip follows this, not the image's way. The page
+/// fades in and out faster than the image flies; a clip that followed the
+/// image left it over the bar below a page already gone, or cut by that
+/// bar under a page already shown.
+///
+/// A page registers its opacity under the route right below it for its
+/// life. Two pages over one route are a page leaving and its successor
+/// opening while the image turns around; the more opaque one counts.
+abstract final class HeroPageCover {
+  static final _covers =
+      Expando<List<({Route<dynamic> page, Animation<double> opacity})>>();
+
+  static void add(
+    Route<dynamic> below,
+    Route<dynamic> page,
+    Animation<double> opacity,
+  ) => (_covers[below] ??= []).add((page: page, opacity: opacity));
+
+  static void remove(Route<dynamic> below, Route<dynamic> page) =>
+      _covers[below]?.removeWhere((cover) => cover.page == page);
+
+  static List<({Route<dynamic> page, Animation<double> opacity})> _over(
+    Route<dynamic>? below,
+  ) => (below == null ? null : _covers[below]) ?? const [];
+
+  /// The cover over [below] now, or null when no page registered one.
+  static double? _of(Route<dynamic>? below) {
+    final covers = _over(below);
+    if (covers.isEmpty) return null;
+    return covers.map((cover) => cover.opacity.value).reduce(math.max);
   }
 }
 
@@ -172,10 +310,11 @@ const _kHomeBottomNavHeight = 80.0;
 /// Hero shuttles are painted in the Navigator overlay, above both route
 /// entries. The route's AppBar, pinned profile headers and shell navigation
 /// therefore cannot occlude the shuttle by themselves. The boundary is
-/// sampled from both endpoint viewports and interpolated with the same flight
-/// progress as the Hero position. At the beginning of either direction the
-/// image is clipped by the page it leaves; at the end it is clipped by the
-/// page it enters. This moving boundary is important: a static intersection
+/// sampled from both endpoint viewports and interpolated by how much the
+/// page over the card shows ([HeroPageCover]; by the Hero position where
+/// no page registered). At the beginning of either direction the image is
+/// clipped by the page it leaves; at the end it is clipped by the page it
+/// enters. This moving boundary is important: a static intersection
 /// produces the hard cut seen when returning from a scrolled profile, while
 /// no clip lets an opening image paint over the destination chrome.
 Widget illustHeroFlightShuttleBuilder(
@@ -250,65 +389,84 @@ Widget illustHeroFlightShuttleBuilder(
       : _fallbackHeroEndpoint(flightContext, toHeroContext, size);
   final from = measuredFrom ?? fallbackFrom;
   final to = measuredTo ?? fallbackTo;
+  final fromBox = _heroScreenRect(fromHeroContext)?.size;
+  final toBox = _heroScreenRect(toHeroContext)?.size;
+  final cardIsFrom = identical(cardContext, fromHeroContext);
+  final cardRoute = ModalRoute.of(cardContext);
   final shuttle = AnimatedBuilder(
     animation: animation,
     child: child,
-    builder: (context, child) {
-      if (size.isEmpty) {
-        return HeroRectClip(globalRect: Rect.zero, child: child!);
-      }
-      final radius = cardFrame == null
-          ? null
-          : _cardRadiusAt(animation.value, direction);
-      Widget shaped = child!;
-      if (cropAspect != null && window != null) {
-        shaped = CustomSingleChildLayout(
-          delegate: _CoverTopDelegate(aspect: cropAspect),
-          child: _CardWindowFade(
-            window: window,
-            reveal: _detailProgress(animation.value, direction),
-            borderRadius: radius!,
-            child: shaped,
-          ),
-        );
-      } else {
-        // An unmeasured card end has no window: the crop clips to the
-        // flight rect instead.
-        if (cropAspect != null) {
+    builder: (context, child) => LayoutBuilder(
+      builder: (context, constraints) {
+        if (size.isEmpty) {
+          return HeroRectClip(globalRect: Rect.zero, child: child!);
+        }
+        // How far the image has flown, read off its own size between the
+        // two endpoints' (the flight lerps the rect): a flight turned
+        // around or sent to a new page keeps the [animation] of the route
+        // it started with, which may stop or run the other way. Endpoints
+        // of about one size fall back to that animation.
+        final progress =
+            _progressBySize(constraints.biggest, fromBox, toBox) ??
+            _routeProgress(animation.value, direction);
+        final detailProgress = cardIsFrom ? progress : 1 - progress;
+        final radius = cardFrame == null ? null : _cardRadiusAt(detailProgress);
+        Widget shaped = child!;
+        if (cropAspect != null && window != null) {
           shaped = CustomSingleChildLayout(
             delegate: _CoverTopDelegate(aspect: cropAspect),
-            child: shaped,
+            child: _CardWindowFade(
+              window: window,
+              reveal: detailProgress,
+              borderRadius: radius!,
+              child: shaped,
+            ),
           );
+        } else {
+          // An unmeasured card end has no window: the crop clips to the
+          // flight rect instead.
+          if (cropAspect != null) {
+            shaped = CustomSingleChildLayout(
+              delegate: _CoverTopDelegate(aspect: cropAspect),
+              child: shaped,
+            );
+          }
+          if (radius != null) {
+            shaped = ClipRRect(borderRadius: radius, child: shaped);
+          }
         }
-        if (radius != null) {
-          shaped = ClipRRect(borderRadius: radius, child: shaped);
-        }
-      }
-      return HeroRectClip(
-        globalRect: _heroFlightClipRect(
-          flightContext,
-          fromHeroContext,
-          toHeroContext,
-          direction,
-          animation.value,
-          size: size,
-          from: from,
-          to: to,
-          fallbackFrom: fallbackFrom,
-          fallbackTo: fallbackTo,
-          fromHome: fromHome,
-          toHome: toHome,
-          visibleExtent: visibleExtent,
-        ),
-        child: shaped,
-      );
-    },
+        context.findAncestorStateOfType<_LiftedEndpointsState>()?._holdPages();
+        // The clip follows the page over the card, where one shows.
+        final cover = HeroPageCover._of(cardRoute);
+        final clipProgress = cover == null
+            ? progress
+            : (cardIsFrom ? cover : 1 - cover);
+        return HeroRectClip(
+          globalRect: _heroFlightClipRect(
+            flightContext,
+            fromHeroContext,
+            toHeroContext,
+            clipProgress,
+            size: size,
+            from: from,
+            to: to,
+            fallbackFrom: fallbackFrom,
+            fallbackTo: fallbackTo,
+            fromHome: fromHome,
+            toHome: toHome,
+            visibleExtent: visibleExtent,
+          ),
+          child: shaped,
+        );
+      },
+    ),
   );
   // The shuttle is mounted for exactly the flight: the frame probe counts
   // it as a live scene, and the endpoints stay lifted out of their pages.
   return _LiftedEndpoints(
     from: fromHeroContext,
     to: toHeroContext,
+    card: cardContext,
     child: FrameProbe.available
         ? ProbeScene(scene: 'hero', child: shuttle)
         : shuttle,
@@ -316,17 +474,22 @@ Widget illustHeroFlightShuttleBuilder(
 }
 
 /// Keeps both endpoints of one flight lifted out of their pages
-/// ([HeroLiftHole]) for as long as the shuttle is mounted. A diverted
-/// flight rebuilds the shuttle in place with its new endpoints.
+/// ([HeroLiftHole]), and the chrome over them hidden ([HeroChrome]), for
+/// as long as the shuttle is mounted. A diverted flight rebuilds the
+/// shuttle in place with its new endpoints.
 class _LiftedEndpoints extends StatefulWidget {
   const _LiftedEndpoints({
     required this.from,
     required this.to,
+    required this.card,
     required this.child,
   });
 
   final BuildContext from;
   final BuildContext to;
+
+  /// The endpoint on the route below: [from] or [to].
+  final BuildContext card;
   final Widget child;
 
   @override
@@ -335,16 +498,51 @@ class _LiftedEndpoints extends StatefulWidget {
 
 class _LiftedEndpointsState extends State<_LiftedEndpoints> {
   List<VoidCallback> _releases = const [];
+  final _held = <_HeroChromeState>{};
+  Route<dynamic>? _cardRoute;
 
-  void _lift() => _releases = [
-    ?HeroLiftHole.lift(widget.from),
-    ?HeroLiftHole.lift(widget.to),
-  ];
+  /// Where the image sits on the page over the card.
+  Rect? _pageRect;
+
+  void _lift() {
+    final page = identical(widget.card, widget.from) ? widget.to : widget.from;
+    _cardRoute = ModalRoute.of(widget.card);
+    _pageRect = _heroScreenRect(page);
+    _releases = [
+      ?HeroLiftHole.lift(widget.from),
+      ?HeroLiftHole.lift(widget.to),
+    ];
+    _holdOver(_cardRoute, _heroScreenRect(widget.card));
+    _holdOver(ModalRoute.of(page), _pageRect);
+  }
+
+  /// Hides the chrome over the image on the pages over the card. A card
+  /// opened again while its image flies home sends the flight on to the
+  /// new page without rebuilding it: that page's chrome is found here,
+  /// where the old page had the image.
+  void _holdPages() {
+    for (final cover in HeroPageCover._over(_cardRoute)) {
+      _holdOver(cover.page, _pageRect);
+    }
+  }
+
+  void _holdOver(Route<dynamic>? route, Rect? rect) {
+    if (route == null || rect == null) return;
+    for (final chrome in HeroChrome._on(route)) {
+      if (_held.contains(chrome) || !chrome._over(rect)) continue;
+      chrome._hold();
+      _held.add(chrome);
+    }
+  }
 
   void _release() {
     for (final release in _releases) {
       release();
     }
+    for (final chrome in _held) {
+      chrome._release();
+    }
+    _held.clear();
   }
 
   @override
@@ -593,8 +791,7 @@ Rect _heroFlightClipRect(
   BuildContext flightContext,
   BuildContext fromContext,
   BuildContext toContext,
-  HeroFlightDirection direction,
-  double animationValue, {
+  double progress, {
   required Size size,
   Rect? from,
   Rect? to,
@@ -625,20 +822,13 @@ Rect _heroFlightClipRect(
     toRect = _capHeroBottom(toRect, size, visibleExtent);
   }
 
-  final rawProgress = direction == HeroFlightDirection.push
-      ? animationValue
-      : 1 - animationValue;
-  final progress = rawProgress.isFinite
-      ? rawProgress.clamp(0.0, 1.0).toDouble()
-      : (direction == HeroFlightDirection.push ? 1.0 : 0.0);
-
   // Horizontal route-slide transforms are intentionally ignored. The Hero
   // rect itself is already in Navigator coordinates, while the chrome spans
   // the navigator width; interpolating endpoint x values would make the clip
   // disappear into the offstage route for the first frames.
   //
   // fromHeroContext/toHeroContext are already departure/arrival endpoints
-  // for both directions, and progress is normalised to flight progress —
+  // for both directions, and progress runs from the one to the other —
   // lerp(from, to, progress) is correct as-is for push and pop.
   final top = _lerp(
     fromRect.top,
@@ -831,21 +1021,50 @@ double _pinnedHeaderChrome(BuildContext context, double statusInset) {
 
 const _illustHeroBorderRadius = FuncShape.card;
 
-/// The card end's corner radius at flight [value]. The value runs 0→1 on
-/// push and 1→0 on pop, and the detail endpoint is always the 1 side, so
-/// the radius lerps card 12 → square 0 by the raw value either way. A
-/// constant radius used to land rounded then snap square on push.
-BorderRadius _cardRadiusAt(double value, HeroFlightDirection direction) =>
-    BorderRadius.lerp(
-      _illustHeroBorderRadius,
-      BorderRadius.zero,
-      _detailProgress(value, direction),
-    )!;
+/// The card end's corner radius [detailProgress] of the way to the detail
+/// end: card 12 → square 0. A constant radius used to land rounded then
+/// snap square on push.
+BorderRadius _cardRadiusAt(double detailProgress) => BorderRadius.lerp(
+  _illustHeroBorderRadius,
+  BorderRadius.zero,
+  detailProgress,
+)!;
 
-/// How far flight [value] is from the card end towards the detail end:
-/// the raw value clamped, since the detail endpoint is the 1 side both
-/// ways.
-double _detailProgress(double value, HeroFlightDirection direction) =>
-    value.isFinite
-    ? value.clamp(0.0, 1.0).toDouble()
-    : (direction == HeroFlightDirection.push ? 1.0 : 0.0);
+/// Flight progress from the route [value]: it runs 0→1 on push and 1→0
+/// on pop.
+double _routeProgress(double value, HeroFlightDirection direction) {
+  final push = direction == HeroFlightDirection.push;
+  if (!value.isFinite) return push ? 1 : 0;
+  final clamped = value.clamp(0.0, 1.0).toDouble();
+  return push ? clamped : 1 - clamped;
+}
+
+/// The Hero box at [context] on screen, transforms included (a pressed
+/// card is scaled down), as the Hero measures its flight rect; null
+/// before layout.
+Rect? _heroScreenRect(BuildContext context) {
+  final box = context.findRenderObject();
+  if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+  return MatrixUtils.transformRect(
+    box.getTransformTo(null),
+    Offset.zero & box.size,
+  );
+}
+
+/// How far a shuttle of [size] is from the [from] size towards the [to]
+/// size, or null when the two differ too little to tell.
+double? _progressBySize(Size size, Size? from, Size? to) {
+  if (from == null || to == null) return null;
+  final dw = to.width - from.width;
+  final dh = to.height - from.height;
+  final span = dw * dw + dh * dh;
+  if (span < _minSizeSpan * _minSizeSpan) return null;
+  final along =
+      ((size.width - from.width) * dw + (size.height - from.height) * dh) /
+      span;
+  return along.clamp(0.0, 1.0).toDouble();
+}
+
+/// The smallest size change between two endpoints, in logical pixels, that
+/// [_progressBySize] reads progress from.
+const _minSizeSpan = 16.0;

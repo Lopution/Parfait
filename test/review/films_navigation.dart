@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart' show Scaffold;
+import 'package:parfait/app/motion/hero_rect_clip.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
@@ -151,6 +152,223 @@ void main() {
       },
     );
   }
+
+  // Hero flights cut short, over every image shape a flight treats
+  // differently: a 4:3 card, the top of a 1:2.1 one, a 1:6 one on its
+  // square thumbnail (no Hero), a 3:1 panorama, a 1:1.9 page that runs
+  // past the detail capsule.
+  final shapes = ReviewSetup(
+    api: {
+      '/v1/illust/recommended': reviewJson({
+        'illusts': [
+          for (final id in reviewShapesFeed)
+            reviewIllustJson(id, pageCount: id.isEven ? 3 : 1),
+        ],
+        'next_url': null,
+      }),
+    },
+  );
+  const interruptNotes =
+      'Opening Heroes cut short by back at several points, then left to '
+      'land: the image turns around from where it is and lands on its '
+      'card; the detail page fades out from where its fade-in got to, '
+      'without a jump; no chrome of either page (status bar, tab row, '
+      'bottom bar, app bar, action capsule, page counter) is drawn over '
+      'the image or cut out of it; the card badges leave and return '
+      'alike; nothing pops in or out at the landing.';
+  for (final (shape, id) in [
+    ('wide', 1500),
+    ('tall-crop', 1501),
+    ('square-thumb', 1502),
+    ('panorama', 1503),
+    ('past-capsule', 1504),
+  ]) {
+    testFilm(
+      'nav/hero-interrupt-$shape',
+      location: '/recommended',
+      setup: shapes,
+      notes: interruptNotes,
+      script: (film, router) async {
+        final card = film.tester.getCenter(
+          find.bySemanticsLabel(RegExp('^illust $id,')).first,
+        );
+        for (final at in [3, 8, 14]) {
+          await _open(film, card);
+          await film.frames(at);
+          await _systemBack();
+          await film.untilSettled();
+        }
+        // Back and forth faster than a flight.
+        for (final at in [4, 4, 4, 4]) {
+          await _open(film, card);
+          await film.frames(at);
+          await _systemBack();
+          await film.frames(at);
+        }
+        await film.untilSettled();
+      },
+    );
+  }
+
+  testFilm(
+    'nav/hero-interrupt-under-tabs',
+    location: '/recommended',
+    setup: shapes,
+    notes:
+        '$interruptNotes The feed is scrolled so the tall card sits half '
+        'under the tab row: the image leaves and lands clipped by the tab '
+        'row, never over it, and the tab row never cuts the image on the '
+        'detail page.',
+    script: (film, router) async {
+      await film.swipe(
+        find.bySemanticsLabel(RegExp('^illust 1505,')),
+        const Offset(0, -160),
+        hold: 4,
+      );
+      final card = film.tester.getCenter(
+        find.bySemanticsLabel(RegExp('^illust 1501,')).first,
+      );
+      for (final at in [4, 12]) {
+        await _open(film, card);
+        await film.frames(at);
+        await _systemBack();
+        await film.untilSettled();
+      }
+      for (final at in [4, 4, 4]) {
+        await _open(film, card);
+        await film.frames(at);
+        await _systemBack();
+        await film.frames(at);
+      }
+      await film.untilSettled();
+      // Back, then the card again while the image is still on its way
+      // home: it flies to the detail page and lands there.
+      await _open(film, card);
+      await film.frames(8);
+      await _systemBack();
+      await film.frames(5);
+      await _open(film, card);
+      await film.untilSettled();
+      await _systemBack();
+      await film.untilSettled();
+    },
+  );
+
+  testFilm(
+    'nav/hero-interrupt-gesture',
+    location: '/recommended',
+    setup: shapes,
+    notes:
+        '$interruptNotes The back here is the predictive back gesture, '
+        'started mid-flight and committed after a few frames.',
+    script: (film, router) async {
+      final card = film.tester.getCenter(
+        find.bySemanticsLabel(RegExp('^illust 1501,')).first,
+      );
+      for (final at in [4, 12]) {
+        await _open(film, card);
+        await film.frames(at);
+        await _backGesture('startBackGesture', 0);
+        for (var i = 1; i <= 4; i++) {
+          await _backGesture('updateBackGestureProgress', i / 20);
+          await film.frame();
+        }
+        await _backGesture('commitBackGesture');
+        await film.untilSettled();
+      }
+    },
+  );
+
+  testFilm(
+    'nav/hero-interrupt-me-history',
+    location: '/recommended',
+    setup: ReviewSetup(history: reviewHistory()),
+    notes: '$interruptNotes From the Me tab\'s recent row.',
+    script: (film, router) async {
+      await film.tap(find.text('我的'));
+      final cover = film.tester.getCenter(
+        find.bySemanticsLabel('illust 1001').first,
+      );
+      for (final at in [4, 12]) {
+        await _open(film, cover);
+        await film.frames(at);
+        await _systemBack();
+        await film.untilSettled();
+      }
+      for (final at in [4, 4, 4]) {
+        await _open(film, cover);
+        await film.frames(at);
+        await _systemBack();
+        await film.frames(at);
+      }
+      await film.untilSettled();
+    },
+  );
+
+  for (final (shape, id) in [('tall', 1501), ('panorama', 1503)]) {
+    testFilm(
+      'nav/hero-interrupt-viewer-$shape',
+      location: '/recommended',
+      setup: shapes,
+      notes:
+          'The viewer opening from the detail image, cut short by back at '
+          'several points: the image returns to the detail page, the black '
+          'stage fades from where it got to, the system bars come back, '
+          'and the detail chrome (app bar, page counter, capsule) is not '
+          'drawn over or cut out of the image.',
+      script: (film, router) async {
+        await film.tap(find.bySemanticsLabel(RegExp('^illust $id,')));
+        await film.untilSettled();
+        final image = film.tester.getCenter(
+          find.byType(PixivImage).hitTestable().first,
+        );
+        for (final at in [4, 12]) {
+          await _open(film, image);
+          await film.frames(at);
+          await _systemBack();
+          await film.untilSettled();
+        }
+        for (final at in [4, 4, 4]) {
+          await _open(film, image);
+          await film.frames(at);
+          await _systemBack();
+          await film.frames(at);
+        }
+        await film.untilSettled();
+      },
+    );
+  }
+}
+
+/// Taps [at] and films until a Hero flight is in the air (or 30 frames: a
+/// card without a Hero opens without one). A point, not a finder: while
+/// the image flies home its card or detail image is hidden.
+Future<void> _open(FilmRecorder film, Offset at) async {
+  await _tapUp(film, at);
+  for (var i = 0; i < 30; i++) {
+    if (find.byType(HeroRectClip).evaluate().isNotEmpty) return;
+    await film.frame();
+  }
+}
+
+/// A tap that does not wait for the reaction to settle: down, two frames,
+/// up.
+Future<void> _tapUp(FilmRecorder film, Offset at) async {
+  final tester = film.tester;
+  final gesture = await tester.createGesture();
+  await gesture.down(at, timeStamp: film.clock);
+  await film.frames(2);
+  await gesture.up(timeStamp: film.clock);
+}
+
+/// The system back (button, or a back gesture the ROM sends as a plain
+/// back on release).
+Future<void> _systemBack() {
+  final data = const JSONMethodCodec().encodeMethodCall(
+    const MethodCall('popRoute'),
+  );
+  return TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .handlePlatformMessage('flutter/navigation', data, (_) {});
 }
 
 /// The Android predictive back gesture from the left edge, which some ROMs
