@@ -541,126 +541,130 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('chrome over a flight steps aside until the landing; the clip '
-      'follows the page over the card', (tester) async {
-    setViewSize(tester, const Size(400, 800));
-    late BuildContext root;
-    late BuildContext feed;
-    late PageRoute<void> pushed;
-    var opened = 0;
-    PageRoute<void> page(Widget child, {bool shared = false}) =>
-        FuncPage<void>(
-              transitionDuration: const Duration(milliseconds: 400),
-              reverseTransitionDuration: const Duration(milliseconds: 400),
-              sharedElement: shared,
-              child: child,
-            ).createRoute(root)
-            as PageRoute<void>;
-    Widget at(Offset offset, Widget child) =>
-        Positioned(left: offset.dx, top: offset.dy, child: child);
-    Widget art(double side) => Hero(
-      tag: 'art',
-      flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-      child: SizedBox.square(dimension: side),
-    );
-    // A card under a 100px app bar with its badge, a detail page whose
-    // image runs under its control; chrome away from the image stays.
-    void open() => Navigator.of(feed).push(
-      pushed = page(
-        Stack(
-          children: [
-            at(Offset.zero, art(400)),
-            at(
-              const Offset(10, 10),
-              HeroChrome(child: Text('control ${++opened}')),
-            ),
-            at(const Offset(0, 700), const HeroChrome(child: Text('off'))),
-          ],
-        ),
-        shared: true,
-      ),
-    );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) {
-            root = context;
-            return Navigator(
-              observers: [HeroController()],
-              onGenerateRoute: (_) => page(
-                Builder(
-                  builder: (context) {
-                    feed = context;
-                    return Scaffold(
-                      appBar: const PreferredSize(
-                        preferredSize: Size.fromHeight(100),
-                        child: SizedBox.shrink(),
-                      ),
-                      body: Stack(
-                        children: [
-                          at(const Offset(0, 200), art(100)),
-                          at(
-                            const Offset(0, 200),
-                            const HeroChrome(child: Text('badge')),
-                          ),
-                          at(
-                            const Offset(300, 600),
-                            const HeroChrome(child: Text('far')),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+  // The page over the card on the card's navigator, or on the root one
+  // over the route holding it, as the viewer over a branch's detail page.
+  for (final nested in [false, true]) {
+    testWidgets('chrome over a flight steps aside until the landing; the clip '
+        'follows the page over the card (nested: $nested)', (tester) async {
+      setViewSize(tester, const Size(400, 800));
+      late BuildContext root;
+      late BuildContext feed;
+      late PageRoute<void> pushed;
+      var opened = 0;
+      PageRoute<void> page(Widget child, {bool shared = false}) =>
+          FuncPage<void>(
+                transitionDuration: const Duration(milliseconds: 400),
+                reverseTransitionDuration: const Duration(milliseconds: 400),
+                sharedElement: shared,
+                child: child,
+              ).createRoute(root)
+              as PageRoute<void>;
+      Widget at(Offset offset, Widget child) =>
+          Positioned(left: offset.dx, top: offset.dy, child: child);
+      Widget art(double side) => Hero(
+        tag: 'art',
+        flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+        child: SizedBox.square(dimension: side),
+      );
+      // A card under a 100px app bar with its badge, a detail page whose
+      // image runs under its control; chrome away from the image stays.
+      void open() => Navigator.of(feed, rootNavigator: nested).push(
+        pushed = page(
+          Stack(
+            children: [
+              at(Offset.zero, art(400)),
+              at(
+                const Offset(10, 10),
+                HeroChrome(child: Text('control ${++opened}')),
               ),
-            );
-          },
+              at(const Offset(0, 700), const HeroChrome(child: Text('off'))),
+            ],
+          ),
+          shared: true,
         ),
-      ),
-    );
-    double chrome(String label) => tester
-        .widget<FadeTransition>(
-          find
-              .ancestor(
-                of: find.text(label),
-                matching: find.byType(FadeTransition),
-              )
-              .first,
-        )
-        .opacity
-        .value;
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              root = context;
+              return Navigator(
+                observers: [HeroController()],
+                onGenerateRoute: (_) => page(
+                  Builder(
+                    builder: (context) {
+                      feed = context;
+                      return Scaffold(
+                        appBar: const PreferredSize(
+                          preferredSize: Size.fromHeight(100),
+                          child: SizedBox.shrink(),
+                        ),
+                        body: Stack(
+                          children: [
+                            at(const Offset(0, 200), art(100)),
+                            at(
+                              const Offset(0, 200),
+                              const HeroChrome(child: Text('badge')),
+                            ),
+                            at(
+                              const Offset(300, 600),
+                              const HeroChrome(child: Text('far')),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      double chrome(String label) => tester
+          .widget<FadeTransition>(
+            find
+                .ancestor(
+                  of: find.text(label),
+                  matching: find.byType(FadeTransition),
+                )
+                .first,
+          )
+          .opacity
+          .value;
 
-    open();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(
-      [chrome('badge'), chrome('control 1'), chrome('far'), chrome('off')],
-      [0, 0, 1, 1],
-    );
-    // The card's app bar cuts the image only as far as the page over it
-    // has yet to fade in.
-    final shown = MotionTokens.sharedElementFadeIn.transform(
-      pushed.animation!.value,
-    );
-    expect(shown, inExclusiveRange(0, 1));
-    expect(_heroClipRect(tester).top, closeTo(100 * (1 - shown), 0.5));
-    await tester.pumpAndSettle();
-    expect(chrome('control 1'), 1);
+      open();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        [chrome('badge'), chrome('control 1'), chrome('far'), chrome('off')],
+        [0, 0, 1, 1],
+      );
+      // The card's app bar cuts the image only as far as the page over it
+      // has yet to fade in.
+      final shown = MotionTokens.sharedElementFadeIn.transform(
+        pushed.animation!.value,
+      );
+      expect(shown, inExclusiveRange(0, 1));
+      expect(_heroClipRect(tester).top, closeTo(100 * (1 - shown), 0.5));
+      await tester.pumpAndSettle();
+      expect(chrome('control 1'), 1);
 
-    // Back, then the card again while the image flies home: the flight
-    // goes on to the new page, whose control waits for it too.
-    Navigator.of(feed).pop();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect([chrome('badge'), chrome('control 1')], [0, 0]);
-    open();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(chrome('control 2'), 0);
-    await tester.pumpAndSettle();
-    expect(chrome('control 2'), 1);
-    expect(tester.getTopLeft(find.byType(Hero).last), Offset.zero);
-  });
+      // Back, then the card again while the image flies home: the flight
+      // goes on to the new page, whose control waits for it too.
+      Navigator.of(feed, rootNavigator: nested).pop();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect([chrome('badge'), chrome('control 1')], [0, 0]);
+      open();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(chrome('control 2'), 0);
+      await tester.pumpAndSettle();
+      expect(chrome('control 2'), 1);
+      expect(tester.getTopLeft(find.byType(Hero).last), Offset.zero);
+    });
+  }
 
   testWidgets('Hero pop flight is occluded by the chrome', (tester) async {
     setViewSize(tester, const Size(400, 800));
