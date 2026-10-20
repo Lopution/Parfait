@@ -462,13 +462,7 @@ void main() {
     await tester.pumpWidget(localizedRouterApp(router, container: container));
     // The row reads the ffi database, which answers on the real loop.
     Future<void> settle([Future<void> Function()? change]) =>
-        tester.runAsync(() async {
-          await change?.call();
-          for (var i = 0; i < 2; i++) {
-            await Future<void>.delayed(const Duration(milliseconds: 50));
-            await tester.pump();
-          }
-        });
+        settleHistory(tester, history, change);
     Future<void> view(int id, int minute) => settle(
       () => history.upsert(
         historyRecord(
@@ -545,13 +539,7 @@ void main() {
     final later = DateTime.now().toUtc().add(const Duration(hours: 1));
     // The row and the detail page's history writes run on the real loop.
     Future<void> settle([Future<void> Function()? change]) =>
-        tester.runAsync(() async {
-          await change?.call();
-          for (var i = 0; i < 2; i++) {
-            await Future<void>.delayed(const Duration(milliseconds: 50));
-            await tester.pump();
-          }
-        });
+        settleHistory(tester, history, change);
     Future<void> view(int id, int minute) => settle(
       () => history.upsert(
         historyRecord(id).copyWith(
