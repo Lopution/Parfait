@@ -53,8 +53,7 @@ class _RenderHeroRectClip extends RenderProxyBox {
     // Keep the boundary itself rather than intersecting it with the current
     // shuttle bounds. The latter changes every frame by design; the former
     // is the UI occlusion contract we need to keep stable in both directions.
-    // A cropped image paints past the shuttle bounds as it fades in, so the
-    // chrome is the only clip here.
+    // The shuttle cuts its own image to its bounds.
     _lastPaintClipRect = clipRect;
     final localClip = clipRect.shift(-globalOrigin);
     if (localClip.isEmpty) return;

@@ -38,6 +38,7 @@ import 'package:parfait/features/settings/saf_tree_name.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
 import 'package:parfait/app/motion/hero_rect_clip.dart';
+import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_models.dart';
 import 'helpers/illust_fixtures.dart';
@@ -492,6 +493,22 @@ void main() {
     expect(viewAll, findsOneWidget);
     expect(x(2), lessThan(x(1)), reason: 'newest first');
 
+    // Scrolled far away and back, the row comes back at its height: a
+    // row rebuilt empty while it reloads shifted the page under the eye.
+    setViewSize(tester, const Size(400, 500));
+    await tester.pump();
+    final page = tester.state<ScrollableState>(
+      onMe(find.byType(Scrollable)).first,
+    );
+    page.position.jumpTo(page.position.maxScrollExtent);
+    await tester.pump();
+    page.position.jumpTo(200);
+    await tester.pump();
+    expect(page.position.pixels, 200);
+    page.position.jumpTo(0);
+    setViewSize(tester, const Size(400, 1600));
+    await tester.pump();
+
     await tester.tap(cover(2));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
@@ -581,6 +598,11 @@ void main() {
     await tester.tap(find.bySemanticsLabel('work 2'));
     await midway();
     expect(flight, findsOneWidget, reason: 'a work in the store flies in');
+    expect(
+      tester.widgetList<Hero>(find.byType(Hero)).map((h) => h.createRectTween),
+      everyElement(illustHeroRectTween),
+      reason: 'on the path of any artwork flight',
+    );
     await tester.pump(const Duration(seconds: 1));
     await view(1, 3);
     router.pop();

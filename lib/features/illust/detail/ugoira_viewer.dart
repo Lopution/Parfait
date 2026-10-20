@@ -311,6 +311,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
     return Hero(
       tag: tag,
       curve: MotionTokens.spatialCurve,
+      createRectTween: illustHeroRectTween,
       transitionOnUserGestures: true,
       flightShuttleBuilder: widget.flightShuttleBuilder,
       child: IllustHeroFlightChild(
