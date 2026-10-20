@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
@@ -13,11 +11,7 @@ import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
 
-http.Response _ok(Map<String, dynamic> body) => http.Response(
-  jsonEncode(body),
-  200,
-  headers: {'content-type': 'application/json'},
-);
+http.Response _ok(Map<String, dynamic> body) => jsonResponse(body);
 
 Future<PixivRelatedIllustRepository> _repo(MockClient client) async {
   final container = await signedInApiContainer(client);

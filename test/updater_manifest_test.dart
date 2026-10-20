@@ -21,128 +21,40 @@ Future<UpdateCheckResult> _check(
 
 void main() {
   group('UpdateManifest', () {
-    test('rejects unknown schema before release fields are trusted', () {
-      final value = _manifestValue()..['schema'] = 99;
-
-      expect(
-        () => UpdateManifest.parse(jsonEncode(value)),
-        throwsA(
-          isA<UpdateManifestFormatException>().having(
-            (error) => error.code,
-            'code',
-            'schema',
-          ),
-        ),
-      );
-    });
-
-    test('rejects schema 1 with schema', () {
-      expect(
-        () => UpdateManifest.parse(jsonEncode(_schema1ManifestValue())),
-        throwsA(
-          isA<UpdateManifestFormatException>().having(
-            (error) => error.code,
-            'code',
-            'schema',
-          ),
-        ),
-      );
-    });
-
-    test('rejects an asset URL outside the signed host policy', () {
-      final value = _manifestValue();
-      final assets = List<Map<String, Object?>>.from(
-        (value['assets']! as List).cast<Map<String, Object?>>(),
-      );
-      assets[0] = <String, Object?>{
-        ...assets[0],
-        'url': 'https://evil.example/update.apk',
-      };
-      value['assets'] = assets;
-
-      expect(
-        () => UpdateManifest.parse(jsonEncode(value)),
-        throwsA(isA<UpdateManifestFormatException>()),
-      );
-    });
-
-    test('rejects an extra top-level key with manifest_keys', () {
-      final value = _manifestValue()..['notes'] = 'x';
-
-      expect(
-        () => UpdateManifest.parse(jsonEncode(value)),
-        throwsA(_formatError('manifest_keys')),
-      );
-    });
-
-    test('rejects an extra asset key with asset_keys', () {
-      final value = _manifestValue();
-      final assets = _assetsOf(value);
-      assets[0] = <String, Object?>{...assets[0], 'mirror': 'x'};
-      value['assets'] = assets;
-
-      expect(
-        () => UpdateManifest.parse(jsonEncode(value)),
-        throwsA(_formatError('asset_keys')),
-      );
-    });
-
-    test('rejects a duplicate ABI with asset_abi', () {
-      final value = _manifestValue();
-      final assets = _assetsOf(value);
-      assets[1] = <String, Object?>{...assets[1], 'abi': 'arm64-v8a'};
-      value['assets'] = assets;
-
-      expect(
-        () => UpdateManifest.parse(jsonEncode(value)),
-        throwsA(_formatError('asset_abi')),
-      );
-    });
-
-    test('rejects an empty assets list with assets', () {
-      final value = _manifestValue()..['assets'] = <Object?>[];
-
-      expect(
-        () => UpdateManifest.parse(jsonEncode(value)),
-        throwsA(_formatError('assets')),
-      );
-    });
-
-    test(
-      'rejects an asset larger than updateAssetMaxBytes with asset_size',
-      () {
+    test('rejects schema 1 and each malformed field with its code', () {
+      Map<String, Object?> withAsset(int index, Map<String, Object?> patch) {
         final value = _manifestValue();
         final assets = _assetsOf(value);
-        assets[0] = <String, Object?>{
-          ...assets[0],
-          'size': updateAssetMaxBytes + 1,
-        };
-        value['assets'] = assets;
+        assets[index] = {...assets[index], ...patch};
+        return value..['assets'] = assets;
+      }
 
+      const upper =
+          'ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
+      for (final (value, code) in [
+        // An unknown schema is refused before release fields are trusted.
+        (_manifestValue()..['schema'] = 99, 'schema'),
+        (_schema1ManifestValue(), 'schema'),
+        // An asset URL outside the signed host policy.
+        (withAsset(0, {'url': 'https://evil.example/update.apk'}), null),
+        (_manifestValue()..['notes'] = 'x', 'manifest_keys'),
+        (withAsset(0, {'mirror': 'x'}), 'asset_keys'),
+        (withAsset(1, {'abi': 'arm64-v8a'}), 'asset_abi'),
+        (_manifestValue()..['assets'] = <Object?>[], 'assets'),
+        (withAsset(0, {'size': updateAssetMaxBytes + 1}), 'asset_size'),
+        (_manifestValue()..['signingCertificateSha256'] = upper, 'hex'),
+        (withAsset(0, {'sha256': upper}), 'hex'),
+      ]) {
         expect(
           () => UpdateManifest.parse(jsonEncode(value)),
-          throwsA(_formatError('asset_size')),
+          throwsA(
+            code == null
+                ? isA<UpdateManifestFormatException>()
+                : _formatError(code),
+          ),
+          reason: '$code',
         );
-      },
-    );
-
-    test('rejects upper-case hex in sha256 and certificate with hex', () {
-      final upper =
-          'ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
-      final certValue = _manifestValue()..['signingCertificateSha256'] = upper;
-      expect(
-        () => UpdateManifest.parse(jsonEncode(certValue)),
-        throwsA(_formatError('hex')),
-      );
-
-      final shaValue = _manifestValue();
-      final assets = _assetsOf(shaValue);
-      assets[0] = <String, Object?>{...assets[0], 'sha256': upper};
-      shaValue['assets'] = assets;
-      expect(
-        () => UpdateManifest.parse(jsonEncode(shaValue)),
-        throwsA(_formatError('hex')),
-      );
+      }
     });
 
     test('parses a strict stable release and semver prerelease', () {
@@ -246,40 +158,26 @@ void main() {
     });
 
     test('installed 2001 is up to date against manifest base 1', () async {
-      final value = _manifestValue(version: '0.1.0', versionCode: 1);
-      final transport = _FakeManifestTransport(
-        body: utf8.encode(jsonEncode(value)),
-        signature: base64Encode(List<int>.filled(64, 10)).codeUnits,
-      );
-      final result = await _check(
-        transport,
-        platform: FakeUpdatePlatform(
-          capability: UpdateCapability.github(),
-          version: '0.1.0',
-          versionCode: 2001,
-        ),
-      );
-
-      expect(result.status, UpdateCheckStatus.noUpdate);
-      expect(result.errorCode, 'up_to_date');
-    });
-
-    test('installed 2001 is available against manifest base 2', () async {
-      final value = _manifestValue(version: '0.1.0', versionCode: 2);
-      final transport = _FakeManifestTransport(
-        body: utf8.encode(jsonEncode(value)),
-        signature: base64Encode(List<int>.filled(64, 11)).codeUnits,
-      );
-      final result = await _check(
-        transport,
-        platform: FakeUpdatePlatform(
-          capability: UpdateCapability.github(),
-          version: '0.1.0',
-          versionCode: 2001,
-        ),
-      );
-
-      expect(result.status, UpdateCheckStatus.available);
+      // Base 2 is newer than 2001's base 1 and is offered.
+      for (final (base, status) in [
+        (1, UpdateCheckStatus.noUpdate),
+        (2, UpdateCheckStatus.available),
+      ]) {
+        final value = _manifestValue(version: '0.1.0', versionCode: base);
+        final result = await _check(
+          _FakeManifestTransport(
+            body: utf8.encode(jsonEncode(value)),
+            signature: base64Encode(List<int>.filled(64, 9 + base)).codeUnits,
+          ),
+          platform: FakeUpdatePlatform(
+            capability: UpdateCapability.github(),
+            version: '0.1.0',
+            versionCode: 2001,
+          ),
+        );
+        expect(result.status, status, reason: 'base $base');
+        if (base == 1) expect(result.errorCode, 'up_to_date');
+      }
     });
 
     test(

@@ -1038,32 +1038,6 @@ void main() {
   });
 
   group('HttpDownloadTransport policy (R7, scripted hops)', () {
-    test('rejects non-https URL before any hop', () async {
-      final transport = HttpDownloadTransport(allowedHosts: {'i.pximg.net'});
-      addTearDown(transport.dispose);
-      await expectLater(
-        transport.open(
-          Uri.parse('http://i.pximg.net/a.jpg'),
-          headers: const {},
-          cancelToken: DownloadCancelToken(),
-        ),
-        throwsA(isA<DownloadTransportException>()),
-      );
-    });
-
-    test('rejects foreign initial host and explicit ports', () async {
-      final transport = HttpDownloadTransport(allowedHosts: {'i.pximg.net'});
-      addTearDown(transport.dispose);
-      await expectLater(
-        transport.open(
-          Uri.parse('https://evil.example.com/a.jpg'),
-          headers: const {},
-          cancelToken: DownloadCancelToken(),
-        ),
-        throwsA(isA<DownloadTransportException>()),
-      );
-    });
-
     test('follows allowlisted redirects and streams the body', () async {
       final transport = _ScriptedTransport(
         hops: [
@@ -1094,90 +1068,47 @@ void main() {
       expect(response.contentLength, 5);
     });
 
-    test('refuses cross-host redirects', () async {
-      final transport = _ScriptedTransport(
-        hops: [
-          ScriptedHop(
-            statusCode: 302,
-            location: 'https://evil.example.com/pwned.jpg',
+    test('refuses cross-host redirects and URLs outside the policy', () async {
+      final direct = HttpDownloadTransport(allowedHosts: {'i.pximg.net'});
+      addTearDown(direct.dispose);
+      _ScriptedTransport redirect(List<String?> locations) =>
+          _ScriptedTransport(
+            maxRedirects: 1,
+            hops: [
+              for (final location in locations)
+                ScriptedHop(statusCode: 302, location: location),
+            ],
+          );
+      const url = 'https://i.pximg.net/a.jpg';
+      for (final (transport, from, message) in [
+        // Checked before any hop.
+        (direct, 'http://i.pximg.net/a.jpg', ''),
+        (direct, 'https://evil.example.com/a.jpg', ''),
+        (redirect(['https://evil.example.com/pwned.jpg']), url, 'not allowed'),
+        (redirect(['http://i.pximg.net/downgrade.jpg']), url, 'https'),
+        (redirect([null]), url, ''),
+        (
+          redirect(['https://i.pximg.net/b.jpg', 'https://i.pximg.net/c.jpg']),
+          url,
+          'too many redirects',
+        ),
+      ]) {
+        await expectLater(
+          transport.open(
+            Uri.parse(from),
+            headers: const {},
+            cancelToken: DownloadCancelToken(),
           ),
-        ],
-      );
-      await expectLater(
-        transport.open(
-          Uri.parse('https://i.pximg.net/a.jpg'),
-          headers: const {},
-          cancelToken: DownloadCancelToken(),
-        ),
-        throwsA(
-          isA<DownloadTransportException>().having(
-            (e) => e.message,
-            'message',
-            contains('not allowed'),
+          throwsA(
+            isA<DownloadTransportException>().having(
+              (e) => e.message,
+              'message',
+              contains(message),
+            ),
           ),
-        ),
-      );
-    });
-
-    test('refuses http redirects when https is required', () async {
-      final transport = _ScriptedTransport(
-        hops: [
-          ScriptedHop(
-            statusCode: 302,
-            location: 'http://i.pximg.net/downgrade.jpg',
-          ),
-        ],
-      );
-      await expectLater(
-        transport.open(
-          Uri.parse('https://i.pximg.net/a.jpg'),
-          headers: const {},
-          cancelToken: DownloadCancelToken(),
-        ),
-        throwsA(
-          isA<DownloadTransportException>().having(
-            (e) => e.message,
-            'message',
-            contains('https'),
-          ),
-        ),
-      );
-    });
-
-    test('rejects redirect without location and redirect loops', () async {
-      final noLocation = _ScriptedTransport(
-        hops: [ScriptedHop(statusCode: 302)],
-      );
-      await expectLater(
-        noLocation.open(
-          Uri.parse('https://i.pximg.net/a.jpg'),
-          headers: const {},
-          cancelToken: DownloadCancelToken(),
-        ),
-        throwsA(isA<DownloadTransportException>()),
-      );
-
-      final loop = _ScriptedTransport(
-        maxRedirects: 1,
-        hops: [
-          ScriptedHop(statusCode: 302, location: 'https://i.pximg.net/b.jpg'),
-          ScriptedHop(statusCode: 302, location: 'https://i.pximg.net/c.jpg'),
-        ],
-      );
-      await expectLater(
-        loop.open(
-          Uri.parse('https://i.pximg.net/a.jpg'),
-          headers: const {},
-          cancelToken: DownloadCancelToken(),
-        ),
-        throwsA(
-          isA<DownloadTransportException>().having(
-            (e) => e.message,
-            'message',
-            contains('too many redirects'),
-          ),
-        ),
-      );
+          reason: from,
+        );
+      }
     });
 
     test('surfaces non-2xx statuses without following', () async {

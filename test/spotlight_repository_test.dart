@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
@@ -9,6 +7,7 @@ import 'package:parfait/core/spotlight/spotlight_models.dart';
 import 'package:parfait/core/spotlight/spotlight_repository.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'helpers/fake_account.dart';
 import 'helpers/spotlight_world.dart';
 import 'helpers/test_preferences.dart';
 
@@ -91,10 +90,6 @@ void main() {
 class _MalformedFixture extends SpotlightFixture {
   @override
   http.Client client() => MockClient(
-    (request) async => http.Response(
-      jsonEncode(<String, dynamic>{'bogus': true}),
-      200,
-      headers: {'content-type': 'application/json'},
-    ),
+    (request) async => jsonResponse(<String, dynamic>{'bogus': true}),
   );
 }

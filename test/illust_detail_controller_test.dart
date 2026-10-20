@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:clock/clock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,11 +32,7 @@ Future<ProviderContainer> makeContainer(
   return container;
 }
 
-http.Response okJson(Map<String, dynamic> json) => http.Response(
-  jsonEncode(json),
-  200,
-  headers: {'content-type': 'application/json'},
-);
+http.Response okJson(Map<String, dynamic> json) => jsonResponse(json);
 
 /// Waits for the async page-dimensions seed to land in the store — it runs
 /// unawaited behind the Ready emission, so a bare `.future` read can race it.

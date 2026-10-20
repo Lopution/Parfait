@@ -101,14 +101,21 @@ class _Harness {
   }
 }
 
+/// A started harness whose worker fetches from a live local [_Server].
+Future<_Harness> _served() async {
+  final harness = _Harness();
+  addTearDown(harness.stop);
+  final server = _Server();
+  await server.start();
+  harness.server = server;
+  await harness.start();
+  return harness;
+}
+
 void main() {
   test('a fetch returns the committed file path and bytes', () async {
-    final harness = _Harness();
-    addTearDown(harness.stop);
-    final server = _Server();
-    await server.start();
-    harness.server = server;
-    await harness.start();
+    final harness = await _served();
+    final server = harness.server!;
 
     final result = await harness.client.fetch(
       server.url('/img/a.jpg'),
@@ -120,12 +127,8 @@ void main() {
   });
 
   test('concurrent requests for one URL share a single network hit', () async {
-    final harness = _Harness();
-    addTearDown(harness.stop);
-    final server = _Server();
-    await server.start();
-    harness.server = server;
-    await harness.start();
+    final harness = await _served();
+    final server = harness.server!;
 
     final a = harness.client.fetch(
       server.url('/img/dup.jpg'),
@@ -168,12 +171,8 @@ void main() {
   });
 
   test('cancelUrl drops a queued request and completes it dropped', () async {
-    final harness = _Harness();
-    addTearDown(harness.stop);
-    final server = _Server();
-    await server.start();
-    harness.server = server;
-    await harness.start();
+    final harness = await _served();
+    final server = harness.server!;
 
     for (var i = 0; i < 8; i++) {
       unawaited(
@@ -198,12 +197,8 @@ void main() {
   });
 
   test('a released URL is cancelled once the release grace elapses', () async {
-    final harness = _Harness();
-    addTearDown(harness.stop);
-    final server = _Server();
-    await server.start();
-    harness.server = server;
-    await harness.start();
+    final harness = await _served();
+    final server = harness.server!;
 
     final url = server.url('/hold/released.jpg');
     harness.demand.hold(url);
@@ -229,12 +224,8 @@ void main() {
   test(
     'a queued request dies when its URL leaves the prefetch window',
     () async {
-      final harness = _Harness();
-      addTearDown(harness.stop);
-      final server = _Server();
-      await server.start();
-      harness.server = server;
-      await harness.start();
+      final harness = await _served();
+      final server = harness.server!;
 
       // Occupy both background slots so the prefetch request queues.
       final held = <Future<FetchResult>>[];
@@ -268,12 +259,8 @@ void main() {
   test(
     'promoteUrl lifts a queued background fetch onto the foreground',
     () async {
-      final harness = _Harness();
-      addTearDown(harness.stop);
-      final server = _Server();
-      await server.start();
-      harness.server = server;
-      await harness.start();
+      final harness = await _served();
+      final server = harness.server!;
 
       // Both background slots occupied; the warm fetch queues behind them.
       final background = <Future<FetchResult>>[

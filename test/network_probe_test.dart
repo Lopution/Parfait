@@ -122,18 +122,37 @@ class _ScriptedResolver implements SecureResolver {
   Future<void> dispose() async {}
 }
 
+typedef _C = NetworkProbeConclusion;
+
+/// A harness whose TCP, TLS and HTTP layers answer as `tcp|tls|http`
+/// says; `-` is a layer never reached.
+_Harness _probe(
+  List<InternetAddress> system,
+  List<InternetAddress> doh,
+  String layers, [
+  Object? ech = _Harness._unset,
+  Object? noSni = _Harness._unset,
+]) {
+  final [tcp, tls, http] = [
+    for (final layer in layers.split('|')) layer == '-' ? 'not reached' : layer,
+  ];
+  return _Harness(
+    systemAddresses: system,
+    dohAddresses: doh,
+    tcpResult: tcp,
+    tlsResult: tls,
+    httpResult: http,
+    echConfigResult: ech,
+    noSniResult: noSni,
+  );
+}
+
 final _v4 = [InternetAddress('1.1.1.1'), InternetAddress('2.2.2.2')];
 final _v4b = [InternetAddress('9.9.9.9')];
 
 void main() {
   test('all layers reachable -> allReachable', () async {
-    final report = await _Harness(
-      systemAddresses: _v4,
-      dohAddresses: _v4,
-      tcpResult: 'ok',
-      tlsResult: 'ok',
-      httpResult: 'ok',
-    ).run();
+    final report = await _probe(_v4, _v4, 'ok|ok|ok').run();
     expect(report.conclusion, NetworkProbeConclusion.allReachable);
     expect(report.steps.every((s) => s.ok), isTrue);
     expect(report.toCopyableText(), contains('conclusion: allReachable'));
@@ -149,106 +168,48 @@ void main() {
     expect(report.totalDuration >= Duration.zero, isTrue);
   });
 
-  test('system DNS disagrees with DoH -> dnsPolluted', () async {
-    final report = await _Harness(
-      systemAddresses: _v4,
-      dohAddresses: _v4b,
-      tcpResult: 'ok',
-      tlsResult: 'ok',
-      httpResult: 'ok',
-    ).run();
-    expect(report.conclusion, NetworkProbeConclusion.dnsPolluted);
-    expect(report.dnsDisagrees, isTrue);
+  test('each failing layer names its conclusion', () async {
+    // s.pximg.net real-world case: system DNS returns the full RRset, DoH
+    // answers one of them. Only the rotation differs; a subset MUST NOT
+    // read as pollution, or the probe lies about a healthy host.
+    final shared = InternetAddress('210.140.139.134');
+    final rrset = [InternetAddress('210.140.139.155'), shared];
+    const none = <InternetAddress>[];
+    for (final (probe, conclusion) in [
+      (_probe(_v4, _v4b, 'ok|ok|ok'), _C.dnsPolluted),
+      (_probe(rrset, [shared], 'ok|ok|ok'), _C.allReachable),
+      (_probe(_v4, _v4, 'connect refused|-|-'), _C.ipBlackholed),
+      (_probe(_v4, _v4, 'ok|handshake reset|-'), _C.sniBlocked),
+      (_probe(_v4, _v4, 'ok|ok|HTTP 403'), _C.appLayer),
+      (_probe(none, none, 'no candidate|-|-'), _C.inconclusive),
+      // Real SNI fails: ECH, else empty SNI, else blocked.
+      (_probe(_v4, _v4, 'ok|reset|ok', [1, 2, 3], 'fail'), _C.echAvailable),
+      (_probe(_v4, _v4, 'ok|reset|ok', null, 'ok'), _C.noSniAvailable),
+      (_probe(_v4, _v4, 'ok|reset|ok', 'rejected', 'rejected'), _C.sniBlocked),
+    ]) {
+      final report = await probe.run();
+      expect(report.conclusion, conclusion);
+      if (conclusion == _C.dnsPolluted) expect(report.dnsDisagrees, isTrue);
+      if (conclusion == _C.echAvailable) {
+        expect(report.steps.map((s) => s.name), contains('ech'));
+      }
+    }
   });
 
   test('DNS discrepancy does not hide a working ECH transport', () async {
-    final report = await _Harness(
-      systemAddresses: _v4,
-      dohAddresses: _v4b,
-      tcpResult: 'ok',
-      tlsResult: 'handshake reset',
-      httpResult: 'not reached',
-      echConfigResult: [1, 2, 3],
-    ).run();
+    final report = await _probe(_v4, _v4b, 'ok|handshake reset|-', [
+      1,
+      2,
+      3,
+    ]).run();
 
     expect(report.dnsDisagrees, isTrue);
     expect(report.conclusion, NetworkProbeConclusion.echAvailable);
     expect(report.toCopyableText(), contains('dns-disagrees: true'));
   });
 
-  test('DoH subset of system RRset is NOT pollution (CDN rotation)', () async {
-    // s.pximg.net real-world case: system DNS returns the full RRset
-    // (10 x 210.140.139.x), DoH answers one of them
-    // (210.140.139.134). Both are the same CDN range — only the
-    // rotation differs. Set inequality MUST NOT be classified as
-    // pollution, otherwise the probe lies about a healthy host.
-    final shared = InternetAddress('210.140.139.134');
-    final report = await _Harness(
-      systemAddresses: [
-        InternetAddress('210.140.139.155'),
-        shared,
-        InternetAddress('210.140.139.168'),
-      ],
-      dohAddresses: [shared],
-      tcpResult: 'ok',
-      tlsResult: 'ok',
-      httpResult: 'ok',
-    ).run();
-    expect(report.conclusion, NetworkProbeConclusion.allReachable);
-  });
-
-  test('TCP fails after successful DoH -> ipBlackholed', () async {
-    final report = await _Harness(
-      systemAddresses: _v4,
-      dohAddresses: _v4,
-      tcpResult: 'connect refused',
-      tlsResult: 'not reached',
-      httpResult: 'not reached',
-    ).run();
-    expect(report.conclusion, NetworkProbeConclusion.ipBlackholed);
-  });
-
-  test('TCP ok but real-SNI TLS handshake fails -> sniBlocked', () async {
-    final report = await _Harness(
-      systemAddresses: _v4,
-      dohAddresses: _v4,
-      tcpResult: 'ok',
-      tlsResult: 'handshake reset',
-      httpResult: 'not reached',
-    ).run();
-    expect(report.conclusion, NetworkProbeConclusion.sniBlocked);
-  });
-
-  test('TLS ok but minimal request fails -> appLayer', () async {
-    final report = await _Harness(
-      systemAddresses: _v4,
-      dohAddresses: _v4,
-      tcpResult: 'ok',
-      tlsResult: 'ok',
-      httpResult: 'HTTP 403',
-    ).run();
-    expect(report.conclusion, NetworkProbeConclusion.appLayer);
-  });
-
-  test('DoH unavailable and no candidate -> inconclusive', () async {
-    final report = await _Harness(
-      systemAddresses: const [],
-      dohAddresses: const [],
-      tcpResult: 'no candidate',
-      tlsResult: 'no candidate',
-      httpResult: 'no candidate',
-    ).run();
-    expect(report.conclusion, NetworkProbeConclusion.inconclusive);
-  });
-
   test('report is copyable and includes the intended lines', () async {
-    final report = await _Harness(
-      systemAddresses: _v4,
-      dohAddresses: _v4,
-      tcpResult: 'ok',
-      tlsResult: 'handshake reset',
-      httpResult: 'not reached',
-    ).run();
+    final report = await _probe(_v4, _v4, 'ok|handshake reset|-').run();
     final environment = NetworkProbeEnvironment(
       probedAtUtc: DateTime.utc(2026, 9, 8, 4, 30),
       appVersion: '0.1.0+1',
@@ -296,20 +257,6 @@ void main() {
     );
   });
 
-  test('real-SNI fails but ECH available -> echAvailable', () async {
-    final report = await _Harness(
-      systemAddresses: _v4,
-      dohAddresses: _v4,
-      tcpResult: 'ok',
-      tlsResult: 'handshake reset',
-      httpResult: 'ok',
-      echConfigResult: [1, 2, 3],
-      noSniResult: 'fail',
-    ).run();
-    expect(report.conclusion, NetworkProbeConclusion.echAvailable);
-    expect(report.steps.map((s) => s.name), contains('ech'));
-  });
-
   test(
     'ECH HTTP 404/403 still proves the ECH transport reached the server',
     () async {
@@ -332,32 +279,6 @@ void main() {
       }
     },
   );
-
-  test('ECH config missing -> falls to noSni when empty-SNI ok', () async {
-    final report = await _Harness(
-      systemAddresses: _v4,
-      dohAddresses: _v4,
-      tcpResult: 'ok',
-      tlsResult: 'handshake reset',
-      httpResult: 'ok',
-      echConfigResult: null, // config lookup failed
-      noSniResult: 'ok',
-    ).run();
-    expect(report.conclusion, NetworkProbeConclusion.noSniAvailable);
-  });
-
-  test('both ECH and empty-SNI unavailable -> sniBlocked', () async {
-    final report = await _Harness(
-      systemAddresses: _v4,
-      dohAddresses: _v4,
-      tcpResult: 'ok',
-      tlsResult: 'handshake reset',
-      httpResult: 'ok',
-      echConfigResult: 'ech rejected',
-      noSniResult: 'no-sni rejected',
-    ).run();
-    expect(report.conclusion, NetworkProbeConclusion.sniBlocked);
-  });
 
   test('HTTP 421 with empty SNI -> layer fails (tier unusable)', () async {
     final report = await _sniResetProbe(

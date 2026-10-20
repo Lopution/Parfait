@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -66,11 +64,7 @@ class SpotlightFixture {
     });
   });
 
-  http.Response _ok(Map<String, dynamic> body) => http.Response(
-    jsonEncode(body),
-    200,
-    headers: {'content-type': 'application/json'},
-  );
+  http.Response _ok(Map<String, dynamic> body) => jsonResponse(body);
 }
 
 /// [webClient] overrides the shared third-party client (pixivision article

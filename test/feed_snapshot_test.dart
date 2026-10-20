@@ -37,6 +37,16 @@ void main() {
       },
     };
 
+    /// Writes a one-work snapshot of [id] under [account] and [feed].
+    Future<void> put(String account, String feed, int id, {String? cursor}) =>
+        store.write(
+          account,
+          feed,
+          ids: [id],
+          entities: entitiesOf([id]),
+          cursor: cursor,
+        );
+
     test(
       'write then read round-trips ids, entities, cursor and savedAt',
       () async {
@@ -71,19 +81,8 @@ void main() {
     });
 
     test('write upserts the same (account, feed) key', () async {
-      await store.write(
-        'acct',
-        'feed',
-        ids: const [1],
-        entities: entitiesOf(const [1]),
-        cursor: 'c1',
-      );
-      await store.write(
-        'acct',
-        'feed',
-        ids: const [2],
-        entities: entitiesOf(const [2]),
-      );
+      await put('acct', 'feed', 1, cursor: 'c1');
+      await put('acct', 'feed', 2);
 
       final snapshot = await store.read('acct', 'feed');
       expect(snapshot!.ids, [2]);
@@ -92,12 +91,7 @@ void main() {
     });
 
     test('expired rows are discarded and deleted', () async {
-      await store.write(
-        'acct',
-        'feed',
-        ids: const [1],
-        entities: entitiesOf(const [1]),
-      );
+      await put('acct', 'feed', 1);
       now = now.add(FeedSnapshotStore.maxAge + const Duration(minutes: 1));
 
       expect(await store.read('acct', 'feed'), isNull);
@@ -125,18 +119,8 @@ void main() {
     });
 
     test('snapshots are isolated per account', () async {
-      await store.write(
-        'a',
-        'feed',
-        ids: const [1],
-        entities: entitiesOf(const [1]),
-      );
-      await store.write(
-        'b',
-        'feed',
-        ids: const [2],
-        entities: entitiesOf(const [2]),
-      );
+      await put('a', 'feed', 1);
+      await put('b', 'feed', 2);
 
       expect((await store.read('a', 'feed'))!.ids, [1]);
       expect((await store.read('b', 'feed'))!.ids, [2]);
@@ -150,12 +134,7 @@ void main() {
         maxEntriesPerAccount: 4,
       );
       for (var i = 0; i < 6; i++) {
-        await store.write(
-          'acct',
-          'feed-$i',
-          ids: [i],
-          entities: entitiesOf([i]),
-        );
+        await put('acct', 'feed-$i', i);
         now = now.add(const Duration(minutes: 1));
       }
 
@@ -169,18 +148,8 @@ void main() {
     });
 
     test('clearAccount removes only that account\'s rows', () async {
-      await store.write(
-        'a',
-        'feed',
-        ids: const [1],
-        entities: entitiesOf(const [1]),
-      );
-      await store.write(
-        'b',
-        'feed',
-        ids: const [2],
-        entities: entitiesOf(const [2]),
-      );
+      await put('a', 'feed', 1);
+      await put('b', 'feed', 2);
 
       await store.clearAccount('a');
 

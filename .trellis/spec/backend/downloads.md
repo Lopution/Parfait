@@ -81,7 +81,7 @@ reviewed: 2026-10-12
   ports or userinfo; redirects follow only to allowlisted HTTPS hosts.
 - **Why:** A redirect to another host would leak the Referer and fetch
   arbitrary content into the gallery.
-- **Check:** `test/download_manager_test.dart` "URL validation rejects foreign hosts, ports and userinfo (R7)" "refuses cross-host redirects"
+- **Check:** `test/download_manager_test.dart` "URL validation rejects foreign hosts, ports and userinfo (R7)" "refuses cross-host redirects and URLs outside the policy"
 - **Code:** `lib/core/download/pixiv_download_transport.dart`
 
 ### DL-08 Resume trusts only a matching 206

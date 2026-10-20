@@ -31,26 +31,20 @@ class _MuteApiFixture {
     return MockClient((request) async {
       if (request.method == 'GET' &&
           request.url.path.endsWith('/v1/mute/list')) {
-        return http.Response(
-          jsonEncode({
-            'muted_tags': [
-              for (final tag in listTags) {'tag': tag, 'tag_translation': ''},
-            ],
-            'muted_users': listUsers,
-            'mute_limit_count': 500,
-          }),
-          listStatus,
-          headers: {'content-type': 'application/json'},
-        );
+        return jsonResponse({
+          'muted_tags': [
+            for (final tag in listTags) {'tag': tag, 'tag_translation': ''},
+          ],
+          'muted_users': listUsers,
+          'mute_limit_count': 500,
+        }, listStatus);
       }
       if (request.method == 'POST' &&
           request.url.path.endsWith('/v1/mute/edit')) {
         edits.add(Uri.splitQueryString(request.body));
-        return http.Response(
-          jsonEncode({'error': listStatus == 200 ? null : 'x'}),
-          editStatus,
-          headers: {'content-type': 'application/json'},
-        );
+        return jsonResponse({
+          'error': listStatus == 200 ? null : 'x',
+        }, editStatus);
       }
       fail('unexpected ${request.method} ${request.url}');
     });

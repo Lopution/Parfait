@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -127,11 +126,7 @@ Widget _routerApp(
   );
 }
 
-http.Response _json(Map<String, dynamic> value) => http.Response(
-  jsonEncode(value),
-  200,
-  headers: {'content-type': 'application/json'},
-);
+http.Response _json(Map<String, dynamic> value) => jsonResponse(value);
 
 void main() {
   setUp(() {

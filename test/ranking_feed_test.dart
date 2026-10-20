@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -79,15 +78,11 @@ class _RankingFixture {
     // Feed builds hydrate MuteStore; the mute list is housekeeping, not a
     // ranking request, so it stays out of `requests`.
     if (request.url.path.endsWith('/v1/mute/list')) {
-      return http.Response(
-        jsonEncode({
-          'muted_tags': <dynamic>[],
-          'muted_users': <dynamic>[],
-          'mute_limit_count': 500,
-        }),
-        200,
-        headers: {'content-type': 'application/json'},
-      );
+      return jsonResponse({
+        'muted_tags': <dynamic>[],
+        'muted_users': <dynamic>[],
+        'mute_limit_count': 500,
+      });
     }
     requests.add(request.url);
     if (blockResponses) await release.future;
@@ -99,20 +94,16 @@ class _RankingFixture {
     final nextMode = mismatchedNextMode?.apiValue ?? mode;
     // Pixiv echoes a past ranking's date into next_url.
     final date = request.url.queryParameters['date'];
-    return http.Response(
-      jsonEncode({
-        'illusts': [
-          for (var id = start; id < start + itemsPerPage; id++) _illust(id),
-        ],
-        'next_url': isFirst
-            ? 'https://app-api.pixiv.net/v1/illust/ranking'
-                  '?filter=for_android&mode=$nextMode'
-                  '${date == null ? '' : '&date=$date'}&offset=30'
-            : null,
-      }),
-      200,
-      headers: {'content-type': 'application/json'},
-    );
+    return jsonResponse({
+      'illusts': [
+        for (var id = start; id < start + itemsPerPage; id++) _illust(id),
+      ],
+      'next_url': isFirst
+          ? 'https://app-api.pixiv.net/v1/illust/ranking'
+                '?filter=for_android&mode=$nextMode'
+                '${date == null ? '' : '&date=$date'}&offset=30'
+          : null,
+    });
   });
 }
 

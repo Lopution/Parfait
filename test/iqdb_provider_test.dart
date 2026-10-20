@@ -97,111 +97,53 @@ void main() {
     expect(spec.supportsInput(ok), isTrue);
   });
 
-  test('a 200 challenge page is a visible challenge failure', () async {
-    const interstitial =
+  Future<ReverseImageSearchOutcome> answer(http.Response response) =>
+      IqdbWebViewProvider(
+        client: MockClient((_) async => response),
+      ).search(input);
+
+  test('each bad answer is a visible failure with its code', () async {
+    const challenge =
         '<!DOCTYPE html><html><head>'
         '<title>Just a moment...</title></head><body>'
         '<script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1">'
         '</script></body></html>';
-    final client = MockClient(
-      (request) async => http.Response(
-        interstitial,
-        200,
-        headers: {'content-type': 'text/html'},
+    for (final (response, code) in [
+      (http.Response(challenge, 200, headers: _html), _Code.challenge),
+      (_redirect('https://evil.example/results'), _Code.malformedResponse),
+      (
+        http.Response('{"error":"x"}', 200, headers: _json),
+        _Code.malformedResponse,
       ),
-    );
-    final provider = IqdbWebViewProvider(client: client);
-
-    final outcome = await provider.search(input);
-
-    expect(outcome, isA<ReverseImageSearchFailure>());
-    expect(
-      (outcome as ReverseImageSearchFailure).code,
-      ReverseImageProviderFailureCode.challenge,
-    );
+      (
+        http.Response('', 429, headers: {'retry-after': '12'}),
+        _Code.rateLimited,
+      ),
+    ]) {
+      final failure = await answer(response) as ReverseImageSearchFailure;
+      expect(failure.code, code, reason: response.body);
+      if (code == _Code.rateLimited) {
+        expect(failure.retryAfter, const Duration(seconds: 12));
+      }
+    }
   });
 
   test('a no-match page is an explicit empty success', () async {
-    final client = MockClient(
-      (request) async => http.Response(
+    final outcome = await answer(
+      http.Response(
         '<html><body>No relevant matches</body></html>',
         200,
-        headers: {'content-type': 'text/html'},
+        headers: _html,
       ),
     );
-    final provider = IqdbWebViewProvider(client: client);
-
-    final outcome = await provider.search(input);
-
     expect(outcome, isA<ReverseImageSearchSuccess>());
   });
 
   test('follows a redirect inside iqdb.org only', () async {
-    final client = MockClient(
-      (request) async => http.Response(
-        '',
-        302,
-        headers: {'location': 'https://iqdb.org/?status=1'},
-      ),
-    );
-    final provider = IqdbWebViewProvider(client: client);
-
-    final outcome = await provider.search(input);
-
-    expect(outcome, isA<ReverseImageSearchWebView>());
+    final outcome = await answer(_redirect('https://iqdb.org/?status=1'));
     expect(
       (outcome as ReverseImageSearchWebView).resultUrl.toString(),
       'https://iqdb.org/?status=1',
-    );
-  });
-
-  test('rejects a redirect to a foreign host', () async {
-    final client = MockClient(
-      (request) async => http.Response(
-        '',
-        302,
-        headers: {'location': 'https://evil.example/results'},
-      ),
-    );
-    final provider = IqdbWebViewProvider(client: client);
-
-    final outcome = await provider.search(input);
-
-    expect(outcome, isA<ReverseImageSearchFailure>());
-    expect(
-      (outcome as ReverseImageSearchFailure).code,
-      ReverseImageProviderFailureCode.malformedResponse,
-    );
-  });
-
-  test('surfaces a 429 with retry-after', () async {
-    final client = MockClient(
-      (request) async => http.Response('', 429, headers: {'retry-after': '12'}),
-    );
-    final provider = IqdbWebViewProvider(client: client);
-
-    final outcome = await provider.search(input);
-
-    final failure = outcome as ReverseImageSearchFailure;
-    expect(failure.code, ReverseImageProviderFailureCode.rateLimited);
-    expect(failure.retryAfter, const Duration(seconds: 12));
-  });
-
-  test('a non-HTML success body is a visible failure', () async {
-    final client = MockClient(
-      (request) async => http.Response(
-        '{"error":"x"}',
-        200,
-        headers: {'content-type': 'application/json'},
-      ),
-    );
-    final provider = IqdbWebViewProvider(client: client);
-
-    final outcome = await provider.search(input);
-
-    expect(
-      (outcome as ReverseImageSearchFailure).code,
-      ReverseImageProviderFailureCode.malformedResponse,
     );
   });
 
@@ -231,6 +173,14 @@ void main() {
     );
   });
 }
+
+typedef _Code = ReverseImageProviderFailureCode;
+
+const _html = {'content-type': 'text/html'};
+const _json = {'content-type': 'application/json'};
+
+http.Response _redirect(String location) =>
+    http.Response('', 302, headers: {'location': location});
 
 Future<OwnedReverseImageInput> _open(String path, String mimeType) {
   return OwnedReverseImageInput.open(
