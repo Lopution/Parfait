@@ -3,17 +3,37 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:parfait/core/network/compat/network_contracts.dart'
-    show
-        DnsSource,
-        NetworkCancelSignal,
-        NetworkRevision,
-        PixivDestinationRegistry;
+    show PixivDestinationRegistry;
 import 'package:parfait/core/network/compat/network_policy.dart';
-import 'package:parfait/core/network/compat/secure_resolver.dart';
 import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/translation/translation_credentials.dart';
+import 'package:parfait/core/translation/translation_transport.dart';
+
+import 'restricted_compat_support.dart' show FakeResolver;
 
 export 'fake_settings.dart';
+
+/// A translation engine that records each source text and answers
+/// [answer] of it (the text itself by default).
+class RecordingTranslationEngine
+    with SequentialBatchTranslation
+    implements TranslationTransport {
+  RecordingTranslationEngine([this.answer = _echo]);
+
+  final String Function(String text) answer;
+  final sources = <String>[];
+
+  static String _echo(String text) => text;
+
+  @override
+  Future<String> translate(
+    String text, {
+    required String targetLanguage,
+  }) async {
+    sources.add(text);
+    return answer(text);
+  }
+}
 
 /// In-memory credential store — the root-page summary only exercises the
 /// `hasX()` existence probes, but the full surface is implemented so the
@@ -81,29 +101,6 @@ AppSettings baseTestSettings({String languageTag = 'en-US'}) => AppSettings(
   imageSource: AppSettings.normalImageSource,
 );
 
-/// Resolves every host to [addresses] from the system DNS.
-class StubResolver implements SecureResolver {
-  StubResolver(this.addresses);
-
-  final List<InternetAddress> addresses;
-
-  @override
-  Future<ResolvedHost> resolve(
-    String host, {
-    required NetworkRevision revision,
-    NetworkCancelSignal? cancelSignal,
-  }) async => ResolvedHost(
-    host: host,
-    addresses: addresses,
-    dnsSource: DnsSource.system,
-    revision: revision,
-    ttl: const Duration(seconds: 30),
-  );
-
-  @override
-  Future<void> dispose() async {}
-}
-
 /// Records requests and answers `{}` (or throws [failure]).
 class RecordingClient extends http.BaseClient {
   final requests = <http.BaseRequest>[];
@@ -126,6 +123,6 @@ class RecordingClient extends http.BaseClient {
 /// pages that read network state without exercising it.
 NetworkAccessPolicy stubNetworkPolicy() => NetworkAccessPolicy(
   registry: PixivDestinationRegistry(),
-  resolver: StubResolver([InternetAddress('93.184.216.34')]),
+  resolver: FakeResolver([InternetAddress('93.184.216.34')]),
   clientFactory: (route, canonicalHost, _) => RecordingClient(),
 );

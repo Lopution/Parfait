@@ -36,13 +36,17 @@ reviewed: 2026-10-13
 - **Check:** manual
 - **Code:** `test`
 
-### TEST-03 Assert observable behaviour, at one layer
+### TEST-03 Assert observable behaviour, at the lowest layer
 - **Rule:** Tests assert rendered output, semantics, navigation and state
   changes, not framework or third-party constructor parameters
   (`tester.widget<T>(…).param`). The exception is a parameter that is
   itself the contract; comment which. One behaviour is covered at one
-  layer.
-- **Why:** Parameter assertions failed in bulk on every refactor.
+  layer: the lowest that reproduces it. A regression test is a widget
+  test only when the defect lives in interaction or layout; a logic
+  defect found through the UI gets a unit test of that logic.
+- **Why:** Parameter assertions failed in bulk on every refactor. A widget
+  case averages 27 lines against a unit case's 18, and covers more
+  incidental code that breaks it.
 - **Check:** manual
 - **Code:** `test`
 
@@ -57,12 +61,11 @@ reviewed: 2026-10-13
 ## Volume
 
 ### TEST-05 The suite stays within its budget
-- **Rule:** User decision: `test/` holds at most 60,000 Dart code lines
-  (blank and comment lines excluded; `test/review/` and `test/fixtures/`
-  not counted), the cap in `tool/test_budget.json`. Only the user raises
-  it; an agent asks and never edits the cap itself, including when
-  `lib/` has grown 10% past `lib_at_cap` and the report asks for a
-  review. A change that needs room makes it in this order: dedupe or
+- **Rule:** User decision: `test/` holds at most `ratio` × `lib/` Dart
+  code lines (`tool/test_budget.json`, 0.6; blank and comment lines
+  excluded; `test/review/` and `test/fixtures/` not counted), so tests
+  grow with the code but not faster. Only the user changes the ratio; an
+  agent asks and never edits it. A change that needs room makes it in this order: dedupe or
   table-drive repeated cases; drop UI tests of colour, spacing, order or
   copy; drop tests of removed code; drop a duplicated layer. Tests of
   core logic, fixed bugs and security are never deleted for room. A UI
@@ -75,19 +78,27 @@ reviewed: 2026-10-13
   module it covers; a file of one or two cases joins its feature's file
   unless it is the only test of its module.
 - **Why:** The suite doubled in a month, mostly with parameter assertions
-  and duplicated layers; dozens of one-case files each cost a compile.
-  It was 61,126 lines when the cap was set, already over it.
+  and duplicated layers; dozens of one-case files each cost a compile;
+  test/lib rose from 0.41 to 0.81. Under a fixed 60,000-line cap the
+  suite grew in step with `lib/` (about 0.55 test lines per new lib
+  line) and met the cap again within a week; a ratio keeps the alarm for
+  tests outgrowing the code without a wall every few days.
 - **Check:** `tool/test_budget.py`, `test/architecture/test_hygiene_test.dart` "test files stay under"
 - **Code:** `test`
 
 ### TEST-10 A test double is defined once
-- **Rule:** Look in `test/helpers/` before writing a fake, stub or
-  recorder. A double a second file needs moves to `test/helpers/` and both
-  import it; a double that behaves differently gets a name that says how
-  (`_ThrowAfterWriteSink`, not a second `_FailingSink`).
+- **Rule:** Look in `test/helpers/` before writing a fake, stub, recorder
+  or fixture server. A double a second file needs moves to `test/helpers/`
+  and both import it; a small difference becomes a parameter of the
+  shared one. A double that behaves differently gets a name that says how
+  (`_ThrowAfterWriteSink`, not a second `_FailingSink`) and a body that
+  is mostly its own: a class sharing 80% of its lines with a class in
+  another file is a copy, whatever its name.
 - **Why:** Eight copies of one account stub drifted apart, and a fix to
-  one copy left the others asserting the old behaviour.
-- **Check:** `test/architecture/test_hygiene_test.dart` "each test double is defined once"
+  one copy left the others asserting the old behaviour. Renamed copies
+  (`_Resolver`, `_ScriptedResolver`, `StubResolver` beside `FakeResolver`)
+  passed a name-only check; a third of the suite sat outside any case.
+- **Check:** `test/architecture/test_hygiene_test.dart` "each test double is defined once" "no test double is copied into a second file"
 - **Code:** `test/helpers`
 
 ## Test environment traps

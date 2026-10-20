@@ -26,6 +26,7 @@ import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/image_headers.dart';
+import 'helpers/reverse_image_world.dart' show FakeReverseImagePlatform;
 import 'helpers/view_size.dart';
 
 ProfileCapabilities _appApi([
@@ -325,7 +326,7 @@ void main() {
       addTearDown(() => directory.delete(recursive: true));
       final file = File('${directory.path}/avatar.png')
         ..writeAsBytesSync(pngHeader(320, 240));
-      final platform = _ImagePlatform(file);
+      final platform = FakeReverseImagePlatform(file);
 
       final selection = await ProfileImagePreprocessor.prepare(
         platform: platform,
@@ -598,23 +599,6 @@ class _CountingImagePlatform implements ReverseImageInputPlatform {
 
   @override
   Future<void> deleteOwnedFile(String path) => throw UnimplementedError();
-}
-
-class _ImagePlatform implements ReverseImageInputPlatform {
-  _ImagePlatform(this.file);
-
-  final File file;
-  final deletedPaths = <String>[];
-
-  @override
-  Future<String> copyToOwnedFile(ReverseImageInputReference reference) async =>
-      file.path;
-
-  @override
-  Future<void> deleteOwnedFile(String path) async => deletedPaths.add(path);
-
-  @override
-  Future<ReverseImageInputReference?> pickImage() async => null;
 }
 
 /// Fails the first detail fetch like a dropped connection, then answers.

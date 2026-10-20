@@ -19,65 +19,13 @@ import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'helpers/image_network.dart';
 import 'helpers/worker_entries.dart';
 
-/// A loopback image server; `/hold/<x>` responses stay open until
-/// [release]/[releasePath] so lane occupancy is deterministic.
-class _Server {
-  final hits = <String, int>{};
-  final _held = <String, HttpResponse>{};
-  late final HttpServer inner;
-
-  Future<void> start() async {
-    inner = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    unawaited(
-      inner.forEach((request) async {
-        final path = request.uri.path;
-        hits[path] = (hits[path] ?? 0) + 1;
-        if (path.startsWith('/hold/')) {
-          _held[path] = request.response;
-          return;
-        }
-        request.response
-          ..contentLength = onePixelPng.length
-          ..add(onePixelPng);
-        await request.response.close();
-      }),
-    );
-  }
-
-  String url(String path) => 'http://127.0.0.1:${inner.port}$path';
-
-  /// Answers the held response for [path], freeing one lane slot.
-  void releasePath(String path) {
-    _answer(_held.remove(path)!);
-  }
-
-  void _answer(HttpResponse response) {
-    response
-      ..contentLength = onePixelPng.length
-      ..add(onePixelPng);
-    unawaited(response.close());
-  }
-
-  void release() {
-    for (final response in _held.values.toList()) {
-      _answer(response);
-    }
-    _held.clear();
-  }
-
-  Future<void> stop() async {
-    release();
-    await inner.close(force: true);
-  }
-}
-
 /// An in-process worker host wired to a client through the real protocol.
 class _Harness {
   late final ImageWorkerHost host;
   late final ImageWorkerClient client;
   final demand = ImageDemand();
   late final Directory dir;
-  _Server? server;
+  PngServer? server;
 
   Future<void> start({http.Client Function()? fetchClient}) async {
     dir = Directory.systemTemp.createTempSync('parfait-client-');
@@ -101,12 +49,13 @@ class _Harness {
   }
 }
 
-/// A started harness whose worker fetches from a live local [_Server].
+/// A started harness whose worker fetches from a live local [PngServer].
 Future<_Harness> _served() async {
   final harness = _Harness();
   addTearDown(harness.stop);
-  final server = _Server();
-  await server.start();
+  final server = PngServer(
+    await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
+  );
   harness.server = server;
   await harness.start();
   return harness;

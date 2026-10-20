@@ -285,9 +285,9 @@ void main() {
         locale: locale,
         home: ReverseImageSearchPage(
           platform: FakeReverseImagePlatform(writeTinyPng(directory)),
-          providers: const {
+          providers: {
             ReverseImageEngine.sauceNao: OutcomeReverseImageProvider(
-              ReverseImageSearchFailure(
+              const ReverseImageSearchFailure(
                 code: ReverseImageProviderFailureCode.rateLimited,
                 message: 'provider is rate limited',
                 retryable: true,
@@ -330,7 +330,7 @@ void main() {
         home: ReverseImageSearchPage(
           platform: FakeReverseImagePlatform(writeTinyPng(directory)),
           providers: {
-            ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
+            ReverseImageEngine.sauceNao: OutcomeReverseImageProvider(
               ReverseImageSearchSuccess(),
             ),
           },

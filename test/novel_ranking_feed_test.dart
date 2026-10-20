@@ -1,8 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/core/novel/novel_ranking_feed_controller.dart';
 import 'package:parfait/core/novel/novel_repository.dart';
@@ -14,37 +12,11 @@ import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/illust_fixtures.dart';
 
-class _RankingFixture {
-  final requests = <Uri>[];
-  NovelRankingMode? mismatchedNextMode;
-
-  http.Client client() => MockClient((request) async {
-    requests.add(request.url);
-    final mode = request.url.queryParameters['mode']!;
-    final isFirst = request.url.queryParameters['offset'] == null;
-    final start = isFirst ? 1 : 3;
-    final nextMode = mismatchedNextMode?.apiValue ?? mode;
-    // Pixiv echoes a past ranking's date into next_url.
-    final date = request.url.queryParameters['date'];
-    return jsonResponse({
-      'novels': [
-        for (var id = start; id < start + 2; id++)
-          novelJson(id, title: 'novel ranking $id'),
-      ],
-      'next_url': isFirst
-          ? 'https://app-api.pixiv.net/v1/novel/ranking'
-                '?filter=for_android&mode=$nextMode'
-                '${date == null ? '' : '&date=$date'}&offset=30'
-          : null,
-    });
-  });
-}
-
-Future<(ProviderContainer, _RankingFixture)> _makeWorld({
-  _RankingFixture? fixture,
+Future<(ProviderContainer, NovelRankingFixture)> _makeWorld({
+  NovelRankingFixture? fixture,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  final activeFixture = fixture ?? _RankingFixture();
+  final activeFixture = fixture ?? NovelRankingFixture();
   final container = await signedInApiContainer(
     activeFixture.client(),
     overrides: [
@@ -118,7 +90,8 @@ void main() {
 
   test('mismatched next mode is an observable parse error', () async {
     final (container, _) = await _makeWorld(
-      fixture: (_RankingFixture()..mismatchedNextMode = NovelRankingMode.week),
+      fixture: (NovelRankingFixture()
+        ..mismatchedNextMode = NovelRankingMode.week),
     );
 
     final state = await container.read(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -56,10 +57,17 @@ class FakeReverseImagePlatform implements ReverseImageInputPlatform {
   }
 }
 
+/// Answers every search with [outcome]; while [blocker] is set, a search
+/// waits for the test to complete it instead.
 class OutcomeReverseImageProvider implements ReverseImageProvider {
-  const OutcomeReverseImageProvider(this.outcome);
+  OutcomeReverseImageProvider(this.outcome, {this.blocker});
+
+  /// A search that never finishes on its own.
+  OutcomeReverseImageProvider.blocking()
+    : this(const ReverseImageSearchSuccess(), blocker: Completer());
 
   final ReverseImageSearchOutcome outcome;
+  Completer<ReverseImageSearchOutcome>? blocker;
 
   @override
   ReverseImageProviderCapability get capability =>
@@ -75,5 +83,5 @@ class OutcomeReverseImageProvider implements ReverseImageProvider {
   Future<ReverseImageSearchOutcome> search(
     OwnedReverseImageInput input, {
     CancelToken? cancelToken,
-  }) async => outcome;
+  }) async => await blocker?.future ?? outcome;
 }

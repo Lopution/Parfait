@@ -3,8 +3,6 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -59,27 +57,10 @@ Map<String, Object?> _novelSnapshotJson(int id) => {
   'create_date': '2026-09-01',
 };
 
-class _RankingFixture {
-  final requests = <Uri>[];
-
-  http.Client client() => MockClient((request) async {
-    requests.add(request.url);
-    final isFirst = request.url.queryParameters['offset'] == null;
-    final start = isFirst ? 1 : 3;
-    return jsonResponse({
-      'novels': [for (var id = start; id < start + 2; id++) novelJson(id)],
-      'next_url': isFirst
-          ? 'https://app-api.pixiv.net/v1/novel/ranking'
-                '?filter=for_android&mode=day&offset=30'
-          : null,
-    });
-  });
-}
-
 class _World {
   _World(this.container, this.fixture, this.database, this.directory);
   final ProviderContainer container;
-  final _RankingFixture fixture;
+  final NovelRankingFixture fixture;
   final FeedDatabase database;
   final Directory directory;
 
@@ -94,7 +75,7 @@ class _World {
 
 Future<_World> _makeWorld() async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  final fixture = _RankingFixture();
+  final fixture = NovelRankingFixture();
   final directory = await Directory.systemTemp.createTemp('pixiv-feeds-test-');
   final database = FeedDatabase(
     factory: databaseFactoryFfi,

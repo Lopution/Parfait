@@ -30,6 +30,7 @@ import 'helpers/detail_world.dart';
 import 'helpers/download_world.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/settings_world.dart' show RecordingTranslationEngine;
 import 'helpers/view_size.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -456,7 +457,7 @@ void main() {
     testWidgets('translate answers inside the menu, or points to settings '
         'while translation is off', (tester) async {
       var provider = TranslationProvider.disabled;
-      final engine = _StubEngine('TAG-IN-ZH');
+      final engine = RecordingTranslationEngine((_) => 'TAG-IN-ZH');
       final (container, _, _) = await makeWorld(
         extraOverrides: [
           translationServiceProvider.overrideWithValue(
@@ -614,23 +615,4 @@ void main() {
       expect(find.text('1 / 2'), findsOneWidget);
     });
   });
-}
-
-/// The translation engine boundary: answers every text with [answer].
-class _StubEngine
-    with SequentialBatchTranslation
-    implements TranslationTransport {
-  _StubEngine(this.answer);
-
-  final String answer;
-  final sources = <String>[];
-
-  @override
-  Future<String> translate(
-    String text, {
-    required String targetLanguage,
-  }) async {
-    sources.add(text);
-    return answer;
-  }
 }

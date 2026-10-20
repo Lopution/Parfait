@@ -1,11 +1,9 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/reverse_image/image_input.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
 import 'package:parfait/core/reverse_image/reverse_image_platform.dart';
@@ -102,7 +100,7 @@ void main() {
       tester,
       platform: platform,
       providers: {
-        ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
+        ReverseImageEngine.sauceNao: OutcomeReverseImageProvider(
           ReverseImageSearchFailure(
             code: ReverseImageProviderFailureCode.rateLimited,
             message: 'provider is rate limited',
@@ -133,7 +131,7 @@ void main() {
       platform: platform,
       uploadArmer: armer,
       providers: {
-        ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
+        ReverseImageEngine.sauceNao: OutcomeReverseImageProvider(
           ReverseImageSearchFailure(
             code: ReverseImageProviderFailureCode.challenge,
             message: 'SauceNAO returned a challenge page',
@@ -162,10 +160,10 @@ void main() {
       tester,
       platform: platform,
       providers: {
-        ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
+        ReverseImageEngine.sauceNao: OutcomeReverseImageProvider(
           ReverseImageSearchSuccess(),
         ),
-        ReverseImageEngine.iqdb: const OutcomeReverseImageProvider(
+        ReverseImageEngine.iqdb: OutcomeReverseImageProvider(
           ReverseImageSearchSuccess(),
         ),
       },
@@ -211,7 +209,7 @@ void main() {
       tester,
       platform: webpPlatform,
       providers: {
-        ReverseImageEngine.sauceNao: const OutcomeReverseImageProvider(
+        ReverseImageEngine.sauceNao: OutcomeReverseImageProvider(
           ReverseImageSearchSuccess(),
         ),
       },
@@ -313,9 +311,7 @@ void main() {
       platform: FakeReverseImagePlatform(webp, mimeType: 'image/webp'),
       providers: {
         for (final engine in ReverseImageEngine.values)
-          engine: const OutcomeReverseImageProvider(
-            ReverseImageSearchSuccess(),
-          ),
+          engine: OutcomeReverseImageProvider(ReverseImageSearchSuccess()),
       },
     );
     await tester.pumpAndSettle();
@@ -337,7 +333,7 @@ void main() {
   testWidgets('progress cancel stops the search but stays on the page', (
     tester,
   ) async {
-    final provider = _BlockingProvider();
+    final provider = OutcomeReverseImageProvider.blocking();
     await _pumpPushedPage(
       tester,
       platform: platform,
@@ -370,7 +366,7 @@ void main() {
     testWidgets('ready/searching/failure keep image, engine and phase', (
       tester,
     ) async {
-      final provider = _BlockingProvider();
+      final provider = OutcomeReverseImageProvider.blocking();
       await _pumpPage(
         tester,
         platform: platform,
@@ -403,7 +399,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('IQDB'), findsNothing);
 
-      provider.blocker.complete(
+      provider.blocker!.complete(
         const ReverseImageSearchFailure(
           code: ReverseImageProviderFailureCode.providerUnavailable,
           message: 'unavailable',
@@ -511,26 +507,4 @@ class _FakeArmer implements ReverseImageUploadArmer {
   Future<void> disarmUpload() async {
     disarmCount++;
   }
-}
-
-/// A provider whose search never finishes on its own — [blocker] lets a
-/// test decide when (or whether) the in-flight search resolves.
-class _BlockingProvider implements ReverseImageProvider {
-  final blocker = Completer<ReverseImageSearchOutcome>();
-
-  @override
-  ReverseImageProviderCapability get capability =>
-      const ReverseImageProviderCapability(
-        name: 'blocking-provider',
-        kind: ReverseImageProviderKind.structuredApi,
-        enabled: true,
-        observedAt: 'test',
-        reason: 'test-only provider',
-      );
-
-  @override
-  Future<ReverseImageSearchOutcome> search(
-    OwnedReverseImageInput input, {
-    CancelToken? cancelToken,
-  }) => blocker.future;
 }

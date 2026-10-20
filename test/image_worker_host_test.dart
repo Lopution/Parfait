@@ -16,51 +16,6 @@ import 'package:parfait/core/network/pixiv_headers.dart';
 
 import 'helpers/image_network.dart';
 
-/// A loopback image server: `/<name>` answers the PNG payload, `/hold/<x>`
-/// keeps the response open until [release] is called.
-class _Server {
-  final hits = <String, int>{};
-  final referers = <String>[];
-  final _held = <HttpResponse>[];
-  late final HttpServer inner;
-
-  Future<void> start() async {
-    inner = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    unawaited(
-      inner.forEach((request) async {
-        final path = request.uri.path;
-        hits[path] = (hits[path] ?? 0) + 1;
-        referers.add(request.headers.value('referer') ?? '');
-        if (path.startsWith('/hold/')) {
-          _held.add(request.response);
-          return;
-        }
-        request.response
-          ..contentLength = onePixelPng.length
-          ..add(onePixelPng);
-        await request.response.close();
-      }),
-    );
-  }
-
-  String url(String path) => 'http://127.0.0.1:${inner.port}$path';
-
-  void release() {
-    for (final response in _held) {
-      response
-        ..contentLength = onePixelPng.length
-        ..add(onePixelPng);
-      unawaited(response.close());
-    }
-    _held.clear();
-  }
-
-  Future<void> stop() async {
-    release();
-    await inner.close(force: true);
-  }
-}
-
 /// Drives an [ImageWorkerHost] in-process through its real wire protocol.
 class _Harness {
   _Harness() {
@@ -73,7 +28,7 @@ class _Harness {
   final _events = StreamController<WorkerEvent>.broadcast();
   final _received = <WorkerEvent>[];
   late SendPort worker;
-  _Server? server;
+  PngServer? server;
 
   Future<void> start({
     http.Client Function()? fetchClient,
@@ -186,12 +141,13 @@ class _Harness {
   }
 }
 
-/// A started harness whose worker fetches from a live local [_Server].
+/// A started harness whose worker fetches from a live local [PngServer].
 Future<_Harness> _served() async {
   final harness = _Harness();
   addTearDown(harness.stop);
-  final server = _Server();
-  await server.start();
+  final server = PngServer(
+    await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
+  );
   harness.server = server;
   await harness.start(fetchClient: IOClient.new);
   return harness;

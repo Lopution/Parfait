@@ -5,13 +5,13 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/reverse_image/image_input.dart';
 import 'package:parfait/core/reverse_image/reverse_image_controller.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
 import 'package:parfait/core/reverse_image/reverse_image_platform.dart';
 import 'package:parfait/core/reverse_image/reverse_image_provider.dart';
 import 'helpers/image_headers.dart';
+import 'helpers/reverse_image_world.dart' show OutcomeReverseImageProvider;
 
 const _picked = ReverseImageInputReference(
   contentUri: 'content://share/1',
@@ -210,7 +210,7 @@ void main() {
       retryable: true,
     );
     final (controller, platform, file) = flowOver(
-      _OutcomeProvider(rateLimited),
+      OutcomeReverseImageProvider(rateLimited),
     );
 
     await controller.prepare(_picked);
@@ -219,7 +219,7 @@ void main() {
     expect(platform.deletedPaths, [file.path]);
 
     final (retryController, retryPlatform, _) = flowOver(
-      _OutcomeProvider(rateLimited),
+      OutcomeReverseImageProvider(rateLimited),
     );
     await retryController.prepare(_picked);
     await retryController.search();
@@ -237,7 +237,7 @@ void main() {
 
   test('rate-limit retryAfter is preserved on the flow failure', () async {
     final (controller, platform, file) = flowOver(
-      _OutcomeProvider(
+      OutcomeReverseImageProvider(
         const ReverseImageSearchFailure(
           code: ReverseImageProviderFailureCode.rateLimited,
           message: 'provider is rate limited',
@@ -262,7 +262,7 @@ void main() {
 
   test('a webview success keeps the image until the flow ends', () async {
     final (controller, platform, file) = flowOver(
-      _OutcomeProvider(
+      OutcomeReverseImageProvider(
         const ReverseImageSearchWebView(
           html: '<html><body>results</body></html>',
           observedAt: 'test',
@@ -314,13 +314,15 @@ void main() {
     final file = File('${tempDirectory.path}/image.png')
       ..writeAsBytesSync(pngHeader(12, 8));
     final platform = _FakeReverseImageInputPlatform(file);
-    final failing = _OutcomeProvider(
+    final failing = OutcomeReverseImageProvider(
       const ReverseImageSearchFailure(
         code: ReverseImageProviderFailureCode.challenge,
         message: 'challenged',
       ),
     );
-    final succeeding = _OutcomeProvider(const ReverseImageSearchSuccess());
+    final succeeding = OutcomeReverseImageProvider(
+      const ReverseImageSearchSuccess(),
+    );
     final session = ReverseImageSearchSession(
       platform: platform,
       providers: {
@@ -365,16 +367,16 @@ void main() {
     final session = ReverseImageSearchSession(
       platform: platform,
       providers: {
-        ReverseImageEngine.sauceNao: _OutcomeProvider(
+        ReverseImageEngine.sauceNao: OutcomeReverseImageProvider(
           const ReverseImageSearchSuccess(),
         ),
-        ReverseImageEngine.ascii2d: _OutcomeProvider(
+        ReverseImageEngine.ascii2d: OutcomeReverseImageProvider(
           const ReverseImageSearchFailure(
             code: ReverseImageProviderFailureCode.network,
             message: 'offline',
           ),
         ),
-        ReverseImageEngine.tinEye: _OutcomeProvider(
+        ReverseImageEngine.tinEye: OutcomeReverseImageProvider(
           const ReverseImageSearchSuccess(),
         ),
       },
@@ -420,7 +422,7 @@ void main() {
       final session = ReverseImageSearchSession.single(
         platform: platform,
         uploadArmer: armer,
-        provider: _OutcomeProvider(
+        provider: OutcomeReverseImageProvider(
           const ReverseImageSearchFailure(
             code: ReverseImageProviderFailureCode.challenge,
             message: 'challenge',
@@ -458,7 +460,9 @@ void main() {
       final platform = _FakeReverseImageInputPlatform(file);
       final session = ReverseImageSearchSession.single(
         platform: platform,
-        provider: _OutcomeProvider(const ReverseImageSearchSuccess()),
+        provider: OutcomeReverseImageProvider(
+          const ReverseImageSearchSuccess(),
+        ),
       );
       final controller = _flowController(session);
       await controller.prepare(
@@ -507,7 +511,7 @@ void main() {
       final session = ReverseImageSearchSession(
         platform: platform,
         providers: {
-          ReverseImageEngine.sauceNao: _OutcomeProvider(
+          ReverseImageEngine.sauceNao: OutcomeReverseImageProvider(
             const ReverseImageSearchSuccess(),
           ),
         },
@@ -535,7 +539,7 @@ void main() {
     final armer = _RecordingUploadArmer();
     final session = ReverseImageSearchSession.single(
       platform: platform,
-      provider: _OutcomeProvider(
+      provider: OutcomeReverseImageProvider(
         ReverseImageSearchWebUpload(
           engine: ReverseImageEngine.ascii2d,
           uploadPageUrl: Uri.parse('https://ascii2d.net/'),
@@ -572,7 +576,7 @@ void main() {
       final armer = _RecordingUploadArmer(failArm: true);
       final session = ReverseImageSearchSession.single(
         platform: platform,
-        provider: _OutcomeProvider(
+        provider: OutcomeReverseImageProvider(
           ReverseImageSearchWebUpload(
             engine: ReverseImageEngine.tinEye,
             uploadPageUrl: Uri.parse('https://tineye.com/'),
@@ -603,8 +607,9 @@ void main() {
         final file = File('${tempDirectory.path}/image.png')
           ..writeAsBytesSync(pngHeader(12, 8));
         final platform = _FakeReverseImageInputPlatform(file);
-        final provider = _OutcomeProvider(const ReverseImageSearchSuccess())
-          ..blocker = Completer<ReverseImageSearchOutcome>();
+        final provider = OutcomeReverseImageProvider(
+          const ReverseImageSearchSuccess(),
+        )..blocker = Completer<ReverseImageSearchOutcome>();
         final session = ReverseImageSearchSession.single(
           platform: platform,
           provider: provider,
@@ -643,7 +648,9 @@ void main() {
           ..copyBlocker = Completer<String>();
         final session = ReverseImageSearchSession.single(
           platform: platform,
-          provider: _OutcomeProvider(const ReverseImageSearchSuccess()),
+          provider: OutcomeReverseImageProvider(
+            const ReverseImageSearchSuccess(),
+          ),
         );
         final controller = _flowController(session);
 
@@ -671,7 +678,9 @@ void main() {
         ..pickBlocker = Completer<ReverseImageInputReference?>();
       final session = ReverseImageSearchSession.single(
         platform: platform,
-        provider: _OutcomeProvider(const ReverseImageSearchSuccess()),
+        provider: OutcomeReverseImageProvider(
+          const ReverseImageSearchSuccess(),
+        ),
       );
       final controller = _flowController(session);
 
@@ -744,33 +753,6 @@ class _FakeReverseImageInputPlatform implements ReverseImageInputPlatform {
     final blocker = pickBlocker;
     if (blocker != null) return blocker.future;
     return pickResult;
-  }
-}
-
-class _OutcomeProvider implements ReverseImageProvider {
-  _OutcomeProvider(this.outcome);
-
-  final ReverseImageSearchOutcome outcome;
-  Completer<ReverseImageSearchOutcome>? blocker;
-
-  @override
-  ReverseImageProviderCapability get capability =>
-      const ReverseImageProviderCapability(
-        name: 'test-provider',
-        kind: ReverseImageProviderKind.structuredApi,
-        enabled: true,
-        observedAt: 'test',
-        reason: 'test-only provider',
-      );
-
-  @override
-  Future<ReverseImageSearchOutcome> search(
-    OwnedReverseImageInput input, {
-    CancelToken? cancelToken,
-  }) async {
-    final gate = blocker;
-    if (gate != null) return gate.future;
-    return outcome;
   }
 }
 

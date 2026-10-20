@@ -6,6 +6,8 @@ import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/network_probe.dart';
 import 'package:parfait/core/network/compat/secure_resolver.dart';
 
+import 'helpers/restricted_compat_support.dart' show FakeResolver;
+
 /// Deterministic offline harness: every injected layer is scripted, so the
 /// classification matrix (design §探测页) is pinned without any network.
 ///
@@ -38,7 +40,7 @@ class _Harness {
   static bool _ok(String result) => result == 'ok';
 
   Future<NetworkProbeReport> run() {
-    final resolver = _ScriptedResolver(dohAddresses);
+    final resolver = FakeResolver(dohAddresses, source: DnsSource.doh);
     final hasEch = !identical(echConfigResult, _unset);
     final hasNoSni = !identical(noSniResult, _unset);
     return NetworkProbe.run(
@@ -93,33 +95,6 @@ class _Harness {
       timeoutPerLayer: const Duration(seconds: 2),
     );
   }
-}
-
-class _ScriptedResolver implements SecureResolver {
-  _ScriptedResolver(this.addresses);
-
-  final List<InternetAddress> addresses;
-
-  @override
-  Future<ResolvedHost> resolve(
-    String host, {
-    required NetworkRevision revision,
-    NetworkCancelSignal? cancelSignal,
-  }) async {
-    if (addresses.isEmpty) {
-      throw const SecureResolutionException('probe doh failed');
-    }
-    return ResolvedHost(
-      host: host,
-      addresses: addresses,
-      dnsSource: DnsSource.doh,
-      revision: revision,
-      ttl: const Duration(seconds: 30),
-    );
-  }
-
-  @override
-  Future<void> dispose() async {}
 }
 
 typedef _C = NetworkProbeConclusion;
@@ -247,7 +222,7 @@ void main() {
         host: 'evil.example.com',
         purpose: PixivDestinationPurpose.appApi,
         registry: PixivDestinationRegistry(),
-        dohResolver: _ScriptedResolver(_v4),
+        dohResolver: FakeResolver(_v4, source: DnsSource.doh),
         revision: const NetworkRevision(0),
         tcpConnect: (a, p) async {},
         tlsHandshake: (a, p, h) async {},
@@ -364,7 +339,7 @@ Future<NetworkProbeReport> _sniResetProbe({
   host: host,
   purpose: purpose,
   registry: PixivDestinationRegistry(),
-  dohResolver: _ScriptedResolver(_v4),
+  dohResolver: FakeResolver(_v4, source: DnsSource.doh),
   revision: const NetworkRevision(0),
   systemLookup: (host) async => _v4,
   tcpConnect: (a, p) async {},

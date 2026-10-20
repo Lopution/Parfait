@@ -52,6 +52,7 @@ import 'helpers/download_world.dart';
 import 'helpers/history_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/image_network.dart';
+import 'helpers/restricted_compat_support.dart' show FakeResolver;
 import 'helpers/settings_world.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
@@ -1082,7 +1083,7 @@ void main() {
         registry: PixivDestinationRegistry(
           extraImageHosts: {'proxy.example.com'},
         ),
-        resolver: StubResolver([InternetAddress('93.184.216.34')]),
+        resolver: FakeResolver([InternetAddress('93.184.216.34')]),
         clientFactory: (route, canonicalHost, _) => backend,
       );
       await _pumpNetworkSettings(

@@ -17,6 +17,7 @@ import 'test_preferences.dart';
 class FakeTransport implements DownloadTransport {
   final responses = <ScriptedResponse>[];
   final openedUrls = <Uri>[];
+  final openedHeaders = <Map<String, String>>[];
   final activeResponses = <_FakeResponse>[];
 
   @override
@@ -26,6 +27,7 @@ class FakeTransport implements DownloadTransport {
     required DownloadCancelToken cancelToken,
   }) async {
     openedUrls.add(url);
+    openedHeaders.add(Map.of(headers));
     final response = _FakeResponse(responses.removeAt(0), cancelToken);
     activeResponses.add(response);
     return response;
@@ -48,6 +50,8 @@ class ScriptedResponse {
   /// When non-null, chunk [i] is gated behind completers[i]; the stream
   /// only completes when tests flush it.
   final List<Completer<void>>? completers;
+
+  /// Raised after [chunks], as a connection dropped mid-body.
   final Object? error;
 }
 
@@ -66,9 +70,6 @@ class _FakeResponse implements DownloadResponse {
 
   @override
   Stream<List<int>> get stream {
-    if (script.error != null) {
-      return Stream<List<int>>.error(script.error!);
-    }
     final completers = script.completers;
     var index = 0;
     final controller = StreamController<List<int>>();
@@ -93,6 +94,7 @@ class _FakeResponse implements DownloadResponse {
           // Yield so the consumer's await for actually progresses.
           await Future<void>.delayed(Duration.zero);
         }
+        if (script.error case final error?) controller.addError(error);
         await controller.close();
       } catch (error) {
         controller.addError(error);

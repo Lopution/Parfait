@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'helpers/download_world.dart' show FakeTransport, ScriptedResponse;
 import 'helpers/test_preferences.dart';
 import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/download_manager.dart';
@@ -29,88 +30,6 @@ DownloadSubmissionContext _context() =>
 Future<void> _pumpUntil(bool Function() predicate, {int turns = 500}) async {
   for (var i = 0; i < turns && !predicate(); i++) {
     await Future<void>.delayed(Duration.zero);
-  }
-}
-
-class _Scripted {
-  _Scripted({
-    this.statusCode = 200,
-    this.contentLength,
-    this.chunks = const [],
-    this.gates,
-    this.error,
-  });
-
-  final int statusCode;
-  final int? contentLength;
-  final List<List<int>> chunks;
-  final List<Completer<void>>? gates;
-  final Object? error;
-}
-
-class _Response implements DownloadResponse {
-  _Response(this.script, this.cancelToken);
-
-  final _Scripted script;
-  final DownloadCancelToken cancelToken;
-
-  @override
-  int get statusCode => script.statusCode;
-
-  @override
-  int? get contentLength => script.contentLength;
-
-  @override
-  Stream<List<int>> get stream {
-    final controller = StreamController<List<int>>();
-    Future<void> drain() async {
-      try {
-        for (var i = 0; i < script.chunks.length; i++) {
-          if (cancelToken.isCancelled) {
-            controller.addError(const DownloadCancelledException());
-            await controller.close();
-            return;
-          }
-          final gate = script.gates == null ? null : script.gates![i];
-          if (gate != null) await gate.future;
-          if (cancelToken.isCancelled) {
-            controller.addError(const DownloadCancelledException());
-            await controller.close();
-            return;
-          }
-          controller.add(script.chunks[i]);
-          await Future<void>.delayed(Duration.zero);
-        }
-        if (script.error != null) {
-          controller.addError(script.error!);
-        }
-        await controller.close();
-      } catch (error) {
-        controller.addError(error);
-        await controller.close();
-      }
-    }
-
-    unawaited(drain());
-    return controller.stream;
-  }
-
-  @override
-  Future<void> close() async {}
-}
-
-class _Transport implements DownloadTransport {
-  final responses = <_Scripted>[];
-  final opens = <Map<String, String>>[];
-
-  @override
-  Future<DownloadResponse> open(
-    Uri url, {
-    required Map<String, String> headers,
-    required DownloadCancelToken cancelToken,
-  }) async {
-    opens.add(Map.of(headers));
-    return _Response(responses.removeAt(0), cancelToken);
   }
 }
 
@@ -370,16 +289,16 @@ class _CleanupSpyFactory extends _ResumableFactory
 /// Starts a 30-byte download whose body stalls after ten bytes, and pauses
 /// (or cancels) it there.
 Future<(DownloadManager, DownloadTaskSnapshot)> _interrupted(
-  _Transport transport,
+  FakeTransport transport,
   DownloadSinkFactory sinks, {
   bool cancel = false,
 }) async {
   final gate = Completer<void>();
   transport.responses.add(
-    _Scripted(
+    ScriptedResponse(
       contentLength: 30,
       chunks: [List.filled(10, 1), List.filled(10, 2)],
-      gates: [_done(), gate],
+      completers: [_done(), gate],
     ),
   );
   final manager = DownloadManager(
@@ -414,7 +333,7 @@ void main() {
 
   group('pause / resume lifecycle (D8)', () {
     test('pause preserves bytes and lands retryable with an anchor', () async {
-      final transport = _Transport();
+      final transport = FakeTransport();
       final factory = _ResumableFactory();
       final (manager, task) = await _interrupted(transport, factory);
 
@@ -427,12 +346,12 @@ void main() {
     });
 
     test('retry sends Range and appends on 206', () async {
-      final transport = _Transport();
+      final transport = FakeTransport();
       final factory = _ResumableFactory();
       final (manager, task) = await _interrupted(transport, factory);
 
       transport.responses.add(
-        _Scripted(
+        ScriptedResponse(
           statusCode: 206,
           contentLength: 20,
           chunks: [List.filled(10, 2), List.filled(10, 3)],
@@ -440,7 +359,7 @@ void main() {
       );
       final retried = await _retried(manager, task.id);
 
-      expect(transport.opens.last['Range'], 'bytes=10-');
+      expect(transport.openedHeaders.last['Range'], 'bytes=10-');
       expect(factory.store.files.values.single, [
         ...List.filled(10, 1),
         ...List.filled(10, 2),
@@ -455,14 +374,14 @@ void main() {
     test(
       'server ignores Range (200) → stale bytes discarded, fresh run',
       () async {
-        final transport = _Transport();
+        final transport = FakeTransport();
         final factory = _ResumableFactory();
         final (manager, task) = await _interrupted(transport, factory);
 
         transport.responses.addAll([
           // The server ignores Range and answers a full body.
-          _Scripted(contentLength: 20),
-          _Scripted(contentLength: 20, chunks: [List.filled(20, 9)]),
+          ScriptedResponse(contentLength: 20),
+          ScriptedResponse(contentLength: 20, chunks: [List.filled(20, 9)]),
         ]);
         final retried = await _retried(manager, task.id);
 
@@ -475,27 +394,27 @@ void main() {
     );
 
     test('416 discards the anchor and reopens without Range', () async {
-      final transport = _Transport();
+      final transport = FakeTransport();
       final factory = _ResumableFactory();
       final (manager, task) = await _interrupted(transport, factory);
 
       transport.responses.addAll([
-        _Scripted(statusCode: 416),
-        _Scripted(contentLength: 20, chunks: [List.filled(20, 5)]),
+        ScriptedResponse(statusCode: 416),
+        ScriptedResponse(contentLength: 20, chunks: [List.filled(20, 5)]),
       ]);
       await _retried(manager, task.id);
 
-      expect(transport.opens.length, 3);
-      expect(transport.opens[1]['Range'], 'bytes=10-');
-      expect(transport.opens.last.containsKey('Range'), isFalse);
+      expect(transport.openedHeaders.length, 3);
+      expect(transport.openedHeaders[1]['Range'], 'bytes=10-');
+      expect(transport.openedHeaders.last.containsKey('Range'), isFalse);
       expect(factory.store.files.values.single, List.filled(20, 5));
     });
 
     test('network failure preserves bytes; retry resumes', () async {
-      final transport = _Transport();
+      final transport = FakeTransport();
       final factory = _ResumableFactory();
       transport.responses.add(
-        _Scripted(
+        ScriptedResponse(
           contentLength: 30,
           chunks: [List.filled(10, 1)],
           error: const SocketException('connection reset'),
@@ -519,39 +438,39 @@ void main() {
       expect(factory.sinks.single.aborted, isFalse);
 
       transport.responses.add(
-        _Scripted(
+        ScriptedResponse(
           statusCode: 206,
           contentLength: 20,
           chunks: [List.filled(20, 7)],
         ),
       );
       await _retried(manager, task.id);
-      expect(transport.opens.last['Range'], 'bytes=10-');
+      expect(transport.openedHeaders.last['Range'], 'bytes=10-');
       expect(factory.store.files.values.single.length, 30);
     });
 
     test(
       'mismatched platform byte count discards anchor, no Range sent',
       () async {
-        final transport = _Transport();
+        final transport = FakeTransport();
         final factory = _ResumableFactory();
         final (manager, task) = await _interrupted(transport, factory);
         // External actor truncated the preserved output.
         factory.store.files.values.single.removeLast();
 
         transport.responses.add(
-          _Scripted(contentLength: 30, chunks: [List.filled(30, 4)]),
+          ScriptedResponse(contentLength: 30, chunks: [List.filled(30, 4)]),
         );
         await _retried(manager, task.id);
 
-        expect(transport.opens.length, 2);
-        expect(transport.opens.last.containsKey('Range'), isFalse);
+        expect(transport.openedHeaders.length, 2);
+        expect(transport.openedHeaders.last.containsKey('Range'), isFalse);
         expect(factory.store.files.values.single, List.filled(30, 4));
       },
     );
 
     test('cancel still deletes output even on a resumable sink', () async {
-      final transport = _Transport();
+      final transport = FakeTransport();
       final factory = _ResumableFactory();
       final (manager, task) = await _interrupted(
         transport,
@@ -566,7 +485,7 @@ void main() {
     });
 
     test('pause on a non-resumable sink still lands retryable', () async {
-      final transport = _Transport();
+      final transport = FakeTransport();
       final sinks = MemorySinkFactory();
       final (manager, task) = await _interrupted(transport, sinks);
 
@@ -574,10 +493,10 @@ void main() {
       expect(sinks.sinks.single.aborted, isTrue);
 
       transport.responses.add(
-        _Scripted(contentLength: 30, chunks: [List.filled(30, 8)]),
+        ScriptedResponse(contentLength: 30, chunks: [List.filled(30, 8)]),
       );
       await _retried(manager, task.id);
-      expect(transport.opens.last.containsKey('Range'), isFalse);
+      expect(transport.openedHeaders.last.containsKey('Range'), isFalse);
     });
   });
 
@@ -796,7 +715,7 @@ void main() {
 
         final factory = _CleanupSpyFactory();
         final manager = DownloadManager(
-          transport: _Transport(),
+          transport: FakeTransport(),
           sinkFactory: factory,
           submissionContext: _context,
           recoveryStore: store,
