@@ -150,8 +150,13 @@ reviewed: 2026-10-13
 ### TEST-11 Waits use fake time
 - **Rule:** No `sleep`. Advance time with `fakeAsync` or
   `tester.pump(duration)`. A real-clock `Future.delayed` belongs only
-  inside `tester.runAsync` for real IO, in a bounded loop.
+  inside `tester.runAsync` for real IO, in a bounded loop. The loop ends on
+  a condition, not a round count: database calls a widget made in the fake
+  zone advance one round trip per pump, so wait for a probe queued behind
+  them on the database lock (`settleHistory`).
 - **Why:** A real wait makes a case slow on a fast machine and flaky on a
-  loaded one, and `sleep` also blocks the isolate the test drives.
+  loaded one, and `sleep` also blocks the isolate the test drives. Two
+  fixed rounds left a history query waiting for the lock on a loaded CI
+  runner, and its lock-warning timer outlived the test.
 - **Check:** `test/architecture/test_hygiene_test.dart` "no real sleeps"
-- **Code:** `test`
+- **Code:** `test`, `test/helpers/history_world.dart`

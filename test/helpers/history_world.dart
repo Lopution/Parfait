@@ -99,6 +99,33 @@ Future<ProviderContainer> makeHistoryWorld(
   return container;
 }
 
+/// Runs [change], then pumps until every database call queued so far has
+/// finished. The ffi database answers on the real loop, while calls the
+/// widgets made in the fake zone advance only on a pump, one round trip
+/// each; a fixed number of rounds runs out on a slow machine. A probe
+/// queued behind them on the database's FIFO lock completes once they are
+/// all done; two more frames deliver their results.
+Future<void> settleHistory(
+  WidgetTester tester,
+  HistoryRepository history, [
+  Future<void> Function()? change,
+]) => tester.runAsync(() async {
+  await change?.call();
+  final probe = history.count(accountId: '100');
+  var drained = false;
+  probe.whenComplete(() => drained = true).ignore();
+  for (var round = 0; !drained; round++) {
+    if (round == 500) throw StateError('history database never drained');
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await tester.pump();
+  }
+  await probe;
+  for (var i = 0; i < 2; i++) {
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    await tester.pump();
+  }
+});
+
 HistoryRecord historyRecord(int id, {HistoryContentType? type}) =>
     HistoryRecord(
       accountId: '100',

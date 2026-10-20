@@ -28,9 +28,20 @@ void main() {
   }) async {
     final pointer = TestPointer(device, PointerDeviceKind.mouse);
     await tester.sendEventToBinding(pointer.hover(const Offset(200, 200)));
+    await tester.pump();
     await tester.sendEventToBinding(pointer.scroll(Offset(0, dy)));
     return pointer;
   }
+
+  testWidgets('the first touch on a desktop drags the list', (tester) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(host(controller));
+
+    // A touchscreen never hovers, so nothing put the list in wheel mode.
+    await tester.drag(find.byType(ListView), const Offset(0, -200));
+    expect(controller.offset, greaterThan(0));
+  });
 
   testWidgets('mouse wheel drives the list to the tick target', (tester) async {
     final controller = ScrollController();

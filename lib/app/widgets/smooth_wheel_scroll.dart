@@ -30,8 +30,13 @@ import '../motion/motion_tokens.dart';
 ///   wrapper keeps the scrollable on [NeverScrollableScrollPhysics] while
 ///   the mouse is in "wheel mode" — the scrollable never registers, the
 ///   ancestor Listener sees every tick, and there is no double-scroll.
-/// * A pointer down drops wheel mode so mouse/trackpad drags scroll
-///   normally; the next wheel tick re-enters it.
+/// * The mouse moving over the scrollable, or a wheel tick, enters wheel
+///   mode; a pointer down drops it so touch, stylus and trackpad drags
+///   scroll normally. It starts off: on a touchscreen there is no hover,
+///   and a scrollable on [NeverScrollableScrollPhysics] has no drag
+///   recognizer, so the first touch would be lost. A tick that arrives
+///   before the wheel physics is built is the scrollable's own jump: its
+///   `pointerScroll` idles the animation started here.
 /// * Consecutive ticks accumulate into one target ([_futurePosition]) so a
 ///   fast wheel stays continuous, and the animation duration shrinks as the
 ///   target nears a clamped edge.
@@ -65,7 +70,7 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
   late final ScrollController _controller =
       widget.controller ?? ScrollController();
 
-  bool _wheelMode = PlatformCaps.system().isDesktop;
+  bool _wheelMode = false;
   double? _futurePosition;
 
   // Nested-wrapper arbitration: a descendant SmoothWheelScroll under the
@@ -99,7 +104,7 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
     if (_activeChildren.isNotEmpty) return;
     if (!_controller.hasClients) return;
 
-    if (!_wheelMode) setState(() => _wheelMode = true);
+    _enterWheelMode();
 
     final position = _controller.position;
     final current = position.pixels;
@@ -140,6 +145,10 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
         });
   }
 
+  void _enterWheelMode() {
+    if (!_wheelMode) setState(() => _wheelMode = true);
+  }
+
   @override
   Widget build(BuildContext context) {
     // Wheel smoothing is a desktop affordance; on touch platforms this is a
@@ -161,6 +170,9 @@ class _SmoothWheelScrollState extends State<SmoothWheelScroll> {
       onPointerDown: (_) {
         _futurePosition = null;
         if (_wheelMode) setState(() => _wheelMode = false);
+      },
+      onPointerHover: (event) {
+        if (event.kind == PointerDeviceKind.mouse) _enterWheelMode();
       },
       onPointerSignal: _onPointerSignal,
       child: _ScrollWheelState(
