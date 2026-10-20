@@ -159,8 +159,10 @@ reviewed: 2026-10-19
 ### TRANS-10 The flight clip and chrome follow the page over the card
 - **Rule:** Push and pop flights use a global clip between the source and
   destination chrome boundaries, interpolated by the opacity of the
-  shared-element page over the card's route (`HeroPageCover`, the more
-  opaque of a leaving page and its reopened successor), by flight
+  shared-element page over the card's route, or over the route holding
+  the card's navigator (the viewer on the root navigator over a branch's
+  detail page; `HeroPageCover`, the more opaque of a leaving page and its
+  reopened successor), by flight
   progress where no page registered one. Flight progress (radius, the
   cropped part's reveal) is read off the shuttle's size between the two
   ends, not the route animation. Ignore horizontal route transforms, and

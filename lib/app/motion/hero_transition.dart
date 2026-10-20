@@ -177,11 +177,17 @@ class _HeroChromeState extends State<HeroChrome>
 /// bar under a page already shown.
 ///
 /// A page registers its opacity under the route right below it for its
-/// life. Two pages over one route are a page leaving and its successor
-/// opening while the image turns around; the more opaque one counts.
+/// life. That route holds the card itself, or the navigator holding it:
+/// the viewer goes on the root navigator, over the shell whose branch
+/// navigator holds the detail page. Two pages over one route are a page
+/// leaving and its successor opening while the image turns around; the
+/// more opaque one counts.
 abstract final class HeroPageCover {
   static final _covers =
-      Expando<List<({Route<dynamic> page, Animation<double> opacity})>>();
+      <
+        Route<dynamic>,
+        List<({Route<dynamic> page, Animation<double> opacity})>
+      >{};
 
   static void add(
     Route<dynamic> below,
@@ -189,16 +195,33 @@ abstract final class HeroPageCover {
     Animation<double> opacity,
   ) => (_covers[below] ??= []).add((page: page, opacity: opacity));
 
-  static void remove(Route<dynamic> below, Route<dynamic> page) =>
-      _covers[below]?.removeWhere((cover) => cover.page == page);
+  static void remove(Route<dynamic> below, Route<dynamic> page) {
+    final covers = _covers[below];
+    if (covers == null) return;
+    covers.removeWhere((cover) => cover.page == page);
+    if (covers.isEmpty) _covers.remove(below);
+  }
 
+  /// The pages over the innermost route holding a card whose ancestors are
+  /// [cardAncestors] (each element by its distance from the card).
   static List<({Route<dynamic> page, Animation<double> opacity})> _over(
-    Route<dynamic>? below,
-  ) => (below == null ? null : _covers[below]) ?? const [];
+    Map<Element, int> cardAncestors,
+  ) {
+    var covers = const <({Route<dynamic> page, Animation<double> opacity})>[];
+    int? nearest;
+    for (final MapEntry(key: below, value: pages) in _covers.entries) {
+      final subtree = below is ModalRoute ? below.subtreeContext : null;
+      final distance = cardAncestors[subtree];
+      if (distance == null || (nearest != null && distance > nearest)) continue;
+      nearest = distance;
+      covers = pages;
+    }
+    return covers;
+  }
 
-  /// The cover over [below] now, or null when no page registered one.
-  static double? _of(Route<dynamic>? below) {
-    final covers = _over(below);
+  /// The cover over the card now, or null when no page registered one.
+  static double? _of(Map<Element, int> cardAncestors) {
+    final covers = _over(cardAncestors);
     if (covers.isEmpty) return null;
     return covers.map((cover) => cover.opacity.value).reduce(math.max);
   }
@@ -392,7 +415,6 @@ Widget illustHeroFlightShuttleBuilder(
   final fromBox = _heroScreenRect(fromHeroContext)?.size;
   final toBox = _heroScreenRect(toHeroContext)?.size;
   final cardIsFrom = identical(cardContext, fromHeroContext);
-  final cardRoute = ModalRoute.of(cardContext);
   final shuttle = AnimatedBuilder(
     animation: animation,
     child: child,
@@ -435,9 +457,10 @@ Widget illustHeroFlightShuttleBuilder(
             shaped = ClipRRect(borderRadius: radius, child: shaped);
           }
         }
-        context.findAncestorStateOfType<_LiftedEndpointsState>()?._holdPages();
+        final lifted = context.findAncestorStateOfType<_LiftedEndpointsState>()
+          ?.._holdPages();
         // The clip follows the page over the card, where one shows.
-        final cover = HeroPageCover._of(cardRoute);
+        final cover = lifted?._cover();
         final clipProgress = cover == null
             ? progress
             : (cardIsFrom ? cover : 1 - cover);
@@ -499,20 +522,26 @@ class _LiftedEndpoints extends StatefulWidget {
 class _LiftedEndpointsState extends State<_LiftedEndpoints> {
   List<VoidCallback> _releases = const [];
   final _held = <_HeroChromeState>{};
-  Route<dynamic>? _cardRoute;
+
+  /// The elements above the card by distance, for [HeroPageCover].
+  Map<Element, int> _cardAncestors = const {};
 
   /// Where the image sits on the page over the card.
   Rect? _pageRect;
 
   void _lift() {
     final page = identical(widget.card, widget.from) ? widget.to : widget.from;
-    _cardRoute = ModalRoute.of(widget.card);
+    _cardAncestors = {};
+    widget.card.visitAncestorElements((element) {
+      _cardAncestors[element] = _cardAncestors.length;
+      return true;
+    });
     _pageRect = _heroScreenRect(page);
     _releases = [
       ?HeroLiftHole.lift(widget.from),
       ?HeroLiftHole.lift(widget.to),
     ];
-    _holdOver(_cardRoute, _heroScreenRect(widget.card));
+    _holdOver(ModalRoute.of(widget.card), _heroScreenRect(widget.card));
     _holdOver(ModalRoute.of(page), _pageRect);
   }
 
@@ -521,10 +550,12 @@ class _LiftedEndpointsState extends State<_LiftedEndpoints> {
   /// new page without rebuilding it: that page's chrome is found here,
   /// where the old page had the image.
   void _holdPages() {
-    for (final cover in HeroPageCover._over(_cardRoute)) {
+    for (final cover in HeroPageCover._over(_cardAncestors)) {
       _holdOver(cover.page, _pageRect);
     }
   }
+
+  double? _cover() => HeroPageCover._of(_cardAncestors);
 
   void _holdOver(Route<dynamic>? route, Rect? rect) {
     if (route == null || rect == null) return;
