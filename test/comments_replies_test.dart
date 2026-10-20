@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,11 +49,7 @@ Future<ProviderContainer> _apiContainer(
   return container;
 }
 
-http.Response _jsonValue(Object value) => http.Response(
-  jsonEncode(value),
-  200,
-  headers: {'content-type': 'application/json'},
-);
+http.Response _jsonValue(Object value) => jsonResponse(value);
 
 http.Response _json(Map<String, dynamic> value) => _jsonValue(value);
 
@@ -146,64 +141,75 @@ void main() {
     expect(stamped.stampUrl, 'https://example.test/101.jpg');
   });
 
-  test('comment repository maps list, reply and mutation endpoints', () async {
-    final paths = <String>[];
-    final container = await _apiContainer((request) async {
-      paths.add(request.url.path);
-      switch (request.url.path) {
-        case '/v3/illust/comments':
-          expect(request.url.queryParameters, {'illust_id': '50'});
-          return _json({
-            'comments': [_commentJson(100, replyCount: 1)],
-            'next_url':
-                'https://app-api.pixiv.net/v3/illust/comments?illust_id=50&offset=30',
-          });
-        case '/v2/illust/comment/replies':
-          expect(request.url.queryParameters, {'comment_id': '100'});
-          return _json({
-            'comments': [_commentJson(101, userId: 11)],
-            'next_url': null,
-          });
-        case '/v1/illust/comment/add':
-          expect(request.method, 'POST');
-          expect(request.bodyFields, {
-            'illust_id': '50',
-            'comment': 'new comment',
-            'parent_comment_id': '100',
-          });
-          return _json({'comment': _commentJson(102)});
-        case '/v1/illust/comment/delete':
-          expect(request.method, 'POST');
-          expect(request.bodyFields, {'comment_id': '102'});
-          return _json({'is_success': true});
-        default:
-          return http.Response('unexpected path', 404);
-      }
-    });
-    final repository = container.read(commentRepositoryProvider);
+  test('comment repository maps each kind to its endpoint family', () async {
+    for (final (kind, word, id) in [
+      (CommentWorkKind.illust, 'illust', 50),
+      (CommentWorkKind.novel, 'novel', 60),
+    ]) {
+      final paths = <String>[];
+      final container = await _apiContainer((request) async {
+        paths.add(request.url.path);
+        switch (request.url.path.replaceFirst(word, '*')) {
+          case '/v3/*/comments':
+            expect(request.url.queryParameters, {'${word}_id': '$id'});
+            return _json({
+              'comments': [_commentJson(100, replyCount: 1)],
+              'next_url': null,
+            });
+          case '/v2/*/comment/replies':
+            expect(request.url.queryParameters, {'comment_id': '100'});
+            return _json({
+              'comments': [_commentJson(101, userId: 11)],
+              'next_url': null,
+            });
+          case '/v1/*/comment/add':
+            expect(request.method, 'POST');
+            expect(request.bodyFields, {
+              '${word}_id': '$id',
+              'comment': 'new comment',
+              'parent_comment_id': '100',
+            });
+            return _json({'comment': _commentJson(102)});
+          case '/v1/*/comment/delete':
+            expect(request.method, 'POST');
+            expect(request.bodyFields, {'comment_id': '102'});
+            return _json({'is_success': true});
+          default:
+            return http.Response('unexpected path', 404);
+        }
+      });
+      final repository = container.read(commentRepositoryProvider);
 
-    final rootPage = await repository.fetchComments(50);
-    final replyPage = await repository.fetchReplies(100, workId: 50);
-    final added = await repository.addComment(
-      const CommentAddRequest(
-        workId: 50,
-        parentCommentId: 100,
-        rootCommentId: 100,
-        text: 'new comment',
-      ),
-    );
-    await repository.deleteComment(102);
+      final rootPage = await repository.fetchComments(id, kind: kind);
+      final replyPage = await repository.fetchReplies(
+        100,
+        workId: id,
+        kind: kind,
+      );
+      final added = await repository.addComment(
+        CommentAddRequest(
+          workId: id,
+          kind: kind,
+          parentCommentId: 100,
+          rootCommentId: 100,
+          text: 'new comment',
+        ),
+      );
+      await repository.deleteComment(102, kind: kind);
 
-    expect(rootPage.comments.single.rootCommentId, 100);
-    expect(replyPage.comments.single.parentCommentId, 100);
-    expect(replyPage.comments.single.rootCommentId, 100);
-    expect(added.id, 102);
-    expect(paths, [
-      '/v3/illust/comments',
-      '/v2/illust/comment/replies',
-      '/v1/illust/comment/add',
-      '/v1/illust/comment/delete',
-    ]);
+      expect(rootPage.comments.single.rootCommentId, 100);
+      expect(rootPage.comments.single.kind, kind);
+      expect(rootPage.comments.single.workId, id);
+      expect(replyPage.comments.single.parentCommentId, 100);
+      expect(replyPage.comments.single.rootCommentId, 100);
+      expect((added.id, added.kind), (102, kind));
+      expect(paths, [
+        '/v3/$word/comments',
+        '/v2/$word/comment/replies',
+        '/v1/$word/comment/add',
+        '/v1/$word/comment/delete',
+      ]);
+    }
   });
 
   test(
@@ -235,64 +241,6 @@ void main() {
       expect(page.comments.first.user.name, isEmpty);
     },
   );
-
-  test('novel comments use the novel endpoint family and novel_id', () async {
-    final paths = <String>[];
-    final container = await _apiContainer((request) async {
-      paths.add(request.url.path);
-      switch (request.url.path) {
-        case '/v3/novel/comments':
-          expect(request.url.queryParameters, {'novel_id': '60'});
-          return _json({
-            'comments': [_commentJson(200)],
-            'next_url': null,
-          });
-        case '/v2/novel/comment/replies':
-          expect(request.url.queryParameters, {'comment_id': '200'});
-          return _json({
-            'comments': [_commentJson(201, userId: 11)],
-            'next_url': null,
-          });
-        case '/v1/novel/comment/add':
-          expect(request.method, 'POST');
-          expect(request.bodyFields, {
-            'novel_id': '60',
-            'comment': 'hello novel',
-          });
-          return _json({'comment': _commentJson(202)});
-        case '/v1/novel/comment/delete':
-          expect(request.bodyFields, {'comment_id': '202'});
-          return _json({'is_success': true});
-        default:
-          return http.Response('unexpected path', 404);
-      }
-    });
-    final repository = container.read(commentRepositoryProvider);
-
-    final page = await repository.fetchComments(
-      60,
-      kind: CommentWorkKind.novel,
-    );
-    await repository.fetchReplies(200, workId: 60, kind: CommentWorkKind.novel);
-    final added = await repository.addComment(
-      const CommentAddRequest(
-        workId: 60,
-        kind: CommentWorkKind.novel,
-        text: 'hello novel',
-      ),
-    );
-    await repository.deleteComment(202, kind: CommentWorkKind.novel);
-
-    expect(page.comments.single.kind, CommentWorkKind.novel);
-    expect(page.comments.single.workId, 60);
-    expect(added.kind, CommentWorkKind.novel);
-    expect(paths, [
-      '/v3/novel/comments',
-      '/v2/novel/comment/replies',
-      '/v1/novel/comment/add',
-      '/v1/novel/comment/delete',
-    ]);
-  });
 
   test('comment cursors are pinned to their endpoint and thread', () async {
     final container = await _apiContainer(

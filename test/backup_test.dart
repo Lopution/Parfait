@@ -43,17 +43,13 @@ class _MuteApiFixture {
 
   http.Client build() => MockClient((request) async {
     if (request.method == 'GET' && request.url.path.endsWith('/v1/mute/list')) {
-      return http.Response(
-        jsonEncode({
-          'muted_tags': [
-            for (final tag in listTags) {'tag': tag},
-          ],
-          'muted_users': listUsers,
-          'mute_limit_count': 500,
-        }),
-        200,
-        headers: {'content-type': 'application/json'},
-      );
+      return jsonResponse({
+        'muted_tags': [
+          for (final tag in listTags) {'tag': tag},
+        ],
+        'muted_users': listUsers,
+        'mute_limit_count': 500,
+      });
     }
     if (request.method == 'POST' &&
         request.url.path.endsWith('/v1/mute/edit')) {

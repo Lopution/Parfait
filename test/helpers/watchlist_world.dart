@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -23,29 +21,17 @@ class WatchlistFixture {
     requests.add(request);
     if (request.method == 'GET') {
       final isNovel = request.url.path.contains('/novel');
-      return http.Response(
-        jsonEncode({
-          'series': isNovel ? novelSeries : mangaSeries,
-          'next_url': null,
-        }),
-        200,
-        headers: {'content-type': 'application/json'},
-      );
+      return jsonResponse({
+        'series': isNovel ? novelSeries : mangaSeries,
+        'next_url': null,
+      });
     }
     if (mutationStatus != 200) {
-      return http.Response(
-        jsonEncode({
-          'error': {'message': 'rejected'},
-        }),
-        mutationStatus,
-        headers: {'content-type': 'application/json'},
-      );
+      return jsonResponse({
+        'error': {'message': 'rejected'},
+      }, mutationStatus);
     }
-    return http.Response(
-      jsonEncode({'is_success': true}),
-      200,
-      headers: {'content-type': 'application/json'},
-    );
+    return jsonResponse({'is_success': true});
   });
 }
 

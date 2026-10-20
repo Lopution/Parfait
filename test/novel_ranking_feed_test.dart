@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -28,21 +26,17 @@ class _RankingFixture {
     final nextMode = mismatchedNextMode?.apiValue ?? mode;
     // Pixiv echoes a past ranking's date into next_url.
     final date = request.url.queryParameters['date'];
-    return http.Response(
-      jsonEncode({
-        'novels': [
-          for (var id = start; id < start + 2; id++)
-            novelJson(id, title: 'novel ranking $id'),
-        ],
-        'next_url': isFirst
-            ? 'https://app-api.pixiv.net/v1/novel/ranking'
-                  '?filter=for_android&mode=$nextMode'
-                  '${date == null ? '' : '&date=$date'}&offset=30'
-            : null,
-      }),
-      200,
-      headers: {'content-type': 'application/json'},
-    );
+    return jsonResponse({
+      'novels': [
+        for (var id = start; id < start + 2; id++)
+          novelJson(id, title: 'novel ranking $id'),
+      ],
+      'next_url': isFirst
+          ? 'https://app-api.pixiv.net/v1/novel/ranking'
+                '?filter=for_android&mode=$nextMode'
+                '${date == null ? '' : '&date=$date'}&offset=30'
+          : null,
+    });
   });
 }
 

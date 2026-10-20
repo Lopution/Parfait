@@ -3,98 +3,43 @@ import 'package:parfait/core/platform/intent_router.dart';
 
 void main() {
   group('IntentRouter allow table', () {
-    test('pixiv scheme typed routes', () {
-      expect(
-        IntentRouter.route(Uri.parse('pixiv://users/123')),
-        isA<UserRoute>().having((r) => r.userId, 'userId', 123),
-      );
-      expect(
-        IntentRouter.route(Uri.parse('pixiv://illusts/456')),
-        isA<IllustRoute>().having((r) => r.illustId, 'illustId', 456),
-      );
+    test('app schemes and web paths map to typed routes', () {
+      const web = 'https://www.pixiv.net';
+      for (final (link, kind, id) in [
+        ('pixiv://users/123', 'u', 123),
+        ('pixiv://illusts/456', 'i', 456),
+        ('parfait://users/9', 'u', 9),
+        ('parfait://illusts/10', 'i', 10),
+        ('$web/u/42', 'u', 42),
+        ('$web/users/42', 'u', 42),
+        ('https://pixiv.net/i/7', 'i', 7),
+        ('$web/artworks/7', 'i', 7),
+        ('$web/jump.php?illust_id=88', 'i', 88),
+        ('$web/user.php?id=5', 'u', 5),
+        // Changed: /en/artworks/<id> was previously UnknownRoute (unmapped).
+        ('$web/en/artworks/1', 'i', 1),
+        ('$web/en/users/9', 'u', 9),
+        ('$web/en/i/3', 'i', 3),
+        ('$web/ja/u/4', 'u', 4),
+        ('$web/member_illust.php?mode=medium&illust_id=88', 'i', 88),
+        ('$web/member_illust.php?mode=manga&illust_id=7', 'i', 7),
+        ('$web/member.php?id=5', 'u', 5),
+      ]) {
+        final route = IntentRouter.route(Uri.parse(link));
+        expect(
+          route,
+          kind == 'u'
+              ? isA<UserRoute>().having((r) => r.userId, 'userId', id)
+              : isA<IllustRoute>().having((r) => r.illustId, 'illustId', id),
+          reason: link,
+        );
+      }
     });
 
     test('pixiv account callback carries the code', () {
       final route = IntentRouter.route(Uri.parse('pixiv://account?code=xyz'));
       expect(route, isA<AccountCallbackRoute>());
       expect((route as AccountCallbackRoute).code, 'xyz');
-    });
-
-    test('parfait scheme typed routes', () {
-      expect(
-        IntentRouter.route(Uri.parse('parfait://users/9')),
-        isA<UserRoute>().having((r) => r.userId, 'userId', 9),
-      );
-      expect(
-        IntentRouter.route(Uri.parse('parfait://illusts/10')),
-        isA<IllustRoute>().having((r) => r.illustId, 'illustId', 10),
-      );
-    });
-
-    test('web paths map to typed routes', () {
-      expect(
-        IntentRouter.route(Uri.parse('https://www.pixiv.net/u/42')),
-        isA<UserRoute>().having((r) => r.userId, 'userId', 42),
-      );
-      expect(
-        IntentRouter.route(Uri.parse('https://www.pixiv.net/users/42')),
-        isA<UserRoute>(),
-      );
-      expect(
-        IntentRouter.route(Uri.parse('https://pixiv.net/i/7')),
-        isA<IllustRoute>().having((r) => r.illustId, 'illustId', 7),
-      );
-      expect(
-        IntentRouter.route(Uri.parse('https://www.pixiv.net/artworks/7')),
-        isA<IllustRoute>(),
-      );
-      expect(
-        IntentRouter.route(
-          Uri.parse('https://www.pixiv.net/jump.php?illust_id=88'),
-        ),
-        isA<IllustRoute>().having((r) => r.illustId, 'illustId', 88),
-      );
-      expect(
-        IntentRouter.route(Uri.parse('https://www.pixiv.net/user.php?id=5')),
-        isA<UserRoute>().having((r) => r.userId, 'userId', 5),
-      );
-      // Changed: /en/artworks/<id> was previously UnknownRoute (unmapped).
-      expect(
-        IntentRouter.route(Uri.parse('https://www.pixiv.net/en/artworks/1')),
-        isA<IllustRoute>().having((r) => r.illustId, 'illustId', 1),
-      );
-      expect(
-        IntentRouter.route(Uri.parse('https://www.pixiv.net/en/users/9')),
-        isA<UserRoute>().having((r) => r.userId, 'userId', 9),
-      );
-      expect(
-        IntentRouter.route(Uri.parse('https://www.pixiv.net/en/i/3')),
-        isA<IllustRoute>().having((r) => r.illustId, 'illustId', 3),
-      );
-      expect(
-        IntentRouter.route(Uri.parse('https://www.pixiv.net/ja/u/4')),
-        isA<UserRoute>().having((r) => r.userId, 'userId', 4),
-      );
-      expect(
-        IntentRouter.route(
-          Uri.parse(
-            'https://www.pixiv.net/member_illust.php?mode=medium&illust_id=88',
-          ),
-        ),
-        isA<IllustRoute>().having((r) => r.illustId, 'illustId', 88),
-      );
-      expect(
-        IntentRouter.route(
-          Uri.parse(
-            'https://www.pixiv.net/member_illust.php?mode=manga&illust_id=7',
-          ),
-        ),
-        isA<IllustRoute>().having((r) => r.illustId, 'illustId', 7),
-      );
-      expect(
-        IntentRouter.route(Uri.parse('https://www.pixiv.net/member.php?id=5')),
-        isA<UserRoute>().having((r) => r.userId, 'userId', 5),
-      );
     });
   });
 

@@ -138,58 +138,38 @@ void main() {
     expect(body, isNot(contains('name="name"')));
   });
 
-  test('empty patch fails as invalid without touching the network', () async {
-    final sent = <_RecordedMultipart>[];
-    final (client, container) = await _client(sent: sent);
-    final repo = PixivAppApiProfileEditRepository(
-      client: client,
-      userRepository: FakeUserRepository(),
-    );
-    final outcome = await repo.submit(
-      _request(
-        ProfilePatch(
-          accountId: '100',
-          userId: 42,
-          textFields: const {},
-          images: const {},
-        ),
-      ),
-    );
-    expect(outcome, isA<ProfileEditSubmitFailure>());
-    expect(
-      (outcome as ProfileEditSubmitFailure).code,
-      ProfileEditFailureCode.invalid,
-    );
-    expect(sent, isEmpty);
-  });
-
-  test(
-    'a patch outside the channel fails unavailable without a request',
-    () async {
-      final sent = <_RecordedMultipart>[];
-      final (client, container) = await _client(sent: sent);
-      final repo = PixivAppApiProfileEditRepository(
-        client: client,
-        userRepository: FakeUserRepository(),
-      );
-      final outcome = await repo.submit(
-        _request(
-          ProfilePatch(
-            accountId: '100',
-            userId: 42,
-            textFields: const {},
-            images: {ProfileField.background: _fakeSelection()},
-          ),
-        ),
-      );
-      expect(outcome, isA<ProfileEditSubmitFailure>());
-      expect(
-        (outcome as ProfileEditSubmitFailure).code,
+  test('a patch the channel cannot send fails without a request', () async {
+    // An empty patch is invalid; a background image is outside app-api.
+    for (final (images, code) in [
+      (const <ProfileField, Never>{}, ProfileEditFailureCode.invalid),
+      (
+        {ProfileField.background: _fakeSelection()},
         ProfileEditFailureCode.unavailable,
+      ),
+    ]) {
+      final sent = <_RecordedMultipart>[];
+      final (client, _) = await _client(sent: sent);
+      final outcome =
+          await PixivAppApiProfileEditRepository(
+            client: client,
+            userRepository: FakeUserRepository(),
+          ).submit(
+            _request(
+              ProfilePatch(
+                accountId: '100',
+                userId: 42,
+                textFields: const {},
+                images: images,
+              ),
+            ),
+          );
+      expect(
+        outcome,
+        isA<ProfileEditSubmitFailure>().having((f) => f.code, 'code', code),
       );
       expect(sent, isEmpty);
-    },
-  );
+    }
+  });
 
   test(
     'a soft JSON error envelope on HTTP 200 surfaces as a failure',

@@ -93,9 +93,13 @@ FeedPage _page(List<IllustEntity> illusts, {String? nextCursor}) {
   );
 }
 
-ProviderContainer _container({required bool blockR18, bool hideMuted = false}) {
+/// A container whose account and settings have loaded.
+Future<ProviderContainer> _container({
+  required bool blockR18,
+  bool hideMuted = false,
+}) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  return ProviderContainer.test(
+  final container = ProviderContainer.test(
     overrides: [
       accountStoreProvider.overrideWith(
         () => StubAccountStore(
@@ -107,6 +111,9 @@ ProviderContainer _container({required bool blockR18, bool hideMuted = false}) {
       ),
     ],
   );
+  await container.read(accountStoreProvider.future);
+  await container.read(settingsProvider.future);
+  return container;
 }
 
 void main() {
@@ -127,9 +134,7 @@ void main() {
           _page([_visible(7), _r18(8)], nextCursor: 'c5'),
         ],
       );
-      final container = _container(blockR18: true);
-      await container.read(accountStoreProvider.future);
-      await container.read(settingsProvider.future);
+      final container = await _container(blockR18: true);
 
       final state = await container.read(_refillFeedProvider(script).future);
 
@@ -152,9 +157,7 @@ void main() {
         _page([_visible(5), _r18(6)], nextCursor: 'unused'),
       ],
     );
-    final container = _container(blockR18: true);
-    await container.read(accountStoreProvider.future);
-    await container.read(settingsProvider.future);
+    final container = await _container(blockR18: true);
 
     final state = await container.read(_refillFeedProvider(script).future);
 
@@ -176,9 +179,7 @@ void main() {
           const ApiHttpError(503, 'refill failed'),
         ],
       );
-      final container = _container(blockR18: true);
-      await container.read(accountStoreProvider.future);
-      await container.read(settingsProvider.future);
+      final container = await _container(blockR18: true);
 
       final state = await container.read(_refillFeedProvider(script).future);
 
@@ -202,9 +203,7 @@ void main() {
           const ApiHttpError(503, 'load more failed'),
         ],
       );
-      final container = _container(blockR18: true);
-      await container.read(accountStoreProvider.future);
-      await container.read(settingsProvider.future);
+      final container = await _container(blockR18: true);
 
       final state = await container.read(_refillFeedProvider(script).future);
       expect(state.ids, [1]);
@@ -229,9 +228,7 @@ void main() {
         _page([_visible(2)]),
       ],
     );
-    final container = _container(blockR18: true);
-    await container.read(accountStoreProvider.future);
-    await container.read(settingsProvider.future);
+    final container = await _container(blockR18: true);
 
     final state = await container.read(_refillFeedProvider(script).future);
 
@@ -249,9 +246,7 @@ void main() {
         _page([_visible(3)]),
       ],
     );
-    final container = _container(blockR18: false);
-    await container.read(accountStoreProvider.future);
-    await container.read(settingsProvider.future);
+    final container = await _container(blockR18: false);
 
     final state = await container.read(_refillFeedProvider(script).future);
 
@@ -260,31 +255,11 @@ void main() {
     expect(state.initialPhase, FeedPhase.idle);
   });
 
-  test('hide-muted mode drops muted works from the page', () async {
-    final script = _RefillScript(
-      filterMinVisible: 1,
-      filterMaxRefillPages: 1,
-      pages: [
-        _page([_visible(1), _visible(2)]),
-      ],
-    );
-    final container = _container(blockR18: false, hideMuted: true);
-    await container.read(accountStoreProvider.future);
-    await container.read(settingsProvider.future);
-    // Work mute is local-only: seeding through the store needs no server.
-    await container
-        .read(muteStoreProvider.notifier)
-        .muteWork(const MutedWork(illustId: 2));
-
-    final state = await container.read(_refillFeedProvider(script).future);
-
-    expect(state.ids, [1]);
-    expect(state.initialPhase, FeedPhase.idle);
-  });
-
-  test(
-    'blur mode keeps muted works in the feed for the card to render',
-    () async {
+  test('hide-muted drops a muted work; blur keeps it for the card', () async {
+    for (final (hideMuted, ids) in [
+      (true, [1]),
+      (false, [1, 2]),
+    ]) {
       final script = _RefillScript(
         filterMinVisible: 1,
         filterMaxRefillPages: 1,
@@ -292,17 +267,16 @@ void main() {
           _page([_visible(1), _visible(2)]),
         ],
       );
-      final container = _container(blockR18: false);
-      await container.read(accountStoreProvider.future);
-      await container.read(settingsProvider.future);
+      final container = await _container(blockR18: false, hideMuted: hideMuted);
+      // Work mute is local-only: seeding through the store needs no server.
       await container
           .read(muteStoreProvider.notifier)
           .muteWork(const MutedWork(illustId: 2));
 
       final state = await container.read(_refillFeedProvider(script).future);
 
-      expect(state.ids, [1, 2]);
+      expect(state.ids, ids, reason: 'hideMuted: $hideMuted');
       expect(state.initialPhase, FeedPhase.idle);
-    },
-  );
+    }
+  });
 }

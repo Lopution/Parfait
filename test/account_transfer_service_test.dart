@@ -198,23 +198,32 @@ void main() {
     },
   );
 
-  test(
-    'invalid credential leaves account metadata and secure credentials untouched',
-    () async {
+  test('a failed import leaves no account, credential or half state', () async {
+    final verified = _Verifier(
+      (_) async => const VerifiedTransferAccount(
+        account: Account(id: '42', userId: 42, name: 'server'),
+        credential: _credential,
+      ),
+    );
+    final rejecting = _Verifier((_) async {
+      throw const AccountTransferException(
+        AccountTransferErrorCode.credentialInvalid,
+        'credential rejected',
+      );
+    });
+    // A rejected credential; a metadata write that fails after verifying.
+    for (final (verifier, failSave, code) in [
+      (rejecting, false, AccountTransferErrorCode.credentialInvalid),
+      (verified, true, AccountTransferErrorCode.storageFailure),
+    ]) {
       final (container, accounts, credentials, metadata) = _container();
       await container.read(accountStoreProvider.future);
-      final clipboard = _Clipboard();
-      final envelope = TransferEnvelope.create(
-        account: _sourceAccount,
-        credential: _credential,
-      );
-      clipboard.text = envelope.encode();
-      final verifier = _Verifier((_) async {
-        throw const AccountTransferException(
-          AccountTransferErrorCode.credentialInvalid,
-          'credential rejected',
-        );
-      });
+      metadata.failSave = failSave;
+      final clipboard = _Clipboard()
+        ..text = TransferEnvelope.create(
+          account: _sourceAccount,
+          credential: _credential,
+        ).encode();
 
       await expectLater(
         _service(
@@ -224,18 +233,14 @@ void main() {
           verifier: verifier,
         ).importFromClipboard(),
         throwsA(
-          isA<AccountTransferException>().having(
-            (error) => error.code,
-            'code',
-            AccountTransferErrorCode.credentialInvalid,
-          ),
+          isA<AccountTransferException>().having((e) => e.code, 'code', code),
         ),
       );
       expect(metadata.accounts, isEmpty);
       expect(credentials.values, isEmpty);
       expect(clipboard.text, isNull);
-    },
-  );
+    }
+  });
 
   test(
     'conditional clear does not erase content copied after import started',
@@ -264,45 +269,6 @@ void main() {
 
       expect(result.clipboardCleared, isFalse);
       expect(clipboard.text, 'user copied something else');
-    },
-  );
-
-  test(
-    'metadata failure is reported as import failure without a half account',
-    () async {
-      final (container, accounts, credentials, metadata) = _container();
-      await container.read(accountStoreProvider.future);
-      metadata.failSave = true;
-      final clipboard = _Clipboard();
-      final envelope = TransferEnvelope.create(
-        account: _sourceAccount,
-        credential: _credential,
-      );
-      clipboard.text = envelope.encode();
-
-      await expectLater(
-        _service(
-          accountStore: accounts,
-          credentials: credentials,
-          clipboard: clipboard,
-          verifier: _Verifier(
-            (_) async => const VerifiedTransferAccount(
-              account: Account(id: '42', userId: 42, name: 'server'),
-              credential: _credential,
-            ),
-          ),
-        ).importFromClipboard(),
-        throwsA(
-          isA<AccountTransferException>().having(
-            (error) => error.code,
-            'code',
-            AccountTransferErrorCode.storageFailure,
-          ),
-        ),
-      );
-      expect(metadata.accounts, isEmpty);
-      expect(credentials.values, isEmpty);
-      expect(clipboard.text, isNull);
     },
   );
 

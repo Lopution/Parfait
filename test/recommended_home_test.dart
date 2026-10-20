@@ -94,54 +94,42 @@ class _ApiFixture {
         if (failRecommended) {
           return http.Response('refresh failed', 500);
         }
-        return http.Response(
-          jsonEncode({
-            'illusts': [for (var i = 1; i <= illustCount; i++) illustJson(i)],
-            'next_url': null,
-          }),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
+        return jsonResponse({
+          'illusts': [for (var i = 1; i <= illustCount; i++) illustJson(i)],
+          'next_url': null,
+        });
       }
       if (path == '/v1/novel/recommended') {
-        return http.Response(
-          jsonEncode({
-            'novels': [
-              for (var i = 1; i <= 3; i++)
-                jsonDecode(_novelJson(i)) as Map<String, dynamic>,
-            ],
-            'next_url': null,
-          }),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
+        return jsonResponse({
+          'novels': [
+            for (var i = 1; i <= 3; i++)
+              jsonDecode(_novelJson(i)) as Map<String, dynamic>,
+          ],
+          'next_url': null,
+        });
       }
       if (path == '/v1/user/recommended' || path == '/v1/user/following') {
-        return http.Response(
-          jsonEncode({
-            'user_previews': [
-              for (var i = 1; i <= 3; i++)
-                {
-                  'user': {
-                    'id': i,
-                    'name': 'user $i',
-                    'account': 'user$i',
-                    'profile_image_urls': {
-                      'medium': 'https://i.pximg.net/u$i.png',
-                    },
-                    'is_followed': i == 3,
+        return jsonResponse({
+          'user_previews': [
+            for (var i = 1; i <= 3; i++)
+              {
+                'user': {
+                  'id': i,
+                  'name': 'user $i',
+                  'account': 'user$i',
+                  'profile_image_urls': {
+                    'medium': 'https://i.pximg.net/u$i.png',
                   },
-                  'illusts': malformedPreviews
-                      ? 'not a list'
-                      : [...?_userPreviewIllusts[i]],
-                  'novels': <Object?>[],
+                  'is_followed': i == 3,
                 },
-            ],
-            'next_url': null,
-          }),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
+                'illusts': malformedPreviews
+                    ? 'not a list'
+                    : [...?_userPreviewIllusts[i]],
+                'novels': <Object?>[],
+              },
+          ],
+          'next_url': null,
+        });
       }
       return http.Response('not found', 404);
     });

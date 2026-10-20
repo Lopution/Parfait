@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -53,11 +52,7 @@ class _BookmarkApiFixture {
       final status = request.url.path.endsWith('/add')
           ? addStatus
           : deleteStatus;
-      return http.Response(
-        jsonEncode({'message': '', 'is_success': status == 200}),
-        status,
-        headers: {'content-type': 'application/json'},
-      );
+      return jsonResponse({'message': '', 'is_success': status == 200}, status);
     });
   }
 }

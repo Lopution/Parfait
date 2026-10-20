@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -130,8 +129,4 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   return (container, transport, sinks);
 }
 
-http.Response okJson(Map<String, dynamic> json) => http.Response(
-  jsonEncode(json),
-  200,
-  headers: {'content-type': 'application/json'},
-);
+http.Response okJson(Map<String, dynamic> json) => jsonResponse(json);

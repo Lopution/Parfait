@@ -9,92 +9,45 @@ const _revision = NetworkRevision(0);
 
 void main() {
   group('RhttpClientFactory.settingsFor', () {
-    test('direct route: system DNS + real SNI + full verification', () {
-      final settings = RhttpClientFactory.settingsFor(
-        NetworkRoute.direct(_revision),
-        destinationHost: 'app-api.pixiv.net',
-        purpose: PixivDestinationPurpose.appApi,
-      );
-      final tls = settings.tlsSettings!;
-      expect(tls.sni, isTrue);
-      expect(tls.verifyCertificates, isTrue);
-      expect(tls.echConfigList, isNull);
-      expect(
-        settings.httpVersionPref,
-        rhttp.HttpVersionPref.all,
-        reason: 'use ALPN negotiation; do not force h2 prior knowledge',
-      );
-      final dns = settings.dnsSettings!;
-      expect(dns, isA<rhttp.DnsSettings>());
-    });
-
-    test('ech route: DoH address + ECH config + full verification', () {
-      final route = NetworkRoute.ech(
-        _revision,
-        InternetAddress('104.18.42.239'),
-        [0xfe, 0x0d, 1, 2, 3],
-      );
-      final settings = RhttpClientFactory.settingsFor(
-        route,
-        destinationHost: 'app-api.pixiv.net',
-        purpose: PixivDestinationPurpose.appApi,
-      );
-      final tls = settings.tlsSettings!;
-      expect(tls.sni, isTrue);
-      expect(tls.verifyCertificates, isTrue);
-      expect(tls.echConfigList, [0xfe, 0x0d, 1, 2, 3]);
-      // StaticDnsSettings (private subtype) carries the overrides; it is
-      // the only concrete DnsSettings subtype exported through the sealed
-      // class, which is asserted by the factory code path itself (create
-      // never uses dynamic resolver).
-      expect(settings.dnsSettings, isA<rhttp.DnsSettings>());
-      expect(settings.tlsSettings!.echConfigList, [0xfe, 0x0d, 1, 2, 3]);
-    });
-
-    test('dohRealSni route: DoH address + real SNI + no ECH', () {
-      final route = NetworkRoute.secureDns(
-        _revision,
-        InternetAddress('104.18.42.239'),
-      );
-      final settings = RhttpClientFactory.settingsFor(
-        route,
-        destinationHost: 'app-api.pixiv.net',
-        purpose: PixivDestinationPurpose.appApi,
-      );
-      final tls = settings.tlsSettings!;
-      expect(tls.sni, isTrue);
-      expect(tls.verifyCertificates, isTrue);
-      expect(tls.echConfigList, isNull);
-    });
-
-    test('noSni route: origin address + empty SNI + full verification', () {
-      final route = NetworkRoute.noSni(
-        _revision,
-        InternetAddress('210.140.139.129'),
-      );
-      final settings = RhttpClientFactory.settingsFor(
-        route,
-        destinationHost: 'i.pximg.net',
-        purpose: PixivDestinationPurpose.image,
-      );
-      final tls = settings.tlsSettings!;
-      expect(tls.sni, isFalse);
-      expect(tls.verifyCertificates, isTrue);
-    });
-
-    test('bootstrapNoSni route: empty SNI + verification ON', () {
-      final route = NetworkRoute.bootstrapNoSni(
-        _revision,
-        InternetAddress('210.140.139.155'),
-      );
-      final settings = RhttpClientFactory.settingsFor(
-        route,
-        destinationHost: 'app-api.pixiv.net',
-        purpose: PixivDestinationPurpose.appApi,
-      );
-      final tls = settings.tlsSettings!;
-      expect(tls.sni, isFalse);
-      expect(tls.verifyCertificates, isTrue);
+    test('each route sets its SNI and ECH and keeps verification on', () {
+      const ech = [0xfe, 0x0d, 1, 2, 3];
+      final cdn = InternetAddress('104.18.42.239');
+      final origin = InternetAddress('210.140.139.129');
+      final bootstrap = InternetAddress('210.140.139.155');
+      for (final (route, image, sni, echConfig) in [
+        (NetworkRoute.direct(_revision), false, true, null),
+        (NetworkRoute.ech(_revision, cdn, ech), false, true, ech),
+        (NetworkRoute.secureDns(_revision, cdn), false, true, null),
+        (NetworkRoute.noSni(_revision, origin), true, false, null),
+        (NetworkRoute.bootstrapNoSni(_revision, bootstrap), false, false, null),
+        // A remembered kind keeps its tier's semantics.
+        (
+          NetworkRoute.remembered(_revision, NetworkRouteKind.noSni, origin),
+          true,
+          false,
+          null,
+        ),
+      ]) {
+        final settings = RhttpClientFactory.settingsFor(
+          route,
+          destinationHost: image ? 'i.pximg.net' : 'app-api.pixiv.net',
+          purpose: image
+              ? PixivDestinationPurpose.image
+              : PixivDestinationPurpose.appApi,
+        );
+        final tls = settings.tlsSettings!;
+        final reason = route.kind.name;
+        expect(tls.sni, sni, reason: reason);
+        expect(tls.verifyCertificates, isTrue, reason: reason);
+        expect(tls.echConfigList, echConfig, reason: reason);
+        expect(settings.dnsSettings, isA<rhttp.DnsSettings>());
+        // An API exit negotiates by ALPN, never forcing h2 prior knowledge.
+        expect(
+          settings.httpVersionPref,
+          image ? rhttp.HttpVersionPref.http1_1 : rhttp.HttpVersionPref.all,
+          reason: reason,
+        );
+      }
     });
 
     test('no route kind turns certificate verification off', () {
@@ -182,21 +135,6 @@ void main() {
         purpose: PixivDestinationPurpose.appApi,
       );
       expect(settings.redirectSettings, isA<rhttp.RedirectSettings>());
-    });
-
-    test('routing via remembered kind keeps tier semantics', () {
-      final route = NetworkRoute.remembered(
-        _revision,
-        NetworkRouteKind.noSni,
-        InternetAddress('210.140.139.129'),
-      );
-      final settings = RhttpClientFactory.settingsFor(
-        route,
-        destinationHost: 'i.pximg.net',
-        purpose: PixivDestinationPurpose.image,
-      );
-      final tls = settings.tlsSettings!;
-      expect(tls.sni, isFalse);
     });
   });
 

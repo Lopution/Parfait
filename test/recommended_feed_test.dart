@@ -83,18 +83,14 @@ class _ApiFixture {
           (first
               ? 'https://app-api.pixiv.net/v1/illust/recommended?offset=30'
               : null);
-      return http.Response(
-        jsonEncode({
-          'illusts': [
-            for (final id in ids)
-              jsonDecode(_illustJson(id, bookmarked: id == 8 && !first))
-                  as Map<String, dynamic>,
-          ],
-          'next_url': nextUrl,
-        }),
-        200,
-        headers: {'content-type': 'application/json'},
-      );
+      return jsonResponse({
+        'illusts': [
+          for (final id in ids)
+            jsonDecode(_illustJson(id, bookmarked: id == 8 && !first))
+                as Map<String, dynamic>,
+        ],
+        'next_url': nextUrl,
+      });
     });
   }
 }
@@ -193,20 +189,16 @@ void main() {
       final transport = MockClient((request) async {
         pageRequests += 1;
         final first = request.url.queryParameters['offset'] == null;
-        return http.Response(
-          jsonEncode({
-            'novels': [
-              for (var id = first ? 1 : 3; id < (first ? 3 : 5); id++)
-                novelJson(id, title: 'recommended novel $id'),
-            ],
-            'next_url': first
-                ? 'https://app-api.pixiv.net/v1/novel/recommended'
-                      '?filter=for_ios&offset=30'
-                : null,
-          }),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
+        return jsonResponse({
+          'novels': [
+            for (var id = first ? 1 : 3; id < (first ? 3 : 5); id++)
+              novelJson(id, title: 'recommended novel $id'),
+          ],
+          'next_url': first
+              ? 'https://app-api.pixiv.net/v1/novel/recommended'
+                    '?filter=for_ios&offset=30'
+              : null,
+        });
       });
       final container = await signedInApiContainer(transport);
 

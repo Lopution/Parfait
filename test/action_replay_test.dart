@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fake_async/fake_async.dart';
@@ -48,11 +47,7 @@ class _MutationFixture {
     final failure = failures[key];
     if (failure != null) throw failure;
     final status = statuses[key] ?? 200;
-    return http.Response(
-      jsonEncode({'is_success': status == 200}),
-      status,
-      headers: {'content-type': 'application/json'},
-    );
+    return jsonResponse({'is_success': status == 200}, status);
   });
 }
 

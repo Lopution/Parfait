@@ -66,17 +66,13 @@ class _RankingFixture {
     requests.add(request.url);
     final isFirst = request.url.queryParameters['offset'] == null;
     final start = isFirst ? 1 : 3;
-    return http.Response(
-      jsonEncode({
-        'novels': [for (var id = start; id < start + 2; id++) novelJson(id)],
-        'next_url': isFirst
-            ? 'https://app-api.pixiv.net/v1/novel/ranking'
-                  '?filter=for_android&mode=day&offset=30'
-            : null,
-      }),
-      200,
-      headers: {'content-type': 'application/json'},
-    );
+    return jsonResponse({
+      'novels': [for (var id = start; id < start + 2; id++) novelJson(id)],
+      'next_url': isFirst
+          ? 'https://app-api.pixiv.net/v1/novel/ranking'
+                '?filter=for_android&mode=day&offset=30'
+          : null,
+    });
   });
 }
 

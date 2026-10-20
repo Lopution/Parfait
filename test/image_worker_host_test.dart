@@ -186,6 +186,17 @@ class _Harness {
   }
 }
 
+/// A started harness whose worker fetches from a live local [_Server].
+Future<_Harness> _served() async {
+  final harness = _Harness();
+  addTearDown(harness.stop);
+  final server = _Server();
+  await server.start();
+  harness.server = server;
+  await harness.start(fetchClient: IOClient.new);
+  return harness;
+}
+
 void main() {
   test('init failure reports initError instead of pretending ready', () async {
     final dir = Directory.systemTemp.createTempSync('parfait-worker-bad-');
@@ -207,12 +218,8 @@ void main() {
   });
 
   test('a fetch streams the body to disk and replies with the path', () async {
-    final harness = _Harness();
-    addTearDown(harness.stop);
-    final server = _Server();
-    await server.start();
-    harness.server = server;
-    await harness.start(fetchClient: IOClient.new);
+    final harness = await _served();
+    final server = harness.server!;
 
     final url = server.url('/img/one.jpg');
     harness.fetch(1, url);
@@ -226,12 +233,8 @@ void main() {
   });
 
   test('a second fetch of the same URL is served from disk', () async {
-    final harness = _Harness();
-    addTearDown(harness.stop);
-    final server = _Server();
-    await server.start();
-    harness.server = server;
-    await harness.start(fetchClient: IOClient.new);
+    final harness = await _served();
+    final server = harness.server!;
 
     final url = server.url('/img/two.jpg');
     harness.fetch(1, url);
@@ -243,12 +246,8 @@ void main() {
   });
 
   test('a disk hit answers while every lane is busy', () async {
-    final harness = _Harness();
-    addTearDown(harness.stop);
-    final server = _Server();
-    await server.start();
-    harness.server = server;
-    await harness.start(fetchClient: IOClient.new);
+    final harness = await _served();
+    final server = harness.server!;
 
     final url = server.url('/img/cached.jpg');
     harness.fetch(1, url);
@@ -271,12 +270,8 @@ void main() {
   test(
     'a malformed message is reported and the worker keeps serving',
     () async {
-      final harness = _Harness();
-      addTearDown(harness.stop);
-      final server = _Server();
-      await server.start();
-      harness.server = server;
-      await harness.start(fetchClient: IOClient.new);
+      final harness = await _served();
+      final server = harness.server!;
 
       harness.worker.send(<String, Object?>{'type': 'bogus'});
       final error = await harness.eventForAny();
@@ -308,12 +303,8 @@ void main() {
   });
 
   test('a cancelled queued fetch never reaches the network', () async {
-    final harness = _Harness();
-    addTearDown(harness.stop);
-    final server = _Server();
-    await server.start();
-    harness.server = server;
-    await harness.start(fetchClient: IOClient.new);
+    final harness = await _served();
+    final server = harness.server!;
 
     // Occupy all eight foreground slots with held-open responses, then
     // queue a ninth and cancel it inside the grace window.
@@ -502,12 +493,8 @@ void main() {
   );
 
   test('a lookup answers from disk and never fetches', () async {
-    final harness = _Harness();
-    addTearDown(harness.stop);
-    final server = _Server();
-    await server.start();
-    harness.server = server;
-    await harness.start(fetchClient: IOClient.new);
+    final harness = await _served();
+    final server = harness.server!;
     final url = server.url('/img/cached.jpg');
 
     harness.lookup(1, url);

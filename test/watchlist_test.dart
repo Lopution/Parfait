@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -34,34 +32,27 @@ class _Fixture {
     if (failure != null) throw failure;
     final status = statuses[key] ?? 200;
     if (request.method == 'GET') {
-      return http.Response(
-        jsonEncode(
-          watchlistBody ??
-              {
-                'series': [
-                  {
-                    'id': 9,
-                    'title': 'Series Nine',
-                    'user': {'id': 5, 'name': 'author'},
-                    'latest_content_id': 777,
-                    'last_published_content_datetime':
-                        '2024-12-26T01:27:48+09:00',
-                    'published_content_count': 3,
-                    'url': 'https://i.pximg.net/c/x.jpg',
-                  },
-                ],
-                'next_url': null,
-              },
-        ),
+      return jsonResponse(
+        watchlistBody ??
+            {
+              'series': [
+                {
+                  'id': 9,
+                  'title': 'Series Nine',
+                  'user': {'id': 5, 'name': 'author'},
+                  'latest_content_id': 777,
+                  'last_published_content_datetime':
+                      '2024-12-26T01:27:48+09:00',
+                  'published_content_count': 3,
+                  'url': 'https://i.pximg.net/c/x.jpg',
+                },
+              ],
+              'next_url': null,
+            },
         status,
-        headers: {'content-type': 'application/json'},
       );
     }
-    return http.Response(
-      jsonEncode({'is_success': status == 200}),
-      status,
-      headers: {'content-type': 'application/json'},
-    );
+    return jsonResponse({'is_success': status == 200}, status);
   });
 }
 

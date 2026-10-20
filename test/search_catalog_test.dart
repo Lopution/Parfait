@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/motion/press_scale.dart';
@@ -56,11 +55,7 @@ Future<ProviderContainer> _apiContainer(
   );
 }
 
-http.Response _json(Map<String, dynamic> value) => http.Response(
-  jsonEncode(value),
-  200,
-  headers: {'content-type': 'application/json'},
-);
+http.Response _json(Map<String, dynamic> value) => jsonResponse(value);
 
 void main() {
   // Widget tests below build PixivImage, which reads SharedPreferencesAsync.

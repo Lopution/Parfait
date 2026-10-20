@@ -39,21 +39,16 @@ class CardApiFixture {
       // The card watches MuteStore, whose hydrate fetches the server list.
       if (request.method == 'GET' &&
           request.url.path.endsWith('/v1/mute/list')) {
-        return http.Response(
-          jsonEncode(muteList),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
+        return jsonResponse(muteList);
       }
       posts.add(request.url);
       if (request.url.path.endsWith('/v1/mute/edit')) {
         await muteEditGate?.future;
         if (muteEditStatus != 200) {
-          return http.Response(
-            jsonEncode({'message': 'boom', 'is_success': false}),
-            muteEditStatus,
-            headers: {'content-type': 'application/json'},
-          );
+          return jsonResponse({
+            'message': 'boom',
+            'is_success': false,
+          }, muteEditStatus);
         }
       }
       Map<String, String> fields;
@@ -63,11 +58,7 @@ class CardApiFixture {
         fields = Uri.splitQueryString(request.body);
       }
       postBodies.add(fields);
-      return http.Response(
-        jsonEncode({'message': '', 'is_success': true}),
-        200,
-        headers: {'content-type': 'application/json'},
-      );
+      return jsonResponse({'message': '', 'is_success': true});
     });
   }
 }

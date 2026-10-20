@@ -85,7 +85,7 @@ reviewed: 2026-10-14
   `signature_mismatch`, `message_missing` or `signature_missing`. Keys stay
   outside the tree.
 - **Why:** A manifest trusted before verification could point at any APK.
-- **Check:** `test/updater_manifest_test.dart` "valid signature is required before a release is available" "rejects schema 1 with schema", `test/updater_flavor_contract_test.dart`
+- **Check:** `test/updater_manifest_test.dart` "valid signature is required before a release is available" "rejects schema 1 and each malformed field with its code", `test/updater_flavor_contract_test.dart`
 - **Code:** `lib/core/updater`, `tool/update_release.py`
 
 ### REL-06 ABI and version selection never claim "up to date" wrongly

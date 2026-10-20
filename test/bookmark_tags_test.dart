@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -138,17 +136,9 @@ Future<World> _makeWorld(Map<String, Object> responses) async {
       return http.Response('', response);
     }
     if (response is Map<String, dynamic>) {
-      return http.Response(
-        jsonEncode(response),
-        200,
-        headers: {'content-type': 'application/json'},
-      );
+      return jsonResponse(response);
     }
-    return http.Response(
-      jsonEncode({'message': '', 'is_success': true}),
-      200,
-      headers: {'content-type': 'application/json'},
-    );
+    return jsonResponse({'message': '', 'is_success': true});
   });
   final container = await signedInApiContainer(mock);
   return (container, requests);

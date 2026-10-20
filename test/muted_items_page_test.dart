@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -28,25 +26,19 @@ class _MuteApi {
 
   http.Client build() => MockClient((request) async {
     if (request.url.path.endsWith('/v1/mute/list')) {
-      return http.Response(
-        jsonEncode({
-          'muted_tags': [
-            {'tag': 'bad-tag', 'tag_translation': ''},
-          ],
-          'muted_users': users,
-          'mute_limit_count': 500,
-        }),
-        200,
-        headers: {'content-type': 'application/json'},
-      );
+      return jsonResponse({
+        'muted_tags': [
+          {'tag': 'bad-tag', 'tag_translation': ''},
+        ],
+        'muted_users': users,
+        'mute_limit_count': 500,
+      });
     }
     if (request.url.path.endsWith('/v1/mute/edit')) {
       edits.add(Uri.splitQueryString(request.body));
-      return http.Response(
-        jsonEncode({'error': editStatus == 200 ? null : 'x'}),
-        editStatus,
-        headers: {'content-type': 'application/json'},
-      );
+      return jsonResponse({
+        'error': editStatus == 200 ? null : 'x',
+      }, editStatus);
     }
     fail('unexpected ${request.method} ${request.url}');
   });

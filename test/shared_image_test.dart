@@ -31,54 +31,23 @@ void main() {
       expect(image.path, file.path);
     });
 
-    test('rejects non-image MIME types', () {
-      final file = write('note.txt');
-      expect(
-        () => SharedImageValidator.validate(
-          path: file.path,
-          mimeType: 'text/plain',
+    test('rejects non-images, missing, empty and oversized files', () {
+      for (final (path, mimeType) in [
+        (write('note.txt').path, 'text/plain'),
+        (write('note.zip').path, 'application/zip'),
+        ('${tempDir.path}/missing.png', 'image/png'),
+        (write('empty.png', size: 0).path, 'image/jpeg'),
+        (
+          write('huge.png', size: SharedImageValidator.maxBytes + 1).path,
+          'image/png',
         ),
-        throwsA(isA<SharedImageRejected>()),
-      );
-      expect(
-        () => SharedImageValidator.validate(
-          path: file.path,
-          mimeType: 'application/zip',
-        ),
-        throwsA(isA<SharedImageRejected>()),
-      );
-    });
-
-    test('rejects unreadable and missing paths', () {
-      expect(
-        () => SharedImageValidator.validate(
-          path: '${tempDir.path}/missing.png',
-          mimeType: 'image/png',
-        ),
-        throwsA(isA<SharedImageRejected>()),
-      );
-    });
-
-    test('rejects empty files', () {
-      final file = write('empty.png', size: 0);
-      expect(
-        () => SharedImageValidator.validate(
-          path: file.path,
-          mimeType: 'image/jpeg',
-        ),
-        throwsA(isA<SharedImageRejected>()),
-      );
-    });
-
-    test('rejects oversized images', () {
-      final file = write('huge.png', size: SharedImageValidator.maxBytes + 1);
-      expect(
-        () => SharedImageValidator.validate(
-          path: file.path,
-          mimeType: 'image/png',
-        ),
-        throwsA(isA<SharedImageRejected>()),
-      );
+      ]) {
+        expect(
+          () => SharedImageValidator.validate(path: path, mimeType: mimeType),
+          throwsA(isA<SharedImageRejected>()),
+          reason: path,
+        );
+      }
     });
 
     test('accepts an image exactly at the size limit', () {

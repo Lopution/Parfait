@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -120,11 +118,7 @@ class SeriesFixture {
     fail('unexpected request: ${request.url}');
   });
 
-  http.Response _ok(Map<String, dynamic> body) => http.Response(
-    jsonEncode(body),
-    200,
-    headers: {'content-type': 'application/json'},
-  );
+  http.Response _ok(Map<String, dynamic> body) => jsonResponse(body);
 }
 
 Future<(ProviderContainer, SeriesFixture)> makeSeriesWorld({
