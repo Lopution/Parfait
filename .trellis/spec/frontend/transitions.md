@@ -169,12 +169,15 @@ reviewed: 2026-10-19
   only part of the image (the top of a taller one, the middle of a wider
   one) hands its `cropAspect` to the flight, which lays the image out
   covering the rect, top-aligned and centered across, for the whole
-  flight.
+  flight. The card's share of the image stays opaque; the part the card
+  hid paints past the rect at flight progress opacity, so the image only
+  scales (user decision).
 - **Why:** A clip outside the Hero snapped from square to rounded on pop;
   fitting the image inside the rect mid-flight read as a second shrink.
   A radius lerped by flight progress rounded the square detail ↔ viewer
-  flight on its way.
-- **Check:** `test/hero_transition_test.dart` "a cropped image covers the flight rect throughout"
+  flight on its way. Clipping the image to the growing rect read as the
+  image unrolling.
+- **Check:** `test/hero_transition_test.dart` "a cropped image scales whole and fades in what the card hid"
 - **Code:** `lib/app/widgets/feed/illust_card.dart`, `lib/features/settings/me_dashboard_page.dart`, `lib/app/motion/hero_transition.dart`
 
 ### TRANS-12 Only the viewer's entry page flies back
