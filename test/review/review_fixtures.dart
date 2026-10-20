@@ -10,18 +10,41 @@ import '../helpers/illust_fixtures.dart';
 /// envelopes so the real repositories parse them; ids are stable so every
 /// run produces the same frames.
 
+/// Works with their own shape (width, height); every other work is 800×600.
+/// The 1500 row is a feed of every shape a Hero flight treats differently
+/// ([reviewShapesFeed]).
+const reviewWorkShapes = <int, (int, int)>{
+  1501: (800, 1680), // taller than 1:2: the card shows its top
+  1502: (800, 4800), // far taller: the card shows the square thumbnail
+  1503: (1500, 500), // a panorama on the detail page
+  1504: (800, 1520), // whole on the card, past the capsule on the detail
+  1505: (800, 1200),
+  1506: (800, 800),
+  1507: (800, 1680),
+};
+
+/// The ids of the shapes feed.
+const reviewShapesFeed = [
+  1500, 1501, 1502, 1503, 1504, 1505, 1506, 1507, 1508, 1509, 1510, 1511, //
+];
+
 Map<String, dynamic> reviewIllustJson(
   int id, {
   bool bookmarked = false,
   int pageCount = 1,
   String caption = '',
-}) => illustJson(
-  id,
-  bookmarked: bookmarked,
-  pageCount: pageCount,
-  withMetaPages: pageCount > 1,
-  caption: caption,
-);
+}) {
+  final (width, height) = reviewWorkShapes[id] ?? (800, 600);
+  return illustJson(
+    id,
+    bookmarked: bookmarked,
+    pageCount: pageCount,
+    withMetaPages: pageCount > 1,
+    caption: caption,
+    width: width,
+    height: height,
+  );
+}
 
 Map<String, dynamic> reviewNovelJson(int id, {bool bookmarked = false}) => {
   'id': id,
@@ -242,6 +265,12 @@ List<HistoryRecord> reviewHistory() => [
 class ReviewImageBytes {
   ReviewImageBytes._();
 
+  /// Half the work's metadata size.
+  static (int, int) _workSize(int id) {
+    final (width, height) = reviewWorkShapes[id] ?? (800, 600);
+    return (width ~/ 2, height ~/ 2);
+  }
+
   static final _cache = <String, Uint8List>{};
 
   static const _sizeNames = {
@@ -264,7 +293,7 @@ class ReviewImageBytes {
     final (w, h) = file == 'square' || file == 's' || isAvatar
         ? (300, 300)
         : isWork
-        ? (400, 300)
+        ? _workSize(int.parse(segments.first))
         : (300, 420);
     final seed = picture.hashCode & 0xFFFFFF;
     final hue = seed % 360;
