@@ -56,8 +56,8 @@ class IllustHeroCardFrame extends StatelessWidget {
 
   /// Set when the card shows only part of the image, the top of a taller
   /// one or the middle of a wider one: the image's width / height. The
-  /// shuttle then grows the crop into the whole image instead of starting
-  /// from a shrunken full frame.
+  /// shuttle then scales the whole image and fades in the part the card
+  /// hid, instead of starting from a shrunken full frame.
   final double? cropAspect;
 
   @override
@@ -67,12 +67,12 @@ class IllustHeroCardFrame extends StatelessWidget {
 }
 
 /// Lays the shuttle image out at its own [aspect] covering the flight
-/// rect, top-aligned and centered across: the card's crop at one end, the
-/// whole image at the detail end (where the rect has the image's ratio),
-/// and a growing crop between. A taller image runs full width, a wider
-/// one full height. Fitting the image inside the rect instead shrank it
-/// narrower than the rect mid-flight, then widened it back — a second
-/// shrink on top of the flight's own.
+/// rect, top-aligned and centered across: the card's crop sits on the card
+/// at one end, the whole image on the detail rect (which has the image's
+/// ratio) at the other, and the image scales evenly between. A taller
+/// image runs full width, a wider one full height. Fitting the image
+/// inside the rect instead shrank it narrower than the rect mid-flight,
+/// then widened it back — a second shrink on top of the flight's own.
 class _CoverTopDelegate extends SingleChildLayoutDelegate {
   const _CoverTopDelegate({required this.aspect});
 
@@ -93,6 +93,72 @@ class _CoverTopDelegate extends SingleChildLayoutDelegate {
   @override
   bool shouldRelayout(_CoverTopDelegate oldDelegate) =>
       aspect != oldDelegate.aspect;
+}
+
+/// The share of an image of [aspect] that a card of [cardAspect] shows
+/// (both width / height), in unit coordinates of the image: the top of a
+/// taller image, the middle of a wider one.
+Rect _cardWindow(double aspect, double cardAspect) {
+  if (aspect < cardAspect) return Rect.fromLTRB(0, 0, 1, aspect / cardAspect);
+  final share = cardAspect / aspect;
+  return Rect.fromLTRB((1 - share) / 2, 0, (1 + share) / 2, 1);
+}
+
+/// The cropped image in flight: the card's [window] stays opaque, the
+/// part the card hid shows at [reveal] (0 on the card, 1 on the detail
+/// page). Growing a clip from the crop to the whole image instead read as
+/// the image unrolling.
+class _CardWindowFade extends StatelessWidget {
+  const _CardWindowFade({
+    required this.window,
+    required this.reveal,
+    required this.borderRadius,
+    required this.child,
+  });
+
+  final Rect window;
+  final double reveal;
+  final BorderRadius borderRadius;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final whole = ClipRRect(borderRadius: borderRadius, child: child);
+    if (reveal >= 1) return whole;
+    final shown = ClipRRect(
+      clipper: _WindowClipper(window, borderRadius),
+      child: child,
+    );
+    if (reveal <= 0) return shown;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Opacity(opacity: reveal, child: whole),
+        shown,
+      ],
+    );
+  }
+}
+
+class _WindowClipper extends CustomClipper<RRect> {
+  const _WindowClipper(this.window, this.borderRadius);
+
+  final Rect window;
+  final BorderRadius borderRadius;
+
+  @override
+  RRect getClip(Size size) => borderRadius.toRRect(
+    Rect.fromLTRB(
+      window.left * size.width,
+      window.top * size.height,
+      window.right * size.width,
+      window.bottom * size.height,
+    ),
+  );
+
+  @override
+  bool shouldReclip(_WindowClipper oldClipper) =>
+      window != oldClipper.window || borderRadius != oldClipper.borderRadius;
 }
 
 /// Conservative fallback for the home shell bottom navigation when the
@@ -136,14 +202,23 @@ Widget illustHeroFlightShuttleBuilder(
       : heroChild;
   final child = RepaintBoundary(child: shuttleChild);
   // The card endpoint is the source on push and the destination on pop.
-  final cardHero =
-      (direction == HeroFlightDirection.push ? fromHeroContext : toHeroContext)
-          .widget;
+  final cardContext = direction == HeroFlightDirection.push
+      ? fromHeroContext
+      : toHeroContext;
+  final cardHero = cardContext.widget;
   final cardChild = cardHero is Hero ? cardHero.child : null;
   // Detail and viewer are both square: only a flight to or from a card
   // rounds its corners.
   final cardFrame = cardChild is IllustHeroCardFrame ? cardChild : null;
   final cropAspect = cardFrame?.cropAspect;
+  final cardBox = cardContext.findRenderObject();
+  final window =
+      cropAspect == null ||
+          cardBox is! RenderBox ||
+          !cardBox.hasSize ||
+          cardBox.size.isEmpty
+      ? null
+      : _cardWindow(cropAspect, cardBox.size.aspectRatio);
   // Resolve all geometry before the animation starts. The old implementation
   // performed RenderObject walks and NestedScrollView header discovery from
   // AnimatedBuilder; the first return therefore paid that cost on a frame
@@ -182,12 +257,33 @@ Widget illustHeroFlightShuttleBuilder(
       if (size.isEmpty) {
         return HeroRectClip(globalRect: Rect.zero, child: child!);
       }
-      final shaped = cropAspect == null
-          ? child!
-          : CustomSingleChildLayout(
-              delegate: _CoverTopDelegate(aspect: cropAspect),
-              child: child,
-            );
+      final radius = cardFrame == null
+          ? null
+          : _cardRadiusAt(animation.value, direction);
+      Widget shaped = child!;
+      if (cropAspect != null && window != null) {
+        shaped = CustomSingleChildLayout(
+          delegate: _CoverTopDelegate(aspect: cropAspect),
+          child: _CardWindowFade(
+            window: window,
+            reveal: _detailProgress(animation.value, direction),
+            borderRadius: radius!,
+            child: shaped,
+          ),
+        );
+      } else {
+        // An unmeasured card end has no window: the crop clips to the
+        // flight rect instead.
+        if (cropAspect != null) {
+          shaped = CustomSingleChildLayout(
+            delegate: _CoverTopDelegate(aspect: cropAspect),
+            child: shaped,
+          );
+        }
+        if (radius != null) {
+          shaped = ClipRRect(borderRadius: radius, child: shaped);
+        }
+      }
       return HeroRectClip(
         globalRect: _heroFlightClipRect(
           flightContext,
@@ -204,12 +300,7 @@ Widget illustHeroFlightShuttleBuilder(
           toHome: toHome,
           visibleExtent: visibleExtent,
         ),
-        child: cardFrame != null
-            ? ClipRRect(
-                borderRadius: _cardRadiusAt(animation.value, direction),
-                child: shaped,
-              )
-            : shaped,
+        child: shaped,
       );
     },
   );
@@ -744,13 +835,17 @@ const _illustHeroBorderRadius = FuncShape.card;
 /// push and 1→0 on pop, and the detail endpoint is always the 1 side, so
 /// the radius lerps card 12 → square 0 by the raw value either way. A
 /// constant radius used to land rounded then snap square on push.
-BorderRadius _cardRadiusAt(double value, HeroFlightDirection direction) {
-  final progress = value.isFinite
-      ? value.clamp(0.0, 1.0).toDouble()
-      : (direction == HeroFlightDirection.push ? 1.0 : 0.0);
-  return BorderRadius.lerp(
-    _illustHeroBorderRadius,
-    BorderRadius.zero,
-    progress,
-  )!;
-}
+BorderRadius _cardRadiusAt(double value, HeroFlightDirection direction) =>
+    BorderRadius.lerp(
+      _illustHeroBorderRadius,
+      BorderRadius.zero,
+      _detailProgress(value, direction),
+    )!;
+
+/// How far flight [value] is from the card end towards the detail end:
+/// the raw value clamped, since the detail endpoint is the 1 side both
+/// ways.
+double _detailProgress(double value, HeroFlightDirection direction) =>
+    value.isFinite
+    ? value.clamp(0.0, 1.0).toDouble()
+    : (direction == HeroFlightDirection.push ? 1.0 : 0.0);

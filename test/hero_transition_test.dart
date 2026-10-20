@@ -242,7 +242,7 @@ void main() {
     },
   );
 
-  testWidgets('a cropped image covers the flight rect throughout', (
+  testWidgets('a cropped image scales whole and fades in what the card hid', (
     tester,
   ) async {
     setViewSize(tester, const Size(390, 844));
@@ -297,25 +297,44 @@ void main() {
         ),
       );
       await tester.pump();
+      var reveal = 0.0;
       for (final ms in [80, 80, 80]) {
         await tester.pump(Duration(milliseconds: ms));
-        final shuttle = find.descendant(
-          of: find.byType(HeroRectClip),
-          matching: find.byKey(const ValueKey('art')),
-        );
+        Finder inFlight(Finder finder) =>
+            find.descendant(of: find.byType(HeroRectClip), matching: finder);
         final flight = tester.getRect(
-          find.descendant(
-            of: find.byType(HeroRectClip),
-            matching: find.byType(CustomSingleChildLayout),
-          ),
+          inFlight(find.byType(CustomSingleChildLayout)),
         );
-        final image = tester.getRect(shuttle);
+        final image = tester.getRect(
+          inFlight(find.byKey(const ValueKey('art'))).first,
+        );
         // Never fitted inside the rect: that shrank it narrower mid-flight.
         final width = math.max(flight.width, flight.height * aspect);
         expect(image.width, closeTo(width, 0.5), reason: '$aspect');
         expect(image.height, closeTo(width / aspect, 0.5));
         expect(image.top, closeTo(flight.top, 0.5));
         expect(image.center.dx, closeTo(flight.center.dx, 0.5));
+        // The card's crop stays opaque at the card's own ratio, top of a
+        // tall image, middle of a wide one; no clip grows out of it.
+        final clipper = tester
+            .widget<ClipRRect>(
+              inFlight(
+                find.byWidgetPredicate(
+                  (w) => w is ClipRRect && w.clipper != null,
+                ),
+              ),
+            )
+            .clipper!;
+        final window = clipper.getClip(image.size).outerRect;
+        expect(window.size.aspectRatio, closeTo(card.aspectRatio, 0.01));
+        expect(window.top, 0);
+        expect(window.center.dx, closeTo(image.width / 2, 0.5));
+        // The rest fades in with the flight.
+        final opacity = tester
+            .widget<Opacity>(inFlight(find.byType(Opacity)))
+            .opacity;
+        expect(opacity, inExclusiveRange(reveal, 1));
+        reveal = opacity;
       }
       await tester.pumpAndSettle();
     }
