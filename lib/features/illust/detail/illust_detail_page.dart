@@ -1022,10 +1022,13 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       left: 0,
       right: 0,
       bottom: 0,
-      child: DetailActionBar(
-        entity: entity,
-        visibility: _barCurve,
-        onDownload: () => unawaited(_downloadAll(entity)),
+      // Out of the way of a flight over it.
+      child: HeroChrome(
+        child: DetailActionBar(
+          entity: entity,
+          visibility: _barCurve,
+          onDownload: () => unawaited(_downloadAll(entity)),
+        ),
       ),
     );
     final content = GestureDetector(
@@ -1096,20 +1099,23 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
                 if (!entity.isUgoira && entity.pageCount > 1 && !_downloadMode)
                   Positioned.fill(
                     top: topChrome,
-                    child: ListenableBuilder(
-                      listenable: Listenable.merge([
-                        _topVisiblePage,
-                        _pagesToggleOnScreen,
-                      ]),
-                      builder: (context, _) => DetailPageCounter(
-                        page: _topVisiblePage.value,
-                        count: entity.pageCount,
-                        onCollapse:
-                            collapsible &&
-                                _pagesExpanded &&
-                                !_pagesToggleOnScreen.value
-                            ? () => _collapsePages(firstPageEnd)
-                            : null,
+                    // Out of the way of a flight over it.
+                    child: HeroChrome(
+                      child: ListenableBuilder(
+                        listenable: Listenable.merge([
+                          _topVisiblePage,
+                          _pagesToggleOnScreen,
+                        ]),
+                        builder: (context, _) => DetailPageCounter(
+                          page: _topVisiblePage.value,
+                          count: entity.pageCount,
+                          onCollapse:
+                              collapsible &&
+                                  _pagesExpanded &&
+                                  !_pagesToggleOnScreen.value
+                              ? () => _collapsePages(firstPageEnd)
+                              : null,
+                        ),
                       ),
                     ),
                   ),

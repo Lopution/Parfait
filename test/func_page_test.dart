@@ -435,6 +435,18 @@ void main() {
       expect(tester.getTopLeft(find.text('card')), Offset.zero);
       expect(find.text('detail'), findsNothing);
 
+      // Back cutting an opening short fades the page out from where its
+      // fade-in got to, not from nothing in one frame.
+      await tester.tap(find.text('card'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final opened = pageOpacity();
+      Navigator.of(tester.element(find.text('still'))).pop();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(pageOpacity(), inExclusiveRange(opened - 0.15, opened + 1e-6));
+      await tester.pumpAndSettle();
+
       // A committed gesture hands the page below the touch at once, while
       // the image is still on its way.
       await tester.tap(find.text('card'));

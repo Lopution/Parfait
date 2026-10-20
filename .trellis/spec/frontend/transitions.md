@@ -112,7 +112,9 @@ reviewed: 2026-10-19
   `MotionTokens.sharedElement` (450ms), the page fading over a still
   page below (no slide, no barrier) in the first part of either
   direction (`sharedElementFadeIn` opening, `sharedElementFadeOut`
-  leaving, chosen by the controller's direction), the Hero flying on
+  leaving, chosen by the controller's direction; a leave that cuts an
+  opening short fades out from the opacity the opening reached), the
+  Hero flying on
   `MotionTokens.spatialCurve`, set on every artwork Hero end (a flight
   reads the curve of the page that opens or leaves). The
   back gesture scrubs the fade with the app's own driver, so every artwork
@@ -149,18 +151,38 @@ reviewed: 2026-10-19
   flight: the gesture flag stayed up until the landing, and FadeForwards'
   backdrop on the leaving page took every hit. A hole in the viewer read
   as a sharp-edged window that did not fade with the dark stage.
+  Switching to the leave curve mid-opening dropped a half-shown page in
+  one frame.
 - **Check:** `test/func_page_test.dart` "a shared-element page fades over a still page"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight"; `test/architecture/feedback_channels_test.dart` "Hero uses only the shared illustHeroTag family"; `test/illust_card_badges_test.dart` "the pager image flies back only to a card on screen"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/widgets/feed/feed_grid.dart`
 
-### TRANS-10 The flight clip follows both pages' chrome
-- **Rule:** Push and pop flights use a progress-aware global clip between
-  the source and destination chrome boundaries. Ignore horizontal route
-  transforms when computing it, and use a conservative chrome fallback
-  when an endpoint is offstage. Tests inspect the render-time clip.
+### TRANS-10 The flight clip and chrome follow the page over the card
+- **Rule:** Push and pop flights use a global clip between the source and
+  destination chrome boundaries, interpolated by the opacity of the
+  shared-element page over the card's route (`HeroPageCover`, the more
+  opaque of a leaving page and its reopened successor), by flight
+  progress where no page registered one. Flight progress (radius, the
+  cropped part's reveal) is read off the shuttle's size between the two
+  ends, not the route animation. Ignore horizontal route transforms, and
+  use a conservative chrome fallback when an endpoint is offstage. Chrome
+  drawn over a Hero image (card badges, the detail top bar, page counter
+  and action bar) is `HeroChrome`: while a flight runs, the chrome its
+  ends overlap is hidden, including that of a page opened while the
+  image flew home, and fades in (`stateFade`) once the image has landed.
+  Tests inspect the render-time clip.
 - **Why:** Artwork covered app bars and the bottom bar, or was cut hard on
-  landing; slide transforms made the boundary empty.
-- **Check:** `test/hero_transition_test.dart` "Hero pop flight is occluded by the chrome" "Hero push from a nested feed stays intact"
-- **Code:** `lib/app/motion/hero_rect_clip.dart`
+  landing; slide transforms made the boundary empty. The page fades over
+  the first part of the flight while the image flies on, so a clip that
+  followed the image left it over the tab row and the bottom bar of a
+  feed already shown. A card opened again while its image flew home
+  sends the flight to the new page but keeps the shuttle, built with the
+  old route's animation, which stops: the clip and the corners froze at
+  the card end and the tab row cut the image on the detail page. The
+  shuttle is painted over every page, so chrome on the image was covered
+  as a flight set off and popped back whole at the landing, and badges
+  floated over the card's empty slot.
+- **Check:** `test/hero_transition_test.dart` "Hero pop flight is occluded by the chrome" "Hero push from a nested feed stays intact" "chrome over a flight steps aside until the landing"
+- **Code:** `lib/app/motion/hero_rect_clip.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/navigation/func_page.dart`
 
 ### TRANS-11 Card rounding lives inside the Hero child
 - **Rule:** The card's corner clip (`IllustHeroCardFrame`) wraps the Hero

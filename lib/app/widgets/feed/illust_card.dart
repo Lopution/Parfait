@@ -269,7 +269,15 @@ class _IllustCardBody extends ConsumerWidget {
                   ? MutedCover(reasonLabel: mutedHit.label, child: image)
                   : Stack(
                       fit: StackFit.expand,
-                      children: [image, ..._buildBadges(context)],
+                      children: [
+                        image,
+                        HeroChrome(
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: _buildBadges(context),
+                          ),
+                        ),
+                      ],
                     ),
             ),
           ),
