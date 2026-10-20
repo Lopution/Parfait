@@ -8,6 +8,7 @@ import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/image/image_worker.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
+import 'package:parfait/core/image/jpeg_edge_safe_resize_image.dart';
 import 'helpers/localized_app.dart';
 
 /// These tests look at how an image is set up; nothing loads.
@@ -71,6 +72,21 @@ void main() {
       expect(_layoutWidthOf(tester), 320);
     },
   );
+
+  testWidgets('a shrunk JPEG decodes clear of its edge padding', (
+    tester,
+  ) async {
+    ImageProvider decoded() =>
+        tester.widget<OctoImage>(find.byType(OctoImage)).image;
+    await tester.pumpWidget(
+      _host(PixivImage.feed('https://i.pximg.net/a.jpg', layoutWidth: 90)),
+    );
+    expect(decoded(), isA<JpegEdgeSafeResizeImage>());
+    await tester.pumpWidget(
+      _host(PixivImage.feed('https://i.pximg.net/a.png', layoutWidth: 90)),
+    );
+    expect(decoded(), isNot(isA<JpegEdgeSafeResizeImage>()));
+  });
 
   testWidgets('quality handoff keeps an old decoded frame placeholder', (
     tester,
