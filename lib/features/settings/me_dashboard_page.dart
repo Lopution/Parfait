@@ -208,7 +208,11 @@ class _RecentHistory extends ConsumerStatefulWidget {
   ConsumerState<_RecentHistory> createState() => _RecentHistoryState();
 }
 
-class _RecentHistoryState extends ConsumerState<_RecentHistory> {
+class _RecentHistoryState extends ConsumerState<_RecentHistory>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   /// The row's illustrations for the detail pager. Never disposed here: a
   /// pushed detail route still holds it — its lifetime is the route's.
   final _pager = IllustPagerSource();
@@ -287,6 +291,7 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     // Hidden — another tab, a page not opened from the row — the row is
     // left; it catches up once it shows again.
     final showing = TickerMode.valuesOf(context).enabled;

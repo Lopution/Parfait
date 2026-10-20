@@ -492,6 +492,22 @@ void main() {
     expect(viewAll, findsOneWidget);
     expect(x(2), lessThan(x(1)), reason: 'newest first');
 
+    // Scrolled far away and back, the row comes back at its height: a
+    // row rebuilt empty while it reloads shifted the page under the eye.
+    setViewSize(tester, const Size(400, 500));
+    await tester.pump();
+    final page = tester.state<ScrollableState>(
+      onMe(find.byType(Scrollable)).first,
+    );
+    page.position.jumpTo(page.position.maxScrollExtent);
+    await tester.pump();
+    page.position.jumpTo(200);
+    await tester.pump();
+    expect(page.position.pixels, 200);
+    page.position.jumpTo(0);
+    setViewSize(tester, const Size(400, 1600));
+    await tester.pump();
+
     await tester.tap(cover(2));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
