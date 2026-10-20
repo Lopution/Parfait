@@ -52,6 +52,17 @@ reviewed: 2026-10-19
 - **Check:** `test/pixiv_image_pipelines_test.dart` "a card frame stands in while the original loads" "a wider decode paints a narrower request at once"
 - **Code:** `lib/app/pixiv_image.dart`, `lib/app/image_tier_cache.dart`
 
+### IMG-13 A shrunk JPEG decodes at a width its blocks divide
+- **Rule:** A capped JPEG decode (`JpegEdgeSafeResizeImage`, picked by the
+  URL's extension) raises the requested width to the nearest source width
+  × n/8 that is whole, the full width at worst. Painting scales it down.
+- **Why:** Decoders shrink a JPEG by n/8 inside its 8×8 blocks; with a
+  fractional result the last pixel spans the padding past the right edge,
+  which pixiv fills with zeros: a green column on the history covers
+  (88dp of a 382-wide file), and on feed cards under the old 1.5× cap.
+- **Check:** `test/jpeg_edge_safe_resize_image_test.dart` "a shrunk JPEG keeps the padding past its edge out", `test/pixiv_image_variants_test.dart` "a shrunk JPEG decodes clear of its edge padding"
+- **Code:** `lib/core/image/jpeg_edge_safe_resize_image.dart`, `lib/app/pixiv_image.dart`
+
 ### IMG-04 A dead worker is replaced a bounded number of times
 - **Rule:** The isolate starts on the first fetch. A dead worker fails its
   pending requests with `ImageWorkerUnavailable` and is replaced on the next

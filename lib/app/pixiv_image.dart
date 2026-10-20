@@ -16,6 +16,7 @@ import '../core/image/image_demand.dart';
 import '../core/image/image_worker.dart';
 import '../core/image/image_worker_protocol.dart';
 import '../core/image/image_worker_providers.dart';
+import '../core/image/jpeg_edge_safe_resize_image.dart';
 import '../core/image/lane_permit_gate.dart';
 import '../core/image/worker_image_provider.dart';
 import '../core/log.dart';
@@ -305,9 +306,10 @@ class PixivImage extends ConsumerStatefulWidget {
     ImageFetchPriority priority = ImageFetchPriority.foreground,
   }) {
     final base = WorkerImageProvider(worker, url, priority: priority);
-    return decodeWidth == null
-        ? base
-        : ResizeImage.resizeIfNeeded(decodeWidth, null, base);
+    if (decodeWidth == null) return base;
+    return JpegEdgeSafeResizeImage.appliesTo(url)
+        ? JpegEdgeSafeResizeImage(base, width: decodeWidth)
+        : ResizeImage(base, width: decodeWidth);
   }
 
   /// The worker-backed provider for [url] decoded [decodeWidth] pixels
