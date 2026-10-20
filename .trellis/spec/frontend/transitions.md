@@ -192,17 +192,27 @@ reviewed: 2026-10-19
   rounds its corners; detail ↔ viewer flies square. A card that shows
   only part of the image (the top of a taller one, the middle of a wider
   one) hands its `cropAspect` to the flight, which lays the image out
-  covering the rect, top-aligned and centered across, for the whole
-  flight. The card's share of the image stays opaque; the part the card
-  hid paints past the rect at flight progress opacity, so the image only
-  scales (user decision).
+  covering the rect, top-aligned and centered across, and cuts it to the
+  rect for the whole flight, the way an uncropped card's image fills it
+  (user decision: like any other Hero).
 - **Why:** A clip outside the Hero snapped from square to rounded on pop;
   fitting the image inside the rect mid-flight read as a second shrink.
   A radius lerped by flight progress rounded the square detail ↔ viewer
-  flight on its way. Clipping the image to the growing rect read as the
-  image unrolling.
-- **Check:** `test/hero_transition_test.dart` "a cropped image scales whole and fades in what the card hid"
+  flight on its way. Fading in the part the card hid made the history
+  row's flights look unlike every other one.
+- **Check:** `test/hero_transition_test.dart` "a cropped image covers its flight rect; both sides keep pace"
 - **Code:** `lib/app/widgets/feed/illust_card.dart`, `lib/features/settings/me_dashboard_page.dart`, `lib/app/motion/hero_transition.dart`
+
+### TRANS-20 Artwork flights scale both sides together
+- **Rule:** Every artwork Hero (feed card, history cover, detail page,
+  ugoira, viewer) sets `createRectTween: illustHeroRectTween`: the center
+  rides Material's arc, width and height follow one progress. The Hero
+  that receives the flight picks the tween, so all of them carry it.
+- **Why:** Material's default arcs two opposite corners. Between rects of
+  different size and shape one side lands long before the other: an 88dp
+  history cover reached its width, then shrank a step more in height.
+- **Check:** `test/hero_transition_test.dart` "a cropped image covers its flight rect; both sides keep pace"; `test/settings_test.dart` "a recent cover flies to its work and back, an unseen one not"
+- **Code:** `lib/app/motion/hero_transition.dart`
 
 ### TRANS-12 Only the viewer's entry page flies back
 - **Rule:** The viewer carries a Hero only on the page it opened on. After a

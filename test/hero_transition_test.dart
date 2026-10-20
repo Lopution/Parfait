@@ -243,7 +243,7 @@ void main() {
     },
   );
 
-  testWidgets('a cropped image scales whole and fades in what the card hid', (
+  testWidgets('a cropped image covers its flight rect; both sides keep pace', (
     tester,
   ) async {
     setViewSize(tester, const Size(390, 844));
@@ -266,6 +266,7 @@ void main() {
               size: card,
               child: Hero(
                 tag: tag,
+                createRectTween: illustHeroRectTween,
                 flightShuttleBuilder: illustHeroFlightShuttleBuilder,
                 child: IllustHeroCardFrame(
                   cropAspect: aspect,
@@ -286,6 +287,7 @@ void main() {
                 height: 390 / aspect,
                 child: Hero(
                   tag: tag,
+                  createRectTween: illustHeroRectTween,
                   flightShuttleBuilder: illustHeroFlightShuttleBuilder,
                   child: const ColoredBox(
                     key: ValueKey('art'),
@@ -298,7 +300,9 @@ void main() {
         ),
       );
       await tester.pump();
-      var reveal = 0.0;
+      var width0 = 0.0;
+      // The screen cuts the long work's box short.
+      final detailHeight = math.min(390 / aspect, 844.0);
       for (final ms in [80, 80, 80]) {
         await tester.pump(Duration(milliseconds: ms));
         Finder inFlight(Finder finder) =>
@@ -315,27 +319,27 @@ void main() {
         expect(image.height, closeTo(width / aspect, 0.5));
         expect(image.top, closeTo(flight.top, 0.5));
         expect(image.center.dx, closeTo(flight.center.dx, 0.5));
-        // The card's crop stays opaque at the card's own ratio, top of a
-        // tall image, middle of a wide one; no clip grows out of it.
-        final clipper = tester
-            .widget<ClipRRect>(
-              inFlight(
-                find.byWidgetPredicate(
-                  (w) => w is ClipRRect && w.clipper != null,
-                ),
-              ),
+        // Shown like an uncropped card's image: whole, cut to the rect,
+        // nothing faded past it.
+        final cut = find
+            .ancestor(
+              of: find.byType(CustomSingleChildLayout).last,
+              matching: find.byType(ClipRRect),
             )
-            .clipper!;
-        final window = clipper.getClip(image.size).outerRect;
-        expect(window.size.aspectRatio, closeTo(card.aspectRatio, 0.01));
-        expect(window.top, 0);
-        expect(window.center.dx, closeTo(image.width / 2, 0.5));
-        // The rest fades in with the flight.
-        final opacity = tester
-            .widget<Opacity>(inFlight(find.byType(Opacity)))
-            .opacity;
-        expect(opacity, inExclusiveRange(reveal, 1));
-        reveal = opacity;
+            .first;
+        expect(tester.getRect(cut), flight);
+        expect(inFlight(find.byType(Opacity)), findsNothing);
+        expect(flight.width, greaterThan(width0));
+        width0 = flight.width;
+        // Both sides by one progress: Material's corner arcs had the square
+        // cover reach its width, then shrink a step more in height.
+        expect(
+          (flight.width - card.width) / (390 - card.width),
+          closeTo(
+            (flight.height - card.height) / (detailHeight - card.height),
+            0.01,
+          ),
+        );
       }
       await tester.pumpAndSettle();
     }

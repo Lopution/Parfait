@@ -38,6 +38,7 @@ import 'package:parfait/features/settings/saf_tree_name.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
 import 'package:parfait/app/motion/hero_rect_clip.dart';
+import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_models.dart';
 import 'helpers/illust_fixtures.dart';
@@ -597,6 +598,11 @@ void main() {
     await tester.tap(find.bySemanticsLabel('work 2'));
     await midway();
     expect(flight, findsOneWidget, reason: 'a work in the store flies in');
+    expect(
+      tester.widgetList<Hero>(find.byType(Hero)).map((h) => h.createRectTween),
+      everyElement(illustHeroRectTween),
+      reason: 'on the path of any artwork flight',
+    );
     await tester.pump(const Duration(seconds: 1));
     await view(1, 3);
     router.pop();

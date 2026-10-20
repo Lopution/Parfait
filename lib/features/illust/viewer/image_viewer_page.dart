@@ -836,6 +836,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
         final hero = Hero(
           tag: heroTag,
           curve: MotionTokens.spatialCurve,
+          createRectTween: illustHeroRectTween,
           transitionOnUserGestures: true,
           flightShuttleBuilder: illustHeroFlightShuttleBuilder,
           child: IllustHeroFlightChild(
