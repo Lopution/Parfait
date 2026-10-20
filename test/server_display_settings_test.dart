@@ -23,7 +23,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
-import 'helpers/settings_world.dart' show StubResolver;
+import 'helpers/restricted_compat_support.dart' show FakeResolver;
 import 'helpers/localized_app.dart';
 import 'package:fake_async/fake_async.dart';
 
@@ -78,7 +78,7 @@ Future<(ProviderContainer, _ApiScript)> _world(
       pixivNetworkFactoryProvider.overrideWithValue(
         PixivNetworkFactory(
           NetworkAccessPolicy(
-            resolver: StubResolver([InternetAddress('93.184.216.34')]),
+            resolver: FakeResolver([InternetAddress('93.184.216.34')]),
             clientFactory: (route, host, purpose) => script.asClient(),
           ),
         ),
@@ -297,7 +297,7 @@ void main() {
           pixivNetworkFactoryProvider.overrideWithValue(
             PixivNetworkFactory(
               NetworkAccessPolicy(
-                resolver: StubResolver([InternetAddress('93.184.216.34')]),
+                resolver: FakeResolver([InternetAddress('93.184.216.34')]),
                 clientFactory: (route, host, purpose) => script.asClient(),
               ),
             ),

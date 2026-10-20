@@ -174,6 +174,56 @@ final onePixelPng = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
 );
 
+/// A loopback server answering [onePixelPng]: it counts hits and referers
+/// per request, and holds a `/hold/<x>` response open until [release] or
+/// [releasePath] so lane occupancy is deterministic. The test file binds
+/// [inner], keeping socket binds in tagged files (TEST-07).
+class PngServer {
+  PngServer(this.inner) {
+    unawaited(
+      inner.forEach((request) async {
+        final path = request.uri.path;
+        hits[path] = (hits[path] ?? 0) + 1;
+        referers.add(request.headers.value('referer') ?? '');
+        if (path.startsWith('/hold/')) {
+          _held[path] = request.response;
+          return;
+        }
+        await _answer(request.response);
+      }),
+    );
+  }
+
+  final HttpServer inner;
+  final hits = <String, int>{};
+  final referers = <String>[];
+  final _held = <String, HttpResponse>{};
+
+  String url(String path) => 'http://127.0.0.1:${inner.port}$path';
+
+  /// Answers the held response for [path], freeing one lane slot.
+  void releasePath(String path) => unawaited(_answer(_held.remove(path)!));
+
+  void release() {
+    for (final response in _held.values) {
+      unawaited(_answer(response));
+    }
+    _held.clear();
+  }
+
+  Future<void> stop() async {
+    release();
+    await inner.close(force: true);
+  }
+
+  Future<void> _answer(HttpResponse response) {
+    response
+      ..contentLength = onePixelPng.length
+      ..add(onePixelPng);
+    return response.close();
+  }
+}
+
 /// The config in-process test workers run with: direct `i.pximg.net`, no
 /// DoH.
 const testImageWorkerConfig = ImageWorkerConfig(

@@ -18,6 +18,7 @@ import 'package:parfait/app/widgets/prompt_host.dart';
 
 import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
+import 'helpers/settings_world.dart' show RecordingTranslationEngine;
 import 'helpers/localized_app.dart';
 
 /// Stage-level test with a recording progress binding: pins the D1 write
@@ -256,7 +257,7 @@ void main() {
     'translate this page: translations under the paragraphs, on with each '
     'turn, gone once hidden',
     (tester) async {
-      final engine = _EchoEngine();
+      final engine = RecordingTranslationEngine((text) => '译 $text');
       await tester.pumpWidget(
         _stageApp(
           _RecordingBinding(),
@@ -288,22 +289,6 @@ void main() {
       expect(find.textContaining('译 '), findsNothing);
     },
   );
-}
-
-/// Answers every paragraph with a marked copy and records what was asked.
-class _EchoEngine
-    with SequentialBatchTranslation
-    implements TranslationTransport {
-  final sources = <String>[];
-
-  @override
-  Future<String> translate(
-    String text, {
-    required String targetLanguage,
-  }) async {
-    sources.add(text);
-    return '译 $text';
-  }
 }
 
 /// setString always fails — the in-memory platform still backs getString

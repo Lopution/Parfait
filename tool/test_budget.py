@@ -4,11 +4,9 @@
 A code line is a line of a .dart file that is neither blank nor a `//`
 comment. The budget counts test/ except test/review/ (the screenshot
 review, reported on its own line) and test/fixtures/ (recorded data). The
-cap is in tool/test_budget.json; raising it needs the user's consent.
-
-`lib_at_cap` is lib/'s code line count when the cap was set. Once lib/ has
-grown 10% past it the report asks for the cap to be reviewed; it never
-changes the cap itself.
+cap is `ratio` (tool/test_budget.json) times lib/'s code lines, so tests
+may grow with the code but not faster; changing the ratio needs the
+user's consent.
 
 Usage:
   python3 tool/test_budget.py                 count the working tree
@@ -33,7 +31,6 @@ REPO = Path(__file__).resolve().parent.parent
 BUDGET = REPO / 'tool/test_budget.json'
 REVIEW_DIR = 'test/review/'
 UNCOUNTED = (REVIEW_DIR, 'test/fixtures/')
-REVIEW_GROWTH = 0.10
 
 
 @dataclass(frozen=True)
@@ -41,6 +38,9 @@ class Count:
     tests: int
     review: int
     lib: int
+
+    def cap(self, ratio: float) -> int:
+        return int(self.lib * ratio)
 
 
 def git(*args: str) -> str:
@@ -97,17 +97,16 @@ def signed(delta: int) -> str:
 
 
 def report(now: Count, base: Count | None, base_name: str | None,
-           cap: int, lib_at_cap: int) -> tuple[list[str], list[str]]:
+           ratio: float) -> tuple[list[str], list[str]]:
     """Plain lines for the log and Markdown lines for the job summary."""
-    change = (f' ({signed(now.tests - base.tests)} against {base_name})'
-              if base else '')
-    growth = now.lib / lib_at_cap - 1
-    ratio = now.tests / now.lib
+    cap = now.cap(ratio)
+    change = (f' ({signed(now.tests - base.tests)} against {base_name}, '
+              f'lib/ {signed(now.lib - base.lib)})' if base else '')
     log = [
-        f'test/ code lines: {now.tests:,}{change}, cap {cap:,}',
+        f'test/ code lines: {now.tests:,}{change}',
+        f'cap: {ratio} x lib/ {now.lib:,} = {cap:,}; '
+        f'test/lib {now.tests / now.lib:.3f}',
         f'test/review/ (not counted): {now.review:,}',
-        f'lib/ code lines: {now.lib:,}, {growth:+.1%} since the cap was set; '
-        f'test/lib {ratio:.2f}',
     ]
     summary = [
         '### Test budget (TEST-05)',
@@ -115,10 +114,8 @@ def report(now: Count, base: Count | None, base_name: str | None,
         '| | Code lines |',
         '|---|---:|',
         f'| test/ (counted) | {now.tests:,}{change} |',
-        f'| Cap | {cap:,} |',
+        f'| Cap ({ratio} × lib/ {now.lib:,}) | {cap:,} |',
         f'| test/review/ (not counted) | {now.review:,} |',
-        f'| lib/ | {now.lib:,} ({growth:+.1%} since the cap was set) |',
-        f'| test/ ÷ lib/ | {ratio:.2f} |',
         '',
     ]
     return log, summary
@@ -138,30 +135,25 @@ def main() -> int:
                         help='append a Markdown report to this file')
     args = parser.parse_args()
 
-    budget = json.loads(BUDGET.read_text())
-    cap, lib_at_cap = budget['cap'], budget['lib_at_cap']
+    ratio = json.loads(BUDGET.read_text())['ratio']
     now = count(None)
     base = count(args.base) if args.base else None
-    log, summary = report(now, base, args.base, cap, lib_at_cap)
+    log, summary = report(now, base, args.base, ratio)
     print('\n'.join(log))
     if args.summary:
         with args.summary.open('a', encoding='utf-8') as out:
             out.write('\n'.join(summary) + '\n')
 
-    if now.lib >= lib_at_cap * (1 + REVIEW_GROWTH):
-        annotate('notice',
-                 f'lib/ has grown {REVIEW_GROWTH:.0%} since the test cap was '
-                 f'set ({lib_at_cap:,} to {now.lib:,} code lines): ask the '
-                 f'user whether the {cap:,} cap still fits. Only they change '
-                 'it.')
+    cap = now.cap(ratio)
     if now.tests > cap:
         annotate('error',
                  f'TEST-05 test/ has {now.tests:,} code lines, over the '
-                 f'{cap:,} cap. Make room in the spec\'s order: share '
-                 'duplicated doubles and table-drive near-copies, then drop '
-                 'UI tests of colour, spacing, order or copy, then tests of '
-                 'removed code, then a second layer covering one behaviour. '
-                 'Raising the cap needs the user\'s consent.')
+                 f'{cap:,} cap ({ratio} x lib/). Make room in the spec\'s '
+                 'order: share duplicated doubles and table-drive '
+                 'near-copies, then drop UI tests of colour, spacing, order '
+                 'or copy, then tests of removed code, then a second layer '
+                 'covering one behaviour. Changing the ratio needs the '
+                 'user\'s consent.')
         return 1
     return 0
 

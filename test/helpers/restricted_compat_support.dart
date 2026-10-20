@@ -29,10 +29,13 @@ class FakeClient extends http.BaseClient {
   }
 }
 
+/// Answers every lookup with [addresses] from [source]; no addresses is a
+/// failed lookup.
 class FakeResolver implements SecureResolver {
-  FakeResolver(this.addresses, {this.answered});
+  FakeResolver(this.addresses, {this.answered, this.source = DnsSource.system});
 
   final List<InternetAddress> addresses;
+  final DnsSource source;
   var calls = 0;
 
   /// Each lookup answers once this completes; a DoH endpoint that cannot
@@ -47,10 +50,13 @@ class FakeResolver implements SecureResolver {
   }) async {
     calls++;
     await answered;
+    if (addresses.isEmpty) {
+      throw const SecureResolutionException('fake lookup failed');
+    }
     return ResolvedHost(
       host: host,
       addresses: addresses,
-      dnsSource: DnsSource.system,
+      dnsSource: source,
       revision: revision,
       ttl: const Duration(seconds: 30),
     );

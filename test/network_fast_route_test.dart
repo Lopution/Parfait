@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'helpers/restricted_compat_support.dart' show FakeResolver;
 import 'helpers/settings_world.dart' show RecordingClient;
 import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -23,28 +24,6 @@ class _HandshakeFailingClient extends http.BaseClient {
       throw const NetworkFailureException(NetworkFailureKind.tlsHandshake);
 }
 
-class _Resolver implements SecureResolver {
-  var calls = 0;
-
-  @override
-  Future<ResolvedHost> resolve(
-    String host, {
-    required NetworkRevision revision,
-    NetworkCancelSignal? cancelSignal,
-  }) async {
-    calls++;
-    return ResolvedHost(
-      host: host,
-      addresses: [InternetAddress('1.2.3.4')],
-      dnsSource: DnsSource.system,
-      revision: revision,
-    );
-  }
-
-  @override
-  Future<void> dispose() async {}
-}
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -55,7 +34,7 @@ void main() {
   test(
     'every native Pixiv exit shares the policy and strict tiers are first',
     () async {
-      final resolver = _Resolver();
+      final resolver = FakeResolver([InternetAddress('1.2.3.4')]);
       final store = PixivFastRouteStore(preferences: SharedPreferencesAsync());
       final clients = <String, RecordingClient>{};
       final policy = NetworkAccessPolicy(

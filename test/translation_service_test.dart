@@ -310,13 +310,13 @@ void main() {
 
   group('ConfiguredTranslationService dispatch', () {
     test('disabled path throws without touching the network', () async {
-      var called = false;
+      final engine = RecordingTranslationEngine();
       final service = ConfiguredTranslationService(
         resolveProvider: () => TranslationProvider.disabled,
-        google: _RecordingTransport(() => called = true),
-        baidu: _RecordingTransport(() => called = true),
-        llm: _RecordingTransport(() => called = true),
-        doubao: _RecordingTransport(() => called = true),
+        google: engine,
+        baidu: engine,
+        llm: engine,
+        doubao: engine,
       );
 
       await expectLater(
@@ -329,21 +329,23 @@ void main() {
           ),
         ),
       );
-      expect(called, isFalse);
+      expect(engine.sources, isEmpty);
     });
 
     test('baidu provider is dispatched to the baidu transport', () async {
-      var baiduCalled = false;
+      final other = RecordingTranslationEngine();
+      final baidu = RecordingTranslationEngine((_) => '你好');
       final service = ConfiguredTranslationService(
         resolveProvider: () => TranslationProvider.baidu,
-        google: _RecordingTransport(() {}),
-        baidu: _RecordingTransport(() => baiduCalled = true, result: '你好'),
-        llm: _RecordingTransport(() {}),
-        doubao: _RecordingTransport(() {}),
+        google: other,
+        baidu: baidu,
+        llm: other,
+        doubao: other,
       );
 
       expect(await service.translate('hello', targetLanguage: 'zh'), '你好');
-      expect(baiduCalled, isTrue);
+      expect(baidu.sources, ['hello']);
+      expect(other.sources, isEmpty);
     });
   });
 
@@ -396,22 +398,4 @@ void main() {
 
 String md5Of(String value) {
   return md5.convert(utf8.encode(value)).toString();
-}
-
-class _RecordingTransport
-    with SequentialBatchTranslation
-    implements TranslationTransport {
-  _RecordingTransport(this.onCall, {this.result});
-
-  final void Function() onCall;
-  final String? result;
-
-  @override
-  Future<String> translate(
-    String text, {
-    required String targetLanguage,
-  }) async {
-    onCall();
-    return result ?? text;
-  }
 }
