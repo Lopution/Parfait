@@ -144,20 +144,20 @@ reviewed: 2026-10-19
 ## Pull to refresh
 
 ### FEED-07 PullToRefresh is the only refresh wrapper
-- **Rule:** Feeds refresh through `PullToRefresh`, with
-  `clamping: false` for ordinary lists. A tab body inside a
+- **Rule:** Feeds refresh through `PullToRefresh`, whose header is
+  clamping: the list stays at its top and the `MaterialHeader` disc drops
+  over it, as `SwipeRefreshLayout` does. A tab body inside a
   `NestedScrollView` passes `isNested: true` and has exactly one
-  `HeaderLocator` as its first item; its header is clamping, the only kind
-  EasyRefresh 4 accepts there. Nothing wraps the whole
+  `HeaderLocator` as its first item. Nothing wraps the whole
   `NestedScrollView`; its outer physics is `NestedRefreshOuterPhysics`,
   which holds the outer scroll while the user drags a feed's header out.
-- **Why:** Per-page wrappers diverged; under clamping the reversed pull is
-  not real overscroll, so the indicator stayed pinned while the list
-  moved. A clamping header keeps the feed at its top, so the coordinator
+- **Why:** Per-page wrappers diverged. The open header pulled the whole
+  list down, iOS style; Android apps (Shaft) cover the list instead. A
+  clamping header keeps the feed at its top, so the coordinator
   gave a reversed pull to the outer scroll first: the profile header
   collapsed under a stuck indicator. EasyRefresh holds only an outer scroll
   that runs its own physics.
-- **Check:** `test/pull_to_refresh_test.dart` "the shared wrapper refreshes a nested scroll view once", `test/user_profile_test.dart` "a reversed pull retracts the indicator before the header collapses"
+- **Check:** `test/pull_to_refresh_test.dart` "the shared wrapper refreshes a nested scroll view once" "the list flings during a refresh and the disc leaves after", `test/user_profile_test.dart` "a reversed pull retracts the indicator before the header collapses"
 - **Code:** `lib/app/pull_to_refresh.dart`, `lib/features/profile/user_page.dart`
 
 ### FEED-08 The indicator follows observable outcomes
@@ -208,42 +208,46 @@ reviewed: 2026-10-19
 
 ## Scroll physics
 
-### FEED-11 One bouncing physics everywhere; flings stop at the edge
-- **Rule:** `FuncScrollBehavior` gives every page the feed's bouncing
-  physics with no overscroll glow; do not add a `ClampingScrollPhysics`
-  region. A fling stops at either edge; only a drag overscrolls.
-  `PullToRefresh` passes `notLoadFooter: NotLoadFooter(hitOver: false)`.
-  The scrollable inside a text control (`EditableText`) is not always
+### FEED-11 One clamping physics everywhere; nothing passes an edge
+- **Rule:** `FuncScrollBehavior` gives every page `FuncScrollPhysics`, a
+  `ClampingScrollPhysics`: a fling runs `OverScroller`'s curve, a fling
+  and a drag stop at both ends, and no overscroll glow or stretch is
+  drawn. Feeds run EasyRefresh's bouncing physics under `_FeedPhysics`,
+  which swaps its in-range fling for a `ClampingScrollSimulation`, takes
+  Android's fling start speed and carried momentum (none), and drops its
+  drag dead zone; `PullToRefresh` passes
+  `notLoadFooter: NotLoadFooter(hitOver: false, clamping: true)`. The
+  scrollable inside a text control (`EditableText`) is not always
   scrollable: every scroll behavior the app installs returns
-  `textScrollPhysics` for it first. Both the app's and the feed's physics
-  sit under `NoDragDeadZonePhysics`: a list follows the finger from the
-  move that crosses the slop.
-- **Why:** Mixed physics felt different per page; a fling into the end of
-  a feed sprang back while the next page loaded, because EasyRefresh
-  copies `ClassicFooter`'s `hitOver: true` without `onLoad`. A text
-  control's scrollable takes the nearest behavior's physics; always
-  scrollable, a one-line selectable title followed the finger instead of
-  the page, and came back after LAYOUT-11 fixed two pages only. Bouncing
-  physics bring iOS's 3.5px start threshold: past the slop a slow drag
-  stuck before the list moved, which Android lists never do.
-- **Check:** `test/scroll_behavior_test.dart` "a fling stops at the end instead of springing back" "a selectable title that fits scrolls the page, not itself" "the list follows the finger from the move past the slop", `test/pull_to_refresh_test.dart` "a fling stops at the trailing edge instead of bouncing back"
+  `textScrollPhysics` for it first.
+- **Why:** Mixed physics felt different per page. iOS's friction coasts
+  about 5 s; `OverScroller` stops within a second, and side by side with
+  Shaft the app's lists felt heavy (user trial 10-21; reverted with its
+  merge commit if the user keeps the old feel). A fling into the end of a
+  feed sprang back while the next page loaded, because EasyRefresh copies
+  `ClassicFooter`'s `hitOver: true` without `onLoad`. A text control's
+  scrollable takes the nearest behavior's physics; always scrollable, a
+  one-line selectable title followed the finger instead of the page.
+  Bouncing physics bring iOS's 3.5px start threshold: past the slop a
+  slow drag stuck before the list moved, which Android lists never do.
+- **Check:** `test/scroll_behavior_test.dart` "a fling stops at the end instead of springing back" "a drag stops at either end" "a fling coasts on the Android curve" "a selectable title that fits scrolls the page, not itself" "the list follows the finger from the move past the slop", `test/pull_to_refresh_test.dart` "a fling stops at the trailing edge instead of bouncing back"
 - **Code:** `lib/app/scroll_behavior.dart`, `lib/app/pull_to_refresh.dart`
 
 ### FEED-12 NestedScrollView gets explicit physics and one inner tab
 - **Rule:** A `NestedScrollView` passes the behavior's physics,
   `ScrollConfiguration.of(context).getScrollPhysics(context)`, as the
-  parent of its outer physics (FEED-07), and a nested `PullToRefresh`
-  flings with `FuncScrollPhysics` on top of EasyRefresh's nested physics,
-  so outer and inner run the same simulation. Only the selected tab sits on the inner controller;
-  unselected tabs park on a controller of the same kind, and the
-  `PrimaryScrollController` is never `.none`.
-- **Why:** Its outer position defaults to clamping, so the header stopped
-  short while the feed rolled on; EasyRefresh 4's nested physics flings
-  with a clamping simulation and brought the same stop back. Kept-alive
-  tabs on one inner controller were driven as one: a fling died at the
-  header and hidden tabs dragged along.
+  parent of its outer physics (FEED-07). Outer and inner fling with the
+  same `ClampingScrollSimulation`: EasyRefresh's nested physics makes one,
+  and `_FeedPhysics` leaves it alone. Only the selected tab sits on the
+  inner controller; unselected tabs park on a controller of the same
+  kind, and the `PrimaryScrollController` is never `.none`.
+- **Why:** The coordinator runs one simulation per position; when outer
+  and inner ran different ones the header stopped short while the feed
+  rolled on, and a light pull-down died at the edge instead of expanding
+  the header. Kept-alive tabs on one inner controller were driven as one:
+  a fling died at the header and hidden tabs dragged along.
 - **Check:** `test/user_profile_test.dart` "a light upward fling never leaves the inner feed ahead of the header" "a light pull-down while the header is collapsing keeps it expanding" "each tab scrolls on its own; re-tap rewinds only the selected one"
-- **Code:** `lib/features/profile/user_page.dart`
+- **Code:** `lib/features/profile/user_page.dart`, `lib/app/pull_to_refresh.dart`
 
 ### FEED-13 Horizontal strips inside a feed opt out of the refresh physics
 - **Rule:** A horizontal scrollable inside `PullToRefresh` wraps itself in

@@ -26,7 +26,7 @@ class UserAgreementPage extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: ContentWidths.article),
           // One selection region for the whole document: paragraphs are
           // plain Text, so none of them owns a Scrollable the app-wide
-          // bouncing physics could leak into, and a selection can span
+          // always-scrollable physics could leak into, and a selection can span
           // paragraphs.
           child: SelectionArea(
             child: ListView(
