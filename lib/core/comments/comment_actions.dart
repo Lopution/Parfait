@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/account_store.dart';
 import '../entity/comment_entity.dart';
+import '../entity/illust_store.dart';
+import 'comment_feed_controller.dart';
 import 'comment_models.dart';
 import 'comment_repository.dart';
 import 'comment_store.dart';
@@ -40,6 +42,22 @@ class _CommentActions {
           .read(commentRepositoryProvider)
           .addComment(request, cancelToken: operation.cancelToken);
       store.commitSend(operation, comment);
+      if (request.rootCommentId == null) {
+        _ref
+            .read(commentTotalsProvider.notifier)
+            .added(
+              CommentFeedQuery.root(
+                workId: request.workId,
+                kind: request.kind,
+              ).workKey,
+              known: request.kind == CommentWorkKind.illust
+                  ? _ref
+                        .read(illustStoreProvider)
+                        .get(request.workId)
+                        ?.totalComments
+                  : null,
+            );
+      }
       return comment;
     } on Object catch (error) {
       store.failSend(operation, error);

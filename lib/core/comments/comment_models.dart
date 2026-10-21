@@ -58,6 +58,7 @@ class CommentPage {
     required this.comments,
     required this.nextUrl,
     this.totalComments,
+    this.commentsClosed,
   });
 
   final List<CommentEntity> comments;
@@ -65,6 +66,11 @@ class CommentPage {
 
   /// The work's comment count (`total_comments`), when the response says.
   final int? totalComments;
+
+  /// Whether the author turned comments off (`comment_access_control` 1),
+  /// when the response says. Closed, the comments are one notice from
+  /// pixiv, not the work's.
+  final bool? commentsClosed;
 }
 
 /// Input to the single comment-add endpoint. [rootCommentId] is local thread

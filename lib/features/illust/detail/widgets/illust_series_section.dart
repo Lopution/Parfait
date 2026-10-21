@@ -11,6 +11,7 @@ import '../../../../core/series/series_models.dart';
 import '../../../../core/series/series_recent_open_store.dart';
 import '../../../../core/series/series_store.dart';
 import '../../../../l10n/context.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
 
 /// Detail-page sliver between the image pages and [InfoBlock]: the series
@@ -72,6 +73,16 @@ class _SeriesCardView extends ConsumerWidget {
   final IllustSeriesEntity detail;
   final IllustSeriesContext context;
 
+  /// "Part n of m" once the series says how many parts it has, "Part n"
+  /// before, "Series" for a work whose place in it is unknown.
+  String _episode(AppLocalizations l10n) {
+    final order = context.contentOrder;
+    final total = detail.workCount;
+    if (order == null) return l10n.seriesTitle;
+    if (total == null) return l10n.seriesEpisode(order);
+    return l10n.seriesEpisodeOf(order, total);
+  }
+
   @override
   Widget build(BuildContext buildContext, WidgetRef ref) {
     final theme = Theme.of(buildContext);
@@ -88,7 +99,7 @@ class _SeriesCardView extends ConsumerWidget {
     return PressScale(
       child: Card(
         margin: const EdgeInsets.symmetric(
-          horizontal: FuncSpacing.md,
+          horizontal: FuncSpacing.lg,
           vertical: FuncSpacing.sm,
         ),
         clipBehavior: Clip.antiAlias,
@@ -121,11 +132,7 @@ class _SeriesCardView extends ConsumerWidget {
                       ),
                       const SizedBox(height: FuncSpacing.xxs),
                       Text(
-                        context.contentOrder == null
-                            ? buildContext.l10n.seriesTitle
-                            : buildContext.l10n.seriesEpisode(
-                                context.contentOrder!,
-                              ),
+                        _episode(buildContext.l10n),
                         style: theme.textTheme.bodySmall,
                       ),
                     ],

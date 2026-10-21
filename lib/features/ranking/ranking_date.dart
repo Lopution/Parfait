@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../app/format/app_format.dart';
 import '../../app/theme/func_semantic_tokens.dart';
+import '../../app/widgets/edge_icon_buttons.dart';
 import '../../core/illust/ranking_repository.dart';
 import '../../l10n/context.dart';
 
@@ -51,9 +52,10 @@ class RankingDateBar extends StatelessWidget {
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: minHeight),
       child: Padding(
+        // The button's label, not its padding, ends on the margin.
         padding: const EdgeInsetsDirectional.only(
           start: FuncSpacing.lg,
-          end: FuncSpacing.sm,
+          end: FuncSpacing.lg - EdgeIconButtons.glyphInset,
         ),
         child: Row(
           children: [

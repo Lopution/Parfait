@@ -164,15 +164,25 @@ reviewed: 2026-10-17
 
 ### PAGE-19 Composer panels rise and fall like the keyboard
 - **Rule:** The emoji and stamp panels share the composer's bottom slot
-  with the keyboard. A panel rises and folds on the sheet spring, top
-  edge first; one replacing the keyboard starts at the keyboard's
-  height. A panel giving way to the keyboard holds its height until the
-  keyboard has risen over it, or 600ms pass. Emoji ↔ stamp swaps through
-  `StateFade`. Reduced motion jumps to the end.
+  with the keyboard, and the slot is the composer's one bottom budget: the
+  keyboard's inset, else the navigation bar's under a resting row, else a
+  panel as tall as the keyboard with the navigation bar, so the input row
+  holds still as they swap. The keyboard's height is the tallest inset of
+  a stretch of focus, kept per orientation and width across restarts
+  (`KeyboardHeights`, 160dp up to 60% of the screen; an inset outside
+  that sizes nothing); 280dp over the navigation bar stands in before
+  any. A panel rises and folds on the
+  sheet spring, top edge first, and stays built offstage once opened;
+  one replacing the keyboard starts at the keyboard's height. A panel
+  giving way to the keyboard holds its height until the keyboard has
+  risen over it, or 600ms pass. Emoji ↔ stamp swaps through `StateFade`.
+  Reduced motion jumps to the end.
 - **Why:** The panel popped in and out, and the input row dropped to the
-  bottom and climbed back with every switch to the keyboard.
-- **Check:** `test/comments_replies_test.dart` "the panel rises on a spring and waits for the keyboard" "composer reserves the sampled keyboard height for panels"
-- **Code:** `lib/features/comments/comment_input.dart`
+  bottom and climbed back with every switch to the keyboard. User report
+  (10-21): a panel opened before the keyboard stood 280dp tall, and over
+  the navigation bar it stood a bar higher than the keyboard.
+- **Check:** `test/comments_replies_test.dart` "the panel rises on a spring and waits for the keyboard" "composer reserves the sampled keyboard height for panels" "panels stand exactly where the keyboard stood" "keyboard heights persist per screen shape"
+- **Code:** `lib/app/widgets/comment_composer.dart`, `lib/core/settings/keyboard_heights.dart`
 
 ## Library and management lists
 

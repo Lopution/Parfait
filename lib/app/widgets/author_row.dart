@@ -14,6 +14,7 @@ class AuthorRow extends StatelessWidget {
     super.key,
     required this.userId,
     required this.name,
+    this.account,
     this.avatarUrl,
     this.trailing,
     this.avatarRadius = 16,
@@ -24,6 +25,9 @@ class AuthorRow extends StatelessWidget {
 
   final int userId;
   final String name;
+
+  /// Shown under [name] ("@account"); without it the row is one line.
+  final String? account;
   final String? avatarUrl;
   final Widget? trailing;
 
@@ -53,9 +57,10 @@ class AuthorRow extends StatelessWidget {
                   alignment: AlignmentDirectional.centerStart,
                   child: AuthorSummary(
                     name: name,
+                    account: account,
                     imageUrl: avatarUrl,
                     avatarRadius: avatarRadius,
-                    compact: true,
+                    compact: account == null,
                   ),
                 ),
               ),

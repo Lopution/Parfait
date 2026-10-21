@@ -429,7 +429,11 @@ class _SpotlightSection extends ConsumerWidget {
       error: error,
       onRetry: retry,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+        // The retry label, not its padding, ends on the margin.
+        padding: const EdgeInsetsDirectional.only(
+          start: FuncSpacing.lg,
+          end: FuncSpacing.lg - EdgeIconButtons.glyphInset,
+        ),
         child: Row(
           children: [
             Expanded(child: Text(l10n.spotlightLoadFailed)),

@@ -2279,6 +2279,19 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String seriesEpisodeOf(int order, int total) {
+    return '第 $order 話 / 全 $total 話';
+  }
+
+  @override
+  String detailStatsSemantics(String views, String bookmarks, String date) {
+    return '閲覧 $views、ブックマーク $bookmarks、$date 投稿';
+  }
+
+  @override
+  String get detailTools => '使用ツール';
+
+  @override
   String get detailCollapsePages => '折りたたむ';
 
   @override
@@ -2353,6 +2366,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commentTitle => 'コメント';
 
   @override
+  String get commentsClosed => '作者がコメントをオフにしています';
+
+  @override
   String commentTitleCount(String count) {
     return 'コメント（$count）';
   }
@@ -2395,6 +2411,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get commentNoResults => 'コメントはありません';
+
+  @override
+  String get commentFirst => '最初のコメントを書く';
 
   @override
   String get commentDeletedUser => '退会したユーザー';

@@ -216,6 +216,11 @@ class _PixivCommentRepository implements CommentRepository {
       comments: comments,
       nextUrl: requireNextUrl(json['next_url']),
       totalComments: total is int && total >= 0 ? total : null,
+      commentsClosed: switch (json['comment_access_control']) {
+        0 => false,
+        1 => true,
+        _ => null,
+      },
     );
   };
 

@@ -15,9 +15,11 @@ import '../../core/comments/comment_actions.dart';
 import '../../core/comments/comment_feed_controller.dart';
 import '../../core/comments/comment_models.dart';
 import '../../core/comments/comment_store.dart';
+import '../../core/settings/keyboard_heights.dart';
 import '../../core/entity/comment_entity.dart';
+import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
-import 'comment_input.dart';
+import '../../app/widgets/comment_composer.dart';
 import 'comment_item.dart';
 import '../../app/widgets/comment_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
@@ -54,6 +56,9 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
     final mutationKey =
         'send:${widget.kind.name}:${widget.workId}:${_replyTarget?.id ?? 'root'}';
     final sending = store.mutations[mutationKey]?.pending == true;
+    if (_closed(ref, _query)) {
+      return _ClosedCommentsPage(title: context.l10n.commentTitle);
+    }
     return Scaffold(
       // Manual insets: the composer reserves the IME/panel extent in layout
       // instead of letting the Scaffold squeeze the whole body.
@@ -86,6 +91,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
               onStampSend: (stampId) =>
                   _send(stampId: stampId, target: _replyTarget),
               onError: _showMutationError,
+              keyboardHeights: ref.watch(keyboardHeightsProvider.notifier),
             ),
           ],
         ),
@@ -129,11 +135,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
   }
 
   void _showMutationError(Object error) {
-    if (!mounted) return;
-    final key = error is CommentPermissionException
-        ? 'commentPermissionDenied'
-        : 'commentSendFailed';
-    showAppSnackBar(context, commentText(context, key));
+    if (mounted) showCommentSendError(context, error);
   }
 
   void _deleteComment(CommentEntity comment) {
@@ -209,6 +211,9 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
     final mutationKey =
         'send:${widget.kind.name}:${widget.workId}:${replyTarget?.id ?? widget.rootCommentId}';
     final sending = store.mutations[mutationKey]?.pending == true;
+    if (_closed(ref, _query)) {
+      return _ClosedCommentsPage(title: context.l10n.commentReplies);
+    }
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppTopBar(title: Text(context.l10n.commentReplies)),
@@ -247,6 +252,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
               onSend: (text) => _send(text: text),
               onStampSend: (stampId) => _send(stampId: stampId),
               onError: _showMutationError,
+              keyboardHeights: ref.watch(keyboardHeightsProvider.notifier),
             ),
           ],
         ),
@@ -281,11 +287,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
   }
 
   void _showMutationError(Object error) {
-    if (!mounted) return;
-    final key = error is CommentPermissionException
-        ? 'commentPermissionDenied'
-        : 'commentSendFailed';
-    showAppSnackBar(context, commentText(context, key));
+    if (mounted) showCommentSendError(context, error);
   }
 
   void _deleteComment(CommentEntity comment) {
@@ -325,6 +327,31 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
       showAppSnackBar(context, context.l10n.commentDeleteFailed);
     }
   }
+}
+
+/// Whether the author turned comments off on [query]'s work. Known closed,
+/// the page asks for no comments: the response would be pixiv's notice.
+bool _closed(WidgetRef ref, CommentFeedQuery query) => commentsClosedFor(
+  ref.watch(commentsClosedProvider),
+  ref.read(illustStoreProvider),
+  query,
+);
+
+/// A comments page whose work's author turned comments off: the notice
+/// alone, with no list, composer or reply.
+class _ClosedCommentsPage extends StatelessWidget {
+  const _ClosedCommentsPage({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppTopBar(title: Text(title)),
+    body: FeedEmpty(
+      icon: Icons.comments_disabled_outlined,
+      title: context.l10n.commentsClosed,
+    ),
+  );
 }
 
 class _CommentFeedView extends ConsumerWidget {

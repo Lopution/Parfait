@@ -10,11 +10,14 @@ import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/app/layout/two_pane.dart';
 import 'package:parfait/core/bookmark/bookmark_tag_providers.dart';
+import 'package:parfait/core/comments/comment_assets.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_image_pager.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
+import 'package:parfait/app/widgets/comment_composer.dart';
+import 'package:parfait/app/widgets/comment_text.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_action_bar.dart';
 import 'package:parfait/features/comments/comments_page.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart';
@@ -35,6 +38,10 @@ import 'helpers/view_size.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_detail_page_support.dart';
+
+/// A phone short enough that the sections under the info block start
+/// below the fold.
+const _short = Size(390, 560);
 
 void main() {
   installMemoryPreferences();
@@ -157,7 +164,12 @@ void main() {
     testWidgets('a page whose last strip sits behind the top bar no longer '
         'shows the count', (tester) async {
       final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await pumpDetail(
+        tester,
+        container,
+        locale: const Locale('zh', 'CN'),
+        surface: _short,
+      );
       await tester.pumpAndSettle();
       final pageHeight = tester
           .getSize(find.byType(DetailPageImage).first)
@@ -215,7 +227,12 @@ void main() {
     testWidgets('neither asks for data before it is on screen', (tester) async {
       final log = <String>[];
       final (container, _, _) = await makeWorld(requestLog: log);
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await pumpDetail(
+        tester,
+        container,
+        locale: const Locale('zh', 'CN'),
+        surface: _short,
+      );
       await tester.pumpAndSettle();
       expect(log, isNot(contains('/v3/illust/comments')));
       expect(log, isNot(contains('/v1/user/illusts')));
@@ -223,7 +240,94 @@ void main() {
       await showSection(tester, find.text('作者的其他作品'));
       expect(log.where((path) => path == '/v3/illust/comments'), hasLength(1));
       expect(log.where((path) => path == '/v1/user/illusts'), hasLength(1));
+      // No comments yet: the entry asks for the first.
+      expect(find.text('留下第一条评论'), findsOneWidget);
     });
+
+    testWidgets(
+      'the entry composes in place; a sent comment heads the preview',
+      (tester) async {
+        final (container, _, _) = await makeWorld(
+          commentOverrides: {
+            42: [comment(1)],
+          },
+        );
+        await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+        await tester.pumpAndSettle();
+        await showSection(tester, find.text('评论（1）'));
+        final entry = find.byKey(const Key('illust-comment-entry'));
+        double bar() => tester
+            .widget<DetailActionBar>(find.byType(DetailActionBar))
+            .visibility
+            .value;
+        CommentComposerState composer() =>
+            tester.state<CommentComposerState>(find.byType(CommentComposer));
+        Future<void> settle() async {
+          await tester.pump(const Duration(seconds: 1));
+          await tester.pump(const Duration(seconds: 1));
+        }
+
+        await mockNetworkImagesFor(() async {
+          // The stamp key opens on the stamp panel, in place of the bar.
+          await tester.tap(
+            find.descendant(of: entry, matching: find.byTooltip('Stamp')),
+          );
+          await settle();
+          expect(composer().debugInputState, CommentComposerInputState.stamp);
+          expect(bar(), 0);
+          // Back closes the composer, not the page.
+          await tester.binding.handlePopRoute();
+          await settle();
+          expect(find.byType(CommentComposer), findsNothing);
+          expect(find.byType(IllustDetailPage), findsOneWidget);
+          expect(bar(), 1);
+
+          // Text left by a tap beside the composer is there the next time.
+          await tester.tap(
+            find.descendant(of: entry, matching: find.text('添加评论')),
+          );
+          await settle();
+          expect(
+            composer().debugInputState,
+            CommentComposerInputState.keyboard,
+          );
+          await tester.enterText(find.byType(TextField), 'hello');
+          // An emoji inserted last is part of it too.
+          await tester.tap(find.byTooltip('Emoji'));
+          await settle();
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.byType(CommentComposer),
+                  matching: find.byType(InkResponse),
+                )
+                .first,
+          );
+          final draft = 'hello(${commentEmojiNames.first})';
+          await tester.tapAt(const Offset(200, 120));
+          await settle();
+          expect(find.byType(CommentComposer), findsNothing);
+          await tester.tap(
+            find.descendant(of: entry, matching: find.text('添加评论')),
+          );
+          await settle();
+          expect(find.text(draft), findsOneWidget);
+
+          await tester.tap(find.byIcon(Icons.send_outlined));
+          await settle();
+        });
+        expect(find.byType(CommentComposer), findsNothing);
+        final rows = find.descendant(
+          of: find.byKey(const Key('illust-comments-preview')),
+          matching: find.byType(CommentText),
+        );
+        expect(
+          tester.widget<CommentText>(rows.first).text,
+          'hello(${commentEmojiNames.first})',
+        );
+        expect(find.text('评论（2）'), findsOneWidget);
+      },
+    );
 
     testWidgets('the preview shows the first three comments under a heading; '
         'See all opens the comments page', (tester) async {
@@ -239,7 +343,10 @@ void main() {
         useRouter: true,
       );
       await tester.pumpAndSettle();
-      await showSection(tester, find.widgetWithText(DetailSectionHeader, '评论'));
+      await showSection(
+        tester,
+        find.widgetWithText(DetailSectionHeader, '评论（5）'),
+      );
 
       final preview = find.byKey(const Key('illust-comments-preview'));
       for (var i = 1; i <= 3; i++) {
@@ -250,14 +357,14 @@ void main() {
       }
       expect(find.text('comment 4'), findsNothing);
       final heading = find.ancestor(
-        of: find.text('评论'),
+        of: find.text('评论（5）'),
         matching: find.byType(DetailSectionHeader),
       );
       expect(
         tester.getSemantics(
-          find.descendant(of: heading, matching: find.text('评论')),
+          find.descendant(of: heading, matching: find.text('评论（5）')),
         ),
-        isSemantics(label: '评论', isHeader: true),
+        isSemantics(label: '评论（5）', isHeader: true),
       );
 
       await mockNetworkImagesFor(() async {
@@ -267,6 +374,34 @@ void main() {
         await tester.pumpAndSettle();
       });
       expect(find.byType(CommentsPage), findsOneWidget);
+    });
+
+    testWidgets('a work with comments off asks for none and says so', (
+      tester,
+    ) async {
+      final log = <String>[];
+      final (container, _, _) = await makeWorld(
+        requestLog: log,
+        detailOverrides: {
+          42: {...illustJson(42), 'comment_access_control': 1},
+        },
+      );
+      // The detail lands while the section is still below the fold.
+      await pumpDetail(
+        tester,
+        container,
+        locale: const Locale('zh', 'CN'),
+        surface: _short,
+      );
+      await tester.pumpAndSettle();
+      await showSection(tester, find.text('作者的其他作品'));
+      final closed = find.byKey(const Key('illust-comments-closed'));
+      expect(find.text('作者已关闭评论'), findsOneWidget);
+      expect(
+        find.descendant(of: closed, matching: find.text('查看全部')),
+        findsNothing,
+      );
+      expect(log, isNot(contains('/v3/illust/comments')));
     });
 
     testWidgets('the author strip leaves this work out and opens the others', (

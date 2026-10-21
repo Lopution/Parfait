@@ -29,9 +29,9 @@ class DetailSectionHeader extends StatelessWidget {
       // The action's label or glyph, not its target, ends on the margin
       // (LAYOUT-15): a text button and an icon button both pad 12dp.
       padding: const EdgeInsetsDirectional.fromSTEB(
-        FuncSpacing.xl,
-        FuncSpacing.xl,
-        FuncSpacing.xl - EdgeIconButtons.glyphInset,
+        FuncSpacing.lg,
+        FuncSpacing.lg,
+        FuncSpacing.lg - EdgeIconButtons.glyphInset,
         FuncSpacing.xs,
       ),
       child: ConstrainedBox(

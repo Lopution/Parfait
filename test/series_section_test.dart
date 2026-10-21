@@ -60,7 +60,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text('第 3 话'), findsOneWidget);
+      expect(find.text('第 3 话 / 共 12 话'), findsOneWidget);
       expect(find.byTooltip('上一话'), findsOneWidget);
       expect(find.byTooltip('下一话'), findsOneWidget);
 

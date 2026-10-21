@@ -83,9 +83,29 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
       // The detail page's comment preview and author strip.
       if (request.url.path == '/v3/illust/comments') {
         final id = int.parse(request.url.queryParameters['illust_id']!);
+        final comments = commentOverrides?[id] ?? [];
         return okJson({
-          'comments': commentOverrides?[id] ?? [],
+          'comments': comments,
+          'total_comments': comments.length,
           'next_url': null,
+        });
+      }
+      // A comment sent from the detail page comes back as pixiv's would.
+      if (request.url.path == '/v1/illust/comment/add') {
+        final form = Uri.splitQueryString(request.body);
+        return okJson({
+          'comment': {
+            'id': 900,
+            'comment': form['comment'] ?? '',
+            'date': '2026-10-21T10:00:00+09:00',
+            'user': {
+              'id': 1,
+              'name': 'me',
+              'account': 'me',
+              'profile_image_urls': <String, String>{},
+            },
+            'has_replies': false,
+          },
         });
       }
       if (request.url.path == '/v1/user/illusts') {

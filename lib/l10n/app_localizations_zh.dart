@@ -2249,6 +2249,19 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String seriesEpisodeOf(int order, int total) {
+    return '第 $order 话 / 共 $total 话';
+  }
+
+  @override
+  String detailStatsSemantics(String views, String bookmarks, String date) {
+    return '$views 次浏览，$bookmarks 次收藏，发布于 $date';
+  }
+
+  @override
+  String get detailTools => '创作工具';
+
+  @override
   String get detailCollapsePages => '收起';
 
   @override
@@ -2323,6 +2336,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commentTitle => '评论';
 
   @override
+  String get commentsClosed => '作者已关闭评论';
+
+  @override
   String commentTitleCount(String count) {
     return '评论（$count）';
   }
@@ -2365,6 +2381,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get commentNoResults => '暂无评论';
+
+  @override
+  String get commentFirst => '留下第一条评论';
 
   @override
   String get commentDeletedUser => '已注销用户';

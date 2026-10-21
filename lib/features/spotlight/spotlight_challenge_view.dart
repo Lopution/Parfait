@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/edge_icon_buttons.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../core/spotlight/article_parser.dart';
 import '../../core/spotlight/spotlight_article_controller.dart';
@@ -225,10 +226,11 @@ class _SpotlightChallengeViewState
         Material(
           color: Theme.of(context).colorScheme.surfaceContainer,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(
+            // The last label, not its padding, ends on the margin.
+            padding: const EdgeInsetsDirectional.fromSTEB(
               FuncSpacing.lg,
               FuncSpacing.sm,
-              FuncSpacing.sm,
+              FuncSpacing.lg - EdgeIconButtons.glyphInset,
               FuncSpacing.sm,
             ),
             child: Row(

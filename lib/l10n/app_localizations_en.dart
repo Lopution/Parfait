@@ -2346,6 +2346,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String seriesEpisodeOf(int order, int total) {
+    return 'Part $order of $total';
+  }
+
+  @override
+  String detailStatsSemantics(String views, String bookmarks, String date) {
+    return '$views views, $bookmarks bookmarks, posted $date';
+  }
+
+  @override
+  String get detailTools => 'Made with';
+
+  @override
   String get detailCollapsePages => 'Collapse';
 
   @override
@@ -2422,6 +2435,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commentTitle => 'Comments';
 
   @override
+  String get commentsClosed => 'The author turned comments off';
+
+  @override
   String commentTitleCount(String count) {
     return 'Comments ($count)';
   }
@@ -2464,6 +2480,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commentNoResults => 'No comments';
+
+  @override
+  String get commentFirst => 'Be the first to comment';
 
   @override
   String get commentDeletedUser => 'Deleted user';

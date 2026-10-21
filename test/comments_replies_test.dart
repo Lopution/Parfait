@@ -18,9 +18,11 @@ import 'package:parfait/core/comments/comment_feed_controller.dart';
 import 'package:parfait/core/comments/comment_models.dart';
 import 'package:parfait/core/comments/comment_repository.dart';
 import 'package:parfait/core/comments/comment_store.dart';
+import 'package:parfait/core/settings/keyboard_heights.dart';
 import 'package:parfait/core/translation/translation_service.dart';
 import 'package:parfait/core/entity/comment_entity.dart';
-import 'package:parfait/features/comments/comment_input.dart';
+import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/app/widgets/comment_composer.dart';
 import 'package:parfait/features/comments/comment_item.dart';
 import 'package:parfait/features/comments/comments_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -29,6 +31,7 @@ import 'package:parfait/app/motion/removal.dart';
 
 import 'helpers/image_network.dart';
 import 'helpers/comment_world.dart';
+import 'helpers/illust_fixtures.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
@@ -242,6 +245,22 @@ void main() {
     },
   );
 
+  // Closed, the response holds one notice from pixiv (id 15, user 11).
+  test('a closed work keeps pixiv\'s notice out of its feed', () async {
+    final container = await _apiContainer(
+      (request) async => _json({
+        'comments': [_commentJson(15, userId: 11)],
+        'next_url': null,
+        'comment_access_control': 1,
+      }),
+    );
+    const query = CommentFeedQuery.root(workId: 50);
+    final feed = await container.read(commentFeedProvider(query).future);
+    expect(feed.ids, isEmpty);
+    expect(container.read(commentStoreProvider).get(15), isNull);
+    expect(container.read(commentsClosedProvider), {query.workKey: true});
+  });
+
   test('comment cursors are pinned to their endpoint and thread', () async {
     final container = await _apiContainer(
       (_) async => _json({'comments': <Object?>[], 'next_url': null}),
@@ -393,6 +412,10 @@ void main() {
         overrides: _signedIn(repository),
       );
       await container.read(accountStoreProvider.future);
+      // Only the detail has counted the work's comments so far.
+      container.read(illustStoreProvider).mergeAll([
+        parseIllust(illustJson(1)..['total_comments'] = 4),
+      ]);
       final action = container.read(commentActionsProvider);
       final result = sampleComment(20);
       repository.addCompleter = Completer<CommentEntity>();
@@ -406,6 +429,12 @@ void main() {
       expect(
         container.read(commentStoreProvider.notifier).get(20)!.id,
         result.id,
+      );
+      expect(
+        container.read(commentTotalsProvider)[CommentFeedQuery.root(
+          workId: 1,
+        ).workKey],
+        5,
       );
 
       final other = sampleComment(31, userId: 11);
@@ -509,6 +538,23 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, '查看 1 条回复'));
     await tester.pumpAndSettle();
     expect(find.byType(CommentRepliesPage), findsOneWidget);
+  });
+
+  testWidgets('a work with comments off shows the notice, no composer', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      localizedRouterApp(
+        pixivRouter('/recommended/illust/1/comments'),
+        overrides: _signedIn(FakeCommentRepository()..commentsClosed = true),
+        builder: promptHostBuilder,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('作者已关闭评论'), findsOneWidget);
+    expect(find.text('comment 11'), findsNothing);
+    expect(find.byType(CommentComposer), findsNothing);
   });
 
   testWidgets(
@@ -732,6 +778,88 @@ void main() {
     await tester.pumpWidget(withInsets(300));
     await tester.pumpWidget(withInsets(0));
     expect(slot(), 0);
+  });
+
+  // One bottom budget: the navigation bar under a resting row, the
+  // keyboard over it, and a panel at the keyboard's height, so the row
+  // holds still as they swap — in a later composer too.
+  testWidgets('panels stand exactly where the keyboard stood', (tester) async {
+    final memory = _MapKeyboardHeights();
+    Widget withInsets(double keyboard, {Key? key}) => composerApp(
+      Builder(
+        builder: (context) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            viewPadding: const EdgeInsets.only(bottom: 48),
+            viewInsets: EdgeInsets.only(bottom: keyboard),
+          ),
+          child: Scaffold(
+            resizeToAvoidBottomInset: false,
+            body: Column(
+              children: [
+                const Expanded(child: SizedBox()),
+                CommentComposer(
+                  key: key,
+                  onSend: (_) async {},
+                  onStampSend: (_) async {},
+                  keyboardHeights: memory,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    double row() => tester.getBottomLeft(find.byType(TextField)).dy;
+
+    await tester.pumpWidget(withInsets(0));
+    final resting = row();
+    // Before any docked keyboard (a floating one's low inset is dropped):
+    // the default panel, above the navigation bar.
+    await tester.tap(find.byType(TextField));
+    await tester.pumpWidget(withInsets(90));
+    await tester.tap(find.byTooltip('Emoji'));
+    await tester.pumpWidget(withInsets(0));
+    await _settlePanel(tester);
+    expect(row(), resting - 280);
+    await tester.tap(find.byTooltip('Emoji'));
+    await _settlePanel(tester);
+    expect(row(), resting);
+
+    await tester.tap(find.byType(TextField));
+    await tester.pumpWidget(withInsets(330));
+    final typing = row();
+    expect(typing, resting - 330 + 48);
+    await tester.tap(find.byTooltip('Emoji'));
+    await tester.pumpWidget(withInsets(0));
+    await _settlePanel(tester);
+    expect(row(), typing);
+
+    // A new composer opens its panel at the remembered height.
+    await tester.pumpWidget(withInsets(0, key: UniqueKey()));
+    await tester.tap(find.byTooltip('Stamp'));
+    await _settlePanel(tester);
+    expect(row(), typing);
+  });
+
+  test('keyboard heights persist per screen shape', () async {
+    installMemoryPreferences();
+    final first = ProviderContainer();
+    addTearDown(first.dispose);
+    first.read(keyboardHeightsProvider.notifier)
+      ..record(const Size(400, 800), 300)
+      // A floating keyboard's inset: no docked keyboard is this low.
+      ..record(const Size(400, 800), 90)
+      ..record(const Size(800, 400), 200);
+    await pumpEventQueue();
+
+    final second = ProviderContainer();
+    addTearDown(second.dispose);
+    second.read(keyboardHeightsProvider);
+    await pumpEventQueue();
+    final heights = second.read(keyboardHeightsProvider.notifier);
+    expect(heights.heightFor(const Size(400, 760)), 300);
+    expect(heights.heightFor(const Size(800, 400)), 200);
+    expect(heights.heightFor(const Size(600, 900)), isNull);
   });
 
   testWidgets('the panel rises on a spring and waits for the keyboard', (
@@ -1122,4 +1250,18 @@ void main() {
     await typeAndSend(tester);
     expect(haptics.played, isEmpty);
   });
+}
+
+/// The composer's keyboard memory, held in a map.
+class _MapKeyboardHeights implements KeyboardHeightMemory {
+  final _heights = <Size, double>{};
+
+  @override
+  double? heightFor(Size size) => _heights[size];
+
+  /// Drops what no docked keyboard has, as [KeyboardHeights] does.
+  @override
+  void record(Size size, double height) {
+    if (height >= KeyboardHeights.minHeight) _heights[size] = height;
+  }
 }

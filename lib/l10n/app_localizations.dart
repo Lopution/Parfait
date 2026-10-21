@@ -4331,6 +4331,24 @@ abstract class AppLocalizations {
   /// **'{views} 次浏览，{bookmarks} 次收藏'**
   String detailMetaCountsSemantics(String views, String bookmarks);
 
+  /// Episode line of the series card on the detail page once the series' length is known.
+  ///
+  /// In zh, this message translates to:
+  /// **'第 {order} 话 / 共 {total} 话'**
+  String seriesEpisodeOf(int order, int total);
+
+  /// Screen-reader text of the stats line under an artwork title: views, bookmarks and the posting date.
+  ///
+  /// In zh, this message translates to:
+  /// **'{views} 次浏览，{bookmarks} 次收藏，发布于 {date}'**
+  String detailStatsSemantics(String views, String bookmarks, String date);
+
+  /// Spoken before the software an artwork was made with, in the detail facts row.
+  ///
+  /// In zh, this message translates to:
+  /// **'创作工具'**
+  String get detailTools;
+
   /// Folds an expanded illustration set back to its first image.
   ///
   /// In zh, this message translates to:
@@ -4463,6 +4481,12 @@ abstract class AppLocalizations {
   /// **'评论'**
   String get commentTitle;
 
+  /// No description provided for @commentsClosed.
+  ///
+  /// In zh, this message translates to:
+  /// **'作者已关闭评论'**
+  String get commentsClosed;
+
   /// Heading of a work's comments with their number. count is already formatted.
   ///
   /// In zh, this message translates to:
@@ -4546,6 +4570,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暂无评论'**
   String get commentNoResults;
+
+  /// Hint of the detail page comment entry when the work has no comments yet.
+  ///
+  /// In zh, this message translates to:
+  /// **'留下第一条评论'**
+  String get commentFirst;
 
   /// No description provided for @commentDeletedUser.
   ///

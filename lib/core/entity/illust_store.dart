@@ -136,6 +136,11 @@ class IllustStore {
           isBookmarked:
               bookmarkAuthority ??
               (entity.isBookmarked || existing.isBookmarked),
+          // A detail payload that does not say keeps the known comment
+          // count and switch (API-04).
+          totalComments: entity.totalComments ?? existing.totalComments,
+          commentAccessControl:
+              entity.commentAccessControl ?? existing.commentAccessControl,
           seriesId: entity.seriesKnown ? entity.seriesId : existing.seriesId,
           seriesKnown: entity.seriesKnown || existing.seriesKnown,
         );
@@ -158,6 +163,9 @@ class IllustStore {
         // no-regress rule as caption/metaPages).
         createDate: entity.createDate ?? existing.createDate,
         totalComments: entity.totalComments ?? existing.totalComments,
+        commentAccessControl:
+            entity.commentAccessControl ?? existing.commentAccessControl,
+        tools: entity.tools.isNotEmpty ? entity.tools : existing.tools,
         // A payload that does not say leaves the known series alone.
         seriesId: entity.seriesKnown ? entity.seriesId : existing.seriesId,
         seriesKnown: entity.seriesKnown || existing.seriesKnown,

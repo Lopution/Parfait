@@ -1234,6 +1234,37 @@
   "searchUserAccount": "账号",
   "illustDetailTitle": "作品详情",
   "detailMetaCountsSemantics": "{views} 次浏览，{bookmarks} 次收藏",
+  "seriesEpisodeOf": "第 {order} 话 / 共 {total} 话",
+  "detailStatsSemantics": "{views} 次浏览，{bookmarks} 次收藏，发布于 {date}",
+  "detailTools": "创作工具",
+  "@seriesEpisodeOf": {
+    "description": "Episode line of the series card on the detail page once the series' length is known.",
+    "placeholders": {
+      "order": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "@detailStatsSemantics": {
+    "description": "Screen-reader text of the stats line under an artwork title: views, bookmarks and the posting date.",
+    "placeholders": {
+      "views": {
+        "type": "String"
+      },
+      "bookmarks": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@detailTools": {
+    "description": "Spoken before the software an artwork was made with, in the detail facts row."
+  },
   "@detailMetaCountsSemantics": {
     "description": "The metadata line's screen-reader text when the posting date is unknown.",
     "placeholders": {
@@ -1340,6 +1371,7 @@
   "illustDetailNotFound": "作品不存在或已被删除",
   "illustDetailLoadFailed": "作品加载失败",
   "commentTitle": "评论",
+  "commentsClosed": "作者已关闭评论",
   "commentTitleCount": "评论（{count}）",
   "@commentTitleCount": {
     "description": "Heading of a work's comments with their number. count is already formatted.",
@@ -1362,6 +1394,10 @@
   "relatedLoadFailed": "相关作品加载失败",
   "commentLoadMoreFailed": "加载更多评论失败",
   "commentNoResults": "暂无评论",
+  "commentFirst": "留下第一条评论",
+  "@commentFirst": {
+    "description": "Hint of the detail page comment entry when the work has no comments yet."
+  },
   "commentDeletedUser": "已注销用户",
   "commentReplies": "回复",
   "commentViewReplies": "查看 {count} 条回复",
