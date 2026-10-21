@@ -1,16 +1,20 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
+
+import 'motion/motion_tokens.dart';
 
 /// App-wide scroll behavior: on desktop the mouse and trackpad drag like
 /// touch (Flutter's default excludes them, leaving wheel-only scrolling).
 /// Wheel smoothing itself is per-scrollable — see `SmoothWheelScroll`.
 ///
 /// Touch physics follow Android's lists app-wide ([FuncScrollPhysics]):
-/// the fling of `OverScroller`, a hard stop at both ends and no overscroll
-/// glow or stretch. Feeds run EasyRefresh's physics on the same fling (see
-/// `PullToRefresh`), so detail/settings/search pages, profile
-/// NestedScrollView outer scrolls and feed scrolls share one scheme.
+/// the fling of `OverScroller` and a hard stop at both ends, with Android
+/// 12's stretch at the ends ([stretchOverscroll]). Feeds run EasyRefresh's
+/// physics on the same fling (see `PullToRefresh`), so
+/// detail/settings/search pages, profile NestedScrollView outer scrolls and
+/// feed scrolls share one scheme.
 ///
 /// Vertical lists show a scrollbar while a mouse is connected
 /// ([mouseScrollbar]).
@@ -37,7 +41,7 @@ class FuncScrollBehavior extends MaterialScrollBehavior {
     BuildContext context,
     Widget child,
     ScrollableDetails details,
-  ) => child;
+  ) => stretchOverscroll(context, child, details);
 
   @override
   Widget buildScrollbar(
@@ -51,6 +55,55 @@ class FuncScrollBehavior extends MaterialScrollBehavior {
     _ => mouseScrollbar(child, details),
   };
 }
+
+/// [child] with the edge effect of Android 12's lists: a drag past an end
+/// stretches the content and a fling into one stretches by its speed,
+/// both springing back, while the physics still stop the list at the end.
+/// Other platforms, reduced motion and the scrollable inside a text
+/// control keep the bare edge, and so does a NestedScrollView's outer
+/// scroll: its body's lists stretch, as only the RecyclerView under an
+/// `AppBarLayout` does, and the outer one stretching too at the end of a
+/// fling doubled the effect.
+///
+/// [refreshAtLeadingEdge]: the vertical list pulls a refresh header out at
+/// its top. A drag there is the header's alone, so it does not stretch; a
+/// fling into the top still does, as under `SwipeRefreshLayout`.
+Widget stretchOverscroll(
+  BuildContext context,
+  Widget child,
+  ScrollableDetails details, {
+  bool refreshAtLeadingEdge = false,
+}) {
+  if (defaultTargetPlatform != TargetPlatform.android ||
+      textScrollPhysics(context) != null ||
+      details.controller?.debugLabel == _nestedOuterLabel ||
+      !MotionTokens.enabled(context)) {
+    return child;
+  }
+  final pullsRefresh =
+      refreshAtLeadingEdge &&
+      axisDirectionToAxis(details.direction) == Axis.vertical;
+  return StretchingOverscrollIndicator(
+    axisDirection: details.direction,
+    clipBehavior: details.decorationClipBehavior ?? Clip.hardEdge,
+    notificationPredicate: pullsRefresh
+        ? _notRefreshPull
+        : defaultScrollNotificationPredicate,
+    child: child,
+  );
+}
+
+/// The debug label NestedScrollView gives its outer controller ('inner'
+/// for the body's).
+const _nestedOuterLabel = 'outer';
+
+/// Every notification but a drag past the leading edge: the indicator
+/// reads a negative overscroll as the leading edge's.
+bool _notRefreshPull(ScrollNotification notification) =>
+    defaultScrollNotificationPredicate(notification) &&
+    !(notification is OverscrollNotification &&
+        notification.dragDetails != null &&
+        notification.overscroll < 0);
 
 /// The physics of the scrollable a text control (`SelectableText`,
 /// `TextField`) keeps inside its [EditableText], or null for any other
@@ -77,7 +130,7 @@ Widget mouseScrollbar(Widget child, ScrollableDetails details) {
       controller == null ||
       controller.positions.length > 1 ||
       controller.debugLabel == 'inner' ||
-      controller.debugLabel == 'outer') {
+      controller.debugLabel == _nestedOuterLabel) {
     return child;
   }
   return _MouseScrollbar(controller: controller, child: child);

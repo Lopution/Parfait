@@ -208,11 +208,18 @@ reviewed: 2026-10-19
 
 ## Scroll physics
 
-### FEED-11 One clamping physics everywhere; nothing passes an edge
+### FEED-11 One clamping physics everywhere; the ends stretch
 - **Rule:** `FuncScrollBehavior` gives every page `FuncScrollPhysics`, a
   `ClampingScrollPhysics`: a fling runs `OverScroller`'s curve, a fling
-  and a drag stop at both ends, and no overscroll glow or stretch is
-  drawn. Feeds run EasyRefresh's bouncing physics under `_FeedPhysics`,
+  and a drag stop at both ends. On Android both behaviors (the app's and
+  the feeds' `_FeedScrollBehavior`) draw Android 12's stretch through
+  `stretchOverscroll`: a drag past an end and a fling into one stretch
+  the content and spring back, the position staying clamped. In a feed
+  a drag past the top is the refresh header's and does not stretch; a
+  fling into the top does. A NestedScrollView's outer scroll draws
+  nothing; its body's lists stretch. Other platforms, reduced motion and
+  a text control's scrollable draw nothing either. Feeds run
+  EasyRefresh's bouncing physics under `_FeedPhysics`,
   which swaps its in-range fling for a `ClampingScrollSimulation`, takes
   Android's fling start speed and carried momentum (none), and drops its
   drag dead zone; `PullToRefresh` passes
@@ -230,7 +237,14 @@ reviewed: 2026-10-19
   one-line selectable title followed the finger instead of the page.
   Bouncing physics bring iOS's 3.5px start threshold: past the slop a
   slow drag stuck before the list moved, which Android lists never do.
-- **Check:** `test/scroll_behavior_test.dart` "a fling stops at the end instead of springing back" "a drag stops at either end" "a fling coasts on the Android curve" "a selectable title that fits scrolls the page, not itself" "the list follows the finger from the move past the slop", `test/pull_to_refresh_test.dart` "a fling stops at the trailing edge instead of bouncing back"
+  Hard stops with no edge effect felt dead at the ends; the user kept
+  the clamping feel and chose Android's stretch at both ends, as
+  RecyclerView under `SwipeRefreshLayout` draws it (user decision 10-21).
+  EasyRefresh's behavior draws no edge effect, so the global behavior
+  alone left every feed bare. On a profile the outer scroll stretched
+  with the tab's list at the end of a fling, doubling the effect; native
+  only the list under an `AppBarLayout` stretches.
+- **Check:** `test/scroll_behavior_test.dart` "a fling into the end stretches and stops there" "a drag past either end stretches while the list stays" "a refresh list leaves a top drag to the disc" "a NestedScrollView stretches its body alone" "other platforms and reduced motion keep the bare edge" "a fling coasts on the Android curve" "a selectable title that fits scrolls the page, not itself" "the list follows the finger from the move past the slop", `test/pull_to_refresh_test.dart` "a fling stops at the trailing edge instead of bouncing back"
 - **Code:** `lib/app/scroll_behavior.dart`, `lib/app/pull_to_refresh.dart`
 
 ### FEED-12 NestedScrollView gets explicit physics and one inner tab
