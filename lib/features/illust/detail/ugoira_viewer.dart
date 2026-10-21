@@ -223,7 +223,7 @@ class _UgoiraViewerState extends ConsumerState<UgoiraViewer>
                   ),
                   child: const Icon(
                     Icons.gif_box_outlined,
-                    color: FuncTokens.lightBackground,
+                    color: FuncTokens.white,
                     size: 30,
                   ),
                 ),
@@ -680,7 +680,7 @@ class _PlayOverlay extends StatelessWidget {
       child: Icon(
         Icons.play_circle_outline_outlined,
         size: 70,
-        color: FuncTokens.lightBackground,
+        color: FuncTokens.white,
       ),
     );
   }
@@ -718,7 +718,7 @@ class _ErrorOverlay extends StatelessWidget {
                 children: [
                   Text(
                     failure.message,
-                    style: TextStyle(color: FuncTokens.lightBackground),
+                    style: TextStyle(color: FuncTokens.white),
                   ),
                   if (error != null) ...[
                     const SizedBox(height: FuncSpacing.sm),
@@ -727,7 +727,7 @@ class _ErrorOverlay extends StatelessWidget {
                         errorCategoryText(context, categorizeError(error)),
                         style: TextStyle(
                           fontSize: 12,
-                          color: FuncTokens.lightBackground.withAlpha(204),
+                          color: FuncTokens.white.withAlpha(204),
                         ),
                       ),
                     ErrorDetails(error: error),

@@ -59,7 +59,8 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
   factory FuncSemanticTokens.fromBrightness(
     Brightness brightness,
     TextTheme textTheme, {
-    required Color primary,
+    required Color brand,
+    required Color onBrand,
   }) {
     final dark = brightness == Brightness.dark;
     final text = dark ? FuncTokens.darkText : FuncTokens.lightText;
@@ -79,11 +80,11 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       contentTertiary: dark
           ? FuncTokens.darkText.withValues(alpha: 0.35)
           : FuncTokens.lightText.withValues(alpha: 0.35),
-      brand: primary,
-      onBrand: FuncTokens.lightBackground,
-      danger: FuncTokens.danger,
-      success: FuncTokens.success,
-      warning: FuncTokens.warning,
+      brand: brand,
+      onBrand: onBrand,
+      danger: dark ? FuncTokens.darkError : FuncTokens.lightError,
+      success: dark ? FuncTokens.darkSuccess : FuncTokens.lightSuccess,
+      warning: dark ? FuncTokens.darkWarning : FuncTokens.lightWarning,
       // The type ramp derives from the resolved TextTheme so font size and
       // weight have a single source of truth; only colors and tabular
       // figures are applied on top.
@@ -135,7 +136,8 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
         FuncSemanticTokens.fromBrightness(
           theme.brightness,
           theme.textTheme,
-          primary: theme.colorScheme.primary,
+          brand: theme.colorScheme.primary,
+          onBrand: theme.colorScheme.onPrimary,
         );
   }
 

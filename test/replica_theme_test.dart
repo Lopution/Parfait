@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
+import 'package:parfait/app/theme/func_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/theme/system_colors.dart';
 import 'support/contrast.dart';
@@ -33,6 +34,34 @@ void main() {
           greaterThanOrEqualTo(4.5),
         );
       }
+    }
+  });
+
+  test('the light accent reads at 4.5:1 up to the sheet tier', () {
+    final scheme = replicaTheme(Brightness.light).colorScheme;
+    // Dialogs and the highest tier fall short: a known trade (THEME-06).
+    for (final background in _surfaces(scheme).take(4)) {
+      expect(
+        contrastRatio(scheme.primary, background),
+        greaterThanOrEqualTo(4.5),
+      );
+    }
+  });
+
+  test('fills are the brand pink under white; selection stays tonal', () {
+    for (final brightness in Brightness.values) {
+      final theme = replicaTheme(brightness);
+      final tokens = theme.extension<FuncSemanticTokens>()!;
+      final filled = theme.filledButtonTheme.style!;
+      expect(tokens.brand, FuncTokens.primary);
+      expect(filled.backgroundColor!.resolve({}), tokens.brand);
+      expect(filled.foregroundColor!.resolve({}), FuncTokens.white);
+      expect(
+        filled.backgroundColor!.resolve({WidgetState.disabled}),
+        isNot(tokens.brand),
+      );
+      // A selected row is a pale container under dark text, not the fill.
+      expect(theme.colorScheme.primaryContainer, isNot(tokens.brand));
     }
   });
 
@@ -71,7 +100,13 @@ void main() {
       expect(theme.primaryColor, system.primary);
       expect(theme.tabBarTheme.labelColor, system.primary);
       expect(theme.tabBarTheme.indicatorColor, system.primary);
-      expect(theme.extension<FuncSemanticTokens>()!.brand, system.primary);
+      final tokens = theme.extension<FuncSemanticTokens>()!;
+      expect(tokens.brand, system.primary);
+      expect(tokens.onBrand, system.onPrimary);
+      expect(
+        theme.filledButtonTheme.style!.backgroundColor!.resolve({}),
+        system.primary,
+      );
       expect(theme.appBarTheme.backgroundColor, theme.scaffoldBackgroundColor);
     }
   });

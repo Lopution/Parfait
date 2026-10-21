@@ -16,6 +16,11 @@ const _disabledContainerAlpha = 0.12;
 /// [systemColors] is the platform accent palette (dynamic color); only the
 /// accent roles are taken from it — neutrals stay on FuncTokens so every
 /// surface tier keeps the app's ladder.
+///
+/// The default accent is split: `colorScheme.primary` paints text, icons
+/// and indicators (a deeper rose on the light page, where the brand pink
+/// is too light to read), and [FuncSemanticTokens.brand] fills, the brand
+/// pink under white in both themes. A system palette paints both.
 ThemeData replicaTheme(
   Brightness brightness, {
   ColorScheme? systemColors,
@@ -47,6 +52,12 @@ ThemeData replicaTheme(
       ? FuncTokens.darkTextSecondary
       : FuncTokens.lightTextSecondary;
 
+  final accent =
+      systemColors?.primary ??
+      (dark ? FuncTokens.primary : FuncTokens.lightAccent);
+  final brand = systemColors?.primary ?? FuncTokens.primary;
+  final onBrand = systemColors?.onPrimary ?? FuncTokens.white;
+
   final baseTextTheme = ThemeData(
     brightness: brightness,
   ).textTheme.apply(bodyColor: text, displayColor: text);
@@ -56,7 +67,7 @@ ThemeData replicaTheme(
     brightness: brightness,
   );
   final colorScheme = seeded.copyWith(
-    primary: systemColors?.primary ?? FuncTokens.primary,
+    primary: accent,
     primaryContainer: systemColors?.primaryContainer ?? seeded.primaryContainer,
     onPrimaryContainer:
         systemColors?.onPrimaryContainer ?? seeded.onPrimaryContainer,
@@ -69,7 +80,7 @@ ThemeData replicaTheme(
     surfaceContainer: container,
     surfaceContainerHigh: containerHigh,
     surfaceContainerHighest: containerHighest,
-    onPrimary: systemColors?.onPrimary ?? FuncTokens.lightBackground,
+    onPrimary: onBrand,
     secondaryContainer: containerHighest,
     onSecondary: background,
     onSecondaryContainer: text,
@@ -81,8 +92,8 @@ ThemeData replicaTheme(
     // readable secondary color.
     outline: subdued,
     outlineVariant: subdued,
-    error: FuncTokens.error,
-    onError: FuncTokens.lightBackground,
+    error: dark ? FuncTokens.darkError : FuncTokens.lightError,
+    onError: FuncTokens.white,
   );
 
   // One type scale feeds both TextTheme roles and the semantic token ramp
@@ -148,7 +159,8 @@ ThemeData replicaTheme(
       FuncSemanticTokens.fromBrightness(
         brightness,
         textTheme,
-        primary: colorScheme.primary,
+        brand: brand,
+        onBrand: onBrand,
       ),
     ],
     // The prompt card (PromptHost) takes its surface, shape, elevation and
@@ -277,6 +289,22 @@ ThemeData replicaTheme(
       dragHandleColor: colorScheme.onSurfaceVariant,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+    ),
+    // Filled buttons are brand fills; disabled, they take M3's disabled
+    // colors like the switch below.
+    filledButtonTheme: FilledButtonThemeData(
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? colorScheme.onSurface.withValues(alpha: _disabledContainerAlpha)
+              : brand,
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? colorScheme.onSurface.withValues(alpha: _disabledContentAlpha)
+              : onBrand,
+        ),
       ),
     ),
     // A disabled switch takes M3's disabled colors: a locked one drawn in

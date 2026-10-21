@@ -109,6 +109,7 @@ class _FollowSwitchButtonState extends ConsumerState<FollowSwitchButton> {
     final followed = entry?.shown ?? false;
     final unsettled = entry?.isUnsettled ?? false;
     final colors = Theme.of(context).colorScheme;
+    final tokens = FuncSemanticTokens.of(context);
     final semanticLabel = _text(context, followed ? 'followed' : 'follow');
     ref.listen<Object?>(
       followStoreProvider.select((state) => state[userId]?.error),
@@ -157,12 +158,10 @@ class _FollowSwitchButtonState extends ConsumerState<FollowSwitchButton> {
             child: ExcludeSemantics(
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: followed
-                      ? colors.onSurface
-                      : colors.onPrimary,
-                  backgroundColor: followed ? colors.surface : colors.primary,
+                  foregroundColor: followed ? colors.onSurface : tokens.onBrand,
+                  backgroundColor: followed ? colors.surface : tokens.brand,
                   side: BorderSide(
-                    color: followed ? colors.onSurface : colors.primary,
+                    color: followed ? colors.onSurface : tokens.brand,
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: _labelPadding,
