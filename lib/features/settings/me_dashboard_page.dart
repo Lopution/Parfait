@@ -199,6 +199,7 @@ class _RecentHistory extends ConsumerStatefulWidget {
 
   static const _count = 8;
   static const _cover = 88.0;
+  static const _gap = FuncSpacing.sm;
 
   /// The row's own Hero scope (TRANS-07): the same work may sit on a feed
   /// still mounted in another branch.
@@ -218,12 +219,20 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory>
   final _pager = IllustPagerSource();
 
   /// The covers as shown. Each work opened from the row moves to the front
-  /// of the history, but the row keeps its order until the user leaves the
-  /// page, and takes the new one when it next shows: the image flying back
-  /// lands where its cover was when the pager aimed it, and no cover moves
-  /// under the eye.
+  /// of the history, but the row keeps its order while a page opened from
+  /// it is up, so the image flying back lands where its cover was when the
+  /// pager aimed it. Once that page has left, the row takes the new order,
+  /// each cover sliding to its place.
   List<HistoryRecord> _shown = const [];
   bool _hold = false;
+
+  /// Bumped each time the row takes a new order; [_from] holds where each
+  /// cover was then, in places relative to its new one, and [_joined] the
+  /// covers that order brought onto the row. A first fill (an empty row
+  /// before) slides nothing.
+  int _order = 0;
+  Map<(HistoryContentType, int), int> _from = const {};
+  Set<(HistoryContentType, int)> _joined = const {};
 
   /// Whether a page opened from the row is up: hidden under it, the row
   /// has not been left.
@@ -249,12 +258,39 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory>
     super.dispose();
   }
 
+  /// The page opened from the row has left and its image has landed.
   void _onCover(AnimationStatus status) {
     if (!status.isDismissed) return;
     setState(() {
       _opened = false;
+      _hold = false;
       _flies = true;
     });
+  }
+
+  static (HistoryContentType, int) _keyOf(HistoryRecord record) =>
+      (record.contentType, record.contentId);
+
+  void _adopt(List<HistoryRecord> records) {
+    final before = {for (final (i, r) in _shown.indexed) _keyOf(r): i};
+    final moved =
+        before.length != records.length ||
+        records.indexed.any((e) => before[_keyOf(e.$2)] != e.$1);
+    if (before.isEmpty) {
+      _from = const {};
+      _joined = const {};
+    } else if (moved) {
+      _order++;
+      _from = {
+        for (final (i, r) in records.indexed)
+          if (before[_keyOf(r)] case final was?) _keyOf(r): was - i,
+      };
+      _joined = {
+        for (final r in records)
+          if (!before.containsKey(_keyOf(r))) _keyOf(r),
+      };
+    }
+    _shown = records;
   }
 
   void _open(HistoryRecord record) {
@@ -289,6 +325,19 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory>
     }
   }
 
+  Widget _rowCover(IllustStore store, HistoryRecord record) {
+    final illust = record.contentType == HistoryContentType.illust;
+    final cover = _RecentCover(
+      record: record,
+      entity: illust ? store.get(record.contentId) : null,
+      flies: _flies,
+      onTap: () => _open(record),
+    );
+    return illust
+        ? IllustPagerAnchor(illustId: record.contentId, child: cover)
+        : cover;
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -297,7 +346,7 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory>
     final showing = TickerMode.valuesOf(context).enabled;
     if (!showing && !_opened) _hold = false;
     final records = ref.watch(_recentHistoryProvider).value;
-    if (records != null && showing && !_hold) _shown = records;
+    if (records != null && showing && !_hold) _adopt(records);
     final shown = _shown;
     if (shown.isEmpty) return const SizedBox.shrink();
     final store = ref.watch(illustStoreProvider);
@@ -340,29 +389,25 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory>
             height: _RecentHistory._cover,
             child: IllustPagerScope(
               source: _pager,
-              child: ListView.separated(
+              // Eight covers at most: built all at once, keyed by work, so
+              // each keeps its state as the order changes.
+              child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
-                itemCount: shown.length,
-                separatorBuilder: (_, _) =>
-                    const SizedBox(width: FuncSpacing.sm),
-                itemBuilder: (context, index) {
-                  final record = shown[index];
-                  final cover = _RecentCover(
-                    record: record,
-                    entity: record.contentType == HistoryContentType.illust
-                        ? store.get(record.contentId)
-                        : null,
-                    flies: _flies,
-                    onTap: () => _open(record),
-                  );
-                  return record.contentType == HistoryContentType.illust
-                      ? IllustPagerAnchor(
-                          illustId: record.contentId,
-                          child: cover,
-                        )
-                      : cover;
-                },
+                child: Row(
+                  children: [
+                    for (final (index, record) in shown.indexed) ...[
+                      if (index > 0) const SizedBox(width: _RecentHistory._gap),
+                      _RowSlot(
+                        key: ValueKey(_keyOf(record)),
+                        order: _order,
+                        from: _from[_keyOf(record)],
+                        entering: _joined.contains(_keyOf(record)),
+                        child: _rowCover(store, record),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -370,6 +415,106 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory>
       ),
     );
   }
+}
+
+/// A cover's place on the row. When the row takes a new order, a cover
+/// that moved slides from where it was to its new place; one new to the row
+/// slides in from the leading edge and fades in. A new order arriving
+/// mid-slide carries on from where the cover is. Reduced motion moves it at
+/// once.
+class _RowSlot extends StatefulWidget {
+  const _RowSlot({
+    super.key,
+    required this.order,
+    required this.from,
+    required this.entering,
+    required this.child,
+  });
+
+  /// The row's order generation; a new one starts a slide.
+  final int order;
+
+  /// Where the cover was when the row took [order], in places relative to
+  /// its new one; null when it is new to the row.
+  final int? from;
+
+  /// Whether the cover joined the row with [order].
+  final bool entering;
+  final Widget child;
+
+  @override
+  State<_RowSlot> createState() => _RowSlotState();
+}
+
+class _RowSlotState extends State<_RowSlot>
+    with SingleTickerProviderStateMixin {
+  static const _stride = _RecentHistory._cover + _RecentHistory._gap;
+
+  /// The fade of a cover joining the row: an effect, shorter than the move.
+  static const _fadeIn = Interval(0, 0.5);
+
+  late final _controller = AnimationController(vsync: this, value: 1);
+
+  /// The slide's start, in logical pixels from the cover's place.
+  double _start = 0;
+  bool _fading = false;
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (widget.entering) _slide(from: -1, fade: true);
+  }
+
+  @override
+  void didUpdateWidget(_RowSlot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.order == oldWidget.order) return;
+    final from = widget.from;
+    if (from != null && from != 0) _slide(from: from, fade: false);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  double get _offset =>
+      _start * (1 - MotionTokens.spatialCurve.transform(_controller.value));
+
+  void _slide({required int from, required bool fade}) {
+    final duration = MotionTokens.resolve(context, MotionTokens.spatial);
+    if (duration == Duration.zero) return;
+    final leading = Directionality.of(context) == TextDirection.ltr ? 1 : -1;
+    _start = _offset + from * _stride * leading;
+    _fading = fade;
+    _controller
+      ..duration = duration
+      ..forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _controller,
+    child: widget.child,
+    builder: (context, child) {
+      final moved = Transform.translate(
+        offset: Offset(_offset, 0),
+        child: child,
+      );
+      return _fading
+          ? Opacity(
+              opacity: _fadeIn.transform(_controller.value),
+              // Still one object to a screen reader while it fades in.
+              alwaysIncludeSemantics: true,
+              child: moved,
+            )
+          : moved;
+    },
+  );
 }
 
 /// A work of the row: its cover, the top of a tall one and the middle of

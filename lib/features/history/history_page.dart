@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -49,13 +50,78 @@ class HistoryPage extends ConsumerStatefulWidget {
 }
 
 class _HistoryPageState extends ConsumerState<HistoryPage> {
-  int _clearGeneration = 0;
+  /// Bumped by a clear and by an out-of-sight catch-up: the body is built
+  /// afresh, its scroll back at the top.
+  int _bodyGeneration = 0;
+
+  StreamSubscription<void>? _changes;
+  ValueListenable<TickerModeData>? _tickerMode;
+  ModalRoute<dynamic>? _route;
+  bool _catchingUp = false;
+  bool _catchUpAgain = false;
 
   /// Selection mode is page-local state: nothing outside
   /// this page consumes it, so it never leaves the widget tree.
   bool _managing = false;
   final Set<int> _selected = <int>{};
   final _removals = RemovalController();
+
+  @override
+  void initState() {
+    super.initState();
+    _changes = ref
+        .read(historyRepositoryProvider)
+        .changes
+        .listen((_) => _onHistoryChanged());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _tickerMode = TickerMode.getValuesNotifier(context);
+    _route = ModalRoute.of(context);
+  }
+
+  @override
+  void dispose() {
+    unawaited(_changes?.cancel());
+    super.dispose();
+  }
+
+  /// The page keeps its order while it shows, and under a page it opened:
+  /// the image flying back lands on the card it left. Hidden on another
+  /// tab with nothing over it, it catches up out of sight, so the tab
+  /// comes back current.
+  void _onHistoryChanged() {
+    final accountId = ref.read(historyAccountIdProvider);
+    if (!mounted ||
+        accountId == null ||
+        _managing ||
+        (_tickerMode?.value.enabled ?? true) ||
+        !(_route?.isCurrent ?? false)) {
+      return;
+    }
+    unawaited(_catchUp(accountId));
+  }
+
+  Future<void> _catchUp(String accountId) async {
+    if (_catchingUp) {
+      _catchUpAgain = true;
+      return;
+    }
+    _catchingUp = true;
+    try {
+      final provider = historyFeedControllerProvider(accountId);
+      do {
+        _catchUpAgain = false;
+        if (!ref.read(provider).hasValue) return;
+        await ref.read(provider.notifier).refresh();
+      } while (_catchUpAgain && mounted);
+      if (mounted) setState(() => _bodyGeneration++);
+    } finally {
+      _catchingUp = false;
+    }
+  }
 
   void _enterManaging([int? recordKey]) {
     // Entering management mode is the explicit-vibration role (W4).
@@ -175,7 +241,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             : RemovalScope(
                 controller: _removals,
                 child: _HistoryBody(
-                  key: ValueKey('$accountId-$_clearGeneration'),
+                  key: ValueKey('$accountId-$_bodyGeneration'),
+                  generation: _bodyGeneration,
                   accountId: accountId,
                   managing: _managing,
                   selectedKeys: _selected,
@@ -273,7 +340,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     try {
       await repository.clear(accountId);
       if (context.mounted) {
-        setState(() => _clearGeneration++);
+        setState(() => _bodyGeneration++);
         showAppSnackBar(context, context.l10n.historyDeleteAll);
       }
     } on Object catch (error) {
@@ -291,6 +358,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 class _HistoryBody extends ConsumerWidget {
   const _HistoryBody({
     super.key,
+    required this.generation,
     required this.accountId,
     required this.managing,
     required this.selectedKeys,
@@ -301,6 +369,9 @@ class _HistoryBody extends ConsumerWidget {
   /// Selection state is owned by the page — the AppBar renders the count
   /// and reads the feed's ids for select-all; the body only reports taps.
   final String accountId;
+
+  /// The page's body generation; keys the scroll position.
+  final int generation;
   final bool managing;
   final Set<int> selectedKeys;
   final ValueChanged<int> onToggle;
@@ -364,7 +435,9 @@ class _HistoryBody extends ConsumerWidget {
             child: SmoothWheelScroll(
               builder: (context, controller, physics) =>
                   DeferredCacheScrollView(
-                    key: PageStorageKey('history-$accountId'),
+                    // A new generation starts at the top, not at the
+                    // offset kept for the list it replaced.
+                    key: PageStorageKey('history-$accountId-$generation'),
                     controller: controller,
                     physics: physics,
                     scrollCacheExtent: kFeedCacheExtent,
