@@ -5872,6 +5872,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{count, plural, other{{count} 天前}}'**
   String timeDaysAgo(int count);
+
+  /// Screen-reader hint of the Me page header: tapping opens the signed-in user's profile
+  ///
+  /// In zh, this message translates to:
+  /// **'打开个人主页'**
+  String get meOpenProfile;
+
+  /// Badge beside the signed-in name on the Me page for a pixiv Premium account
+  ///
+  /// In zh, this message translates to:
+  /// **'Premium'**
+  String get premiumBadge;
 }
 
 class _AppLocalizationsDelegate

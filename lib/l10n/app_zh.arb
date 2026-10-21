@@ -1802,5 +1802,13 @@
         "type": "int"
       }
     }
+  },
+  "meOpenProfile": "打开个人主页",
+  "@meOpenProfile": {
+    "description": "Screen-reader hint of the Me page header: tapping opens the signed-in user's profile"
+  },
+  "premiumBadge": "Premium",
+  "@premiumBadge": {
+    "description": "Badge beside the signed-in name on the Me page for a pixiv Premium account"
   }
 }

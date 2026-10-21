@@ -94,7 +94,7 @@ reviewed: 2026-10-21
   `primaryContainer` / `onPrimaryContainer`. Category tones
   (`categoryTone`) are not the accent: they color only the icon circles
   of top-level entries, by the kind of place each opens, and stay fixed
-  under system colors; bookmarks keeps the default accent's hue. Tag
+  under system colors. Tag
   chips are neutral pills; only keyboard focus rings them in the accent.
   A disabled control takes M3's disabled colors (`onSurface` at 0.38 for
   content, 0.12 for containers), never the accent, even when it is on.

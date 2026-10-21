@@ -10,17 +10,13 @@ import '../../app/motion/motion_tokens.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
-import '../../app/theme/category_colors.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_top_bar.dart';
-import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/entity_row.dart' show EntityBadge;
 import '../../app/widgets/feed/feed_grid.dart'
     show IllustPagerAnchor, IllustPagerScope, IllustPagerSource;
 import '../../app/widgets/feed/feed_states.dart';
-import '../../app/widgets/fit_label.dart';
 import '../../app/widgets/func_bottom_nav.dart';
-import '../../app/widgets/settings/settings_group.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
@@ -31,15 +27,14 @@ import '../../core/entity/illust_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/history/history_models.dart';
 import '../../core/history/history_repository.dart';
-import '../../core/settings/settings_controller.dart';
 import '../../l10n/context.dart';
 import 'settings_catalog.dart';
 import 'settings_helpers.dart';
-import 'settings_page.dart' show DeveloperSettingsGroup, settingsIndexGroups;
+import 'settings_page.dart' show settingsPageIcons;
 
-/// The "me" destination: who is signed in, what they saw last, the places
-/// of their own content one tap away, and the settings pages. Content
-/// comes first — it is what the page is opened for.
+/// The "me" destination, YouTube's way: who is signed in, what they saw
+/// last, the places of their own content as a list, then settings and
+/// about. Content comes first — it is what the page is opened for.
 class MeDashboardPage extends ConsumerWidget {
   const MeDashboardPage({super.key});
 
@@ -52,17 +47,8 @@ class MeDashboardPage extends ConsumerWidget {
       // every time the IME animates (e.g. the push that hides the search
       // keyboard) — a relayout storm across all five live branches.
       resizeToAvoidBottomInset: false,
-      appBar: AppTopBar(
-        title: Text(context.l10n.homeMe),
-        actions: [
-          // The index's search field is on top; opening it is the search.
-          IconButton(
-            tooltip: context.l10n.settingsSearchHint,
-            icon: const Icon(Icons.search),
-            onPressed: () => openSettingsPage(context, settingsIndexPath),
-          ),
-        ],
-      ),
+      // Settings open from the row at the page's end, not the bar.
+      appBar: AppTopBar(title: Text(context.l10n.homeMe)),
       body: _body(context, ref, accounts),
     );
   }
@@ -82,7 +68,6 @@ class MeDashboardPage extends ConsumerWidget {
     }
     if (accounts.isLoading && !accounts.hasValue) return const FeedLoading();
     final state = accounts.value;
-    final settings = ref.watch(settingsProvider).value;
     if (state?.status == AccountStatus.failure) {
       return SettingsLoadError(
         error: state?.error ?? StateError('account state unavailable'),
@@ -97,12 +82,20 @@ class MeDashboardPage extends ConsumerWidget {
           bottom: FuncSpacing.xl,
         ),
         children: [
-          SettingsGroup(children: [_AccountRow(account: state?.current)]),
+          _AccountHeader(account: state?.current),
           const _RecentHistory(),
           const _ContentShortcuts(),
-          if (settings != null)
-            ...settingsIndexGroups(context, ref, settings, account: false),
-          const DeveloperSettingsGroup(),
+          const Divider(indent: FuncSpacing.lg, endIndent: FuncSpacing.lg),
+          _MeRow(
+            icon: Icons.settings_outlined,
+            label: context.l10n.settingsTitle,
+            onTap: () => openSettingsPage(context, settingsIndexPath),
+          ),
+          _MeRow(
+            icon: settingsPageIcons[SettingsPageRef.about]!,
+            label: context.l10n.aboutSettings,
+            onTap: () => openSettingsPage(context, SettingsPageRef.about.path),
+          ),
           const FuncNavBarSpacer(),
         ],
       ),
@@ -110,49 +103,128 @@ class MeDashboardPage extends ConsumerWidget {
   }
 }
 
-/// The signed-in account: tapping opens its profile, the trailing button
-/// manages and switches accounts. Signed out, the card opens the login.
-class _AccountRow extends StatelessWidget {
-  const _AccountRow({required this.account});
+/// The signed-in account: avatar, name, user ID and the premium badge
+/// are one button that opens the profile; managing and switching accounts
+/// is a button of its own beside it. Signed out, the same place is one
+/// button to the login, with no manage button.
+class _AccountHeader extends StatelessWidget {
+  const _AccountHeader({required this.account});
 
   final Account? account;
 
-  static const _avatarDiameter = 58.0;
+  static const _avatarDiameter = 72.0;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
     final value = account;
     final url = value?.profileImageUrl;
-    return ListTile(
-      contentPadding: const EdgeInsets.fromLTRB(
-        FuncSpacing.lg,
-        FuncSpacing.sm,
-        FuncSpacing.xl,
-        FuncSpacing.sm,
-      ),
-      leading: SizedBox.square(
-        dimension: _avatarDiameter,
-        child: PersonAvatar(
-          imageUrl: url == null || url.isEmpty ? null : url,
-          radius: _avatarDiameter / 2,
+    final identity = Semantics(
+      container: true,
+      button: true,
+      onTapHint: value == null ? null : l10n.meOpenProfile,
+      child: InkWell(
+        borderRadius: FuncShape.card,
+        onTap: value == null ? () => openLogin(context) : () => openMe(context),
+        child: Padding(
+          padding: const EdgeInsets.all(FuncSpacing.sm),
+          child: Row(
+            children: [
+              SizedBox.square(
+                dimension: _avatarDiameter,
+                child: PersonAvatar(
+                  imageUrl: url == null || url.isEmpty ? null : url,
+                  radius: _avatarDiameter / 2,
+                ),
+              ),
+              const SizedBox(width: FuncSpacing.lg),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            value?.name ?? l10n.signedOut,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: FuncSemanticTokens.of(context).display,
+                          ),
+                        ),
+                        if (value?.isPremium ?? false) ...[
+                          const SizedBox(width: FuncSpacing.sm),
+                          const _PremiumBadge(),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: FuncSpacing.xs),
+                    Text(
+                      value == null
+                          ? l10n.login
+                          : l10n.labelValue(l10n.profileId, '${value.userId}'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      title: Text(
-        value?.name ?? context.l10n.signedOut,
-        style: FuncSemanticTokens.of(context).display,
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        FuncSpacing.sm,
+        FuncSpacing.sm,
+        FuncSpacing.sm,
+        FuncSpacing.lg,
       ),
-      subtitle: value == null ? Text(context.l10n.login) : null,
-      trailing: EdgeIconButtons(
+      child: Row(
         children: [
-          IconButton(
-            tooltip: context.l10n.accountManagement,
-            icon: const Icon(Icons.manage_accounts_outlined),
-            onPressed: () =>
-                openSettingsPage(context, SettingsPageRef.account.path),
-          ),
+          Expanded(child: identity),
+          if (value != null)
+            IconButton(
+              tooltip: l10n.accountManagement,
+              icon: const Icon(Icons.manage_accounts_outlined),
+              onPressed: () =>
+                  openSettingsPage(context, SettingsPageRef.account.path),
+            ),
         ],
       ),
-      onTap: value == null ? () => openLogin(context) : () => openMe(context),
+    );
+  }
+}
+
+/// pixiv Premium beside the name: a neutral pill, a fact about the
+/// account rather than an accent (THEME-07).
+class _PremiumBadge extends StatelessWidget {
+  const _PremiumBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: FuncShape.pill,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: FuncSpacing.sm,
+          vertical: FuncSpacing.xxs,
+        ),
+        child: Text(
+          context.l10n.premiumBadge,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -609,30 +681,23 @@ class _RecentCover extends StatelessWidget {
   }
 }
 
-/// One content entry: a cell of [_ContentShortcuts].
+/// One content entry: a row of [_ContentShortcuts]. [count], when given,
+/// is shown at the row's end while it is above zero.
 typedef _Entry = ({
   IconData icon,
   String label,
   VoidCallback onTap,
-  int badge,
-  CategoryTone tone,
+  int? count,
 });
 
-/// The user's own content, one cell each on one card, every icon on the
-/// circle of its category; then the home destinations the user took off
-/// the bar.
+/// The user's own content, a row each; then the home destinations the user
+/// took off the bar.
 class _ContentShortcuts extends ConsumerWidget {
   const _ContentShortcuts();
-
-  /// The narrowest entry at the default font size that holds a two-line
-  /// label of a few CJK characters or one long word. Narrower, the entries
-  /// go two to a row.
-  static const _minCellWidth = 80.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final scheme = Theme.of(context).colorScheme;
     final activeTasks = ref.watch(_activeDownloadCountProvider).value ?? 0;
     final offBar = ref.watch(homeArrangementProvider).hidden;
     final List<_Entry> entries = [
@@ -640,43 +705,37 @@ class _ContentShortcuts extends ConsumerWidget {
         icon: Icons.favorite_border,
         label: l10n.profileBookmarked,
         onTap: () => unawaited(openMe(context, tab: MeTab.bookmarks)),
-        badge: 0,
-        tone: categoryTone(scheme, CategoryHue.pink),
+        count: null,
       ),
       (
         icon: Icons.people_outline,
         label: l10n.profileFollowing,
         onTap: () => unawaited(openMe(context, tab: MeTab.following)),
-        badge: 0,
-        tone: categoryTone(scheme, CategoryHue.blue),
+        count: null,
       ),
       (
         icon: Icons.library_books_outlined,
         label: l10n.watchlistTitle,
         onTap: () => unawaited(openWatchlist(context)),
-        badge: 0,
-        tone: categoryTone(scheme, CategoryHue.orange),
+        count: null,
       ),
       (
         icon: Icons.bookmark_border,
         label: l10n.watchLaterTitle,
         onTap: () => unawaited(openWatchLater(context)),
-        badge: 0,
-        tone: categoryTone(scheme, CategoryHue.teal),
+        count: null,
       ),
       (
         icon: Icons.menu_book_outlined,
         label: l10n.localNovelsTitle,
         onTap: () => unawaited(openLocalNovels(context)),
-        badge: 0,
-        tone: categoryTone(scheme, CategoryHue.amber),
+        count: null,
       ),
       (
         icon: Icons.downloading_outlined,
         label: l10n.downloaderSettings,
         onTap: () => unawaited(openDownloadTasks(context)),
-        badge: activeTasks,
-        tone: categoryTone(scheme, CategoryHue.green),
+        count: activeTasks,
       ),
       for (final destination in HomeDestination.values)
         if (offBar.contains(destination))
@@ -684,154 +743,54 @@ class _ContentShortcuts extends ConsumerWidget {
             icon: homeDestinationIcon(destination),
             label: homeDestinationLabel(context, destination),
             onTap: () => openHomeDestination(context, destination),
-            badge: 0,
-            tone: neutralCategoryTone(scheme),
+            count: null,
           ),
     ];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        FuncSpacing.lg,
-        0,
-        FuncSpacing.lg,
-        FuncSpacing.xl,
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          final minCell = MediaQuery.textScalerOf(context).scale(_minCellWidth);
-          final preferred = _columnsFor(entries.length);
-          final columns = width / preferred >= minCell ? preferred : 2;
-          final fit = _wordFit(context, [
-            for (final entry in entries) entry.label,
-          ], width / columns - 2 * _EntryLabel.inset);
-          return Material(
-            color: scheme.surfaceContainer,
-            shape: const RoundedRectangleBorder(borderRadius: FuncShape.card),
-            clipBehavior: Clip.antiAlias,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: FuncSpacing.xs),
-              child: Column(
-                children: [
-                  for (var start = 0; start < entries.length; start += columns)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // A short last row keeps the column widths.
-                        for (var i = start; i < start + columns; i++)
-                          Expanded(
-                            child: i < entries.length
-                                ? _EntryCell(entry: entries[i], fit: fit)
-                                : const SizedBox.shrink(),
-                          ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+    return Column(
+      children: [
+        for (final entry in entries)
+          _MeRow(
+            icon: entry.icon,
+            label: entry.label,
+            onTap: entry.onTap,
+            count: entry.count,
+          ),
+      ],
     );
   }
-
-  /// Four or three to a row, whichever leaves fewer empty cells; four on
-  /// a tie.
-  static int _columnsFor(int count) {
-    int empty(int columns) => (columns - count % columns) % columns;
-    return empty(3) < empty(4) ? 3 : 4;
-  }
-
-  /// Labels wrap to two lines between words but never inside one: the
-  /// longest word of any label decides one shared scale. Scripts that
-  /// break between any two characters (CJK) never need it.
-  static LabelFit _wordFit(
-    BuildContext context,
-    List<String> labels,
-    double slotWidth,
-  ) => LabelFit.group(
-    labels: [
-      for (final label in labels)
-        for (final word in label.split(RegExp(r'\s+')))
-          if (!_breaksAnywhere.hasMatch(word)) word,
-    ],
-    style: _EntryLabel.style(context),
-    textScaler: MediaQuery.textScalerOf(context),
-    textDirection: Directionality.of(context),
-    slotWidth: slotWidth,
-  );
-
-  static final _breaksAnywhere = RegExp(
-    r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]',
-  );
 }
 
-/// An entry: the icon on its category's circle, the label under it.
-class _EntryCell extends StatelessWidget {
-  const _EntryCell({required this.entry, required this.fit});
+/// A row of the page: a neutral icon and its label; [count], when given,
+/// as a badge at the end while it is above zero.
+class _MeRow extends StatelessWidget {
+  const _MeRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.count,
+  });
 
-  final _Entry entry;
-  final LabelFit fit;
-
-  static const _circle = 48.0;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final int? count;
 
   @override
   Widget build(BuildContext context) {
-    final badge = entry.badge;
-    return InkWell(
-      onTap: entry.onTap,
-      borderRadius: FuncShape.card,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: _EntryLabel.inset,
-          vertical: FuncSpacing.md,
-        ),
-        child: Column(
-          children: [
-            Badge(
-              isLabelVisible: badge > 0,
-              label: Text(AppFormat.count(context, badge)),
-              child: SizedBox.square(
-                dimension: _circle,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: entry.tone.fill,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(entry.icon, color: entry.tone.ink),
-                ),
-              ),
-            ),
-            const SizedBox(height: FuncSpacing.sm),
-            _EntryLabel(entry.label, fit: fit),
-          ],
-        ),
+    final count = this.count;
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
+      title: Text(label),
+      trailing: count == null
+          ? null
+          : Badge(
+              isLabelVisible: count > 0,
+              label: Text(AppFormat.count(context, count)),
+            ),
+      onTap: onTap,
     );
   }
-}
-
-class _EntryLabel extends StatelessWidget {
-  const _EntryLabel(this.label, {required this.fit});
-
-  final String label;
-  final LabelFit fit;
-
-  /// Side padding of an entry around its label.
-  static const inset = FuncSpacing.xs;
-  static const _lines = 2;
-
-  /// The ambient style with `bodyMedium` over it, as the label draws.
-  static TextStyle style(BuildContext context) => DefaultTextStyle.of(
-    context,
-  ).style.merge(Theme.of(context).textTheme.bodyMedium);
-
-  @override
-  Widget build(BuildContext context) => Text(
-    label,
-    textAlign: TextAlign.center,
-    style: style(context),
-    maxLines: _lines,
-    overflow: TextOverflow.ellipsis,
-    textScaler: fit.scaler(MediaQuery.textScalerOf(context)),
-  );
 }

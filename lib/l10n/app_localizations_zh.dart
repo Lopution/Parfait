@@ -3083,4 +3083,10 @@ class AppLocalizationsZh extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get meOpenProfile => '打开个人主页';
+
+  @override
+  String get premiumBadge => 'Premium';
 }

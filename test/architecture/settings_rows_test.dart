@@ -24,8 +24,7 @@ const _listTileAllowList = <String, int>{
   'lib/features/settings/pages/download_destination_page.dart': 1,
   // The account list rows with avatar/switch-spinner/delete affordances.
   'lib/features/settings/pages/account_settings_page.dart': 1,
-  // The dashboard's account card: 58dp avatar headline plus the switch
-  // button.
+  // The Me page's content and end rows: a list, not settings rows.
   'lib/features/settings/me_dashboard_page.dart': 1,
   // The app identity row leads with the launcher icon, not a glyph.
   'lib/features/settings/pages/about_settings_page.dart': 1,

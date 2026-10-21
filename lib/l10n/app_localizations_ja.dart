@@ -3113,4 +3113,10 @@ class AppLocalizationsJa extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get meOpenProfile => 'プロフィールを開く';
+
+  @override
+  String get premiumBadge => 'プレミアム';
 }
