@@ -999,30 +999,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get motionSettings => 'Анимация и отклик';
 
   @override
-  String get motionPageTransition => 'Переход между страницами';
-
-  @override
   String get motionAnimation => 'Анимация';
 
   @override
   String get motionHaptics => 'Тактильный отклик';
-
-  @override
-  String get pageTransitionStyleSystem => 'Системный';
-
-  @override
-  String get pageTransitionStyleSystemHint =>
-      'Системный переход Android с предиктивным «Назад»';
-
-  @override
-  String get pageTransitionStyleSystemHintOther => 'По умолчанию для платформы';
-
-  @override
-  String get pageTransitionStyleSlide => 'Сдвиг';
-
-  @override
-  String get pageTransitionStyleSlideHint =>
-      'Страница выезжает справа, предыдущая смещается и затемняется (как в iOS)';
 
   @override
   String get maxDownloadCount => 'Максимум параллельных загрузок';

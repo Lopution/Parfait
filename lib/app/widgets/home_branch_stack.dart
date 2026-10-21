@@ -317,7 +317,6 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     final arrangement = ref.watch(homeArrangementProvider);
     final order = [...arrangement.shown, ...arrangement.hidden];
     _barBranches = [for (final d in arrangement.shown) d.branchIndex];
-    final enclosingRouteIsCurrent = ModalRoute.of(context)?.isCurrent ?? true;
     final width = MediaQuery.sizeOf(context).width;
     final rail = AppBreakpoints.useNavigationRail(width);
     // An immersive page (the novel reader) takes the rail's room too, as it
@@ -348,23 +347,20 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
                   excluding: i != _current,
                   child: ExcludeSemantics(
                     excluding: i != _current,
-                    child: BranchActivityScope(
-                      active: enclosingRouteIsCurrent && i == _current,
-                      child: SlideTransition(
-                        position: _slideOf(i, rail: rail, order: order),
-                        // Always in the tree, so starting a switch never
-                        // remounts a branch; only the outgoing branch paints
-                        // from a texture.
-                        child: SnapshotWidget(
-                          // A branch showing a platform view paints live.
-                          mode: SnapshotMode.permissive,
-                          controller: i == _outgoing
-                              ? _switchSnapshot
-                              : _idleSnapshot,
-                          child: _mounted.contains(i)
-                              ? widget.children[i]
-                              : const SizedBox.shrink(),
-                        ),
+                    child: SlideTransition(
+                      position: _slideOf(i, rail: rail, order: order),
+                      // Always in the tree, so starting a switch never
+                      // remounts a branch; only the outgoing branch paints
+                      // from a texture.
+                      child: SnapshotWidget(
+                        // A branch showing a platform view paints live.
+                        mode: SnapshotMode.permissive,
+                        controller: i == _outgoing
+                            ? _switchSnapshot
+                            : _idleSnapshot,
+                        child: _mounted.contains(i)
+                            ? widget.children[i]
+                            : const SizedBox.shrink(),
                       ),
                     ),
                   ),
@@ -419,29 +415,6 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
       ),
     );
   }
-}
-
-/// Marks whether a branch Navigator's subtree is the one on screen. A
-/// PageRoute's predictive-back check uses this non-dependent lookup so only
-/// the visible branch can claim the gesture.
-class BranchActivityScope extends InheritedWidget {
-  const BranchActivityScope({
-    super.key,
-    required this.active,
-    required super.child,
-  });
-
-  final bool active;
-
-  static BranchActivityScope? maybeOf(BuildContext context) =>
-      context
-              .getElementForInheritedWidgetOfExactType<BranchActivityScope>()
-              ?.widget
-          as BranchActivityScope?;
-
-  @override
-  bool updateShouldNotify(BranchActivityScope oldWidget) =>
-      active != oldWidget.active;
 }
 
 const _still = AlwaysStoppedAnimation<Offset>(Offset.zero);

@@ -320,8 +320,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   /// bar down on its own read as a second, smaller exit under the page's
   /// fade.
   void _onRouteStatus(AnimationStatus status) {
-    // A back gesture's scrub reports forward too: only the first one is
-    // the page entering.
+    // Only the first forward is the page entering.
     final entering = status == AnimationStatus.forward && !_entered;
     if (!entering && !status.isCompleted) return;
     _entered = true;

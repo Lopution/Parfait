@@ -280,28 +280,13 @@ void main() {
     expect(AppSettings.defaults().animationSpeed, AnimationSpeed.normal);
   });
 
-  test('pageTransitionStyle defaults to system and round-trips by name', () {
-    expect(
-      AppSettings.defaults().pageTransitionStyle,
-      PageTransitionStyle.system,
-    );
-    for (final style in PageTransitionStyle.values) {
-      final encoded = baseTestSettings()
-          .copyWith(pageTransitionStyle: style)
-          .toJson();
-      expect(encoded['pageTransitionStyle'], style.name);
-      expect(
-        AppSettings.fromJson(
-          encoded,
-          fallback: baseTestSettings(),
-        ).pageTransitionStyle,
-        style,
-      );
-    }
-    final unknown = AppSettings.fromJson({
-      'pageTransitionStyle': 'zoom',
+  test('a retired pageTransitionStyle key reads and is not written', () {
+    final read = AppSettings.fromJson({
+      'pageTransitionStyle': 'slide',
+      'pressFeedback': false,
     }, fallback: baseTestSettings());
-    expect(unknown.pageTransitionStyle, PageTransitionStyle.system);
+    expect(read.pressFeedback, isFalse);
+    expect(read.toJson(), isNot(contains('pageTransitionStyle')));
   });
 
   test('feedDensity defaults to standard and round-trips by name', () {

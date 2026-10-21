@@ -948,28 +948,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get motionSettings => '动效与触感';
 
   @override
-  String get motionPageTransition => '页面转场';
-
-  @override
   String get motionAnimation => '动画';
 
   @override
   String get motionHaptics => '触感';
-
-  @override
-  String get pageTransitionStyleSystem => '系统默认';
-
-  @override
-  String get pageTransitionStyleSystemHint => '安卓系统转场，支持预测性返回';
-
-  @override
-  String get pageTransitionStyleSystemHintOther => '平台默认';
-
-  @override
-  String get pageTransitionStyleSlide => '侧滑';
-
-  @override
-  String get pageTransitionStyleSlideHint => '从右侧推入，上一页错开并变暗（iOS 风格）';
 
   @override
   String get maxDownloadCount => '最大并行下载数';

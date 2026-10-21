@@ -103,11 +103,6 @@ enum Setting implements SettingsEntry {
     ],
     extraKeys: ['translateBaiduCredential', 'translateLlmCredential'],
   ),
-  pageTransition(
-    SettingsPageRef.motion,
-    'motionPageTransition',
-    optionKeys: ['pageTransitionStyleSystem', 'pageTransitionStyleSlide'],
-  ),
   animationSpeed(
     SettingsPageRef.motion,
     'animationSpeed',

@@ -967,28 +967,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get motionSettings => 'モーションと触覚';
 
   @override
-  String get motionPageTransition => '画面遷移';
-
-  @override
   String get motionAnimation => 'アニメーション';
 
   @override
   String get motionHaptics => '触覚';
-
-  @override
-  String get pageTransitionStyleSystem => 'システムのデフォルト';
-
-  @override
-  String get pageTransitionStyleSystemHint => 'Android システムの遷移。予測型「戻る」に対応';
-
-  @override
-  String get pageTransitionStyleSystemHintOther => 'プラットフォームのデフォルト';
-
-  @override
-  String get pageTransitionStyleSlide => 'スライド';
-
-  @override
-  String get pageTransitionStyleSlideHint => '右から押し出し、前の画面はずれて暗くなる（iOS 風）';
 
   @override
   String get maxDownloadCount => '同時ダウンロード数の上限';

@@ -97,7 +97,7 @@ reviewed: 2026-10-17
 - **Code:** `lib/features/settings/settings_catalog.dart`, `lib/app/widgets/settings/settings_anchor.dart`
 
 ### SET-06 Each setting has one home page
-- **Rule:** `/settings/motion` holds transition style, animation speed,
+- **Rule:** `/settings/motion` holds animation speed,
   reduced motion, press feedback and haptic strength. Credential export
   is in account management. History switches and delete-all are in the
   history page's overflow menu; there is no history settings page.

@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -185,19 +184,14 @@ Page<dynamic> _page(
   RouteObserver<ModalRoute<dynamic>> observer,
   Widget child, {
   bool sharedElement = false,
+  bool sharedElementBackdrop = true,
 }) {
   // Reduced-motion collapses the transition without dropping the state it
   // communicates: the route still changes on the same frame. The animation
-  // speed scales each style's own duration.
-  final style = MotionScope.transitionStyleOf(context);
+  // speed scales each transition's own duration.
   final duration = MotionTokens.resolve(
     context,
-    sharedElement
-        ? MotionTokens.sharedElement
-        : MotionTokens.pageTransitionOf(
-            style,
-            android: defaultTargetPlatform == TargetPlatform.android,
-          ),
+    sharedElement ? MotionTokens.sharedElement : MotionTokens.pageTransition,
   );
   return FuncPage<dynamic>(
     key: state.pageKey,
@@ -212,8 +206,8 @@ Page<dynamic> _page(
     child: _scoped(observer, child),
     transitionDuration: duration,
     reverseTransitionDuration: duration,
-    transitionStyle: style,
     sharedElement: sharedElement,
+    sharedElementBackdrop: sharedElementBackdrop,
   );
 }
 
@@ -593,6 +587,8 @@ List<RouteBase> _commonBranchRoutes(
                 extra: extra,
               ),
               sharedElement: extra?.heroScope != null,
+              // The dark stage covers the page below by itself.
+              sharedElementBackdrop: false,
             );
           },
         ),
