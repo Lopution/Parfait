@@ -213,8 +213,9 @@ reviewed: 2026-10-19
   `ClampingScrollPhysics`: a fling runs `OverScroller`'s curve, a fling
   and a drag stop at both ends, and no overscroll glow or stretch is
   drawn. Feeds run EasyRefresh's bouncing physics under `_FeedPhysics`,
-  which swaps its in-range fling for a `ClampingScrollSimulation` and
-  drops its drag dead zone; `PullToRefresh` passes
+  which swaps its in-range fling for a `ClampingScrollSimulation`, takes
+  Android's fling start speed and carried momentum (none), and drops its
+  drag dead zone; `PullToRefresh` passes
   `notLoadFooter: NotLoadFooter(hitOver: false, clamping: true)`. The
   scrollable inside a text control (`EditableText`) is not always
   scrollable: every scroll behavior the app installs returns

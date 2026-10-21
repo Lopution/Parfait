@@ -69,6 +69,11 @@ void main() {
     testWidgets('a fling coasts on the Android curve'
         '${inRefreshList ? ' (refresh list)' : ''}', (tester) async {
       final controller = await _pumpList(tester, inRefreshList: inRefreshList);
+      // iOS starts a fling at twice the speed and adds a fling's speed to
+      // the next one.
+      final physics = controller.position.physics;
+      expect(physics.minFlingVelocity, kMinFlingVelocity);
+      expect(physics.carriedMomentum(1500), 0);
       controller.jumpTo(1000);
       await tester.fling(find.byType(ListView), const Offset(0, -100), 1500);
       final released = controller.offset;

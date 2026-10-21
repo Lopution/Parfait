@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:easy_refresh/easy_refresh.dart';
+import 'package:flutter/gestures.dart' show kMinFlingVelocity;
 import 'package:material_ui/material_ui.dart';
 
 import 'haptics/app_haptics.dart';
@@ -300,10 +301,12 @@ class _FeedScrollBehavior extends ERScrollBehavior {
 /// without its drag dead zone.
 ///
 /// Its physics is bouncing: in range a fling runs iOS's friction
-/// ([BouncingScrollSimulation]), and a drag holds 3.5 more pixels past the
-/// touch slop, at its start and again after every pause, which reads as
-/// sticky on a slow drag. Android lists fling on `OverScroller`'s curve and
-/// follow the finger once the slop is crossed. Both indicators are
+/// ([BouncingScrollSimulation]), takes twice the release speed to start
+/// and carries its speed into the next fling, and a drag holds 3.5 more
+/// pixels past the touch slop, at its start and again after every pause,
+/// which reads as sticky on a slow drag. Android lists fling on
+/// `OverScroller`'s curve, each fling on its own, and follow the finger
+/// once the slop is crossed. Both indicators are
 /// clamping and animate themselves, so the list's simulation only moves
 /// the list; the refresh trigger the simulation call sets off stays
 /// EasyRefresh's. Nested, EasyRefresh already flings with a
@@ -317,6 +320,12 @@ class _FeedPhysics extends ScrollPhysics {
 
   @override
   double? get dragStartDistanceMotionThreshold => null;
+
+  @override
+  double get minFlingVelocity => kMinFlingVelocity;
+
+  @override
+  double carriedMomentum(double existingVelocity) => 0;
 
   @override
   Simulation? createBallisticSimulation(
