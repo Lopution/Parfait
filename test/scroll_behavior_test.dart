@@ -1,3 +1,7 @@
+import 'dart:math' as math;
+
+import 'package:easy_refresh/easy_refresh.dart' show HeaderLocator;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -29,25 +33,41 @@ Future<ScrollController> _pumpList(
   return controller;
 }
 
+/// How far the list's edge effect stretches it now; 0 at rest.
+double _stretch(WidgetTester tester) =>
+    tester.widget<StretchEffect>(find.byType(StretchEffect)).stretchStrength;
+
+/// Flings the list into its [top] or bottom end from 400px short of it and
+/// returns the largest stretch seen while the list stays at the end.
+Future<double> _flingIntoEnd(
+  WidgetTester tester,
+  ScrollController controller, {
+  required bool top,
+}) async {
+  final end = top ? 0.0 : controller.position.maxScrollExtent;
+  controller.jumpTo(top ? 400 : end - 400);
+  await tester.fling(find.byType(ListView), Offset(0, top ? 300 : -300), 4000);
+  var stretched = 0.0;
+  for (var i = 0; i < 60; i++) {
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(top ? controller.offset >= end : controller.offset <= end, isTrue);
+    stretched = math.max(stretched, _stretch(tester).abs());
+  }
+  await tester.pumpAndSettle();
+  expect(controller.offset, end);
+  expect(_stretch(tester), 0);
+  return stretched;
+}
+
 void main() {
-  testWidgets('a fling stops at the end instead of springing back', (
-    tester,
-  ) async {
+  testWidgets('a fling into the end stretches and stops there', (tester) async {
     final controller = await _pumpList(tester);
-    final max = controller.position.maxScrollExtent;
-    controller.jumpTo(max - 400);
-    await tester.fling(find.byType(ListView), const Offset(0, -300), 4000);
-    var furthest = controller.offset;
-    for (var i = 0; i < 60; i++) {
-      await tester.pump(const Duration(milliseconds: 16));
-      if (controller.offset > furthest) furthest = controller.offset;
-    }
-    expect(furthest, max);
-    await tester.pumpAndSettle();
-    expect(controller.offset, max);
+    expect(await _flingIntoEnd(tester, controller, top: false), greaterThan(0));
   });
 
-  testWidgets('a drag stops at either end', (tester) async {
+  testWidgets('a drag past either end stretches while the list stays', (
+    tester,
+  ) async {
     final controller = await _pumpList(tester);
     final max = controller.position.maxScrollExtent;
     for (final (start, pull) in [(max, -40.0), (0.0, 40.0)]) {
@@ -57,10 +77,100 @@ void main() {
       await gesture.moveBy(Offset(0, pull * 2));
       await tester.pump();
       expect(controller.offset, start);
+      expect(_stretch(tester), isNot(0));
       await gesture.up();
       await tester.pumpAndSettle();
       expect(controller.offset, start);
+      expect(_stretch(tester), 0);
     }
+  });
+
+  // SwipeRefreshLayout's split: a drag at the top pulls the refresh disc
+  // alone; a fling into the top and either gesture at the bottom stretch.
+  testWidgets('a refresh list leaves a top drag to the disc', (tester) async {
+    final controller = await _pumpList(tester, inRefreshList: true);
+    final gesture = await tester.startGesture(const Offset(200, 400));
+    for (var i = 0; i < 6; i++) {
+      await gesture.moveBy(const Offset(0, 30));
+      await tester.pump();
+      expect(_stretch(tester), 0);
+    }
+    expect(find.byType(RefreshProgressIndicator), findsOneWidget);
+    await gesture.moveBy(const Offset(0, -400));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(await _flingIntoEnd(tester, controller, top: true), greaterThan(0));
+    expect(await _flingIntoEnd(tester, controller, top: false), greaterThan(0));
+  });
+
+  // As under an AppBarLayout, the body's list stretches and the outer
+  // scroll does not; both stretching doubled the effect at a fling's end.
+  testWidgets('a NestedScrollView stretches its body alone', (tester) async {
+    await tester.pumpWidget(
+      localizedApp(
+        scrollBehavior: const FuncScrollBehavior(),
+        home: Scaffold(
+          body: NestedScrollView(
+            physics: const NestedRefreshOuterPhysics(
+              parent: FuncScrollPhysics(),
+            ),
+            headerSliverBuilder: (_, _) => [
+              const SliverToBoxAdapter(child: SizedBox(height: 180)),
+            ],
+            body: PullToRefresh(
+              isNested: true,
+              onRefresh: () async {},
+              child: ListView(
+                children: [
+                  const HeaderLocator(),
+                  for (var i = 0; i < 40; i++)
+                    SizedBox(height: 60, child: Text('$i')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.byType(StretchEffect), findsOneWidget);
+    final gesture = await tester.startGesture(const Offset(200, 400));
+    await gesture.moveBy(const Offset(0, 30));
+    await gesture.moveBy(const Offset(0, 90));
+    await tester.pump();
+    expect(_stretch(tester), 0);
+    expect(find.byType(RefreshProgressIndicator), findsOneWidget);
+    await gesture.moveBy(const Offset(0, -400));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    await tester.fling(
+      find.byType(NestedScrollView),
+      const Offset(0, -3000),
+      6000,
+    );
+    var stretched = 0.0;
+    for (var i = 0; i < 90; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      stretched = math.max(stretched, _stretch(tester).abs());
+    }
+    expect(stretched, greaterThan(0));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('other platforms and reduced motion keep the bare edge', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    await _pumpList(tester);
+    expect(find.byType(StretchEffect), findsNothing);
+    debugDefaultTargetPlatformOverride = null;
+
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await _pumpList(tester);
+    expect(find.byType(StretchEffect), findsNothing);
   });
 
   // Android's OverScroller: a fling at 1500px/s coasts about 390px and
