@@ -3206,4 +3206,10 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get meOpenProfile => 'Open your profile';
+
+  @override
+  String get premiumBadge => 'Premium';
 }

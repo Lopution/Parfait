@@ -251,54 +251,49 @@ void main() {
     });
   });
 
-  testWidgets(
-    'account rows never show the email; the account page shows the ID',
-    (tester) async {
-      const account = Account(
-        id: '42',
-        userId: 42,
-        name: 'tester',
-        mailAddress: 'private@example.invalid',
+  testWidgets('account rows never show the email; each shows its own ID', (
+    tester,
+  ) async {
+    const account = Account(
+      id: '42',
+      userId: 42,
+      name: 'tester',
+      mailAddress: 'private@example.invalid',
+    );
+    for (final (page, id) in const [
+      (MeDashboardPage(), '用户 ID：42'),
+      (AccountSettingsPage(), '账号 ID：42'),
+    ]) {
+      await tester.pumpWidget(
+        ProviderScope(
+          // A fresh scope per page.
+          key: ValueKey(page),
+          overrides: [
+            settingsRepositoryProvider.overrideWithValue(
+              FakeSettingsRepository(baseTestSettings()),
+            ),
+            accountMetadataRepositoryProvider.overrideWithValue(
+              FakeAccountMetadataRepository(
+                accounts: const [account],
+                currentId: account.id,
+              ),
+            ),
+            credentialStoreProvider.overrideWithValue(
+              FakeCredentialStore(
+                values: const {
+                  '42': Credential(accessToken: 'a', refreshToken: 'r'),
+                },
+              ),
+            ),
+          ],
+          child: localizedApp(builder: promptHostBuilder, home: page),
+        ),
       );
-      for (final (page, showsId) in const [
-        (MeDashboardPage(), false),
-        (AccountSettingsPage(), true),
-      ]) {
-        await tester.pumpWidget(
-          ProviderScope(
-            // A fresh scope per page.
-            key: ValueKey(page),
-            overrides: [
-              settingsRepositoryProvider.overrideWithValue(
-                FakeSettingsRepository(baseTestSettings()),
-              ),
-              accountMetadataRepositoryProvider.overrideWithValue(
-                FakeAccountMetadataRepository(
-                  accounts: const [account],
-                  currentId: account.id,
-                ),
-              ),
-              credentialStoreProvider.overrideWithValue(
-                FakeCredentialStore(
-                  values: const {
-                    '42': Credential(accessToken: 'a', refreshToken: 'r'),
-                  },
-                ),
-              ),
-            ],
-            child: localizedApp(builder: promptHostBuilder, home: page),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(
-          find.text('账号 ID：42'),
-          showsId ? findsOneWidget : findsNothing,
-          reason: '$page',
-        );
-        expect(find.text('private@example.invalid'), findsNothing);
-      }
-    },
-  );
+      await tester.pumpAndSettle();
+      expect(find.text(id), findsOneWidget, reason: '$page');
+      expect(find.text('private@example.invalid'), findsNothing);
+    }
+  });
 
   testWidgets(
     'account switch spins the target row and disables the list mid-commit',
@@ -419,14 +414,9 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(
-      find.text('帧探针'),
-      findsOneWidget,
-      reason: 'a build that can record lists the probe under the settings',
-    );
     Badge downloadsBadge() => tester.widget<Badge>(
-      find.ancestor(
-        of: find.byIcon(Icons.downloading_outlined),
+      find.descendant(
+        of: find.widgetWithText(ListTile, '下载任务'),
         matching: find.byType(Badge),
       ),
     );
@@ -447,6 +437,108 @@ void main() {
     await pumpUntil(tester, () => !downloadsBadge().isLabelVisible);
     expect(downloadsBadge().isLabelVisible, isFalse);
     await manager.dispose();
+  });
+
+  testWidgets('the Me header, manage button and end rows open their pages', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(400, 1600));
+    final semantics = tester.ensureSemantics();
+    const account = Account(
+      id: '42',
+      userId: 42,
+      name: 'tester',
+      isPremium: true,
+    );
+    final router = pixivRouter('/settings');
+    await tester.pumpWidget(
+      localizedRouterApp(
+        router,
+        overrides: [
+          accountMetadataRepositoryProvider.overrideWithValue(
+            FakeAccountMetadataRepository(
+              accounts: const [account],
+              currentId: account.id,
+            ),
+          ),
+          credentialStoreProvider.overrideWithValue(
+            FakeCredentialStore(
+              values: const {
+                '42': Credential(accessToken: 'a', refreshToken: 'r'),
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(AppBar), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byType(IconButton),
+      ),
+      findsNothing,
+      reason: 'settings open from the end row, not the bar',
+    );
+    // One node for who is signed in, read with the badge and the ID, and
+    // the manage button apart.
+    expect(
+      tester.getSemantics(find.text('tester')),
+      isSemantics(
+        label: 'tester\nPremium\n用户 ID：42',
+        isButton: true,
+        hasTapAction: true,
+        onTapHint: '打开个人主页',
+      ),
+    );
+    final manage = tester.getSemantics(find.byTooltip('账号管理'));
+    expect(manage, isSemantics(tooltip: '账号管理', isButton: true));
+    expect(manage.id, isNot(tester.getSemantics(find.text('tester')).id));
+
+    Future<void> opens(Finder target, String path) async {
+      await tester.tap(target);
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, path);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/settings');
+    }
+
+    await opens(find.text('tester'), '/me');
+    await opens(find.byTooltip('账号管理'), '/settings/account');
+    await opens(find.text('关于'), '/settings/about');
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/settings/all');
+    expect(
+      find.text('帧探针'),
+      findsOneWidget,
+      reason: 'a build that can record lists the probe under the settings',
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('signed out, the Me header is one button to the login', (
+    tester,
+  ) async {
+    final router = pixivRouter('/settings');
+    await tester.pumpWidget(
+      localizedRouterApp(
+        router,
+        overrides: [
+          accountMetadataRepositoryProvider.overrideWithValue(
+            FakeAccountMetadataRepository(),
+          ),
+          credentialStoreProvider.overrideWithValue(FakeCredentialStore()),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('账号管理'), findsNothing);
+    await tester.tap(find.text('未登录'));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/login');
   });
 
   testWidgets('the recent row follows the history and pages in its own order', (

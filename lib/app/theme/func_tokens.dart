@@ -1,4 +1,3 @@
-import 'package:material_color_utilities/material_color_utilities.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract final class FuncTokens {
@@ -9,10 +8,6 @@ abstract final class FuncTokens {
   /// The light theme's accent for text, icons and indicators: [primary] is
   /// too light to read on the warm white page.
   static const Color lightAccent = Color(0xFFD61C59);
-
-  /// The hue (HCT) of [primary]. The bookmarks category keeps it under a
-  /// system accent (`category_colors.dart`).
-  static final double primaryHue = Hct.fromInt(primary.toARGB32()).hue;
 
   static const Color white = Color(0xFFFFFFFF);
 

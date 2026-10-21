@@ -3203,4 +3203,10 @@ class AppLocalizationsRu extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get meOpenProfile => 'Открыть профиль';
+
+  @override
+  String get premiumBadge => 'Premium';
 }

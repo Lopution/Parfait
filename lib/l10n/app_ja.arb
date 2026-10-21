@@ -1351,5 +1351,7 @@
         "type": "int"
       }
     }
-  }
+  },
+  "meOpenProfile": "プロフィールを開く",
+  "premiumBadge": "プレミアム"
 }

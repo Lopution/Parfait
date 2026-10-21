@@ -68,6 +68,15 @@ void main() {
     setup: ReviewSetup(history: reviewHistory()),
     variants: {...ShotVariant.values},
   );
+  // The Me page's end: the settings and about rows under the list.
+  testShot(
+    'home/settings-end',
+    location: '/settings',
+    setup: ReviewSetup(history: reviewHistory()),
+    before: (tester, router) async {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -800));
+    },
+  );
   testShot(
     'home/recommended-semantics',
     location: '/recommended',

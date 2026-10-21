@@ -24,8 +24,9 @@ reviewed: 2026-10-17
   on content without a subtitle (a slider, a form), is the group
   `footer`. On one page either every group has a title or none does. A
   leaving `Removable` row stops counting from the exit's first frame.
-- **Why:** User decision: separate cards on settings pages and the Me page
-  replaced the 2dp segmented list. Notes set apart from their row and a
+- **Why:** User decision: separate cards on settings pages replaced the 2dp
+  segmented list. The Me tab is not a settings page and lists its rows
+  plainly (SET-07). Notes set apart from their row and a
   page with one titled group read as unrelated.
 - **Check:** `test/architecture/settings_rows_test.dart` "SettingsSection is gone from lib/"
 - **Code:** `lib/app/widgets/settings/settings_group.dart`
@@ -44,8 +45,8 @@ reviewed: 2026-10-17
 - **Code:** `lib/app/widgets/settings/settings_menu_tile.dart`, `lib/app/widgets/settings/settings_choice_tile.dart`
 
 ### SET-08 Page entries carry a circle in their group's color
-- **Rule:** A row that opens a settings page from the index or the Me tab
-  is `SettingsTile.topLevel`, its icon on a circle in its group's
+- **Rule:** A row that opens a settings page from the index is
+  `SettingsTile.topLevel`, its icon on a circle in its group's
   category tone (THEME-07): appearance purple, browse blue, network and
   download green, data orange; account, about and developer neutral.
   Rows inside a settings page show the bare icon.
@@ -108,16 +109,20 @@ reviewed: 2026-10-17
 ## Me tab
 
 ### SET-07 The Me tab puts content before settings
-- **Rule:** The Me root is the account row (no account ID), then the
-  last eight history records as a row of covers with "see all" (hidden
-  when the history is empty), then one card of content entries
-  (bookmarks, following, watchlist, watch later, local novels, download
-  tasks with an active-task badge, then each destination the user took
-  off the bottom bar) three or four to a row, whichever leaves fewer
-  gaps, two when narrow, then the settings index groups without the
-  account group (`settingsIndexGroups(account: false)`), and under them
-  `DeveloperSettingsGroup` (frame probe) when unlocked. Settings search
-  is the top bar's search button. A cover is square and shows the top of
+- **Rule:** The Me root is laid out as YouTube's: no cards and no buttons
+  on its top bar. First the account header: a 72dp avatar, the name with
+  a neutral "Premium" pill for a premium account, and the user ID under
+  it, together one button that opens the profile (its screen-reader hint
+  says so); account management is its own icon button beside it.
+  Signed out, the header is one button to the login, with no manage
+  button. Then the last eight history records as a row of covers with
+  "see all" (hidden when the history is empty), then the content entries
+  as list rows with a neutral icon (bookmarks, following, watchlist,
+  watch later, local novels, download tasks with the active-task count
+  at the row's end, then each destination the user took off the bottom
+  bar), then a divider and two rows: settings (the index) and about. The
+  settings groups and the developer group live on the index only. A
+  cover is square and shows the top of
   a taller image, the middle of a wider one. An illustration cover opens
   the detail pager over the row's illustrations in their order at the
   tap. A cover whose work is in the illustration store flies to the
@@ -130,13 +135,14 @@ reviewed: 2026-10-17
   carries on from where each cover is, and reduced motion moves them at
   once. Hidden (another tab) the row takes the new order when it shows.
 - **Why:** User decision: settings filled two thirds of the page in a
-  style of their own, and nothing showed what the user saw last. Left
-  only at the bottom of the index and unsearchable, the probe could not
-  be found. The flight needs the work's ratio on its first frame, and a
+  style of their own, and nothing showed what the user saw last; then
+  (10-21) the page read as unpolished next to mature apps, and YouTube's
+  layout was chosen: a list over a grid, one settings entry at the end
+  over a bar button. The flight needs the work's ratio on its first frame, and a
   history record has none. Each work the pager shows moves to the front
   of the history, so a row reordered mid-flight would land the image on
   another work's cover. Swapped in place at the landing, covers changed
   right where the eye was; waiting for the next visit left the row stale
   (user decision 10-20: catch up at the landing, with the slide).
-- **Check:** `test/settings_test.dart` "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order" "a recent cover flies to its work and back, an unseen one not"
+- **Check:** `test/settings_test.dart` "the Me header, manage button and end rows open their pages" "signed out, the Me header is one button to the login" "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order" "a recent cover flies to its work and back, an unseen one not"
 - **Code:** `lib/features/settings/me_dashboard_page.dart`

@@ -190,8 +190,8 @@ class _SettingsGroups extends ConsumerWidget {
           bottom: FuncSpacing.xl,
         ),
         children: [
-          ...settingsIndexGroups(context, ref, settings),
-          const DeveloperSettingsGroup(),
+          ..._indexGroups(context, ref, settings),
+          const _DeveloperSettingsGroup(),
         ],
       ),
     );
@@ -202,26 +202,22 @@ class _SettingsGroups extends ConsumerWidget {
 /// row with its summary. A group's circles share one category hue, a
 /// different one per neighbouring group; account and about are neutral.
 /// Destructive/transfer actions (backup) sit in their own "data" group.
-/// The Me page lists them too, without the account group: its account row
-/// opens that page.
-List<Widget> settingsIndexGroups(
+List<Widget> _indexGroups(
   BuildContext context,
   WidgetRef ref,
-  AppSettings settings, {
-  bool account = true,
-}) {
+  AppSettings settings,
+) {
   final l10n = context.l10n;
   final scheme = Theme.of(context).colorScheme;
   final neutral = neutralCategoryTone(scheme);
   CategoryTone hue(double hue) => categoryTone(scheme, hue);
   final groups =
       <({String? title, CategoryTone tone, List<SettingsPageRef> pages})>[
-        if (account)
-          (
-            title: l10n.accountSettings,
-            tone: neutral,
-            pages: const [SettingsPageRef.account],
-          ),
+        (
+          title: l10n.accountSettings,
+          tone: neutral,
+          pages: const [SettingsPageRef.account],
+        ),
         (
           title: l10n.settingsGroupAppearance,
           tone: hue(CategoryHue.purple),
@@ -332,8 +328,8 @@ Widget _pageSummary(
 /// Builds that can record ([FrameProbe.available]: non-release, or a
 /// release with the `PIXIV_FRAME_PROBE` dart-define for signed measurement
 /// packages) show it unlocked; default release builds are unchanged.
-class DeveloperSettingsGroup extends ConsumerWidget {
-  const DeveloperSettingsGroup({super.key});
+class _DeveloperSettingsGroup extends ConsumerWidget {
+  const _DeveloperSettingsGroup();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
