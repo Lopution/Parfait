@@ -544,6 +544,10 @@ class _BranchRootScaffoldState extends ConsumerState<BranchRootScaffold>
   RouteObserver<ModalRoute<dynamic>>? _observer;
   ModalRoute<dynamic>? _route;
   Animation<double>? _cover;
+
+  /// Popped routes still animating out over the root: a popup does not
+  /// drive [_cover], and the root is current again from the pop's start.
+  final _leaving = <Animation<double>>{};
   bool _covered = false;
   bool _syncScheduled = false;
 
@@ -565,6 +569,10 @@ class _BranchRootScaffoldState extends ConsumerState<BranchRootScaffold>
   void _unsubscribe() {
     if (_observer != null && _route != null) _observer!.unsubscribe(this);
     _cover?.removeStatusListener(_onCoverStatus);
+    for (final leaving in _leaving) {
+      leaving.removeStatusListener(_onLeavingStatus);
+    }
+    _leaving.clear();
   }
 
   /// Fires once on subscribe. A branch stack built in one go — a deep-link
@@ -578,7 +586,26 @@ class _BranchRootScaffoldState extends ConsumerState<BranchRootScaffold>
   void didPushNext() => _scheduleSync();
 
   @override
-  void didPopNext() => _scheduleSync();
+  void didPopNext() {
+    final observer = _observer;
+    final popping = observer is ExitAwareRouteObserver
+        ? observer.popping
+        : null;
+    final leaving = popping is TransitionRoute ? popping.animation : null;
+    if (leaving != null && !leaving.isDismissed && _leaving.add(leaving)) {
+      leaving.addStatusListener(_onLeavingStatus);
+    }
+    _scheduleSync();
+  }
+
+  void _onLeavingStatus(AnimationStatus status) {
+    _leaving.removeWhere((leaving) {
+      if (!leaving.isDismissed) return false;
+      leaving.removeStatusListener(_onLeavingStatus);
+      return true;
+    });
+    _scheduleSync();
+  }
 
   /// A transition over the root starts, settles, or finishes revealing it.
   void _onCoverStatus(AnimationStatus status) => _scheduleSync();
@@ -606,7 +633,9 @@ class _BranchRootScaffoldState extends ConsumerState<BranchRootScaffold>
     final route = _route;
     final covered =
         route != null &&
-        (!route.isCurrent || !(route.secondaryAnimation?.isDismissed ?? true));
+        (!route.isCurrent ||
+            !(route.secondaryAnimation?.isDismissed ?? true) ||
+            _leaving.isNotEmpty);
     _setCovered(covered);
     if (covered != _covered) setState(() => _covered = covered);
   }

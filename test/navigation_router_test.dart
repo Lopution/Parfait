@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'helpers/test_preferences.dart';
 import 'package:parfait/app/icons/app_icons.dart';
+import 'package:parfait/app/motion/app_overlays.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/core/search/search_models.dart';
@@ -286,6 +287,91 @@ void main() {
     expect(router.state.uri.path, '/recommended');
     expect(_rootCopy, findsNothing);
     expect(tester.getRect(_shellBar), resting);
+  });
+
+  // A popup does not drive the root's secondary animation: the root is
+  // current again from the pop's first frame, while the popup still slides
+  // out over it.
+  for (final (name, script) in <(String, _PopupScript)>[
+    (
+      'a sheet',
+      (tester, root) async {
+        unawaited(_sheet(root));
+        await tester.pumpAndSettle();
+        Navigator.of(root).pop();
+      },
+    ),
+    (
+      'a dialog on the branch Navigator',
+      (tester, root) async {
+        unawaited(
+          showAppDialog<void>(
+            context: root,
+            useRootNavigator: false,
+            builder: (_) => const AlertDialog(content: Text('dialog')),
+          ),
+        );
+        await tester.pumpAndSettle();
+        Navigator.of(root).pop();
+      },
+    ),
+    (
+      'the upper of two sheets, then the lower',
+      (tester, root) async {
+        unawaited(_sheet(root));
+        await tester.pumpAndSettle();
+        unawaited(_sheet(root));
+        await tester.pumpAndSettle();
+        Navigator.of(root).pop();
+        await tester.pumpAndSettle();
+        expect(_shellBar, findsNothing);
+        Navigator.of(root).pop();
+      },
+    ),
+  ]) {
+    testWidgets('$name keeps the bar under it until it has left', (
+      tester,
+    ) async {
+      setViewSize(tester, const Size(390, 844));
+      final router = pixivRouter('/recommended');
+      await tester.pumpWidget(ProviderScope(child: localizedRouterApp(router)));
+      await tester.pumpAndSettle();
+      final resting = tester.getRect(_shellBar);
+
+      await script(tester, tester.element(find.byType(RecommendedHomePage)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(_shellBar, findsNothing);
+      expect(tester.getRect(_rootCopy).top, resting.top);
+
+      await tester.pumpAndSettle();
+      expect(_rootCopy, findsNothing);
+      expect(tester.getRect(_shellBar), resting);
+    });
+  }
+
+  testWidgets('a page pushed while a sheet leaves keeps the bar covered', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(390, 844));
+    final router = pixivRouter('/recommended');
+    await tester.pumpWidget(ProviderScope(child: localizedRouterApp(router)));
+    await tester.pumpAndSettle();
+    final root = tester.element(find.byType(RecommendedHomePage));
+
+    unawaited(_sheet(root));
+    await tester.pumpAndSettle();
+    Navigator.of(root).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    unawaited(router.push('/recommended/history'));
+    await tester.pumpAndSettle();
+    expect(_shellBar, findsNothing);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(_rootCopy, findsNothing);
+    expect(_shellBar, findsOneWidget);
   });
 
   testWidgets('a deep link that builds the stack covers the bar', (
@@ -637,3 +723,12 @@ void main() {
     });
   });
 }
+
+/// Opens a popup over the branch root and starts closing it.
+typedef _PopupScript =
+    Future<void> Function(WidgetTester tester, BuildContext root);
+
+Future<void> _sheet(BuildContext context) => showAppBottomSheet<void>(
+  context: context,
+  builder: (_) => const SizedBox(height: 200),
+);

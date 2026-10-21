@@ -132,10 +132,15 @@ reviewed: 2026-10-17
   transition over it still running), the real bar is `Offstage` and the
   root page draws an inert copy in place, which leaves and returns with
   the page. The swap happens only where both overlap exactly: as a push
-  starts and once a pop has fully revealed the root.
-- **Why:** The bar floated over pushed pages and their own action bars.
-- **Check:** `test/navigation_router_test.dart` "a pushed branch route covers the bar and hands it back"
-- **Code:** `lib/app/widgets/func_bottom_nav.dart`, `lib/app/navigation/home_shell_metrics.dart`
+  starts and once a pop has fully revealed the root. A popup (sheet,
+  branch dialog) does not drive the root's secondary animation, and the
+  root is current again from the pop's first frame, so the branch
+  Navigators use `ExitAwareRouteObserver`: in `didPopNext` the root takes
+  the popped route's animation and stays covered until it is dismissed.
+- **Why:** The bar floated over pushed pages and their action bars; a
+  closing sheet slid out under the bar, back on top as the pop began.
+- **Check:** `test/navigation_router_test.dart` "a pushed branch route covers the bar and hands it back" "keeps the bar under it until it has left" "a page pushed while a sheet leaves keeps the bar covered"
+- **Code:** `lib/app/widgets/func_bottom_nav.dart`, `lib/app/navigation/home_shell_metrics.dart`, `lib/core/navigation/route_observer.dart`
 
 ### NAV-11 The bar does not hide under touch exploration
 - **Rule:** While touch exploration is on, scrolling never hides the bar,

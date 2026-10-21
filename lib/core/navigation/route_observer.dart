@@ -9,7 +9,30 @@ import 'package:material_ui/material_ui.dart';
 /// Tests may use a plain MaterialApp; history still starts on the current
 /// route, while the production app supplies this observer for push/pop cover
 /// events.
-final replicaRouteObserver = RouteObserver<ModalRoute<dynamic>>();
+final replicaRouteObserver = ExitAwareRouteObserver();
+
+/// A [RouteObserver] that also names the route a pop removes, for the
+/// subscribers [RouteAware.didPopNext] reaches: the route below is current
+/// again from the pop's first frame, while the popped one may still be
+/// animating out over it — and a popup does not drive the route below's
+/// secondary animation, so nothing else tells it so.
+class ExitAwareRouteObserver extends RouteObserver<ModalRoute<dynamic>> {
+  Route<dynamic>? _popping;
+
+  /// The route being popped. Set only while [didPop] notifies, so it is
+  /// read from [RouteAware.didPopNext]; null anywhere else.
+  Route<dynamic>? get popping => _popping;
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _popping = route;
+    try {
+      super.didPop(route, previousRoute);
+    } finally {
+      _popping = null;
+    }
+  }
+}
 
 class RouteObserverScope extends InheritedWidget {
   const RouteObserverScope({
