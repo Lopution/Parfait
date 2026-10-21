@@ -619,9 +619,7 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
                               ? Center(
                                   child: Text(
                                     text('viewerNoImages'),
-                                    style: TextStyle(
-                                      color: FuncTokens.lightBackground,
-                                    ),
+                                    style: TextStyle(color: FuncTokens.white),
                                   ),
                                 )
                               // The paging slop: a drag leaning towards
@@ -1019,7 +1017,7 @@ class _PageScrubber extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const color = FuncTokens.lightBackground;
+    const color = FuncTokens.white;
     final dragging = value != current;
     final thumbnail = thumbnailUrl(value);
     return SizedBox(
@@ -1383,7 +1381,9 @@ class _PageThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    // The viewer stage is always black: the brand pink, not the light
+    // theme's deeper accent, reads on it (THEME-14).
+    final primary = FuncSemanticTokens.of(context).brand;
     return Semantics(
       key: ValueKey('viewer-jump-page-$page'),
       container: true,

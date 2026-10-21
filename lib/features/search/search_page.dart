@@ -644,9 +644,7 @@ class _TrendingTagTile extends ConsumerWidget {
       overflow: TextOverflow.ellipsis,
       textAlign: representative == null ? TextAlign.center : TextAlign.start,
       style: theme.textTheme.labelMedium?.copyWith(
-        color: representative == null
-            ? scheme.onSurface
-            : FuncTokens.lightBackground,
+        color: representative == null ? scheme.onSurface : FuncTokens.white,
         fontWeight: FontWeight.w600,
       ),
     );

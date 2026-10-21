@@ -35,7 +35,7 @@ final _comment = RegExp(r'//[^\n]*|/\*.*?\*/', dotAll: true);
 final _dateFormat = RegExp(r'\bDateFormat\b');
 final _dateInterpolation = RegExp(r'\$\{[^}]*\.(?:year|month|day)\}');
 final _numberFormat = RegExp(r'\bNumberFormat\b');
-final _brandPrimary = RegExp(r'\bFuncTokens\.primary\b');
+final _brandPrimary = RegExp(r'\bFuncTokens\.(primary|lightAccent)\b');
 
 /// Every Dart source under lib/ with its comments stripped.
 Map<String, String> _sources() => {
