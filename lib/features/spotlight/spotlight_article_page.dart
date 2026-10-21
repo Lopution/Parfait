@@ -124,8 +124,8 @@ class SpotlightArticlePage extends ConsumerWidget {
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: ContentWidths.article),
       // One selection region for the whole article: text is plain Text, so
-      // no paragraph owns a Scrollable the app-wide bouncing physics could
-      // leak into, and a selection can span paragraphs.
+      // no paragraph owns a Scrollable the app-wide always-scrollable
+      // physics could leak into, and a selection can span paragraphs.
       child: SelectionArea(
         child: ListView(
           key: PageStorageKey('spotlight-article-$articleId'),

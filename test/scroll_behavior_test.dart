@@ -6,17 +6,24 @@ import 'package:parfait/app/scroll_behavior.dart';
 
 import 'helpers/localized_app.dart';
 
-Future<ScrollController> _pumpList(WidgetTester tester) async {
+Future<ScrollController> _pumpList(
+  WidgetTester tester, {
+  bool inRefreshList = false,
+}) async {
   final controller = ScrollController();
   addTearDown(controller.dispose);
+  Widget list = ListView.builder(
+    controller: controller,
+    itemCount: 60,
+    itemBuilder: (_, index) => SizedBox(height: 80, child: Text('$index')),
+  );
+  if (inRefreshList) {
+    list = PullToRefresh(onRefresh: () async {}, child: list);
+  }
   await tester.pumpWidget(
-    MaterialApp(
+    localizedApp(
       scrollBehavior: const FuncScrollBehavior(),
-      home: ListView.builder(
-        controller: controller,
-        itemCount: 60,
-        itemBuilder: (_, index) => SizedBox(height: 80, child: Text('$index')),
-      ),
+      home: Scaffold(body: list),
     ),
   );
   return controller;
@@ -40,21 +47,41 @@ void main() {
     expect(controller.offset, max);
   });
 
-  testWidgets('a drag still pulls past the end and springs back', (
-    tester,
-  ) async {
+  testWidgets('a drag stops at either end', (tester) async {
     final controller = await _pumpList(tester);
     final max = controller.position.maxScrollExtent;
-    controller.jumpTo(max);
-    final gesture = await tester.startGesture(const Offset(200, 400));
-    await gesture.moveBy(const Offset(0, -40));
-    await gesture.moveBy(const Offset(0, -80));
-    await tester.pump();
-    expect(controller.offset, greaterThan(max));
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(controller.offset, max);
+    for (final (start, pull) in [(max, -40.0), (0.0, 40.0)]) {
+      controller.jumpTo(start);
+      final gesture = await tester.startGesture(const Offset(200, 400));
+      await gesture.moveBy(Offset(0, pull));
+      await gesture.moveBy(Offset(0, pull * 2));
+      await tester.pump();
+      expect(controller.offset, start);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(controller.offset, start);
+    }
   });
+
+  // Android's OverScroller: a fling at 1500px/s coasts about 390px and
+  // stops in 0.6s, where iOS's friction rolls on for 5s.
+  for (final inRefreshList in [false, true]) {
+    testWidgets('a fling coasts on the Android curve'
+        '${inRefreshList ? ' (refresh list)' : ''}', (tester) async {
+      final controller = await _pumpList(tester, inRefreshList: inRefreshList);
+      controller.jumpTo(1000);
+      await tester.fling(find.byType(ListView), const Offset(0, -100), 1500);
+      final released = controller.offset;
+      final position = controller.position;
+      var elapsed = Duration.zero;
+      while (position.isScrollingNotifier.value) {
+        await tester.pump(const Duration(milliseconds: 16));
+        elapsed += const Duration(milliseconds: 16);
+      }
+      expect(elapsed, lessThan(const Duration(milliseconds: 800)));
+      expect(controller.offset - released, inInclusiveRange(250, 550));
+    });
+  }
 
   testWidgets('a mouse brings a scrollbar and keeps the list as it was', (
     tester,
