@@ -262,9 +262,11 @@ void main() {
             .value;
         CommentComposerState composer() =>
             tester.state<CommentComposerState>(find.byType(CommentComposer));
+        // The composer goes a frame after what it stood on is down.
         Future<void> settle() async {
           await tester.pump(const Duration(seconds: 1));
           await tester.pump(const Duration(seconds: 1));
+          await tester.pump();
         }
 
         await mockNetworkImagesFor(() async {
@@ -282,15 +284,53 @@ void main() {
           expect(find.byType(IllustDetailPage), findsOneWidget);
           expect(bar(), 1);
 
-          // Text left by a tap beside the composer is there the next time.
+          // On the keyboard the composer rides it: out of sight before it
+          // rises, whole over its upper half, and gone with it when it is
+          // put away on its own.
+          double shown() => tester
+              .widget<Opacity>(
+                find
+                    .descendant(
+                      of: find.byType(CommentComposer),
+                      matching: find.byType(Opacity),
+                    )
+                    .first,
+              )
+              .opacity;
+          void keyboardAt(double height) => tester.view.viewInsets =
+              FakeViewPadding(bottom: height * tester.view.devicePixelRatio);
+          addTearDown(tester.view.resetViewInsets);
           await tester.tap(
             find.descendant(of: entry, matching: find.text('添加评论')),
           );
-          await settle();
+          await tester.pump();
+          await tester.pump();
           expect(
             composer().debugInputState,
             CommentComposerInputState.keyboard,
           );
+          expect(shown(), 0);
+          keyboardAt(300);
+          await tester.pump();
+          expect(shown(), 1);
+          keyboardAt(60);
+          await tester.pump();
+          expect(shown(), inExclusiveRange(0, 1));
+          keyboardAt(0);
+          // Down, out of focus, then gone: a frame each.
+          await tester.pump();
+          await tester.pump();
+          await settle();
+          expect(find.byType(CommentComposer), findsNothing);
+          expect(bar(), 1);
+
+          // Text left by a touch beside the composer is there the next
+          // time. With no keyboard rising, the composer shows anyway.
+          await tester.tap(
+            find.descendant(of: entry, matching: find.text('添加评论')),
+          );
+          await settle();
+          expect(shown(), 1);
           await tester.enterText(find.byType(TextField), 'hello');
           // An emoji inserted last is part of it too.
           await tester.tap(find.byTooltip('Emoji'));
@@ -304,9 +344,18 @@ void main() {
                 .first,
           );
           final draft = 'hello(${commentEmojiNames.first})';
-          await tester.tapAt(const Offset(200, 120));
+          // The page stays live: a drag on it closes the composer and
+          // scrolls on.
+          final page = tester
+              .state<ScrollableState>(find.byType(Scrollable).first)
+              .position;
+          final before = page.pixels;
+          await tester.dragFrom(const Offset(200, 200), const Offset(0, 80));
           await settle();
           expect(find.byType(CommentComposer), findsNothing);
+          expect(page.pixels, lessThan(before));
+          await tester.dragFrom(const Offset(200, 200), const Offset(0, -80));
+          await settle();
           await tester.tap(
             find.descendant(of: entry, matching: find.text('添加评论')),
           );

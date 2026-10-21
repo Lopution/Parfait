@@ -176,7 +176,9 @@ reviewed: 2026-10-17
   one replacing the keyboard starts at the keyboard's height. A panel
   giving way to the keyboard holds its height until the keyboard has
   risen over it, or 600ms pass. Emoji ↔ stamp swaps through `StateFade`.
-  Reduced motion jumps to the end.
+  Reduced motion jumps to the end. A composer given `onGone` has no
+  resting row: it stands on the surface alone and goes with it
+  (DETAIL-17).
 - **Why:** The panel popped in and out, and the input row dropped to the
   bottom and climbed back with every switch to the keyboard. User report
   (10-21): a panel opened before the keyboard stood 280dp tall, and over
