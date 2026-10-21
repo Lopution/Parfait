@@ -1070,12 +1070,12 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
     debugLabel: 'settings',
   );
 
-  final appRootRouteObserver = RouteObserver<ModalRoute<dynamic>>();
-  final recommendedRouteObserver = RouteObserver<ModalRoute<dynamic>>();
-  final rankingRouteObserver = RouteObserver<ModalRoute<dynamic>>();
-  final newRouteObserver = RouteObserver<ModalRoute<dynamic>>();
-  final searchRouteObserver = RouteObserver<ModalRoute<dynamic>>();
-  final settingsRouteObserver = RouteObserver<ModalRoute<dynamic>>();
+  final appRootRouteObserver = ExitAwareRouteObserver();
+  final recommendedRouteObserver = ExitAwareRouteObserver();
+  final rankingRouteObserver = ExitAwareRouteObserver();
+  final newRouteObserver = ExitAwareRouteObserver();
+  final searchRouteObserver = ExitAwareRouteObserver();
+  final settingsRouteObserver = ExitAwareRouteObserver();
 
   final router = GoRouter(
     navigatorKey: appRootNavigatorKey,
