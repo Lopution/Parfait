@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/widgets/app_top_bar.dart';
 import '../../../core/debug/frame_probe.dart';
+import '../../../core/debug/hero_anomaly_log.dart';
 import '../../../core/image/image_worker_providers.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
@@ -18,7 +19,8 @@ import '../../../app/clipboard.dart';
 /// copy the build/raster percentile report for offline analysis. Only
 /// reachable in debug/profile builds — the settings tile is release-gated.
 /// The image worker's state rides along: queue depth and disk usage explain
-/// what the frames were waiting on.
+/// what the frames were waiting on. Below, the Hero flights the self-check
+/// logged ([HeroAnomalyLog]).
 class FrameProbePage extends ConsumerStatefulWidget {
   const FrameProbePage({super.key});
 
@@ -30,6 +32,7 @@ class _FrameProbePageState extends ConsumerState<FrameProbePage> {
   Timer? _ticker;
   String? _report;
   String? _worker;
+  List<String>? _anomalies;
 
   bool get _recording => FrameProbe.instance.recording;
 
@@ -40,6 +43,17 @@ class _FrameProbePageState extends ConsumerState<FrameProbePage> {
     // status bar keeps refreshing — the probe itself never stopped.
     if (_recording) _startTicker();
     unawaited(_refreshWorker());
+    unawaited(_readAnomalies());
+  }
+
+  Future<void> _readAnomalies() async {
+    final anomalies = await ref.read(heroAnomalyLogProvider).read();
+    if (mounted) setState(() => _anomalies = anomalies);
+  }
+
+  Future<void> _clearAnomalies() async {
+    await ref.read(heroAnomalyLogProvider).clear();
+    await _readAnomalies();
   }
 
   Future<String> _describeWorker() async =>
@@ -209,9 +223,49 @@ class _FrameProbePageState extends ConsumerState<FrameProbePage> {
                 ),
               ),
             ],
+            const SizedBox(height: FuncSpacing.xl),
+            ..._buildAnomalies(context),
           ],
         ),
       ),
     );
+  }
+
+  List<Widget> _buildAnomalies(BuildContext context) {
+    final theme = Theme.of(context);
+    final anomalies = _anomalies;
+    final text = anomalies?.join('\n\n');
+    return [
+      Text(context.l10n.heroAnomalyTitle, style: theme.textTheme.titleSmall),
+      const SizedBox(height: FuncSpacing.xs),
+      Text(context.l10n.heroAnomalyHint, style: theme.textTheme.bodySmall),
+      const SizedBox(height: FuncSpacing.md),
+      if (anomalies != null && anomalies.isEmpty)
+        Text(context.l10n.heroAnomalyEmpty, style: theme.textTheme.bodyMedium)
+      else if (text != null) ...[
+        SelectableText(
+          text,
+          style: theme.textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: _clearAnomalies,
+              child: Text(context.l10n.heroAnomalyClear),
+            ),
+            TextButton.icon(
+              onPressed: () => copyToClipboard(
+                context,
+                text,
+                message: context.l10n.networkProbeCopied,
+              ),
+              icon: const Icon(Icons.copy_outlined, size: 16),
+              label: Text(context.l10n.copy),
+            ),
+          ],
+        ),
+      ],
+    ];
   }
 }

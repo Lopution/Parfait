@@ -763,6 +763,71 @@ void main() {
     await settle();
   });
 
+  // The row holds under a page opened from anywhere, in the branch or over
+  // the whole shell, and takes the new order once that page has left: it
+  // used to catch up under a page not opened from it, and the slide played
+  // behind the leaving page.
+  testWidgets('a page over the row holds its order until it has left', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(400, 1600));
+    answerConnectivityChannels();
+    late HistoryRepository history;
+    late ProviderContainer container;
+    await tester.runAsync(() async {
+      history = await openHistoryRepository(const []);
+      container = await makeHistoryWorld(history);
+    });
+    final router = pixivRouter('/settings');
+    await tester.pumpWidget(localizedRouterApp(router, container: container));
+    Future<void> settle([Future<void> Function()? change]) =>
+        settleHistory(tester, history, change);
+    Future<void> view(int id, int minute) => settle(
+      () => history.upsert(
+        historyRecord(
+          id,
+        ).copyWith(lastViewedAt: DateTime.utc(2026, 9, 20, 10, minute)),
+      ),
+    );
+    double x(int id) => tester
+        .getTopLeft(
+          find.descendant(
+            of: find.byType(MeDashboardPage, skipOffstage: false),
+            matching: find.byWidgetPredicate(
+              (w) => w is Semantics && w.properties.label == 'work $id',
+              skipOffstage: false,
+            ),
+            skipOffstage: false,
+          ),
+        )
+        .dx;
+
+    await view(1, 1);
+    await view(2, 2);
+    for (final (page, minute) in [
+      ('/settings/history', 3),
+      ('/downloads', 4),
+    ]) {
+      final (back, front) = x(1) > x(2) ? (1, 2) : (2, 1);
+      unawaited(router.push(page));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await view(back, minute);
+      router.pop();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await settle();
+      expect(x(back), greaterThan(x(front)), reason: '$page leaving');
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(x(back), greaterThan(x(front)), reason: 'slides from its place');
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(x(back), lessThan(x(front)), reason: 'to the front');
+    }
+    await tester.pumpWidget(const SizedBox());
+    await settle();
+  });
+
   testWidgets('translation summary re-probes when the provider switches', (
     tester,
   ) async {

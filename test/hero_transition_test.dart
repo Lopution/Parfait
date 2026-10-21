@@ -10,7 +10,9 @@ import 'package:parfait/app/navigation/func_page.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
+import 'package:parfait/core/debug/hero_anomaly_log.dart';
 import 'package:parfait/core/entity/illust_store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_action_bar.dart';
 import 'package:parfait/features/illust/detail/widgets/page_image.dart';
@@ -24,6 +26,8 @@ import 'package:parfait/app/motion/drag_to_dismiss.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/prompt_host.dart';
+import 'helpers/test_preferences.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
 
@@ -121,6 +125,109 @@ void main() {
         reason: 'other pages mount only inside the pager when visited',
       );
     });
+  });
+
+  // A root page (the viewer) pairs its Hero with the top page of every
+  // branch: the same work open in a branch out of sight shared the tag,
+  // and the image flew to where that branch had it.
+  testWidgets('the viewer pairs only with the branch on screen', (
+    tester,
+  ) async {
+    await mockNetworkImagesFor(() async {
+      setViewSize(tester, const Size(390, 844));
+      VisibilityDetectorController.instance.updateInterval = Duration.zero;
+      final (container, _, _) = await makeWorld();
+      final entity = parseIllust(illustJson(42));
+      container.read(illustStoreProvider).mergeAll([entity]);
+      final router = pixivRouter('/settings');
+      await tester.pumpWidget(localizedRouterApp(router, container: container));
+      await tester.pump();
+      for (final branch in ['/settings', '/recommended']) {
+        router.go(branch);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        unawaited(
+          router.push<void>(
+            '$branch/illust/42',
+            extra: IllustRouteExtra(entity: entity, heroScope: 'feed'),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+      }
+      await tester.tap(find.byType(DetailPageImage).first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.takeException(), isNull, reason: 'one Hero per tag');
+      expect(find.byType(HeroRectClip), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.byType(ImageViewerPage), findsOneWidget);
+    });
+  });
+
+  // The flight self-check: a card end the user cannot see is logged and
+  // announced; a flight between two live ends on screen is not.
+  testWidgets('a flight from a card out of sight is logged, others not', (
+    tester,
+  ) async {
+    installMemoryPreferences();
+    final navigator = GlobalKey<NavigatorState>();
+    var live = true;
+    late StateSetter setLive;
+    const tag = 'IllustHero:feed:7';
+    Widget hero(double size) => Hero(
+      tag: tag,
+      flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+      child: IllustHeroCardFrame(child: SizedBox.square(dimension: size)),
+    );
+    await tester.pumpWidget(
+      localizedApp(
+        overrides: const [],
+        navigatorKey: navigator,
+        builder: promptHostBuilder,
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            setLive = setState;
+            return Align(
+              alignment: Alignment.topLeft,
+              child: TickerMode(enabled: live, child: hero(100)),
+            );
+          },
+        ),
+      ),
+    );
+    final log = HeroAnomalyLog(SharedPreferencesAsync());
+    Future<void> openAndClose() async {
+      unawaited(
+        navigator.currentState!.push(
+          MaterialPageRoute<void>(builder: (_) => Center(child: hero(300))),
+        ),
+      );
+      await tester.pumpAndSettle();
+      navigator.currentState!.pop();
+      await tester.pumpAndSettle();
+    }
+
+    await openAndClose();
+    expect(await tester.runAsync(log.read), isEmpty);
+    expect(find.text('已记录一次 Hero 异常'), findsNothing);
+
+    setLive(() => live = false);
+    await tester.pump();
+    unawaited(
+      navigator.currentState!.push(
+        MaterialPageRoute<void>(builder: (_) => Center(child: hero(300))),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final entries = (await tester.runAsync(log.read))!;
+    expect(entries, hasLength(1));
+    expect(entries.single, contains('push $tag'));
+    expect(entries.single, contains('card end still'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('已记录一次 Hero 异常'), findsOneWidget);
+    await tester.pumpAndSettle(const Duration(seconds: 5));
   });
 
   testWidgets('only the entry page flies back; a drag from another page '

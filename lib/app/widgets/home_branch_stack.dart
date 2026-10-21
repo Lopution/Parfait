@@ -339,28 +339,35 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
             // switch instead of jumping at the end.
             child: TickerMode(
               enabled: i == _current,
-              child: IgnorePointer(
-                ignoring: i != _current,
-                // A branch mounting off screen pushes its first route, which
-                // would take the focus from the text field on screen.
-                child: ExcludeFocus(
-                  excluding: i != _current,
-                  child: ExcludeSemantics(
+              // A route on the root navigator (the viewer) pairs its Hero
+              // with every branch's top page; only the branch on screen
+              // may answer, or an image flew to the same work's card in a
+              // branch out of sight (TRANS-07).
+              child: HeroMode(
+                enabled: i == _current,
+                child: IgnorePointer(
+                  ignoring: i != _current,
+                  // A branch mounting off screen pushes its first route, which
+                  // would take the focus from the text field on screen.
+                  child: ExcludeFocus(
                     excluding: i != _current,
-                    child: SlideTransition(
-                      position: _slideOf(i, rail: rail, order: order),
-                      // Always in the tree, so starting a switch never
-                      // remounts a branch; only the outgoing branch paints
-                      // from a texture.
-                      child: SnapshotWidget(
-                        // A branch showing a platform view paints live.
-                        mode: SnapshotMode.permissive,
-                        controller: i == _outgoing
-                            ? _switchSnapshot
-                            : _idleSnapshot,
-                        child: _mounted.contains(i)
-                            ? widget.children[i]
-                            : const SizedBox.shrink(),
+                    child: ExcludeSemantics(
+                      excluding: i != _current,
+                      child: SlideTransition(
+                        position: _slideOf(i, rail: rail, order: order),
+                        // Always in the tree, so starting a switch never
+                        // remounts a branch; only the outgoing branch paints
+                        // from a texture.
+                        child: SnapshotWidget(
+                          // A branch showing a platform view paints live.
+                          mode: SnapshotMode.permissive,
+                          controller: i == _outgoing
+                              ? _switchSnapshot
+                              : _idleSnapshot,
+                          child: _mounted.contains(i)
+                              ? widget.children[i]
+                              : const SizedBox.shrink(),
+                        ),
                       ),
                     ),
                   ),

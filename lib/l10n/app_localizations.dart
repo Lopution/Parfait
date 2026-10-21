@@ -780,6 +780,36 @@ abstract class AppLocalizations {
   /// **'滚动时记录帧耗时。可离开本页去目标页面滚动，回来停止并复制报告。仅 debug/profile 构建可见。'**
   String get frameProbeHint;
 
+  /// No description provided for @heroAnomalyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'Hero 异常'**
+  String get heroAnomalyTitle;
+
+  /// No description provided for @heroAnomalyHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片飞行的起点或落点不在卡片上时自动记下，保留最近 20 条，可复制给开发者。'**
+  String get heroAnomalyHint;
+
+  /// No description provided for @heroAnomalyEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无记录'**
+  String get heroAnomalyEmpty;
+
+  /// No description provided for @heroAnomalyRecorded.
+  ///
+  /// In zh, this message translates to:
+  /// **'已记录一次 Hero 异常'**
+  String get heroAnomalyRecorded;
+
+  /// No description provided for @heroAnomalyClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空记录'**
+  String get heroAnomalyClear;
+
   /// No description provided for @frameProbeStart.
   ///
   /// In zh, this message translates to:

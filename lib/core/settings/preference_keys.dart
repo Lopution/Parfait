@@ -46,6 +46,10 @@ abstract final class PreferenceKeys {
   /// preference.
   static const String developerOptions = 'parfait.developer_options.v1';
 
+  /// The last Hero flights that took an unexpected endpoint, newest first
+  /// (`HeroAnomalyLog`). Device-local diagnostics.
+  static const String heroAnomalies = 'parfait.debug.hero_anomalies.v1';
+
   /// Recent search keywords, newest first (`SearchHistoryNotifier`).
   /// Device-local and shared by every account on the device.
   static const String searchHistory = 'parfait.search.history.v1';

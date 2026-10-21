@@ -1,15 +1,25 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../core/debug/frame_probe.dart';
+import '../../core/debug/hero_anomaly_log.dart';
+import '../../core/log.dart';
+import '../../core/settings/shared_preferences.dart';
+import '../../l10n/context.dart';
 import '../navigation/home_shell_metrics.dart';
 import '../theme/func_semantic_tokens.dart';
+import '../widgets/app_snack_bar.dart';
 import '../widgets/app_top_bar.dart';
 import 'hero_rect_clip.dart';
 import 'motion_tokens.dart';
+
+part 'hero_anomaly.dart';
 
 /// Hero flight geometry shared by the feed cards and the detail page.
 /// The Hero tag and shuttle builder are the single artwork transition
@@ -309,6 +319,14 @@ Widget illustHeroFlightShuttleBuilder(
   final cardContext = direction == HeroFlightDirection.push
       ? fromHeroContext
       : toHeroContext;
+  inspectHeroFlight(
+    flightContext: flightContext,
+    direction: direction,
+    card: cardContext,
+    other: identical(cardContext, fromHeroContext)
+        ? toHeroContext
+        : fromHeroContext,
+  );
   final cardHero = cardContext.widget;
   final cardChild = cardHero is Hero ? cardHero.child : null;
   // Detail and viewer are both square: only a flight to or from a card
