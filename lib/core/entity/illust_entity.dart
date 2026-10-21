@@ -194,6 +194,9 @@ class IllustEntity {
 
   bool get isR18 => xRestrict == 1;
 
+  /// x_restrict 2: R-18G.
+  bool get isR18G => xRestrict == 2;
+
   bool get isAi => aiType == 2;
 
   bool get isUgoira => type == IllustType.ugoira;

@@ -59,7 +59,7 @@ class _ImageBone extends StatelessWidget {
 }
 
 /// The info block's bones in [InfoBlock]'s order: title → author row →
-/// stats → date → tag pills, inside the same `FuncSpacing.xl` padding.
+/// stats → date → tag pills, inside the same `FuncSpacing.lg` padding.
 class _MetaBones extends StatelessWidget {
   const _MetaBones();
 
@@ -67,7 +67,7 @@ class _MetaBones extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.all(FuncSpacing.xl),
+      padding: const EdgeInsets.all(FuncSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -168,17 +168,6 @@ void expectViewerChrome(WidgetTester tester, {required bool visible}) {
   }
 }
 
-/// The stats block's figures, left to right.
-List<String> statFigures(WidgetTester tester) => [
-  for (final text in tester.widgetList<Text>(
-    find.descendant(
-      of: find.byKey(const Key('illust-detail-stats')),
-      matching: find.byType(Text),
-    ),
-  ))
-    text.data!,
-];
-
 /// Opacity of the page's skeleton-to-content [StateFade].
 double stateFadeOpacity(WidgetTester tester) => tester
     .widget<FadeTransition>(

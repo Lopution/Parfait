@@ -1234,6 +1234,37 @@
   "searchUserAccount": "账号",
   "illustDetailTitle": "作品详情",
   "detailMetaCountsSemantics": "{views} 次浏览，{bookmarks} 次收藏",
+  "seriesEpisodeOf": "第 {order} 话 / 共 {total} 话",
+  "detailStatsSemantics": "{views} 次浏览，{bookmarks} 次收藏，发布于 {date}",
+  "detailTools": "创作工具",
+  "@seriesEpisodeOf": {
+    "description": "Episode line of the series card on the detail page once the series' length is known.",
+    "placeholders": {
+      "order": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "@detailStatsSemantics": {
+    "description": "Screen-reader text of the stats line under an artwork title: views, bookmarks and the posting date.",
+    "placeholders": {
+      "views": {
+        "type": "String"
+      },
+      "bookmarks": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "@detailTools": {
+    "description": "Spoken before the software an artwork was made with, in the detail facts row."
+  },
   "@detailMetaCountsSemantics": {
     "description": "The metadata line's screen-reader text when the posting date is unknown.",
     "placeholders": {

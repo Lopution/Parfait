@@ -27,6 +27,7 @@ import '../../app/widgets/smooth_wheel_scroll.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/layout/card_columns.dart';
 import '../../app/widgets/feed/load_more_listener.dart';
+import '../../app/widgets/edge_icon_buttons.dart';
 
 /// Beta56 New page for one content [type]: scope tabs over that type's
 /// feeds, the same shape as the ranking pages. The illust page is the
@@ -352,9 +353,12 @@ class _NewFeedBody extends ConsumerWidget {
           child: Container(
             width: double.infinity,
             color: Theme.of(context).colorScheme.errorContainer,
-            padding: const EdgeInsets.symmetric(
-              horizontal: FuncSpacing.lg,
-              vertical: FuncSpacing.sm,
+            // The retry label, not its padding, ends on the margin.
+            padding: const EdgeInsetsDirectional.fromSTEB(
+              FuncSpacing.lg,
+              FuncSpacing.sm,
+              FuncSpacing.lg - EdgeIconButtons.glyphInset,
+              FuncSpacing.sm,
             ),
             child: Row(
               children: [

@@ -95,7 +95,7 @@ class _StripBody extends ConsumerWidget {
       color: theme.colorScheme.onSurfaceVariant,
     );
     Widget note(String text, {Widget? action}) => Padding(
-      padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
+      padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
       child: Row(
         children: [
           Expanded(child: Text(text, style: muted)),
@@ -125,7 +125,7 @@ class _StripBody extends ConsumerWidget {
           height: AuthorWorksSlivers.tileExtent,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
+            padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
             itemCount: works.length,
             separatorBuilder: (_, _) => const SizedBox(width: FuncSpacing.sm),
             itemBuilder: (context, index) => _WorkTile(work: works[index]),
@@ -174,7 +174,7 @@ class _StripBones extends StatelessWidget {
     child: ListView.separated(
       scrollDirection: Axis.horizontal,
       physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
+      padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
       itemCount: 4,
       separatorBuilder: (_, _) => const SizedBox(width: FuncSpacing.sm),
       itemBuilder: (_, _) => const SkeletonBone(

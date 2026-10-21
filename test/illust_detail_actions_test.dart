@@ -36,6 +36,10 @@ import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_detail_page_support.dart';
 
+/// A phone short enough that the sections under the info block start
+/// below the fold.
+const _short = Size(390, 560);
+
 void main() {
   installMemoryPreferences();
 
@@ -157,7 +161,12 @@ void main() {
     testWidgets('a page whose last strip sits behind the top bar no longer '
         'shows the count', (tester) async {
       final (container, _, _) = await makeWorld();
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await pumpDetail(
+        tester,
+        container,
+        locale: const Locale('zh', 'CN'),
+        surface: _short,
+      );
       await tester.pumpAndSettle();
       final pageHeight = tester
           .getSize(find.byType(DetailPageImage).first)
@@ -215,7 +224,12 @@ void main() {
     testWidgets('neither asks for data before it is on screen', (tester) async {
       final log = <String>[];
       final (container, _, _) = await makeWorld(requestLog: log);
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await pumpDetail(
+        tester,
+        container,
+        locale: const Locale('zh', 'CN'),
+        surface: _short,
+      );
       await tester.pumpAndSettle();
       expect(log, isNot(contains('/v3/illust/comments')));
       expect(log, isNot(contains('/v1/user/illusts')));
@@ -279,7 +293,13 @@ void main() {
           42: {...illustJson(42), 'comment_access_control': 1},
         },
       );
-      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      // The detail lands while the section is still below the fold.
+      await pumpDetail(
+        tester,
+        container,
+        locale: const Locale('zh', 'CN'),
+        surface: _short,
+      );
       await tester.pumpAndSettle();
       await showSection(tester, find.text('作者的其他作品'));
       final closed = find.byKey(const Key('illust-comments-closed'));

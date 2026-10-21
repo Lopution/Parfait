@@ -2346,6 +2346,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String seriesEpisodeOf(int order, int total) {
+    return 'Part $order of $total';
+  }
+
+  @override
+  String detailStatsSemantics(String views, String bookmarks, String date) {
+    return '$views views, $bookmarks bookmarks, posted $date';
+  }
+
+  @override
+  String get detailTools => 'Made with';
+
+  @override
   String get detailCollapsePages => 'Collapse';
 
   @override

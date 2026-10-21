@@ -8,6 +8,7 @@ import '../../../app/pixiv_image.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/author_badge.dart';
 import '../../../app/widgets/comment_text.dart';
+import '../../../app/widgets/edge_icon_buttons.dart';
 import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/skeleton/func_skeleton.dart';
 import '../../../core/comments/comment_feed_controller.dart';
@@ -94,7 +95,7 @@ class _ClosedComments extends StatelessWidget {
       children: [
         DetailSectionHeader(title: context.l10n.commentTitle),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
+          padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
           child: Row(
             children: [
               Icon(Icons.lock_outline, size: 18, color: muted),
@@ -149,7 +150,16 @@ class _PreviewBody extends ConsumerWidget {
       onRetry: () =>
           ref.read(commentFeedProvider(query).notifier).retryInitial(),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
+        // A note row ends in a text button: its label, not its 12dp
+        // padding, ends on the margin (LAYOUT-15).
+        padding: switch (kind) {
+          _PreviewKind.error ||
+          _PreviewKind.empty => const EdgeInsetsDirectional.only(
+            start: FuncSpacing.lg,
+            end: FuncSpacing.lg - EdgeIconButtons.glyphInset,
+          ),
+          _ => const EdgeInsets.symmetric(horizontal: FuncSpacing.lg),
+        },
         child: switch (kind) {
           _PreviewKind.loading => FuncSkeleton(
             label: l10n.contentLoading,

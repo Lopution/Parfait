@@ -29,9 +29,9 @@ export '../../../core/illust/related_illust_repository.dart';
 /// related list already exists renders it straight away.
 const _gridMainAxisSpacing = FuncSpacing.sm;
 
-/// The grid keeps the detail page's content inset, so its cards line up
-/// with the header, the info block and the author's works above.
-const _gridPadding = EdgeInsets.symmetric(horizontal: FuncSpacing.xl);
+/// The grid keeps the detail page's 16dp margin (LAYOUT-14), so its cards
+/// line up with the text, the comments and the author's works above.
+const _gridPadding = EdgeInsets.symmetric(horizontal: FuncSpacing.lg);
 
 class RelatedIllustsSlivers extends ConsumerStatefulWidget {
   const RelatedIllustsSlivers({super.key, required this.illustId});
@@ -105,10 +105,10 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
             DetailSectionHeader(title: context.l10n.relatedWorks),
             Padding(
               padding: const EdgeInsets.fromLTRB(
-                FuncSpacing.xl,
+                FuncSpacing.lg,
                 0,
-                FuncSpacing.xl,
-                FuncSpacing.xl,
+                FuncSpacing.lg,
+                FuncSpacing.lg,
               ),
               child: _errorRow(context, error, controller.refresh),
             ),

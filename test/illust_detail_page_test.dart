@@ -304,51 +304,88 @@ void main() {
       expect(find.text('展开'), findsNothing);
     });
 
-    testWidgets('the ID copies; headings sit one distance above content', (
-      tester,
-    ) async {
-      final clipboard = <String>[];
-      final messenger =
-          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-        if (call.method == 'Clipboard.setData') {
-          clipboard.add((call.arguments as Map)['text'] as String);
-        }
-        return null;
-      });
-      addTearDown(
-        () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
-      );
-      final (container, _, _) = await makeWorld();
-      await pumpDetail(
-        tester,
-        container,
-        locale: const Locale('zh', 'CN'),
-        surface: const Size(800, 4000),
-      );
-      await tester.pumpAndSettle();
-
-      final meta = tester
-          .widget<Text>(find.byKey(const Key('illust-detail-meta')))
-          .data!;
-      expect(meta, allOf(contains('2 页'), contains('800×600')));
-      await tester.tap(find.byKey(const Key('illust-detail-id')));
-      await tester.pump();
-      expect(clipboard, ['42']);
-
-      // The caption heading carries the translate button, the tags heading
-      // none; the content starts where the heading row ends.
-      double underHeading(String heading) {
-        final row = find.ancestor(
-          of: find.text(heading),
-          matching: find.byType(DetailSectionHeader),
+    testWidgets(
+      'marks and tools show only when set; the ID copies; headings align',
+      (tester) async {
+        final clipboard = <String>[];
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(SystemChannels.platform, (
+          call,
+        ) async {
+          if (call.method == 'Clipboard.setData') {
+            clipboard.add((call.arguments as Map)['text'] as String);
+          }
+          return null;
+        });
+        addTearDown(
+          () =>
+              messenger.setMockMethodCallHandler(SystemChannels.platform, null),
         );
-        return tester.getBottomLeft(row).dy -
-            tester.getBottomLeft(find.text(heading)).dy;
-      }
+        final (container, _, _) = await makeWorld();
+        await pumpDetail(
+          tester,
+          container,
+          locale: const Locale('zh', 'CN'),
+          surface: const Size(800, 4000),
+        );
+        await tester.pumpAndSettle();
 
-      expect(underHeading('简介'), underHeading('标签'));
-    });
+        Finder fact(String text) => find.descendant(
+          of: find.byKey(const Key('illust-detail-facts')),
+          matching: find.text(text),
+        );
+        expect(fact('2 页'), findsOneWidget);
+        expect(fact('800×600'), findsOneWidget);
+        // A plain work: no marks, no tools.
+        expect(find.text('AI 生成'), findsNothing);
+        expect(find.text('R-18G'), findsNothing);
+        expect(find.byIcon(Icons.brush_outlined), findsNothing);
+        await tester.tap(find.byKey(const Key('illust-detail-id')));
+        await tester.pump();
+        expect(clipboard, ['42']);
+
+        // The caption heading carries the translate button, the tags heading
+        // none; the content starts where the heading row ends.
+        double underHeading(String heading) {
+          final row = find.ancestor(
+            of: find.text(heading),
+            matching: find.byType(DetailSectionHeader),
+          );
+          return tester.getBottomLeft(row).dy -
+              tester.getBottomLeft(find.text(heading)).dy;
+        }
+
+        expect(underHeading('简介'), underHeading('标签'));
+
+        // The detail payload brings the marks and tools in.
+        final (marked, _, _) = await makeWorld(
+          detailOverrides: {
+            42: {
+              ...illustJson(
+                42,
+                pageCount: 2,
+                withMetaPages: true,
+                aiType: 2,
+                xRestrict: 2,
+              ),
+              'tools': ['Photoshop', 'SAI'],
+            },
+          },
+        );
+        await pumpDetail(
+          tester,
+          marked,
+          locale: const Locale('zh', 'CN'),
+          surface: const Size(800, 4000),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('AI 生成'), findsOneWidget);
+        expect(find.text('R-18G'), findsOneWidget);
+        expect(find.text('R-18'), findsNothing);
+        expect(fact('Photoshop / SAI'), findsOneWidget);
+      },
+    );
   });
 
   group('narrow first image slot', () {

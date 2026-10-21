@@ -2347,6 +2347,19 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String seriesEpisodeOf(int order, int total) {
+    return 'Часть $order из $total';
+  }
+
+  @override
+  String detailStatsSemantics(String views, String bookmarks, String date) {
+    return 'Просмотров: $views, закладок: $bookmarks, опубликовано $date';
+  }
+
+  @override
+  String get detailTools => 'Инструменты';
+
+  @override
   String get detailCollapsePages => 'Свернуть';
 
   @override

@@ -2279,6 +2279,19 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String seriesEpisodeOf(int order, int total) {
+    return '第 $order 話 / 全 $total 話';
+  }
+
+  @override
+  String detailStatsSemantics(String views, String bookmarks, String date) {
+    return '閲覧 $views、ブックマーク $bookmarks、$date 投稿';
+  }
+
+  @override
+  String get detailTools => '使用ツール';
+
+  @override
   String get detailCollapsePages => '折りたたむ';
 
   @override
