@@ -389,6 +389,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Records frame timings while you scroll. You can leave this page, scroll the target screen, then come back to stop and copy the report. Dev/profile builds only.';
 
   @override
+  String get heroAnomalyTitle => 'Hero anomalies';
+
+  @override
+  String get heroAnomalyHint =>
+      'Image flights that start or land away from their card are logged here, the last 20. Copy them for the developer.';
+
+  @override
+  String get heroAnomalyEmpty => 'Nothing logged';
+
+  @override
+  String get heroAnomalyRecorded => 'Logged a Hero anomaly';
+
+  @override
+  String get heroAnomalyClear => 'Clear log';
+
+  @override
   String get frameProbeStart => 'Start recording';
 
   @override

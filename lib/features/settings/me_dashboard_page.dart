@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -290,13 +291,12 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory>
   /// pushed detail route still holds it — its lifetime is the route's.
   final _pager = IllustPagerSource();
 
-  /// The covers as shown. Each work opened from the row moves to the front
-  /// of the history, but the row keeps its order while a page opened from
-  /// it is up, so the image flying back lands where its cover was when the
-  /// pager aimed it. Once that page has left, the row takes the new order,
-  /// each cover sliding to its place.
+  /// The covers as shown. Each work viewed moves to the front of the
+  /// history, but the row keeps its order while any page is over it (one
+  /// opened from it, or from anywhere else), so the image flying back lands
+  /// where its cover was when the pager aimed it. Once that page has left,
+  /// the row takes the new order, each cover sliding to its place.
   List<HistoryRecord> _shown = const [];
-  bool _hold = false;
 
   /// Bumped each time the row takes a new order; [_from] holds where each
   /// cover was then, in places relative to its new one, and [_joined] the
@@ -306,10 +306,14 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory>
   Map<(HistoryContentType, int), int> _from = const {};
   Set<(HistoryContentType, int)> _joined = const {};
 
-  /// Whether a page opened from the row is up: hidden under it, the row
-  /// has not been left.
-  bool _opened = false;
-  Animation<double>? _cover;
+  /// The transitions of the pages over the row: over its own route in the
+  /// branch, and over the home shell on the root navigator (the profile,
+  /// downloads). The row is covered while either is not dismissed.
+  ///
+  /// Not TickerMode: the Overlay turns tickers off under any opaque page,
+  /// so it cannot tell a page over the row from another tab.
+  List<Animation<double>> _covers = const [];
+  bool _covered = false;
 
   /// Whether the open work flew in. One opened without a flight (its work
   /// not in the store yet, no ratio to fly by) takes none back either.
@@ -318,25 +322,42 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final cover = ModalRoute.of(context)?.secondaryAnimation;
-    if (identical(cover, _cover)) return;
-    _cover?.removeStatusListener(_onCover);
-    _cover = cover?..addStatusListener(_onCover);
+    final route = ModalRoute.of(context);
+    final navigator = Navigator.maybeOf(context);
+    final shell = navigator == null ? null : ModalRoute.of(navigator.context);
+    final covers = [
+      ?route?.secondaryAnimation,
+      if (!identical(shell, route)) ?shell?.secondaryAnimation,
+    ];
+    if (listEquals(covers, _covers)) return;
+    for (final cover in _covers) {
+      cover.removeStatusListener(_onCover);
+    }
+    _covers = covers;
+    for (final cover in covers) {
+      cover.addStatusListener(_onCover);
+    }
+    _covered = _isCovered;
   }
 
   @override
   void dispose() {
-    _cover?.removeStatusListener(_onCover);
+    for (final cover in _covers) {
+      cover.removeStatusListener(_onCover);
+    }
     super.dispose();
   }
 
-  /// The page opened from the row has left and its image has landed.
+  bool get _isCovered => _covers.any((cover) => !cover.isDismissed);
+
+  /// A page starts covering the row, or the last one over it has left
+  /// and its image has landed.
   void _onCover(AnimationStatus status) {
-    if (!status.isDismissed) return;
+    final covered = _isCovered;
+    if (covered == _covered) return;
     setState(() {
-      _opened = false;
-      _hold = false;
-      _flies = true;
+      _covered = covered;
+      if (!covered) _flies = true;
     });
   }
 
@@ -367,7 +388,6 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory>
 
   void _open(HistoryRecord record) {
     final id = record.contentId;
-    _hold = _opened = true;
     switch (record.contentType) {
       case HistoryContentType.novel:
         unawaited(openNovel(context, id));
@@ -413,12 +433,11 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    // Hidden — another tab, a page not opened from the row — the row is
-    // left; it catches up once it shows again.
+    // Under another tab the row is left; it catches up once it shows
+    // again. Under a page it holds until that page has left.
     final showing = TickerMode.valuesOf(context).enabled;
-    if (!showing && !_opened) _hold = false;
     final records = ref.watch(_recentHistoryProvider).value;
-    if (records != null && showing && !_hold) _adopt(records);
+    if (records != null && showing && !_covered) _adopt(records);
     final shown = _shown;
     if (shown.isEmpty) return const SizedBox.shrink();
     final store = ref.watch(illustStoreProvider);

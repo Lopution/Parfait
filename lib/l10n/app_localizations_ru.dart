@@ -390,6 +390,22 @@ class AppLocalizationsRu extends AppLocalizations {
       'Записывает время кадров при прокрутке. Можно уйти со страницы, прокрутить нужный экран, вернуться и остановить запись, затем скопировать отчёт. Только debug/profile-сборки.';
 
   @override
+  String get heroAnomalyTitle => 'Аномалии Hero';
+
+  @override
+  String get heroAnomalyHint =>
+      'Перелёты изображения, которые начинаются или заканчиваются не на карточке, записываются здесь (последние 20). Скопируйте их для разработчика.';
+
+  @override
+  String get heroAnomalyEmpty => 'Записей нет';
+
+  @override
+  String get heroAnomalyRecorded => 'Аномалия Hero записана';
+
+  @override
+  String get heroAnomalyClear => 'Очистить журнал';
+
+  @override
   String get frameProbeStart => 'Начать запись';
 
   @override

@@ -570,6 +570,10 @@ class _HistoryEntry extends ConsumerWidget {
   }
 }
 
+/// The history page's own Hero scope (TRANS-07): a work seen lately is
+/// often on a feed still mounted in another branch.
+const _heroScope = 'history';
+
 class _IllustHistoryEntry extends StatelessWidget {
   const _IllustHistoryEntry({
     required this.record,
@@ -589,6 +593,7 @@ class _IllustHistoryEntry extends StatelessWidget {
       // preview height and carries the visit date in the meta slot.
       return IllustCard(
         entity: entity,
+        heroScope: _heroScope,
         meta: EntityMetaText(AppFormat.relative(context, record.lastViewedAt)),
         onLongPress: onLongPress,
       );
@@ -596,7 +601,8 @@ class _IllustHistoryEntry extends StatelessWidget {
     return _HistoryCardFrame(
       lastViewedAt: record.lastViewedAt,
       child: InkWell(
-        onTap: () => openIllust(context, record.contentId),
+        onTap: () =>
+            openIllust(context, record.contentId, heroScope: _heroScope),
         child: _SnapshotEntry(record: record, icon: Icons.image_outlined),
       ),
     );

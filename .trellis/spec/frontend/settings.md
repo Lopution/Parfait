@@ -127,13 +127,17 @@ reviewed: 2026-10-17
   the detail pager over the row's illustrations in their order at the
   tap. A cover whose work is in the illustration store flies to the
   detail page and back (TRANS-09, its own scope per TRANS-07); one whose
-  work is not opens with no flight and takes none back. After an open
-  from the row the row keeps its order until that page has left (its
-  image landed), then takes the new order at once: each cover slides from
+  work is not opens with no flight and takes none back. While any page
+  covers the row (opened from it or from anywhere, in the branch or on
+  the root navigator over the shell) it keeps its order; once that page
+  has left (its image landed) it takes the new order at once: each cover slides from
   where it was to its place on `MotionTokens.spatial`, one new to the row
   slides in from the leading edge and fades in, a new order mid-slide
   carries on from where each cover is, and reduced motion moves them at
   once. Hidden (another tab) the row takes the new order when it shows.
+  "Covered" is read from the secondary animations of the row's route and
+  of the shell's route, never from TickerMode: the Overlay stops tickers
+  under any opaque page, so TickerMode cannot tell a page from a tab.
 - **Why:** User decision: settings filled two thirds of the page in a
   style of their own, and nothing showed what the user saw last; then
   (10-21) the page read as unpolished next to mature apps, and YouTube's
@@ -143,6 +147,9 @@ reviewed: 2026-10-17
   of the history, so a row reordered mid-flight would land the image on
   another work's cover. Swapped in place at the landing, covers changed
   right where the eye was; waiting for the next visit left the row stale
-  (user decision 10-20: catch up at the landing, with the slide).
-- **Check:** `test/settings_test.dart` "the Me header, manage button and end rows open their pages" "signed out, the Me header is one button to the login" "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order" "a recent cover flies to its work and back, an unseen one not"
+  (user decision 10-20: catch up at the landing, with the slide). Read
+  from TickerMode, a page not opened from the row (the profile, the
+  history page) let the row reorder behind it, and the slide was over
+  before the user came back.
+- **Check:** `test/settings_test.dart` "the Me header, manage button and end rows open their pages" "signed out, the Me header is one button to the login" "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order" "a recent cover flies to its work and back, an unseen one not" "a page over the row holds its order until it has left"
 - **Code:** `lib/features/settings/me_dashboard_page.dart`

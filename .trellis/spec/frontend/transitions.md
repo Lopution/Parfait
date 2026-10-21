@@ -83,14 +83,21 @@ reviewed: 2026-10-21
 
 ## Hero flights
 
-### TRANS-07 Hero tags are scoped per surface
+### TRANS-07 Hero tags are scoped per surface; only the branch on screen pairs
 - **Rule:** The only Hero tags are `illustHeroTag(scope, id)`. Each mounted
-  surface uses its own stable scope, and the card and the detail route it
-  opens share scope and id. A route without a matching source uses the
-  normal transition; it never fakes a source.
-- **Why:** The same work in two mounted feeds flew from the wrong card.
-- **Check:** `test/architecture/feedback_channels_test.dart` "Hero uses only the shared illustHeroTag family"
-- **Code:** `lib/app/motion/hero_transition.dart`
+  surface uses its own stable scope (the history page `'history'`, the Me
+  row `'me-history'`), and the card and the detail route it opens share
+  scope and id. A route without a matching source uses the normal
+  transition; it never fakes a source. `HomeBranchStack` wraps every
+  branch but the current one in `HeroMode(enabled: false)`.
+- **Why:** The same work in two mounted feeds flew from the wrong card. A
+  route on the root navigator (the viewer) collects the Heroes of every
+  branch's top page; the same work open in a branch out of sight shared
+  the tag, and in release the last one collected won: the image flew to
+  where the hidden branch had it, read by the user as "the history's
+  place" (10-21).
+- **Check:** `test/architecture/feedback_channels_test.dart` "Hero uses only the shared illustHeroTag family", `test/hero_transition_test.dart` "the viewer pairs only with the branch on screen"
+- **Code:** `lib/app/motion/hero_transition.dart`, `lib/app/widgets/home_branch_stack.dart`
 
 ### TRANS-08 Opening a work never waits for the image
 - **Rule:** A card may start `PixivImage.preload` on pointer down but pushes
@@ -277,3 +284,20 @@ reviewed: 2026-10-21
   swipe; a return shuttle at another width decoded a second time.
 - **Check:** `test/illust_detail_viewer_test.dart` "a page decodes a preview until zoomed, then the whole file", `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight"
 - **Code:** `lib/features/illust/viewer/image_viewer_page.dart`, `lib/app/navigation/routes.dart`
+
+### TRANS-21 Every artwork flight checks its card end
+- **Rule:** At its start the shared shuttle (`inspectHeroFlight`) checks
+  the card end (the source of a push, the landing of a pop): live
+  (TickerMode on), on its route's page (measured in the page, which may
+  still be moving), and, pushed within 2 s of a card tap, overlapping
+  the box `noteHeroCardOpened` took at the tap. A failure logs one entry
+  (tag, direction, reasons, each end's route, navigator restoration id
+  and box) to `HeroAnomalyLog`, newest first, the last 20 kept in
+  preferences; with developer options unlocked a prompt says so. The
+  frame probe page shows, copies and clears the log. A normal flight
+  does only the comparisons.
+- **Why:** A wrong flight showed on devices a few times a day and never
+  on demand, so the user could not record one. Widget type names are
+  obfuscated in release builds; route names and restoration ids are not.
+- **Check:** `test/hero_transition_test.dart` "a flight from a card out of sight is logged, others not"
+- **Code:** `lib/app/motion/hero_anomaly.dart`, `lib/core/debug/hero_anomaly_log.dart`, `lib/features/settings/pages/frame_probe_page.dart`

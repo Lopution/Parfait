@@ -379,6 +379,22 @@ class AppLocalizationsJa extends AppLocalizations {
       'スクロール中のフレーム時間を記録します。このページを離れて対象画面をスクロールし、戻って停止してレポートをコピーできます。debug/profile ビルドのみ。';
 
   @override
+  String get heroAnomalyTitle => 'Hero の異常';
+
+  @override
+  String get heroAnomalyHint =>
+      '画像の遷移がカードと違う位置から始まったり着地したりすると、最新 20 件まで自動で記録します。コピーして開発者に送れます。';
+
+  @override
+  String get heroAnomalyEmpty => '記録はありません';
+
+  @override
+  String get heroAnomalyRecorded => 'Hero の異常を記録しました';
+
+  @override
+  String get heroAnomalyClear => '記録を消去';
+
+  @override
   String get frameProbeStart => '記録開始';
 
   @override

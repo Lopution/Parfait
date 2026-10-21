@@ -370,6 +370,21 @@ class AppLocalizationsZh extends AppLocalizations {
       '滚动时记录帧耗时。可离开本页去目标页面滚动，回来停止并复制报告。仅 debug/profile 构建可见。';
 
   @override
+  String get heroAnomalyTitle => 'Hero 异常';
+
+  @override
+  String get heroAnomalyHint => '图片飞行的起点或落点不在卡片上时自动记下，保留最近 20 条，可复制给开发者。';
+
+  @override
+  String get heroAnomalyEmpty => '暂无记录';
+
+  @override
+  String get heroAnomalyRecorded => '已记录一次 Hero 异常';
+
+  @override
+  String get heroAnomalyClear => '清空记录';
+
+  @override
   String get frameProbeStart => '开始记录';
 
   @override

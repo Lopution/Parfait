@@ -199,6 +199,7 @@ class _IllustCardBody extends ConsumerWidget {
     final muted = mutedHit != null && !revealed;
     void openDetail() {
       _preloadTransitionImages(context, ref, preview, cardDecodeWidth);
+      if (hasHero) noteHeroCardOpened(context, heroTag);
       openIllust(
         context,
         entity.id,
