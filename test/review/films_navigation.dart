@@ -1,11 +1,7 @@
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart' show Scaffold;
 import 'package:parfait/app/motion/hero_rect_clip.dart';
 import 'package:parfait/app/pixiv_image.dart';
-import 'package:parfait/core/settings/app_settings.dart';
-import 'package:parfait/core/settings/settings_controller.dart';
 
 import 'review_support.dart';
 
@@ -114,44 +110,27 @@ void main() {
     },
   );
 
-  for (final style in PageTransitionStyle.values) {
-    testFilm(
-      'nav/hero-detail-back-gesture-${style.name}',
-      location: '/recommended',
-      notes:
-          'The ${style.name} transition, back gesture on the detail page '
-          'opened from a feed card. Halfway, then cancelled: the page follows '
-          'the finger as any page does in this style, the image leaves its '
-          'spot toward the card, and both return on the cancel. Then a '
-          'committed gesture: the page leaves with the style, the feed moves '
-          'with it, the image lands on the card without a gap or a jump, and '
-          'nothing cuts the image wrongly while the page shrinks or slides.',
-      script: (film, router) async {
-        final tester = film.tester;
-        final container = ProviderScope.containerOf(
-          tester.element(find.byType(Scaffold).first),
-        );
-        await tester.runAsync(
-          () => container
-              .read(settingsProvider.notifier)
-              .setPageTransitionStyle(style),
-        );
-        await film.tap(find.byType(PixivImage), hold: 6);
-        await film.frames(45);
-        for (final commit in [false, true]) {
-          await _backGesture('startBackGesture', 0);
-          for (var i = 1; i <= 15; i++) {
-            await _backGesture('updateBackGestureProgress', i / 30);
-            await film.frame();
-          }
-          await _backGesture(
-            commit ? 'commitBackGesture' : 'cancelBackGesture',
-          );
-          await film.frames(40);
-        }
-      },
-    );
-  }
+  testFilm(
+    'nav/hero-detail-back-gesture',
+    location: '/recommended',
+    notes:
+        'The back gesture on the detail page opened from a feed card. While '
+        'the finger moves nothing does; on the commit the page leaves as on '
+        'back: its content fades out onto its background first, then the '
+        'background, so the feed is whole when the image lands on its card, '
+        'without a gap or a jump, and nothing cuts the image wrongly.',
+    script: (film, router) async {
+      await film.tap(find.byType(PixivImage), hold: 6);
+      await film.frames(45);
+      await _backGesture('startBackGesture', 0);
+      for (var i = 1; i <= 15; i++) {
+        await _backGesture('updateBackGestureProgress', i / 30);
+        await film.frame();
+      }
+      await _backGesture('commitBackGesture');
+      await film.frames(40);
+    },
+  );
 
   // Hero flights cut short, over every image shape a flight treats
   // differently: a 4:3 card, the top of a 1:2.1 one, a 1:6 one on its

@@ -4,12 +4,10 @@ import 'package:flutter/widgets.dart';
 
 import '../../core/debug/frame_probe.dart';
 import '../../core/platform/app_root_pipeline_owner.dart';
-import 'motion_tokens.dart';
 
 /// Transition-window guard shared by every route transition: wraps the route
-/// content in a [RoutePopSnapshot] through [transition], so the
-/// platform-specific transform — slide, predictive-back shared element —
-/// moves the captured texture when the route leaves the stage. Pages stay
+/// content in a [RoutePopSnapshot] through [transition], so the transform
+/// (the slide) moves the captured texture when the route leaves the stage. Pages stay
 /// live while they animate: tickers are never paused by the transition
 /// itself (the Overlay still stops a fully covered route's tickers).
 class FuncTransitionGuard extends StatelessWidget {
@@ -41,32 +39,6 @@ class FuncTransitionGuard extends StatelessWidget {
   }
 }
 
-/// Pushed-route transition: slide in from the trailing edge. The page
-/// below does not move.
-class FuncRouteTransition extends StatelessWidget {
-  const FuncRouteTransition({
-    super.key,
-    required this.animation,
-    required this.child,
-  });
-
-  final Animation<double> animation;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    // drive(CurveTween) instead of CurvedAnimation: build methods run every
-    // frame during the transition, and a CurvedAnimation is a stateful
-    // listener-holding object — the curve evaluation is all that is needed.
-    return SlideTransition(
-      position: animation
-          .drive(CurveTween(curve: MotionTokens.pageCurve))
-          .drive(Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)),
-      child: child,
-    );
-  }
-}
-
 /// Keeps a page real-time through a route transition and freezes into a
 /// single texture only while it leaves the stage.
 ///
@@ -90,11 +62,10 @@ class FuncRouteTransition extends StatelessWidget {
 ///   the current state after the press highlight has faded.
 ///
 /// A reveal that starts while the press feedback that opened the route
-/// could still be fading (a back gesture interrupting the push, inside
+/// could still be fading (back interrupting the push, inside
 /// [_pressSettleDuration] of the cover start) keeps the page live for that
 /// whole reveal rather than freezing a half-faded highlight into the
-/// texture. The live subtree stays mounted throughout, so cancelled pops
-/// (predictive-back back-outs) restore instantly.
+/// texture. The live subtree stays mounted throughout.
 class RoutePopSnapshot extends StatefulWidget {
   const RoutePopSnapshot({
     super.key,

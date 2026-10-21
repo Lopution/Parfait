@@ -215,7 +215,6 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
                 tag: widget.heroTag,
                 curve: MotionTokens.spatialCurve,
                 createRectTween: illustHeroRectTween,
-                transitionOnUserGestures: true,
                 flightShuttleBuilder: illustHeroFlightShuttleBuilder,
                 child: IllustHeroFlightChild(
                   // The detail endpoint stays sharp for the normal page and

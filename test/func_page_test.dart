@@ -13,7 +13,7 @@ import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/navigation/func_page.dart';
 import 'package:parfait/app/navigation/route_animation.dart';
 import 'package:parfait/app/widgets/home_branch_stack.dart';
-import 'package:parfait/core/settings/app_settings.dart';
+import 'package:parfait/core/settings/app_settings.dart' show AnimationSpeed;
 import 'package:parfait/core/profile/profile_edit_controller.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/profile/profile_edit_models.dart';
@@ -39,7 +39,6 @@ Future<void> _sendBackGestureMethod(
       .handlePlatformMessage('flutter/backgesture', data, (_) {});
 }
 
-/// Android's predictive back, starting at the left edge.
 /// Whether the lifted-Hero hole of a moving page covers [global]: the
 /// painted even-odd clip leaves it out. Null when no page has a hole.
 bool? _liftedHoleAt(WidgetTester tester, Offset global) {
@@ -61,13 +60,14 @@ bool? _liftedHoleAt(WidgetTester tester, Offset global) {
   return !clip.clipPath!.contains(local);
 }
 
+/// Android's back gesture, starting at the left edge.
 Future<void> _startBackGesture() => _sendBackGestureMethod('startBackGesture', {
   'touchOffset': <double>[5.0, 300.0],
   'progress': 0.0,
   'swipeEdge': 0,
 });
 
-/// The predictive back swipe, 100 px in, at [progress].
+/// The back swipe, 100 px in, at [progress].
 Future<void> _dragBackGesture(double progress) =>
     _sendBackGestureMethod('updateBackGestureProgress', {
       'touchOffset': <double>[100.0, 300.0],
@@ -75,19 +75,12 @@ Future<void> _dragBackGesture(double progress) =>
       'swipeEdge': 0,
     });
 
-Finder _sharedElementTransition() => find.byWidgetPredicate(
-  (widget) => widget.runtimeType.toString().contains(
-    'PredictiveBackSharedElementPageTransition',
-  ),
-);
-
 /// Pumps a bare Navigator whose initial route is a [FuncPage]; the page's
 /// button pushes a second FuncPage showing [second] and hands the route back
 /// through the return value, settled unless [settle] is false.
 Future<PageRoute<void>> _pushSecondPage(
   WidgetTester tester, {
   Duration duration = const Duration(milliseconds: 800),
-  PageTransitionStyle transitionStyle = PageTransitionStyle.system,
   Widget? home,
   Widget second = const Text('page b'),
   bool settle = true,
@@ -98,7 +91,6 @@ Future<PageRoute<void>> _pushSecondPage(
       FuncPage<void>(
             transitionDuration: duration,
             reverseTransitionDuration: duration,
-            transitionStyle: transitionStyle,
             child: child,
           ).createRoute(rootContext)
           as PageRoute<void>;
@@ -143,18 +135,16 @@ Future<GoRouter> _pumpHome(
   WidgetTester tester, {
   bool reduceMotion = false,
   AnimationSpeed? speed,
-  PageTransitionStyle? transitionStyle,
   String location = '/recommended',
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   setViewSize(tester, const Size(390, 844));
   final router = pixivRouter(location);
   Widget app = localizedRouterApp(router, locale: const Locale('en', 'US'));
-  if (reduceMotion || speed != null || transitionStyle != null) {
+  if (reduceMotion || speed != null) {
     app = MotionScope(
       reduce: reduceMotion,
       speed: speed ?? AnimationSpeed.normal,
-      transitionStyle: transitionStyle ?? PageTransitionStyle.system,
       child: app,
     );
   }
@@ -218,251 +208,210 @@ void main() {
     expect(builds.single, same(inner.animation));
   });
 
-  testWidgets('a throwing back-gesture commit releases the Navigator', (
+  testWidgets('a page slides in from the trailing edge over the page below', (
     tester,
   ) async {
-    final key = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(
-      Directionality(
-        textDirection: TextDirection.ltr,
-        child: Navigator(
-          key: key,
-          onGenerateRoute: (_) =>
-              MaterialPageRoute<void>(builder: (_) => const SizedBox.shrink()),
-        ),
-      ),
-    );
-    final navigator = key.currentState!;
-    navigator.didStartUserGesture();
-    expect(navigator.userGestureInProgress, isTrue);
-
-    expect(
-      () => commitBackGestureGuarded(navigator, () => throw StateError('pop')),
-      throwsStateError,
-    );
-    expect(navigator.userGestureInProgress, isFalse);
-  });
-
-  testWidgets('a successful back-gesture commit is not stopped twice', (
-    tester,
-  ) async {
-    final key = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(
-      Directionality(
-        textDirection: TextDirection.ltr,
-        child: Navigator(
-          key: key,
-          onGenerateRoute: (_) =>
-              MaterialPageRoute<void>(builder: (_) => const SizedBox.shrink()),
-        ),
-      ),
-    );
-    final navigator = key.currentState!;
-    var committed = false;
-    commitBackGestureGuarded(navigator, () {
-      committed = true;
-    });
-    expect(committed, isTrue);
-    expect(navigator.userGestureInProgress, isFalse);
-  });
-
-  testWidgets('the back gesture drives the route and commits', (tester) async {
-    final route = await _pushSecondPage(tester);
-
-    await _startBackGesture();
-    await tester.pump();
-    expect(_sharedElementTransition(), findsWidgets);
-    expect(route.animation!.value, 1.0);
-
-    await _dragBackGesture(0.35);
-    await tester.pump();
-    expect(route.animation!.value, moreOrLessEquals(0.65));
-
-    await _sendBackGestureMethod('commitBackGesture');
+    final route = await _pushSecondPage(tester, settle: false);
+    await tester.pump(const Duration(milliseconds: 400));
+    final width = tester.getSize(find.byType(Navigator)).width;
+    final entering = tester.getTopLeft(find.text('page b')).dx;
+    final below = tester.getTopLeft(find.text('page a')).dx;
     await tester.pumpAndSettle();
-    expect(find.text('page b'), findsNothing);
-    expect(find.text('page a'), findsOneWidget);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-  testWidgets(
-    'a button back pops through FadeForwards, not the gesture transition',
-    (tester) async {
-      final route = await _pushSecondPage(tester);
+    route.navigator!.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final leaving = tester.getTopLeft(find.text('page b')).dx;
+    await tester.pumpAndSettle();
+    expect([entering, leaving], everyElement(inExclusiveRange(0, width)));
+    expect(below, lessThan(tester.getTopLeft(find.text('page a')).dx));
+  });
 
-      Navigator.of(tester.element(find.text('page b'))).pop();
-      await tester.pump();
-      // FadeForwards animates the route out over the builder's 800ms
-      // window; the shared-element gesture transition never enters the
-      // tree.
-      expect(_sharedElementTransition(), findsNothing);
-      expect(route.animation!.isAnimating, isTrue);
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(route.animation!.isAnimating, isTrue);
-      await tester.pumpAndSettle();
-      expect(find.text('page a'), findsOneWidget);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.android),
-  );
-
-  for (final style in PageTransitionStyle.values) {
-    testWidgets('a shared-element page fades over a still page in either '
-        'style while its Hero flies (${style.name})', (tester) async {
-      late BuildContext rootContext;
-      late PageRoute<void> pushed;
-      var stillTaps = 0;
-      PageRoute<void> page(Widget child, {bool sharedElement = false}) =>
-          FuncPage<void>(
-                transitionDuration: const Duration(milliseconds: 400),
-                reverseTransitionDuration: const Duration(milliseconds: 400),
-                transitionStyle: style,
-                sharedElement: sharedElement,
-                child: child,
-              ).createRoute(rootContext)
-              as PageRoute<void>;
-      Widget hero(String label, Offset at, {double height = 50}) => Stack(
-        children: [
-          Positioned(
-            left: at.dx,
-            top: at.dy,
-            child: Hero(
-              tag: 'art',
-              transitionOnUserGestures: true,
-              flightShuttleBuilder: illustHeroFlightShuttleBuilder,
-              child: SizedBox(width: 50, height: height, child: Text(label)),
-            ),
+  testWidgets('a shared-element page covers a still page, then shows its '
+      'content while its Hero flies; leaving runs the other way', (
+    tester,
+  ) async {
+    late BuildContext rootContext;
+    late PageRoute<void> pushed;
+    var stillTaps = 0;
+    PageRoute<void> page(Widget child, {bool sharedElement = false}) =>
+        FuncPage<void>(
+              transitionDuration: const Duration(milliseconds: 400),
+              reverseTransitionDuration: const Duration(milliseconds: 400),
+              sharedElement: sharedElement,
+              child: child,
+            ).createRoute(rootContext)
+            as PageRoute<void>;
+    Widget hero(String label, Offset at, {double height = 50}) => Stack(
+      children: [
+        Positioned(
+          left: at.dx,
+          top: at.dy,
+          child: Hero(
+            tag: 'art',
+            flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+            child: SizedBox(width: 50, height: height, child: Text(label)),
           ),
-        ],
-      );
-      await tester.pumpWidget(
-        Directionality(
-          textDirection: TextDirection.ltr,
-          child: Builder(
-            builder: (context) {
-              rootContext = context;
-              return Navigator(
-                observers: [HeroController()],
-                onGenerateRoute: (_) => page(
-                  Builder(
-                    builder: (context) => Stack(
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            pushed = page(
-                              hero(
-                                'detail',
-                                const Offset(300, 500),
-                                height: 100,
-                              ),
-                              sharedElement: true,
-                            );
-                            Navigator.of(context).push(pushed);
-                          },
-                          child: hero('card', Offset.zero),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Builder(
+          builder: (context) {
+            rootContext = context;
+            return Navigator(
+              observers: [HeroController()],
+              onGenerateRoute: (_) => page(
+                Builder(
+                  builder: (context) => Stack(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          pushed = page(
+                            hero('detail', const Offset(300, 500), height: 100),
+                            sharedElement: true,
+                          );
+                          Navigator.of(context).push(pushed);
+                        },
+                        child: hero('card', Offset.zero),
+                      ),
+                      Positioned(
+                        left: 0,
+                        top: 200,
+                        child: GestureDetector(
+                          onTap: () => stillTaps++,
+                          child: const Text('still'),
                         ),
-                        Positioned(
-                          left: 0,
-                          top: 200,
-                          child: GestureDetector(
-                            onTap: () => stillTaps++,
-                            child: const Text('still'),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
-      );
-      const still = Offset(0, 200);
-      double pageOpacity() => tester
-          .widgetList<FadeTransition>(
-            find.ancestor(
-              of: find.byType(Hero).last,
-              matching: find.byType(FadeTransition),
-            ),
+      ),
+    );
+    const still = Offset(0, 200);
+    double layer(Type child) => tester
+        .widget<FadeTransition>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is FadeTransition && widget.child.runtimeType == child,
+          ),
+        )
+        .opacity
+        .value;
+    double backdrop() => layer(ColoredBox);
+    double content() => layer(HeroLiftHole);
+    Future<void> at(int milliseconds) async {
+      await tester.pump();
+      await tester.pump(Duration(milliseconds: milliseconds));
+    }
+
+    // Opening: the background covers the still page first, the content
+    // fades in on it after.
+    await tester.tap(find.text('card'));
+    await at(60);
+    expect(backdrop(), inExclusiveRange(0, 1));
+    expect(content(), 0);
+    await tester.pump(const Duration(milliseconds: 140));
+    expect(backdrop(), 1);
+    expect(content(), inExclusiveRange(0, 1));
+    expect(tester.getTopLeft(find.text('still')), still);
+    // Only a landed page has its image lifted off.
+    expect(_liftedHoleAt(tester, const Offset(325, 550)), isNull);
+    await tester.pumpAndSettle();
+    expect([backdrop(), content()], [1, 1]);
+
+    // Back: the content goes first, then the background; the image flies
+    // home out of a hole in the page and the page below takes the touch.
+    Navigator.of(tester.element(find.text('detail'))).pop();
+    await at(80);
+    expect(backdrop(), 1);
+    expect(content(), inExclusiveRange(0, 1));
+    final stage = tester.getRect(find.byType(Hero).last);
+    expect(_liftedHoleAt(tester, stage.center), isTrue);
+    expect(_liftedHoleAt(tester, stage.topCenter.translate(0, -1)), isFalse);
+    await tester.pump(const Duration(milliseconds: 160));
+    expect(content(), 0);
+    expect(backdrop(), inExclusiveRange(0, 1));
+    final flying = tester.getTopLeft(find.text('detail'));
+    expect(flying.dx, inExclusiveRange(0, 300));
+    expect(flying.dy, inExclusiveRange(0, 500));
+    expect(tester.getTopLeft(find.text('still')), still);
+    await tester.tap(find.text('still'));
+    expect(stillTaps, 1);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('card')), Offset.zero);
+    expect(find.text('detail'), findsNothing);
+
+    // Back cutting an opening short leaves each layer from where it got
+    // to, not from nothing in one frame.
+    await tester.tap(find.text('card'));
+    await at(200);
+    final opened = content();
+    expect(opened, inExclusiveRange(0, 1));
+    Navigator.of(tester.element(find.text('still'))).pop();
+    await at(16);
+    expect(content(), inExclusiveRange(opened - 0.15, opened + 1e-6));
+    expect(backdrop(), greaterThan(0.9));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('the viewer stage fades whole, with no background', (
+    tester,
+  ) async {
+    late BuildContext rootContext;
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Builder(
+          builder: (context) {
+            rootContext = context;
+            return Navigator(
+              onGenerateRoute: (_) => FuncPage<void>(
+                child: Builder(
+                  builder: (context) => GestureDetector(
+                    onTap: () => Navigator.of(context).push(
+                      FuncPage<void>(
+                        transitionDuration: const Duration(milliseconds: 400),
+                        sharedElement: true,
+                        sharedElementBackdrop: false,
+                        child: const Text('stage'),
+                      ).createRoute(rootContext),
+                    ),
+                    child: const Text('detail'),
+                  ),
+                ),
+              ).createRoute(rootContext),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.text('detail'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final fade = tester.widget<FadeTransition>(
+      find
+          .ancestor(
+            of: find.text('stage'),
+            matching: find.byType(FadeTransition),
           )
-          .last
-          .opacity
-          .value;
-      // Mid-flight the page below holds still, and the fading page has a
-      // hole where its image sits, so the page below shows there rather
-      // than a blank; the rest of the stage still paints. Leaving, the page
-      // has mostly faded halfway through, not waiting for the image.
-      void expectFlyingHome() {
-        expect(pageOpacity(), lessThan(0.5));
-        // The shuttle flies the leaving page's image.
-        final flying = tester.getTopLeft(find.text('detail'));
-        expect(flying.dx, inExclusiveRange(0, 300));
-        expect(flying.dy, inExclusiveRange(0, 500));
-        expect(tester.getTopLeft(find.text('still')), still);
-        final stage = tester.getRect(find.byType(Hero).last);
-        expect(_liftedHoleAt(tester, stage.center), isTrue);
-        expect(
-          _liftedHoleAt(tester, stage.topCenter.translate(0, -1)),
-          isFalse,
-        );
-      }
-
-      await tester.tap(find.text('card'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(tester.getTopLeft(find.text('still')), still);
-      expect(pageOpacity(), greaterThan(0.5));
-      // Only a landed page has its image lifted off.
-      expect(_liftedHoleAt(tester, const Offset(325, 550)), isNull);
-      await tester.pumpAndSettle();
-
-      // The back gesture scrubs the fade; the image follows the finger
-      // home and returns on a cancel.
-      await _startBackGesture();
-      await _dragBackGesture(0.5);
-      await tester.pump();
-      expect(pushed.animation!.value, inExclusiveRange(0, 1));
-      expectFlyingHome();
-      await _sendBackGestureMethod('cancelBackGesture');
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(find.text('detail')), const Offset(300, 500));
-
-      // Back fades the page out while the image flies home.
-      Navigator.of(tester.element(find.text('detail'))).pop();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
-      expectFlyingHome();
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(find.text('card')), Offset.zero);
-      expect(find.text('detail'), findsNothing);
-
-      // Back cutting an opening short fades the page out from where its
-      // fade-in got to, not from nothing in one frame.
-      await tester.tap(find.text('card'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      final opened = pageOpacity();
-      Navigator.of(tester.element(find.text('still'))).pop();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 16));
-      expect(pageOpacity(), inExclusiveRange(opened - 0.15, opened + 1e-6));
-      await tester.pumpAndSettle();
-
-      // A committed gesture hands the page below the touch at once, while
-      // the image is still on its way.
-      await tester.tap(find.text('card'));
-      await tester.pumpAndSettle();
-      await _startBackGesture();
-      await _dragBackGesture(0.3);
-      await tester.pump();
-      await _sendBackGestureMethod('commitBackGesture');
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(pushed.animation!.isAnimating, isTrue);
-      await tester.tap(find.text('still'));
-      expect(stillTaps, 1);
-      await tester.pumpAndSettle();
-    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
-  }
+          .first,
+    );
+    expect(fade.opacity.value, inExclusiveRange(0, 1));
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is FadeTransition && widget.child is ColoredBox,
+      ),
+      findsNothing,
+    );
+    await tester.pumpAndSettle();
+  });
 
   testWidgets('the scoped tier still collapses under reduced motion', (
     tester,
@@ -530,12 +479,18 @@ void main() {
     expect(find.byType(HistoryPage, skipOffstage: false), findsNWidgets(2));
 
     await _startBackGesture();
-    await tester.pump();
     await _dragBackGesture(0.35);
     await tester.pump();
-    expect(branch1Route.animation!.value, moreOrLessEquals(0.65));
+    expect(branch1Route.animation!.value, 1.0);
     expect(branch0Route.animation!.value, 1.0);
+    await _sendBackGestureMethod('cancelBackGesture');
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(HistoryPage), findsOneWidget);
 
+    // No route takes the gesture, so the framework pops on its commit as
+    // on the back button.
+    await _startBackGesture();
+    await _dragBackGesture(0.35);
     await _sendBackGestureMethod('commitBackGesture');
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
@@ -572,10 +527,9 @@ void main() {
     final meRoute = _routeOf(tester, find.byType(MePage));
 
     await _startBackGesture();
-    await tester.pump();
     await _dragBackGesture(0.35);
     await tester.pump();
-    expect(meRoute.animation!.value, moreOrLessEquals(0.65));
+    expect(meRoute.animation!.value, 1.0);
     expect(historyRoute.animation!.value, 1.0);
 
     await _sendBackGestureMethod('commitBackGesture');
@@ -586,7 +540,7 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets(
-    'a dirty profile editor ignores the gesture but confirms on back',
+    'a dirty profile editor confirms on the back gesture instead of popping',
     (tester) async {
       installMemoryPreferences();
       const owner = ProfileEditOwner(accountId: 'account-a');
@@ -657,19 +611,16 @@ void main() {
       await tester.enterText(fields.first, 'changed');
       await tester.pump();
 
-      // PopScope(canPop: false) marks the route doNotPop, so the gesture
-      // never starts: no predictive-back transition, no animation.
+      // The gesture's commit is the back button: PopScope(canPop: false)
+      // keeps the page and asks.
       await _startBackGesture();
+      await _dragBackGesture(0.5);
       await tester.pump();
-      expect(_sharedElementTransition(), findsNothing);
       expect(editRoute.animation!.value, 1.0);
-      expect(find.byType(ProfileEditPage), findsOneWidget);
-
-      // The system back button still routes through PopScope and shows
-      // the discard confirmation.
-      await tester.binding.handlePopRoute();
+      await _sendBackGestureMethod('commitBackGesture');
       await tester.pumpAndSettle();
       expect(find.text('Discard unsaved changes?'), findsOneWidget);
+      expect(editRoute.isActive, isTrue);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.android),
   );

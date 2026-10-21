@@ -34,7 +34,8 @@ reviewed: 2026-10-19
   `Cubic(0.3, 0, 0.2, 1)`, a surface moving in place),
   `MotionTokens.scrollToTop` (300 to 500 ms by distance, jumping to a
   screen from the top first when farther), `themeChange`, `sheetExit`,
-  and the page, shared-element and component tokens.
+  `pageTransition` (500 ms, the page slide), and the shared-element and
+  component tokens.
 - **Why:** Hard-coded durations ignored the speed and reduced-motion
   settings. Two general tokens 20 ms apart ran a page counter fade, a
   zoom and a scroll home alike (user feedback); M3 sizes a duration by

@@ -7,7 +7,6 @@ import '../../../app/haptics/haptics_driver.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_menu_button.dart';
 import '../../../app/widgets/app_top_bar.dart';
-import '../../../app/widgets/settings/settings_choice_tile.dart';
 import '../../../app/widgets/settings/settings_control.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_menu_tile.dart';
@@ -43,24 +42,6 @@ class MotionSettingsPage extends ConsumerWidget {
             bottom: FuncSpacing.xl,
           ),
           children: [
-            SettingsGroup(
-              setting: Setting.pageTransition,
-              title: Text(context.l10n.motionPageTransition),
-              children: [
-                for (final style in PageTransitionStyle.values)
-                  SettingsChoiceTile(
-                    title: Text(_transitionStyleText(context, style)),
-                    subtitle: Text(_transitionStyleHint(context, style)),
-                    selected: settings.pageTransitionStyle == style,
-                    onTap: () => persistSettings(
-                      context,
-                      () => ref
-                          .read(settingsProvider.notifier)
-                          .setPageTransitionStyle(style),
-                    ),
-                  ),
-              ],
-            ),
             SettingsGroup(
               title: Text(context.l10n.motionAnimation),
               children: [
@@ -193,19 +174,3 @@ String _hapticTierText(BuildContext context, HapticsTier tier) {
     HapticsTier.none => context.l10n.hapticTierNone,
   };
 }
-
-String _transitionStyleText(BuildContext context, PageTransitionStyle style) =>
-    switch (style) {
-      PageTransitionStyle.system => context.l10n.pageTransitionStyleSystem,
-      PageTransitionStyle.slide => context.l10n.pageTransitionStyleSlide,
-    };
-
-String _transitionStyleHint(BuildContext context, PageTransitionStyle style) =>
-    switch (style) {
-      // Predictive back is the Android system transition.
-      PageTransitionStyle.system =>
-        defaultTargetPlatform == TargetPlatform.android
-            ? context.l10n.pageTransitionStyleSystemHint
-            : context.l10n.pageTransitionStyleSystemHintOther,
-      PageTransitionStyle.slide => context.l10n.pageTransitionStyleSlideHint,
-    };

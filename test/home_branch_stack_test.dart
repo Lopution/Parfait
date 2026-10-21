@@ -96,13 +96,7 @@ ExcludeSemantics _branchSemantics(WidgetTester tester, Finder page) => tester
     .widgetList<ExcludeSemantics>(
       find.ancestor(of: page, matching: find.byType(ExcludeSemantics)),
     )
-    .singleWhere((w) => w.child is BranchActivityScope);
-
-bool _branchActive(WidgetTester tester, Finder page) => tester
-    .widget<BranchActivityScope>(
-      find.ancestor(of: page, matching: find.byType(BranchActivityScope)),
-    )
-    .active;
+    .singleWhere((w) => w.child is SlideTransition);
 
 /// Drives the shell's shared tap entry the way FuncShellBottomNav does —
 /// needed while a pushed route covers the current branch root and the bar
@@ -136,8 +130,6 @@ void main() {
     expect(_branchPointer(tester, ranking).ignoring, isFalse);
     expect(_branchSemantics(tester, recommended).excluding, isTrue);
     expect(_branchSemantics(tester, ranking).excluding, isFalse);
-    expect(_branchActive(tester, recommended), isFalse);
-    expect(_branchActive(tester, ranking), isTrue);
 
     // Settled: the outgoing branch leaves the stage entirely.
     await tester.pump(const Duration(milliseconds: 300));
@@ -158,23 +150,24 @@ void main() {
     final recommended = find.byType(RecommendedHomePage, skipOffstage: false);
     bool tickersOn(Finder page) =>
         TickerMode.valuesOf(tester.element(page)).enabled;
-    // The branch's own snapshot: the outermost below its activity scope,
-    // above the route snapshots inside the branch Navigator.
-    bool snapshotting(Finder page) => tester
-        .widget<SnapshotWidget>(
-          find
-              .ancestor(
-                of: page,
-                matching: find.descendant(
-                  of: find.byType(BranchActivityScope, skipOffstage: false),
-                  matching: find.byType(SnapshotWidget, skipOffstage: false),
-                  skipOffstage: false,
-                ),
-              )
-              .last,
-        )
-        .controller
-        .allowSnapshotting;
+    // The branch's own snapshot, right under its slide, above the route
+    // snapshots inside the branch Navigator.
+    bool snapshotting(Finder page) =>
+        (tester
+                    .widgetList<SlideTransition>(
+                      find.ancestor(
+                        of: page,
+                        matching: find.byType(
+                          SlideTransition,
+                          skipOffstage: false,
+                        ),
+                      ),
+                    )
+                    .singleWhere((w) => w.child is SnapshotWidget)
+                    .child!
+                as SnapshotWidget)
+            .controller
+            .allowSnapshotting;
     expect(tickersOn(recommended), isTrue);
     expect(snapshotting(recommended), isFalse);
 

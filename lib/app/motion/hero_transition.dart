@@ -527,14 +527,13 @@ class _LiftedEndpointsState extends State<_LiftedEndpoints> {
   Widget build(BuildContext context) => widget.child;
 }
 
-/// Wraps a shared-element page. While the page leaves (back, the back
-/// gesture) and one of its Hero endpoints is in flight, the endpoint's
-/// image is cut out of the page: the page below shows through where the
-/// image was lifted off, not the page's own background.
+/// Wraps a shared-element page's content. While the page leaves and one of
+/// its Hero endpoints is in flight, the endpoint's image is cut out of the
+/// content: what is under it (the page's background layer) shows through
+/// where the image was lifted off, not whatever the content drew there.
 ///
-/// Opening has no hole: the page fades in over a page that shows through
-/// anyway, and the image's slow last stretch left a line of the page below
-/// around it on the shown page. A settled page (covered by the viewer, or
+/// Opening has no hole: the content fades in over that layer anyway, and
+/// the image's slow last stretch left a line around it on the shown page. A settled page (covered by the viewer, or
 /// revealed by it) has none either: the route below it is not painted. Nor
 /// does an endpoint that contains its image ([IllustHeroFlightChild]
 /// `containsImage`, the viewer's stage): the image's spot, sharp-edged

@@ -564,8 +564,6 @@ class _RecentCover extends StatelessWidget {
             tag: tag,
             curve: MotionTokens.spatialCurve,
             createRectTween: illustHeroRectTween,
-            // The back gesture scrubs the image home with the finger.
-            transitionOnUserGestures: true,
             flightShuttleBuilder: illustHeroFlightShuttleBuilder,
             child: IllustHeroCardFrame(
               cropAspect: entity.pageAspectRatioAt(0),

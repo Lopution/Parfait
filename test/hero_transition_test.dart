@@ -644,9 +644,9 @@ void main() {
         [chrome('badge'), chrome('control 1'), chrome('far'), chrome('off')],
         [0, 0, 1, 1],
       );
-      // The card's app bar cuts the image only as far as the page over it
-      // has yet to fade in.
-      final shown = MotionTokens.sharedElementFadeIn.transform(
+      // The card's app bar cuts the image only as far as the background of
+      // the page over it has yet to cover it.
+      final shown = MotionTokens.sharedElementBackdropIn.transform(
         pushed.animation!.value,
       );
       expect(shown, inExclusiveRange(0, 1));

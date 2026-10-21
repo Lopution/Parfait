@@ -997,30 +997,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get motionSettings => 'Motion & haptics';
 
   @override
-  String get motionPageTransition => 'Page transition';
-
-  @override
   String get motionAnimation => 'Animation';
 
   @override
   String get motionHaptics => 'Haptics';
-
-  @override
-  String get pageTransitionStyleSystem => 'System default';
-
-  @override
-  String get pageTransitionStyleSystemHint =>
-      'Android system transition with predictive back';
-
-  @override
-  String get pageTransitionStyleSystemHintOther => 'Platform default';
-
-  @override
-  String get pageTransitionStyleSlide => 'Slide';
-
-  @override
-  String get pageTransitionStyleSlideHint =>
-      'Pushes in from the right; the page below shifts and dims (iOS style)';
 
   @override
   String get maxDownloadCount => 'Maximum concurrent downloads';

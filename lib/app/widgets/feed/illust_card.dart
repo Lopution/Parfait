@@ -325,8 +325,6 @@ class _IllustCardBody extends ConsumerWidget {
       tag: heroTag,
       curve: MotionTokens.spatialCurve,
       createRectTween: illustHeroRectTween,
-      // The back gesture scrubs the image home with the finger (TRANS-09).
-      transitionOnUserGestures: true,
       flightShuttleBuilder: illustHeroFlightShuttleBuilder,
       child: framed,
     );

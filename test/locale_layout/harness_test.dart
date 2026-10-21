@@ -11,7 +11,7 @@ const _en = Locale('en');
 const _hint =
     'Applies to every in-app animation; system effects such as '
     'ripples are unaffected';
-const _short = 'Page transition';
+const _short = 'Motion & haptics';
 
 Future<RenderParagraph> _pumpText(
   WidgetTester tester,
@@ -236,7 +236,7 @@ void main() {
     test('placeholder-and-punctuation messages claim no user text', () {
       final en = LocaleMessages.of(_en);
       expect(en.keyOf('Chapter one: the beginning'), isNull);
-      expect(en.keyOf(_short), 'motionPageTransition');
+      expect(en.keyOf(_short), 'motionSettings');
     });
   });
 }

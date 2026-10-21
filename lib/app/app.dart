@@ -288,7 +288,6 @@ class AppChrome extends ConsumerWidget {
         reduce: settings.reduceMotion,
         speed: settings.animationSpeed,
         pressFeedback: settings.pressFeedback,
-        transitionStyle: settings.pageTransitionStyle,
         // octo_image, flutter_staggered_grid_view and the WebView plugins
         // still build package:flutter/material widgets; the bridge hands
         // them this theme until they move to material_ui.

@@ -1889,12 +1889,6 @@ abstract class AppLocalizations {
   /// **'动效与触感'**
   String get motionSettings;
 
-  /// No description provided for @motionPageTransition.
-  ///
-  /// In zh, this message translates to:
-  /// **'页面转场'**
-  String get motionPageTransition;
-
   /// No description provided for @motionAnimation.
   ///
   /// In zh, this message translates to:
@@ -1906,36 +1900,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'触感'**
   String get motionHaptics;
-
-  /// No description provided for @pageTransitionStyleSystem.
-  ///
-  /// In zh, this message translates to:
-  /// **'系统默认'**
-  String get pageTransitionStyleSystem;
-
-  /// No description provided for @pageTransitionStyleSystemHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'安卓系统转场，支持预测性返回'**
-  String get pageTransitionStyleSystemHint;
-
-  /// No description provided for @pageTransitionStyleSystemHintOther.
-  ///
-  /// In zh, this message translates to:
-  /// **'平台默认'**
-  String get pageTransitionStyleSystemHintOther;
-
-  /// No description provided for @pageTransitionStyleSlide.
-  ///
-  /// In zh, this message translates to:
-  /// **'侧滑'**
-  String get pageTransitionStyleSlide;
-
-  /// No description provided for @pageTransitionStyleSlideHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'从右侧推入，上一页错开并变暗（iOS 风格）'**
-  String get pageTransitionStyleSlideHint;
 
   /// No description provided for @maxDownloadCount.
   ///

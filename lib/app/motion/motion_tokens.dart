@@ -11,38 +11,49 @@ import '../../core/settings/app_settings.dart';
 /// here. Read every duration through [resolve] so the animation speed and
 /// the reduced-motion gate apply.
 abstract final class MotionTokens {
-  /// Page route transition at each style's own spec duration (before
-  /// [resolve]): FadeForwards behind Android's system style
-  /// (`FadeForwardsPageTransitionsBuilder.kTransitionMilliseconds`), the
-  /// `CupertinoPageRoute` slide, and [pageTransition] for the system style
-  /// elsewhere.
-  static Duration pageTransitionOf(
-    PageTransitionStyle style, {
-    required bool android,
-  }) => switch (style) {
-    PageTransitionStyle.slide => _pageTransitionSlide,
-    PageTransitionStyle.system when android => _pageTransitionFadeForwards,
-    PageTransitionStyle.system => pageTransition,
-  };
+  /// The page slide (`CupertinoPageRoute`'s duration), both ways.
+  static const pageTransition = Duration(milliseconds: 500);
 
-  static const _pageTransitionFadeForwards = Duration(milliseconds: 450);
-  static const _pageTransitionSlide = Duration(milliseconds: 500);
-
-  /// `FuncRouteTransition`, the system style off Android.
-  static const pageTransition = Duration(milliseconds: 300);
+  /// The viewer's slide away when a drag dismisses it.
   static const pageCurve = Curves.easeInOutCubic;
 
   /// The shared-element transition (a card into its detail, a detail
-  /// image into the viewer), both ways and whatever the page style: M3's
-  /// long1, as long as Android's FadeForwards. The Hero flies on
+  /// image into the viewer), both ways: M3's long1. The Hero flies on
   /// [spatialCurve]; every artwork Hero end sets it, since a flight reads
   /// the curve of the page that opens or leaves.
   static const sharedElement = Duration(milliseconds: 450);
 
-  /// The shared-element page fades over the first part of either
-  /// direction: opening, so the image lands on a shown page; leaving, so
-  /// the page goes with the image rather than after it. Both read the
-  /// route value, which runs 1 → 0 when leaving.
+  /// A shared-element page with a background (the detail): opening, the
+  /// background covers the page below first and the content fades in on
+  /// it, so the image lands on a shown page; leaving, the content goes
+  /// first and the background after, so the page below is whole when the
+  /// image lands on its card. All read the route value, which runs 1 → 0
+  /// when leaving.
+  static const sharedElementBackdropIn = Interval(
+    0,
+    0.3,
+    curve: Curves.easeOut,
+  );
+  static const sharedElementBackdropOut = Interval(
+    0.2,
+    0.65,
+    curve: Curves.easeIn,
+  );
+  static const sharedElementContentIn = Interval(
+    0.3,
+    0.8,
+    curve: Curves.easeInOut,
+  );
+  static const sharedElementContentOut = Interval(
+    0.65,
+    1,
+    curve: Curves.easeInOut,
+  );
+
+  /// A shared-element page without a background (the viewer's dark stage)
+  /// fades whole over the first part of either direction: opening, so the
+  /// image lands on a shown page; leaving, so the page goes with the image
+  /// rather than after it.
   static const sharedElementFadeIn = Interval(0, 0.6, curve: Curves.easeInOut);
   static const sharedElementFadeOut = Interval(0.4, 1, curve: Curves.easeInOut);
 
@@ -384,7 +395,7 @@ void turnPage(BuildContext context, PageController controller, int page) {
 }
 
 /// Publishes the in-app motion settings (reduce motion, animation speed,
-/// press feedback, page transition style) to the widget subtree. Mounted once at the app root (MaterialApp.builder);
+/// press feedback) to the widget subtree. Mounted once at the app root (MaterialApp.builder);
 /// tests can wrap any subtree directly. The platform half of the gate stays
 /// on `MediaQuery.disableAnimations`.
 class MotionScope extends InheritedWidget {
@@ -393,7 +404,6 @@ class MotionScope extends InheritedWidget {
     required this.reduce,
     this.speed = AnimationSpeed.normal,
     this.pressFeedback = true,
-    this.transitionStyle = PageTransitionStyle.system,
     required super.child,
   });
 
@@ -404,9 +414,6 @@ class MotionScope extends InheritedWidget {
 
   /// Whether cards scale down while pressed (`PressScale`).
   final bool pressFeedback;
-
-  /// Transition of pushed pages (`FuncPage`).
-  final PageTransitionStyle transitionStyle;
 
   static bool? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<MotionScope>()?.reduce;
@@ -424,18 +431,9 @@ class MotionScope extends InheritedWidget {
           ?.pressFeedback ??
       true;
 
-  /// The scoped page transition style; [PageTransitionStyle.system]
-  /// outside a scope.
-  static PageTransitionStyle transitionStyleOf(BuildContext context) =>
-      context
-          .dependOnInheritedWidgetOfExactType<MotionScope>()
-          ?.transitionStyle ??
-      PageTransitionStyle.system;
-
   @override
   bool updateShouldNotify(MotionScope oldWidget) =>
       reduce != oldWidget.reduce ||
       speed != oldWidget.speed ||
-      pressFeedback != oldWidget.pressFeedback ||
-      transitionStyle != oldWidget.transitionStyle;
+      pressFeedback != oldWidget.pressFeedback;
 }
