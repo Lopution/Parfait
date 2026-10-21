@@ -2,9 +2,9 @@ import 'package:material_ui/material_ui.dart';
 
 import '../theme/func_semantic_tokens.dart';
 
-/// The large pill action of the onboarding and login pages: filled with the
-/// primary colour, or [outlined] for the second of two side-by-side actions.
-/// Both take their colours from the scheme, so they follow dark mode and
+/// The large pill action of the onboarding and login pages: a brand fill,
+/// or [outlined] in the accent for the second of two side-by-side actions.
+/// Both take their colours from the theme, so they follow dark mode and
 /// system colours.
 class ReplicaButton extends StatelessWidget {
   const ReplicaButton({
@@ -22,8 +22,9 @@ class ReplicaButton extends StatelessWidget {
   Widget build(BuildContext context) {
     const radius = FuncShape.pill;
     final scheme = Theme.of(context).colorScheme;
+    final tokens = FuncSemanticTokens.of(context);
     return Material(
-      color: outlined ? Colors.transparent : scheme.primary,
+      color: outlined ? Colors.transparent : tokens.brand,
       shape: RoundedRectangleBorder(
         borderRadius: radius,
         side: outlined ? BorderSide(color: scheme.primary) : BorderSide.none,
@@ -38,7 +39,7 @@ class ReplicaButton extends StatelessWidget {
               label,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: outlined ? scheme.primary : scheme.onPrimary,
+                color: outlined ? scheme.primary : tokens.onBrand,
                 fontWeight: FontWeight.bold,
               ),
             ),

@@ -66,8 +66,11 @@ class FilterMenuButton<T> extends StatelessWidget {
       },
       anchorBuilder: (context, toggle) => OutlinedButton(
         onPressed: toggle,
+        // A neutral anchor: the accent is for actions and states, and the
+        // pick is a setting shown in its label.
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsetsDirectional.only(start: 16, end: 8),
+          foregroundColor: Theme.of(context).colorScheme.onSurface,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

@@ -61,7 +61,10 @@ class _TagChipState extends State<TagChip> {
         color: tokens.surface,
         shape: StadiumBorder(
           side: _focused
-              ? BorderSide(color: tokens.brand, width: 2)
+              ? BorderSide(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 2,
+                )
               : BorderSide(color: tokens.divider),
         ),
       ),
@@ -120,7 +123,9 @@ class _TagChipState extends State<TagChip> {
               child: Icon(
                 Icons.block,
                 size: 15,
-                color: widget.blocked ? tokens.brand : tokens.contentTertiary,
+                color: widget.blocked
+                    ? Theme.of(context).colorScheme.primary
+                    : tokens.contentTertiary,
               ),
             ),
           ),

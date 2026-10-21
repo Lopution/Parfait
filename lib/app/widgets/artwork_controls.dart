@@ -21,7 +21,8 @@ class ArtworkControls extends StatelessWidget {
 
   final Widget child;
 
-  /// Defaults to the theme's accent ([ColorScheme.primary]).
+  /// Defaults to the page's text color ([ColorScheme.onSurface]): the
+  /// accent marks actions and states, not every control on a work.
   final Color? glyph;
 
   /// Defaults to the page surface.
@@ -29,8 +30,8 @@ class ArtworkControls extends StatelessWidget {
 
   /// A tight copy pushed out in eight directions traces a solid outline;
   /// one soft blur behind it parts the glyph from a busy image. Blurs
-  /// alone stayed a faint glow: an accent glyph on a mid-tone banner of
-  /// a near hue disappeared.
+  /// alone stayed a faint glow: a glyph on a mid-tone banner of a near hue
+  /// disappeared.
   static final _halo = [
     for (var i = 0; i < 8; i++)
       (offset: Offset.fromDirection(i * math.pi / 4, 1.0), blur: 0.6),
@@ -47,7 +48,7 @@ class ArtworkControls extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final haloColor = halo ?? colors.surface;
     return IconThemeData(
-      color: glyph ?? colors.primary,
+      color: glyph ?? colors.onSurface,
       shadows: [
         for (final layer in _halo)
           Shadow(

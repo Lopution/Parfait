@@ -4,7 +4,7 @@ applies_to:
   - lib/app/theme/**
   - lib/app/widgets/**
   - lib/app/app.dart
-reviewed: 2026-10-17
+reviewed: 2026-10-21
 ---
 
 # Theme, color and type
@@ -50,8 +50,10 @@ reviewed: 2026-10-17
 
 ### THEME-04 The accent comes from the color scheme
 - **Rule:** Everything that paints the accent reads
-  `colorScheme.primary` (or `FuncSemanticTokens.brand`). `FuncTokens.primary`
-  appears only in `func_tokens.dart` and `replica_theme.dart`.
+  `colorScheme.primary` (text, icons, indicators) or
+  `FuncSemanticTokens.brand` (fills, THEME-18). `FuncTokens.primary` and
+  `FuncTokens.lightAccent` appear only in `func_tokens.dart` and
+  `replica_theme.dart`.
 - **Why:** With "follow system colors" on, the accent is the system palette;
   the constant would keep painting the brand pink.
 - **Check:** `test/architecture/format_and_font_test.dart` "the accent comes from the theme, not the brand constant"
@@ -60,9 +62,13 @@ reviewed: 2026-10-17
 ### THEME-05 System colors replace only the accent roles
 - **Rule:** A system palette supplies `primary`, `onPrimary`,
   `primaryContainer`, `onPrimaryContainer`, `inversePrimary` and
-  `surfaceTint`. Neutrals and the surface ladder stay on `FuncTokens`.
+  `surfaceTint`; `brand` / `onBrand` become its `primary` / `onPrimary`.
+  Neutrals and the surface ladder stay on `FuncTokens`: the app's own
+  neutrals, warm grays that carry the brand hue at a very low chroma.
+  Status colors and the bookmarked heart stay fixed too.
 - **Why:** The surface ladder and text contrast are tuned and tested on the
-  app's own neutrals; a wallpaper palette would break them.
+  app's own neutrals; a wallpaper palette would break them. User decision:
+  the cold grays read as foreign next to the pink.
 - **Check:** `test/replica_theme_test.dart` "a system palette replaces only the accent roles"
 - **Code:** `lib/app/theme/system_colors.dart`, `lib/app/theme/replica_theme.dart`
 
@@ -70,9 +76,14 @@ reviewed: 2026-10-17
 - **Rule:** The six container tiers stay monotonic and distinguishable, and
   `onSurface` / `onSurfaceVariant` keep at least 4.5:1 on each tier in both
   themes. Meta text on a selected row uses `onPrimaryContainer` at alpha
-  0.8, not the caption gray.
+  0.8, not the caption gray. The light theme's text accent (`primary`,
+  THEME-18) keeps 4.5:1 on the page and up to `surfaceContainer` (sheets);
+  on `surfaceContainerHigh` (dialogs) it measures about 4.3:1 and on the
+  highest tier about 4.1:1.
 - **Why:** The caption gray measured about 3.9:1 on a selected dark row.
-- **Check:** `test/replica_theme_test.dart` "text stays >= 4.5:1 on every surface tier in both themes"
+  User decision: a deeper accent that clears every tier read darker than
+  the rose chosen, so dialogs and the highest tier are a known shortfall.
+- **Check:** `test/replica_theme_test.dart` "text stays >= 4.5:1 on every surface tier in both themes", "the light accent reads at 4.5:1 up to the sheet tier"
 - **Code:** `lib/app/theme/func_tokens.dart`, `lib/app/widgets/entity_row.dart`
 
 ### THEME-07 Pink is for actions, selection and indicators
@@ -87,6 +98,8 @@ reviewed: 2026-10-17
   chips are neutral pills; only keyboard focus rings them in the accent.
   A disabled control takes M3's disabled colors (`onSurface` at 0.38 for
   content, 0.12 for containers), never the accent, even when it is on.
+  A bookmarked heart and its burst are `FuncTokens.bookmarked` (#FF4060)
+  in both themes and under system colors: a state, not the accent.
 - **Why:** User decision: the accent loses its meaning when it decorates.
   A system accent that recolored bookmarks collided with whichever
   category shared its hue. A locked switch drawn in the accent read as
@@ -94,9 +107,27 @@ reviewed: 2026-10-17
 - **Check:** `test/replica_theme_test.dart` "a disabled switch that is on takes no accent"
 - **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/category_colors.dart`, `lib/app/widgets/tag_chips.dart`
 
+### THEME-18 The accent is two colors: text and fill
+- **Rule:** With the default palette, `colorScheme.primary` paints text,
+  small icons, indicators and outlines: #D61C59 on the light theme,
+  #FF6289 on the dark. `FuncSemanticTokens.brand` (#FF6289 in both) under
+  `onBrand` (white) paints fills: `FilledButton` through
+  `filledButtonTheme`, the follow button, the solid `ReplicaButton`.
+  `primaryContainer` stays M3's pale container under dark text, for
+  selection; it is never the fill. A system palette paints both from its
+  `primary`.
+- **Why:** The brand pink measured about 2.9:1 as text on the light page.
+  User decision: fills keep the brand pink with white text
+  (2.85:1, accepted); M3's own deeper tones read as berry red, and a pink
+  container under dark text was rejected.
+- **Check:** `test/replica_theme_test.dart` "fills are the brand pink under white; selection stays tonal"
+- **Code:** `lib/app/theme/replica_theme.dart`, `lib/app/theme/func_tokens.dart`
+
 ### THEME-08 Status color goes on the icon, not the text
 - **Rule:** In status rows the icon carries the semantic color (success,
-  warning, danger); the status text stays `onSurfaceVariant`.
+  warning, danger); the status text stays `onSurfaceVariant`. The status
+  tones are M3's tone 40 on the light theme and tone 80 on the dark; the
+  network probe keeps its own fixed literals.
 - **Why:** Tinted status text measured below 4.5:1 on `surface`.
 - **Check:** manual
 - **Code:** `lib/features/settings/pages/download_task_presentation.dart`
@@ -152,14 +183,16 @@ reviewed: 2026-10-17
 
 ### THEME-14 Controls over artwork use ArtworkControls
 - **Rule:** Icon controls over artwork (detail top bar, profile banner,
-  viewer) use `ArtworkControls`: accent glyphs (white on the viewer) with a
-  surface-colored 1dp outline traced around each glyph, over one soft
-  blur. No disc under a control and no gradient scrim over the artwork.
-  Pills and counters keep the `FuncTokens.imageControl` /
-  `onImageControl` pair.
+  viewer) use `ArtworkControls`: neutral `onSurface` glyphs (white on the
+  viewer) with a surface-colored 1dp outline traced around each glyph,
+  over one soft blur. No disc under a control and no gradient scrim over
+  the artwork. Pills and counters keep the `FuncTokens.imageControl` /
+  `onImageControl` pair. An accent on the always-black viewer stage is
+  `brand`, not the light theme's deeper text accent.
 - **Why:** A plain glyph washes out on a white artwork; discs and scrims
   were rejected as covering the work. A blurred halo alone stayed a faint
-  glow: the accent glyph vanished on a mid-tone banner of a near hue.
+  glow: the glyph vanished on a mid-tone banner of a near hue. An accent
+  glyph on every work made the accent decoration (THEME-07).
 - **Check:** manual
 - **Code:** `lib/app/widgets/artwork_controls.dart`
 

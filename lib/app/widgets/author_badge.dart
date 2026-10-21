@@ -4,11 +4,11 @@ import '../../l10n/context.dart';
 import '../theme/func_semantic_tokens.dart';
 
 /// "Author" beside a name in a work's comments: the work's creator is
-/// talking. Brand-tinted like a tag, so it reads as a marker, not a button.
+/// talking. Accent-tinted like a tag, so it reads as a marker, not a button.
 class AuthorBadge extends StatelessWidget {
   const AuthorBadge({super.key});
 
-  /// Brand fill strength, the tag pill's.
+  /// Accent fill strength, the tag pill's.
   static const _fillAlpha = 0.14;
 
   /// Badge geometry rather than page spacing, so it stays off the
@@ -17,10 +17,11 @@ class AuthorBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = FuncSemanticTokens.of(context);
+    // Text in the accent: the text accent, not the brand fill.
+    final accent = Theme.of(context).colorScheme.primary;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: tokens.brand.withValues(alpha: _fillAlpha),
+        color: accent.withValues(alpha: _fillAlpha),
         borderRadius: FuncShape.badge,
       ),
       child: Padding(
@@ -31,7 +32,7 @@ class AuthorBadge extends StatelessWidget {
         child: Text(
           context.l10n.commentAuthorBadge,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: tokens.brand,
+            color: accent,
             fontWeight: FontWeight.w600,
           ),
         ),

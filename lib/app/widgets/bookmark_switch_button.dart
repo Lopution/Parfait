@@ -215,7 +215,7 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
             child: CustomPaint(
               painter: _BurstPainter(
                 progress: _burst,
-                colors: [colorScheme.primary, colorScheme.tertiary],
+                colors: [FuncTokens.bookmarked, colorScheme.tertiary],
               ),
             ),
           ),
@@ -223,7 +223,11 @@ class _BookmarkSwitchButtonState extends ConsumerState<BookmarkSwitchButton>
         ScaleTransition(
           scale: _pop,
           child: bookmarked
-              ? Icon(Icons.favorite_sharp, color: colorScheme.primary, size: 24)
+              ? Icon(
+                  Icons.favorite_sharp,
+                  color: FuncTokens.bookmarked,
+                  size: 24,
+                )
               : const Icon(Icons.favorite_outline_sharp, size: 24),
         ),
       ],
