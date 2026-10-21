@@ -50,6 +50,10 @@ abstract final class PreferenceKeys {
   /// (`HeroAnomalyLog`). Device-local diagnostics.
   static const String heroAnomalies = 'parfait.debug.hero_anomalies.v1';
 
+  /// The soft keyboard's height per screen shape (`KeyboardHeights`), so
+  /// the comment panels match it before the keyboard has shown. JSON map.
+  static const String keyboardHeights = 'parfait.ui.keyboard_heights.v1';
+
   /// Recent search keywords, newest first (`SearchHistoryNotifier`).
   /// Device-local and shared by every account on the device.
   static const String searchHistory = 'parfait.search.history.v1';

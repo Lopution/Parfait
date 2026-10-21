@@ -132,13 +132,34 @@ reviewed: 2026-10-17
 - **Check:** `test/illust_detail_actions_test.dart` "a long six-page work still reaches InfoBlock via the menu"
 - **Code:** `lib/features/illust/detail/widgets/info_block.dart`, `lib/features/illust/detail/illust_detail_page.dart`
 
+### DETAIL-17 The comment section writes in place
+- **Rule:** The section opens with an entry pill (the signed-in user's
+  avatar and a hint, 48dp or taller, a stamp key at its end), then up to
+  three comment rows without a card, each opening the comments page.
+  "See all" shows only over comments counted or on hand. A work known to
+  take comments shows the pill while loading, an unknown one holds its
+  place; with no comments the pill asks for the first; a failure is one
+  line with retry; comments off is a lock line and no pill (API-04). The
+  pill raises the composer over the page's bottom in place of the action
+  bar, on the keyboard or, from the stamp key, the stamp panel; signed
+  out it opens the sign-in. A see-through barrier takes every tap around
+  it; a tap there, back, a send or the page swiped away closes it, and
+  unsent text stays as the work's draft. A sent comment heads the
+  preview, and the count grows by one.
+- **Why:** User decision (10-21): an "add comment" text button misaligned
+  under the heading, and writing meant leaving the work for the comments
+  page.
+- **Check:** `test/illust_detail_actions_test.dart` "the entry composes in place; a sent comment heads the preview"
+- **Code:** `lib/features/illust/detail/comments_preview_section.dart`, `lib/features/illust/detail/widgets/detail_comment_layer.dart`
+
 ## Chrome
 
 ### DETAIL-09 The action bar is the centered capsule
 - **Rule:** On narrow layouts download and bookmark sit in one floating
   capsule (`DetailActionBar`), the heart on a tonal circle: 56dp high, the
-  surface 85% opaque with an outline and no shadow. Comments open from the
-  page's comment preview. The top bar carries only the ⋮ menu. Share,
+  surface 85% opaque with an outline and no shadow. Comments are written
+  from the page's comment section (DETAIL-17). The top bar carries only
+  the ⋮ menu. Share,
   editing the bookmark, watch later, page selection, work info and the
   two mutes are ⋮ entries with text labels; no action depends only on a
   long press (FB-03).

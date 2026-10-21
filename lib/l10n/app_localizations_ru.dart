@@ -2482,6 +2482,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get commentNoResults => 'Комментариев нет';
 
   @override
+  String get commentFirst => 'Оставьте первый комментарий';
+
+  @override
   String get commentDeletedUser => 'Удалённый пользователь';
 
   @override

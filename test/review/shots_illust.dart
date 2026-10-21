@@ -46,6 +46,39 @@ void main() {
           .jumpTo(240);
     },
   );
+  // The comment section: entry pill and rows, then the composer it raises
+  // in place on the stamp panel.
+  testShot(
+    'illust/detail-comments',
+    location: detail,
+    variants: {ShotVariant.dark},
+    before: (tester, router) async {
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      position.jumpTo(900);
+      await tester.pump(const Duration(milliseconds: 500));
+    },
+  );
+  testShot(
+    'illust/detail-composer',
+    location: detail,
+    variants: {ShotVariant.dark},
+    before: (tester, router) async {
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      position.jumpTo(900);
+      // The section asks once on screen; the entry comes with the answer.
+      await settleReview(tester, settle: true);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('illust-comment-entry')),
+          matching: find.byType(IconButton),
+        ),
+      );
+    },
+  );
   // The caption's translate button pressed while translation is off: the
   // failure row points to the settings.
   testShot(

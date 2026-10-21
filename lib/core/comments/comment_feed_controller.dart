@@ -108,6 +108,14 @@ class _CommentTotals extends Notifier<Map<String, int>> {
     if (state[workKey] == total) return;
     state = {...state, workKey: total};
   }
+
+  /// One comment more on [workKey]'s work, sent from this app, counted
+  /// from the comments call's total, else [known] (the work's detail).
+  /// An unknown total stays unknown: the next comments call brings it.
+  void added(String workKey, {int? known}) {
+    final total = state[workKey] ?? known;
+    if (total != null) state = {...state, workKey: total + 1};
+  }
 }
 
 /// Whether each work's author turned comments off, as its comments

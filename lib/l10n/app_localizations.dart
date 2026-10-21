@@ -4571,6 +4571,12 @@ abstract class AppLocalizations {
   /// **'暂无评论'**
   String get commentNoResults;
 
+  /// Hint of the detail page comment entry when the work has no comments yet.
+  ///
+  /// In zh, this message translates to:
+  /// **'留下第一条评论'**
+  String get commentFirst;
+
   /// No description provided for @commentDeletedUser.
   ///
   /// In zh, this message translates to:

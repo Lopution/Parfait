@@ -135,7 +135,7 @@ const _durationCensus = <String, int>{
   'lib/app/widgets/feed/feed_states.dart': 1,
   // How long a composer panel waits for the keyboard to rise over it: a
   // timeout on the IME, not an animation.
-  'lib/features/comments/comment_input.dart': 1,
+  'lib/app/widgets/comment_composer.dart': 1,
   // How long a pager page stays settled before its sections may request:
   // a request gate, not an animation.
   'lib/features/illust/detail/illust_detail_pager_page.dart': 1,

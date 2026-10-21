@@ -2413,6 +2413,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commentNoResults => 'コメントはありません';
 
   @override
+  String get commentFirst => '最初のコメントを書く';
+
+  @override
   String get commentDeletedUser => '退会したユーザー';
 
   @override

@@ -1,16 +1,52 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../app/motion/motion_tokens.dart';
-import '../../app/motion/state_fade.dart';
-import '../../app/pixiv_image.dart';
+import '../motion/motion_tokens.dart';
+import '../motion/state_fade.dart';
+import '../pixiv_image.dart';
+import 'app_snack_bar.dart';
+import 'comment_text.dart';
+import 'edge_icon_buttons.dart';
+import '../../core/auth/account_store.dart';
+import '../../core/comments/comment_actions.dart';
 import '../../core/comments/comment_assets.dart';
+import '../../core/settings/keyboard_heights.dart';
 import '../../l10n/context.dart';
-import '../../app/theme/func_semantic_tokens.dart';
+import '../theme/func_semantic_tokens.dart';
 
 const double _panelCellSpacing = 8;
+
+/// Says why a comment send failed.
+void showCommentSendError(BuildContext context, Object error) {
+  final key = error is CommentPermissionException
+      ? 'commentPermissionDenied'
+      : 'commentSendFailed';
+  showAppSnackBar(context, commentText(context, key));
+}
+
+/// Unsent comment text by the work it was written for
+/// (`CommentFeedQuery.workKey`): a composer closed before sending keeps
+/// it for the next one on that work. Held for the session.
+final commentDraftsProvider =
+    NotifierProvider<CommentDrafts, Map<String, String>>(CommentDrafts.new);
+
+class CommentDrafts extends Notifier<Map<String, String>> {
+  @override
+  Map<String, String> build() {
+    ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
+    return const {};
+  }
+
+  void keep(String workKey, String text) {
+    if ((state[workKey] ?? '') == text) return;
+    state = text.isEmpty
+        ? ({...state}..remove(workKey))
+        : {...state, workKey: text};
+  }
+}
 
 /// The composer's input surface — four mutually exclusive states. [keyboard]
 /// is mirrored one-way from the framework focus node; [emoji] and [stamp] are
@@ -29,6 +65,9 @@ class CommentComposer extends StatefulWidget {
     this.onCancelReply,
     this.sending = false,
     this.onError,
+    this.keyboardHeights,
+    this.initialText = '',
+    this.onChanged,
   });
 
   final Future<void> Function(String text) onSend;
@@ -38,24 +77,46 @@ class CommentComposer extends StatefulWidget {
   final bool sending;
   final ValueChanged<Object>? onError;
 
+  /// Where the keyboard's height is kept between composers and runs; the
+  /// panels take it. Without one they take a default until the keyboard
+  /// has shown in this composer.
+  final KeyboardHeightMemory? keyboardHeights;
+
+  /// The text the field starts with: a draft kept from an earlier visit.
+  final String initialText;
+
+  /// The field's text after each edit, and '' after a send.
+  final ValueChanged<String>? onChanged;
+
   @override
   State<CommentComposer> createState() => CommentComposerState();
 }
 
 class CommentComposerState extends State<CommentComposer>
     with SingleTickerProviderStateMixin {
-  /// Panel height before any real keyboard height is sampled — close to a
-  /// typical soft-keyboard height.
+  /// Panel height, above the navigation bar, before any keyboard height is
+  /// known — close to a typical soft keyboard's.
   static const _fallbackPanelHeight = 280.0;
 
   /// How long a panel holds its height for a keyboard that may not come (a
   /// hardware keyboard, a floating IME): longer than an IME slides in.
   static const _keyboardHoldTimeout = Duration(milliseconds: 600);
 
-  final _controller = TextEditingController();
+  late final _controller = TextEditingController(text: widget.initialText);
   final _focusNode = FocusNode();
   CommentComposerInputState _inputState = CommentComposerInputState.none;
-  double _cachedKeyboardHeight = 0;
+
+  /// The keyboard's height as last seen in this composer: the tallest
+  /// inset of its last stretch of focus. Null before it has shown. Used
+  /// only without a [CommentComposer.keyboardHeights] memory.
+  double? _keyboardHeight;
+
+  /// The tallest inset of the current stretch of focus.
+  double _focusPeak = 0;
+
+  /// A panel has opened: it stays built, offstage, so the next opening
+  /// does not build its grid again.
+  bool _panelBuilt = false;
   bool _busy = false;
 
   /// How much of the panel height the bottom slot shows: 0 none, 1 all.
@@ -88,6 +149,22 @@ class CommentComposerState extends State<CommentComposer>
     // a second judgement. Gaining focus collapses any open panel into
     // keyboard; losing it without a panel rests at none.
     _focusNode.addListener(_onFocusChange);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _warmEmojis());
+  }
+
+  /// Decodes the emoji images ahead of the panel, so its first opening
+  /// does not wait on them. A failed image shows as such in the panel.
+  void _warmEmojis() {
+    if (!mounted) return;
+    for (final name in commentEmojiNames) {
+      unawaited(
+        precacheImage(
+          AssetImage(commentEmojiAsset(name)),
+          context,
+          onError: (_, _) {},
+        ),
+      );
+    }
   }
 
   @override
@@ -115,12 +192,46 @@ class CommentComposerState extends State<CommentComposer>
     super.dispose();
   }
 
-  double get _panelHeight =>
-      math.max(_cachedKeyboardHeight, _fallbackPanelHeight);
+  /// The panels' height: the keyboard's, navigation bar included, so the
+  /// input row stays put as one replaces the other. A memory, when given,
+  /// is the one source: it knows the height per screen shape and drops
+  /// the insets no docked keyboard has.
+  double get _panelHeight {
+    final memory = widget.keyboardHeights;
+    final known = memory == null
+        ? _keyboardHeight
+        : memory.heightFor(MediaQuery.sizeOf(context));
+    return known ??
+        _fallbackPanelHeight + MediaQuery.viewPaddingOf(context).bottom;
+  }
 
   /// Reply-pill entry point: converge to the keyboard leg — an open panel is
   /// replaced by the IME — and focus the field.
   void focusForReply() => _showKeyboard();
+
+  /// Opens the composer on [surface]: the keyboard, or a panel with the
+  /// keyboard down.
+  void open(CommentComposerInputState surface) {
+    if (surface == CommentComposerInputState.keyboard) {
+      _showKeyboard();
+      return;
+    }
+    _focusNode.unfocus();
+    _enter(surface);
+  }
+
+  /// Ends a stretch of focus: its tallest inset is the keyboard's height.
+  void _keepKeyboardHeight() {
+    final peak = _focusPeak;
+    _focusPeak = 0;
+    if (peak == 0) return;
+    final memory = widget.keyboardHeights;
+    if (memory == null) {
+      _keyboardHeight = peak;
+    } else {
+      memory.record(MediaQuery.sizeOf(context), peak);
+    }
+  }
 
   void _showKeyboard() {
     _enter(CommentComposerInputState.keyboard);
@@ -132,7 +243,10 @@ class CommentComposerState extends State<CommentComposer>
       if (_inputState != CommentComposerInputState.keyboard) {
         _enter(CommentComposerInputState.keyboard);
       }
-    } else if (_inputState == CommentComposerInputState.keyboard) {
+      return;
+    }
+    _keepKeyboardHeight();
+    if (_inputState == CommentComposerInputState.keyboard) {
       _enter(CommentComposerInputState.none);
     }
   }
@@ -150,7 +264,10 @@ class CommentComposerState extends State<CommentComposer>
     _keyboardHold?.cancel();
     switch (next) {
       case CommentComposerInputState.emoji || CommentComposerInputState.stamp:
-        final under = MediaQuery.viewInsetsOf(context).bottom / _panelHeight;
+        // The keyboard is going down: what it showed sizes the panel.
+        _keepKeyboardHeight();
+        _panelBuilt = true;
+        final under = _bottomInset(context) / _panelHeight;
         _panelReveal.value = math.max(_panelReveal.value, under);
         _animatePanel(1);
       case CommentComposerInputState.keyboard when _panelReveal.value > 0:
@@ -180,13 +297,11 @@ class CommentComposerState extends State<CommentComposer>
     final theme = Theme.of(context);
     // The viewInsets read is scoped to this subtree so per-frame IME
     // animation rebuilds stay inside the composer (search_page precedent).
-    final viewInsetsBottom = MediaQuery.viewInsetsOf(context).bottom;
-    // Sample the peak only while the field owns focus: some OEM IMEs fold
-    // the nav-bar inset into viewInsets when nothing is focused, which
-    // would poison the cache.
-    if (_focusNode.hasFocus && viewInsetsBottom > _cachedKeyboardHeight) {
-      _cachedKeyboardHeight = viewInsetsBottom;
-    }
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    // Sample only while the field owns focus: some OEM IMEs fold the
+    // nav-bar inset into viewInsets when nothing is focused.
+    if (_focusNode.hasFocus && keyboard > _focusPeak) _focusPeak = keyboard;
+    final bottomInset = _bottomInset(context);
     final panelHeight = _panelHeight;
     return PopScope(
       // An open picker panel is a transient layer on this route: system back
@@ -199,8 +314,10 @@ class CommentComposerState extends State<CommentComposer>
       },
       child: Material(
         color: theme.colorScheme.surface,
+        // The bottom slot below takes the bottom inset itself.
         child: SafeArea(
           top: false,
+          bottom: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -212,10 +329,12 @@ class CommentComposerState extends State<CommentComposer>
                   container: true,
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(
+                    // On the page's 16dp margin; the close glyph, not its
+                    // target, ends on it (LAYOUT-15).
+                    padding: const EdgeInsetsDirectional.fromSTEB(
                       FuncSpacing.lg,
                       FuncSpacing.sm,
-                      FuncSpacing.sm,
+                      FuncSpacing.lg - EdgeIconButtons.glyphInset,
                       0,
                     ),
                     child: Row(
@@ -241,7 +360,14 @@ class CommentComposerState extends State<CommentComposer>
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.all(FuncSpacing.sm),
+                // The field starts on the page's 16dp margin and the send
+                // glyph ends on it (LAYOUT-15).
+                padding: const EdgeInsetsDirectional.fromSTEB(
+                  FuncSpacing.lg,
+                  FuncSpacing.sm,
+                  FuncSpacing.lg - EdgeIconButtons.glyphInset,
+                  FuncSpacing.sm,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -253,7 +379,10 @@ class CommentComposerState extends State<CommentComposer>
                         maxLines: 5,
                         enabled: !_disabled,
                         textInputAction: TextInputAction.newline,
-                        onChanged: (_) => setState(() {}),
+                        onChanged: (text) {
+                          setState(() {});
+                          widget.onChanged?.call(text);
+                        },
                         decoration: InputDecoration(
                           hintText: context.l10n.commentInput,
                           isDense: true,
@@ -321,31 +450,39 @@ class CommentComposerState extends State<CommentComposer>
                   ],
                 ),
               ),
-              // The bottom extent slot does all avoidance in layout: the
-              // IME rides over a plain spacer, and a panel swaps into the
-              // same slot at keyboard height so IME ↔ panel switches do
-              // not jump (the feed list is only compressed, never doubly
-              // padded — design 「避让责任唯一」). A panel rises from the
-              // slot's bottom edge like the keyboard: its top shows first.
+              // The one bottom budget: this slot takes the keyboard, or
+              // the navigation bar when no keyboard is up, or a panel at
+              // the keyboard's height, navigation bar included, so the
+              // input row stays put as they swap (the list above is only
+              // compressed, never doubly padded — design 「避让责任唯一」).
+              // A panel rises from the slot's bottom edge like the
+              // keyboard: its top shows first.
               AnimatedBuilder(
                 animation: _panelReveal,
                 // Built per composer build, not per frame of the reveal.
-                child: StateFade(
-                  kind: _shownPanel,
-                  child: _buildPanel(context),
-                ),
+                child: _panelBuilt
+                    ? RepaintBoundary(
+                        child: StateFade(
+                          kind: _shownPanel,
+                          child: _buildPanel(context),
+                        ),
+                      )
+                    : null,
                 builder: (context, panel) {
                   final reveal = _panelReveal.value;
                   return SizedBox(
-                    height: math.max(viewInsetsBottom, panelHeight * reveal),
-                    child: reveal == 0
+                    height: math.max(bottomInset, panelHeight * reveal),
+                    child: panel == null
                         ? null
-                        : ClipRect(
-                            child: OverflowBox(
-                              alignment: Alignment.topCenter,
-                              minHeight: panelHeight,
-                              maxHeight: panelHeight,
-                              child: panel,
+                        : Offstage(
+                            offstage: reveal == 0,
+                            child: ClipRect(
+                              child: OverflowBox(
+                                alignment: Alignment.topCenter,
+                                minHeight: panelHeight,
+                                maxHeight: panelHeight,
+                                child: panel,
+                              ),
                             ),
                           ),
                   );
@@ -368,16 +505,27 @@ class CommentComposerState extends State<CommentComposer>
         final crossAxisCount = isEmoji
             ? (constraints.maxWidth / 48).floor().clamp(3, 10).toInt()
             : (constraints.maxWidth / 96).floor().clamp(2, 5).toInt();
+        // The images, not their cells, line up with the 16dp margin; an
+        // emoji sits 4dp inside its cell.
+        final side = isEmoji
+            ? FuncSpacing.lg - FuncSpacing.xxs
+            : FuncSpacing.lg;
         final cellWidth =
             (constraints.maxWidth -
-                2 * FuncSpacing.sm -
+                2 * side -
                 _panelCellSpacing * (crossAxisCount - 1)) /
             crossAxisCount;
         // One labelled button per cell — the images stay decorative-only.
         return Semantics(
           container: true,
           child: GridView.builder(
-            padding: const EdgeInsets.all(FuncSpacing.sm),
+            // The last row clears the navigation bar the panel covers.
+            padding: EdgeInsets.fromLTRB(
+              side,
+              FuncSpacing.sm,
+              side,
+              FuncSpacing.sm + MediaQuery.viewPaddingOf(context).bottom,
+            ),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,
@@ -452,6 +600,8 @@ class CommentComposerState extends State<CommentComposer>
       text: text,
       selection: TextSelection.collapsed(offset: start + token.length),
     );
+    // A programmatic edit fires no onChanged of the field's own.
+    widget.onChanged?.call(text);
     // Decision D2: inserting restores the keyboard leg — the panel closes and
     // the field regains focus so typing continues without a second tap.
     _showKeyboard();
@@ -466,6 +616,7 @@ class CommentComposerState extends State<CommentComposer>
       if (mounted) {
         _controller.clear();
         setState(() {});
+        widget.onChanged?.call('');
       }
     } on Object catch (error) {
       widget.onError?.call(error);
@@ -486,4 +637,12 @@ class CommentComposerState extends State<CommentComposer>
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  /// What the slot holds with no panel up: the keyboard, or the
+  /// navigation bar under the input row when none is up (a floating or
+  /// hardware keyboard reports no inset).
+  static double _bottomInset(BuildContext context) => math.max(
+    MediaQuery.viewInsetsOf(context).bottom,
+    MediaQuery.viewPaddingOf(context).bottom,
+  );
 }

@@ -15,10 +15,11 @@ import '../../core/comments/comment_actions.dart';
 import '../../core/comments/comment_feed_controller.dart';
 import '../../core/comments/comment_models.dart';
 import '../../core/comments/comment_store.dart';
+import '../../core/settings/keyboard_heights.dart';
 import '../../core/entity/comment_entity.dart';
 import '../../core/entity/illust_store.dart';
 import '../../core/network/api_error.dart';
-import 'comment_input.dart';
+import '../../app/widgets/comment_composer.dart';
 import 'comment_item.dart';
 import '../../app/widgets/comment_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
@@ -90,6 +91,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
               onStampSend: (stampId) =>
                   _send(stampId: stampId, target: _replyTarget),
               onError: _showMutationError,
+              keyboardHeights: ref.watch(keyboardHeightsProvider.notifier),
             ),
           ],
         ),
@@ -133,11 +135,7 @@ class _CommentsPageState extends ConsumerState<CommentsPage> {
   }
 
   void _showMutationError(Object error) {
-    if (!mounted) return;
-    final key = error is CommentPermissionException
-        ? 'commentPermissionDenied'
-        : 'commentSendFailed';
-    showAppSnackBar(context, commentText(context, key));
+    if (mounted) showCommentSendError(context, error);
   }
 
   void _deleteComment(CommentEntity comment) {
@@ -254,6 +252,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
               onSend: (text) => _send(text: text),
               onStampSend: (stampId) => _send(stampId: stampId),
               onError: _showMutationError,
+              keyboardHeights: ref.watch(keyboardHeightsProvider.notifier),
             ),
           ],
         ),
@@ -288,11 +287,7 @@ class _CommentRepliesPageState extends ConsumerState<CommentRepliesPage> {
   }
 
   void _showMutationError(Object error) {
-    if (!mounted) return;
-    final key = error is CommentPermissionException
-        ? 'commentPermissionDenied'
-        : 'commentSendFailed';
-    showAppSnackBar(context, commentText(context, key));
+    if (mounted) showCommentSendError(context, error);
   }
 
   void _deleteComment(CommentEntity comment) {

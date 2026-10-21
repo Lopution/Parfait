@@ -12,6 +12,7 @@ import '../../../app/widgets/bookmark_switch_button.dart'
     show showBookmarkEditSheet;
 import '../../../app/widgets/card_actions/card_action.dart';
 import '../../../app/widgets/card_actions/illust_card_actions.dart';
+import '../../../core/auth/account_store.dart';
 import '../../../core/bookmark/bookmark_models.dart';
 import '../../../core/bookmark/bookmark_store.dart';
 import '../../../core/download/download_providers.dart';
@@ -41,6 +42,7 @@ import 'comments_preview_section.dart';
 import 'detail_page_activity.dart';
 import 'related_illusts_section.dart';
 import 'widgets/detail_action_bar.dart';
+import 'widgets/detail_comment_layer.dart';
 import 'widgets/detail_image_pager.dart';
 import 'widgets/illust_detail_skeleton.dart';
 import 'widgets/detail_page_counter.dart';
@@ -57,6 +59,7 @@ import '../../../app/layout/app_breakpoints.dart';
 import '../../../app/layout/deferred_cache_scroll_view.dart';
 import '../../../app/layout/two_pane.dart';
 import '../../../app/widgets/smooth_wheel_scroll.dart';
+import '../../../app/widgets/comment_composer.dart';
 
 /// A short first illustration on a narrow screen, alone or opening a set,
 /// sits where centering it in this share of the viewport puts it: a very
@@ -251,6 +254,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   );
   final _scrollHide = ScrollHideTracker();
 
+  /// Whether the in-place comment composer is up ([DetailCommentLayer]).
+  bool _composing = false;
+  final _composerKey = GlobalKey<CommentComposerState>();
+
   /// TalkBack is exploring: chrome that slides away cannot be found, so
   /// the bar stays.
   bool _touchExploration = false;
@@ -382,7 +389,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   }
 
   bool _onBarScroll(ScrollNotification notification) {
-    if (_touchExploration || _downloadMode) return false;
+    if (_touchExploration || _downloadMode || _composing) return false;
     final hide = _scrollHide.update(
       notification,
       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
@@ -474,6 +481,33 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
 
   bool get _downloadMode => _selectedPages != null;
 
+  /// Raises the comment composer on [surface] in place of the action bar;
+  /// signed out, opens the sign-in instead.
+  void _openComposer(CommentComposerInputState surface) {
+    final signedIn =
+        ref.read(accountStoreProvider).value?.usableCurrent != null;
+    if (!signedIn) {
+      unawaited(openLogin(context));
+      return;
+    }
+    if (!_composing) {
+      setState(() => _composing = true);
+      slideChrome(context, _barVisibility, hidden: true);
+    }
+    // The composer exists from the next frame.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _composerKey.currentState?.open(surface),
+    );
+  }
+
+  void _closeComposer() {
+    if (!_composing || !mounted) return;
+    setState(() => _composing = false);
+    if (!_touchExploration) {
+      slideChrome(context, _barVisibility, hidden: false);
+    }
+  }
+
   /// Entering the mode is a management-mode transition → confirm haptic.
   void _enterDownloadMode() {
     if (_downloadMode) return;
@@ -557,11 +591,20 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       // of leaving the page, like the selection bar's close button.
       // In-flight downloads are untouched — the mode is only a UI
       // selection layer.
-      canPop: !_downloadMode,
+      // Back closes the comment composer first.
+      canPop: !_downloadMode && !_composing,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _exitDownloadMode();
+        if (didPop) return;
+        if (_composing) {
+          _closeComposer();
+        } else {
+          _exitDownloadMode();
+        }
       },
       child: Scaffold(
+        // The comment composer takes the keyboard's inset itself; the
+        // page under it keeps its size (LAYOUT-10's overlay exception).
+        resizeToAvoidBottomInset: false,
         extendBodyBehindAppBar: immersive,
         appBar: _downloadMode && entity != null
             ? _buildSelectionAppBar(context, entity)
@@ -966,7 +1009,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
         ),
         // Comment preview and the author's other works; like related works,
         // each asks for its data only once it is on screen.
-        CommentsPreviewSlivers(illustId: widget.illustId),
+        CommentsPreviewSlivers(
+          illustId: widget.illustId,
+          onCompose: _openComposer,
+        ),
         AuthorWorksSlivers(entity: entity),
         // Official client behaviour: "関連作品" below the caption/tags,
         // paginated as the user scrolls to the bottom of the page.
@@ -1030,6 +1076,15 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
         ),
       ),
     );
+    // Over the column the comments belong to: the whole narrow page, the
+    // meta column of the two-pane one.
+    final composerLayer = Positioned.fill(
+      child: DetailCommentLayer(
+        illustId: widget.illustId,
+        composerKey: _composerKey,
+        onClose: _closeComposer,
+      ),
+    );
     final content = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -1070,6 +1125,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
                     ),
                   ),
                   actionBar,
+                  if (_composing) composerLayer,
                 ],
               ),
             )
@@ -1123,7 +1179,10 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     );
     final page = twoPane
         ? content
-        : Stack(fit: StackFit.expand, children: [content, actionBar]);
+        : Stack(
+            fit: StackFit.expand,
+            children: [content, actionBar, if (_composing) composerLayer],
+          );
     final container = ProviderScope.containerOf(context, listen: false);
     final accountId = ref.watch(historyAccountIdProvider);
     if (accountId == null) return page;

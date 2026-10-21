@@ -2482,6 +2482,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commentNoResults => 'No comments';
 
   @override
+  String get commentFirst => 'Be the first to comment';
+
+  @override
   String get commentDeletedUser => 'Deleted user';
 
   @override
