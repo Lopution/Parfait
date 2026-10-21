@@ -109,6 +109,8 @@ class IllustEntity {
     this.visible = true,
     this.createDate,
     this.totalComments,
+    this.commentAccessControl,
+    this.tools = const [],
     this.seriesId,
     this.seriesKnown = false,
   });
@@ -148,6 +150,21 @@ class IllustEntity {
   /// `total_comments`; null when the payload did not carry it (feed items
   /// often omit it), so an unknown count is never shown as 0.
   final int? totalComments;
+
+  /// `comment_access_control`: 0 when anyone may comment, 1 when the
+  /// author turned comments off. Only the detail payload carries it; null
+  /// when the payload did not say.
+  final int? commentAccessControl;
+
+  /// Whether the author turned comments off; null while that is unknown.
+  bool? get commentsClosed => switch (commentAccessControl) {
+    0 => false,
+    1 => true,
+    _ => null,
+  };
+
+  /// `tools`: the software the author said they drew with, often none.
+  final List<String> tools;
 
   /// `series.id`: the illust series the work belongs to. Null when it is in
   /// none — or when the payload did not say, see [seriesKnown].
@@ -371,6 +388,8 @@ class IllustEntity {
     int? pageCount,
     Object? createDate = _sentinel,
     Object? totalComments = _sentinel,
+    Object? commentAccessControl = _sentinel,
+    List<String>? tools,
     Object? seriesId = _sentinel,
     bool? seriesKnown,
   }) {
@@ -408,6 +427,10 @@ class IllustEntity {
       totalComments: identical(totalComments, _sentinel)
           ? this.totalComments
           : totalComments as int?,
+      commentAccessControl: identical(commentAccessControl, _sentinel)
+          ? this.commentAccessControl
+          : commentAccessControl as int?,
+      tools: tools ?? this.tools,
       seriesId: identical(seriesId, _sentinel)
           ? this.seriesId
           : seriesId as int?,
@@ -448,6 +471,8 @@ class IllustEntity {
     'visible': visible,
     'create_date': createDate,
     'total_comments': totalComments,
+    'comment_access_control': commentAccessControl,
+    'tools': tools,
     if (seriesKnown) 'series': seriesId == null ? null : {'id': seriesId},
   };
 
@@ -553,6 +578,14 @@ class IllustEntity {
       totalComments: json['total_comments'] is int
           ? json['total_comments'] as int
           : null,
+      commentAccessControl: json['comment_access_control'] is int
+          ? json['comment_access_control'] as int
+          : null,
+      tools: [
+        if (json['tools'] case final List<Object?> tools)
+          for (final tool in tools)
+            if (tool is String && tool.isNotEmpty) tool,
+      ],
       seriesId: seriesId,
       seriesKnown: seriesKnown,
     );

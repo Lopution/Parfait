@@ -38,6 +38,14 @@ class CommentsPreviewSlivers extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final query = CommentFeedQuery.root(workId: illustId);
     void openAll() => openIllustComments(context, illustId);
+    // Known closed, the comments are pixiv's notice: none is asked for.
+    if (commentsClosedFor(
+      ref.watch(commentsClosedProvider),
+      ref.read(illustStoreProvider),
+      query,
+    )) {
+      return const SliverToBoxAdapter(child: _ClosedComments());
+    }
     final count =
         ref.watch(commentTotalsProvider.select((t) => t[query.workKey])) ??
         ref.read(illustStoreProvider).get(illustId)?.totalComments;
@@ -67,6 +75,40 @@ class CommentsPreviewSlivers extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The section of a work whose author turned comments off: its heading
+/// and a line saying so.
+class _ClosedComments extends StatelessWidget {
+  const _ClosedComments();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    return Column(
+      key: const Key('illust-comments-closed'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DetailSectionHeader(title: context.l10n.commentTitle),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
+          child: Row(
+            children: [
+              Icon(Icons.lock_outline, size: 18, color: muted),
+              const SizedBox(width: FuncSpacing.sm),
+              Expanded(
+                child: Text(
+                  context.l10n.commentsClosed,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

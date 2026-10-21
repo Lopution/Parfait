@@ -4463,6 +4463,12 @@ abstract class AppLocalizations {
   /// **'评论'**
   String get commentTitle;
 
+  /// No description provided for @commentsClosed.
+  ///
+  /// In zh, this message translates to:
+  /// **'作者已关闭评论'**
+  String get commentsClosed;
+
   /// Heading of a work's comments with their number. count is already formatted.
   ///
   /// In zh, this message translates to:

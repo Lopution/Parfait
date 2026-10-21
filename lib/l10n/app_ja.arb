@@ -971,6 +971,7 @@
   "illustDetailNotFound": "作品が存在しないか削除されました",
   "illustDetailLoadFailed": "作品の読み込みに失敗しました",
   "commentTitle": "コメント",
+  "commentsClosed": "作者がコメントをオフにしています",
   "commentTitleCount": "コメント（{count}）",
   "commentInput": "コメントを追加",
   "commentReply": "返信",

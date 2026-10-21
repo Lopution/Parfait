@@ -242,6 +242,22 @@ void main() {
     },
   );
 
+  // Closed, the response holds one notice from pixiv (id 15, user 11).
+  test('a closed work keeps pixiv\'s notice out of its feed', () async {
+    final container = await _apiContainer(
+      (request) async => _json({
+        'comments': [_commentJson(15, userId: 11)],
+        'next_url': null,
+        'comment_access_control': 1,
+      }),
+    );
+    const query = CommentFeedQuery.root(workId: 50);
+    final feed = await container.read(commentFeedProvider(query).future);
+    expect(feed.ids, isEmpty);
+    expect(container.read(commentStoreProvider).get(15), isNull);
+    expect(container.read(commentsClosedProvider), {query.workKey: true});
+  });
+
   test('comment cursors are pinned to their endpoint and thread', () async {
     final container = await _apiContainer(
       (_) async => _json({'comments': <Object?>[], 'next_url': null}),
@@ -509,6 +525,23 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, '查看 1 条回复'));
     await tester.pumpAndSettle();
     expect(find.byType(CommentRepliesPage), findsOneWidget);
+  });
+
+  testWidgets('a work with comments off shows the notice, no composer', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      localizedRouterApp(
+        pixivRouter('/recommended/illust/1/comments'),
+        overrides: _signedIn(FakeCommentRepository()..commentsClosed = true),
+        builder: promptHostBuilder,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('作者已关闭评论'), findsOneWidget);
+    expect(find.text('comment 11'), findsNothing);
+    expect(find.byType(CommentComposer), findsNothing);
   });
 
   testWidgets(

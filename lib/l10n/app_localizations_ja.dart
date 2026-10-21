@@ -2353,6 +2353,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commentTitle => 'コメント';
 
   @override
+  String get commentsClosed => '作者がコメントをオフにしています';
+
+  @override
   String commentTitleCount(String count) {
     return 'コメント（$count）';
   }

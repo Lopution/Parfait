@@ -2323,6 +2323,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get commentTitle => '评论';
 
   @override
+  String get commentsClosed => '作者已关闭评论';
+
+  @override
   String commentTitleCount(String count) {
     return '评论（$count）';
   }

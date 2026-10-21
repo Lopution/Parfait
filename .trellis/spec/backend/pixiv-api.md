@@ -38,13 +38,20 @@ reviewed: 2026-10-12
 - **Check:** `test/illust_detail_controller_test.dart` "single-page detail never hits the pages endpoint" "web pages failure keeps the detail ready with fallback ratios"
 - **Code:** `lib/core/illust/illust_detail_repository.dart`, `lib/core/illust/illust_detail_controller.dart`
 
-### API-04 The comment count is unknown in list payloads
+### API-04 Comment count and switch are unknown in list payloads
 - **Rule:** Only the detail API and the comments response carry the
-  comment count. An unknown count is null, never 0, and a payload without
-  it keeps a known one.
-- **Why:** Feed payloads reset counts to 0.
-- **Check:** `test/illust_store_test.dart` "a feed payload without a comment count keeps the known one"
-- **Code:** `lib/core/entity/illust_store.dart`
+  comment count and `comment_access_control` (0 open, 1 the author turned
+  comments off). Unknown is null, never 0 or open, and a payload without
+  them keeps the known values. A response that says comments are off
+  holds one notice from pixiv (id 15, user 11): it never enters the store
+  or the feed, and once either payload says off, the comments page, the
+  replies page and the detail preview show only "the author turned
+  comments off" and ask for no comments.
+- **Why:** Feed payloads reset counts to 0. With the switch unread the
+  preview showed pixiv's notice as a comment and the composer sent
+  comments the server silently dropped (10-21).
+- **Check:** `test/illust_store_test.dart` "a payload without them keeps the comment count and switch", `test/comments_replies_test.dart` "a closed work keeps pixiv's notice out of its feed" "a work with comments off shows the notice, no composer", `test/illust_detail_actions_test.dart` "a work with comments off asks for none and says so"
+- **Code:** `lib/core/entity/illust_store.dart`, `lib/core/comments/comment_feed_controller.dart`
 
 ### API-05 Only illust series can be listed per user
 - **Rule:** A user's series list is `/v1/user/illust-series`; no endpoint

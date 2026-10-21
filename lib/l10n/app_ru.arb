@@ -971,6 +971,7 @@
   "illustDetailNotFound": "Работа не существует или была удалена",
   "illustDetailLoadFailed": "Не удалось загрузить работу",
   "commentTitle": "Комментарии",
+  "commentsClosed": "Автор отключил комментарии",
   "commentTitleCount": "Комментарии ({count})",
   "commentInput": "Добавить комментарий",
   "commentReply": "Ответить",

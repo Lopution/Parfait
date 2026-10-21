@@ -971,6 +971,7 @@
   "illustDetailNotFound": "This artwork does not exist or was deleted",
   "illustDetailLoadFailed": "Failed to load the artwork",
   "commentTitle": "Comments",
+  "commentsClosed": "The author turned comments off",
   "commentTitleCount": "Comments ({count})",
   "commentInput": "Add a comment",
   "commentReply": "Reply",

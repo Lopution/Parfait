@@ -12,6 +12,8 @@ IllustEntity entity(
   bool visible = true,
   int pageCount = 1,
   int? totalComments,
+  int? commentAccessControl,
+  List<String> tools = const [],
 }) => IllustEntity(
   id: id,
   title: 'title-$id',
@@ -40,6 +42,8 @@ IllustEntity entity(
   visible: visible,
   createDate: createDate,
   totalComments: totalComments,
+  commentAccessControl: commentAccessControl,
+  tools: tools,
 );
 
 IllustEntity _richSparseTarget() => entity(
@@ -107,17 +111,31 @@ void main() {
       },
     );
 
-    test('a feed payload without a comment count keeps the known one', () {
+    test('a payload without them keeps the comment count and switch', () {
       final store = IllustStore();
-      store.mergeAll([entity(1, totalComments: 37)]);
+      store.mergeAll([
+        entity(
+          1,
+          totalComments: 37,
+          commentAccessControl: 1,
+          tools: const ['SAI'],
+        ),
+      ]);
       store.mergeAll([entity(1)]);
-      expect(store.get(1)!.totalComments, 37);
+      store.mergeAll([
+        entity(1, tools: const ['SAI']),
+      ], source: EntityMergeSource.detail);
       store.updateBookmark(1, true);
-      expect(store.get(1)!.totalComments, 37);
-      // The count round-trips through the persisted shape; absent stays
-      // unknown rather than 0.
-      expect(IllustEntity.fromJson(store.get(1)!.toJson()).totalComments, 37);
-      expect(IllustEntity.fromJson(entity(2).toJson()).totalComments, isNull);
+      final kept = store.get(1)!;
+      expect((kept.totalComments, kept.commentsClosed), (37, true));
+      expect(kept.tools, ['SAI']);
+      // All round-trip through the persisted shape; absent stays unknown
+      // rather than 0 or open.
+      final restored = IllustEntity.fromJson(kept.toJson());
+      expect((restored.totalComments, restored.commentsClosed), (37, true));
+      expect(restored.tools, ['SAI']);
+      final bare = IllustEntity.fromJson(entity(2).toJson());
+      expect((bare.totalComments, bare.commentsClosed), (null, null));
     });
 
     test('a payload that does not mention series keeps the known one', () {

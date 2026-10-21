@@ -49,6 +49,9 @@ class FakeCommentRepository implements CommentRepository {
   List<CommentEntity>? replies;
   Object? addError;
 
+  /// What the root page says of the author's switch (`comment_access_control`).
+  bool? commentsClosed;
+
   @override
   Future<CommentPage> fetchComments(
     int workId, {
@@ -62,6 +65,7 @@ class FakeCommentRepository implements CommentRepository {
       comments:
           rootComments ?? [sampleComment(11, workId: workId, replyCount: 1)],
       nextUrl: null,
+      commentsClosed: commentsClosed,
     );
   }
 

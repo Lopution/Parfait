@@ -2422,6 +2422,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get commentTitle => 'Комментарии';
 
   @override
+  String get commentsClosed => 'Автор отключил комментарии';
+
+  @override
   String commentTitleCount(String count) {
     return 'Комментарии ($count)';
   }

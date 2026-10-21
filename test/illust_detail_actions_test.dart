@@ -269,6 +269,28 @@ void main() {
       expect(find.byType(CommentsPage), findsOneWidget);
     });
 
+    testWidgets('a work with comments off asks for none and says so', (
+      tester,
+    ) async {
+      final log = <String>[];
+      final (container, _, _) = await makeWorld(
+        requestLog: log,
+        detailOverrides: {
+          42: {...illustJson(42), 'comment_access_control': 1},
+        },
+      );
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+      await showSection(tester, find.text('作者的其他作品'));
+      final closed = find.byKey(const Key('illust-comments-closed'));
+      expect(find.text('作者已关闭评论'), findsOneWidget);
+      expect(
+        find.descendant(of: closed, matching: find.text('查看全部')),
+        findsNothing,
+      );
+      expect(log, isNot(contains('/v3/illust/comments')));
+    });
+
     testWidgets('the author strip leaves this work out and opens the others', (
       tester,
     ) async {

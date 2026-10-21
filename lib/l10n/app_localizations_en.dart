@@ -2422,6 +2422,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commentTitle => 'Comments';
 
   @override
+  String get commentsClosed => 'The author turned comments off';
+
+  @override
   String commentTitleCount(String count) {
     return 'Comments ($count)';
   }
