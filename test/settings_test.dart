@@ -454,6 +454,10 @@ void main() {
   ) async {
     setViewSize(tester, const Size(400, 1600));
     answerConnectivityChannels();
+    // Reduced motion: a new order lands at once (MOTION-02).
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     late HistoryRepository history;
     late ProviderContainer container;
     await tester.runAsync(() async {
@@ -493,6 +497,8 @@ void main() {
     await view(2, 2);
     expect(viewAll, findsOneWidget);
     expect(x(2), lessThan(x(1)), reason: 'newest first');
+    await view(1, 3);
+    expect(x(1), lessThan(x(2)), reason: 'seen again, first at once');
 
     // Scrolled far away and back, the row comes back at its height: a
     // row rebuilt empty while it reloads shifted the page under the eye.
@@ -510,6 +516,7 @@ void main() {
     setViewSize(tester, const Size(400, 1600));
     await tester.pump();
 
+    await view(2, 3);
     await tester.tap(cover(2));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
@@ -518,7 +525,7 @@ void main() {
     );
     expect(pager.source.ids, [2, 1]);
 
-    await view(1, 3);
+    await view(1, 4);
     expect(pager.source.ids, [
       2,
       1,
@@ -587,6 +594,21 @@ void main() {
       ))
         ?coverLabel.firstMatch(cover.properties.label ?? '')?.group(1),
     ];
+    double x(String id) => tester
+        .getTopLeft(
+          find.descendant(
+            of: row,
+            matching: find.byWidgetPredicate(
+              (w) =>
+                  w is Semantics &&
+                  coverLabel.firstMatch(w.properties.label ?? '')?.group(1) ==
+                      id,
+              skipOffstage: false,
+            ),
+            skipOffstage: false,
+          ),
+        )
+        .dx;
     final flight = find.byType(HeroRectClip);
     Future<void> midway() async {
       await tester.pump();
@@ -596,6 +618,7 @@ void main() {
     store.mergeAll([parseIllust(illustJson(2))]);
     await view(1, 1);
     await view(2, 2);
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.bySemanticsLabel('work 2'));
     await midway();
     expect(flight, findsOneWidget, reason: 'a work in the store flies in');
@@ -613,16 +636,22 @@ void main() {
     expect(flight, findsOneWidget, reason: 'and back to its cover');
     expect(order(), ['2', '1'], reason: 'which holds still while it lands');
     await tester.pump(const Duration(seconds: 1));
-    await settle();
-    expect(order(), ['2', '1'], reason: 'and after, while the page stays');
-    router.go('/recommended');
-    await tester.pump();
-    expect(order(), ['2', '1'], reason: 'not while it slides away');
-    await tester.pump(const Duration(seconds: 1));
-    router.go('/settings');
-    await settle();
-    expect(order(), ['1', '2'], reason: 'it catches up when it shows again');
-    await tester.pump(const Duration(seconds: 1));
+    expect(order(), ['1', '2'], reason: 'landed, it takes the new order');
+    expect(x('1'), greaterThan(x('2')), reason: 'each cover where it was');
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(x('1'), lessThan(x('2')), reason: 'then slid to its place');
+    await view(2, 5);
+    await tester.pump(const Duration(milliseconds: 100));
+    final midSlide = x('1');
+    await view(1, 6);
+    expect(
+      x('1'),
+      moreOrLessEquals(midSlide),
+      reason: 'a new order mid-slide carries on from where the cover is',
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(x('1'), lessThan(x('2')));
 
     // Work 1 was not in the store at the tap: its page loads it, but the
     // image that did not fly in does not fly back.

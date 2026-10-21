@@ -80,9 +80,9 @@ class _HistoryFeedController extends PagedFeedController {
   }
 }
 
-final historyFeedControllerProvider =
-    AsyncNotifierProvider.family<
-      _HistoryFeedController,
-      PagedFeedState,
-      String
-    >(_HistoryFeedController.new);
+/// Released with the history page: a page opened again reads the history
+/// afresh rather than the list it read last time.
+final historyFeedControllerProvider = AsyncNotifierProvider.autoDispose
+    .family<_HistoryFeedController, PagedFeedState, String>(
+      _HistoryFeedController.new,
+    );

@@ -68,8 +68,13 @@ reviewed: 2026-10-12
 ### HIST-07 Writes to the local rows announce themselves
 - **Rule:** `HistoryRepository.changes` fires after each write that
   changes the local rows: a view, a delete that removed a row, a clear, a
-  restore. Outbox writes stay silent. A page that keeps showing history
-  re-reads on it; the provider closes the stream on dispose.
-- **Why:** The Me tab's recent row kept what it read when first built.
-- **Check:** `test/history_persistence_test.dart` "announces writes to the local rows, not to the outbox"
-- **Code:** `lib/core/history/history_repository.dart`
+  restore. Outbox writes stay silent. The provider closes the stream on
+  dispose. A view that stays mounted (the Me tab's recent row) re-reads on
+  it. The history page's feed is auto-disposed, so each open reads
+  afresh; open, it keeps its order (on screen, and under a page it
+  opened: the image flying back lands on the card it left), and hidden on
+  another tab with nothing over it, it re-reads out of sight.
+- **Why:** The Me tab's recent row kept what it read when first built;
+  the history page kept the list of its first open for the whole session.
+- **Check:** `test/history_persistence_test.dart` "announces writes to the local rows, not to the outbox"; `test/history_page_test.dart` "each open reads afresh; open, the order holds; hidden, it "
+- **Code:** `lib/core/history/history_repository.dart`, `lib/core/history/history_feed_controller.dart`, `lib/features/history/history_page.dart`

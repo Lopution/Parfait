@@ -6,6 +6,7 @@ import 'package:parfait/app/motion/removal.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_models.dart';
+import 'package:parfait/core/history/history_repository.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -50,6 +51,61 @@ void main() {
   setUpAll(sqfliteFfiInit);
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+  });
+
+  testWidgets('each open reads afresh; open, the order holds; hidden, it '
+      'catches up', (tester) async {
+    setViewSize(tester, const Size(390, 844));
+    HistoryRecord seen(int id, int minute) => historyRecord(
+      id,
+    ).copyWith(lastViewedAt: DateTime.utc(2026, 9, 20, 10, minute));
+    late HistoryRepository history;
+    late ProviderContainer container;
+    await tester.runAsync(() async {
+      history = await openHistoryRepository([seen(1, 1), seen(2, 2)]);
+      container = await makeHistoryWorld(history);
+    });
+    final open = ValueNotifier(true);
+    final shown = ValueNotifier(true);
+    await tester.pumpWidget(
+      localizedApp(
+        container: container,
+        home: ListenableBuilder(
+          listenable: Listenable.merge([open, shown]),
+          builder: (_, _) => open.value
+              ? TickerMode(enabled: shown.value, child: const HistoryPage())
+              : const SizedBox(),
+        ),
+      ),
+    );
+    Future<void> view(int id, int minute) =>
+        settleHistory(tester, history, () => history.upsert(seen(id, minute)));
+    // Reading order: rows first, then along the row.
+    bool firstIs(int id, int other) {
+      final a = tester.getTopLeft(find.text('work $id'));
+      final b = tester.getTopLeft(find.text('work $other'));
+      return a.dy < b.dy || (a.dy == b.dy && a.dx < b.dx);
+    }
+
+    await settleHistory(tester, history);
+    expect(firstIs(2, 1), isTrue);
+    await view(1, 3);
+    expect(firstIs(2, 1), isTrue, reason: 'on screen the order holds');
+
+    // Another tab: the page is hidden, nothing over it.
+    shown.value = false;
+    await tester.pump();
+    await view(1, 4);
+    shown.value = true;
+    await settleHistory(tester, history);
+    expect(firstIs(1, 2), isTrue, reason: 'it caught up out of sight');
+
+    open.value = false;
+    await settleHistory(tester, history);
+    await view(2, 5);
+    open.value = true;
+    await settleHistory(tester, history);
+    expect(firstIs(2, 1), isTrue, reason: 'opened again, it reads afresh');
   });
 
   testWidgets('long-press enters selection mode and toggles membership', (

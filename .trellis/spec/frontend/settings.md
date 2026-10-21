@@ -123,16 +123,20 @@ reviewed: 2026-10-17
   tap. A cover whose work is in the illustration store flies to the
   detail page and back (TRANS-09, its own scope per TRANS-07); one whose
   work is not opens with no flight and takes none back. After an open
-  from the row the row keeps its order until the user leaves the page
-  (another tab, or a page not opened from the row over it), and takes the
-  new order when it next shows.
+  from the row the row keeps its order until that page has left (its
+  image landed), then takes the new order at once: each cover slides from
+  where it was to its place on `MotionTokens.spatial`, one new to the row
+  slides in from the leading edge and fades in, a new order mid-slide
+  carries on from where each cover is, and reduced motion moves them at
+  once. Hidden (another tab) the row takes the new order when it shows.
 - **Why:** User decision: settings filled two thirds of the page in a
   style of their own, and nothing showed what the user saw last. Left
   only at the bottom of the index and unsearchable, the probe could not
   be found. The flight needs the work's ratio on its first frame, and a
   history record has none. Each work the pager shows moves to the front
   of the history, so a row reordered mid-flight would land the image on
-  another work's cover; reordered at the landing, it swapped covers right
-  where the eye was (user decision: catch up on the next visit).
+  another work's cover. Swapped in place at the landing, covers changed
+  right where the eye was; waiting for the next visit left the row stale
+  (user decision 10-20: catch up at the landing, with the slide).
 - **Check:** `test/settings_test.dart` "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order" "a recent cover flies to its work and back, an unseen one not"
 - **Code:** `lib/features/settings/me_dashboard_page.dart`
