@@ -133,6 +133,9 @@ class _NovelRankingModeBody extends ConsumerWidget {
                         padding: const EdgeInsets.only(top: FuncSpacing.sm),
                         sliver: SliverCardList(
                           itemCount: entities.length,
+                          firstId: entities.firstOrNull?.id,
+                          warmTexts: (context, index) =>
+                              NovelEntry.warmTexts(context, entities[index]),
                           itemBuilder: (context, index) => KeyedSubtree(
                             key: ValueKey(entities[index].id),
                             child: NovelEntry.ranking(

@@ -111,20 +111,24 @@ reviewed: 2026-10-19
 - **Code:** `lib/app/widgets/feed/load_more_listener.dart`
 
 ### FEED-06 Card text is laid out between frames before its card
-- **Rule:** Content text on feed cards sets
-  `locale: contentLocale(context, text)`. Every `IllustFeedGrid` of
-  `IllustCard`s passes `warmTexts: IllustCard.warmTexts(...)`, and a card's
-  text styles live only in `IllustCard`, shared by the card and the warmup.
-  `FeedTextWarmup` lays out one line per gap, right after a frame that
-  started at most `vsync - itemCost` earlier, never inside a frame and
-  never at idle priority. Fonts are not prefetched as whole files.
+- **Rule:** Content text on feed cards and rows sets
+  `locale: contentLocale(context, text)`. `IllustFeedGrid`s of `IllustCard`s
+  and `SliverCardList`s of `NovelEntry`s pass the card's `warmTexts`, built
+  by `warmLine` from the style helpers the card itself uses, so a warm line
+  equals the laid-out `RenderParagraph` in text, style and locale.
+  `FeedTextWindow` queues at most `maxTexts` lines past the furthest built
+  item; `FeedTextWarmup` lays out one per gap, right after a frame that
+  started at most `vsync - itemCost` earlier, never inside a frame or at
+  idle priority. Fonts are not prefetched as whole files.
 - **Why:** A first-time glyph reads its outline from the font file; under
   memory pressure those pages are evicted within about 30 s, and the read
   was a 2–4 ms wait inside the frame that built the card. Whole-file
-  prefetch (31 MB per 40 s) was evicted before use and still missed;
-  warming the exact lines left no in-frame reads on device.
+  prefetch (31 MB per 40 s) was evicted before use and still missed. The
+  layout also fills SkParagraph's shared 128-entry cache (key: text, locale,
+  font style), which spares the frame the shaping only if the line matches
+  exactly and is not evicted before its card is built.
 - **Check:** `test/feed_text_warmup_test.dart`
-- **Code:** `lib/app/widgets/feed/feed_text_warmup.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/format/content_locale.dart`
+- **Code:** `lib/app/widgets/feed/feed_text_warmup.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/widgets/novel_entry.dart`, `lib/app/layout/card_columns.dart`, `lib/app/format/content_locale.dart`
 
 ### FEED-18 A list builds its cache area from its second frame
 - **Rule:** A list with `kFeedCacheExtent`, the settings list and the

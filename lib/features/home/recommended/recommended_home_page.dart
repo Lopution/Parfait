@@ -486,6 +486,9 @@ class _RecommendedFeedBody extends ConsumerWidget {
         padding: const EdgeInsets.only(top: FuncSpacing.sm),
         sliver: SliverCardList(
           itemCount: novels.length,
+          firstId: novels.firstOrNull?.id,
+          warmTexts: (context, index) =>
+              NovelEntry.warmTexts(context, novels[index]),
           itemBuilder: (context, index) => KeyedSubtree(
             key: ValueKey(novels[index].id),
             child: NovelEntry.compact(entity: novels[index]),

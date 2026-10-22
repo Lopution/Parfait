@@ -1,7 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../format/content_locale.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
+import 'feed/feed_text_warmup.dart';
 
 /// Slot-based entity row — the shared object-presentation contract
 /// (roadmap §5.2). The base widget owns identification (cover, title,
@@ -97,6 +99,35 @@ class EntityRow extends StatelessWidget {
   /// Inner padding — the historical novel cards used `EdgeInsets.all(10)`.
   final EdgeInsetsGeometry padding;
 
+  /// The text lines of an unselected row with these slots and the default
+  /// title type, exactly as the row lays them out under [context], for
+  /// [FeedTextWarmup].
+  static List<WarmText> warmTexts(
+    BuildContext context, {
+    required String title,
+    String? subtitle,
+    String? meta,
+    String? footnote,
+  }) {
+    // The row's Material resets the default text style to bodyMedium.
+    final inherited = Theme.of(context).textTheme.bodyMedium!;
+    final caption = FuncSemanticTokens.of(context).caption;
+    WarmText line(String text, TextStyle style) =>
+        warmLine(context, text, style, inherited: inherited);
+    return [
+      line(title, _titleStyle(null)),
+      if (subtitle != null) line(subtitle, caption),
+      if (meta != null) line(meta, caption),
+      if (footnote != null) line(footnote, caption),
+    ];
+  }
+
+  static TextStyle _titleStyle(TextStyle? titleStyle, {Color? color}) =>
+      (titleStyle ?? const TextStyle()).copyWith(
+        fontWeight: FontWeight.w600,
+        color: color,
+      );
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -185,10 +216,11 @@ class EntityRow extends StatelessWidget {
                         _titleLine(
                           Text(
                             title,
+                            locale: contentLocale(context, title),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: (titleStyle ?? const TextStyle()).copyWith(
-                              fontWeight: FontWeight.w600,
+                            style: _titleStyle(
+                              titleStyle,
                               color: selected ? selectedText : null,
                             ),
                           ),
@@ -197,6 +229,7 @@ class EntityRow extends StatelessWidget {
                           const SizedBox(height: FuncSpacing.xs),
                           Text(
                             subtitle!,
+                            locale: contentLocale(context, subtitle!),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: selected
@@ -262,7 +295,8 @@ class EntityRow extends StatelessWidget {
   }
 }
 
-/// Shared meta-line presentation: the caption token, one line, ellipsized.
+/// Shared meta-line presentation: the caption token, one line, ellipsized,
+/// in the text's own script locale (a novel's tags).
 /// [EntityRow] renders its `meta` slot through this; grid cells that carry
 /// the same kind of line (the history date under a card) reuse it directly
 /// so the meta look exists in exactly one place.
@@ -280,6 +314,7 @@ class EntityMetaText extends StatelessWidget {
     final caption = FuncSemanticTokens.of(context).caption;
     return Text(
       text,
+      locale: contentLocale(context, text),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: color == null ? caption : caption.copyWith(color: color),

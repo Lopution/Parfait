@@ -74,6 +74,9 @@ class ProfileNovelFeed extends ConsumerWidget {
                 else ...[
                   SliverCardList(
                     itemCount: novels.length,
+                    firstId: novels.first.id,
+                    warmTexts: (context, index) =>
+                        NovelEntry.warmTexts(context, novels[index]),
                     itemBuilder: (context, index) =>
                         NovelEntry.regular(entity: novels[index]),
                   ),

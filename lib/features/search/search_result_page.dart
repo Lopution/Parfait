@@ -7,6 +7,7 @@ import '../../app/widgets/app_top_bar.dart';
 import '../../app/widgets/feed/feed_grid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/format/content_locale.dart';
 import '../../app/person_avatar.dart';
 import '../../app/widgets/novel_entry.dart';
 import '../../app/pull_to_refresh.dart';
@@ -616,38 +617,32 @@ class _NovelSearchFeed extends ConsumerWidget {
         itemCount: feed.ids.length,
         onLoadMore: () =>
             ref.read(searchFeedProvider(query).notifier).loadMore(),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final columns = CardColumns.of(constraints.maxWidth);
-            final rows = CardColumns.rowCount(entities.length, columns);
-            return DeferredCacheListView.builder(
-              key: PageStorageKey(query.cacheKey),
-              controller: scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              scrollCacheExtent: kFeedCacheExtent,
-              restorationId: 'search-${query.cacheKey}',
-              itemCount: rows + 1,
-              itemBuilder: (context, row) {
-                if (row == rows) {
-                  return FeedTail(
-                    feed: feed,
-                    onRetry: () => ref
-                        .read(searchFeedProvider(query).notifier)
-                        .retryLoadMore(),
-                    errorTitle: context.l10n.searchLoadMoreFailed,
-                    retryLabel: context.l10n.searchRetry,
-                  );
-                }
-                return CardRow(
-                  row: row,
-                  columns: columns,
-                  count: entities.length,
-                  itemBuilder: (context, index) =>
-                      NovelEntry.regular(entity: entities[index]),
-                );
-              },
-            );
-          },
+        child: DeferredCacheScrollView(
+          key: PageStorageKey(query.cacheKey),
+          controller: scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          scrollCacheExtent: kFeedCacheExtent,
+          restorationId: 'search-${query.cacheKey}',
+          slivers: [
+            SliverCardList(
+              itemCount: entities.length,
+              firstId: entities.first.id,
+              warmTexts: (context, index) =>
+                  NovelEntry.warmTexts(context, entities[index]),
+              itemBuilder: (context, index) =>
+                  NovelEntry.regular(entity: entities[index]),
+            ),
+            SliverToBoxAdapter(
+              child: FeedTail(
+                feed: feed,
+                onRetry: () => ref
+                    .read(searchFeedProvider(query).notifier)
+                    .retryLoadMore(),
+                errorTitle: context.l10n.searchLoadMoreFailed,
+                retryLabel: context.l10n.searchRetry,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -732,7 +727,12 @@ class _SearchUserTile extends StatelessWidget {
       child: ListTile(
         onTap: () => openUser(context, user.id),
         leading: PersonAvatar(imageUrl: user.profileImageUrl, radius: 26),
-        title: Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        title: Text(
+          user.name,
+          locale: contentLocale(context, user.name),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         subtitle: user.account.isEmpty
             ? null
             : Text(
