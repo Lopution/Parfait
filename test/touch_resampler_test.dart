@@ -25,6 +25,15 @@ PointerMoveEvent _move(
 PointerUpEvent _up(num ms, Offset position, {int pointer = 1}) =>
     PointerUpEvent(timeStamp: _ms(ms), pointer: pointer, position: position);
 
+const _frame120 = 1000 / 120;
+
+extension on TouchResampler {
+  /// The frame of the vsync at [vsync] ms, stamped as the engine stamps it
+  /// for `handleBeginFrame`: one [period] later, at the vsync target.
+  void frameAt(num vsync, [num period = _frame120]) =>
+      sample(_ms(vsync + period), _ms(period));
+}
+
 class _Subject {
   final events = <PointerEvent>[];
   var frameRequests = 0;
@@ -44,7 +53,7 @@ class _Subject {
 List<PointerEvent> _play(
   List<PointerEvent> samples, {
   num latency = 0,
-  num frameInterval = 1000 / 120,
+  num frameInterval = _frame120,
   num framePhase = 3,
 }) {
   final subject = _Subject();
@@ -52,7 +61,7 @@ List<PointerEvent> _play(
   for (final event in samples) {
     final arrival = event.timeStamp + _ms(latency);
     while (_ms(frame + 2) <= arrival) {
-      subject.resampler.sample(_ms(frame));
+      subject.resampler.frameAt(frame, frameInterval);
       frame += frameInterval;
     }
     subject.resampler.add(event);
@@ -88,35 +97,38 @@ List<PointerEvent> _drag(List<double> speeds) {
 }
 
 void main() {
-  test('a frame shows where the finger was 10 ms before its vsync', () {
-    final subject = _Subject();
-    final resampler = subject.resampler;
-    resampler.add(_down(0, Offset.zero));
-    expect(subject.events, hasLength(1), reason: 'the down is not delayed');
+  for (final hz in [120, 60]) {
+    test('a frame shows where the finger was 10 ms before its vsync, '
+        '$hz Hz', () {
+      final subject = _Subject();
+      final resampler = subject.resampler;
+      resampler.add(_down(0, Offset.zero));
+      expect(subject.events, hasLength(1), reason: 'the down is not delayed');
 
-    // 1 px/ms downwards, sampled every 4 ms.
-    for (var t = 4; t <= 24; t += 4) {
-      resampler.add(_move(t, Offset(0, t.toDouble())));
-    }
-    expect(subject.moves, isEmpty);
-    expect(subject.frameRequests, greaterThan(0));
+      // 1 px/ms downwards, sampled every 4 ms.
+      for (var t = 4; t <= 24; t += 4) {
+        resampler.add(_move(t, Offset(0, t.toDouble())));
+      }
+      expect(subject.moves, isEmpty);
+      expect(subject.frameRequests, greaterThan(0));
 
-    resampler.sample(_ms(31));
-    final moves = subject.moves;
-    expect(moves.map((e) => e.timeStamp), [
-      for (var t = 4; t <= 20; t += 4) _ms(t),
-      _ms(21),
-    ]);
-    expect(moves.last.position, const Offset(0, 21));
-    expect(moves.last.synthesized, isTrue);
-    expect(moves.where((e) => e.synthesized), hasLength(1));
-    expect(
-      moves.fold(Offset.zero, (sum, e) => sum + e.delta),
-      moves.last.position,
-      reason: 'the deltas add up to the shown position',
-    );
-    expect(resampler.hasPending, isTrue, reason: 'the 24 ms sample waits');
-  });
+      resampler.frameAt(31, 1000 / hz);
+      final moves = subject.moves;
+      expect(moves.map((e) => e.timeStamp), [
+        for (var t = 4; t <= 20; t += 4) _ms(t),
+        _ms(21),
+      ]);
+      expect(moves.last.position, const Offset(0, 21));
+      expect(moves.last.synthesized, isTrue);
+      expect(moves.where((e) => e.synthesized), hasLength(1));
+      expect(
+        moves.fold(Offset.zero, (sum, e) => sum + e.delta),
+        moves.last.position,
+        reason: 'the deltas add up to the shown position',
+      );
+      expect(resampler.hasPending, isTrue, reason: 'the 24 ms sample waits');
+    });
+  }
 
   test('a frame between two samples moves on without a new one', () {
     final subject = _Subject();
@@ -124,8 +136,8 @@ void main() {
       ..add(_down(0, Offset.zero))
       ..add(_move(8, const Offset(0, 8)))
       ..add(_move(24, const Offset(0, 24)))
-      ..sample(_ms(25))
-      ..sample(_ms(30));
+      ..frameAt(25)
+      ..frameAt(30);
     expect(subject.moves.map((e) => (e.timeStamp, e.position.dy)), [
       (_ms(8), 8),
       (_ms(15), 15),
@@ -139,7 +151,7 @@ void main() {
       ..add(_down(0, Offset.zero))
       ..add(_move(10, const Offset(0, 10)))
       ..add(_move(20, const Offset(0, 20)))
-      ..sample(_ms(60));
+      ..frameAt(60);
     expect(subject.moves.last.position, const Offset(0, 20));
     expect(subject.moves.any((e) => e.synthesized), isFalse);
   });
@@ -172,7 +184,7 @@ void main() {
         ..add(_move(t, Offset(0, t.toDouble())))
         ..add(_move(t, Offset(100 + t * 2.0, 0), pointer: 2));
     }
-    resampler.sample(_ms(31));
+    resampler.frameAt(31);
     final resampled = {
       for (final e in subject.moves.where((e) => e.synthesized)) e.pointer: e,
     };
@@ -263,7 +275,7 @@ void main() {
       send(_down(0, start));
       for (var t = 8; t <= 96; t += 8) {
         send(_move(t, start - Offset(0, t * 2.0), delta: const Offset(0, -16)));
-        if (resample) resampler.sample(_ms(t + 6));
+        if (resample) resampler.frameAt(t + 6);
         await tester.pump();
       }
       send(_up(97, start - const Offset(0, 192)));

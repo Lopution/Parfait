@@ -261,17 +261,21 @@ reviewed: 2026-10-19
   `TouchResampler`: a finger's moves go out at the start of each frame,
   real samples up to 10 ms before its vsync and one move interpolated to
   that time when a later sample is in, also on a frame that took no new
-  sample. It never predicts past the newest sample. Every other event
-  goes out at once, after the queued moves. An interpolated move is
-  `synthesized`, and code that measures a finger's speed skips
-  synthesized moves as recognizers do.
+  sample. The vsync is `handleBeginFrame`'s stamp minus one refresh
+  period: the engine stamps a frame with its vsync target
+  (`GetVsyncTargetTime()`). It never predicts past the newest sample.
+  Every other event goes out at once, after the queued moves. An
+  interpolated move is `synthesized`, and code that measures a finger's
+  speed skips synthesized moves as recognizers do.
 - **Why:** Flutter's embedding dispatches each touch as it arrives and a
   frame takes the newest, so per-frame movement went uneven while every
   frame was on time. Android also predicts up to 8 ms, but Flutter
   recognizers take each move as an observation: a predicted point bent a
   pinch's scale velocity (`ScaleGestureRecognizer` tracks synthesized
   moves), and a real sample arriving behind a prediction either stepped
-  the finger back or went missing from the fling speed.
+  the finger back or went missing from the fling speed. Taking the stamp
+  for the vsync sampled 1.7 ms early at 120 Hz and interpolated almost
+  never: slow drags alternated still and double-step frames.
 - **Check:** `test/touch_resampler_test.dart` "a frame shows where the finger was 10 ms before its vsync" "a frame between two samples moves on without a new one" "leaves at the speed of its real samples"
 - **Code:** `lib/core/platform/touch_resampler.dart`, `lib/main.dart`, `lib/core/debug/trace_marks.dart`
 
