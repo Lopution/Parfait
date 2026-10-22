@@ -82,6 +82,14 @@ class _ParfaitBinding extends WidgetsFlutterBinding {
     _touch.add(event, queue: framesEnabled);
   }
 
+  // The refresh period the engine adds to a vsync to stamp its frame; 60 Hz
+  // until the display reports a rate.
+  Duration get _framePeriod {
+    final rate = platformDispatcher.implicitView?.display.refreshRate ?? 0;
+    final hz = rate.isFinite && rate > 0 ? rate : 60.0;
+    return Duration(microseconds: (1e6 / hz).round());
+  }
+
   @override
   void handleAppLifecycleStateChanged(AppLifecycleState state) {
     super.handleAppLifecycleStateChanged(state);
@@ -100,7 +108,7 @@ class _ParfaitBinding extends WidgetsFlutterBinding {
       ..beginUiFrame()
       ..timePhase(UiPhase.animate, () {
         // The warm-up frame has no vsync time to sample at.
-        if (rawTimeStamp != null) _touch.sample(rawTimeStamp);
+        if (rawTimeStamp != null) _touch.sample(rawTimeStamp, _framePeriod);
         super.handleBeginFrame(rawTimeStamp);
         if (_touch.hasPending) scheduleFrame();
       });

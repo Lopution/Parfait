@@ -92,10 +92,14 @@ class TouchResampler {
     }
   }
 
-  /// Dispatches the moves due at a frame whose vsync is [frameTime], on the
-  /// clock of the events' time stamps.
-  void sample(Duration frameTime) {
-    final sampleTime = frameTime - kResampleLatency;
+  /// Dispatches the moves due at the frame [frameTime] stamps, on the clock
+  /// of the events' time stamps.
+  ///
+  /// [frameTime] is what `handleBeginFrame` gets: the frame's vsync target,
+  /// one [framePeriod] after its vsync (the engine's `Animator::BeginFrame`
+  /// passes `GetVsyncTargetTime()`), not the vsync itself.
+  void sample(Duration frameTime, Duration framePeriod) {
+    final sampleTime = frameTime - framePeriod - kResampleLatency;
     for (final pointer in _pointers.values.toList()) {
       final queue = pointer.queue;
       while (queue.isNotEmpty && queue.first.timeStamp <= sampleTime) {
