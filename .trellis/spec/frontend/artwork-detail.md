@@ -142,13 +142,23 @@ reviewed: 2026-10-17
   line with retry; comments off is a lock line and no pill (API-04). The
   pill raises the composer over the page's bottom in place of the action
   bar, on the keyboard or, from the stamp key, the stamp panel; signed
-  out it opens the sign-in. A see-through barrier takes every tap around
-  it; a tap there, back, a send or the page swiped away closes it, and
-  unsent text stays as the work's draft. A sent comment heads the
-  preview, and the count grows by one.
+  out it opens the sign-in. The composer lives on that surface
+  (`CommentComposer.onGone`): it stands on the keyboard or panel as it
+  rises and falls, shows over the upper half of the travel, and the page
+  drops it once the surface is down (a keyboard that never insets: it
+  rests above the navigation bar after 600ms). The page stays live
+  around it: a touch outside (`TapRegion`) sends it down and goes on to
+  scroll, page or open what it landed on; back, a send, the page swiped
+  away or the keyboard put away on its own send it down too, and unsent
+  text stays as the work's draft. A sent comment heads the preview, and
+  the count grows by one.
 - **Why:** User decision (10-21): an "add comment" text button misaligned
   under the heading, and writing meant leaving the work for the comments
-  page.
+  page. A see-through barrier that swallowed every touch was tried and
+  rejected: the page looked live but took nothing. A composer apart from
+  its keyboard was rejected too (10-22): it stood alone while the input
+  method woke, vanished at once on a touch outside and left the keyboard
+  to fall alone, and stayed behind when only the keyboard was put away.
 - **Check:** `test/illust_detail_actions_test.dart` "the entry composes in place; a sent comment heads the preview"
 - **Code:** `lib/features/illust/detail/comments_preview_section.dart`, `lib/features/illust/detail/widgets/detail_comment_layer.dart`
 

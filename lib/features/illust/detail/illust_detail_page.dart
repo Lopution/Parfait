@@ -591,12 +591,13 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       // of leaving the page, like the selection bar's close button.
       // In-flight downloads are untouched — the mode is only a UI
       // selection layer.
-      // Back closes the comment composer first.
+      // Back sends the comment composer down first.
       canPop: !_downloadMode && !_composing,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         if (_composing) {
-          _closeComposer();
+          final composer = _composerKey.currentState;
+          composer == null ? _closeComposer() : composer.dismiss();
         } else {
           _exitDownloadMode();
         }

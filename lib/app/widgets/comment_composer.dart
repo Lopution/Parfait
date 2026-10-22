@@ -68,6 +68,7 @@ class CommentComposer extends StatefulWidget {
     this.keyboardHeights,
     this.initialText = '',
     this.onChanged,
+    this.onGone,
   });
 
   final Future<void> Function(String text) onSend;
@@ -88,6 +89,17 @@ class CommentComposer extends StatefulWidget {
   /// The field's text after each edit, and '' after a send.
   final ValueChanged<String>? onChanged;
 
+  /// Set for a composer that lives only on its input surface (the detail
+  /// page's): it stands on the keyboard or the panel as it rises and
+  /// falls, shows over the upper half of that travel, and calls [onGone]
+  /// once the surface it opened on has gone down. Without it the composer
+  /// rests above the navigation bar when no surface is up.
+  final VoidCallback? onGone;
+
+  /// How long to wait for a keyboard that may not come (a hardware
+  /// keyboard, a floating IME): longer than an IME takes to slide in.
+  static const keyboardWait = Duration(milliseconds: 600);
+
   @override
   State<CommentComposer> createState() => CommentComposerState();
 }
@@ -97,10 +109,6 @@ class CommentComposerState extends State<CommentComposer>
   /// Panel height, above the navigation bar, before any keyboard height is
   /// known — close to a typical soft keyboard's.
   static const _fallbackPanelHeight = 280.0;
-
-  /// How long a panel holds its height for a keyboard that may not come (a
-  /// hardware keyboard, a floating IME): longer than an IME slides in.
-  static const _keyboardHoldTimeout = Duration(milliseconds: 600);
 
   late final _controller = TextEditingController(text: widget.initialText);
   final _focusNode = FocusNode();
@@ -131,6 +139,20 @@ class CommentComposerState extends State<CommentComposer>
   /// Runs while a panel waits for the keyboard to cover it.
   Timer? _keyboardHold;
 
+  /// [CommentComposer.onGone] only: a surface has opened, so the composer
+  /// can be gone; the tallest keyboard inset seen; the inset of the last
+  /// build; no keyboard has risen for the keyboard leg (a hardware or
+  /// floating one), so the composer rests above the navigation bar; the
+  /// wait for that; and [CommentComposer.onGone] has been called.
+  bool _opened = false;
+  double _keyboardPeak = 0;
+  double _lastInset = 0;
+  bool _keyboardAbsent = false;
+  Timer? _absentWait;
+  bool _gone = false;
+
+  bool get _onSurface => widget.onGone != null;
+
   bool get _disabled => widget.sending || _busy;
 
   bool get _panelVisible =>
@@ -149,6 +171,10 @@ class CommentComposerState extends State<CommentComposer>
     // a second judgement. Gaining focus collapses any open panel into
     // keyboard; losing it without a panel rests at none.
     _focusNode.addListener(_onFocusChange);
+    // animateTo(0) ends as completed, not dismissed: the value says down.
+    _panelReveal.addStatusListener((status) {
+      if (!status.isAnimating && _panelReveal.value == 0) _goIfDown();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _warmEmojis());
   }
 
@@ -180,11 +206,72 @@ class CommentComposerState extends State<CommentComposer>
       hold.cancel();
       _panelReveal.value = 0;
     }
+    if (_onSurface) _followKeyboard(MediaQuery.viewInsetsOf(context).bottom);
+  }
+
+  /// [CommentComposer.onGone] only: tracks the keyboard the composer
+  /// stands on. One that went down under the focused field (system back,
+  /// the IME's own key) takes the composer with it.
+  void _followKeyboard(double inset) {
+    final fell = _lastInset > 0 && inset == 0;
+    _lastInset = inset;
+    if (inset > _keyboardPeak) _keyboardPeak = inset;
+    if (inset > 0) {
+      _absentWait?.cancel();
+      _keyboardAbsent = false;
+    }
+    if (!fell) return;
+    // Not mid-build: leaving focus rebuilds the composer.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_inputState == CommentComposerInputState.keyboard) {
+        _focusNode.unfocus();
+      } else {
+        _goIfDown();
+      }
+    });
+  }
+
+  /// [CommentComposer.onGone] only: closes the composer. The keyboard or
+  /// panel goes down, taking the composer with it, and [onGone] follows.
+  void dismiss() {
+    _focusNode.unfocus();
+    if (_inputState != CommentComposerInputState.none) {
+      _enter(CommentComposerInputState.none);
+    }
+    _goIfDown();
+  }
+
+  /// Calls [CommentComposer.onGone] once nothing the composer stood on is
+  /// up any more.
+  void _goIfDown() {
+    final onGone = widget.onGone;
+    if (onGone == null || _gone || !_opened || !mounted) return;
+    if (_inputState != CommentComposerInputState.none ||
+        _panelReveal.value > 0 ||
+        MediaQuery.viewInsetsOf(context).bottom > 0) {
+      return;
+    }
+    _gone = true;
+    onGone();
+  }
+
+  /// How much of the composer shows while it stands on a surface: none at
+  /// the bottom, all from half the surface's height up.
+  double _presence(double panelHeight) {
+    if (_keyboardAbsent) return 1;
+    final carrier = math.max(
+      MediaQuery.viewInsetsOf(context).bottom,
+      panelHeight * _panelReveal.value,
+    );
+    final full = math.max(_keyboardPeak, panelHeight);
+    return (2 * carrier / full).clamp(0.0, 1.0);
   }
 
   @override
   void dispose() {
     _keyboardHold?.cancel();
+    _absentWait?.cancel();
     _panelReveal.dispose();
     _focusNode.removeListener(_onFocusChange);
     _controller.dispose();
@@ -262,6 +349,17 @@ class CommentComposerState extends State<CommentComposer>
       if (_panelVisible) _shownPanel = next;
     });
     _keyboardHold?.cancel();
+    _absentWait?.cancel();
+    if (next != CommentComposerInputState.none) _opened = true;
+    if (_onSurface &&
+        next == CommentComposerInputState.keyboard &&
+        MediaQuery.viewInsetsOf(context).bottom == 0) {
+      _absentWait = Timer(CommentComposer.keyboardWait, () {
+        if (mounted && MediaQuery.viewInsetsOf(context).bottom == 0) {
+          setState(() => _keyboardAbsent = true);
+        }
+      });
+    }
     switch (next) {
       case CommentComposerInputState.emoji || CommentComposerInputState.stamp:
         // The keyboard is going down: what it showed sizes the panel.
@@ -272,11 +370,15 @@ class CommentComposerState extends State<CommentComposer>
         _animatePanel(1);
       case CommentComposerInputState.keyboard when _panelReveal.value > 0:
         _panelReveal.stop();
-        _keyboardHold = Timer(_keyboardHoldTimeout, () => _animatePanel(0));
+        _keyboardHold = Timer(
+          CommentComposer.keyboardWait,
+          () => _animatePanel(0),
+        );
       case CommentComposerInputState.keyboard:
         break;
       case CommentComposerInputState.none:
         _animatePanel(0);
+        WidgetsBinding.instance.addPostFrameCallback((_) => _goIfDown());
     }
   }
 
@@ -303,7 +405,7 @@ class CommentComposerState extends State<CommentComposer>
     if (_focusNode.hasFocus && keyboard > _focusPeak) _focusPeak = keyboard;
     final bottomInset = _bottomInset(context);
     final panelHeight = _panelHeight;
-    return PopScope(
+    final composer = PopScope(
       // An open picker panel is a transient layer on this route: system back
       // collapses it instead of leaving (§5.4). The keyboard leg is never
       // vetoed — the IME/system consumes that back first.
@@ -385,7 +487,9 @@ class CommentComposerState extends State<CommentComposer>
                         },
                         decoration: InputDecoration(
                           hintText: context.l10n.commentInput,
-                          isDense: true,
+                          // Not dense: one line stands 48dp, as tall as the
+                          // buttons beside it and the detail page's entry
+                          // pill, its text centred on them.
                           filled: true,
                           fillColor: theme.colorScheme.surfaceContainer,
                           contentPadding: const EdgeInsets.symmetric(
@@ -492,6 +596,19 @@ class CommentComposerState extends State<CommentComposer>
           ),
         ),
       ),
+    );
+    return _fadeOnSurface(panelHeight, composer);
+  }
+
+  /// [CommentComposer.onGone] only: shows [composer] as far as it stands
+  /// on a surface ([_presence]).
+  Widget _fadeOnSurface(double panelHeight, Widget composer) {
+    if (!_onSurface) return composer;
+    return AnimatedBuilder(
+      animation: _panelReveal,
+      child: composer,
+      builder: (context, child) =>
+          Opacity(opacity: _presence(panelHeight), child: child),
     );
   }
 
@@ -640,9 +757,11 @@ class CommentComposerState extends State<CommentComposer>
 
   /// What the slot holds with no panel up: the keyboard, or the
   /// navigation bar under the input row when none is up (a floating or
-  /// hardware keyboard reports no inset).
-  static double _bottomInset(BuildContext context) => math.max(
-    MediaQuery.viewInsetsOf(context).bottom,
-    MediaQuery.viewPaddingOf(context).bottom,
-  );
+  /// hardware keyboard reports no inset). A composer on a surface stands
+  /// on the keyboard alone, unless none has come.
+  double _bottomInset(BuildContext context) {
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    if (_onSurface && !_keyboardAbsent) return keyboard;
+    return math.max(keyboard, MediaQuery.viewPaddingOf(context).bottom);
+  }
 }

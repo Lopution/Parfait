@@ -10,12 +10,14 @@ import '../../../../app/widgets/comment_composer.dart';
 import '../detail_page_activity.dart';
 
 /// The composer the detail page raises in place from its comment entry,
-/// for a comment on the work, over a see-through barrier.
+/// for a comment on the work, at the page's bottom.
 ///
-/// A tap on the page around it, a send, or the page swiped away closes
-/// it ([onClose]); unsent text stays as the work's draft. The barrier
-/// takes the taps, so nothing under it scrolls, pages or opens while the
-/// composer is up; a sideways swipe still reaches the pager.
+/// It lives on its input surface ([CommentComposer.onGone]): it rides the
+/// keyboard or panel up, and goes down with it. A touch anywhere outside
+/// sends it down and goes on to scroll, page or open what it landed on;
+/// a send, back or the page swiped away send it down too, as does the
+/// keyboard put away on its own. [onClose] follows once it is down;
+/// unsent text stays as the work's draft.
 class DetailCommentLayer extends ConsumerWidget {
   const DetailCommentLayer({
     super.key,
@@ -30,9 +32,10 @@ class DetailCommentLayer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    void dismiss() => composerKey.currentState?.dismiss();
     if (!DetailPageActivity.of(context)) {
-      // Not during build: closing rebuilds the page.
-      WidgetsBinding.instance.addPostFrameCallback((_) => onClose());
+      // Not during build: going down rebuilds the composer.
+      WidgetsBinding.instance.addPostFrameCallback((_) => dismiss());
     }
     final workKey = CommentFeedQuery.root(workId: illustId).workKey;
     final sending = ref.watch(
@@ -48,45 +51,38 @@ class DetailCommentLayer extends ConsumerWidget {
             CommentAddRequest(workId: illustId, text: text, stampId: stampId),
           );
       AppHaptics.success();
-      onClose();
+      dismiss();
     }
 
     final theme = Theme.of(context);
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        ModalBarrier(
-          onDismiss: onClose,
-          semanticsLabel: MaterialLocalizations.of(
-            context,
-          ).modalBarrierDismissLabel,
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: DecoratedBox(
-            // Sets the composer off the page running on behind it.
-            position: DecorationPosition.foreground,
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: theme.colorScheme.outlineVariant),
-              ),
-            ),
-            child: CommentComposer(
-              key: composerKey,
-              sending: sending,
-              onSend: (text) => send(text: text),
-              onStampSend: (stampId) => send(stampId: stampId),
-              onError: (error) => showCommentSendError(context, error),
-              keyboardHeights: ref.watch(keyboardHeightsProvider.notifier),
-              initialText: ref.read(commentDraftsProvider)[workKey] ?? '',
-              onChanged: (text) =>
-                  ref.read(commentDraftsProvider.notifier).keep(workKey, text),
+    // Only the composer takes hits: the rest of the layer lets every touch
+    // through to the page.
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: TapRegion(
+        onTapOutside: (_) => dismiss(),
+        child: DecoratedBox(
+          // Sets the composer off the page running on behind it.
+          position: DecorationPosition.foreground,
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(color: theme.colorScheme.outlineVariant),
             ),
           ),
+          child: CommentComposer(
+            key: composerKey,
+            sending: sending,
+            onSend: (text) => send(text: text),
+            onStampSend: (stampId) => send(stampId: stampId),
+            onError: (error) => showCommentSendError(context, error),
+            keyboardHeights: ref.watch(keyboardHeightsProvider.notifier),
+            initialText: ref.read(commentDraftsProvider)[workKey] ?? '',
+            onChanged: (text) =>
+                ref.read(commentDraftsProvider.notifier).keep(workKey, text),
+            onGone: onClose,
+          ),
         ),
-      ],
+      ),
     );
   }
 }
