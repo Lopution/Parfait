@@ -17,6 +17,7 @@ import 'core/network/rhttp_gate.dart';
 import 'core/platform/app_root_pipeline_owner.dart';
 import 'core/platform/native_warmup.dart';
 import 'core/platform/platform_caps.dart';
+import 'core/platform/raster_affinity.dart';
 import 'core/platform/touch_resampler.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -160,6 +161,7 @@ Future<void> _run() async {
   // the probe page cannot be opened in time for. Stop it there.
   if (kPixivFrameProbe) FrameProbe.instance.start();
   TraceMarks.trackPointers();
+  if (PlatformCaps.system().isAndroid) unawaited(freeRasterThreads());
   runApp(const ProviderScope(child: ParfaitApp()));
   unawaited(_deleteLegacyImageCache());
   unawaited(_warmUpNativeChannels());
