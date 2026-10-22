@@ -6,6 +6,7 @@ applies_to:
   - lib/core/platform/native_warmup.dart
   - lib/core/platform/app_root_pipeline_owner.dart
   - lib/core/platform/touch_resampler.dart
+  - lib/core/platform/raster_affinity.dart
   - lib/app/navigation/route_animation.dart
   - lib/app/layout/sliver_width_builder.dart
   - lib/app/startup_gate.dart
@@ -255,6 +256,20 @@ reviewed: 2026-10-19
   when the warm-up ended remounted the app.
 - **Check:** `test/startup_gate_test.dart` "the warm-up draws the ripple and keeps the app mounted"
 - **Code:** `lib/app/startup_gate.dart`
+
+### MOTION-22 Raster threads run on every core of a chip without little cores
+- **Rule:** At launch on Android, `freeRasterThreads` sets every
+  `*.raster` thread to all cores when no core's `cpu_capacity` is under
+  half of the fastest. With a little core, or with no or equal readings,
+  it keeps the engine's set: it only ever widens it.
+- **Why:** The engine pins the raster thread to the cores with more than
+  the lowest top frequency. On the Snapdragon 8 Elite family (two prime
+  and six performance cores) that left the two prime cores, idling at
+  883 MHz; freed, raster frames took a sixth less time. Excluding every
+  core under half would narrow the engine's set on a chip with two tiers
+  above its little cores.
+- **Check:** `test/raster_affinity_test.dart` "frees every core only when none is little" "sets only the raster threads, from a full capacity table"
+- **Code:** `lib/core/platform/raster_affinity.dart`, `lib/main.dart`
 
 ### MOTION-19 Touch moves reach the app once per frame, resampled
 - **Rule:** `_ParfaitBinding` hands every pointer event to
