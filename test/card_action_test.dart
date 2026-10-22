@@ -1,4 +1,5 @@
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart' show ImageFilterLayer;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -337,6 +338,9 @@ void main() {
 
     expect(find.byType(MutedCover), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp('已屏蔽.*illust 51')), findsOneWidget);
+    // The blur is baked into the decoded image: a filter layer would blur
+    // the card offscreen again on every frame it paints.
+    expect(tester.layers.whereType<ImageFilterLayer>(), isEmpty);
 
     await mockNetworkImagesFor(() async {
       await tester.tap(find.byType(MutedCover));

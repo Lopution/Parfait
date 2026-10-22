@@ -214,7 +214,7 @@ class _IllustCardBody extends ConsumerWidget {
     }
 
     final previewHeight = cardWidth * preview.heightRatio;
-    final image = _buildImage(preview, heroTag, cardWidth);
+    final image = _buildImage(preview, heroTag, cardWidth, muted: muted);
     void reveal() {
       ref.read(revealedMuteIdsProvider.notifier).reveal(entity.id);
     }
@@ -287,7 +287,12 @@ class _IllustCardBody extends ConsumerWidget {
     );
   }
 
-  Widget _buildImage(IllustCardPreview preview, String heroTag, double width) {
+  Widget _buildImage(
+    IllustCardPreview preview,
+    String heroTag,
+    double width, {
+    required bool muted,
+  }) {
     final tier = preview.tier;
     final framed = IllustHeroCardFrame(
       cropAspect: preview.crop == IllustCardCrop.top
@@ -311,9 +316,11 @@ class _IllustCardBody extends ConsumerWidget {
         tierKey: tier == null ? null : entity.imageTierKeyAt(0),
         tier: tier,
         tierUpgrade: false,
+        blur: muted ? MutedCover.blurSigma : null,
       ),
     );
-    if (preview.crop == IllustCardCrop.square) return framed;
+    // A muted cover never flies: a tap reveals it in place.
+    if (muted || preview.crop == IllustCardCrop.square) return framed;
     // Only the image participates in the detail Hero flight. Badges belong to
     // the feed viewport; when the whole Stack was the Hero, the page-count
     // badge was scaled and left as a large ghost during pop.

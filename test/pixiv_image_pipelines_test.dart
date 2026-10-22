@@ -89,6 +89,38 @@ void main() {
     await unmountPastReleaseGrace(tester);
   });
 
+  testWidgets('a blurred image never paints a sharp frame in its place', (
+    tester,
+  ) async {
+    // The hand-off above with the target blurred: the sharp card frame in
+    // its history would show the muted work until the blur lands.
+    const card = 'https://i.pximg.net/img-master/muted_square.jpg';
+    const original = 'https://i.pximg.net/img-original/muted_p0.png';
+    final world = _World();
+    await tester.pumpWidget(
+      world.host(
+        const PixivImage(url: card, memCacheWidth: 200, transitionKey: 'm'),
+      ),
+    );
+    await pumpIoUntil(tester, () => _painted(tester));
+    await tester.pumpWidget(
+      world.host(
+        KeyedSubtree(
+          key: UniqueKey(),
+          child: const PixivImage(
+            url: original,
+            memCacheWidth: 200,
+            transitionKey: 'm',
+            blur: 10,
+          ),
+        ),
+      ),
+    );
+    await pumpIoUntil(tester, () => world.workerUrls.contains(original));
+    expect(_painted(tester), isFalse, reason: 'nothing stands in');
+    await unmountPastReleaseGrace(tester);
+  });
+
   testWidgets('a detail image with progress decodes the card\'s file on the '
       'worker', (tester) async {
     // The detail page shows the card's URL uncapped, with a progress ring.
