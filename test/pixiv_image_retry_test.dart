@@ -15,14 +15,15 @@ import 'helpers/localized_app.dart';
 /// a capped request for a URL with one paints that instead.
 const _cappedUrl = 'https://i.pximg.net/img-master/retry-capped.jpg';
 const _originalUrl = 'https://i.pximg.net/img-original/retry-original.png';
+const _blurredUrl = 'https://i.pximg.net/img-master/retry-blurred.jpg';
 
 /// What the network does on one attempt.
 enum _Outcome { transient, notFound, image }
 
 /// The worker's network behind one script. The retry policy above it is
-/// the same for a capped image and an original fetched in ranges (the
-/// script answers a range request with the whole file), so every test runs
-/// on each.
+/// the same for a capped image, an original fetched in ranges (the script
+/// answers a range request with the whole file) and a blurred image, whose
+/// sharp source keeps its error in the cache, so every test runs on each.
 class _Pipeline {
   _Pipeline(this.name, this.image);
 
@@ -94,6 +95,10 @@ void main() {
       const PixivImage(url: _cappedUrl, memCacheWidth: 200),
     ),
     () => _Pipeline('original', const PixivImage(url: _originalUrl)),
+    () => _Pipeline(
+      'blurred',
+      const PixivImage(url: _blurredUrl, memCacheWidth: 200, blur: 10),
+    ),
   ]) {
     group(pipeline().name, () {
       testWidgets('a transient failure retries after 1 s and 3 s and then '

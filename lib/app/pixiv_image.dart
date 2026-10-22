@@ -12,6 +12,7 @@ import 'motion/motion_tokens.dart';
 import 'image_tier_cache.dart';
 import '../core/debug/frame_probe.dart';
 import '../core/entity/illust_entity.dart';
+import '../core/image/blurred_image.dart';
 import '../core/image/image_demand.dart';
 import '../core/image/image_worker.dart';
 import '../core/image/image_worker_protocol.dart';
@@ -77,7 +78,11 @@ class PixivImage extends ConsumerStatefulWidget {
     this.tier,
     this.tierUpgrade = true,
     this.progress,
-  });
+    this.blur,
+  }) : assert(
+         blur == null || memCacheWidth != null,
+         'a blurred image needs its decode width',
+       );
 
   /// Feed/row card variant: decode width derives from [layoutWidth] (the
   /// box the image paints into), capped at 1.5x logical pixels.
@@ -96,6 +101,7 @@ class PixivImage extends ConsumerStatefulWidget {
     IllustImageTier? tier,
     bool tierUpgrade = true,
     int? decodeWidth,
+    double? blur,
   }) : this(
          key: key,
          url: url,
@@ -110,6 +116,7 @@ class PixivImage extends ConsumerStatefulWidget {
          tierKey: tierKey,
          tier: tier,
          tierUpgrade: tierUpgrade,
+         blur: blur,
        );
 
   /// Avatar variant: decode width derives from the avatar box [size].
@@ -198,11 +205,12 @@ class PixivImage extends ConsumerStatefulWidget {
   /// DPR >= 2 devices it decoded feed cards at half their display
   /// resolution, which read as blurry, aliased thumbnails.
   static int decodeWidthFor(double layoutWidth, {double? devicePixelRatio}) {
-    final dpr =
-        devicePixelRatio ??
-        PlatformDispatcher.instance.views.first.devicePixelRatio;
+    final dpr = devicePixelRatio ?? _devicePixelRatio;
     return (layoutWidth * dpr).round().clamp(1, 100000);
   }
+
+  static double get _devicePixelRatio =>
+      PlatformDispatcher.instance.views.first.devicePixelRatio;
 
   /// Screen-width decode target for detail images.
   static int get screenDecodeWidth {
@@ -284,6 +292,19 @@ class PixivImage extends ConsumerStatefulWidget {
   /// the notifier at least as long as this widget.
   final ValueNotifier<ImageLoadProgress>? progress;
 
+  /// Blurs the image by this Gaussian sigma in logical pixels, once at
+  /// decode ([BlurredImage]): a work the user muted. [memCacheWidth] is
+  /// taken as the box's physical width. A blurred image paints no other
+  /// decode in its place, since every stand-in is a sharp frame of the
+  /// work.
+  final double? blur;
+
+  /// [blur] as a share of the image's width.
+  double? get _blurPerWidth => switch ((blur, memCacheWidth)) {
+    (final blur?, final width?) => blur * _devicePixelRatio / width,
+    _ => null,
+  };
+
   @override
   ConsumerState<PixivImage> createState() => _PixivImageState();
 
@@ -304,12 +325,17 @@ class PixivImage extends ConsumerStatefulWidget {
     int? decodeWidth, {
     required ImageWorker worker,
     ImageFetchPriority priority = ImageFetchPriority.foreground,
+    double? blurPerWidth,
   }) {
     final base = WorkerImageProvider(worker, url, priority: priority);
-    if (decodeWidth == null) return base;
-    return JpegEdgeSafeResizeImage.appliesTo(url)
+    final ImageProvider decoded = decodeWidth == null
+        ? base
+        : JpegEdgeSafeResizeImage.appliesTo(url)
         ? JpegEdgeSafeResizeImage(base, width: decodeWidth)
         : ResizeImage(base, width: decodeWidth);
+    return blurPerWidth == null
+        ? decoded
+        : BlurredImage(decoded, sigmaPerWidth: blurPerWidth);
   }
 
   /// The worker-backed provider for [url] decoded [decodeWidth] pixels
@@ -668,7 +694,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
   /// and notifying the overlay (a sibling) mid-build is not allowed.
   void _trackProgress(_HistoryEntry entry, ImageWorker worker) {
     final notifier = widget.progress;
-    final key = (notifier, entry, worker, _load);
+    final key = (notifier, entry, worker, _load, widget._blurPerWidth);
     if (key == _progressKey) return;
     _progressKey = key;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -694,6 +720,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
       url,
       decodeWidth,
       worker: worker,
+      blurPerWidth: widget._blurPerWidth,
     ).resolve(ImageConfiguration.empty);
     void idle() => notifier.value = const ImageLoadProgress.idle();
     final listener = ImageStreamListener(
@@ -776,6 +803,7 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
       url,
       decodeWidth,
       worker: worker,
+      blurPerWidth: widget._blurPerWidth,
     );
     unawaited(
       provider.evict().then((_) {
@@ -827,16 +855,19 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
     final (_, effectiveWidth) = current;
     _hold(worker.demand, imageUrl);
     _trackProgress(current, worker);
-    final previousTransition = PixivImage._rememberTransitionUrl(
-      widget.transitionKey,
-      current,
-    );
+    final blurPerWidth = widget._blurPerWidth;
+    // Every stand-in below is a sharp frame of the work: a blurred image
+    // takes none, or it would show what the user hid while it resolves.
+    final previousTransition = blurPerWidth == null
+        ? PixivImage._rememberTransitionUrl(widget.transitionKey, current)
+        : null;
     // Progressive underlay (3a): when no transition history exists — e.g.
     // swiping to a viewer page that never had a Hero — a lower tier of the
     // same page already decoded in the cache paints under the resolving
     // higher tier. Zero traffic: it paints a decode that already happened.
     final underlayUrl =
         previousTransition == null &&
+            blurPerWidth == null &&
             widget.tierKey != null &&
             effectiveTier != null &&
             !PixivImage._imageCompleted(current)
@@ -928,12 +959,15 @@ class _PixivImageState extends ConsumerState<PixivImage> with TickerModeWatch {
                 ? constraints.maxWidth
                 : null);
         return OctoImage(
-          // A new key is a fresh resolve: how a retry reloads.
-          key: ValueKey(_load),
+          // A new key is a fresh resolve: how a retry reloads. Blurring or
+          // unblurring starts afresh too: gapless playback would hold the
+          // other one's frame meanwhile.
+          key: ValueKey((_load, blurPerWidth != null)),
           image: PixivImage._imageProvider(
             imageUrl,
             effectiveWidth,
             worker: worker,
+            blurPerWidth: blurPerWidth,
           ),
           imageBuilder: (_, child) {
             PixivImage._recordFrame(current, widget.tierKey, effectiveTier);

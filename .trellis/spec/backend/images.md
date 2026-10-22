@@ -63,6 +63,18 @@ reviewed: 2026-10-19
 - **Check:** `test/jpeg_edge_safe_resize_image_test.dart` "a shrunk JPEG keeps the padding past its edge out", `test/pixiv_image_variants_test.dart` "a shrunk JPEG decodes clear of its edge padding"
 - **Code:** `lib/core/image/jpeg_edge_safe_resize_image.dart`, `lib/app/pixiv_image.dart`
 
+### IMG-14 A muted image is blurred once, at decode, and takes no stand-in
+- **Rule:** A blurred image is `PixivImage.blur`: `BlurredImage` blurs the
+  decode once, at a quarter of its size, into its own cache entry. No
+  `ImageFiltered` over an image. A blurred `PixivImage` paints no
+  transition or tier stand-in, and blurring or unblurring never keeps the
+  other one's frame.
+- **Why:** `ImageFiltered` blurred every visible muted card offscreen on
+  every frame (Impeller keeps no raster cache). Every stand-in is a sharp
+  frame of the work and would show what the user hid.
+- **Check:** `test/card_action_test.dart` "muted card blurs the cover and tap reveals in place", `test/blurred_image_test.dart`, `test/pixiv_image_pipelines_test.dart` "a blurred image never paints a sharp frame in its place"
+- **Code:** `lib/core/image/blurred_image.dart`, `lib/app/pixiv_image.dart`, `lib/app/widgets/feed/muted_cover.dart`
+
 ### IMG-04 A dead worker is replaced a bounded number of times
 - **Rule:** The isolate starts on the first fetch. A dead worker fails its
   pending requests with `ImageWorkerUnavailable` and is replaced on the next
@@ -124,8 +136,8 @@ reviewed: 2026-10-19
 - **Rule:** A failed preload is not retried and never reported through
   `FlutterError.onError`. The visible `PixivImage` retries a transient
   failure after 1 s, 3 s and 8 s, then shows a retry button; 403, 404 and
-  410 are permanent. A retry evicts the `ResizeImage`-wrapped key the
-  widget resolves.
+  410 are permanent. A retry evicts the key the widget resolves: the
+  `ResizeImage` wrapping, or the `BlurredImage` around it.
 - **Why:** Preload failures flooded the crash log; evicting the bare
   provider key missed the cached error, so retry did nothing.
 - **Check:** `test/pixiv_image_retry_test.dart` "three failed retries end in a manual retry button" "a missing image is asked for once; the button asks again", `test/pixiv_image_preload_test.dart`

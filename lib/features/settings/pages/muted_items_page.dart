@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +11,7 @@ import '../../../app/pixiv_image.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_top_bar.dart';
 import '../../../app/widgets/errors/error_details.dart';
+import '../../../app/widgets/feed/muted_cover.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_group_content.dart';
 import '../../../app/widgets/unmute_undo.dart';
@@ -321,14 +321,12 @@ class _MutedThumbnail extends StatelessWidget {
                   color: scheme.onSurfaceVariant,
                 ),
               )
-            : ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: PixivImage(
-                  url: url,
-                  width: _size,
-                  height: _size,
-                  memCacheWidth: PixivImage.decodeWidthFor(_size),
-                ),
+            : PixivImage(
+                url: url,
+                width: _size,
+                height: _size,
+                memCacheWidth: PixivImage.decodeWidthFor(_size),
+                blur: MutedCover.blurSigma,
               ),
       ),
     );

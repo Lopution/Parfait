@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/func_semantic_tokens.dart';
@@ -18,14 +16,18 @@ final revealedMuteIdsProvider = NotifierProvider<RevealedMuteIds, Set<int>>(
   RevealedMuteIds.new,
 );
 
-/// The blur+reveal card variant for a muted object: the artwork is
-/// blurred under a labelled cover; tapping reveals it in place. Rendered
-/// instead of the normal preview when `muteHitFor` reports a hit and the
-/// user keeps the default blur display mode.
+/// The blur+reveal card variant for a muted object: the artwork, blurred
+/// once at decode, under a labelled cover; tapping reveals it in place.
+/// Rendered instead of the normal preview when `muteHitFor` reports a hit
+/// and the user keeps the default blur display mode.
 class MutedCover extends StatelessWidget {
   const MutedCover({super.key, required this.child, required this.reasonLabel});
 
-  /// The blurred content (the card's image stack).
+  /// How strongly a muted work's image is blurred ([PixivImage.blur]), in
+  /// logical pixels.
+  static const blurSigma = 10.0;
+
+  /// The card's image, blurred by [blurSigma] and clipped to the card.
   final Widget child;
 
   /// Why the work is muted (tag name / author name / work title).
@@ -37,13 +39,7 @@ class MutedCover extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        ClipRRect(
-          borderRadius: FuncShape.card,
-          child: ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: child,
-          ),
-        ),
+        child,
         Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
