@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_refresh/easy_refresh.dart';
 
+import '../../app/format/content_locale.dart';
 import '../../app/navigation/routes.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pull_to_refresh.dart';
@@ -119,7 +120,12 @@ class _UserPreviewTile extends StatelessWidget {
       child: ListTile(
         onTap: () => openUser(context, user.id),
         leading: _ProfileAvatar(user: user, radius: 26),
-        title: Text(user.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+        title: Text(
+          user.name,
+          locale: contentLocale(context, user.name),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         subtitle: user.account.isEmpty ? null : Text('@${user.account}'),
         // ListTile asserts when the trailing widget consumes the entire
         // tile width, so an oversized localized button is capped at half

@@ -7,6 +7,7 @@ import '../navigation/routes.dart';
 import '../pixiv_image.dart';
 import '../theme/func_semantic_tokens.dart';
 import 'entity_row.dart';
+import 'feed/feed_text_warmup.dart';
 
 /// The single novel list-entry contract — replaces the parallel
 /// `NovelCard`/`NovelRow` pair (roadmap §5.2, R1). Density follows the
@@ -152,16 +153,37 @@ class NovelEntry extends StatelessWidget {
   /// the cover is a fraction of its size.
   static const double _badgeInset = 4;
 
+  /// The row's text lines for [entity], as every variant lays them out
+  /// under [context], for [FeedTextWarmup]. The rank and the bookmark count
+  /// are digits in the primary font and left out.
+  static List<WarmText> warmTexts(BuildContext context, NovelEntity entity) =>
+      EntityRow.warmTexts(
+        context,
+        title: entity.title,
+        subtitle: entity.user.name,
+        meta: _meta(context, entity),
+        footnote: _footnote(entity),
+      );
+
+  /// Series (when any) and word count.
+  static String _meta(BuildContext context, NovelEntity entity) {
+    final words =
+        '${AppFormat.count(context, entity.textLength)} '
+        '${context.l10n.novelWords}';
+    final series = entity.seriesTitle;
+    return series == null || series.isEmpty ? words : '$series · $words';
+  }
+
+  static String? _footnote(NovelEntity entity) => entity.tags.isEmpty
+      ? null
+      : entity.tags.take(_maxTags).map((tag) => '#${tag.name}').join(' ');
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final bookmarks = entity.totalBookmarks > 0
         ? AppFormat.count(context, entity.totalBookmarks)
         : null;
-    final words =
-        '${AppFormat.count(context, entity.textLength)} '
-        '${l10n.novelWords}';
-    final series = entity.seriesTitle;
     final identity = [
       if (rank != null) l10n.rankLabel(rank!),
       entity.title,
@@ -179,10 +201,8 @@ class NovelEntry extends StatelessWidget {
       title: entity.title,
       titleLeading: rank == null ? null : EntityRankLabel(rank!),
       subtitle: entity.user.name,
-      meta: series == null || series.isEmpty ? words : '$series · $words',
-      footnote: entity.tags.isEmpty
-          ? null
-          : entity.tags.take(_maxTags).map((tag) => '#${tag.name}').join(' '),
+      meta: _meta(context, entity),
+      footnote: _footnote(entity),
       progress: progress,
       trailing: trailing,
       onTap: onTap ?? () => openNovel(context, entity.id),

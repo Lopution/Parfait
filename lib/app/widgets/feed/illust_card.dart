@@ -67,25 +67,11 @@ class IllustCard extends StatefulWidget {
 
   /// The title and author lines exactly as a card for [entity] lays them
   /// out under [context], for [FeedTextWarmup].
-  static List<WarmText> warmTexts(BuildContext context, IllustEntity entity) {
-    var base = DefaultTextStyle.of(context).style;
-    // Text applies the platform's bold-text setting on top of the style.
-    if (MediaQuery.boldTextOf(context)) {
-      base = base.merge(const TextStyle(fontWeight: FontWeight.bold));
-    }
-    return [
-      (
-        text: entity.title,
-        style: base.merge(_titleStyle(context)),
-        locale: contentLocale(context, entity.title),
-      ),
-      (
-        text: entity.user.name,
-        style: base.merge(_authorStyle(context)),
-        locale: contentLocale(context, entity.user.name),
-      ),
-    ];
-  }
+  static List<WarmText> warmTexts(BuildContext context, IllustEntity entity) =>
+      [
+        warmLine(context, entity.title, _titleStyle(context)),
+        warmLine(context, entity.user.name, _authorStyle(context)),
+      ];
 
   static TextStyle _titleStyle(BuildContext context) => FuncSemanticTokens.of(
     context,

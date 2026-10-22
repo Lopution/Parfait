@@ -274,9 +274,10 @@ class IllustFeedGrid extends ConsumerStatefulWidget {
   final VoidCallback? pagerLoadMore;
 
   /// The text lines of the card at an index, as the card lays them out
-  /// (`IllustCard.warmTexts`). New items' lines are laid out between frames
-  /// before their cards are built ([FeedTextWarmup]).
-  final List<WarmText> Function(BuildContext context, int index)? warmTexts;
+  /// (`IllustCard.warmTexts`). The lines of the cards just past the built
+  /// ones are laid out between frames before those cards are built
+  /// ([FeedTextWindow]).
+  final WarmTexts? warmTexts;
 
   @override
   ConsumerState<IllustFeedGrid> createState() => _IllustFeedGridState();
@@ -288,9 +289,7 @@ class _IllustFeedGridState extends ConsumerState<IllustFeedGrid> {
   /// route's, not the widget's.
   final _pagerSource = IllustPagerSource();
 
-  final _warmup = FeedTextWarmup();
-  int _warmedCount = 0;
-  int? _warmedHead;
+  final _warmup = FeedTextWindow();
 
   @override
   void initState() {
@@ -314,32 +313,17 @@ class _IllustFeedGridState extends ConsumerState<IllustFeedGrid> {
     super.dispose();
   }
 
-  /// Queues the lines of items not queued yet; a feed whose head changed
-  /// (a refresh) starts over.
-  void _queueWarmup(BuildContext context) {
-    final warmTexts = widget.warmTexts;
-    if (warmTexts == null) return;
-    final head = widget.itemIds?.firstOrNull;
-    if (head != _warmedHead || widget.itemCount < _warmedCount) {
-      _warmup.clear();
-      _warmedCount = 0;
-      _warmedHead = head;
-    }
-    if (widget.itemCount == _warmedCount) return;
-    _warmup.add(
-      [
-        for (var i = _warmedCount; i < widget.itemCount; i++)
-          ...warmTexts(context, i),
-      ],
-      textScaler: MediaQuery.textScalerOf(context),
-      textDirection: Directionality.of(context),
-    );
-    _warmedCount = widget.itemCount;
-  }
-
   @override
   Widget build(BuildContext context) {
-    _queueWarmup(context);
+    final warmTexts = widget.warmTexts;
+    if (warmTexts != null) {
+      _warmup.update(
+        context,
+        count: widget.itemCount,
+        head: widget.itemIds?.firstOrNull,
+        texts: warmTexts,
+      );
+    }
     final density = ref.watch(feedDensityProvider);
     final horizontal = widget.padding
         .resolve(Directionality.of(context))
@@ -365,6 +349,7 @@ class _IllustFeedGridState extends ConsumerState<IllustFeedGrid> {
             // wrapper only adds elements and notifications to every card.
             delegate: SliverChildBuilderDelegate(
               (context, index) {
+                if (widget.warmTexts != null) _warmup.built(context, index);
                 final ids = widget.itemIds;
                 final id = ids != null && index < ids.length
                     ? ids[index]

@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../format/content_locale.dart';
 import '../person_avatar.dart';
 import '../theme/func_semantic_tokens.dart';
 
@@ -51,6 +52,7 @@ class AuthorSummary extends StatelessWidget {
           Flexible(
             child: Text(
               name,
+              locale: contentLocale(context, name),
               style: tokens.label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -70,6 +72,7 @@ class AuthorSummary extends StatelessWidget {
               children: [
                 Text(
                   name,
+                  locale: contentLocale(context, name),
                   style: tokens.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

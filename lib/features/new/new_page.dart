@@ -410,6 +410,9 @@ class _NewFeedBody extends ConsumerWidget {
     return [
       SliverCardList(
         itemCount: entities.length,
+        firstId: entities.firstOrNull?.id,
+        warmTexts: (context, index) =>
+            NovelEntry.warmTexts(context, entities[index]),
         itemBuilder: (context, index) =>
             NovelEntry.regular(entity: entities[index]),
       ),
