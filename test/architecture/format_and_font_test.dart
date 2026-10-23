@@ -13,6 +13,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _appFormat = 'lib/app/format/app_format.dart';
 
+/// Builds the formats Material and Cupertino widgets use, exactly as
+/// Flutter's own localization delegates build them.
+const _frameworkFormats = 'lib/l10n/app_localizations_delegates.dart';
+
 /// Files that build dates for data, never for display. Each entry carries
 /// its reason.
 const _dataDateFormats = <String>{
@@ -77,7 +81,7 @@ void main() {
   });
 
   test('user-facing dates go through AppFormat', () {
-    final allowed = {_appFormat, ..._dataDateFormats};
+    final allowed = {_appFormat, _frameworkFormats, ..._dataDateFormats};
     final violations = [
       ..._hits(sources, _dateFormat, allowed: allowed),
       ..._hits(sources, _dateInterpolation, allowed: allowed),
@@ -93,7 +97,11 @@ void main() {
   });
 
   test('counts go through AppFormat', () {
-    final violations = _hits(sources, _numberFormat, allowed: {_appFormat});
+    final violations = _hits(
+      sources,
+      _numberFormat,
+      allowed: {_appFormat, _frameworkFormats},
+    );
     expect(
       violations,
       isEmpty,
