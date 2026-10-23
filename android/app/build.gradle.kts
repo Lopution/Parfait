@@ -159,6 +159,12 @@ android {
     packaging {
         jniLibs {
             excludes += "**/libsqlite3.so"
+            // Deflate the native libraries (29.1 → 12.9 MB on arm64): the
+            // APK ships from GitHub and the in-app updater, not a store that
+            // compresses downloads, so the stored libraries were half the
+            // download. The installer extracts them, which costs their size
+            // again on disk.
+            useLegacyPackaging = true
         }
         dex {
             // AGP stores .dex uncompressed in universal APKs; deflate saves

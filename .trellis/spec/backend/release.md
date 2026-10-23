@@ -37,9 +37,11 @@ reviewed: 2026-10-14
   No universal or x86_64 APK. Split `versionCode`s keep Flutter's offsets
   (`1000 + n`, `2000 + n`); never pass
   `-Pforce-version-code-ignoring-abi`. `libsqlite3.so` stays excluded on
-  Android.
+  Android. Native libraries are deflated (`jniLibs.useLegacyPackaging`).
 - **Why:** A universal APK doubled the download; ignoring offsets broke
-  updates between splits.
+  updates between splits. Stored libraries were 29 of the 31 MB arm64
+  download, which no store compresses for GitHub or the in-app updater;
+  deflated they are 13 MB, at the cost of extracting them on install.
 - **Check:** `tool/apk_size_report.py`
 - **Code:** `android/app/build.gradle.kts`, `.github/workflows/release.yml`
 
