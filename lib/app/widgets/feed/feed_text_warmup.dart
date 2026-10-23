@@ -7,9 +7,10 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../format/content_locale.dart';
 
-/// One line of card text, described exactly as the card lays it out: its
-/// effective style and locale ([warmLine]).
-typedef WarmText = ({String text, TextStyle style, Locale? locale});
+/// One paragraph of card text, described exactly as the card lays it out:
+/// its spans in their effective styles, its locale and its strut
+/// ([warmLine]).
+typedef WarmText = ({TextSpan span, Locale? locale, StrutStyle? strutStyle});
 
 /// The lines of the card at [index], laid out under [context].
 typedef WarmTexts = List<WarmText> Function(BuildContext context, int index);
@@ -23,9 +24,12 @@ WarmText warmLine(
   TextStyle? style, {
   TextStyle? inherited,
 }) => (
-  text: text,
-  style: warmStyle(context, style, inherited: inherited),
+  span: TextSpan(
+    text: text,
+    style: warmStyle(context, style, inherited: inherited),
+  ),
   locale: contentLocale(context, text) ?? Localizations.maybeLocaleOf(context),
+  strutStyle: null,
 );
 
 /// [style] as a [Text] under [context] lays it out: merged over the
@@ -94,7 +98,7 @@ class FeedTextWarmup {
     assert(!_disposed);
     assert(_pending.isEmpty || _pending.last.item <= item);
     for (final text in texts) {
-      if (text.text.isEmpty) continue;
+      if (text.span.toPlainText().isEmpty) continue;
       _pending.add(_Pending(text, textScaler, textDirection, item));
     }
     _schedule();
@@ -166,12 +170,26 @@ class FeedTextWarmup {
 
   static void _layout(_Pending item) {
     assert(SchedulerBinding.instance.schedulerPhase == SchedulerPhase.idle);
-    final text = item.text;
+    layOut(
+      item.text,
+      textScaler: item.textScaler,
+      textDirection: item.textDirection,
+    );
+  }
+
+  /// Lays [text] out once, now, for the caches the frame that builds it
+  /// reads.
+  static void layOut(
+    WarmText text, {
+    required TextScaler textScaler,
+    required TextDirection textDirection,
+  }) {
     TextPainter(
-        text: TextSpan(text: text.text, style: text.style),
+        text: text.span,
         locale: text.locale,
-        textDirection: item.textDirection,
-        textScaler: item.textScaler,
+        strutStyle: text.strutStyle,
+        textDirection: textDirection,
+        textScaler: textScaler,
         maxLines: 1,
       )
       ..layout()

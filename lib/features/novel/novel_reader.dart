@@ -706,9 +706,12 @@ class _NovelPage extends StatelessWidget {
       for (final line in page.lines)
         if (line.text.isNotEmpty)
           (
-            text: line.text,
-            style: line.isTranslation ? translationStyle : textStyle,
+            span: TextSpan(
+              text: line.text,
+              style: line.isTranslation ? translationStyle : textStyle,
+            ),
             locale: locale,
+            strutStyle: null,
           ),
     ];
   }
