@@ -116,7 +116,8 @@ reviewed: 2026-10-21
   (`sharedElementBackdrop`, the detail) two layers run off the
   controller: opening, the background (`scaffoldBackgroundColor`) covers
   the page below over `sharedElementBackdropIn`, then the content fades in
-  over `sharedElementContentIn`; leaving, the content fades out over
+  over `sharedElementContentIn`, painted at the faintest alpha (1/255)
+  from the opening's second frame until then; leaving, the content fades out over
   `sharedElementContentOut`, then the background over
   `sharedElementBackdropOut`. The viewer has no background: its stage
   fades whole (`sharedElementFadeIn`/`Out`). A leave that cuts an opening
@@ -146,7 +147,9 @@ reviewed: 2026-10-21
   from off the screen. Refusing the transition stopped the secondary
   animation, so the bottom bar appeared over the leaving page. A hole in
   the viewer read as a sharp-edged window that did not fade with the
-  stage.
+  stage. Content at alpha 0 is not painted, so its whole page of text was
+  first drawn when its fade began, mid-flight: a raster frame of 12–20ms
+  stalled the image on every opening (10-24).
 - **Check:** `test/func_page_test.dart` "a shared-element page covers a still page" "the viewer stage fades whole, with no background"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight"; `test/architecture/feedback_channels_test.dart` "Hero uses only the shared illustHeroTag family"; `test/illust_card_badges_test.dart` "the pager image flies back only to a card on screen"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/app/navigation/routes.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/widgets/feed/feed_grid.dart`
 
