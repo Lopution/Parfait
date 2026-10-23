@@ -8,6 +8,7 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
+import '../../layout/sliver_cache_ramp.dart';
 import '../../layout/sliver_width_builder.dart';
 import '../../motion/motion_tokens.dart';
 import '../../theme/func_semantic_tokens.dart';
@@ -350,35 +351,37 @@ class _IllustFeedGridState extends ConsumerState<IllustFeedGrid> {
             columns;
         Widget grid = SliverPadding(
           padding: widget.padding,
-          sliver: SliverMasonryGrid(
-            gridDelegate: SliverSimpleGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-            ),
-            mainAxisSpacing: widget.mainAxisSpacing,
-            crossAxisSpacing: widget.crossAxisSpacing,
-            // Feed cards are provider-backed/stateless. They do not own
-            // scroll-position state, so the default AutomaticKeepAlive
-            // wrapper only adds elements and notifications to every card.
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                if (widget.warmTexts != null) _warmup.built(context, index);
-                final ids = widget.itemIds;
-                final id = ids != null && index < ids.length
-                    ? ids[index]
-                    : index;
-                // Keyed by work: a slot taking a different work mounts
-                // afresh. Cards land in place, as in Shaft; only their
-                // images fade in.
-                return FeedItemExtent(
-                  width: columnWidth,
-                  child: TickerPartition(
-                    key: ValueKey(id),
-                    child: _cards.build(context, index, widget.itemBuilder),
-                  ),
-                );
-              },
-              childCount: widget.itemCount,
-              addAutomaticKeepAlives: false,
+          sliver: SliverCacheRamp(
+            sliver: SliverMasonryGrid(
+              gridDelegate: SliverSimpleGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+              ),
+              mainAxisSpacing: widget.mainAxisSpacing,
+              crossAxisSpacing: widget.crossAxisSpacing,
+              // Feed cards are provider-backed/stateless. They do not own
+              // scroll-position state, so the default AutomaticKeepAlive
+              // wrapper only adds elements and notifications to every card.
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  if (widget.warmTexts != null) _warmup.built(context, index);
+                  final ids = widget.itemIds;
+                  final id = ids != null && index < ids.length
+                      ? ids[index]
+                      : index;
+                  // Keyed by work: a slot taking a different work mounts
+                  // afresh. Cards land in place, as in Shaft; only their
+                  // images fade in.
+                  return FeedItemExtent(
+                    width: columnWidth,
+                    child: TickerPartition(
+                      key: ValueKey(id),
+                      child: _cards.build(context, index, widget.itemBuilder),
+                    ),
+                  );
+                },
+                childCount: widget.itemCount,
+                addAutomaticKeepAlives: false,
+              ),
             ),
           ),
         );
