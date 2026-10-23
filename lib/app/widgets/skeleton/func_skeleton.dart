@@ -134,20 +134,11 @@ class SkeletonBone extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveHeight =
         height ??
-        () {
-          final effectiveStyle = style ?? DefaultTextStyle.of(context).style;
-          // Track the real text box: measure one line in the same style
-          // and scaler so the bone keeps the font's true metrics, not an
-          // assumed 1.2 line-height factor.
-          final painter = TextPainter(
-            text: TextSpan(text: ' ', style: effectiveStyle),
-            textDirection: Directionality.of(context),
-            textScaler: MediaQuery.textScalerOf(context),
-          )..layout();
-          final measured = painter.height;
-          painter.dispose();
-          return measured;
-        }();
+        _lineHeight(
+          style ?? DefaultTextStyle.of(context).style,
+          MediaQuery.textScalerOf(context),
+          Directionality.of(context),
+        );
     final tone = context.dependOnInheritedWidgetOfExactType<_SkeletonTone>();
     final color = tone?.color ?? Theme.of(context).colorScheme.surfaceContainer;
     return SizedBox(
@@ -160,6 +151,44 @@ class SkeletonBone extends StatelessWidget {
         borderRadius: _circle ? null : (borderRadius ?? FuncShape.control),
       ),
     );
+  }
+
+  /// One line's height in [style]: measured, so the bone keeps the font's
+  /// true metrics rather than an assumed 1.2 line height. Skeletons use a
+  /// few styles, and a page of bones measured each one again on every
+  /// rebuild.
+  static double _lineHeight(
+    TextStyle style,
+    TextScaler scaler,
+    TextDirection direction,
+  ) {
+    final key = (style, scaler, direction);
+    if (_lineHeights[key] case final height?) return height;
+    _forgetOnFontChange();
+    final painter = TextPainter(
+      text: TextSpan(text: ' ', style: style),
+      textDirection: direction,
+      textScaler: scaler,
+    )..layout();
+    final height = painter.height;
+    painter.dispose();
+    if (_lineHeights.length >= _maxLineHeights) {
+      _lineHeights.remove(_lineHeights.keys.first);
+    }
+    return _lineHeights[key] = height;
+  }
+
+  /// Heights [_lineHeight] measured, oldest first.
+  static final _lineHeights =
+      <(TextStyle, TextScaler, TextDirection), double>{};
+  static const _maxLineHeights = 64;
+  static bool _watchingFonts = false;
+
+  /// A font that loads or changes can change every height.
+  static void _forgetOnFontChange() {
+    if (_watchingFonts) return;
+    _watchingFonts = true;
+    PaintingBinding.instance.systemFonts.addListener(_lineHeights.clear);
   }
 }
 

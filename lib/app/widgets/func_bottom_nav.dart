@@ -11,6 +11,7 @@ import '../../l10n/context.dart';
 import '../motion/motion_tokens.dart';
 import '../motion/scroll_hide.dart';
 import '../icons/app_icons.dart';
+import '../navigation/frozen_while_hidden.dart';
 import '../navigation/home_shell_metrics.dart';
 import '../theme/func_semantic_tokens.dart';
 import 'app_top_bar.dart' show ScrollEdgeLine;
@@ -403,6 +404,7 @@ class FuncShellBottomNav extends ConsumerStatefulWidget {
 
 class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav> {
   double _restingExtent = 0;
+  Widget? _bar;
 
   @override
   void initState() {
@@ -453,24 +455,29 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav> {
     // frame or only relayout on it (see HomeShellChrome.bottomBarVisibleExtent
     // and PromptAnchors).
     _publishVisibleExtent();
+    // Covered, the bar keeps the widget it last showed: the shell rebuilds
+    // it on every system bar and keyboard change, unseen.
+    if (!covered || _bar == null) {
+      _bar = ScrollHiddenChrome(
+        visibility: widget.scrollVisibility,
+        child: FuncBottomNav(
+          destinations: homeDestinations(context, widget.destinations),
+          selectedIndex: homeBarIndexOf(
+            widget.destinations,
+            widget.currentBranch,
+          ),
+          onSelected: (index) =>
+              widget.onSelected(widget.destinations[index].branchIndex),
+        ),
+      );
+    }
     // Covered, the root page's copy of the bar anchors prompts: it sinks
     // with the root as pages cover it.
     return PromptAnchor(
       extent: covered ? _noExtent : widget.visibleExtent,
       child: Offstage(
         offstage: covered,
-        child: ScrollHiddenChrome(
-          visibility: widget.scrollVisibility,
-          child: FuncBottomNav(
-            destinations: homeDestinations(context, widget.destinations),
-            selectedIndex: homeBarIndexOf(
-              widget.destinations,
-              widget.currentBranch,
-            ),
-            onSelected: (index) =>
-                widget.onSelected(widget.destinations[index].branchIndex),
-          ),
-        ),
+        child: FrozenWhileHidden.when(hidden: covered, child: _bar!),
       ),
     );
   }

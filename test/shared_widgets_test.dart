@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
+import 'package:parfait/app/widgets/skeleton/func_skeleton.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/network_restore_signal.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
@@ -168,5 +169,29 @@ void main() {
     expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
     await tester.tap(button);
     expect(continued, 1);
+  });
+
+  testWidgets('a text bone is as tall as a line of its style at every '
+      'text scale', (tester) async {
+    addTearDown(tester.platformDispatcher.clearAllTestValues);
+    const style = TextStyle(fontSize: 14, height: 1.4);
+    for (final scale in [1.0, 2.0, 1.0]) {
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      await tester.pumpWidget(
+        const Directionality(
+          textDirection: TextDirection.ltr,
+          child: Column(
+            children: [
+              SkeletonBone.text(width: 80, style: style),
+              Text('x', style: style),
+            ],
+          ),
+        ),
+      );
+      expect(
+        tester.getSize(find.byType(SkeletonBone)).height,
+        tester.getSize(find.text('x')).height,
+      );
+    }
   });
 }

@@ -11,6 +11,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/navigation/func_page.dart';
+import 'package:parfait/app/navigation/home_shell_metrics.dart';
 import 'package:parfait/app/navigation/route_animation.dart';
 import 'package:parfait/app/widgets/home_branch_stack.dart';
 import 'package:parfait/core/settings/app_settings.dart' show AnimationSpeed;
@@ -191,6 +192,90 @@ void main() {
       expect(builds, hasLength(1));
     },
   );
+
+  for (final covered in [true, false]) {
+    testWidgets(
+      'a page ${covered ? 'covered by a route' : 'in a hidden branch'} keeps '
+      'the media and shell chrome it saw until it shows again',
+      (tester) async {
+        setViewSize(tester, const Size(400, 800));
+        addTearDown(tester.platformDispatcher.clearAllTestValues);
+        final seen = <(MediaQueryData, double)>[];
+        final hidden = ValueNotifier(false);
+        addTearDown(hidden.dispose);
+        final navigator = GlobalKey<NavigatorState>();
+        await tester.pumpWidget(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Builder(
+              // Like the shell: the bar's extent follows the bottom inset.
+              builder: (context) => HomeShellChrome(
+                bottomBarExtent: 80 + MediaQuery.paddingOf(context).bottom,
+                bottomBarVisibleExtent: const AlwaysStoppedAnimation(0),
+                bottomBarVisibility: kAlwaysCompleteAnimation,
+                onBranchRootScroll: (_) => false,
+                child: ValueListenableBuilder(
+                  valueListenable: hidden,
+                  builder: (_, off, child) =>
+                      TickerMode(enabled: !off, child: child!),
+                  child: Navigator(
+                    key: navigator,
+                    onGenerateRoute: (_) => FuncPage<void>(
+                      child: Builder(
+                        builder: (context) {
+                          seen.add((
+                            MediaQuery.of(context),
+                            HomeShellChrome.of(context).bottomBarExtent,
+                          ));
+                          return const SizedBox.expand();
+                        },
+                      ),
+                    ).createRoute(context),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        if (covered) {
+          unawaited(
+            navigator.currentState!.push(
+              const FuncPage<void>(
+                child: SizedBox.expand(),
+              ).createRoute(navigator.currentContext!),
+            ),
+          );
+          await tester.pumpAndSettle();
+        } else {
+          hidden.value = true;
+          await tester.pump();
+        }
+        final builds = seen.length;
+
+        tester.view.padding = const FakeViewPadding(top: 24, bottom: 48);
+        await tester.pump();
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.pump();
+        tester.view.physicalSize = const Size(800, 400);
+        tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+        await tester.pump();
+        expect(seen, hasLength(builds));
+
+        if (covered) {
+          navigator.currentState!.pop();
+          await tester.pump();
+        } else {
+          hidden.value = false;
+          await tester.pump();
+        }
+        final live = MediaQuery.of(navigator.currentContext!);
+        expect(live.size, const Size(800, 400));
+        expect(seen.last.$1, live);
+        expect(seen.last.$2, 80 + live.padding.bottom);
+        await tester.pumpAndSettle();
+      },
+    );
+  }
 
   testWidgets('inside a nested Navigator the route animation is the inner '
       "route's, not the enclosing page's", (tester) async {
