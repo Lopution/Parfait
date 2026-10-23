@@ -116,8 +116,12 @@ reviewed: 2026-10-19
   and `SliverCardList`s of `NovelEntry`s or recommended users'
   `AuthorSummary`s pass the card's `warmTexts`, built
   by `warmLine` from the style helpers the card itself uses, so a warm line
-  equals the laid-out `RenderParagraph` in text, style and locale.
-  `FeedTextWindow` queues at most `maxTexts` lines past the furthest built
+  equals the laid-out `RenderParagraph` (or `RenderEditable`) in spans,
+  styles, locale and strut. A detail page's title, author and tags
+  (`InfoBlock.warmTexts`, sharing `_Title`'s style and `TagChip`'s span)
+  are laid out while a finger rests on an `IllustCard` (dropped on a
+  cancel and on the push) and, in the pager, a paragraph per still frame
+  before a neighbour joins (MOTION-21). `FeedTextWindow` queues at most `maxTexts` lines past the furthest built
   item; `FeedTextWarmup` lays out one per gap, right after a frame that
   started at most `vsync - itemCost` earlier, never inside a frame or at
   idle priority. Fonts are not prefetched as whole files.
@@ -128,8 +132,8 @@ reviewed: 2026-10-19
   layout also fills SkParagraph's shared 128-entry cache (key: text, locale,
   font style), which spares the frame the shaping only if the line matches
   exactly and is not evicted before its card is built.
-- **Check:** `test/feed_text_warmup_test.dart`
-- **Code:** `lib/app/widgets/feed/feed_text_warmup.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/widgets/novel_entry.dart`, `lib/app/widgets/author_summary.dart`, `lib/app/layout/card_columns.dart`, `lib/app/format/content_locale.dart`
+- **Check:** `test/feed_text_warmup_test.dart`, `test/illust_detail_pager_test.dart` "a neighbour joins once its text is laid out as its page"
+- **Code:** `lib/app/widgets/feed/feed_text_warmup.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/features/illust/detail/widgets/info_block.dart`, `lib/app/widgets/tag_chips.dart`, `lib/app/widgets/novel_entry.dart`, `lib/app/widgets/author_summary.dart`, `lib/app/layout/card_columns.dart`, `lib/app/format/content_locale.dart`
 
 ### FEED-18 A list builds its cache area from its second frame
 - **Rule:** A list with `kFeedCacheExtent`, the settings list and the

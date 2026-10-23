@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
@@ -12,9 +13,11 @@ import '../../../app/motion/still_work.dart';
 import '../../../app/pixiv_image.dart';
 import '../../../app/scroll_behavior.dart';
 import '../../../app/widgets/feed/feed_grid.dart';
+import '../../../app/widgets/feed/feed_text_warmup.dart';
 import '../../../core/entity/illust_store.dart';
 import 'detail_page_activity.dart';
 import 'illust_detail_page.dart';
+import 'widgets/info_block.dart';
 
 /// Detail host paged horizontally across a feed's work list: a work
 /// opened from a grid keeps the feed's ordering, and
@@ -33,6 +36,7 @@ class IllustDetailPagerPage extends ConsumerStatefulWidget {
     this.heroScope = 'feed',
     this.heroImageUrl,
     this.heroImageDecodeWidth,
+    this.debugTextLaidOut,
   });
 
   /// Feed-order work ids the pager walks, plus the feed's next-page hook.
@@ -45,6 +49,9 @@ class IllustDetailPagerPage extends ConsumerStatefulWidget {
   final String heroScope;
   final String? heroImageUrl;
   final int? heroImageDecodeWidth;
+
+  /// Test seam: called with each paragraph of a neighbour laid out ahead.
+  final void Function(WarmText text)? debugTextLaidOut;
 
   /// How close to the list end a swipe lands before the pager asks the
   /// feed for its next page.
@@ -97,6 +104,11 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage>
 
   /// Neighbours wait for the push transition to finish.
   var _routeSettled = false;
+
+  /// The text of the next neighbour still to lay out before it joins
+  /// ([InfoBlock.warmTexts]), and the work it belongs to.
+  final _texts = Queue<WarmText>();
+  int? _textsOf;
 
   @override
   void initState() {
@@ -163,10 +175,32 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage>
   @override
   bool get stillWorkWaitsForImages => false;
 
+  /// A neighbour's text is laid out a paragraph a still frame before it
+  /// joins: shaping a title and its tags for the first time inside the
+  /// frame that builds the page read their glyphs from the font file
+  /// there. A still frame is empty, so a paragraph fits in it.
   @override
   bool runStillWork() {
     final next = _nextNeighbour();
     if (next == null) return false;
+    final id = widget.source.ids[next];
+    if (id != _textsOf) {
+      _textsOf = id;
+      final entity = ref.read(illustStoreProvider).get(id);
+      _texts
+        ..clear()
+        ..addAll(entity == null ? [] : InfoBlock.warmTexts(context, entity));
+    }
+    if (_texts.isNotEmpty) {
+      final text = _texts.removeFirst();
+      FeedTextWarmup.layOut(
+        text,
+        textScaler: MediaQuery.textScalerOf(context),
+        textDirection: Directionality.of(context),
+      );
+      widget.debugTextLaidOut?.call(text);
+      return true;
+    }
     final window = _ready.value;
     _ready.value = (
       center: window.center,

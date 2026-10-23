@@ -7,6 +7,7 @@ import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
+import 'package:parfait/app/widgets/feed/feed_text_warmup.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_repository.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
@@ -22,6 +23,7 @@ import 'helpers/localized_app.dart';
 import 'helpers/touch.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
+import 'helpers/warm_text.dart';
 
 Future<void> _pumpPager(
   WidgetTester tester,
@@ -428,6 +430,60 @@ void main() {
       expect(_detail(41), findsNothing);
       await _pumpUntil(tester, _detail(41));
     });
+  });
+
+  testWidgets('a neighbour joins once its text is laid out as its page '
+      'lays it out', (tester) async {
+    final (container, _, _) = await makeWorld();
+    container.read(illustStoreProvider).mergeAll([
+      for (final id in [41, 42, 43]) parseIllust(illustJson(id)),
+    ]);
+    // Each paragraph laid out, with the neighbours built by then.
+    final laidOut = <(WarmText, Set<int>)>[];
+    final source = IllustPagerSource()..update(const [41, 42, 43]);
+    setViewSize(tester, const Size(390, 844));
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          home: IllustDetailPagerPage(
+            source: source,
+            initialIllustId: 42,
+            debugTextLaidOut: (text) => laidOut.add((
+              text,
+              {
+                for (final id in [41, 43])
+                  if (_detail(id).evaluate().isNotEmpty) id,
+              },
+            )),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    });
+
+    const page43 = ['illust 43', 'author', '@author', '#original'];
+    expect(
+      [
+        for (final (text, built) in laidOut) [text.span.toPlainText(), built],
+      ],
+      [
+        for (final text in [...page43, '#風景 scenery']) [text, <int>{}],
+        for (final text in ['illust 41', ...page43.skip(1)])
+          [
+            text,
+            {43},
+          ],
+        [
+          '#風景 scenery',
+          {43},
+        ],
+      ],
+    );
+    expect(_detail(41), findsOneWidget);
+    expectLaidOutAsWarmed(tester, [
+      for (final (text, _) in laidOut.take(5)) text,
+    ], root: _detail(43));
   });
 
   testWidgets('a card feed exposes its work list to the detail route', (

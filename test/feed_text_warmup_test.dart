@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -19,10 +18,15 @@ import 'package:parfait/core/user/user_entity.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/test_preferences.dart';
+import 'helpers/warm_text.dart';
 
 List<WarmText> _lines(int count) => [
   for (var i = 0; i < count; i++)
-    (text: 'title $i', style: const TextStyle(fontSize: 14), locale: null),
+    (
+      span: TextSpan(text: 'title $i', style: const TextStyle(fontSize: 14)),
+      locale: null,
+      strutStyle: null,
+    ),
 ];
 
 void _add(FeedTextWarmup warmup, int count) => warmup.add(
@@ -245,27 +249,12 @@ void main() {
       );
       await tester.pump();
     });
-    final paragraphs = tester
-        .renderObjectList<RenderParagraph>(find.byType(RichText))
-        .toList();
     final lines = [
       ...NovelEntry.warmTexts(context, novel),
       ...IllustCard.warmTexts(context, illust),
       ...AuthorSummary.warmTexts(context, name: 'ねこ', account: '@neko'),
     ];
-    for (final line in lines) {
-      final paragraph = paragraphs.singleWhere(
-        (p) => p.text.toPlainText() == line.text,
-      );
-      final laidOut = (paragraph.text as TextSpan).style!;
-      // Colour is not part of a layout; everything else is compared.
-      expect(
-        laidOut.copyWith(color: Colors.black),
-        line.style.copyWith(color: Colors.black),
-        reason: line.text,
-      );
-      expect(paragraph.locale, line.locale, reason: line.text);
-    }
+    expectLaidOutAsWarmed(tester, lines);
     expect(lines.map((l) => l.locale?.languageCode), [
       'ja',
       'zh',

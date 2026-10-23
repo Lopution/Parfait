@@ -4,6 +4,7 @@ import '../motion/motion_tokens.dart';
 import '../motion/press_scale.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../theme/func_tokens.dart';
+import 'feed/feed_text_warmup.dart';
 
 /// Visible height of a tag pill; text scaling may grow it.
 const _pillHeight = 32.0;
@@ -44,6 +45,42 @@ class TagChip extends StatefulWidget {
   final bool blockMode;
   final bool blocked;
 
+  /// The chip's line as it lays it out under [context], on a page's
+  /// Material (`bodyMedium`), for [FeedTextWarmup].
+  static WarmText warmText(
+    BuildContext context, {
+    required String label,
+    String? translated,
+  }) => (
+    span: TextSpan(
+      style: warmStyle(
+        context,
+        null,
+        inherited: Theme.of(context).textTheme.bodyMedium,
+      ),
+      children: [_span(FuncSemanticTokens.of(context), label, translated)],
+    ),
+    locale: Localizations.maybeLocaleOf(context),
+    strutStyle: null,
+  );
+
+  /// The tag, then its translation in the secondary colour.
+  static TextSpan _span(
+    FuncSemanticTokens tokens,
+    String label,
+    String? translated,
+  ) => TextSpan(
+    text: '#$label',
+    style: tokens.label.copyWith(color: tokens.contentPrimary),
+    children: [
+      if (translated != null)
+        TextSpan(
+          text: ' $translated',
+          style: TextStyle(color: tokens.contentSecondary),
+        ),
+    ],
+  );
+
   @override
   State<TagChip> createState() => _TagChipState();
 }
@@ -55,7 +92,6 @@ class _TagChipState extends State<TagChip> {
   @override
   Widget build(BuildContext context) {
     final tokens = FuncSemanticTokens.of(context);
-    final translated = widget.translated;
     final pill = DecoratedBox(
       decoration: ShapeDecoration(
         color: tokens.surface,
@@ -78,17 +114,7 @@ class _TagChipState extends State<TagChip> {
           child: Center(
             widthFactor: 1,
             child: Text.rich(
-              TextSpan(
-                text: '#${widget.label}',
-                style: tokens.label.copyWith(color: tokens.contentPrimary),
-                children: [
-                  if (translated != null)
-                    TextSpan(
-                      text: ' $translated',
-                      style: TextStyle(color: tokens.contentSecondary),
-                    ),
-                ],
-              ),
+              TagChip._span(tokens, widget.label, widget.translated),
             ),
           ),
         ),

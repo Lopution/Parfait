@@ -1,4 +1,3 @@
-import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +15,7 @@ import 'package:parfait/features/novel/novel_reader.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/warm_text.dart';
 
 void main() {
   test(
@@ -290,7 +290,7 @@ void main() {
       ];
       expect(warmup.queued.keys, [2]);
       final ahead = warmup.queued[2]!;
-      expect([for (final line in ahead) line.text], linesOf(2));
+      expect([for (final line in ahead) line.span.text], linesOf(2));
 
       // Nothing is queued mid-swipe; the landing queues around page 1.
       final swipe = await tester.startGesture(const Offset(600, 300));
@@ -306,16 +306,7 @@ void main() {
       handle.goToPage!(2, animate: false);
       await tester.pump();
       expect(warmup.queued.keys, [0, 4]);
-      final paragraphs = tester.renderObjectList<RenderParagraph>(
-        find.byType(RichText),
-      );
-      for (final line in ahead) {
-        final paragraph = paragraphs.singleWhere(
-          (p) => p.text.toPlainText() == line.text,
-        );
-        expect((paragraph.text as TextSpan).style, line.style);
-        expect(paragraph.locale, line.locale);
-      }
+      expectLaidOutAsWarmed(tester, ahead);
       // The UI locale, as the lines set none, even for Japanese text.
       expect(ahead.first.locale?.languageCode, 'zh');
 
@@ -325,7 +316,7 @@ void main() {
       final page = handle.currentPage!();
       expect(warmup.queued.keys, [page - 2, page + 2]);
       expect([
-        for (final line in warmup.queued[page + 2]!) line.text,
+        for (final line in warmup.queued[page + 2]!) line.span.text,
       ], linesOf(page + 2));
     });
   }

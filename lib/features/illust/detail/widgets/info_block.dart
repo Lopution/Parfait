@@ -8,7 +8,9 @@ import '../../../../app/format/app_format.dart';
 import '../../../../app/navigation/routes.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
 import '../../../../app/widgets/author_row.dart';
+import '../../../../app/widgets/author_summary.dart';
 import '../../../../app/widgets/edge_icon_buttons.dart';
+import '../../../../app/widgets/feed/feed_text_warmup.dart';
 import '../../../../app/widgets/follow_switch_button.dart';
 import '../../../../app/widgets/tag_chips.dart';
 import '../../../../core/auth/account_store.dart';
@@ -33,6 +35,10 @@ const _buttonRowMargin = EdgeInsetsDirectional.only(
 
 Widget _inMargin(Widget child) => Padding(padding: _margin, child: child);
 
+/// The author's "@account" line, if the work names one.
+String? _handle(IllustUser author) =>
+    author.account.isEmpty ? null : '@${author.account}';
+
 /// The work's title, facts, author, caption and tags: one sliver list,
 /// so a part below the first screen is built as it scrolls near rather
 /// than with the page. Built parts stay built ([_KeptPart]).
@@ -55,6 +61,25 @@ class InfoBlock extends StatelessWidget {
 
   /// Collapsed caption height; longer captions get a Show more toggle.
   static const captionLines = 4;
+
+  /// The title, author and tag lines exactly as the block lays them out
+  /// for [entity] under [context], for [FeedTextWarmup]: the text a
+  /// detail page shapes in the frame that builds it.
+  static List<WarmText> warmTexts(BuildContext context, IllustEntity entity) =>
+      [
+        _Title.warmText(context, entity.title),
+        ...AuthorSummary.warmTexts(
+          context,
+          name: entity.user.name,
+          account: _handle(entity.user),
+        ),
+        for (final tag in entity.tags)
+          TagChip.warmText(
+            context,
+            label: tag.name,
+            translated: tag.translatedName,
+          ),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -165,7 +190,7 @@ class _AuthorBlock extends ConsumerWidget {
       key: const Key('illust-author-row'),
       userId: author.id,
       name: author.name,
-      account: author.account.isEmpty ? null : '@${author.account}',
+      account: _handle(author),
       avatarUrl: author.profileImageUrl,
       avatarRadius: 20,
       trailing: author.id == ownUserId
@@ -466,13 +491,29 @@ class _Title extends StatelessWidget {
 
   final String title;
 
-  @override
-  Widget build(BuildContext context) => SelectableText(
-    title,
-    style: Theme.of(
+  static TextStyle? _style(BuildContext context) => Theme.of(
+    context,
+  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600);
+
+  /// [title] as the [SelectableText] lays it out on the page's Material:
+  /// an editable paragraph with a strut taken from its style, in the UI
+  /// locale.
+  static WarmText warmText(BuildContext context, String title) {
+    final style = warmStyle(
       context,
-    ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-  );
+      _style(context),
+      inherited: Theme.of(context).textTheme.bodyMedium,
+    );
+    return (
+      span: TextSpan(text: title, style: style),
+      locale: Localizations.maybeLocaleOf(context),
+      strutStyle: const StrutStyle().inheritFromTextStyle(style),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      SelectableText(title, style: _style(context));
 }
 
 /// The title of a work without a caption, with the translate button at its

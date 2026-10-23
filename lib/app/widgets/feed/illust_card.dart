@@ -93,12 +93,19 @@ class IllustCard extends StatefulWidget {
 /// Inside a feed grid the card is an [IllustPagerAnchor] of the grid's
 /// pager.
 class _IllustCardState extends State<IllustCard> {
+  final _pressWarmup = _PressWarmup();
   late Widget _shown = _wrap();
 
   Widget _wrap() => IllustPagerAnchor(
     illustId: widget.entity.id,
-    child: _IllustCardBody(widget),
+    child: _IllustCardBody(widget, _pressWarmup),
   );
+
+  @override
+  void dispose() {
+    _pressWarmup.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(IllustCard oldWidget) {
@@ -116,10 +123,34 @@ class _IllustCardState extends State<IllustCard> {
   Widget build(BuildContext context) => _shown;
 }
 
+/// Lays the detail page's text out between frames while a finger rests
+/// on the card ([illustDetailWarmTexts]), so the frame that pushes the
+/// page finds it shaped. A press that turns into a scroll or a long press
+/// drops what is left, and so does the push: the page lays it out then.
+class _PressWarmup {
+  FeedTextWarmup? _warmup;
+
+  void start(BuildContext context, IllustEntity entity) {
+    (_warmup ??= FeedTextWarmup())
+      ..clear()
+      ..add(
+        illustDetailWarmTexts(context, entity),
+        item: 0,
+        textScaler: MediaQuery.textScalerOf(context),
+        textDirection: Directionality.of(context),
+      );
+  }
+
+  void stop() => _warmup?.clear();
+
+  void dispose() => _warmup?.dispose();
+}
+
 class _IllustCardBody extends ConsumerWidget {
-  const _IllustCardBody(this.card);
+  const _IllustCardBody(this.card, this.pressWarmup);
 
   final IllustCard card;
+  final _PressWarmup pressWarmup;
 
   IllustEntity get entity => card.entity;
   String get heroScope => card.heroScope;
@@ -184,6 +215,7 @@ class _IllustCardBody extends ConsumerWidget {
     );
     final muted = mutedHit != null && !revealed;
     void openDetail() {
+      pressWarmup.stop();
       _preloadTransitionImages(context, ref, preview, cardDecodeWidth);
       if (hasHero) noteHeroCardOpened(context, heroTag);
       openIllust(
@@ -235,12 +267,16 @@ class _IllustCardBody extends ConsumerWidget {
           excludeFromSemantics: true,
           onTapDown: muted
               ? null
-              : (_) => _preloadTransitionImages(
-                  context,
-                  ref,
-                  preview,
-                  cardDecodeWidth,
-                ),
+              : (_) {
+                  _preloadTransitionImages(
+                    context,
+                    ref,
+                    preview,
+                    cardDecodeWidth,
+                  );
+                  pressWarmup.start(context, entity);
+                },
+          onTapCancel: muted ? null : pressWarmup.stop,
           onTap: muted ? reveal : openDetail,
           onLongPress: longPress,
           onSecondaryTap: longPress,

@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../haptics/app_haptics.dart';
+import '../widgets/feed/feed_text_warmup.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/bookmark/bookmark_models.dart';
 import '../../core/debug/trace_marks.dart';
@@ -40,6 +41,7 @@ import '../../features/home/home_page.dart';
 import '../../features/home/recommended/recommended_home_page.dart';
 import '../../features/illust/detail/illust_detail_page.dart';
 import '../../features/illust/detail/illust_detail_pager_page.dart';
+import '../../features/illust/detail/widgets/info_block.dart';
 import '../../features/illust/viewer/image_viewer_page.dart';
 import '../../features/login/login_page.dart';
 import '../../features/login/login_webview_desktop_page.dart';
@@ -1452,6 +1454,13 @@ Future<void> openIllust(
     ),
   );
 }
+
+/// The text [openIllust]'s page for [entity] shapes as it builds, to lay
+/// out ahead of the push ([FeedTextWarmup]).
+List<WarmText> illustDetailWarmTexts(
+  BuildContext context,
+  IllustEntity entity,
+) => InfoBlock.warmTexts(context, entity);
 
 Future<void> openUser(BuildContext context, int userId) async {
   await _push(context, '${_currentStackRoot(context)}/user/$userId');

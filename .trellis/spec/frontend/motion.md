@@ -331,7 +331,9 @@ reviewed: 2026-10-19
   with the screen visible, no finger down, no tracked scroll, no
   foreground image load in flight (unless the work opts out) and no
   animation (waited for at most 60 frames); never `transientCallbackCount`
-  alone. A swipe or tap that gets there first builds at once. A branch
+  alone. The detail pager lays a neighbour's text out a paragraph a
+  piece before the piece that admits it (FEED-06). A swipe or tap that
+  gets there first builds at once. A branch
   built ahead is under `ExcludeFocus` until shown, and a page never shown
   saves no setting.
 - **Why:** Neighbour tabs built in a swipe's first frame and their data
