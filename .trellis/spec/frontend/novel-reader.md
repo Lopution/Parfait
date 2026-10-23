@@ -104,14 +104,20 @@ reviewed: 2026-10-17
 - **Rule:** The reader's `PageView` has a one-pixel cache
   (`allowImplicitScrolling` with `ScrollCacheExtent.pixels(1)`): the
   pages beside the one on screen are built at rest, and the page after
-  them enters on the frame a turn lands. A dismissed chrome bar stays
-  mounted offstage (`Visibility` with `maintainState`, tickers stopped);
-  its contents are rebuilt only while the chrome shows.
+  them enters on the frame a turn lands. Once a turn or a relayout comes
+  to rest, the lines of the pages two away are queued on a
+  `FeedTextWarmup` (`_NovelPage.warmTexts`: the page's styles through
+  `warmStyle`, the UI locale, as the lines set none); a turn starting
+  clears the queue. A dismissed chrome bar stays mounted offstage
+  (`Visibility` with `maintainState`, tickers stopped); its contents are
+  rebuilt only while the chrome shows.
 - **Why:** The first frame of every swipe built the next page, about
-  15 lines of text layout (8–21 ms). Each reveal re-created both bars and
-  laid out their text again (4 ms on device).
-- **Check:** `test/novel_reader_test.dart` "the pages beside the page on screen are built at rest"; `test/novel_reader_chrome_test.dart` "immersive reader: chrome toggles, back closes chrome first"
-- **Code:** `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_stage.dart`
+  15 lines of text layout (8–21 ms). The landing frame then built the page
+  after it and laid out its lines cold (16 dropped frames in a turning
+  trace, Shaft 1). Each reveal re-created both bars and laid out their
+  text again (4 ms on device).
+- **Check:** `test/novel_reader_test.dart` "the pages beside the page on screen are built at rest" "at rest the pages two away are queued as their lines lay"; `test/novel_reader_chrome_test.dart` "immersive reader: chrome toggles, back closes chrome first"
+- **Code:** `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_stage.dart`, `lib/app/widgets/feed/feed_text_warmup.dart`
 
 ### NOVEL-10 The progress hint keeps 4.5:1 on every palette
 - **Rule:** The bottom progress hint uses `bodySmall` and the page's text
