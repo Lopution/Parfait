@@ -8,6 +8,7 @@ import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:parfait/app/layout/card_columns.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/app/widgets/author_summary.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/app/widgets/feed/feed_text_warmup.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
@@ -224,6 +225,14 @@ void main() {
                   context = c;
                   return ListView(
                     children: [
+                      // As the recommended users list lays it out.
+                      const Card(
+                        child: AuthorSummary(
+                          name: 'ねこ',
+                          account: '@neko',
+                          imageUrl: null,
+                        ),
+                      ),
                       NovelEntry.compact(entity: novel),
                       SizedBox(width: 300, child: IllustCard(entity: illust)),
                     ],
@@ -242,6 +251,7 @@ void main() {
     final lines = [
       ...NovelEntry.warmTexts(context, novel),
       ...IllustCard.warmTexts(context, illust),
+      ...AuthorSummary.warmTexts(context, name: 'ねこ', account: '@neko'),
     ];
     for (final line in lines) {
       final paragraph = paragraphs.singleWhere(
@@ -261,6 +271,8 @@ void main() {
       'zh',
       'zh',
       'ja',
+      'ja',
+      'zh',
       'ja',
       'zh',
     ]);
