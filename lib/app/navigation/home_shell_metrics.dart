@@ -72,6 +72,16 @@ class HomeShellChrome extends InheritedWidget {
   /// scrolling there, and nowhere else, hides and shows the bar.
   final NotificationListenerCallback<ScrollNotification> onBranchRootScroll;
 
+  /// The same chrome over [child].
+  HomeShellChrome over(Widget child) => HomeShellChrome(
+    bottomBarExtent: bottomBarExtent,
+    railExtent: railExtent,
+    bottomBarVisibleExtent: bottomBarVisibleExtent,
+    bottomBarVisibility: bottomBarVisibility,
+    onBranchRootScroll: onBranchRootScroll,
+    child: child,
+  );
+
   static HomeShellChrome? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<HomeShellChrome>();
 

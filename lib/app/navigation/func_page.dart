@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart' show Theme;
 import '../motion/hero_transition.dart' show HeroLiftHole, HeroPageCover;
 import '../motion/motion_tokens.dart';
 import '../motion/page_transitions.dart';
+import 'frozen_while_hidden.dart';
 import 'route_animation.dart';
 
 /// The app's standard route page: it slides in from the trailing edge over
@@ -170,7 +171,7 @@ class _FuncPageRoute<T> extends PageRoute<T> {
       child: Semantics(
         scopesRoute: true,
         explicitChildNodes: true,
-        child: _page.child,
+        child: FrozenWhileHidden(child: _page.child),
       ),
     );
     return page;
