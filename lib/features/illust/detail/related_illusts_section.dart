@@ -134,6 +134,8 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
           itemCount: illusts.length,
           warmTexts: (context, index) =>
               IllustCard.warmTexts(context, illusts[index]),
+          items: illusts,
+          itemDeps: illustId,
           itemBuilder: (context, index) => IllustCard(
             entity: illusts[index],
             // Same heroScope the detail page receives when a tile is

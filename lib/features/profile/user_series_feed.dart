@@ -100,6 +100,7 @@ class UserSeriesFeed extends ConsumerWidget {
                     mainAxisSpacing: _gridMainAxisSpacing,
                     itemIds: [for (final e in entities) e.id],
                     itemCount: entities.length,
+                    items: entities,
                     itemBuilder: (context, index) =>
                         _UserSeriesCardView(series: entities[index]),
                   ),

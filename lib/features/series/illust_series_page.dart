@@ -110,6 +110,9 @@ class IllustSeriesPage extends ConsumerWidget {
                         else
                           SliverCardList(
                             itemCount: entities.length,
+                            items: entities,
+                            // What the episode numbers count from.
+                            itemDeps: (detail, entities.first.id),
                             itemBuilder: (context, index) => _EpisodeRow(
                               entity: entities[index],
                               episode: _episodeNumber(index, entities, detail),

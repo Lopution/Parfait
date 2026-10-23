@@ -12,6 +12,7 @@ import '../../app/person_avatar.dart';
 import '../../app/widgets/novel_entry.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../core/entity/illust_store.dart';
+import '../../core/entity/stored_entities.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/paging/paged_feed_controller.dart';
@@ -569,6 +570,8 @@ class _IllustSearchFeed extends ConsumerWidget {
                     ref.read(searchFeedProvider(query).notifier).loadMore(),
                 warmTexts: (context, index) =>
                     IllustCard.warmTexts(context, entities[index]),
+                items: entities,
+                itemDeps: query.cacheKey,
                 itemBuilder: (context, index) => IllustCard(
                   entity: entities[index],
                   heroScope: 'search:${query.cacheKey}',
@@ -605,11 +608,11 @@ class _NovelSearchFeed extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final stored = ref.watch(novelStoreProvider);
-    final entities = [
-      for (final id in feed.ids)
-        if (stored[id] != null) stored[id]!,
-    ];
+    final entities = ref
+        .watch(
+          novelStoreProvider.select((store) => StoredEntities(store, feed.ids)),
+        )
+        .items;
     if (entities.isEmpty) return _EmptySearchResult(query: query);
     return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
@@ -629,6 +632,7 @@ class _NovelSearchFeed extends ConsumerWidget {
               firstId: entities.first.id,
               warmTexts: (context, index) =>
                   NovelEntry.warmTexts(context, entities[index]),
+              items: entities,
               itemBuilder: (context, index) =>
                   NovelEntry.regular(entity: entities[index]),
             ),
@@ -662,11 +666,11 @@ class _UserSearchFeed extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final stored = ref.watch(userStoreProvider);
-    final users = [
-      for (final id in feed.ids)
-        if (stored[id] != null) stored[id]!,
-    ];
+    final users = ref
+        .watch(
+          userStoreProvider.select((store) => StoredEntities(store, feed.ids)),
+        )
+        .items;
     if (users.isEmpty) return _EmptySearchResult(query: query);
     return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),

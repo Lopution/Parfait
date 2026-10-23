@@ -7,6 +7,7 @@ import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/novel_entry.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_feed_controller.dart';
+import '../../core/entity/stored_entities.dart';
 import '../../core/novel/novel_store.dart';
 import '../../l10n/context.dart';
 import '../../app/layout/card_columns.dart';
@@ -42,11 +43,13 @@ class ProfileNovelFeed extends ConsumerWidget {
         if (feed.showInitialSpinner) {
           return const FeedLoading();
         }
-        final storedNovels = ref.watch(novelStoreProvider);
-        final novels = [
-          for (final id in feed.ids)
-            if (storedNovels[id] != null) storedNovels[id]!,
-        ];
+        final novels = ref
+            .watch(
+              novelStoreProvider.select(
+                (store) => StoredEntities(store, feed.ids),
+              ),
+            )
+            .items;
         return PullToRefresh(
           isNested: true,
           onRefresh: () =>
@@ -77,6 +80,7 @@ class ProfileNovelFeed extends ConsumerWidget {
                     firstId: novels.first.id,
                     warmTexts: (context, index) =>
                         NovelEntry.warmTexts(context, novels[index]),
+                    items: novels,
                     itemBuilder: (context, index) =>
                         NovelEntry.regular(entity: novels[index]),
                   ),

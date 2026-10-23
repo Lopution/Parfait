@@ -11,6 +11,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../layout/sliver_width_builder.dart';
 import '../../motion/motion_tokens.dart';
 import '../../theme/func_semantic_tokens.dart';
+import 'feed_item_cache.dart';
 import 'feed_text_warmup.dart';
 
 /// How far beyond the viewport feed children are built and start resolving
@@ -249,7 +250,9 @@ class IllustFeedGrid extends ConsumerStatefulWidget {
     this.itemIds,
     this.pagerLoadMore,
     this.warmTexts,
-  });
+    this.items,
+    this.itemDeps,
+  }) : assert(items == null || items.length == itemCount);
 
   final int itemCount;
   final IndexedWidgetBuilder itemBuilder;
@@ -279,6 +282,13 @@ class IllustFeedGrid extends ConsumerStatefulWidget {
   /// ([FeedTextWindow]).
   final WarmTexts? warmTexts;
 
+  /// The entity behind each card. A built card is reused while its entity
+  /// is the same instance and [itemDeps] stay equal ([FeedItemCache]).
+  final List<Object>? items;
+
+  /// Everything else [itemBuilder] reads, for [items].
+  final Object? itemDeps;
+
   @override
   ConsumerState<IllustFeedGrid> createState() => _IllustFeedGridState();
 }
@@ -290,6 +300,7 @@ class _IllustFeedGridState extends ConsumerState<IllustFeedGrid> {
   final _pagerSource = IllustPagerSource();
 
   final _warmup = FeedTextWindow();
+  final _cards = FeedItemCache();
 
   @override
   void initState() {
@@ -324,6 +335,7 @@ class _IllustFeedGridState extends ConsumerState<IllustFeedGrid> {
         texts: warmTexts,
       );
     }
+    _cards.update(widget.items, widget.itemDeps);
     final density = ref.watch(feedDensityProvider);
     final horizontal = widget.padding
         .resolve(Directionality.of(context))
@@ -361,7 +373,7 @@ class _IllustFeedGridState extends ConsumerState<IllustFeedGrid> {
                   width: columnWidth,
                   child: TickerPartition(
                     key: ValueKey(id),
-                    child: widget.itemBuilder(context, index),
+                    child: _cards.build(context, index, widget.itemBuilder),
                   ),
                 );
               },

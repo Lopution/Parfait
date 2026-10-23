@@ -123,6 +123,7 @@ class RecommendedIllustPage extends ConsumerWidget {
                               .loadMore(),
                           warmTexts: (context, index) =>
                               IllustCard.warmTexts(context, entities[index]),
+                          items: entities,
                           itemBuilder: (context, index) => IllustCard(
                             entity: entities[index],
                             heroScope: 'recommended:illust',

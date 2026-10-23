@@ -67,6 +67,10 @@ class ProfileIllustFeed extends ConsumerWidget {
             : entities
                   .where((entity) => _matchesLocalFilter(entity, query))
                   .toList(growable: false);
+        final heroScope =
+            'profile:${feedKey.userId}:${feedKey.kind.name}:'
+            '${feedKey.workType.name}:${feedKey.restrict.name}:'
+            '${feedKey.bookmarkTag ?? ''}';
         return PullToRefresh(
           isNested: true,
           onRefresh: () =>
@@ -107,12 +111,11 @@ class ProfileIllustFeed extends ConsumerWidget {
                         .loadMore(),
                     warmTexts: (context, index) =>
                         IllustCard.warmTexts(context, visibleEntities[index]),
+                    items: visibleEntities,
+                    itemDeps: heroScope,
                     itemBuilder: (context, index) => IllustCard(
                       entity: visibleEntities[index],
-                      heroScope:
-                          'profile:${feedKey.userId}:${feedKey.kind.name}:'
-                          '${feedKey.workType.name}:${feedKey.restrict.name}:'
-                          '${feedKey.bookmarkTag ?? ''}',
+                      heroScope: heroScope,
                     ),
                   ),
                 SliverToBoxAdapter(
