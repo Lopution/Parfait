@@ -1,17 +1,20 @@
 import 'dart:async';
 
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/widgets/app_top_bar.dart';
+import '../../app/widgets/web_navigation_guard.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
 import '../../core/auth/oauth_service.dart';
 import '../../core/logging/crash_log.dart';
 import '../../core/network/local_network_address.dart';
 import '../../core/platform/local_network.dart';
+import '../../core/platform/platform_caps.dart';
 
 import '../../l10n/context.dart';
 import 'login_navigation_decision.dart';
@@ -28,6 +31,12 @@ import '../../app/theme/func_semantic_tokens.dart';
 /// oauth host, a captcha vendor, or a third-party identity provider. The
 /// security boundary is the PKCE session and the exact callback match, not a
 /// host allowlist — an allowlist can only lag behind Pixiv and break sign-in.
+///
+/// The callback is caught where [WebNavigationGuard] catches navigations;
+/// where that is as a navigation starts (Windows), server-side 302s can skip
+/// the event, so the history update runs the same decision as a fallback:
+/// the code is already in the URL by then and `pixiv://` cannot load inside
+/// the WebView anyway.
 class LoginWebViewPage extends ConsumerStatefulWidget {
   const LoginWebViewPage({
     super.key,
@@ -48,7 +57,8 @@ class LoginWebViewPage extends ConsumerStatefulWidget {
 
 class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     with WidgetsBindingObserver {
-  late final WebViewController? _controller;
+  InAppWebViewController? _controller;
+  late final WebNavigationGuard _guard;
   bool _exchanging = false;
   double? _progress;
   String? _error;
@@ -61,60 +71,55 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
   /// Recoverable errors leave the PKCE session alive so the user can keep
   /// using the same login page.
   bool _fatal = false;
-  Uri? _mainFrameUri;
+  bool _webView2Missing = false;
+
+  /// The page a load before any other loads: the signup page or the
+  /// current session's authorize URL.
+  late Uri _startUrl;
+
+  /// Whether a page has started loading; until then a reload has nothing
+  /// to reload and loads [_startUrl] instead.
+  bool _loaded = false;
+
+  static final Uri _webView2InstallUri = Uri.parse(
+    'https://developer.microsoft.com/microsoft-edge/webview2/',
+  );
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    final caps = ref.read(platformCapsProvider);
+    // Signup has no PKCE session; login with PKCE happens afterwards.
+    _guard = WebNavigationGuard(
+      caps,
+      widget.create ? (_) => false : _decideNavigation,
+    );
     if (widget.create) {
-      // Direct signup; login with PKCE happens afterwards.
-      final signupUrl = Uri.parse('https://accounts.pixiv.net/signup');
-      _mainFrameUri = signupUrl;
-      _controller = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setNavigationDelegate(
-          NavigationDelegate(
-            onNavigationRequest: _onSignupNavigationRequest,
-            onPageStarted: _onPageStarted,
-            onUrlChange: _onUrlChange,
-            // Same progress reporting as the login branch and the desktop
-            // page — signup is a real page load too.
-            onProgress: (progress) {
-              if (mounted) setState(() => _progress = progress / 100.0);
-            },
-            onHttpError: _onHttpError,
-            onWebResourceError: _onWebResourceError,
-          ),
-        );
-      unawaited(_load(signupUrl));
-      return;
+      _startUrl = Uri.parse('https://accounts.pixiv.net/signup');
+    } else {
+      // Create exactly one PKCE session for this page. Calling
+      // beginSession() while only reading the URL discards the verifier
+      // that the next call would need, making the visible authorize URL and
+      // exchange state diverge.
+      _startUrl = widget.oauthService.beginSession().authorizeUrl;
     }
-    // Create exactly one PKCE session for this page. Calling beginSession()
-    // while only reading the URL discards the verifier that the next call
-    // would need, making the visible authorize URL and exchange state diverge.
-    final session = widget.oauthService.beginSession();
-    _mainFrameUri = session.authorizeUrl;
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onNavigationRequest: _onNavigationRequest,
-          onPageStarted: _onPageStarted,
-          onUrlChange: _onUrlChange,
-          onProgress: (progress) {
-            if (mounted) setState(() => _progress = progress / 100.0);
-          },
-          onHttpError: _onHttpError,
-          onWebResourceError: _onWebResourceError,
-        ),
-      );
-    unawaited(_load(session.authorizeUrl));
+    if (caps.isWindows) unawaited(_probeWebView2());
   }
 
-  /// Whether a page has started loading; until then a reload has nothing
-  /// to reload and loads [_mainFrameUri] instead.
-  bool _loaded = false;
+  /// WebView2 is a runtime dependency, not bundled: on systems without it
+  /// the platform view fails late and silently, so probe up front and show
+  /// an actionable install prompt instead.
+  Future<void> _probeWebView2() async {
+    String? version;
+    try {
+      version = await WebViewEnvironment.getAvailableVersion();
+    } on Object {
+      version = null;
+    }
+    if (!mounted || version != null) return;
+    setState(() => _webView2Missing = true);
+  }
 
   /// Loads [url], or reloads the current page when it is null.
   ///
@@ -130,10 +135,11 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       _reportRecoverable(context.l10n.errorLocalNetwork, error: error);
       return;
     }
-    if (!mounted) return;
-    if (url == null) return _controller?.reload();
+    final controller = _controller;
+    if (!mounted || controller == null) return;
+    if (url == null) return controller.reload();
     _loaded = true;
-    await _controller?.loadRequest(url);
+    await controller.loadUrl(urlRequest: URLRequest(url: WebUri.uri(url)));
   }
 
   @override
@@ -141,6 +147,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     WidgetsBinding.instance.removeObserver(this);
     // Cancellation and page disposal must never leave a live verifier behind.
     widget.oauthService.discardSession();
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -155,29 +162,12 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     _abortLogin(context.l10n.loginPageClosed);
   }
 
-  NavigationDecision _onSignupNavigationRequest(NavigationRequest request) {
-    final uri = _parseNavigationUri(request.url);
-    if (uri != null) _mainFrameUri = uri;
-    return NavigationDecision.navigate;
-  }
-
-  NavigationDecision _onNavigationRequest(NavigationRequest request) {
-    // webview_flutter adapter around the shared decision.
-    return _decideNavigation(request.url)
-        ? NavigationDecision.prevent
-        : NavigationDecision.navigate;
-  }
-
-  /// Shared PKCE navigation decision. Returns true when the navigation must
-  /// be stopped (callback consumed or invalid); false lets it proceed.
-  ///
-  /// The pure rule lives in [decideLoginNavigation] so the Windows
-  /// `InAppWebView` page applies the exact same contract — a `pixiv://`
-  /// callback must exchange in one mode, not silently navigate in the other.
+  /// Applies [decideLoginNavigation]; returns true when the navigation must
+  /// be stopped (callback consumed or invalid).
   bool _decideNavigation(String rawUrl) {
     return switch (decideLoginNavigation(widget.oauthService, rawUrl)) {
       LoginNavExchange(:final code) => () {
-        _exchange(code);
+        unawaited(_exchange(code));
         return true;
       }(),
       LoginNavAbort(:final reason) => () {
@@ -186,69 +176,42 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
         _abortLogin(context.l10n.loginCallbackInvalid, error: reason);
         return true;
       }(),
-      LoginNavAllow(:final uri) => () {
-        _mainFrameUri = uri;
-        return false;
-      }(),
-      LoginNavIgnore() => false,
+      LoginNavAllow() || LoginNavIgnore() => false,
     };
   }
 
-  void _onPageStarted(String rawUrl) {
-    final uri = _parseNavigationUri(rawUrl);
-    if (uri != null) _mainFrameUri = uri;
+  void _onReceivedError(
+    InAppWebViewController controller,
+    WebResourceRequest request,
+    WebResourceError error,
+  ) {
+    // WebView surfaces subresource failures through this callback as well.
+    // Only a main-frame failure is worth reporting, and it stays retryable.
+    if (request.isForMainFrame == false) return;
+    // '<type> <host>' says which host produced the failure without echoing
+    // the full URL into the card's details.
+    _reportRecoverable(
+      context.l10n.loginPageLoadFailed,
+      error: describeWebViewFailure(error.type, request.url),
+    );
   }
 
-  void _onUrlChange(UrlChange change) {
-    final rawUrl = change.url;
-    if (rawUrl == null) return;
-    final uri = _parseNavigationUri(rawUrl);
-    if (uri != null) _mainFrameUri = uri;
-  }
-
-  void _onHttpError(HttpResponseError error) {
+  void _onReceivedHttpError(
+    InAppWebViewController controller,
+    WebResourceRequest request,
+    WebResourceResponse response,
+  ) {
     // Android reports HTTP errors for every resource, not just the document.
     // A failed tracker, stylesheet or captcha asset must not discard an
-    // otherwise usable PKCE session and make the next Pixiv navigation look
-    // foreign.
-    final requestUri = error.request?.uri;
-    final mainFrameUri = _mainFrameUri;
-    if (requestUri != null &&
-        mainFrameUri != null &&
-        requestUri != mainFrameUri) {
-      return;
-    }
+    // otherwise usable PKCE session.
+    if (request.isForMainFrame == false) return;
     // A main-document 4xx is routinely a form-validation or risk-control
     // response that the user can retry in place.
     _reportRecoverable(
       context.l10n.loginNetworkError(
-        describeWebViewFailure(
-          error.response?.statusCode ?? 'unknown',
-          requestUri ?? mainFrameUri,
-        ),
+        describeWebViewFailure(response.statusCode ?? 'unknown', request.url),
       ),
     );
-  }
-
-  void _onWebResourceError(WebResourceError error) {
-    // WebView surfaces subresource failures through this callback as well.
-    // Only a main-frame failure is worth reporting, and it stays retryable.
-    if (error.isForMainFrame == false) return;
-    _reportRecoverable(
-      context.l10n.loginPageLoadFailed,
-      error: describeWebViewFailure(
-        error.errorType?.name ?? error.errorCode,
-        error.url == null ? _mainFrameUri : Uri.tryParse(error.url!),
-      ),
-    );
-  }
-
-  Uri? _parseNavigationUri(String raw) {
-    try {
-      return Uri.parse(raw);
-    } on FormatException {
-      return null;
-    }
   }
 
   Future<void> _exchange(String code) async {
@@ -319,7 +282,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       _errorDetails = null;
       _fatal = false;
     });
-    unawaited(_load(_loaded ? null : _mainFrameUri));
+    unawaited(_load(_loaded ? null : _startUrl));
   }
 
   /// Restarts the OAuth attempt without leaving the page: beginSession()
@@ -332,10 +295,58 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       _error = null;
       _errorDetails = null;
       _fatal = false;
-      _mainFrameUri = authorizeUrl;
+      _startUrl = authorizeUrl;
     });
     unawaited(_load(authorizeUrl));
   }
+
+  Widget _webView() => InAppWebView(
+    // No initialUrlRequest: the first load goes through [_load] and its
+    // local network check like every other.
+    initialSettings: _guard.settings,
+    onWebViewCreated: (controller) {
+      _controller = controller;
+      unawaited(_load(_startUrl));
+    },
+    shouldOverrideUrlLoading: _guard.shouldOverrideUrlLoading,
+    onLoadStart: _guard.onLoadStart,
+    onUpdateVisitedHistory: _guard.beforeLoad
+        ? null
+        : (controller, url, isReload) => _guard.stopAsStarted(controller, url),
+    onProgressChanged: (controller, progress) {
+      if (mounted) setState(() => _progress = progress / 100.0);
+    },
+    onReceivedError: _onReceivedError,
+    onReceivedHttpError: _onReceivedHttpError,
+  );
+
+  Widget _webView2Prompt(BuildContext context) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.public_off, size: 56),
+        const SizedBox(height: FuncSpacing.md),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: FuncSpacing.xl),
+          child: Text(
+            context.l10n.loginWebView2Missing,
+            textAlign: TextAlign.center,
+          ),
+        ),
+        const SizedBox(height: FuncSpacing.md),
+        FilledButton.icon(
+          icon: const Icon(Icons.open_in_new),
+          label: Text(context.l10n.loginInstallWebView2),
+          onPressed: () => unawaited(
+            launchUrl(
+              _webView2InstallUri,
+              mode: LaunchMode.externalApplication,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -358,7 +369,7 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
       ),
       body: Stack(
         children: [
-          WebViewWidget(controller: _controller!),
+          if (_webView2Missing) _webView2Prompt(context) else _webView(),
           if (_exchanging)
             // This opaque black scrim is a deliberate replica loading
             // surface, independent of the app theme brightness.

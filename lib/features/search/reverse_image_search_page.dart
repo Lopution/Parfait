@@ -5,9 +5,9 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:http/http.dart' as http;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../app/widgets/app_top_bar.dart';
+import '../../app/widgets/web_navigation_guard.dart';
 import '../../core/format/byte_size.dart';
 import '../../core/platform/android_intent_channel.dart';
 import '../../core/platform/intent_router.dart';
@@ -249,22 +249,17 @@ class _ReverseImageSearchPageState
   Widget _resultWebView(BuildContext context, ReverseImageFlowState state) {
     final webView = state.webView!;
     final spec = ReverseImageEngineSpecs.all[state.engine]!;
-    return ref.read(platformCapsProvider).isDesktop
-        ? _ControlledSauceNaoInAppWebView(
-            webView: webView,
-            spec: spec,
-            onOpenExternal: _openExternal,
-          )
-        : _ControlledSauceNaoWebView(
-            webView: webView,
-            spec: spec,
-            onOpenExternal: _openExternal,
-          );
+    return _ControlledSauceNaoWebView(
+      caps: ref.read(platformCapsProvider),
+      webView: webView,
+      spec: spec,
+      onOpenExternal: _openExternal,
+    );
   }
 
   /// Cloudflare-fronted engine: the upload page loads in InAppWebView on
-  /// every platform — only its ChromeClient consumes the armed file chooser
-  /// slot (webview_flutter's own client cannot see it).
+  /// every platform — its ChromeClient consumes the armed file chooser
+  /// slot.
   Widget _uploadWebView(BuildContext context, ReverseImageFlowState state) {
     final upload = state.webUpload!;
     return _UploadInAppWebView(
@@ -799,97 +794,6 @@ class _AdaptiveImagePreview extends StatelessWidget {
   }
 }
 
-/// Controlled SauceNAO result WebView (D1): navigates freely inside
-/// saucenao.com, routes Pixiv links into the app (detail / user pages),
-/// sends every other HTTPS link to the external launcher and rejects
-/// non-HTTPS navigation. Errors stay visible; the WebView never renders
-/// into an empty-looking success.
-class _ControlledSauceNaoWebView extends StatefulWidget {
-  const _ControlledSauceNaoWebView({
-    required this.webView,
-    required this.spec,
-    required this.onOpenExternal,
-  });
-
-  final ReverseImageSearchWebView webView;
-  final ReverseImageEngineSpec spec;
-  final Future<void> Function(Uri uri) onOpenExternal;
-
-  @override
-  State<_ControlledSauceNaoWebView> createState() =>
-      _ControlledSauceNaoWebViewState();
-}
-
-class _ControlledSauceNaoWebViewState
-    extends State<_ControlledSauceNaoWebView> {
-  late final WebViewController _controller;
-  String? _error;
-  double? _progress;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onProgress: (progress) {
-            if (mounted) setState(() => _progress = progress / 100.0);
-          },
-          onNavigationRequest: _onNavigationRequest,
-          onWebResourceError: (error) {
-            if (error.isForMainFrame == true && mounted) {
-              setState(() {
-                _error =
-                    '${error.errorType} '
-                    '[${error.errorCode}]: ${error.description}';
-              });
-            }
-          },
-        ),
-      );
-    final result = widget.webView;
-    if (result.html != null) {
-      _controller.loadHtmlString(
-        result.html!,
-        baseUrl:
-            widget.spec.resultBaseUrl ??
-            SauceNaoWebViewProvider.defaultEndpoint,
-      );
-    } else {
-      _controller.loadRequest(result.resultUrl!);
-    }
-  }
-
-  NavigationDecision _onNavigationRequest(NavigationRequest request) {
-    // Shared adapter around ReverseImageNavigationPolicy — see
-    // [_applyNavigationAction]. Returns prevent when the link was consumed.
-    return _applyNavigationAction(
-          context,
-          widget.spec.navigationPolicy.decide(Uri.tryParse(request.url)),
-          request.url,
-          widget.onOpenExternal,
-        )
-        ? NavigationDecision.prevent
-        : NavigationDecision.navigate;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final error = _error;
-    if (error != null) {
-      return _webViewErrorBody(context, error);
-    }
-    return Stack(
-      children: [
-        WebViewWidget(controller: _controller),
-        if (_progress != null && _progress! < 1.0)
-          LinearProgressIndicator(value: _progress, minHeight: 2),
-      ],
-    );
-  }
-}
-
 /// Shared adapter around [ReverseImageNavigationPolicy]: returns true when
 /// the link was consumed (routed in-app, handed to the external launcher, or
 /// rejected) and the webview must not navigate.
@@ -933,27 +837,40 @@ bool _applyNavigationAction(
   }
 }
 
-/// InAppWebView (WebView2) variant of the result surface for desktop — same
-/// navigation policy, progress and error contract as
-/// [_ControlledSauceNaoWebView].
-class _ControlledSauceNaoInAppWebView extends StatefulWidget {
-  const _ControlledSauceNaoInAppWebView({
+/// Controlled SauceNAO result WebView (D1): navigates freely inside
+/// saucenao.com, routes Pixiv links into the app (detail / user pages),
+/// sends every other HTTPS link to the external launcher and rejects
+/// non-HTTPS navigation. Errors stay visible; the WebView never renders
+/// into an empty-looking success.
+class _ControlledSauceNaoWebView extends StatefulWidget {
+  const _ControlledSauceNaoWebView({
+    required this.caps,
     required this.webView,
     required this.spec,
     required this.onOpenExternal,
   });
 
+  final PlatformCaps caps;
   final ReverseImageSearchWebView webView;
   final ReverseImageEngineSpec spec;
   final Future<void> Function(Uri uri) onOpenExternal;
 
   @override
-  State<_ControlledSauceNaoInAppWebView> createState() =>
-      _ControlledSauceNaoInAppWebViewState();
+  State<_ControlledSauceNaoWebView> createState() =>
+      _ControlledSauceNaoWebViewState();
 }
 
-class _ControlledSauceNaoInAppWebViewState
-    extends State<_ControlledSauceNaoInAppWebView> {
+class _ControlledSauceNaoWebViewState
+    extends State<_ControlledSauceNaoWebView> {
+  late final _guard = WebNavigationGuard(
+    widget.caps,
+    (raw) => _applyNavigationAction(
+      context,
+      widget.spec.navigationPolicy.decide(Uri.tryParse(raw)),
+      raw,
+      widget.onOpenExternal,
+    ),
+  );
   String? _error;
   double? _progress;
 
@@ -979,24 +896,9 @@ class _ControlledSauceNaoInAppWebViewState
                   ),
                 )
               : null,
-          // See LoginWebViewDesktopPage: the Windows plugin implements
-          // useShouldOverrideUrlLoading via CDP Fetch.requestPaused, which
-          // can strand mid-redirect document loads as CONNECTION_ABORTED.
-          // NavigationStarting (onLoadStart) interception is enough here —
-          // consumed links just get stopLoading().
-          initialSettings: InAppWebViewSettings(javaScriptEnabled: true),
-          onLoadStart: (controller, url) {
-            if (url == null) return;
-            final raw = url.toString();
-            if (_applyNavigationAction(
-              context,
-              widget.spec.navigationPolicy.decide(Uri.tryParse(raw)),
-              raw,
-              widget.onOpenExternal,
-            )) {
-              controller.stopLoading();
-            }
-          },
+          initialSettings: _guard.settings,
+          shouldOverrideUrlLoading: _guard.shouldOverrideUrlLoading,
+          onLoadStart: _guard.onLoadStart,
           onProgressChanged: (controller, progress) {
             if (mounted) setState(() => _progress = progress / 100.0);
           },

@@ -22,7 +22,6 @@ import '../../core/illust/recommended_repository.dart';
 import '../../core/new/new_feed_models.dart';
 import '../../core/novel/novel_repository.dart' hide NovelPage;
 import '../../core/platform/intent_router.dart';
-import '../../core/platform/platform_caps.dart';
 import '../../core/reverse_image/image_input.dart';
 import '../../core/search/search_models.dart';
 import '../../core/search/search_shortcut.dart';
@@ -44,7 +43,6 @@ import '../../features/illust/detail/illust_detail_pager_page.dart';
 import '../../features/illust/detail/widgets/info_block.dart';
 import '../../features/illust/viewer/image_viewer_page.dart';
 import '../../features/login/login_page.dart';
-import '../../features/login/login_webview_desktop_page.dart';
 import '../../features/login/login_webview_page.dart';
 import '../../features/new/new_page.dart';
 import '../../features/novel/novel_page.dart';
@@ -1139,12 +1137,12 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
               final container = ProviderScope.containerOf(context);
               final oauth = container.read(oauthServiceProvider);
               final create = state.uri.queryParameters['create'] == 'true';
-              // Desktop uses the InAppWebView (WebView2) implementation;
-              // webview_flutter has no Windows backend.
-              final page = container.read(platformCapsProvider).isDesktop
-                  ? LoginWebViewDesktopPage(oauthService: oauth, create: create)
-                  : LoginWebViewPage(oauthService: oauth, create: create);
-              return _page(context, state, appRootRouteObserver, page);
+              return _page(
+                context,
+                state,
+                appRootRouteObserver,
+                LoginWebViewPage(oauthService: oauth, create: create),
+              );
             },
           ),
           GoRoute(

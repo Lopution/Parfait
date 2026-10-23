@@ -1,3 +1,4 @@
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,141 +8,55 @@ import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/settings/app_settings.dart' hide NetworkMode;
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/settings/settings_repository.dart';
 import 'package:parfait/app/widgets/replica_button.dart';
 import 'package:parfait/app/widgets/replica_switch_tile.dart';
 import 'package:parfait/features/login/login_page.dart';
+import 'package:parfait/features/login/login_webview_error_card.dart';
 import 'package:parfait/features/login/login_webview_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/fake_webview.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 
-/// Minimal WebView platform stub so pages can build in widget tests.
-class _FakeWebViewPlatform extends WebViewPlatform {
-  @override
-  PlatformWebViewController createPlatformWebViewController(
-    PlatformWebViewControllerCreationParams params,
-  ) => _FakeWebViewController(params);
+/// The login page's web view as its platform drives it.
+class _WebView {
+  _WebView(this.params);
 
-  @override
-  PlatformNavigationDelegate createPlatformNavigationDelegate(
-    PlatformNavigationDelegateCreationParams params,
-  ) => _FakeNavigationDelegate(params);
+  final PlatformInAppWebViewWidgetCreationParams params;
+  final controller = FakeInAppWebViewController();
 
-  @override
-  PlatformWebViewWidget createPlatformWebViewWidget(
-    PlatformWebViewWidgetCreationParams params,
-  ) => _FakeWebViewWidget(params);
-}
+  /// Asks before a main-frame navigation, as Android does.
+  Future<NavigationActionPolicy?> navigate(String url) async =>
+      params.shouldOverrideUrlLoading!(
+        controller.facade,
+        NavigationAction(
+          request: URLRequest(url: WebUri(url)),
+          isForMainFrame: true,
+        ),
+      );
 
-class _FakeWebViewController extends PlatformWebViewController {
-  _FakeWebViewController(super.params) : super.implementation() {
-    latest = this;
-  }
+  void httpError(String url, int status, {bool mainFrame = true}) =>
+      params.onReceivedHttpError!(
+        controller.facade,
+        WebResourceRequest(url: WebUri(url), isForMainFrame: mainFrame),
+        WebResourceResponse(statusCode: status),
+      );
 
-  static _FakeWebViewController? latest;
-
-  Uri? lastLoadedUrl;
-  var reloadCount = 0;
-
-  @override
-  Future<void> setJavaScriptMode(JavaScriptMode mode) async {}
-
-  @override
-  Future<void> setPlatformNavigationDelegate(
-    PlatformNavigationDelegate delegate,
-  ) async {}
-
-  @override
-  Future<void> loadRequest(LoadRequestParams params) async {
-    lastLoadedUrl = params.uri;
-  }
-
-  @override
-  Future<void> reload() async {
-    reloadCount++;
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
-}
-
-class _FakeNavigationDelegate extends PlatformNavigationDelegate {
-  _FakeNavigationDelegate(super.params) : super.implementation() {
-    latest = this;
-  }
-
-  static _FakeNavigationDelegate? latest;
-
-  NavigationRequestCallback? navigationRequest;
-  WebResourceErrorCallback? webResourceError;
-  HttpResponseErrorCallback? httpError;
-  PageEventCallback? pageStarted;
-  UrlChangeCallback? urlChange;
-  ProgressCallback? progress;
-
-  @override
-  Future<void> setOnNavigationRequest(
-    NavigationRequestCallback? onNavigationRequest,
-  ) async {
-    navigationRequest = onNavigationRequest;
-  }
-
-  @override
-  Future<void> setOnPageStarted(PageEventCallback? onPageStarted) async {
-    pageStarted = onPageStarted;
-  }
-
-  @override
-  Future<void> setOnPageFinished(PageEventCallback? onPageFinished) async {}
-
-  @override
-  Future<void> setOnProgress(ProgressCallback? onProgress) async {
-    progress = onProgress;
-  }
-
-  @override
-  Future<void> setOnWebResourceError(
-    WebResourceErrorCallback? onWebResourceError,
-  ) async {
-    webResourceError = onWebResourceError;
-  }
-
-  @override
-  Future<void> setOnUrlChange(UrlChangeCallback? onUrlChange) async {
-    urlChange = onUrlChange;
-  }
-
-  @override
-  Future<void> setOnHttpAuthRequest(
-    HttpAuthRequestCallback? onHttpAuthRequest,
-  ) async {}
-
-  @override
-  Future<void> setOnHttpError(HttpResponseErrorCallback? onHttpError) async {
-    httpError = onHttpError;
-  }
-
-  @override
-  Future<void> setOnSSlAuthError(SslAuthErrorCallback? onSslAuthError) async {}
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
-}
-
-class _FakeWebViewWidget extends PlatformWebViewWidget {
-  _FakeWebViewWidget(super.params) : super.implementation();
-
-  @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
+  void loadError(
+    String url,
+    WebResourceErrorType type, {
+    bool mainFrame = true,
+  }) => params.onReceivedError!(
+    controller.facade,
+    WebResourceRequest(url: WebUri(url), isForMainFrame: mainFrame),
+    WebResourceError(type: type, description: 'failed'),
+  );
 }
 
 /// Counts beginSession() calls so a test can prove a fatal card restarted
@@ -184,84 +99,69 @@ class _FlakySettingsRepository implements SettingsRepository {
 }
 
 void main() {
+  late FakeInAppWebViewPlatform platform;
+
   setUp(() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-    WebViewPlatform.instance = _FakeWebViewPlatform();
-    _FakeNavigationDelegate.latest = null;
-    _FakeWebViewController.latest = null;
+    platform = FakeInAppWebViewPlatform();
+    InAppWebViewPlatform.instance = platform;
   });
+
+  Future<_WebView> pumpLoginPage(
+    WidgetTester tester, {
+    OAuthService? service,
+    bool create = false,
+    PlatformCaps? caps,
+  }) async {
+    final oauth = service ?? OAuthService(exchangeTimeout: Duration.zero);
+    await tester.pumpWidget(
+      localizedApp(
+        overrides: [
+          ...accountProviderOverrides(),
+          oauthServiceProvider.overrideWithValue(oauth),
+          if (caps != null) platformCapsProvider.overrideWithValue(caps),
+        ],
+        home: LoginWebViewPage(oauthService: oauth, create: create),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final webView = _WebView(platform.lastWidget!.params);
+    webView.params.onWebViewCreated!(webView.controller.facade);
+    await tester.pumpAndSettle();
+    return webView;
+  }
 
   testWidgets(
     'subresource errors do not invalidate subsequent Pixiv login navigation',
     (tester) async {
-      final service = OAuthService(exchangeTimeout: Duration.zero);
-      await tester.pumpWidget(
-        localizedApp(
-          overrides: [
-            ...accountProviderOverrides(),
-            oauthServiceProvider.overrideWithValue(service),
-          ],
-          home: LoginWebViewPage(oauthService: service),
-        ),
-      );
-      await tester.pumpAndSettle();
+      final webView = await pumpLoginPage(tester);
 
-      final delegate = _FakeNavigationDelegate.latest;
-      expect(delegate, isNotNull);
-      expect(delegate!.navigationRequest, isNotNull);
-      expect(delegate.webResourceError, isNotNull);
-      expect(delegate.httpError, isNotNull);
-
-      delegate.pageStarted?.call('https://accounts.pixiv.net/login');
-      delegate.httpError!.call(
-        HttpResponseError(
-          request: WebResourceRequest(
-            uri: Uri.parse('https://s.pximg.net/accounts/assets/app.js'),
-          ),
-          response: const WebResourceResponse(uri: null, statusCode: 404),
-        ),
+      webView.httpError(
+        'https://s.pximg.net/accounts/assets/app.js',
+        404,
+        mainFrame: false,
       );
-      delegate.webResourceError!.call(
-        const WebResourceError(
-          errorCode: -7,
-          description: 'subresource timeout',
-          errorType: WebResourceErrorType.timeout,
-          isForMainFrame: false,
-          url: 'https://www.recaptcha.net/recaptcha/enterprise.js',
-        ),
+      webView.loadError(
+        'https://www.recaptcha.net/recaptcha/enterprise.js',
+        WebResourceErrorType.TIMEOUT,
+        mainFrame: false,
       );
       await tester.pump();
 
-      final decision = await delegate.navigationRequest!.call(
-        const NavigationRequest(
-          url: 'https://accounts.pixiv.net/login?prompt=select_account',
-          isMainFrame: true,
+      expect(
+        await webView.navigate(
+          'https://accounts.pixiv.net/login?prompt=select_account',
         ),
+        NavigationActionPolicy.ALLOW,
       );
-      expect(decision, NavigationDecision.navigate);
-      expect(find.text('已拒绝非 Pixiv 登录导航'), findsNothing);
+      expect(find.byType(LoginWebViewErrorCard), findsNothing);
     },
   );
 
   testWidgets('carries every destination the Pixiv login page chooses', (
     tester,
   ) async {
-    final service = OAuthService(exchangeTimeout: Duration.zero);
-    await tester.pumpWidget(
-      localizedApp(
-        overrides: [
-          ...accountProviderOverrides(),
-          oauthServiceProvider.overrideWithValue(service),
-        ],
-        home: LoginWebViewPage(oauthService: service),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final delegate = _FakeNavigationDelegate.latest;
-    expect(delegate, isNotNull);
-    expect(delegate!.navigationRequest, isNotNull);
-    delegate.pageStarted?.call('https://accounts.pixiv.net/login');
+    final webView = await pumpLoginPage(tester);
 
     // Pixiv hands the flow to its own oauth host, to captcha vendors and to
     // third-party identity providers. All of it is one real login.
@@ -274,46 +174,23 @@ void main() {
       'https://www.recaptcha.net/recaptcha/enterprise/anchor',
     ];
     for (final url in urls) {
-      final decision = await delegate.navigationRequest!.call(
-        NavigationRequest(url: url, isMainFrame: true),
+      expect(
+        await webView.navigate(url),
+        NavigationActionPolicy.ALLOW,
+        reason: url,
       );
-      expect(decision, NavigationDecision.navigate, reason: url);
     }
     await tester.pump();
-    expect(find.textContaining('已拒绝'), findsNothing);
+    expect(find.byType(LoginWebViewErrorCard), findsNothing);
   });
 
   // The login page must survive the ordinary interruptions of a real sign-in:
   // backgrounding to read a mail code, a blocked side link, and a
   // main-document status code. None of them may kill the PKCE session.
-  Future<OAuthService> pumpLoginPage(WidgetTester tester) async {
-    final service = OAuthService(exchangeTimeout: Duration.zero);
-    await tester.pumpWidget(
-      localizedApp(
-        overrides: [
-          ...accountProviderOverrides(),
-          oauthServiceProvider.overrideWithValue(service),
-        ],
-        home: LoginWebViewPage(oauthService: service),
-      ),
-    );
-    await tester.pumpAndSettle();
-    return service;
-  }
-
-  Future<NavigationDecision> navigateTo(
-    _FakeNavigationDelegate delegate,
-    String url,
-  ) async => delegate.navigationRequest!.call(
-    NavigationRequest(url: url, isMainFrame: true),
-  );
-
   testWidgets('backgrounding the app keeps the login session usable', (
     tester,
   ) async {
-    await pumpLoginPage(tester);
-    final delegate = _FakeNavigationDelegate.latest!;
-    delegate.pageStarted?.call('https://accounts.pixiv.net/login');
+    final webView = await pumpLoginPage(tester);
 
     // Reading a verification code in a mail app walks the full foreground
     // exit sequence and comes back.
@@ -331,42 +208,31 @@ void main() {
 
     expect(find.text('页面已暂停，请重新打开'), findsNothing);
     expect(
-      await navigateTo(delegate, 'https://accounts.pixiv.net/login?ref=mail'),
-      NavigationDecision.navigate,
+      await webView.navigate('https://accounts.pixiv.net/login?ref=mail'),
+      NavigationActionPolicy.ALLOW,
     );
   });
 
   testWidgets('a main-document HTTP error stays retryable', (tester) async {
-    await pumpLoginPage(tester);
-    final delegate = _FakeNavigationDelegate.latest!;
-    delegate.pageStarted?.call('https://accounts.pixiv.net/login');
+    final webView = await pumpLoginPage(tester);
 
-    delegate.httpError!.call(
-      HttpResponseError(
-        request: WebResourceRequest(
-          uri: Uri.parse('https://accounts.pixiv.net/login'),
-        ),
-        response: const WebResourceResponse(uri: null, statusCode: 400),
-      ),
-    );
+    webView.httpError('https://accounts.pixiv.net/login', 400);
     await tester.pump();
 
     expect(find.text('网络错误（HTTP 400 accounts.pixiv.net）'), findsOneWidget);
     expect(find.text('重新打开'), findsNothing);
     expect(
-      await navigateTo(delegate, 'https://accounts.pixiv.net/login?retry=1'),
-      NavigationDecision.navigate,
+      await webView.navigate('https://accounts.pixiv.net/login?retry=1'),
+      NavigationActionPolicy.ALLOW,
     );
   });
 
   testWidgets('an invalid OAuth callback ends the attempt', (tester) async {
-    await pumpLoginPage(tester);
-    final delegate = _FakeNavigationDelegate.latest!;
-    delegate.pageStarted?.call('https://accounts.pixiv.net/login');
+    final webView = await pumpLoginPage(tester);
 
     expect(
-      await navigateTo(delegate, 'pixiv://account?error=access_denied'),
-      NavigationDecision.prevent,
+      await webView.navigate('pixiv://account?error=access_denied'),
+      NavigationActionPolicy.CANCEL,
     );
     await tester.pump();
 
@@ -386,22 +252,41 @@ void main() {
     expect(find.text('missing code'), findsOneWidget);
   });
 
+  testWidgets('Windows stops the callback as it starts or lands in history', (
+    tester,
+  ) async {
+    // WebView2 is not asked before navigations (see WebNavigationGuard):
+    // the page stops the callback when it starts, and when a server-side
+    // redirect only shows up as a history update.
+    final webView = await pumpLoginPage(
+      tester,
+      caps: const PlatformCaps(isWindows: true),
+    );
+    expect(webView.params.shouldOverrideUrlLoading, isNull);
+    final facade = webView.controller.facade;
+
+    webView.params.onLoadStart!(
+      facade,
+      WebUri('https://accounts.pixiv.net/login'),
+    );
+    expect(webView.controller.stopCount, 0);
+
+    webView.params.onUpdateVisitedHistory!(
+      facade,
+      WebUri('pixiv://account?error=access_denied'),
+      false,
+    );
+    await tester.pump();
+    expect(webView.controller.stopCount, 1);
+    expect(find.text('登录回调无效，请重新登录'), findsOneWidget);
+  });
+
   testWidgets('a recoverable error card reloads the page in place', (
     tester,
   ) async {
-    await pumpLoginPage(tester);
-    final delegate = _FakeNavigationDelegate.latest!;
-    final controller = _FakeWebViewController.latest!;
-    delegate.pageStarted?.call('https://accounts.pixiv.net/login');
+    final webView = await pumpLoginPage(tester);
 
-    delegate.httpError!.call(
-      HttpResponseError(
-        request: WebResourceRequest(
-          uri: Uri.parse('https://accounts.pixiv.net/login'),
-        ),
-        response: const WebResourceResponse(uri: null, statusCode: 400),
-      ),
-    );
+    webView.httpError('https://accounts.pixiv.net/login', 400);
     await tester.pump();
     expect(find.text('网络错误（HTTP 400 accounts.pixiv.net）'), findsOneWidget);
 
@@ -409,7 +294,7 @@ void main() {
     await tester.pump();
 
     // Reload re-runs the current document — the route stays put.
-    expect(controller.reloadCount, 1);
+    expect(webView.controller.reloadCount, 1);
     expect(find.text('网络错误（HTTP 400 accounts.pixiv.net）'), findsNothing);
     expect(find.byType(LoginWebViewPage), findsOneWidget);
   });
@@ -418,26 +303,15 @@ void main() {
     tester,
   ) async {
     final service = _SpyOAuthService();
-    await tester.pumpWidget(
-      localizedApp(
-        overrides: [
-          ...accountProviderOverrides(),
-          oauthServiceProvider.overrideWithValue(service),
-        ],
-        home: LoginWebViewPage(oauthService: service),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final delegate = _FakeNavigationDelegate.latest!;
-    final controller = _FakeWebViewController.latest!;
+    final webView = await pumpLoginPage(tester, service: service);
+    final controller = webView.controller;
     expect(service.beginCount, 1);
-    expect(controller.lastLoadedUrl, service.lastAuthorizeUrl);
+    expect(controller.loadedUrls, ['${service.lastAuthorizeUrl}']);
 
-    final decision = await navigateTo(
-      delegate,
-      'pixiv://account?error=access_denied',
+    expect(
+      await webView.navigate('pixiv://account?error=access_denied'),
+      NavigationActionPolicy.CANCEL,
     );
-    expect(decision, NavigationDecision.prevent);
     await tester.pump();
     expect(find.text('重新登录'), findsOneWidget);
 
@@ -447,40 +321,23 @@ void main() {
     // Restart means a real second PKCE session whose fresh authorize URL is
     // loaded into the same WebView — not a page reopen.
     expect(service.beginCount, 2);
-    expect(controller.lastLoadedUrl, service.lastAuthorizeUrl);
+    expect(controller.loadedUrls.last, '${service.lastAuthorizeUrl}');
     expect(controller.reloadCount, 0);
     expect(find.text('重新登录'), findsNothing);
     expect(find.byType(LoginWebViewPage), findsOneWidget);
     // The new session is live: normal Pixiv navigation still proceeds.
     expect(
-      await navigateTo(delegate, 'https://accounts.pixiv.net/login?retry=1'),
-      NavigationDecision.navigate,
+      await webView.navigate('https://accounts.pixiv.net/login?retry=1'),
+      NavigationActionPolicy.ALLOW,
     );
   });
 
   testWidgets('signup mode fatal card offers reload, never a session restart', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      localizedApp(
-        overrides: [
-          ...accountProviderOverrides(),
-          oauthServiceProvider.overrideWithValue(
-            OAuthService(exchangeTimeout: Duration.zero),
-          ),
-        ],
-        home: LoginWebViewPage(
-          create: true,
-          oauthService: OAuthService(exchangeTimeout: Duration.zero),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final controller = _FakeWebViewController.latest!;
-    expect(
-      controller.lastLoadedUrl,
-      Uri.parse('https://accounts.pixiv.net/signup'),
-    );
+    final webView = await pumpLoginPage(tester, create: true);
+    final controller = webView.controller;
+    expect(controller.loadedUrls, ['https://accounts.pixiv.net/signup']);
 
     // Engine detach is the fatal path reachable in signup mode. Detach
     // disables frame production, so resume before asserting the card.
@@ -497,15 +354,9 @@ void main() {
     // After the reload the fatal flag must be gone too — otherwise a
     // follow-up main-frame failure is swallowed by _reportRecoverable's
     // `if (_fatal) return` guard and the WebView fails silently.
-    final delegate = _FakeNavigationDelegate.latest!;
-    delegate.webResourceError?.call(
-      WebResourceError(
-        errorCode: -2,
-        description: 'host lookup failed',
-        isForMainFrame: true,
-        errorType: WebResourceErrorType.hostLookup,
-        url: 'https://accounts.pixiv.net/signup',
-      ),
+    webView.loadError(
+      'https://accounts.pixiv.net/signup',
+      WebResourceErrorType.HOST_LOOKUP,
     );
     await tester.pump();
     expect(find.text('页面加载失败'), findsOneWidget);
@@ -514,42 +365,26 @@ void main() {
   testWidgets('error messages carry type and host, never the full URL', (
     tester,
   ) async {
-    await pumpLoginPage(tester);
-    final delegate = _FakeNavigationDelegate.latest!;
-    delegate.pageStarted?.call('https://accounts.pixiv.net/login');
+    final webView = await pumpLoginPage(tester);
 
-    delegate.webResourceError!.call(
-      const WebResourceError(
-        errorCode: -8,
-        description: 'failed',
-        errorType: WebResourceErrorType.timeout,
-        isForMainFrame: true,
-        url: 'https://accounts.pixiv.net/login?code=secret&state=abc',
-      ),
+    webView.loadError(
+      'https://accounts.pixiv.net/login?code=secret&state=abc',
+      WebResourceErrorType.TIMEOUT,
     );
     await tester.pump();
 
-    // Same '<type> <host>' shape the desktop page reports, behind the
-    // details disclosure: the query string must not leak into the card.
+    // '<type> <host>' behind the details disclosure: the query string must
+    // not leak into the card.
     expect(find.text('页面加载失败'), findsOneWidget);
     await tester.tap(find.text('详情'));
     await tester.pump();
-    expect(find.text('timeout accounts.pixiv.net'), findsOneWidget);
+    expect(find.text('TIMEOUT accounts.pixiv.net'), findsOneWidget);
     expect(find.textContaining('code=secret'), findsNothing);
 
-    // HTTP errors follow the same '<status> <host>' contract. The main
-    // frame has moved to the query URL so this one is reported.
+    // HTTP errors follow the same '<status> <host>' contract.
     await tester.tap(find.text('知道了'));
     await tester.pump();
-    delegate.pageStarted?.call('https://accounts.pixiv.net/login?ref=x');
-    delegate.httpError!.call(
-      HttpResponseError(
-        request: WebResourceRequest(
-          uri: Uri.parse('https://accounts.pixiv.net/login?ref=x'),
-        ),
-        response: const WebResourceResponse(uri: null, statusCode: 403),
-      ),
-    );
+    webView.httpError('https://accounts.pixiv.net/login?ref=x', 403);
     await tester.pump();
     expect(find.text('网络错误（HTTP 403 accounts.pixiv.net）'), findsOneWidget);
     expect(find.textContaining('ref=x'), findsNothing);
