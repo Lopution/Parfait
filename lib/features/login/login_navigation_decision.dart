@@ -1,11 +1,9 @@
 import '../../core/auth/oauth_service.dart';
 import '../../core/auth/pkce.dart';
 
-/// Pure navigation decision for the OAuth login WebView, shared by the
-/// `webview_flutter` page (Android/iOS) and the `flutter_inappwebview` page
-/// (Windows desktop). Both surfaces must apply the exact same rule:
-/// an exact `pixiv://account?code=…` redirect is the only completed login;
-/// anything else belongs to Pixiv's own login flow.
+/// Pure navigation decision for the OAuth login WebView: an exact
+/// `pixiv://account?code=…` redirect is the only completed login; anything
+/// else belongs to Pixiv's own login flow.
 sealed class LoginNavigationDecision {
   const LoginNavigationDecision();
 }

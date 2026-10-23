@@ -60,7 +60,6 @@ dependencies:
   sqflite_common_ffi: ^2.3.5
   url_launcher: ^6.3.2
   visibility_detector: ^0.4.0
-  webview_flutter: ^4.13.0
 dependency_overrides:
   # Vendored fork: an AGP 9 build fix and the reverse-image file chooser
   # slot. plugins/flutter_inappwebview_android/UPSTREAM.md lists every
@@ -75,7 +74,6 @@ dev_dependencies:
     sdk: flutter
   network_image_mock: ^2.1.1
   shared_preferences_platform_interface: ^2.4.0
-  webview_flutter_platform_interface: ^2.15.0
 
 flutter:
   generate: true

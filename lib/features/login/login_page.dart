@@ -155,8 +155,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    // R7 was cancelled: the first login always uses the stable webview_flutter
-    // path (C16). The native interception entry is removed.
+    // R7 was cancelled: the first login always goes through the WebView
+    // page (C16). The native interception entry is removed.
     final result = await context.push<bool>(
       Uri(
         path: '/login/web',

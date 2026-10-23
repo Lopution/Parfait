@@ -113,3 +113,17 @@ reviewed: 2026-10-14
   the session on background broke logins that read a code from another app.
 - **Check:** `test/login_navigation_test.dart` "carries every destination the Pixiv login page chooses" "backgrounding the app keeps the login session usable", `test/login_navigation_decision_test.dart` "pixiv://account without a code aborts the session"
 - **Code:** `lib/features/login`, `lib/core/auth/oauth_service.dart`
+
+### DROID-10 One WebView plugin; Windows stops navigations as they start
+- **Rule:** Embedded pages use `flutter_inappwebview` on every platform.
+  `WebNavigationGuard` asks before a main-frame navigation
+  (`shouldOverrideUrlLoading`) except on Windows, where it stops the
+  navigation as it starts (`onLoadStart`); the login page also runs the
+  decision on `onUpdateVisitedHistory` there. The reverse-image upload
+  page stops navigations as they start on every platform.
+- **Why:** A second plugin (`webview_flutter`) shipped about 130 KB of Dart
+  for the same job. WebView2 implements the hook with CDP
+  `Fetch.requestPaused`, which aborted Pixiv's authorize → login redirect
+  chain mid-way; server-side redirects there can skip `onLoadStart`.
+- **Check:** `test/login_navigation_test.dart` "an invalid OAuth callback ends the attempt" "Windows stops the callback as it starts or lands in history"
+- **Code:** `lib/app/widgets/web_navigation_guard.dart`, `lib/features/login/login_webview_page.dart`, `lib/features/search/reverse_image_search_page.dart`
