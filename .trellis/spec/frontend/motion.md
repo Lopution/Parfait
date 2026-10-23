@@ -246,8 +246,8 @@ reviewed: 2026-10-19
   throttles its events. A transition pushed the new page's tree during
   its first frames, up to 11.6 ms of one. Even throttled, a fling pushed
   every ~108 ms at 7.5–11 ms each, and a push 100 ms after a transition
-  landed inside image and content fades (2026-10-23 device traces; user
-  decision: no pushes while scrolling or animating, at most 2 s late).
+  landed inside image and content fades (device traces; user decision:
+  no pushes while scrolling or animating, at most 2 s late).
 - **Check:** `test/semantics_push_throttle_test.dart`
 - **Code:** `lib/core/platform/app_root_pipeline_owner.dart`, `lib/app/scroll_behavior.dart`, `lib/app/motion/page_transitions.dart`, `lib/app/widgets/home_branch_stack.dart`
 
