@@ -12,6 +12,7 @@ import '../../../app/pull_to_refresh.dart';
 import '../../../app/navigation/routes.dart';
 import '../../../app/icons/app_icons.dart';
 import '../../../core/entity/illust_store.dart';
+import '../../../core/entity/stored_entities.dart';
 import '../../../core/navigation/home_destination.dart';
 import '../../../core/network/api_error.dart';
 import '../../../core/novel/novel_store.dart';
@@ -454,6 +455,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
   ) {
     final store = ref.watch(illustStoreProvider);
     final entities = store.getAll(feed.ids);
+    final heroScope = 'recommended:${type.name}';
     return [
       IllustFeedGrid(
         padding: _gridPadding,
@@ -462,10 +464,10 @@ class _RecommendedFeedBody extends ConsumerWidget {
         pagerLoadMore: onLoadMore,
         warmTexts: (context, index) =>
             IllustCard.warmTexts(context, entities[index]),
-        itemBuilder: (context, index) => IllustCard(
-          entity: entities[index],
-          heroScope: 'recommended:${type.name}',
-        ),
+        items: entities,
+        itemDeps: heroScope,
+        itemBuilder: (context, index) =>
+            IllustCard(entity: entities[index], heroScope: heroScope),
       ),
       ...tail,
     ];
@@ -476,11 +478,11 @@ class _RecommendedFeedBody extends ConsumerWidget {
     WidgetRef ref,
     List<Widget> tail,
   ) {
-    final storedNovels = ref.watch(novelStoreProvider);
-    final novels = [
-      for (final id in feed.ids)
-        if (storedNovels[id] != null) storedNovels[id]!,
-    ];
+    final novels = ref
+        .watch(
+          novelStoreProvider.select((store) => StoredEntities(store, feed.ids)),
+        )
+        .items;
     return [
       SliverPadding(
         padding: const EdgeInsets.only(top: FuncSpacing.sm),
@@ -489,6 +491,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
           firstId: novels.firstOrNull?.id,
           warmTexts: (context, index) =>
               NovelEntry.warmTexts(context, novels[index]),
+          items: novels,
           itemBuilder: (context, index) => KeyedSubtree(
             key: ValueKey(novels[index].id),
             child: NovelEntry.compact(entity: novels[index]),
@@ -504,11 +507,11 @@ class _RecommendedFeedBody extends ConsumerWidget {
     WidgetRef ref,
     List<Widget> tail,
   ) {
-    final storedUsers = ref.watch(userStoreProvider);
-    final users = [
-      for (final id in feed.ids)
-        if (storedUsers[id] != null) storedUsers[id]!,
-    ];
+    final users = ref
+        .watch(
+          userStoreProvider.select((store) => StoredEntities(store, feed.ids)),
+        )
+        .items;
     return [
       SliverPadding(
         padding: const EdgeInsets.only(top: FuncSpacing.sm),
@@ -520,6 +523,7 @@ class _RecommendedFeedBody extends ConsumerWidget {
             name: users[index].name,
             account: _UserRow.handleOf(users[index]),
           ),
+          items: users,
           itemBuilder: (context, index) => KeyedSubtree(
             key: ValueKey(users[index].id),
             child: _UserRow(entity: users[index]),

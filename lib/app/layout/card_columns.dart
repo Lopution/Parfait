@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 
 import '../motion/motion_tokens.dart';
+import '../widgets/feed/feed_item_cache.dart';
 import '../widgets/feed/feed_text_warmup.dart';
 import 'sliver_width_builder.dart';
 
@@ -70,10 +71,19 @@ class SliverCardList extends StatefulWidget {
     required this.itemBuilder,
     this.warmTexts,
     this.firstId,
-  });
+    this.items,
+    this.itemDeps,
+  }) : assert(items == null || items.length == itemCount);
 
   final int itemCount;
   final IndexedWidgetBuilder itemBuilder;
+
+  /// The entity behind each card. A built card is reused while its entity
+  /// is the same instance and [itemDeps] stay equal ([FeedItemCache]).
+  final List<Object>? items;
+
+  /// Everything else [itemBuilder] reads, for [items].
+  final Object? itemDeps;
 
   /// The text lines of the card at an index, as the card lays them out
   /// (`NovelEntry.warmTexts`). The lines of the cards just past the built
@@ -91,6 +101,7 @@ class SliverCardList extends StatefulWidget {
 
 class _SliverCardListState extends State<SliverCardList> {
   final _warmup = FeedTextWindow();
+  final _cards = FeedItemCache();
 
   @override
   void dispose() {
@@ -109,6 +120,7 @@ class _SliverCardListState extends State<SliverCardList> {
         texts: warmTexts,
       );
     }
+    _cards.update(widget.items, widget.itemDeps);
     return SliverWidthBuilder(
       builder: (context, width) {
         final columns = CardColumns.of(width);
@@ -123,7 +135,8 @@ class _SliverCardListState extends State<SliverCardList> {
               row: row,
               columns: columns,
               count: widget.itemCount,
-              itemBuilder: widget.itemBuilder,
+              itemBuilder: (context, index) =>
+                  _cards.build(context, index, widget.itemBuilder),
             );
           },
         );

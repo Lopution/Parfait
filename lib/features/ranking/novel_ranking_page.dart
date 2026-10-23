@@ -13,6 +13,7 @@ import '../../core/network/api_date.dart';
 import '../../core/network/api_error.dart';
 import '../../core/novel/novel_ranking_feed_controller.dart';
 import '../../core/novel/novel_repository.dart';
+import '../../core/entity/stored_entities.dart';
 import '../../core/novel/novel_store.dart';
 import '../../core/ranking/ranking_catalog.dart';
 import '../../l10n/context.dart';
@@ -74,7 +75,6 @@ class _NovelRankingModeBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(novelRankingFeedProvider(feedKey));
-    final store = ref.watch(novelStoreProvider);
     return state.when(
       loading: () => const FeedLoading(),
       error: (error, _) => FeedError(
@@ -107,10 +107,13 @@ class _NovelRankingModeBody extends ConsumerWidget {
           );
         }
 
-        final entities = [
-          for (final id in feed.ids)
-            if (store[id] != null) store[id]!,
-        ];
+        final entities = ref
+            .watch(
+              novelStoreProvider.select(
+                (store) => StoredEntities(store, feed.ids),
+              ),
+            )
+            .items;
         return PullToRefresh(
           onRefresh: () =>
               ref.read(novelRankingFeedProvider(feedKey).notifier).refresh(),
@@ -136,6 +139,7 @@ class _NovelRankingModeBody extends ConsumerWidget {
                           firstId: entities.firstOrNull?.id,
                           warmTexts: (context, index) =>
                               NovelEntry.warmTexts(context, entities[index]),
+                          items: entities,
                           itemBuilder: (context, index) => KeyedSubtree(
                             key: ValueKey(entities[index].id),
                             child: NovelEntry.ranking(

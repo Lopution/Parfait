@@ -9,6 +9,7 @@ import '../../app/navigation/routes.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/novel_entry.dart';
 import '../../core/entity/illust_store.dart';
+import '../../core/entity/stored_entities.dart';
 import '../../core/new/new_feed_controller.dart';
 import '../../core/new/new_feed_models.dart';
 import '../../core/network/api_error.dart';
@@ -386,6 +387,7 @@ class _NewFeedBody extends ConsumerWidget {
     if (feedKey.type == NewFeedType.illust) {
       final store = ref.watch(illustStoreProvider);
       final entities = store.getAll(feed.ids);
+      final heroScope = 'new:${feedKey.scope.name}:${feedKey.type.name}';
       return [
         IllustFeedGrid(
           itemIds: [for (final e in entities) e.id],
@@ -394,25 +396,26 @@ class _NewFeedBody extends ConsumerWidget {
               ref.read(newFeedProvider(feedKey).notifier).loadMore(),
           warmTexts: (context, index) =>
               IllustCard.warmTexts(context, entities[index]),
-          itemBuilder: (context, index) => IllustCard(
-            entity: entities[index],
-            heroScope: 'new:${feedKey.scope.name}:${feedKey.type.name}',
-          ),
+          items: entities,
+          itemDeps: heroScope,
+          itemBuilder: (context, index) =>
+              IllustCard(entity: entities[index], heroScope: heroScope),
         ),
         ...tail,
       ];
     }
-    final storedNovels = ref.watch(novelStoreProvider);
-    final entities = [
-      for (final id in feed.ids)
-        if (storedNovels[id] != null) storedNovels[id]!,
-    ];
+    final entities = ref
+        .watch(
+          novelStoreProvider.select((store) => StoredEntities(store, feed.ids)),
+        )
+        .items;
     return [
       SliverCardList(
         itemCount: entities.length,
         firstId: entities.firstOrNull?.id,
         warmTexts: (context, index) =>
             NovelEntry.warmTexts(context, entities[index]),
+        items: entities,
         itemBuilder: (context, index) =>
             NovelEntry.regular(entity: entities[index]),
       ),

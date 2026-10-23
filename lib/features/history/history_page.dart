@@ -557,7 +557,9 @@ class _HistoryEntry extends ConsumerWidget {
       ),
       HistoryContentType.novel => _NovelHistoryEntry(
         record: record,
-        entity: ref.watch(novelStoreProvider)[record.contentId],
+        entity: ref.watch(
+          novelStoreProvider.select((store) => store[record.contentId]),
+        ),
       ),
     };
     return SelectableTile(

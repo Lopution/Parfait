@@ -146,6 +146,21 @@ reviewed: 2026-10-19
 - **Check:** `test/responsive_layout_test.dart` "a deferred cache builds the screen, then only the cache area", `test/illust_detail_page_test.dart` "the push frame builds no list item off screen"
 - **Code:** `lib/app/layout/deferred_cache_scroll_view.dart`, `lib/app/motion/hero_transition.dart`, `lib/features/illust/detail/illust_detail_page.dart`
 
+### FEED-21 A built card rebuilds only when its own inputs change
+- **Rule:** Feed lists pass `items` (the entity behind each card) and
+  `itemDeps` (everything else the builder reads, such as the hero scope)
+  to `IllustFeedGrid` and `SliverCardList`; the builder reads nothing
+  else and not its context. While the entity at an index is the same
+  instance and the deps are equal, the list hands back the card it built
+  (`FeedItemCache`). A body that lists entities from a `Notifier<Map>`
+  store selects them as `StoredEntities`, so merges of other entities do
+  not rebuild it. Lists with per-row selection state (history, watch
+  later) build every time.
+- **Why:** Each body rebuild (a page appended, a load-more phase change,
+  any store merge) rebuilt every built card in that frame.
+- **Check:** `test/feed_item_cache_test.dart`
+- **Code:** `lib/app/widgets/feed/feed_item_cache.dart`, `lib/core/entity/stored_entities.dart`, `lib/app/layout/card_columns.dart`, `lib/app/widgets/feed/feed_grid.dart`
+
 ## Pull to refresh
 
 ### FEED-07 PullToRefresh is the only refresh wrapper

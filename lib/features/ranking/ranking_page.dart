@@ -143,6 +143,8 @@ class _RankingModeBody extends ConsumerWidget {
                             .loadMore(),
                         warmTexts: (context, index) =>
                             IllustCard.warmTexts(context, entities[index]),
+                        items: entities,
+                        itemDeps: _listId,
                         itemBuilder: (context, index) => IllustCard(
                           entity: entities[index],
                           heroScope: 'ranking:$_listId',

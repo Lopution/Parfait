@@ -7,6 +7,7 @@ import '../../app/navigation/routes.dart';
 import '../../app/person_avatar.dart';
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../core/entity/stored_entities.dart';
 import '../../core/network/api_error.dart';
 import '../../core/profile/profile_feed_controller.dart';
 import '../../core/profile/profile_models.dart';
@@ -49,11 +50,13 @@ class ProfileUserFeed extends ConsumerWidget {
         if (feed.showInitialSpinner) {
           return const FeedLoading();
         }
-        final storedUsers = ref.watch(userStoreProvider);
-        final users = [
-          for (final id in feed.ids)
-            if (storedUsers[id] != null) storedUsers[id]!,
-        ];
+        final users = ref
+            .watch(
+              userStoreProvider.select(
+                (store) => StoredEntities(store, feed.ids),
+              ),
+            )
+            .items;
         return PullToRefresh(
           isNested: true,
           onRefresh: () =>
@@ -82,6 +85,7 @@ class ProfileUserFeed extends ConsumerWidget {
                 else ...[
                   SliverCardList(
                     itemCount: users.length,
+                    items: users,
                     itemBuilder: (context, index) =>
                         _UserPreviewTile(user: users[index]),
                   ),
