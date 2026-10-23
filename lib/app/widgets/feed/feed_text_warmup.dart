@@ -15,28 +15,33 @@ typedef WarmText = ({String text, TextStyle style, Locale? locale});
 typedef WarmTexts = List<WarmText> Function(BuildContext context, int index);
 
 /// [text] as a [Text] under [context] lays it out with [style] and
-/// `locale: contentLocale(context, text)`: the style merged over the
-/// inherited one ([inherited], else the [DefaultTextStyle]) and then made
-/// bold when the platform asks for bold text; the locale the text's script
-/// one, else the inherited one.
+/// `locale: contentLocale(context, text)`: the style as [warmStyle] gives
+/// it; the locale the text's script one, else the inherited one.
 WarmText warmLine(
   BuildContext context,
   String text,
   TextStyle? style, {
   TextStyle? inherited,
+}) => (
+  text: text,
+  style: warmStyle(context, style, inherited: inherited),
+  locale: contentLocale(context, text) ?? Localizations.maybeLocaleOf(context),
+);
+
+/// [style] as a [Text] under [context] lays it out: merged over the
+/// inherited style ([inherited], else the [DefaultTextStyle]) and then made
+/// bold when the platform asks for bold text.
+TextStyle warmStyle(
+  BuildContext context,
+  TextStyle? style, {
+  TextStyle? inherited,
 }) {
-  var effective = style != null && !style.inherit
+  final effective = style != null && !style.inherit
       ? style
       : (inherited ?? DefaultTextStyle.of(context).style).merge(style);
-  if (MediaQuery.boldTextOf(context)) {
-    effective = effective.merge(const TextStyle(fontWeight: FontWeight.bold));
-  }
-  return (
-    text: text,
-    style: effective,
-    locale:
-        contentLocale(context, text) ?? Localizations.maybeLocaleOf(context),
-  );
+  return MediaQuery.boldTextOf(context)
+      ? effective.merge(const TextStyle(fontWeight: FontWeight.bold))
+      : effective;
 }
 
 /// Lays out feed card text between frames, ahead of the frame that builds

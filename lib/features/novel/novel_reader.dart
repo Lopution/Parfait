@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/network/api_error.dart';
 import '../../app/motion/motion_tokens.dart';
 import '../../app/widgets/feed/feed_states.dart';
+import '../../app/widgets/feed/feed_text_warmup.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/skeleton/func_skeleton.dart';
 import '../../core/network/pixiv_http_client.dart';
@@ -262,6 +263,7 @@ class NovelReader extends StatefulWidget {
     this.handle,
     this.layoutEngine,
     this.budget = const NovelLayoutBudget(),
+    this.textWarmup,
   });
 
   final NovelEntity novel;
@@ -304,6 +306,9 @@ class NovelReader extends StatefulWidget {
   /// the [NovelLayoutBudgetExceeded] error path.
   final NovelLayoutBudget budget;
 
+  /// Test seam for the pages laid out ahead; production leaves the default.
+  final FeedTextWarmup? textWarmup;
+
   @override
   State<NovelReader> createState() => _NovelReaderState();
 }
@@ -314,6 +319,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   late final NovelLayoutEngine _layoutEngine =
       widget.layoutEngine ?? NovelLayoutEngine();
   final NovelReaderCommitGate _commitGate = NovelReaderCommitGate();
+  late final FeedTextWarmup _warmup = widget.textWarmup ?? FeedTextWarmup();
 
   NovelLayout? _layout;
 
@@ -402,6 +408,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
       handle.layout = null;
     }
     _commitGate.dispose();
+    _warmup.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -457,36 +464,67 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
             if (target < 0 || target >= _reader.pageCount) return;
             turnPage(context, _pageController, target);
           },
-          child: PageView.builder(
-            controller: _pageController,
-            scrollDirection: Axis.horizontal,
-            allowImplicitScrolling: true,
-            scrollCacheExtent: _neighbourPages,
-            itemCount: layout.pages.length,
-            onPageChanged: (page) {
-              // Nothing built reads the page: a rebuild here, mid-swipe,
-              // rebuilt every line of the pages on screen.
-              _reader.setPage(page);
-              _notifyAnchor(
-                _layoutEchoPending
-                    ? NovelAnchorCause.layoutEcho
-                    : NovelAnchorCause.userTurn,
-              );
-              _notifyProgress();
-            },
-            itemBuilder: (context, index) => _NovelPage(
-              page: layout.pages[index],
-              style: _style,
-              color: widget.textColor ?? theme.colorScheme.onSurface,
-              // The layout viewport already carries the line-length cap —
-              // the text column centers inside it while tap zones keep the
-              // full width.
-              maxWidth: layout.key.viewport.width,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _onPageScroll,
+            child: PageView.builder(
+              controller: _pageController,
+              scrollDirection: Axis.horizontal,
+              allowImplicitScrolling: true,
+              scrollCacheExtent: _neighbourPages,
+              itemCount: layout.pages.length,
+              onPageChanged: (page) {
+                // Nothing built reads the page: a rebuild here, mid-swipe,
+                // rebuilt every line of the pages on screen.
+                _reader.setPage(page);
+                _notifyAnchor(
+                  _layoutEchoPending
+                      ? NovelAnchorCause.layoutEcho
+                      : NovelAnchorCause.userTurn,
+                );
+                _notifyProgress();
+              },
+              itemBuilder: (context, index) => _NovelPage(
+                page: layout.pages[index],
+                style: _style,
+                color: widget.textColor ?? theme.colorScheme.onSurface,
+                // The layout viewport already carries the line-length cap —
+                // the text column centers inside it while tap zones keep the
+                // full width.
+                maxWidth: layout.key.viewport.width,
+              ),
             ),
           ),
         );
       },
     );
+  }
+
+  bool _onPageScroll(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+    if (notification is ScrollStartNotification) _warmup.clear();
+    if (notification is ScrollEndNotification) _warmPagesAhead();
+    return false;
+  }
+
+  /// Lays out the lines of the pages two away from the one on screen,
+  /// between frames while the reader rests. The pages beside it are built
+  /// already; a turn builds the next one out in the frame it lands, and
+  /// those lines' first layout (about 6 ms a page) dropped that frame.
+  void _warmPagesAhead() {
+    _warmup.clear();
+    final pages = _layout?.pages;
+    if (pages == null) return;
+    final color = widget.textColor ?? Theme.of(context).colorScheme.onSurface;
+    final page = _reader.currentPage;
+    for (final index in [page - 2, page + 2]) {
+      if (index < 0 || index >= pages.length) continue;
+      _warmup.add(
+        _NovelPage.warmTexts(context, pages[index], _style, color),
+        item: index,
+        textScaler: MediaQuery.textScalerOf(context),
+        textDirection: Directionality.of(context),
+      );
+    }
   }
 
   NovelLayoutStyle get _style => NovelLayoutStyle(
@@ -593,6 +631,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
             // onPageChanged fires then).
             _notifyAnchor(NovelAnchorCause.layoutEcho);
             _notifyProgress();
+            _warmPagesAhead();
           });
         },
       );
@@ -650,6 +689,28 @@ class _NovelPage extends StatelessWidget {
         child: _buildColumn(),
       ),
     );
+  }
+
+  /// The lines of [page] as its `Text`s lay them out: the reader's style
+  /// over the ambient one, in the UI locale, as the lines set none.
+  static List<WarmText> warmTexts(
+    BuildContext context,
+    NovelLayoutPage page,
+    NovelLayoutStyle style,
+    Color color,
+  ) {
+    final textStyle = warmStyle(context, style.textStyle(color));
+    final translationStyle = warmStyle(context, style.translationStyle(color));
+    final locale = Localizations.maybeLocaleOf(context);
+    return [
+      for (final line in page.lines)
+        if (line.text.isNotEmpty)
+          (
+            text: line.text,
+            style: line.isTranslation ? translationStyle : textStyle,
+            locale: locale,
+          ),
+    ];
   }
 
   Widget _buildColumn() {
