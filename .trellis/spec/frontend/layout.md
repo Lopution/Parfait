@@ -83,6 +83,16 @@ reviewed: 2026-10-17
 - **Check:** `test/architecture/format_and_font_test.dart` "user-facing dates go through AppFormat" "counts go through AppFormat"
 - **Code:** `lib/app/format`
 
+### LAYOUT-16 Framework strings ship in the app's languages only
+- **Rule:** `MaterialApp` takes `appLocalizationsDelegates`, whose
+  Material, Cupertino and Widgets delegates name the zh, en, ja and ru
+  translation classes. A new supported language adds its classes there;
+  `Global*Localizations.delegate` stays out of `lib/`.
+- **Why:** Flutter's delegates switch over every language it ships, so
+  all ~80 translations were compiled in: 0.1 MB of the APK.
+- **Check:** `test/app_localizations_delegates_test.dart` "the app's locales match Flutter's own delegates"
+- **Code:** `lib/l10n/app_localizations_delegates.dart`
+
 ## Locale layout matrix
 
 ### LAYOUT-07 Pages are checked in every locale and profile
