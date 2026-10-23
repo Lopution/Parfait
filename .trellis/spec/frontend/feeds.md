@@ -113,7 +113,8 @@ reviewed: 2026-10-19
 ### FEED-06 Card text is laid out between frames before its card
 - **Rule:** Content text on feed cards and rows sets
   `locale: contentLocale(context, text)`. `IllustFeedGrid`s of `IllustCard`s
-  and `SliverCardList`s of `NovelEntry`s pass the card's `warmTexts`, built
+  and `SliverCardList`s of `NovelEntry`s or recommended users'
+  `AuthorSummary`s pass the card's `warmTexts`, built
   by `warmLine` from the style helpers the card itself uses, so a warm line
   equals the laid-out `RenderParagraph` in text, style and locale.
   `FeedTextWindow` queues at most `maxTexts` lines past the furthest built
@@ -128,7 +129,7 @@ reviewed: 2026-10-19
   font style), which spares the frame the shaping only if the line matches
   exactly and is not evicted before its card is built.
 - **Check:** `test/feed_text_warmup_test.dart`
-- **Code:** `lib/app/widgets/feed/feed_text_warmup.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/widgets/novel_entry.dart`, `lib/app/layout/card_columns.dart`, `lib/app/format/content_locale.dart`
+- **Code:** `lib/app/widgets/feed/feed_text_warmup.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/widgets/novel_entry.dart`, `lib/app/widgets/author_summary.dart`, `lib/app/layout/card_columns.dart`, `lib/app/format/content_locale.dart`
 
 ### FEED-18 A list builds its cache area from its second frame
 - **Rule:** A list with `kFeedCacheExtent`, the settings list and the

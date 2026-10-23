@@ -514,6 +514,12 @@ class _RecommendedFeedBody extends ConsumerWidget {
         padding: const EdgeInsets.only(top: FuncSpacing.sm),
         sliver: SliverCardList(
           itemCount: users.length,
+          firstId: users.firstOrNull?.id,
+          warmTexts: (context, index) => AuthorSummary.warmTexts(
+            context,
+            name: users[index].name,
+            account: _UserRow.handleOf(users[index]),
+          ),
           itemBuilder: (context, index) => KeyedSubtree(
             key: ValueKey(users[index].id),
             child: _UserRow(entity: users[index]),
@@ -532,6 +538,10 @@ class _UserRow extends ConsumerWidget {
   const _UserRow({required this.entity});
 
   final UserEntity entity;
+
+  /// The "@account" line, or null without an account.
+  static String? handleOf(UserEntity user) =>
+      user.account.isEmpty ? null : '@${user.account}';
 
   /// Preview works that may be shown: local R-18/AI blocks and mute hits
   /// are skipped outright — a blurred square this small says nothing.
@@ -580,9 +590,7 @@ class _UserRow extends ConsumerWidget {
                       Expanded(
                         child: AuthorSummary(
                           name: entity.name,
-                          account: entity.account.isEmpty
-                              ? null
-                              : '@${entity.account}',
+                          account: handleOf(entity),
                           imageUrl: entity.profileImageUrl,
                           avatarRadius: 24,
                         ),

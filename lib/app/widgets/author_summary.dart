@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../format/content_locale.dart';
 import '../person_avatar.dart';
 import '../theme/func_semantic_tokens.dart';
+import 'feed/feed_text_warmup.dart';
 
 /// Shared author row: avatar slot + name (+ optional account/handle) wrapped
 /// in a single [InkWell]. Pages report the navigation intent through
@@ -33,6 +34,23 @@ class AuthorSummary extends StatelessWidget {
   final Key? avatarKey;
   final EdgeInsetsGeometry padding;
   final bool compact;
+
+  /// The lines the standard summary lays out, for a list's `warmTexts`.
+  /// Its text inherits `bodyMedium`, the default of the card or other
+  /// Material it sits on.
+  static List<WarmText> warmTexts(
+    BuildContext context, {
+    required String name,
+    String? account,
+  }) {
+    final inherited = Theme.of(context).textTheme.bodyMedium!;
+    final tokens = FuncSemanticTokens.of(context);
+    return [
+      warmLine(context, name, tokens.title, inherited: inherited),
+      if (account != null)
+        warmLine(context, account, tokens.caption, inherited: inherited),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
