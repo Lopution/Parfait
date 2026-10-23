@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../core/platform/app_root_pipeline_owner.dart';
 import 'motion/motion_tokens.dart';
 
 /// App-wide scroll behavior: on desktop the mouse and trackpad drag like
@@ -17,7 +18,8 @@ import 'motion/motion_tokens.dart';
 /// feed scrolls share one scheme.
 ///
 /// Vertical lists show a scrollbar while a mouse is connected
-/// ([mouseScrollbar]).
+/// ([mouseScrollbar]), and no scrollable pushes semantics while it scrolls
+/// ([ScrollSemanticsHold]).
 class FuncScrollBehavior extends MaterialScrollBehavior {
   const FuncScrollBehavior();
 
@@ -41,7 +43,7 @@ class FuncScrollBehavior extends MaterialScrollBehavior {
     BuildContext context,
     Widget child,
     ScrollableDetails details,
-  ) => stretchOverscroll(context, child, details);
+  ) => ScrollSemanticsHold(child: stretchOverscroll(context, child, details));
 
   @override
   Widget buildScrollbar(
@@ -91,6 +93,93 @@ Widget stretchOverscroll(
         : defaultScrollNotificationPredicate,
     child: child,
   );
+}
+
+/// Holds the app's semantics pushes ([AppRootPipelineOwner.holdSemantics])
+/// while the scrollable it wraps scrolls: a drag, a fling or an animated
+/// scroll. Each push during a fling cost 7.5–11 ms of a frame with an
+/// accessibility service on; the platform gets the final tree once the
+/// scroll and the animations after it stop.
+///
+/// Every scroll behavior the app installs wraps its overscroll indicator in
+/// it. A text control's scrollable turns the indicator off and is not held.
+///
+/// The hold follows the scroll position, not its notifications: a
+/// scrollable unmounted or given a new position mid-scroll disposes the old
+/// position without an end notification, and a missed release would keep
+/// every later hold expired.
+class ScrollSemanticsHold extends StatefulWidget {
+  const ScrollSemanticsHold({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<ScrollSemanticsHold> createState() => _ScrollSemanticsHoldState();
+}
+
+class _ScrollSemanticsHoldState extends State<ScrollSemanticsHold> {
+  ScrollableState? _scrollable;
+  ScrollPosition? _position;
+  VoidCallback? _release;
+
+  bool _onNotification(ScrollNotification notification) {
+    if (notification is! ScrollStartNotification ||
+        notification.depth != 0 ||
+        _release != null) {
+      return false;
+    }
+    // The notification comes from inside the scrollable; this widget sits
+    // above its scope.
+    final scrollable = notification.context
+        ?.findAncestorStateOfType<ScrollableState>();
+    final position = scrollable?.position;
+    // A jump starts and ends in one call without ever scrolling.
+    if (position == null || !position.isScrollingNotifier.value) return false;
+    _scrollable = scrollable;
+    _position = position..isScrollingNotifier.addListener(_onScrolling);
+    _release = AppRootPipelineOwner.holdSemantics();
+    return false;
+  }
+
+  void _onScrolling() {
+    if (!_position!.isScrollingNotifier.value) _stop();
+  }
+
+  void _stop() {
+    _position?.isScrollingNotifier.removeListener(_onScrolling);
+    _position = null;
+    _scrollable = null;
+    _release?.call();
+    _release = null;
+  }
+
+  @override
+  void didUpdateWidget(ScrollSemanticsHold oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The scrollable rebuilds this right after replacing its position (new
+    // physics); the new one takes over a running scroll without a start.
+    final scrollable = _scrollable;
+    if (scrollable == null || identical(scrollable.position, _position)) {
+      return;
+    }
+    final next = scrollable.position;
+    if (!next.isScrollingNotifier.value) return _stop();
+    _position!.isScrollingNotifier.removeListener(_onScrolling);
+    _position = next..isScrollingNotifier.addListener(_onScrolling);
+  }
+
+  @override
+  void dispose() {
+    _stop();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      NotificationListener<ScrollNotification>(
+        onNotification: _onNotification,
+        child: widget.child,
+      );
 }
 
 /// The debug label NestedScrollView gives its outer controller ('inner'

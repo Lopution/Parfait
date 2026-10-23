@@ -12,8 +12,9 @@ import '../debug/frame_probe.dart';
 /// (`ViewConfiguration.getSendRecurringAccessibilityEventsInterval()`).
 const kSemanticsPushInterval = Duration(milliseconds: 100);
 
-/// Longest a transition holds semantics back: past it they flow again, so
-/// a transition that never ends cannot leave the platform behind.
+/// Longest semantics stay held, counted from the first hold to the push:
+/// past it they flow again, so a transition that never ends or an
+/// animation that never stops cannot leave the platform behind.
 const kSemanticsHoldLimit = Duration(seconds: 2);
 
 /// The app's root pipeline owner: pushes semantics at most once per
@@ -29,10 +30,13 @@ const kSemanticsHoldLimit = Duration(seconds: 2);
 /// keeps every dirty node for the next one, and a timer asks for a frame
 /// when the interval ends so the last change always arrives.
 ///
-/// Route transitions and branch switches hold pushes back ([holdSemantics]):
-/// a page entering or returning re-sent its whole tree mid-animation, up to
-/// 11.6 ms in one frame. The tree goes out one interval after the last
-/// transition ends, on a still frame.
+/// Route transitions, branch switches and scrolls hold pushes back
+/// ([holdSemantics]): a page entering or returning re-sent its whole tree
+/// mid-animation, up to 11.6 ms in one frame, and a fling pushed about
+/// every 108 ms, 7.5–11 ms each. The tree goes out at least one interval
+/// after the last hold ends, in the first frame after which no animation is
+/// ticking: an image or content fade still running would miss a frame to
+/// the push.
 final class AppRootPipelineOwner extends PipelineOwner {
   AppRootPipelineOwner() : super(onSemanticsUpdate: _noRootSemantics);
 
@@ -55,21 +59,24 @@ final class AppRootPipelineOwner extends PipelineOwner {
   Timer? _pendingPush;
 
   int _holds = 0;
+
+  /// The hold limit ran out: pushes flow while holds remain.
   bool _holdExpired = false;
   Timer? _holdLimit;
 
-  /// The interval after the last hold, before the held tree goes out.
+  /// After the last hold: waiting an interval, then for a still frame.
   bool _settling = false;
+  Timer? _settleTimer;
 
-  bool get _held => (_holds > 0 && !_holdExpired) || _settling;
+  /// Tells a settle's pending checks apart from a later settle's.
+  int _settleRun = 0;
+
+  bool get _held => !_holdExpired && (_holds > 0 || _settling);
 
   VoidCallback _hold() {
-    if (_holds++ == 0) {
-      _holdLimit = Timer(kSemanticsHoldLimit, () {
-        _holdExpired = true;
-        SchedulerBinding.instance.ensureVisualUpdate();
-      });
-    }
+    // A hold arriving while the last one settles continues its episode,
+    // and so its limit.
+    if (_holds++ == 0 && !_settling) _beginEpisode();
     var released = false;
     return () {
       if (released) return;
@@ -78,17 +85,59 @@ final class AppRootPipelineOwner extends PipelineOwner {
     };
   }
 
+  void _beginEpisode() {
+    _holdExpired = false;
+    _holdLimit?.cancel();
+    _holdLimit = Timer(kSemanticsHoldLimit, _expire);
+  }
+
+  void _expire() {
+    _holdLimit = null;
+    if (_holds == 0) {
+      _endEpisode();
+    } else {
+      _holdExpired = true;
+    }
+    SchedulerBinding.instance.ensureVisualUpdate();
+  }
+
   void _settle() {
+    if (_holdExpired) {
+      _endEpisode();
+      SchedulerBinding.instance.ensureVisualUpdate();
+      return;
+    }
+    _settling = true;
+    final run = ++_settleRun;
+    _settleTimer?.cancel();
+    _settleTimer = Timer(kSemanticsPushInterval, () {
+      _settleTimer = null;
+      _pushWhenStill(run);
+    });
+  }
+
+  /// Ends the settle once no animation has a frame callback queued; until
+  /// then checks again after every frame. Tickers under a disabled
+  /// [TickerMode] (covered routes, hidden branches) queue none.
+  void _pushWhenStill(int run) {
+    if (run != _settleRun || _holds > 0) return;
+    final scheduler = SchedulerBinding.instance;
+    if (scheduler.transientCallbackCount > 0) {
+      scheduler.addPostFrameCallback((_) => _pushWhenStill(run));
+      return;
+    }
+    _endEpisode();
+    scheduler.ensureVisualUpdate();
+  }
+
+  void _endEpisode() {
     _holdLimit?.cancel();
     _holdLimit = null;
     _holdExpired = false;
-    _settling = true;
-    _pendingPush?.cancel();
-    _pendingPush = Timer(kSemanticsPushInterval, () {
-      _pendingPush = null;
-      _settling = false;
-      SchedulerBinding.instance.ensureVisualUpdate();
-    });
+    _settling = false;
+    _settleRun++;
+    _settleTimer?.cancel();
+    _settleTimer = null;
   }
 
   @override

@@ -229,20 +229,27 @@ reviewed: 2026-10-19
 - **Rule:** The root pipeline owner pushes semantics at most once per
   `kSemanticsPushInterval` (100 ms, Android's interval for recurring
   accessibility events). A frame inside the interval skips the flush and a
-  timer requests the frame that sends the last change. Route transitions
-  and home branch switches hold the push (`holdSemantics`) until an
-  interval after the last one ends; a hold gives way after
-  `kSemanticsHoldLimit` (2 s). Tests that read semantics right after an
-  interaction keep the default test binding; only the throttle's own test
-  installs this owner.
+  timer requests the frame that sends the last change. Route transitions,
+  home branch switches and scrolls hold the push (`holdSemantics`); every
+  app scroll behavior wraps its overscroll indicator in
+  `ScrollSemanticsHold`, whose hold follows the scroll position (released
+  when it stops scrolling, is replaced by a stopped one, or unmounts).
+  After the last hold the push waits an interval, then for a frame after
+  which no animation is ticking. `kSemanticsHoldLimit` (2 s), counted from
+  the first hold to the push, bounds both waits. Tests that read semantics
+  right after an interaction keep the default test binding; only the
+  throttle's own test installs this owner.
 - **Why:** Flutter pushed every changed node each frame, and the embedding
   sent two accessibility events per push. With a service on, a scrolling
   feed spent about 2 ms of each frame there and missed about one frame in
   every two seconds of fling; a native client pulls nodes on demand and
   throttles its events. A transition pushed the new page's tree during
-  its first frames, up to 11.6 ms of one.
+  its first frames, up to 11.6 ms of one. Even throttled, a fling pushed
+  every ~108 ms at 7.5–11 ms each, and a push 100 ms after a transition
+  landed inside image and content fades (device traces; user decision:
+  no pushes while scrolling or animating, at most 2 s late).
 - **Check:** `test/semantics_push_throttle_test.dart`
-- **Code:** `lib/core/platform/app_root_pipeline_owner.dart`, `lib/app/motion/page_transitions.dart`, `lib/app/widgets/home_branch_stack.dart`
+- **Code:** `lib/core/platform/app_root_pipeline_owner.dart`, `lib/app/scroll_behavior.dart`, `lib/app/motion/page_transitions.dart`, `lib/app/widgets/home_branch_stack.dart`
 
 ### MOTION-17 GPU pipelines a first use would compile are warmed at start
 - **Rule:** `PipelineWarmup` paints, in the app's first frames, what

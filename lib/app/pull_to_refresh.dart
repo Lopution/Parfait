@@ -285,13 +285,21 @@ class _FeedScrollBehavior extends ERScrollBehavior {
       textScrollPhysics(context) ?? super.getScrollPhysics(context);
 
   /// EasyRefresh's own draws no edge effect; the feed takes the app's,
-  /// leaving a drag at the top to the refresh header.
+  /// leaving a drag at the top to the refresh header, and holds semantics
+  /// while it scrolls as every app scrollable does.
   @override
   Widget buildOverscrollIndicator(
     BuildContext context,
     Widget child,
     ScrollableDetails details,
-  ) => stretchOverscroll(context, child, details, refreshAtLeadingEdge: true);
+  ) => ScrollSemanticsHold(
+    child: stretchOverscroll(
+      context,
+      child,
+      details,
+      refreshAtLeadingEdge: true,
+    ),
+  );
 
   @override
   Widget buildScrollbar(
