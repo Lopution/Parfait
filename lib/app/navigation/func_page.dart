@@ -4,7 +4,8 @@ import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoPageTransition;
 import 'package:flutter/widgets.dart';
 import 'package:material_ui/material_ui.dart' show Theme;
 
-import '../motion/hero_transition.dart' show HeroLiftHole, HeroPageCover;
+import '../motion/hero_transition.dart'
+    show HeroBarsCover, HeroLiftHole, HeroPageCover;
 import '../motion/motion_tokens.dart';
 import '../motion/page_transitions.dart';
 import 'frozen_while_hidden.dart';
@@ -230,6 +231,12 @@ class _FuncPageRoute<T> extends PageRoute<T> {
           child: FadeTransition(
             opacity: _backdropFade,
             child: ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
+          ),
+        ),
+        Positioned.fill(
+          child: HeroBarsCover(
+            route: this,
+            color: Theme.of(context).scaffoldBackgroundColor,
           ),
         ),
         content,

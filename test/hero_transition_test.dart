@@ -758,6 +758,8 @@ void main() {
       );
       expect(shown, inExclusiveRange(0, 1));
       expect(_heroClipRect(tester).top, closeTo(100 * (1 - shown), 0.5));
+      // Not a card's flight: no bars are lifted over it.
+      expect(_liftedBars(tester), isEmpty);
       await tester.pumpAndSettle();
       expect(chrome('control 1'), 1);
 
@@ -776,6 +778,124 @@ void main() {
       expect(tester.getTopLeft(find.byType(Hero).last), Offset.zero);
     });
   }
+
+  testWidgets('a card flight lifts the card page\'s bars over the image: '
+      'they slide and fade away as it opens and back as it returns', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(400, 800));
+    late BuildContext root;
+    late NavigatorState navigator;
+    PageRoute<void> page(Widget child, {bool shared = false}) =>
+        FuncPage<void>(
+              transitionDuration: const Duration(milliseconds: 400),
+              reverseTransitionDuration: const Duration(milliseconds: 400),
+              sharedElement: shared,
+              child: child,
+            ).createRoute(root)
+            as PageRoute<void>;
+    Widget art(Widget child) => Hero(
+      tag: 'card',
+      flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+      child: child,
+    );
+    // A card right under a 100px app bar, over a 100px bottom bar.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            root = context;
+            return Navigator(
+              observers: [HeroController()],
+              onGenerateRoute: (_) => page(
+                Builder(
+                  builder: (context) {
+                    navigator = Navigator.of(context);
+                    return Scaffold(
+                      appBar: const PreferredSize(
+                        preferredSize: Size.fromHeight(100),
+                        child: ColoredBox(color: Colors.green),
+                      ),
+                      body: ListView(
+                        children: [
+                          Align(
+                            alignment: Alignment.topLeft,
+                            child: art(
+                              const IllustHeroCardFrame(
+                                child: SizedBox.square(dimension: 200),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      bottomNavigationBar: _bottomBar,
+                    );
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    const top = Rect.fromLTRB(0, 0, 400, 100);
+    const bottom = Rect.fromLTRB(0, 700, 400, 800);
+    // Each bar [shown] of the way in, its content as faded.
+    void expectBars(double shown) {
+      final bars = _liftedBars(tester);
+      expect(bars.map((bar) => bar.opacity), everyElement(shown));
+      expect(bars.map((bar) => bar.rect), [
+        top.translate(0, -100 * (1 - shown)),
+        bottom.translate(0, 100 * (1 - shown)),
+      ]);
+    }
+
+    double shown() => _liftedBars(tester).first.opacity;
+    List<Rect> covered() =>
+        (tester.renderObject(find.byType(HeroBarsCover)) as dynamic)
+                .debugLastPaintedRects
+            as List<Rect>;
+
+    unawaited(
+      navigator.push(
+        page(
+          Align(
+            alignment: Alignment.topCenter,
+            child: art(const SizedBox.square(dimension: 400)),
+          ),
+          shared: true,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    // Takeoff: the bars where they were, over the image, which the app
+    // bar no longer cuts; the real ones covered.
+    expectBars(1);
+    expect(covered(), [top, bottom]);
+    expect(_heroPaintClipRect(tester)!.top, 0);
+    await tester.pump(const Duration(milliseconds: 150));
+    final opening = shown();
+    expect(opening, inExclusiveRange(0, 1));
+    expectBars(opening);
+    await tester.pumpAndSettle();
+    expect(_liftedBars(tester), isEmpty);
+    expect(covered(), isEmpty);
+
+    navigator.pop();
+    await tester.pump();
+    await tester.pump();
+    expectBars(0);
+    expect(covered(), [top, bottom]);
+    await tester.pump(const Duration(milliseconds: 150));
+    final returning = shown();
+    expect(returning, inExclusiveRange(0, 1));
+    expectBars(returning);
+    await tester.pump(const Duration(milliseconds: 240));
+    expect(shown(), greaterThan(returning));
+    await tester.pumpAndSettle();
+    expect(_liftedBars(tester), isEmpty);
+  });
 
   testWidgets('Hero pop flight is occluded by the chrome', (tester) async {
     setViewSize(tester, const Size(400, 800));
@@ -960,6 +1080,17 @@ Rect _heroClipRect(WidgetTester tester) {
 Rect? _heroPaintClipRect(WidgetTester tester) {
   final render = tester.renderObject(find.byType(HeroRectClip));
   return (render as dynamic).debugLastPaintClipRect as Rect?;
+}
+
+/// The card page's bars a flight last painted over its image, and their
+/// content's opacity; none outside a card flight.
+List<({Rect rect, double opacity})> _liftedBars(WidgetTester tester) {
+  final paint = find.byWidgetPredicate(
+    (widget) => '${widget.runtimeType}' == '_LiftedBarsPaint',
+  );
+  if (paint.evaluate().isEmpty) return const [];
+  return (tester.renderObject(paint) as dynamic).debugLastPaintedBars
+      as List<({Rect rect, double opacity})>;
 }
 
 class _FixedHeaderDelegate extends SliverPersistentHeaderDelegate {

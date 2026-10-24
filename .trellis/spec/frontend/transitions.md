@@ -153,8 +153,19 @@ reviewed: 2026-10-21
 - **Check:** `test/func_page_test.dart` "a shared-element page covers a still page" "the viewer stage fades whole, with no background"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight"; `test/architecture/feedback_channels_test.dart` "Hero uses only the shared illustHeroTag family"; `test/illust_card_badges_test.dart` "the pager image flies back only to a card on screen"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/app/navigation/routes.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/widgets/feed/feed_grid.dart`
 
-### TRANS-10 The flight clip and chrome follow the page over the card
-- **Rule:** Push and pop flights use a global clip between the source and
+### TRANS-10 The card page's bars ride over a card flight; other flights clip
+- **Rule:** A card's flight to and from its page (an `IllustHeroCardFrame`
+  end) lifts the card page's bars over the image: the bands of the page
+  above and below the card's viewport, across the page, captured as the
+  flight takes off (the screen before a push, the card's page on a pop).
+  They slide off the screen as the image opens, the top one up and the
+  bottom one down, each by its own height, and back as it returns, by the
+  image's progress; each keeps its background (the page colour) solid and
+  fades its content with the slide. The image is clipped at the far end
+  alone. Meanwhile the shared-element page's `HeroBarsCover`, over its
+  background and under its content, paints the real bars over in the
+  page colour; they show again as the flight ends, where the lifted ones
+  rest. Other flights use a global clip between the source and
   destination chrome boundaries, interpolated by how much the
   shared-element page over the card's route covers it (its background,
   or the whole page without one), or over the route holding
@@ -174,15 +185,22 @@ reviewed: 2026-10-21
   landing; slide transforms made the boundary empty. The page covers the
   page below over the first part of the flight while the image flies on, so a clip that
   followed the image left it over the tab row and the bottom bar of a
-  feed already shown. A card opened again while its image flew home
+  feed already shown. On a card flight no clip read right (user, 10-24,
+  after three prototypes): a bar that only fades either cut the image
+  along a line nobody could see or let it fly over the bar before the bar
+  showed. Google's Jetsnack keeps its bars over the shared element and
+  slides them away (`renderInSharedTransitionScopeOverlay` with
+  `animateEnterExit`). A whole bar fading over the image showed the image
+  through it, split in two; its solid background does not. Only the bands
+  are captured, so the takeoff frame rasterizes two strips, not a page. A card opened again while its image flew home
   sends the flight to the new page but keeps the shuttle, built with the
   old route's animation, which stops: the clip and the corners froze at
   the card end and the tab row cut the image on the detail page. The
   shuttle is painted over every page, so chrome on the image was covered
   as a flight set off and popped back whole at the landing, and badges
   floated over the card's empty slot.
-- **Check:** `test/hero_transition_test.dart` "Hero pop flight is occluded by the chrome" "Hero push from a nested feed stays intact" "chrome over a flight steps aside until the landing"
-- **Code:** `lib/app/motion/hero_rect_clip.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/navigation/func_page.dart`
+- **Check:** `test/hero_transition_test.dart` "a card flight lifts the card page's bars over the image" "Hero pop flight is occluded by the chrome" "Hero push from a nested feed stays intact" "chrome over a flight steps aside until the landing"
+- **Code:** `lib/app/motion/hero_rect_clip.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/motion/hero_lifted_bars.dart`, `lib/app/navigation/func_page.dart`
 
 ### TRANS-11 Card rounding lives inside the Hero child
 - **Rule:** The card's corner clip (`IllustHeroCardFrame`) wraps the Hero

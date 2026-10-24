@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
@@ -20,6 +21,7 @@ import 'hero_rect_clip.dart';
 import 'motion_tokens.dart';
 
 part 'hero_anomaly.dart';
+part 'hero_lifted_bars.dart';
 
 /// Hero flight geometry shared by the feed cards and the detail page.
 /// The Hero tag and shuttle builder are the single artwork transition
@@ -292,6 +294,10 @@ RectTween illustHeroRectTween(Rect? begin, Rect? end) =>
 /// enters. This moving boundary is important: a static intersection
 /// produces the hard cut seen when returning from a scrolled profile, while
 /// no clip lets an opening image paint over the destination chrome.
+///
+/// A card's flight to and from its page draws the card page's bars over
+/// the image instead ([_LiftedBars]), which then is clipped at the other
+/// end alone.
 Widget illustHeroFlightShuttleBuilder(
   BuildContext flightContext,
   Animation<double> animation,
@@ -367,6 +373,18 @@ Widget illustHeroFlightShuttleBuilder(
   final fromBox = _heroScreenRect(fromHeroContext)?.size;
   final toBox = _heroScreenRect(toHeroContext)?.size;
   final cardIsFrom = identical(cardContext, fromHeroContext);
+  // A card's flight to and from its page lifts the card page's bars over
+  // the image ([_LiftedBars]).
+  final liftBars = cardFrame == null || size.isEmpty
+      ? null
+      : () => _LiftedBars.capture(
+          card: cardContext,
+          push: direction == HeroFlightDirection.push,
+          viewport: cardIsFrom ? from : to,
+          size: size,
+          home: cardIsFrom ? fromHome : toHome,
+          visibleExtent: visibleExtent,
+        );
   final shuttle = AnimatedBuilder(
     animation: animation,
     child: child,
@@ -402,27 +420,42 @@ Widget illustHeroFlightShuttleBuilder(
         }
         final lifted = context.findAncestorStateOfType<_LiftedEndpointsState>()
           ?.._holdPages();
-        // The clip follows the page over the card, where one shows.
+        // Under the card page's lifted bars the image is cut at the page
+        // it flies to alone; the card end is the whole screen. Elsewhere
+        // the clip follows the page over the card, where one shows.
+        final bars = lifted?._bars;
         final cover = lifted?._cover();
-        final clipProgress = cover == null
+        final clipProgress = bars != null || cover == null
             ? progress
             : (cardIsFrom ? cover : 1 - cover);
-        return HeroRectClip(
+        final openFrom = bars != null && cardIsFrom;
+        final openTo = bars != null && !cardIsFrom;
+        final clipped = HeroRectClip(
           globalRect: _heroFlightClipRect(
             flightContext,
             fromHeroContext,
             toHeroContext,
             clipProgress,
             size: size,
-            from: from,
-            to: to,
+            from: openFrom ? Offset.zero & size : from,
+            to: openTo ? Offset.zero & size : to,
             fallbackFrom: fallbackFrom,
             fallbackTo: fallbackTo,
-            fromHome: fromHome,
-            toHome: toHome,
+            fromHome: fromHome && !openFrom,
+            toHome: toHome && !openTo,
             visibleExtent: visibleExtent,
           ),
           child: shaped,
+        );
+        if (bars == null) return clipped;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(child: clipped),
+            Positioned.fill(
+              child: _LiftedBarsPaint(bars: bars, shown: 1 - detailProgress),
+            ),
+          ],
         );
       },
     ),
@@ -433,6 +466,7 @@ Widget illustHeroFlightShuttleBuilder(
     from: fromHeroContext,
     to: toHeroContext,
     card: cardContext,
+    liftBars: liftBars,
     child: FrameProbe.available
         ? ProbeScene(scene: 'hero', child: shuttle)
         : shuttle,
@@ -448,6 +482,7 @@ class _LiftedEndpoints extends StatefulWidget {
     required this.from,
     required this.to,
     required this.card,
+    required this.liftBars,
     required this.child,
   });
 
@@ -456,6 +491,10 @@ class _LiftedEndpoints extends StatefulWidget {
 
   /// The endpoint on the route below: [from] or [to].
   final BuildContext card;
+
+  /// Captures the card page's bars to draw over the image; null for a
+  /// flight that lifts none.
+  final _LiftedBars? Function()? liftBars;
   final Widget child;
 
   @override
@@ -472,6 +511,11 @@ class _LiftedEndpointsState extends State<_LiftedEndpoints> {
   /// Where the image sits on the page over the card.
   Rect? _pageRect;
 
+  /// The card page's bars over the image, captured once, as the flight
+  /// takes off: the screen of a flight sent on to a new page already holds
+  /// the image and these bars.
+  _LiftedBars? _bars;
+
   void _lift() {
     final page = identical(widget.card, widget.from) ? widget.to : widget.from;
     _cardAncestors = {};
@@ -484,6 +528,10 @@ class _LiftedEndpointsState extends State<_LiftedEndpoints> {
       ?HeroLiftHole.lift(widget.from),
       ?HeroLiftHole.lift(widget.to),
     ];
+    if ((_bars, ModalRoute.of(page)) case (final bars?, final route?)) {
+      HeroBarsCover._cover(route, bars.rects);
+      _releases = [..._releases, () => HeroBarsCover._uncover(route)];
+    }
     _holdOver(ModalRoute.of(widget.card), _heroScreenRect(widget.card));
     _holdOver(ModalRoute.of(page), _pageRect);
   }
@@ -522,6 +570,7 @@ class _LiftedEndpointsState extends State<_LiftedEndpoints> {
   @override
   void initState() {
     super.initState();
+    _bars = widget.liftBars?.call();
     _lift();
   }
 
@@ -538,6 +587,7 @@ class _LiftedEndpointsState extends State<_LiftedEndpoints> {
   @override
   void dispose() {
     _release();
+    _bars?.dispose();
     super.dispose();
   }
 
