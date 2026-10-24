@@ -397,11 +397,12 @@ void main() {
     }
 
     // Opening: the background covers the still page first, the content
-    // fades in on it after.
+    // fades in on it after. Until then the content paints at the faintest
+    // alpha, unseen, so its first draw is not mid-flight.
     await tester.tap(find.text('card'));
     await at(60);
     expect(backdrop(), inExclusiveRange(0, 1));
-    expect(content(), 0);
+    expect(Color.getAlphaFromOpacity(content()), 1);
     await tester.pump(const Duration(milliseconds: 140));
     expect(backdrop(), 1);
     expect(content(), inExclusiveRange(0, 1));

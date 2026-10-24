@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoPageTransition;
 import 'package:flutter/widgets.dart';
 import 'package:material_ui/material_ui.dart' show Theme;
 
-import '../motion/hero_transition.dart' show HeroLiftHole, HeroPageCover;
+import '../motion/hero_transition.dart'
+    show HeroBarsCover, HeroLiftHole, HeroPageCover;
 import '../motion/motion_tokens.dart';
 import '../motion/page_transitions.dart';
 import 'frozen_while_hidden.dart';
@@ -90,7 +93,7 @@ class _FuncPageRoute<T> extends PageRoute<T> {
   late final Animation<double> _contentFade = _backdrop
       ? _SharedElementFade(
           controller!,
-          opening: MotionTokens.sharedElementContentIn,
+          opening: const _Primed(MotionTokens.sharedElementContentIn),
           leaving: MotionTokens.sharedElementContentOut,
         )
       : _SharedElementFade(
@@ -230,6 +233,12 @@ class _FuncPageRoute<T> extends PageRoute<T> {
             child: ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
           ),
         ),
+        Positioned.fill(
+          child: HeroBarsCover(
+            route: this,
+            color: Theme.of(context).scaffoldBackgroundColor,
+          ),
+        ),
         content,
       ],
     );
@@ -244,6 +253,23 @@ bool underSharedElement(Route<dynamic> route) {
   return above != null &&
       above._page.sharedElement &&
       !above.animation!.isDismissed;
+}
+
+/// [curve], but never below the faintest alpha that still paints once the
+/// opening has begun. A layer at alpha 0 is not painted at all, so content
+/// that waits for its fade drew a whole page of text for the first time
+/// mid-flight, a raster frame of 12–20ms that stalled the image. Painted
+/// unseen from the start, that first draw falls on takeoff, where the
+/// image barely moves.
+class _Primed extends Curve {
+  const _Primed(this.curve);
+
+  final Curve curve;
+
+  static const _faintest = 1 / 255;
+
+  @override
+  double transformInternal(double t) => math.max(curve.transform(t), _faintest);
 }
 
 /// One layer of a shared-element page: shown over [opening] of an opening
