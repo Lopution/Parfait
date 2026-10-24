@@ -171,7 +171,9 @@ void main() {
         tester,
         second: _RouteAnimationProbe(builds),
       );
-      expect(builds.single, same(route.animation));
+      // The controller behind the route's proxy, which reads complete for
+      // the frame a Hero measures the opening page in.
+      expect(builds.single, same((route.animation! as ProxyAnimation).parent));
 
       // Each step flips the route's isCurrent, which rebuilt every
       // ModalRoute.of reader: the leaving detail page and both neighbours.

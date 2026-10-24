@@ -170,7 +170,9 @@ class _FuncPageRoute<T> extends PageRoute<T> {
     Animation<double> secondaryAnimation,
   ) {
     final page = RouteAnimationScope(
-      animation: animation,
+      // The controller: [animation] reads complete while a Hero measures
+      // the opening page (see RouteAnimationScope).
+      animation: controller!,
       child: Semantics(
         scopesRoute: true,
         explicitChildNodes: true,

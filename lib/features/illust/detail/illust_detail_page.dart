@@ -311,8 +311,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     if (!identical(route, _routeAnimation)) {
       _routeAnimation?.removeStatusListener(_onRouteStatus);
       _routeAnimation = route?..addStatusListener(_onRouteStatus);
-      // Read after the first frame: before the push starts, the route's
-      // proxy still reports a completed placeholder.
+      // Read after the first frame: a route that is not a FuncPage provides
+      // its proxy, which reports a completed placeholder until the push
+      // starts.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _onRouteStatus(_routeAnimation?.status ?? AnimationStatus.completed);

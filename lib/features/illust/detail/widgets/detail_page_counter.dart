@@ -67,11 +67,11 @@ class _DetailPageCounterState extends State<DetailPageCounter>
     if (!identical(animation, _routeAnimation)) {
       _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
       _routeAnimation = animation;
-      // ModalRoute.animation is a proxy that reports `completed` for the
-      // route's offstage first frame (hero measurement) and re-points to the
-      // real entrance animation afterwards — the listener must be attached
-      // unconditionally to catch that swap, which notifies a `forward`
-      // status; a `home:` initial route reports completed and never notifies.
+      // Attached unconditionally: a route that is not a FuncPage provides
+      // ModalRoute.animation, a proxy that reports `completed` for the
+      // route's offstage first frame (hero measurement) and notifies a
+      // `forward` as it re-points to the real entrance animation. A `home:`
+      // initial route reports completed and never notifies.
       _routeTransitionComplete =
           animation == null || animation.status == AnimationStatus.completed;
       animation?.addStatusListener(_handleRouteAnimationStatus);
