@@ -5,8 +5,17 @@ import 'package:parfait/core/settings/app_settings.dart';
 
 import 'helpers/illust_fixtures.dart';
 
-IllustEntity _work(int width, int height) =>
-    parseIllust(illustJson(1, width: width, height: height));
+IllustEntity _work(int width, int height, {String? squareMedium}) {
+  final json = illustJson(1, width: width, height: height);
+  if (squareMedium != null) {
+    (json['image_urls'] as Map<String, dynamic>)['square_medium'] =
+        squareMedium;
+  }
+  return parseIllust(json);
+}
+
+/// pixiv's own square thumbnail, under its size directory.
+const _ownSquare = 'img-master/img/2024/01/02/03/04/05/123_p0_square1200.jpg';
 
 IllustCardPreview _preview(
   IllustEntity entity,
@@ -74,7 +83,7 @@ void main() {
               expect(preview.heightRatio, 2.0, reason: reason);
               expect(preview.url, work.imageUrls.large, reason: reason);
               expect(preview.tier, IllustImageTier.large, reason: reason);
-            case IllustCardCrop.square:
+            case IllustCardCrop.square || IllustCardCrop.topSquare:
               expect(preview.heightRatio, 1.0, reason: reason);
               expect(
                 preview.url,
@@ -96,6 +105,30 @@ void main() {
       expect(_preview(_work(2000, 6000), 500).crop, IllustCardCrop.top);
     });
 
+    test(
+      "pixiv's own square thumbnail is the work's top, an author's is not",
+      () {
+        for (final (squareMedium, crop) in [
+          (
+            'https://i.pximg.net/c/360x360_70/$_ownSquare',
+            IllustCardCrop.topSquare,
+          ),
+          (
+            'https://i.pximg.net/c/360x360_70/custom-thumb/img/2024/01/02/03/04/'
+                '05/123_p0_custom1200.jpg',
+            IllustCardCrop.square,
+          ),
+        ]) {
+          final preview = _preview(
+            _work(1000, 8000, squareMedium: squareMedium),
+            500,
+          );
+          expect(preview.crop, crop, reason: squareMedium);
+          expect(preview.url, squarePreviewUrl(squareMedium, 500));
+        }
+      },
+    );
+
     test('unknown dimensions read as a square, uncropped card', () {
       final preview = _preview(_work(0, 0), 500);
       expect(preview.crop, IllustCardCrop.none);
@@ -104,7 +137,7 @@ void main() {
   });
 
   group('squarePreviewUrl', () {
-    const path = 'img-master/img/2024/01/02/03/04/05/123_p0_square1200.jpg';
+    const path = _ownSquare;
     const squareMedium = 'https://i.pximg.net/c/360x360_70/$path';
 
     test('a card up to 540 px takes the 540 resize', () {
@@ -136,6 +169,26 @@ void main() {
         'not a url %',
       ]) {
         expect(squarePreviewUrl(url, 500), url);
+      }
+    });
+
+    test("isTopSquareThumbnail knows pixiv's own square at any size", () {
+      for (final url in [
+        'https://i.pximg.net/c/360x360_70/$path',
+        'https://i.pximg.net/c/540x540_70/$path',
+        'https://i.pximg.net/$path',
+      ]) {
+        expect(isTopSquareThumbnail(url), isTrue, reason: url);
+      }
+      for (final url in [
+        'https://i.pximg.net/c/360x360_70/custom-thumb/img/2024/01/02/03/04/'
+            '05/123_p0_custom1200.jpg',
+        'https://i.pximg.net/c/540x540_70/img-master/img/2024/01/02/03/04/05/'
+            '123_p0_master1200.jpg',
+        'https://i.pximg.net/1/square.jpg',
+        'not a url %',
+      ]) {
+        expect(isTopSquareThumbnail(url), isFalse, reason: url);
       }
     });
   });

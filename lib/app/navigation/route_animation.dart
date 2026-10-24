@@ -10,6 +10,10 @@ import 'package:flutter/widgets.dart';
 /// rebuilt in full as it left, with both neighbours, in the first frame of
 /// the back transition. The animation is one object for the route's life,
 /// so a dependency on it never fires.
+///
+/// [FuncPage] provides its controller, not `ModalRoute.animation`: that
+/// proxy reports `completed` for the offstage frame a Hero measures an
+/// opening page in, the frame the flight takes the page's Hero child from.
 class RouteAnimationScope extends InheritedWidget {
   const RouteAnimationScope({
     super.key,

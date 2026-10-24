@@ -63,7 +63,12 @@ class IllustHeroFlightChild extends StatelessWidget {
 /// Feed-card end of the artwork Hero: the rounded clip, no outline. The
 /// shared shuttle recognises it on the card side.
 class IllustHeroCardFrame extends StatelessWidget {
-  const IllustHeroCardFrame({super.key, this.cropAspect, required this.child});
+  const IllustHeroCardFrame({
+    super.key,
+    this.cropAspect,
+    this.topSquare = false,
+    required this.child,
+  });
 
   final Widget child;
 
@@ -72,6 +77,11 @@ class IllustHeroCardFrame extends StatelessWidget {
   /// shuttle then lays the image out covering the flight rect, cut to it,
   /// instead of starting from a shrunken full frame.
   final double? cropAspect;
+
+  /// Whether [child] is pixiv's square thumbnail of the work's top, a file
+  /// of its own: the detail page starts from it alone, and a return brings
+  /// it back over the top of the detail image as the flight nears the card.
+  final bool topSquare;
 
   @override
   Widget build(BuildContext context) {
@@ -339,6 +349,10 @@ Widget illustHeroFlightShuttleBuilder(
   // rounds its corners.
   final cardFrame = cardChild is IllustHeroCardFrame ? cardChild : null;
   final cropAspect = cardFrame?.cropAspect;
+  final returningSquare =
+      direction == HeroFlightDirection.pop && cardFrame?.topSquare == true
+      ? RepaintBoundary(child: cardFrame!.child)
+      : null;
   // Resolve all geometry before the animation starts. The old implementation
   // performed RenderObject walks and NestedScrollView header discovery from
   // AnimatedBuilder; the first return therefore paid that cost on a frame
@@ -411,6 +425,28 @@ Widget illustHeroFlightShuttleBuilder(
           shaped = CustomSingleChildLayout(
             delegate: _CoverTopDelegate(aspect: cropAspect),
             child: shaped,
+          );
+        }
+        if (returningSquare != null) {
+          // The rect's top square is the image's: it covers the rect by
+          // width while the rect is taller than wide.
+          shaped = Stack(
+            fit: StackFit.expand,
+            children: [
+              shaped,
+              Align(
+                alignment: Alignment.topCenter,
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Opacity(
+                    opacity: _topSquareReturn.transform(
+                      _routeProgress(animation.value, direction),
+                    ),
+                    child: returningSquare,
+                  ),
+                ),
+              ),
+            ],
           );
         }
         if (radius != null) {
@@ -1052,6 +1088,12 @@ BorderRadius _cardRadiusAt(double detailProgress) => BorderRadius.lerp(
   BorderRadius.zero,
   detailProgress,
 )!;
+
+/// When a top-square card's own thumbnail comes back over the detail
+/// image, in the time of a return: Android's `MaterialContainerTransform`
+/// fades a return's start view back over 60–90%. Whatever quality the
+/// detail shows, the flight lands on the card's own file.
+const _topSquareReturn = Interval(0.6, 0.9);
 
 /// Flight progress from the route [value]: it runs 0→1 on push and 1→0
 /// on pop.

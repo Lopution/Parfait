@@ -9,7 +9,7 @@ applies_to:
   - lib/app/widgets/feed/illust_card*.dart
   - lib/features/illust/**
   - android/app/src/main/AndroidManifest.xml
-reviewed: 2026-10-21
+reviewed: 2026-10-25
 ---
 
 # Page transitions, back gesture and Hero flights
@@ -230,6 +230,46 @@ reviewed: 2026-10-21
 - **Check:** `test/hero_transition_test.dart` "a cropped image covers its flight rect; both sides keep pace"; `test/settings_test.dart` "a recent cover flies to its work and back, an unseen one not"
 - **Code:** `lib/app/motion/hero_transition.dart`
 
+### TRANS-22 A flight keeps the card's image until it lands
+- **Rule:** A detail endpoint shows the card's preview (`heroImageUrl`)
+  until its route's opening completes; the page's own URL takes over
+  after the landing. Pages read their route's transition through
+  `RouteAnimationScope.of`, where `FuncPage` provides its controller, not
+  `ModalRoute.animation`.
+- **Why:** A flight takes the destination Hero's child once, from the
+  frame a Hero measures the opening page in, offstage. There the route's
+  `ModalRoute.animation` proxy reads `completed`, so a detail URL already
+  known in that frame (a cached payload) was built into the flight: the
+  image changed file mid-flight, and an ultra-long work's narrow `large`
+  replaced the card's sharp square (10-25).
+- **Check:** `test/hero_transition_test.dart` "a top-square card flies its square alone; the work fades in once decoded"; `test/func_page_test.dart` "a page reading its route animation is not rebuilt as its route is covered, uncovered or popped"
+- **Code:** `lib/app/navigation/func_page.dart`, `lib/app/navigation/route_animation.dart`, `lib/features/illust/detail/widgets/page_image.dart`
+
+### TRANS-23 A tall card's square thumbnail flies alone; an author's cover does not fly
+- **Rule:** A card too tall for its box shows the square thumbnail
+  (TRANS-11's crops end there). pixiv's own (`img-master/…_square1200`,
+  `isTopSquareThumbnail`) is the work's full-width top square:
+  `IllustCardCrop.topSquare` keeps the Hero. The push flies that square
+  alone, sharp, laid at the top of the work's box; after the landing the
+  page image fades in over it (`imageFade`) once decoded, at the
+  detail-quality setting, or shows its own load error. The pop flies the
+  detail's image, and the card's square fades back over its top across
+  60–90% of the return. An author's chosen cover (`custom-thumb`,
+  `IllustCardCrop.square`) and a tall ugoira's cover open without a Hero.
+- **Why:** The square is the only sharp file of an ultra-long work at
+  card size: `large` fits 600×1200, so its width is a few dozen pixels,
+  and a flight from it, or a cross-fade into it, showed a blur (user
+  decision 10-24: no low-res image during the flight). The square
+  matched the work's top in every work checked, ratios 2.7 to 29; an
+  author's cover is a square from anywhere in the work (user decision:
+  keep the cover, no Hero). An ugoira's viewer lays out no top square.
+  Android's `MaterialContainerTransform` fades a return's start view back
+  over 60–90%. This reveal waits for a decode the flight never carried;
+  it is no quality hand-off, so TRANS-15 still holds for every swap of
+  one file for another.
+- **Check:** `test/hero_transition_test.dart` "a top-square card flies its square alone; the work fades in once decoded"; `test/recommended_feed_test.dart` "a tall card keeps its Hero only on pixiv's own top square"; `test/illust_card_layout_test.dart` "pixiv's own square thumbnail is the work's top, an author's is not" "isTopSquareThumbnail knows pixiv's own square at any size"
+- **Code:** `lib/app/widgets/feed/illust_card_layout.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/app/motion/hero_transition.dart`, `lib/features/illust/detail/widgets/page_image.dart`
+
 ### TRANS-12 Only the viewer's entry page flies back
 - **Rule:** The viewer carries a Hero only on the page it opened on. After a
   page turn a drag-to-dismiss slides the stage down; back and the back
@@ -262,6 +302,8 @@ reviewed: 2026-10-21
 - **Rule:** Artwork URL and quality changes go through `PixivImage`, which
   keeps the previous decoded frame until the new one is ready (gapless).
   Callers add no "ready" flag and never swap in a blank loading state.
+  The one reveal outside it is TRANS-23's: a part of the work the flight
+  never carried.
 - **Why:** Per-page ready flags flashed blank frames between qualities.
 - **Check:** `test/pixiv_image_variants_test.dart` "quality handoff keeps an old decoded frame placeholder"
 - **Code:** `lib/app/pixiv_image.dart`

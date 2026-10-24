@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:octo_image/octo_image.dart';
+import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
@@ -315,6 +316,51 @@ void main() {
         .map((hero) => hero.tag);
     expect(tags, contains('IllustHero:ranking:day:8'));
     expect(tags, contains('IllustHero:search:blue-archive:8'));
+  });
+
+  testWidgets("a tall card keeps its Hero only on pixiv's own top square", (
+    tester,
+  ) async {
+    final (container, _) = await makeWorld();
+    IllustEntity tall(int id, String squareMedium, {String type = 'illust'}) {
+      final json = illustJson(id, width: 1000, height: 8000, type: type);
+      (json['image_urls'] as Map<String, dynamic>)['square_medium'] =
+          squareMedium;
+      return parseIllust(json);
+    }
+
+    const dir = 'img/2024/01/02/03/04/05';
+    const own =
+        'https://i.pximg.net/c/360x360_70/img-master/$dir/1_p0_square1200.jpg';
+    const custom =
+        'https://i.pximg.net/c/360x360_70/custom-thumb/$dir/2_p0_custom1200.jpg';
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          home: SingleChildScrollView(
+            child: Column(
+              children: [
+                IllustCard(entity: tall(1, own), heroScope: 'feed'),
+                IllustCard(entity: tall(2, custom), heroScope: 'feed'),
+                // An ugoira's cover lays out no top square.
+                IllustCard(
+                  entity: tall(3, own, type: 'ugoira'),
+                  heroScope: 'feed',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    });
+
+    final tags = tester
+        .widgetList<Hero>(find.byType(Hero))
+        .map((hero) => '${hero.tag}')
+        .where((tag) => tag.startsWith('IllustHero:'));
+    expect(tags, ['IllustHero:feed:1']);
   });
 
   testWidgets('appending a page leaves the built cards alone', (tester) async {
