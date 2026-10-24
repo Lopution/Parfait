@@ -13,7 +13,12 @@ enum IllustCardCrop {
   /// as the detail page, so the card keeps its Hero.
   top,
 
-  /// pixiv's square thumbnail (an author-chosen crop) in a 1:1 box. A
+  /// pixiv's own square thumbnail in a 1:1 box: the work's top square
+  /// ([isTopSquareThumbnail]), the picture the detail page starts with, so
+  /// the card keeps its Hero.
+  topSquare,
+
+  /// The author's chosen square thumbnail (`custom-thumb`) in a 1:1 box. A
   /// different image from the detail page: no Hero.
   square,
 }
@@ -24,7 +29,7 @@ typedef IllustCardPreview = ({
   double heightRatio,
   String url,
 
-  /// Null for [IllustCardCrop.square]: a square crop is not a resize tier.
+  /// Null for a square thumbnail: a square crop is not a resize tier.
   IllustImageTier? tier,
   IllustCardCrop crop,
 });
@@ -70,11 +75,14 @@ IllustCardPreview illustCardPreview(
       crop: IllustCardCrop.top,
     );
   }
+  final squareMedium = entity.imageUrls.squareMedium;
   return (
     heightRatio: 1.0,
-    url: squarePreviewUrl(entity.imageUrls.squareMedium, cardPhysicalWidth),
+    url: squarePreviewUrl(squareMedium, cardPhysicalWidth),
     tier: null,
-    crop: IllustCardCrop.square,
+    crop: isTopSquareThumbnail(squareMedium)
+        ? IllustCardCrop.topSquare
+        : IllustCardCrop.square,
   );
 }
 
@@ -82,20 +90,39 @@ IllustCardPreview illustCardPreview(
 /// `c/360x360_70/img-master/…_square1200.jpg`: a card up to
 /// [kSquarePreviewSide] physical pixels takes the 540 resize, a wider one
 /// the unresized `img-master/…_square1200.jpg`. Only the path changes, so
-/// the mirror rewrite (host only) still applies. An unrecognised shape
-/// stays `square_medium`.
+/// the mirror rewrite (host only) still applies. Any other shape, an
+/// author's `custom-thumb` among them, stays `square_medium`.
 String squarePreviewUrl(String squareMedium, int cardPhysicalWidth) {
   final uri = Uri.tryParse(squareMedium);
-  if (uri == null) return squareMedium;
-  final segments = uri.pathSegments;
-  if (segments.length < 3 ||
-      segments[0] != 'c' ||
-      segments[2] != 'img-master') {
-    return squareMedium;
-  }
-  final rest = segments.skip(2);
-  final path = cardPhysicalWidth <= kSquarePreviewSide
-      ? ['c', '${kSquarePreviewSide}x${kSquarePreviewSide}_70', ...rest]
-      : rest;
-  return uri.replace(pathSegments: path).toString();
+  final path = uri == null ? null : _pixivSquarePath(uri);
+  if (path == null) return squareMedium;
+  return uri!
+      .replace(
+        pathSegments: cardPhysicalWidth <= kSquarePreviewSide
+            ? ['c', '${kSquarePreviewSide}x${kSquarePreviewSide}_70', ...path]
+            : path,
+      )
+      .toString();
+}
+
+/// Whether [url] is pixiv's own square thumbnail of a work at any size
+/// (`[c/<size>/]img-master/…_square1200.<ext>`). For a work taller than
+/// it is wide that is the full-width square at its top: so it was in every
+/// work checked against the files, ratios 2.7 to 29. An author's chosen
+/// thumbnail (`custom-thumb/…_custom1200`) is a square from anywhere.
+bool isTopSquareThumbnail(String url) {
+  final uri = Uri.tryParse(url);
+  return uri != null && _pixivSquarePath(uri) != null;
+}
+
+/// The unresized path of pixiv's own square thumbnail at [uri]; null for
+/// any other image.
+List<String>? _pixivSquarePath(Uri uri) {
+  var path = uri.pathSegments;
+  if (path.length > 2 && path[0] == 'c') path = path.sublist(2);
+  final ownSquare =
+      path.length > 1 &&
+      path.first == 'img-master' &&
+      path.last.contains('_square1200.');
+  return ownSquare ? path : null;
 }

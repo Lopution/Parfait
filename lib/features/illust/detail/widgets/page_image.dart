@@ -10,6 +10,7 @@ import '../../../../app/motion/state_icon_switcher.dart';
 import '../../../../app/navigation/route_animation.dart';
 import '../../../../app/pixiv_image.dart';
 import '../../../../app/theme/func_tokens.dart';
+import '../../../../app/widgets/feed/illust_card_layout.dart';
 import '../../../../core/entity/illust_entity.dart';
 import '../../../../core/illust/illust_download_controller.dart';
 import '../../../../core/settings/app_settings.dart';
@@ -154,6 +155,33 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
     super.dispose();
   }
 
+  /// The page image a top-square landing waits for, and whether it is
+  /// shown: decoded, or failed and showing its own retry. Held here, not
+  /// in [_TopSquareLanding]: a pop's flight builds that anew.
+  String? _revealing;
+  bool _revealed = false;
+
+  /// Whether the page image at [url] is shown over the held top square;
+  /// asks for its decode the first time.
+  bool _revealWhenDecoded(String url, int? decodeWidth) {
+    if (_revealed || url == _revealing) return _revealed;
+    _revealing = url;
+    PixivImage.preload(
+      context,
+      url,
+      tierKey: entity.imageTierKeyAt(widget.index),
+      tier: entity.imageTierOf(url),
+      memCacheWidth: decodeWidth ?? PixivImage.screenDecodeWidth,
+      // The page's own image resolves the same entry: the first resolve
+      // sets the fetch's priority.
+      priority: ImageFetchPriority.foreground,
+    ).then((_) {
+      if (!mounted || _revealing != url) return;
+      setState(() => _revealed = true);
+    });
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final download = ref.watch(illustDownloadControllerProvider);
@@ -174,6 +202,12 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
               (entity.pageCount > 1 && widget.index < entity.metaPages.length
                   ? entity.metaPages[widget.index].large
                   : entity.imageUrls.large);
+    // A card too tall for its box hands over pixiv's square thumbnail: the
+    // work's top square, no tier of the work.
+    final heroTopSquare =
+        widget.index == 0 &&
+        widget.heroImageUrl != null &&
+        isTopSquareThumbnail(widget.heroImageUrl!);
     final image = GestureDetector(
       // Opaque: while the image flies, its Hero is an offstage placeholder
       // that takes no hits, and a tap there must still open the viewer.
@@ -220,7 +254,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
                   // The detail endpoint stays sharp for the normal page and
                   // for a viewer push. The shared shuttle swaps to the
                   // already-decoded card preview only on a reverse flight.
-                  popChild: widget.heroImageUrl == null
+                  popChild: widget.heroImageUrl == null || heroTopSquare
                       ? null
                       : PixivImage.detail(
                           widget.heroImageUrl!,
@@ -237,33 +271,46 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
                               ? BlendMode.srcOver
                               : null,
                         ),
-                  child: PixivImage.detail(
-                    previewUrl,
-                    fit: BoxFit.contain,
-                    transitionKey: widget.heroTag,
-                    tierKey: entity.imageTierKeyAt(widget.index),
-                    tier: entity.imageTierOf(previewUrl),
-                    tierUpgrade: !onHeroPhase,
-                    // The hero-phase URL is the feed card's image: decode it
-                    // at the feed's width so the landing frame is the
-                    // already-decoded cache entry. Once detailUrl arrives,
-                    // the normal page endpoint uses screen width.
-                    decodeWidth: onHeroPhase
-                        ? widget.heroImageDecodeWidth
-                        : panoramaDecodeWidth,
-                    progress: onHeroPhase ? null : _progress,
-                    filterColor: downloadMode ? FuncTokens.imageOverlay : null,
-                    filterBlendMode: downloadMode ? BlendMode.srcOver : null,
-                    // Estimated box until the first frame: after decode the
-                    // image's own aspect ratio sizes the slot instead. Same
-                    // surfaceContainer tier as PixivImage's default backdrop.
-                    placeholderWidget: AspectRatio(
-                      aspectRatio: entity.pageAspectRatioAt(widget.index),
-                      child: ColoredBox(
-                        color: Theme.of(context).colorScheme.surfaceContainer,
-                      ),
-                    ),
-                  ),
+                  child: heroTopSquare
+                      ? _topSquareImage(
+                          detailUrl: onHeroPhase ? null : previewUrl,
+                          decodeWidth: panoramaDecodeWidth,
+                        )
+                      : PixivImage.detail(
+                          previewUrl,
+                          fit: BoxFit.contain,
+                          transitionKey: widget.heroTag,
+                          tierKey: entity.imageTierKeyAt(widget.index),
+                          tier: entity.imageTierOf(previewUrl),
+                          tierUpgrade: !onHeroPhase,
+                          // The hero-phase URL is the feed card's image:
+                          // decode it at the feed's width so the landing
+                          // frame is the already-decoded cache entry. Once
+                          // detailUrl arrives, the normal page endpoint
+                          // uses screen width.
+                          decodeWidth: onHeroPhase
+                              ? widget.heroImageDecodeWidth
+                              : panoramaDecodeWidth,
+                          progress: onHeroPhase ? null : _progress,
+                          filterColor: downloadMode
+                              ? FuncTokens.imageOverlay
+                              : null,
+                          filterBlendMode: downloadMode
+                              ? BlendMode.srcOver
+                              : null,
+                          // Estimated box until the first frame: after
+                          // decode the image's own aspect ratio sizes the
+                          // slot instead. Same surfaceContainer tier as
+                          // PixivImage's default backdrop.
+                          placeholderWidget: AspectRatio(
+                            aspectRatio: entity.pageAspectRatioAt(widget.index),
+                            child: ColoredBox(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainer,
+                            ),
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -313,6 +360,44 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
     );
   }
 
+  /// The card's top square held at the top of the work's box, with the
+  /// page image at [detailUrl] over it once the route has landed (null
+  /// before).
+  Widget _topSquareImage({
+    required String? detailUrl,
+    required int? decodeWidth,
+  }) {
+    final filterColor = downloadMode ? FuncTokens.imageOverlay : null;
+    final filterBlendMode = downloadMode ? BlendMode.srcOver : null;
+    return _TopSquareLanding(
+      aspectRatio: entity.pageAspectRatioAt(widget.index),
+      square: PixivImage.detail(
+        widget.heroImageUrl!,
+        fit: BoxFit.fitWidth,
+        alignment: Alignment.topCenter,
+        tierUpgrade: false,
+        decodeWidth: widget.heroImageDecodeWidth,
+        filterColor: filterColor,
+        filterBlendMode: filterBlendMode,
+      ),
+      shown: detailUrl != null && _revealWhenDecoded(detailUrl, decodeWidth),
+      detail: detailUrl == null
+          ? null
+          : PixivImage.detail(
+              detailUrl,
+              fit: BoxFit.fitWidth,
+              alignment: Alignment.topCenter,
+              transitionKey: widget.heroTag,
+              tierKey: entity.imageTierKeyAt(widget.index),
+              tier: entity.imageTierOf(detailUrl),
+              decodeWidth: decodeWidth,
+              progress: _progress,
+              filterColor: filterColor,
+              filterBlendMode: filterBlendMode,
+            ),
+    );
+  }
+
   void _openViewer(BuildContext context, {required ViewQuality quality}) {
     openImageViewer(
       context,
@@ -320,6 +405,50 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
       page: widget.index,
       quality: quality,
       heroScope: widget.heroScope,
+    );
+  }
+}
+
+/// The work's box with the card's [square], pixiv's square of the work's
+/// top, held at its top: the flight carried that file alone, sharp, and no
+/// lower tier stands in for the rest. Once the route has landed and the
+/// page image is decoded ([shown]), [detail] fades in over it, identical
+/// over the square, the rest of the work appearing below it.
+///
+/// Stateless: a pop's flight builds it anew in the overlay, where a state
+/// of its own would start hidden again.
+class _TopSquareLanding extends StatelessWidget {
+  const _TopSquareLanding({
+    required this.aspectRatio,
+    required this.square,
+    required this.shown,
+    required this.detail,
+  });
+
+  final double aspectRatio;
+  final Widget square;
+  final bool shown;
+
+  /// The page image; null while the route still flies in.
+  final Widget? detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: aspectRatio,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          square,
+          if (detail case final detail?)
+            AnimatedOpacity(
+              opacity: shown ? 1 : 0,
+              duration: MotionTokens.resolve(context, MotionTokens.imageFade),
+              curve: MotionTokens.imageFadeCurve,
+              child: detail,
+            ),
+        ],
+      ),
     );
   }
 }

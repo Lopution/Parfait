@@ -200,9 +200,15 @@ class _IllustCardBody extends ConsumerWidget {
       cardPhysicalWidth: cardDecodeWidth,
     );
     final heroTag = illustHeroTag(heroScope, entity.id);
-    // The square thumbnail is a different image from the detail page's:
-    // that card opens without a Hero and hands the detail no first frame.
-    final hasHero = preview.crop != IllustCardCrop.square;
+    // An author's square thumbnail is a different image from the detail
+    // page's: that card opens without a Hero and hands the detail no first
+    // frame. pixiv's own is the top of the detail image, but an ugoira's
+    // cover lays out no such top square.
+    final hasHero = switch (preview.crop) {
+      IllustCardCrop.none || IllustCardCrop.top => true,
+      IllustCardCrop.topSquare => !entity.isUgoira,
+      IllustCardCrop.square => false,
+    };
     // Mute presentation (default blur mode): a hit renders the blurred
     // cover and the first tap reveals in place instead of opening the
     // detail. Hide mode never reaches here — the feed filter already
@@ -232,7 +238,13 @@ class _IllustCardBody extends ConsumerWidget {
     }
 
     final previewHeight = cardWidth * preview.heightRatio;
-    final image = _buildImage(preview, heroTag, cardWidth, muted: muted);
+    final image = _buildImage(
+      preview,
+      heroTag,
+      cardWidth,
+      muted: muted,
+      hasHero: hasHero,
+    );
     void reveal() {
       ref.read(revealedMuteIdsProvider.notifier).reveal(entity.id);
     }
@@ -314,18 +326,24 @@ class _IllustCardBody extends ConsumerWidget {
     String heroTag,
     double width, {
     required bool muted,
+    required bool hasHero,
   }) {
     final tier = preview.tier;
     final framed = IllustHeroCardFrame(
-      cropAspect: preview.crop == IllustCardCrop.top
-          ? entity.pageAspectRatioAt(0)
-          : null,
+      cropAspect: switch (preview.crop) {
+        IllustCardCrop.top ||
+        IllustCardCrop.topSquare => entity.pageAspectRatioAt(0),
+        IllustCardCrop.none || IllustCardCrop.square => null,
+      },
+      topSquare: preview.crop == IllustCardCrop.topSquare,
       child: PixivImage.feed(
         preview.url,
         layoutWidth: width,
         fit: switch (preview.crop) {
           IllustCardCrop.none => BoxFit.fitWidth,
-          IllustCardCrop.top || IllustCardCrop.square => BoxFit.cover,
+          IllustCardCrop.top ||
+          IllustCardCrop.topSquare ||
+          IllustCardCrop.square => BoxFit.cover,
         },
         alignment: preview.crop == IllustCardCrop.top
             ? Alignment.topCenter
@@ -342,7 +360,7 @@ class _IllustCardBody extends ConsumerWidget {
       ),
     );
     // A muted cover never flies: a tap reveals it in place.
-    if (muted || preview.crop == IllustCardCrop.square) return framed;
+    if (muted || !hasHero) return framed;
     // Only the image participates in the detail Hero flight. Badges belong to
     // the feed viewport; when the whole Stack was the Hero, the page-count
     // badge was scaled and left as a large ghost during pop.

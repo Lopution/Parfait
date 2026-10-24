@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:http/http.dart' as http;
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/navigation/func_page.dart';
 import 'package:parfait/app/navigation/routes.dart';
@@ -12,6 +13,7 @@ import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
 import 'package:parfait/core/debug/hero_anomaly_log.dart';
 import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_action_bar.dart';
@@ -20,6 +22,7 @@ import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_fixtures.dart';
+import 'helpers/image_network.dart';
 import 'helpers/detail_world.dart';
 import 'package:parfait/app/motion/hero_rect_clip.dart';
 import 'package:parfait/app/motion/drag_to_dismiss.dart';
@@ -451,6 +454,152 @@ void main() {
       await tester.pumpAndSettle();
     }
   });
+
+  testWidgets(
+    'a top-square card flies its square alone; the work fades in once decoded',
+    (tester) async {
+      setViewSize(tester, const Size(390, 844));
+      const square =
+          'https://i.pximg.net/c/540x540_70/img-master/img/7_p0_square1200.jpg';
+      final entity = parseIllust(illustJson(7, width: 400, height: 2000));
+      final large = entity.imageUrls.large;
+      // The card's square answers at once; the work's file when the test
+      // sends it.
+      final client = HeldBodyClient(
+        respond: (request) => '${request.url}' == square
+            ? http.StreamedResponse(
+                Stream.value(onePixelPng),
+                200,
+                request: request,
+              )
+            : null,
+      );
+      final (container, _, _) = await makeWorld(
+        extraOverrides: [
+          imageWorkerProvider.overrideWithValue(
+            inProcessImageWorker(() => client),
+          ),
+        ],
+      );
+      final tag = illustHeroTag('feed', 7);
+      final navigatorKey = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        localizedApp(
+          container: container,
+          navigatorKey: navigatorKey,
+          home: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox.square(
+              dimension: 180,
+              child: Hero(
+                tag: tag,
+                createRectTween: illustHeroRectTween,
+                flightShuttleBuilder: illustHeroFlightShuttleBuilder,
+                child: IllustHeroCardFrame(
+                  cropAspect: entity.pageAspectRatioAt(0),
+                  topSquare: true,
+                  child: const ColoredBox(
+                    key: ValueKey('card'),
+                    color: Colors.red,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      unawaited(
+        navigatorKey.currentState!.push(
+          FuncPage<void>(
+            sharedElement: true,
+            child: SingleChildScrollView(
+              child: DetailPageImage(
+                entity: entity,
+                index: 0,
+                heroTag: tag,
+                heroScope: 'feed',
+                heroImageUrl: square,
+                heroImageDecodeWidth: 540,
+                // The page's data is there in the frame a Hero measures the
+                // page in, where the flight takes the page's Hero child.
+                detailUrl: large,
+                downloadMode: false,
+                selected: false,
+                onToggleSelect: () {},
+                onLongPress: () {},
+              ),
+            ),
+          ).createRoute(navigatorKey.currentContext!),
+        ),
+      );
+      Finder inFlight(Finder finder) =>
+          find.descendant(of: find.byType(HeroRectClip), matching: finder);
+      await tester.pump();
+      for (final ms in [150, 150]) {
+        await tester.pump(Duration(milliseconds: ms));
+        final flying = tester.widgetList<PixivImage>(
+          inFlight(find.byType(PixivImage)),
+        );
+        expect([for (final image in flying) image.url], [square]);
+        expect(flying.single.fit, BoxFit.fitWidth);
+        expect(flying.single.alignment, Alignment.topCenter);
+      }
+
+      await tester.pump(MotionTokens.pageTransition);
+      expect(find.byType(HeroRectClip), findsNothing, reason: 'landed');
+      double work() => tester
+          .widget<AnimatedOpacity>(
+            find.ancestor(
+              of: find.byWidgetPredicate(
+                (w) => w is PixivImage && w.url == large,
+              ),
+              matching: find.byType(AnimatedOpacity),
+            ),
+          )
+          .opacity;
+      expect(work(), 0, reason: 'unseen until decoded');
+      await pumpIoUntil(tester, () => client.bodies.isNotEmpty);
+      final body = client.bodies.single..add(onePixelPng);
+      unawaited(body.close());
+      await pumpIoUntil(tester, () => work() == 1);
+      await tester.pump(MotionTokens.imageFade);
+
+      // The return carries the whole work: its own copy of the page is built
+      // anew in the flight, shown. The card's square comes back over its top.
+      navigatorKey.currentState!.pop();
+      await tester.pump();
+      await tester.pump();
+      final squareShown = <double>[];
+      while (find.byType(HeroRectClip).evaluate().isNotEmpty) {
+        expect(
+          tester.widget<AnimatedOpacity>(
+            inFlight(find.byType(AnimatedOpacity)),
+          ),
+          isA<AnimatedOpacity>().having((w) => w.opacity, 'opacity', 1),
+        );
+        squareShown.add(
+          tester
+              .widget<Opacity>(
+                find
+                    .ancestor(
+                      of: inFlight(find.byKey(const ValueKey('card'))),
+                      matching: find.byType(Opacity),
+                    )
+                    .first,
+              )
+              .opacity,
+        );
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      expect(squareShown.first, 0);
+      expect(squareShown.last, greaterThan(0.9));
+      expect(squareShown.where((o) => o > 0 && o < 1), isNotEmpty);
+      for (var i = 1; i < squareShown.length; i++) {
+        expect(squareShown[i], greaterThanOrEqualTo(squareShown[i - 1]));
+      }
+      await unmountPastReleaseGrace(tester);
+    },
+  );
 
   testWidgets('mid-flight the detail endpoint paints no image of its own', (
     tester,
