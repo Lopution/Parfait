@@ -445,51 +445,60 @@ void main() {
       ),
     );
 
-    testWidgets('sets a short first image a band below the status bar, '
-        'its Hero rect the image', (tester) async {
-      tester.view.padding = const FakeViewPadding(top: 24);
+    testWidgets(
+      'a short first image sits a band low; Hero and badge keep to it',
+      (tester) async {
+        tester.view.padding = const FakeViewPadding(top: 24);
 
-      final (container, _, _) = await makeWorld(
-        detailOverrides: {
-          42: illustJson(42, pageCount: 1, width: 1600, height: 900),
-        },
-      );
-      container.read(illustStoreProvider).mergeAll([
-        parseIllust(illustJson(42, pageCount: 1, width: 1600, height: 900)),
-      ]);
-      await pumpDetail(
-        tester,
-        container,
-        seedStore: false,
-        locale: const Locale('zh', 'CN'),
-      );
-      await tester.pumpAndSettle();
+        final (container, _, _) = await makeWorld(
+          detailOverrides: {
+            42: illustJson(42, pageCount: 1, width: 1600, height: 900),
+          },
+        );
+        container.read(illustStoreProvider).mergeAll([
+          parseIllust(illustJson(42, pageCount: 1, width: 1600, height: 900)),
+        ]);
+        await pumpDetail(
+          tester,
+          container,
+          seedStore: false,
+          locale: const Locale('zh', 'CN'),
+        );
+        await tester.pumpAndSettle();
 
-      final slot = tester.getRect(find.byType(DetailPageImage));
-      final hero = find.byWidgetPredicate(
-        (widget) => widget is Hero && widget.tag == illustHeroTag('feed', 42),
-      );
-      final naturalHeight = 390 / (1600 / 900);
-      // Where centering in 0.7 of the viewport would put it.
-      final band = (844 * 0.7 - naturalHeight) / 2;
-      expect(slot.top, closeTo(24, 0.5));
-      expect(slot.height, closeTo(band + naturalHeight, 0.5));
-      // The image starts below the toolbar: the controls sit bare.
-      expect(lifted(tester), isFalse);
-      expect(barGradient(), findsNothing);
-      expect(tester.getRect(hero).height, closeTo(naturalHeight, 0.5));
-      expect(tester.getRect(hero).top, closeTo(24 + band, 0.5));
-      // No band below: what follows starts right under the image.
-      expect(tester.getRect(hero).bottom, closeTo(slot.bottom, 0.5));
-      // The pager's stand-in for an unbuilt page draws at the same frame,
-      // so a swipe does not land on a jump.
-      final frame = detailFirstImageFrame(
-        tester.element(find.byType(IllustDetailPage)),
-        container.read(illustStoreProvider).get(42)!,
-      );
-      expect(frame.top, closeTo(tester.getRect(hero).top, 0.5));
-      expect(frame.height, closeTo(naturalHeight, 0.5));
-    });
+        final slot = tester.getRect(find.byType(DetailPageImage));
+        final hero = find.byWidgetPredicate(
+          (widget) => widget is Hero && widget.tag == illustHeroTag('feed', 42),
+        );
+        final naturalHeight = 390 / (1600 / 900);
+        // Where centering in 0.7 of the viewport would put it.
+        final band = (844 * 0.7 - naturalHeight) / 2;
+        expect(slot.top, closeTo(24, 0.5));
+        expect(slot.height, closeTo(band + naturalHeight, 0.5));
+        // The image starts below the toolbar: the controls sit bare.
+        expect(lifted(tester), isFalse);
+        expect(barGradient(), findsNothing);
+        expect(tester.getRect(hero).height, closeTo(naturalHeight, 0.5));
+        expect(tester.getRect(hero).top, closeTo(24 + band, 0.5));
+        // No band below: what follows starts right under the image.
+        expect(tester.getRect(hero).bottom, closeTo(slot.bottom, 0.5));
+        // The pager's stand-in for an unbuilt page draws at the same frame,
+        // so a swipe does not land on a jump.
+        final frame = detailFirstImageFrame(
+          tester.element(find.byType(IllustDetailPage)),
+          container.read(illustStoreProvider).get(42)!,
+        );
+        expect(frame.top, closeTo(tester.getRect(hero).top, 0.5));
+        expect(frame.height, closeTo(naturalHeight, 0.5));
+
+        // Selecting, the badge sits as far into the image's top as into its
+        // end: the toolbar does not reach the image.
+        await longPressImage(tester);
+        final mark = tester.getRect(find.byIcon(Icons.radio_button_unchecked));
+        final image = tester.getRect(hero);
+        expect(mark.top - image.top, closeTo(image.right - mark.right, 0.5));
+      },
+    );
 
     testWidgets('gives the first image of a set the same slot', (tester) async {
       final (container, _, _) = await makeWorld(
@@ -543,6 +552,13 @@ void main() {
       );
       expect(lifted(tester), isTrue);
       expect(barGradient(), findsNothing);
+
+      // Under the toolbar, page 1's badge keeps that inset below the bar.
+      await longPressImage(tester);
+      final mark = tester.getRect(
+        find.byIcon(Icons.radio_button_unchecked).first,
+      );
+      expect(mark.top - kToolbarHeight, closeTo(390 - mark.right, 0.5));
     });
   });
 

@@ -190,8 +190,8 @@ ThemeData replicaTheme(
     ),
     appBarTheme: AppBarThemeData(
       // One colour in both states: content scrolled under the bar is marked
-      // by AppTopBar's edge line, not by a tint or a shadow (an elevation
-      // shadow does not show on the dark page).
+      // by AppTopBar's shadow, not by a tint or an elevation shadow (which
+      // does not show on the dark page; `topBarShadow` is darker there).
       backgroundColor: background,
       foregroundColor: text,
       elevation: 0,
