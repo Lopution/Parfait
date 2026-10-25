@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/person_avatar.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/app/motion/hero_transition.dart';
@@ -253,8 +254,7 @@ void main() {
 
       expect(find.byType(UserPage), findsNothing);
       await mockNetworkImagesFor(() async {
-        // The avatar is the smallest of the three hit areas; the InkWell
-        // wraps the whole Row, so a tap on it must reach the same callback.
+        // The whole card is the target, not just the avatar or name.
         await tester.tap(find.byKey(const Key('illust-author-row')));
         await tester.pumpAndSettle();
       });
@@ -282,7 +282,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      Text caption() => tester.widget<Text>(find.textContaining('line 0'));
+      // Collapsed, the caption is painted twice; the first copy is whole.
+      Text caption() =>
+          tester.widget<Text>(find.textContaining('line 0').first);
       expect(caption().maxLines, InfoBlock.captionLines);
       await tester.tap(find.text('展开'));
       await tester.pumpAndSettle();
@@ -373,17 +375,45 @@ void main() {
             },
           },
         );
+        // Narrow enough that the facts wrap.
         await pumpDetail(
           tester,
           marked,
           locale: const Locale('zh', 'CN'),
-          surface: const Size(800, 4000),
+          surface: const Size(400, 4000),
         );
         await tester.pumpAndSettle();
         expect(find.text('AI 生成'), findsOneWidget);
         expect(find.text('R-18G'), findsOneWidget);
         expect(find.text('R-18'), findsNothing);
         expect(fact('Photoshop / SAI'), findsOneWidget);
+
+        // The marks share the stats' line; the facts come after the tags,
+        // every wrapped line starting its glyph on the margin.
+        expect(
+          tester.getCenter(find.text('AI 生成')).dy,
+          moreOrLessEquals(
+            tester.getCenter(find.byIcon(Icons.visibility_outlined)).dy,
+            epsilon: 1,
+          ),
+        );
+        final facts = find.byKey(const Key('illust-detail-facts'));
+        expect(
+          tester.getTopLeft(facts).dy,
+          greaterThan(tester.getTopLeft(find.text('标签')).dy),
+        );
+        final glyphs = find.descendant(of: facts, matching: find.byType(Icon));
+        final lineStarts = <double, double>{};
+        for (var i = 0; i < glyphs.evaluate().length; i++) {
+          final glyph = tester.getRect(glyphs.at(i));
+          lineStarts.update(
+            glyph.top,
+            (left) => left < glyph.left ? left : glyph.left,
+            ifAbsent: () => glyph.left,
+          );
+        }
+        expect(lineStarts, hasLength(greaterThan(1)));
+        expect(lineStarts.values, everyElement(FuncSpacing.lg));
       },
     );
   });

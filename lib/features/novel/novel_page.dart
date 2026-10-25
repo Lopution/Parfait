@@ -11,6 +11,7 @@ import '../../app/widgets/bookmark_switch_button.dart';
 import '../../app/widgets/caption_rich_text.dart';
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/inline_translation.dart';
+import '../../app/widgets/person_card.dart';
 import '../../app/widgets/tag_actions_sheet.dart';
 import '../../app/widgets/tag_chips.dart';
 import '../../core/auth/account_store.dart';
@@ -180,19 +181,23 @@ class NovelPage extends ConsumerWidget {
         children: [
           _NovelIntro(
             novel: novel,
-            author: AuthorSummary(
-              name: novel.user.name,
-              imageUrl: novel.user.profileImageUrl,
-              avatarRadius: 16,
-              compact: true,
-              // 32dp avatar + 2×8dp = the 48dp touch target. The sheet closes
-              // before opening the profile, so AuthorRow (which navigates by
-              // itself) does not fit here.
-              padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
+            // The sheet closes before the profile opens. The sheet is the
+            // card tier already, so the card takes the next one up.
+            author: PersonCard(
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              tapHint: context.l10n.openAuthorProfile,
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 openUser(context, novel.user.id);
               },
+              child: AuthorSummary(
+                name: novel.user.name,
+                account: novel.user.account.isEmpty
+                    ? null
+                    : '@${novel.user.account}',
+                imageUrl: novel.user.profileImageUrl,
+                avatarRadius: 20,
+              ),
             ),
           ),
           if (novel.tags.isNotEmpty) ...[

@@ -115,21 +115,32 @@ reviewed: 2026-10-17
 
 ## Shared page pieces
 
-### PAGE-07 An author link is the whole row
-- **Rule:** An author shown as a link is `AuthorRow`: the avatar and name
-  are one target of at least 48dp announced as one button; a trailing
-  follow button is a separate target. Never make only the name tappable.
-  Inside a card the card is the target and the byline stays plain.
-- **Why:** Name-only links were too small to hit.
-- **Check:** `test/author_row_test.dart` "the whole row is one 48dp target that opens the profile"
-- **Code:** `lib/app/widgets/author_row.dart`
+### PAGE-07 An author link is the whole row or the whole card
+- **Rule:** A byline inside a header is `AuthorRow`: the avatar and name
+  are one target of at least 48dp announced as one button. A person that
+  stands as its own block (the detail page's author, the novel info
+  sheet's author, the Me tab's account header) is a `PersonCard`: the
+  whole card is that target, with a hint saying where it goes, and the
+  card is what shows it can be tapped. A trailing button (follow, manage)
+  is a separate target in either. Never make only the name tappable.
+  Inside any other card the card is the target and the byline stays
+  plain. On a sheet, already the card tier, the card takes the next tier.
+- **Why:** Name-only links were too small to hit. A whole-row target with
+  no edge looked like plain text (user report, 10-25).
+- **Check:** `test/author_row_test.dart` "the whole row is one 48dp target that opens the profile" "a person card is one target; its trailing button is its own"
+- **Code:** `lib/app/widgets/author_row.dart`, `lib/app/widgets/person_card.dart`
 
 ### PAGE-08 Long user text uses ExpandableText
 - **Rule:** Captions and descriptions use `ExpandableText`; text that fits
-  shows no toggle, and links stay tappable while collapsed.
+  shows no toggle, and links stay tappable while collapsed. Collapsed,
+  "Show more" ends the last line, which fades out before it, and a tap
+  anywhere on the text expands it; the text is one node with an expanded
+  state. Expanded, "Show less" sits under the text. The fade masks the
+  text itself, never a painted ground, so it works on any surface.
 - **Why:** Hand-rolled folds showed a toggle on short text and broke
-  links.
-- **Check:** `test/expandable_text_test.dart` "a link stays tappable while collapsed"
+  links. A toggle on its own line under the text cost a line and was the
+  only target (user decision 10-25).
+- **Check:** `test/expandable_text_test.dart` "long text collapses to maxLines and expands on demand" "a link stays tappable while collapsed"
 - **Code:** `lib/app/widgets/expandable_text.dart`
 
 ### PAGE-09 Translations are transient and share one entry

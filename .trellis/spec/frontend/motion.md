@@ -116,11 +116,15 @@ reviewed: 2026-10-19
 - **Rule:** Every tappable element shows a press, and only one kind: a
   ripple where ink fits the visible shape (rows, tiles, menu items,
   buttons, the bottom bar), `PressScale` on cards (0.97) and pills (0.96).
-  `TagChip` has no ink because its 48dp target is larger than the pill. A
-  disabled element gets no press. Small targets reach 48dp without growing
-  the visible shape, and neighbouring targets touch.
+  A card holding a button of its own (`PersonCard`) takes the ripple
+  instead: the button's press holds the card's ink back. `TagChip` has
+  no ink because its 48dp target is larger than the pill. A disabled
+  element gets no press. Small targets reach 48dp without growing the
+  visible shape, and neighbouring targets touch.
 - **Why:** Ripple plus scale on one card read as two presses; ink filling
-  an invisible margin looked like a misfire.
+  an invisible margin looked like a misfire. `PressScale` listens to raw
+  pointers, so a press on a button inside a scaled card shrank the card
+  too.
 - **Check:** `test/motion_test.dart` "inside a scrollable a swipe never shows the press" "the press-feedback setting turns the scale off"
 - **Code:** `lib/app/motion/press_scale.dart`
 

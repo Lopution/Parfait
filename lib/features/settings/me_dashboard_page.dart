@@ -13,11 +13,13 @@ import '../../app/person_avatar.dart';
 import '../../app/pixiv_image.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/widgets/app_top_bar.dart';
+import '../../app/widgets/edge_icon_buttons.dart';
 import '../../app/widgets/entity_row.dart' show EntityBadge;
 import '../../app/widgets/feed/feed_grid.dart'
     show IllustPagerAnchor, IllustPagerScope, IllustPagerSource;
 import '../../app/widgets/feed/feed_states.dart';
 import '../../app/widgets/func_bottom_nav.dart';
+import '../../app/widgets/person_card.dart';
 import '../../app/widgets/settings_load_error.dart';
 import '../../core/auth/account.dart';
 import '../../core/auth/account_store.dart';
@@ -104,10 +106,10 @@ class MeDashboardPage extends ConsumerWidget {
   }
 }
 
-/// The signed-in account: avatar, name, user ID and the premium badge
-/// are one button that opens the profile; managing and switching accounts
-/// is a button of its own beside it. Signed out, the same place is one
-/// button to the login, with no manage button.
+/// The signed-in account on a [PersonCard]: avatar, name, user ID and the
+/// premium badge are the card, one button that opens the profile;
+/// managing and switching accounts is a button of its own inside it.
+/// Signed out, the card is one button to the login, with no manage button.
 class _AccountHeader extends StatelessWidget {
   const _AccountHeader({required this.account});
 
@@ -121,80 +123,69 @@ class _AccountHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final value = account;
     final url = value?.profileImageUrl;
-    final identity = Semantics(
-      container: true,
-      button: true,
-      onTapHint: value == null ? null : l10n.meOpenProfile,
-      child: InkWell(
-        borderRadius: FuncShape.card,
-        onTap: value == null ? () => openLogin(context) : () => openMe(context),
-        child: Padding(
-          padding: const EdgeInsets.all(FuncSpacing.sm),
-          child: Row(
-            children: [
-              SizedBox.square(
-                dimension: _avatarDiameter,
-                child: PersonAvatar(
-                  imageUrl: url == null || url.isEmpty ? null : url,
-                  radius: _avatarDiameter / 2,
-                ),
-              ),
-              const SizedBox(width: FuncSpacing.lg),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            value?.name ?? l10n.signedOut,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: FuncSemanticTokens.of(context).display,
-                          ),
-                        ),
-                        if (value?.isPremium ?? false) ...[
-                          const SizedBox(width: FuncSpacing.sm),
-                          const _PremiumBadge(),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: FuncSpacing.xs),
-                    Text(
-                      value == null
-                          ? l10n.login
-                          : l10n.labelValue(l10n.profileId, '${value.userId}'),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        FuncSpacing.sm,
-        FuncSpacing.sm,
+        FuncSpacing.lg,
         FuncSpacing.sm,
         FuncSpacing.lg,
+        FuncSpacing.lg,
       ),
-      child: Row(
-        children: [
-          Expanded(child: identity),
-          if (value != null)
-            IconButton(
-              tooltip: l10n.accountManagement,
-              icon: const Icon(Icons.manage_accounts_outlined),
-              onPressed: () =>
-                  openSettingsPage(context, SettingsPageRef.account.path),
+      child: PersonCard(
+        onTap: value == null ? () => openLogin(context) : () => openMe(context),
+        tapHint: value == null ? null : l10n.meOpenProfile,
+        endPadding: PersonCard.padding - EdgeIconButtons.glyphInset,
+        trailing: value == null
+            ? null
+            : IconButton(
+                tooltip: l10n.accountManagement,
+                icon: const Icon(Icons.manage_accounts_outlined),
+                onPressed: () =>
+                    openSettingsPage(context, SettingsPageRef.account.path),
+              ),
+        child: Row(
+          children: [
+            SizedBox.square(
+              dimension: _avatarDiameter,
+              child: PersonAvatar(
+                imageUrl: url == null || url.isEmpty ? null : url,
+                radius: _avatarDiameter / 2,
+              ),
             ),
-        ],
+            const SizedBox(width: FuncSpacing.lg),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          value?.name ?? l10n.signedOut,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: FuncSemanticTokens.of(context).display,
+                        ),
+                      ),
+                      if (value?.isPremium ?? false) ...[
+                        const SizedBox(width: FuncSpacing.sm),
+                        const _PremiumBadge(),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: FuncSpacing.xs),
+                  Text(
+                    value == null
+                        ? l10n.login
+                        : l10n.labelValue(l10n.profileId, '${value.userId}'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

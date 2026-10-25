@@ -98,33 +98,39 @@ reviewed: 2026-10-17
 - **Check:** manual
 - **Code:** `lib/features/illust/detail/on_demand_sliver.dart`
 
-### DETAIL-15 The work's facts sit under its title; sections share one header
-- **Rule:** Under the title, in this order and without cards: the marks
-  (AI-generated, R-18, R-18G; only those the work has) on tonal accent
-  labels; the stats line (views, bookmarks, the full posting time), read
-  as one sentence; the facts row (size, the page count for two or more
-  pages, the tools when pixiv lists any, and "# n" with a copy glyph),
-  each fact behind its glyph and wrapping whole; then the author, name
-  over @account, with the follow button. A tap on the ID copies the bare
-  number and confirms with a snack bar; its target reaches 8dp above and
-  below the row, and the gaps around it take that much less. Every titled
-  part of the page, inside the info block or below it, starts with
-  `DetailSectionHeader`: a 48dp row whose action's label or glyph ends on
-  the 16dp margin (LAYOUT-15). The info block has no bottom padding; the
-  next header spaces itself. A series card shows "part n of m" once the
-  series' work count is known.
-- **Why:** User decisions. Option A of three rendered layouts put the size
-  and ID under the title instead of at the block's end, and headings
-  with and without a button sat at two distances from their content.
-  10-21: the stats and author cards were barely apart from the page
-  ground (contrast 1.03 in light mode), so the block went compact, with
-  glyph rows and every fact visible.
+### DETAIL-15 Marks and stats under the title, the facts last; sections share one header
+- **Rule:** In this order: the title; one line, wrapping as whole items,
+  of the marks (AI-generated, R-18, R-18G; only those the work has) on
+  tonal accent labels and the stats (views, bookmarks, the full posting
+  time), read as one node, the stats as one sentence; the author on a
+  `PersonCard` (PAGE-07), name over @account, with the follow button;
+  the caption; the tags; then, as the block's last line, the facts
+  (size, the page count for two or more pages, the tools when pixiv
+  lists any, and "# n" with a copy glyph). Each fact sits behind its
+  glyph in a box 4dp past its text sideways and 8dp up and down, the
+  facts wrap whole, and every wrapped line starts its first glyph on the
+  16dp margin. A tap on the ID copies the bare number and confirms with
+  a snack bar; its target is its box. Every titled part of the page,
+  inside the info block or below it, starts with `DetailSectionHeader`:
+  a 48dp row whose action's label or glyph ends on the 16dp margin
+  (LAYOUT-15). The info block has no bottom padding; the next header
+  spaces itself. A series card shows "part n of m" once the series' work
+  count is known.
+- **Why:** User decisions. Headings with and without a button sat at two
+  distances from their content. 10-21: the stats and author cards
+  (`surfaceContainerLow`) were barely apart from the page ground
+  (contrast 1.03 in light mode), so the block went compact, with glyph
+  rows. 10-25: with every part shown the block read cluttered: the facts
+  split the title from the author, and the plain author row did not show
+  it opened the profile. The facts moved after the tags, the marks joined
+  the stats, and the author took a card one tier up (`surfaceContainer`,
+  1.08 light, 1.18 dark).
 - **Check:** `test/illust_detail_page_test.dart` "marks and tools show only when set; the ID copies; headings align"
 - **Code:** `lib/features/illust/detail/widgets/info_block.dart`, `lib/features/illust/detail/widgets/detail_section_header.dart`
 
 ### DETAIL-16 The info block's parts build as they near
-- **Rule:** `InfoBlock` is a `SliverList.list` of parts (title, marks,
-  stats, facts, author, caption, tags) that stay built once built; the
+- **Rule:** `InfoBlock` is a `SliverList.list` of parts (title, marks
+  and stats, author, caption, tags, facts) that stay built once built; the
   artwork-info jump scrolls to its first part. A part that reads a store
   watches it itself.
 - **Why:** As one box it was built with the page, below the fold of a
