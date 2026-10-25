@@ -12,85 +12,85 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 ### 新增
 
-- 底栏各页面的首页可以左右滑动切换到相邻页面。有标签的页面先切标签，到第一个或最后一个标签后再滑一次才换页；点进去的页面和平板的侧边导航栏不受影响。
-- 在作品详情页里直接写评论：点评论区的输入框就在当前页书写，发出后新评论立刻出现、评论数加 1，没发出的内容会保留为草稿。作者关闭评论的作品直接显示"作者已关闭评论"。
-- 作品页的 ⋮ 菜单可以编辑收藏、加入稍后再看、屏蔽作品或作者，用户主页的 ⋮ 可以屏蔽该用户，不必再长按。
-- 浏览设置新增"网格密度"：紧凑 / 标准 / 宽松，手机上分别是 3 / 2 / 1 列，宽屏按比例增加；默认的"标准"与原来一致。
-- 带筛选的搜索没有结果时，可以一键重置筛选；浏览历史关闭时，历史页会说明并提供开启按钮。
-- 搜索支持多个关键词分别补全：用空格（半角或全角）隔开，补全只针对光标所在的词，已经输入的词不再出现在建议里；点建议直接搜索整串，点 ↖ 填入后自动补一个空格，接着输入下一个词。写完的词显示为圆角标签块，搜索结果页顶部也一样。
+- **底栏页面左右滑动：** 各页面的首页可以左右滑动切换到相邻页面。带标签的页面先切标签，到第一个或最后一个标签后再滑一次才换页；点进去的二级页面和平板的侧边导航栏不受影响。
+- **在作品页直接写评论：** 点评论区的输入框即可在当前页书写，发出后新评论立刻出现、评论数加 1，没发出的内容会保留为草稿。作者关闭评论的作品会直接提示「作者已关闭评论」。
+- **⋮ 菜单加入常用操作：** 作品页的 ⋮ 菜单可以编辑收藏、加入稍后再看、屏蔽作品或作者，用户主页的 ⋮ 可以屏蔽该用户，不必再长按。
+- **网格密度：** 浏览设置新增「网格密度」，可选紧凑 / 标准 / 宽松，手机上分别为 3 / 2 / 1 列，宽屏按比例增加；默认的「标准」与原来一致。
+- **重置筛选、开启历史：** 带筛选的搜索没有结果时，可以一键重置筛选；浏览历史关闭时，历史页会说明原因并提供开启按钮。
+- **搜索多关键词补全：** 关键词用空格（半角或全角）隔开，补全只针对光标所在的词，已输入的词不再出现在建议里；点建议直接搜索整串，点 ↖ 填入后自动补空格，接着输入下一个词。写完的词显示为圆角标签块，搜索结果页顶部也一样。
 
 ### 变更
 
-- "我的"页改版：顶部是头像、名字、用户 ID 和 Premium 标识，点击打开个人主页，账号管理是旁边单独的按钮；下面是最近看过的作品，点开后可以按这一排的顺序左右切换，封面像信息流卡片一样飞进作品、返回时飞回，看完回来这一排会平滑重排；收藏、关注、下载任务等入口改为列表；设置和关于在页面末尾，页面上不再铺开各项设置。
-- 设置首页的搜索框放在顶部，各项图标按类别上色（开启"跟随系统颜色"时也不变）。
-- 作品详情页信息区重新排版：浏览数、收藏数、完整发布时间和 AI 生成、R-18 / R-18G 标记在一行；作者显示为整张可点的卡片；尺寸、页数、绘画工具和可复制的 ID 移到标签之后；过长的标签单行省略，标签不再用强调色；简介折叠时"展开"在末行行尾，点简介任意处即可展开。短横图下方不再留白，展开多图后同一时刻只显示一个"收起"。小说信息页的作者也改为同样的卡片。
-- 写评论时页面不再被锁住：点输入框以外的地方会收起输入框，同时照常滚动或打开点到的内容。输入框跟着键盘或表情面板一起升起、一起收回；表情和贴纸面板与键盘同高，来回切换时输入框不再跳动。
-- 所有页面改为从侧边横推进入、横推退出。打开作品时先铺底再显示内容，同时图片飞入，返回时顺序相反。
-- 页面或作品打开途中按返回，动画从当前位置平滑掉头，不再先慢慢退回、再猛地冲出屏幕；返回途中可以直接点按和滑动下面的页面，画面实时跟随。"我的"页各入口的打开动画统一。
-- 从卡片打开作品的飞行动画：图片整体缩放，卡片裁掉的部分随动画淡入；飞到一半不再顿一下；图片从顶栏和底栏下面穿过，栏随之滑开、滑回。超长图（列表里显示为正方形缩略图）也有飞入动画。再次打开加载过的作品时，飞行中的图片不再中途换图。动画被返回打断时，图片不再盖住栏或被栏截断，卡片角标和详情页的返回按钮、页码、操作栏在飞行时让开，落地后淡入。
-- 左右划切换标签更容易触发，偏离水平 40° 以内都算，不再变成列表上下抖动；松手后顺着手指的速度走，不甩动时过半才翻页，落定后才切换标签；第一个、最后一个标签往外拉会回弹。
-- 作品详情和看图页：偏竖向的划动会滚动内容，不再误翻页；大图页下拉关闭、全景长图横向拖动不再被翻页抢走；左右翻页约 0.3 秒到位。慢慢拖动列表时，越过起拖距离立即跟手，不再先"粘"一下；卡片在列表开始滚动时立即松开按压效果。
-- 首页底栏和作品页底部的操作栏跟随滚动逐像素移出、移回，慢慢滑也会动；滚动停下后停在离得近的一端。
-- 作者主页和个人主页的标签页下拉刷新时，列表像首页信息流一样整体下移，刷新圈出现在标签栏和列表之间。
-- 在其他页面按返回会回到你设的启动页（选了"上次停留的页"时，回到这次打开 App 时进入的页面），"再按一次退出"也在启动页出现。
-- 配色：底色和灰色改为带一点粉调的暖灰；浅色模式下文字、链接和选中标记改用更深的玫红，按钮等实心填充仍是品牌粉配白字；作品上的返回、更多等图标改为中性色；已收藏的心改为固定的红色；成功、警告、错误等状态色更易读。
-- 底栏、评论输入栏和各页顶栏（含标签栏、个人主页的标签条）与内容之间的分隔线改为阴影。
-- 能点的地方现在看得出来：系列页和 pixivision 文章里的作者名后带 ›；小说阅读器底栏的页码进度改为胶囊按钮，点开进度面板；关于页里打开应用内页面的行带 ›，外部链接带外链图标；搜索用户结果的账号统一显示为"@账号"。
-- 下载任务最新的排在最上面，多页作品的分组按加入时间与单张任务排在一起；"清除已完成"移到 ⋮ 菜单。
-- 用词和样式统一：翻译未开启不再显示成错误；评论数、按钮用词、引号与下载图标一致；搜索筛选面板改为按间距分组；带标签的页面上，空状态、加载中和出错提示与其他页面同高。
-- 更流畅：拖动和慢速滑动时画面每帧移动更均匀；首页各页面和左右相邻的标签在画面静止时提前建好，第一次切过去不再卡；信息流提前三屏加载下一页，加载时已显示的卡片不再全部重建；列表、小说阅读器和作品详情的文字提前在帧间排好；有屏蔽作品的列表滑动更顺；小说阅读器呼出工具栏、评论页弹出键盘时不再连带重建被盖住的页面；在骁龙 8 至尊版这类没有小核的手机上，绘制不再只挤在两颗超大核上。
-- 看大图时，滑过的原图不再继续下载；大图先按屏幕两倍宽解码，放大后才解码整张原图，翻页更快、更省内存。
-- 开着无障碍服务时，列表滚动和页面切换后的动画期间不再推送无障碍信息，滑动更顺；读屏和辅助工具最迟 2 秒内拿到最新内容。
-- 安装包体积减半（arm64 约 31 MB → 15 MB），下载和应用内更新更快；安装后占用的存储空间会多一些（原生库在安装时解压）。Android 上的登录页和以图搜图结果页改用与桌面端相同的 WebView 组件，使用上没有变化。
+- **「我的」页改版：** 顶部是头像、名字、用户 ID 和 Premium 标识，点击打开个人主页，账号管理是旁边单独的按钮；下方是最近看过的作品，点开后可按这一排的顺序左右切换，封面像信息流卡片一样飞入详情页、返回时飞回，看完回来这一排会平滑重排；收藏、关注、下载任务等入口改为列表；设置和关于移至页面末尾，不再在页面上直接铺开各项设置。
+- **设置首页：** 搜索框移至顶部，各项图标按类别上色（开启「跟随系统取色」时也不变）。
+- **作品详情页重新排版：** 浏览数、收藏数、完整发布时间与 AI 生成、R-18 / R-18G 标记并入同一行；作者显示为整张可点的卡片（小说信息页同）；尺寸、页数、绘画工具和可复制的 ID 移到标签之后；过长的标签单行省略，标签不再用强调色；简介折叠时「展开」跟在末行行尾，点简介任意处即可展开。短横图下方不再留白，展开多图后同一时刻只显示一个「收起」。
+- **写评论不再锁住页面：** 点输入框以外的地方会收起输入框，同时照常滚动或打开点到的内容。输入框跟着键盘或表情面板一起升降；表情和贴纸面板与键盘同高，来回切换时输入框不再跳动。
+- **页面转场：** 所有页面改为从侧边横推进入、横推退出。打开作品时先铺开背景再显示内容，同时图片飞入，返回时顺序相反。
+- **返回可以中途掉头：** 页面或作品打开途中按返回，动画从当前位置平滑掉头，不再先慢慢退回、再猛地冲出屏幕；返回途中可以直接点按和滑动下面的页面，画面实时跟随。「我的」页各入口的打开动画统一。
+- **图片飞入动画：** 从卡片打开作品时，图片整体缩放，卡片裁掉的部分随动画淡入；飞到一半不再顿一下；图片从顶栏和底栏下面穿过，栏随之滑开、滑回。超长图（列表里显示为正方形缩略图）也有飞入动画。再次打开加载过的作品时，飞行中的图片不再中途换图。动画被返回打断时，图片不再盖住栏或被栏截断；卡片角标与详情页的返回按钮、页码、操作栏在飞行时隐去，落定后淡入。
+- **切换标签更跟手：** 左右滑动更容易触发，偏离水平 40° 以内都算，不再变成列表上下抖动；松手后顺着手指的速度走，不甩动时过半才翻页，落定后才切换标签；第一个、最后一个标签往外拉会回弹。
+- **详情页与列表的滑动：** 作品详情和看图页中，偏竖向的滑动会滚动内容，不再误翻页；大图页下拉关闭、全景长图横向拖动不再被翻页抢走；左右翻页约 0.3 秒到位。慢慢拖动列表时，越过起拖距离立即跟手，不再先「粘」一下；卡片在列表开始滚动时立即松开按压效果。
+- **底栏跟随滚动：** 首页底栏和作品页底部的操作栏跟随滚动逐像素移出、移回，慢慢滑也会动；滚动停下后停在离得近的一端。
+- **主页下拉刷新：** 作者主页和个人主页的标签页下拉刷新时，列表像首页信息流一样整体下移，刷新圈出现在标签栏和列表之间。
+- **返回到启动页：** 在其他页面按返回会回到你设的启动页（选了「上次停留的页」时，回到这次打开 App 时进入的页面），「再按一次退出」也在启动页出现。
+- **配色：** 底色和灰色改为带一点粉调的暖灰；浅色模式下文字、链接和选中标记改用更深的玫红，按钮等实心填充仍是品牌粉配白字；作品上的返回、更多等图标改为中性色；已收藏的心改为固定的红色；成功、警告、错误等状态色更易读。
+- **阴影代替分隔线：** 底栏、评论输入栏和各页顶栏（含标签栏、个人主页的标签条）与内容之间改用阴影分隔。
+- **能点的地方看得出来：** 系列页和 pixivision 文章里的作者名后带 ›；小说阅读器底栏的页码进度改为胶囊按钮，点开进度面板；关于页里打开应用内页面的行带 ›，外部链接带外链图标；搜索用户结果的账号统一显示为「@账号」。
+- **下载任务：** 最新的任务排在最上面，多页作品的分组按加入时间与单张任务混排；「清除已完成」移到 ⋮ 菜单。
+- **用词和样式统一：** 翻译未开启时显示为提示，不再显示成错误；评论区标题的评论数、「查看全部」「恢复默认」等按钮用词和下载图标在各处一致，中文统一使用直角引号和全角括号；搜索筛选面板改为按间距分组；带标签的页面上，空状态、加载中和出错提示与其他页面同高。
+- **更流畅：** 拖动和慢速滑动时画面每帧移动更均匀；首页各页面和左右相邻的标签在画面静止时提前建好，第一次切过去不再卡；信息流提前三屏加载下一页，加载时已显示的卡片不再全部重建；列表、小说阅读器和作品详情的文字提前在帧间排好；有屏蔽作品的列表滑动更顺；小说阅读器呼出工具栏、评论页弹出键盘时不再连带重建被盖住的页面；在骁龙 8 至尊版这类没有小核的手机上，绘制不再只挤在两颗超大核上。
+- **看大图更快、更省内存：** 滑过的原图不再继续下载；大图先按屏幕两倍宽解码，放大后才解码整张原图。
+- **开着无障碍服务也流畅：** 列表滚动和页面切换后的动画期间不再推送无障碍信息；读屏和辅助工具最迟 2 秒内拿到最新内容。
+- **安装包体积减半：** arm64 约 31 MB → 15 MB，下载和应用内更新更快；安装后占用的存储空间会多一些（原生库在安装时解压）。Android 上的登录页和以图搜图结果页改用与桌面端相同的 WebView 组件，使用上没有变化。
 
 ### 移除
 
-- "动效与触感"里的"页面转场样式"选项。
+- 「动效与触感」里的「页面转场样式」选项。
 - 页面里解释用法的说明文字：翻译、账号、下载、备份、网络、底栏和动效设置里的说明段落，排行分类面板和以图搜图里的提示，登录页剪贴板登录下的操作说明（凭据风险提示保留），稍后再看、追更、浏览历史和屏蔽列表空状态的第二行。说明选项作用的副标题、状态和确认提示照旧。
 
 ### 修复
 
-- 作品详情页把已关注的画师显示为"关注"，要先进一次画师主页才正确。
+- 作品详情页把已关注的画师显示为「关注」，要先进一次画师主页才正确。
 - 在详情页左右切换时，旁边没看过的作品也被记进浏览历史（并同步到 pixiv）。
-- 浏览历史页打开后一直显示第一次读到的列表；现在每次打开都是最新的。
+- 浏览历史页打开后一直只显示第一次读到的列表，不随新记录更新。
 - 长按菜单关闭时，底栏跳到菜单上面。
 - 从信息流打开作品后开关大图时，图片偶尔飞向别的位置。
-- 作品详情页长按多选时，短横图首图的选择按钮跑到图片右侧中间；现在各种比例的图片都贴在右上角。
+- 作品详情页长按多选时，短横图等部分比例的首图，选择按钮跑到图片右侧中间，而不在右上角。
 - 部分缩略图右边缘出现一条绿线。
 - Windows / Linux 触屏设备上，新打开页面的第一次触摸拖不动列表。
 
 ### Added
 
-- The main screens of the bottom bar's pages can now be swiped between. On a page with tabs, a swipe changes tabs first and moves to the next page from the first or last tab; pages opened from them and the tablet's side rail are unaffected.
-- Write comments right on the artwork page: tap the comment input and write in place; a sent comment shows at once with the count updated, and unsent text is kept as a draft. Works whose author turned comments off say so.
-- The artwork page's ⋮ menu can edit the bookmark, add to Watch later and mute the work or its author, and a profile's ⋮ can mute the user, so none of these needs a long press.
-- Browse settings add a grid density: Compact / Standard / Comfortable, three, two or one column on a phone and proportionally more on wider screens; Standard matches the previous layout.
-- An empty search with filters on offers to reset them, and an empty history explains when recording is off and offers to turn it on.
-- Search completes each of several keywords: separate them with a space (half or full width), and suggestions follow the keyword at the cursor and leave out keywords already typed. Tapping a suggestion searches the whole query; ↖ puts it in and adds a space for the next keyword. Finished keywords show as rounded pills, also at the top of the results page.
+- **Swipe between bottom bar pages:** The main screen of each bottom bar page can be swiped to the next one. On a page with tabs, a swipe changes tabs first and moves to the next page from the first or last tab; pages opened from them and the tablet's side rail are unaffected.
+- **Comment on the artwork page:** Tap the comment input and write in place; a sent comment shows at once with the count updated, and unsent text is kept as a draft. When the author has turned comments off, the page says so.
+- **More in the ⋮ menu:** The artwork page's ⋮ menu can edit the bookmark, add to Watch later and mute the work or its author, and a profile's ⋮ can mute the user, all without a long press.
+- **Grid density:** Browse settings add Compact / Standard / Comfortable, with three, two or one column on a phone and proportionally more on wider screens; Standard matches the previous layout.
+- **Reset filters, turn on history:** An empty search with filters on offers to reset them, and an empty history explains when recording is off and offers to turn it on.
+- **Completion for each search keyword:** Separate keywords with a space (half or full width); suggestions follow the keyword at the cursor and leave out keywords already typed. Tapping a suggestion searches the whole query; ↖ puts it in and adds a space for the next keyword. Finished keywords show as rounded pills, also at the top of the results page.
 
 ### Changed
 
-- The Me tab is redesigned: at the top are your avatar, name, user ID and a Premium badge, which open your profile, with account management as its own button beside them. Below are the works you viewed last; opening one lets you swipe through the row, its cover flies into the work and back like a feed card, and the row reorders smoothly when you return. Bookmarks, following, download tasks and the other entries are a list, and Settings and About sit at the end instead of the settings groups being laid out on the page.
-- The settings index has its search field at the top and colors its icons by category, also under system colors.
-- The artwork page's information is laid out anew: views, bookmarks, the full posting time and the AI-generated and R-18 / R-18G marks share one line; the author is a card you can tap anywhere; size, pages, drawing tools and a copyable ID come after the tags; a long tag stays on one line, and tags no longer use the accent color; a folded caption ends its last line with "Show more" and expands on a tap anywhere. A short, wide first image no longer leaves a gap below it, and an expanded set shows one "Collapse" at a time. The novel info sheet shows its author on the same card.
-- Writing a comment no longer locks the page: a touch outside the input puts it away and still scrolls or opens what it landed on. The input rises and falls together with the keyboard or emoji panel, and the emoji and stamp panels match the keyboard's height, so the input no longer jumps when switching.
-- Every page now slides in from the side and slides back out. Opening an artwork first covers the screen, then shows its content while the image flies in, and going back reverses that order.
-- Pressing back while a page or an artwork is still opening turns the animation around smoothly from where it is, instead of creeping back and then shooting off the screen. During back, the page underneath can be tapped and scrolled and shows it as it happens. Every entry on the Me tab opens the same way.
-- Opening a work from a card: the whole image scales, and the part the card cropped fades in; the flight no longer stalls halfway, and the image passes under the top and bottom bars, which slide away and back with it. Very tall works, shown as square thumbnails in lists, now fly in too. A work opened again no longer switches its flying image halfway. When back cuts the flight short, the image no longer covers the bars or gets cut by them, and card badges and the artwork page's back button, page counter and action bar step aside during the flight and fade in once it lands.
-- Sideways swipes between tabs register more easily, anywhere within 40° of horizontal, instead of jiggling the list. After release they carry on at the finger's speed; a slow release switches only past halfway, the tab changes when the swipe lands, and the first and last tab bounce when pulled outwards.
-- On the artwork page and in the image viewer, a swipe leaning towards vertical scrolls the content instead of turning the page; pull-to-dismiss in the viewer and sideways scrolling of a panorama no longer lose the swipe to the pager; paging lands in about 0.3 s. A slow drag moves a list as soon as it crosses the touch slop, without a sticky start, and a pressed card lets go as soon as its list starts scrolling.
-- The home bottom bar and the artwork page's action bar follow the scroll, sliding out and back pixel for pixel, slow scrolling included, and settle at the nearer end once the scroll stops.
-- Pulling to refresh on a profile's tabs slides the list down as on the home feed, with the indicator between the tabs and the list.
-- Back from another page returns to your start page (with "Last used page", the page the app opened on this time), and "Press back again to exit" appears there.
-- Colors: backgrounds and grays are warm grays with a hint of the brand pink; in light mode, text, links and selection marks use a deeper rose, while filled buttons keep the brand pink with white text; icons over artwork, such as back and more, are neutral; a bookmarked heart is a fixed red; success, warning and error colors are easier to read.
-- The bottom bar, the comment input and the top bars (with their tabs, and a profile's tab strip) are set off the content by a shadow instead of a line.
-- What can be tapped now looks like it: an author's name on a series page or a pixivision article ends in ›; the page readout in the novel reader's bottom bar is a pill button that opens the progress sheet; on the About page, rows that open a page end in › and the external link ends in an external-link glyph; a user search result shows the account as "@account".
-- Download tasks list the newest first, and multi-page groups sit among single downloads by when they were added; "Clear completed" moved into the ⋮ menu.
-- Consistent wording and look: translation that is off no longer shows as an error; comment counts, button wording, quotes and the download icon are consistent; the search filter sheet groups by spacing; on pages with tabs, the empty, loading and error states sit as high as on other pages.
-- Smoother: drags and slow scrolls move evenly every frame; the other home pages and the tabs either side are built ahead while the screen is still, so the first switch to them no longer stutters; feeds load the next page three screens before the end, and loading no longer rebuilds the cards already shown; text in lists, the novel reader and artwork pages is laid out between frames ahead of time; feeds with muted works scroll more smoothly; showing the novel reader's bars and raising the keyboard on the comments page no longer rebuild the pages underneath; on phones without little cores, such as the Snapdragon 8 Elite family, drawing no longer runs only on two prime cores.
-- In the image viewer, originals you swipe past stop downloading, and a page is first decoded at twice the screen width and in full only once you zoom in, so paging is faster and uses less memory.
-- With an accessibility service on, scrolling and the animations after a page change no longer push accessibility updates mid-motion, so they stay smoother; screen readers and assistive tools get the latest content within 2 seconds.
-- The APK is about half the size (arm64 about 31 MB → 15 MB), so downloads and in-app updates are faster; the installed app takes somewhat more storage, as its native libraries are extracted on install. On Android, the login page and reverse image search results use the same WebView component as the desktop app, with no visible change.
+- **Redesigned Me tab:** At the top are your avatar, name, user ID and a Premium badge, which open your profile, with account management as its own button beside them. Below are the works you viewed last: opening one lets you swipe through the row, its cover flies into the artwork page and back like a feed card, and the row reorders smoothly when you return. Bookmarks, following, download tasks and the other entries are a list, and Settings and About sit at the end instead of the settings groups being laid out on the page.
+- **Settings index:** The search field is at the top, and icons are colored by category, even with Use system colors on.
+- **Reorganized artwork page:** Views, bookmarks, the full posting time and the AI-generated and R-18 / R-18G marks share one line; the author is a card you can tap anywhere (also on the novel info sheet); size, pages, drawing tools and a copyable ID come after the tags; a long tag stays on one line, and tags no longer use the accent color; a folded caption ends its last line with "Show more" and expands on a tap anywhere. A short, wide first image no longer leaves a gap below it, and an expanded set shows one "Collapse" at a time.
+- **Writing a comment no longer locks the page:** A touch outside the input puts it away and still scrolls or opens what it landed on. The input rises and falls with the keyboard or emoji panel, and the emoji and stamp panels match the keyboard's height, so the input no longer jumps when switching.
+- **Page transitions:** Every page slides in from the side and slides back out. Opening an artwork first lays down the page's background, then shows its content while the image flies in; going back reverses the order.
+- **Back can turn around midway:** Pressing back while a page or an artwork is still opening reverses the animation smoothly from where it is, instead of creeping back and then shooting off the screen. During back, the page underneath can already be tapped and scrolled, and shows it as it happens. Every entry on the Me tab opens the same way.
+- **Image fly-in:** Opening a work from a card scales the whole image, and the part the card cropped fades in; the animation no longer stalls halfway, and the image passes under the top and bottom bars, which slide away and back with it. Very tall works, shown as square thumbnails in lists, fly in too. A work opened again no longer swaps its image mid-animation. When back interrupts the animation, the image no longer covers the bars or gets cut off by them; card badges and the artwork page's back button, page counter and action bar hide while the image moves and fade in once it lands.
+- **Tab swipes follow the finger:** Sideways swipes register more easily, anywhere within 40° of horizontal, instead of jiggling the list. After release they carry on at the finger's speed; a slow release switches only past halfway, the tab changes when the swipe lands, and the first and last tab bounce when pulled outwards.
+- **Swipes on the artwork page and in lists:** On the artwork page and in the image viewer, a swipe leaning towards vertical scrolls the content instead of turning the page; pull-to-dismiss in the viewer and sideways scrolling of a panorama no longer lose the swipe to the pager; paging lands in about 0.3 s. A slow drag moves a list as soon as it starts, without a sticky start, and a pressed card lets go as soon as its list starts scrolling.
+- **Bars follow the scroll:** The home bottom bar and the artwork page's action bar slide out and back pixel for pixel with the scroll, slow scrolling included, and settle at the nearer end once the scroll stops.
+- **Pull to refresh on profiles:** Pulling to refresh on a profile's tabs slides the list down as on the home feed, with the indicator between the tabs and the list.
+- **Back returns to the start page:** Back from another page returns to your start page (with "Last used page", the page the app opened on this time), and "Press back again to exit" appears there.
+- **Colors:** Backgrounds and grays are warm grays with a hint of the brand pink; in light mode, text, links and selection marks use a deeper rose, while filled buttons keep the brand pink with white text; icons over artwork, such as back and more, are neutral; a bookmarked heart is a fixed red; success, warning and error colors are easier to read.
+- **Shadows instead of lines:** The bottom bar, the comment input and the top bars (with their tabs, and a profile's tab strip) are set off the content by a shadow instead of a line.
+- **What can be tapped looks like it:** An author's name on a series page or a pixivision article ends in ›; the page readout in the novel reader's bottom bar is a pill button that opens the progress sheet; on the About page, rows that open a page end in › and the external link ends in an external-link icon; a user search result shows the account as "@account".
+- **Download tasks:** The newest are listed first, and multi-page groups sit among single downloads by when they were added; "Clear completed" moved into the ⋮ menu.
+- **Consistent wording and look:** Translation that is off shows a notice instead of an error; comment counts in section titles, button wording such as "See all" and "Restore defaults", and the download icon are the same everywhere; the search filter sheet groups by spacing; on pages with tabs, the empty, loading and error states sit as high as on other pages.
+- **Smoother:** Drags and slow scrolls move evenly every frame; the other home pages and the tabs either side are built ahead while the screen is still, so the first switch to them no longer stutters; feeds load the next page three screens before the end, and loading no longer rebuilds the cards already shown; text in lists, the novel reader and artwork pages is laid out between frames ahead of time; feeds with muted works scroll more smoothly; showing the novel reader's bars and raising the keyboard on the comments page no longer rebuild the pages underneath; on phones without little cores, such as the Snapdragon 8 Elite family, drawing no longer runs only on two prime cores.
+- **Faster, lighter image viewer:** Originals you swipe past stop downloading, and a page is first decoded at twice the screen width and in full only once you zoom in.
+- **Smooth with accessibility services on:** Scrolling and the animations after a page change no longer push accessibility updates mid-motion; screen readers and assistive tools get the latest content within 2 seconds.
+- **Half-size APK:** arm64 goes from about 31 MB to 15 MB, so downloads and in-app updates are faster; the installed app takes somewhat more storage, as its native libraries are extracted on install. On Android, the login page and reverse image search results use the same WebView component as the desktop app, with no visible change.
 
 ### Removed
 
@@ -101,10 +101,10 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 - The artwork page showed a followed artist as not followed until their profile had been opened.
 - Paging through the artwork page recorded the works beside the one you viewed in your history (and synced them to pixiv) without them being viewed.
-- The history page kept showing the list it first read; it is now current every time it opens.
+- The history page kept showing the list it first read instead of new entries.
 - Closing a long-press sheet popped the bottom bar on top of it.
 - Opening or closing the image viewer after opening a work from a feed sometimes flew the image to the wrong place.
-- In selection on the artwork page, the badge on a short, wide first image sat halfway down its side; on every image shape it now keeps to the top corner.
+- In selection on the artwork page, the badge on a short, wide first image, and on some other shapes, sat halfway down its side instead of in the top corner.
 - A green line appeared along the right edge of some thumbnails.
 - On Windows and Linux touchscreens, the first touch on a newly opened page did not drag the list.
 
