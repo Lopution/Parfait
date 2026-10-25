@@ -58,6 +58,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 作品详情页长按多选时，短横图等部分比例的首图，选择按钮跑到图片右侧中间，而不在右上角。
 - 部分缩略图右边缘出现一条绿线。
 - Windows / Linux 触屏设备上，新打开页面的第一次触摸拖不动列表。
+- 用户协议里图片源设置的位置写错，第三方服务一节漏了小说翻译、豆包、ascii2d 和 TinEye。
 
 ### Added
 
@@ -107,6 +108,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - In selection on the artwork page, the badge on a short, wide first image, and on some other shapes, sat halfway down its side instead of in the top corner.
 - A green line appeared along the right edge of some thumbnails.
 - On Windows and Linux touchscreens, the first touch on a newly opened page did not drag the list.
+- The user agreement gave the wrong place for the image source setting, and its third-party services section left out novel translation, Doubao, ascii2d and TinEye.
 
 ## [0.10.0] - 2026-10-17
 
