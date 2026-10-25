@@ -78,14 +78,19 @@ reviewed: 2026-10-25
 ### TRANS-06 Transitions snapshot only what does not move live
 - **Rule:** Every transition runs inside `FuncTransitionGuard`: entering
   and covered pages paint live with running tickers; a popping page and a
-  settled reveal paint one snapshot each. A page under a shared-element
-  page (`underSharedElement`), the home shell under the viewer included,
-  is never frozen: it stays live while the image flies.
+  settled reveal paint one snapshot each. A reveal is settled 650ms after
+  its cover began (Android's ink sparkle runs 617ms from the tap); a
+  finger down on a revealing page turns it live until the reveal ends. A
+  page under a shared-element page (`underSharedElement`), the home shell
+  under the viewer included, is never frozen: it stays live while the
+  image flies.
 - **Why:** Re-rendering the leaving page every frame dropped frames;
   freezing the entering page froze its entrances. A detail page frozen
   under the viewer's return flight could not be scrolled or tapped to any
-  visible effect until the image had landed.
-- **Check:** `test/func_page_test.dart` "the entering page stays live while a transition runs"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight"
+  visible effect until the image had landed. A swipe on a revealed page
+  showed only once the reveal ended, and a sparkle frozen mid-fade went
+  at once at its end (10-24).
+- **Check:** `test/func_page_test.dart` "the entering page stays live while a transition runs"; `test/pop_snapshot_paint_test.dart` "a finger on a settled reveal turns it live until it ends" "a reveal inside the press window keeps the page live"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight"
 - **Code:** `lib/app/motion/page_transitions.dart`
 
 ## Hero flights

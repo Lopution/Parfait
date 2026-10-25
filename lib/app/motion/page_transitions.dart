@@ -153,7 +153,9 @@ class FuncTransitionGuard extends StatelessWidget {
 /// could still be fading (back interrupting the push, inside
 /// [_pressSettleDuration] of the cover start) keeps the page live for that
 /// whole reveal rather than freezing a half-faded highlight into the
-/// texture. The live subtree stays mounted throughout.
+/// texture. A finger put down on the revealed page turns it live for the
+/// rest of the reveal, so a scroll or a press shows as it happens, not
+/// when the reveal ends. The live subtree stays mounted throughout.
 class RoutePopSnapshot extends StatefulWidget {
   const RoutePopSnapshot({
     super.key,
@@ -179,9 +181,11 @@ class _RoutePopSnapshotState extends State<RoutePopSnapshot> {
 
   /// How long after a cover starts a press highlight on this page could
   /// still be fading. Covers the PressScale spring-back (~225ms), the
-  /// ink-highlight fade (200ms) and the ink-ripple fade-out (375ms) with
-  /// headroom.
-  static const _pressSettleDuration = Duration(milliseconds: 400);
+  /// ink-highlight fade (200ms) and Android's M3 ink sparkle, which runs
+  /// 617ms from the tap: with 400ms, back pressed half a second after a
+  /// tap froze the fading sparkle into the reveal's texture, and it went
+  /// at once when the reveal ended.
+  static const _pressSettleDuration = Duration(milliseconds: 650);
 
   /// Frame-probe bookkeeping: whether this page's transition and capture
   /// are counted as live scenes.
@@ -206,20 +210,32 @@ class _RoutePopSnapshotState extends State<RoutePopSnapshot> {
   Timer? _pressSettleTimer;
   bool _captureScheduled = false;
 
+  /// Whether a finger came down on this page during the current reveal.
+  bool _touched = false;
+
   bool get _animating =>
       widget.animation.isAnimating || widget.secondaryAnimation.isAnimating;
 
+  bool get _revealing =>
+      widget.secondaryAnimation.isAnimating &&
+      widget.secondaryAnimation.status == AnimationStatus.reverse;
+
   /// Whether this page should be a texture right now. Only pages leaving
   /// the stage are ever frozen: the route popping out, and a covered route
-  /// coming back into view once its press feedback has settled.
+  /// coming back into view once its press feedback has settled, until a
+  /// finger touches it.
   bool get _wantsSnapshot {
     if (widget.animation.isAnimating &&
         widget.animation.status == AnimationStatus.reverse) {
       return true;
     }
-    return widget.secondaryAnimation.isAnimating &&
-        widget.secondaryAnimation.status == AnimationStatus.reverse &&
-        _pressSettled;
+    return _revealing && _pressSettled && !_touched;
+  }
+
+  void _onPointerDown(PointerDownEvent _) {
+    if (!_revealing || _touched) return;
+    _touched = true;
+    _sync();
   }
 
   @override
@@ -284,6 +300,7 @@ class _RoutePopSnapshotState extends State<RoutePopSnapshot> {
     _probeTransition(_animating);
     _holdSemantics(_animating);
     _updatePressWindow();
+    if (!_revealing) _touched = false;
     if (!_wantsSnapshot) {
       _captureScheduled = false;
       _controller.allowSnapshotting = false;
@@ -368,12 +385,15 @@ class _RoutePopSnapshotState extends State<RoutePopSnapshot> {
 
   @override
   Widget build(BuildContext context) {
-    return SnapshotWidget(
-      // permissive: a route containing a platform view/texture paints live
-      // instead of throwing on an uncapturable subtree.
-      mode: SnapshotMode.permissive,
-      controller: _controller,
-      child: RepaintBoundary(child: widget.child),
+    return Listener(
+      onPointerDown: _onPointerDown,
+      child: SnapshotWidget(
+        // permissive: a route containing a platform view/texture paints
+        // live instead of throwing on an uncapturable subtree.
+        mode: SnapshotMode.permissive,
+        controller: _controller,
+        child: RepaintBoundary(child: widget.child),
+      ),
     );
   }
 }

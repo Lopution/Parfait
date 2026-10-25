@@ -53,6 +53,31 @@ void main() {
   );
 
   testFilm(
+    'nav/page-pop-scroll',
+    location: '/settings/all',
+    notes:
+        'Back from a page, then a swipe on the hub while the page still '
+        'leaves, the finger first landing where the page is: the hub '
+        'scrolls with the finger as it moves, not once the slide has ended.',
+    script: (film, router) async {
+      await film.tap(find.text('主题'));
+      await _systemBack();
+      await film.frames(2);
+      final size =
+          film.tester.view.physicalSize / film.tester.view.devicePixelRatio;
+      final gesture = await film.tester.createGesture();
+      await gesture.down(size.center(Offset.zero), timeStamp: film.clock);
+      for (var i = 0; i < 12; i++) {
+        await gesture.moveBy(const Offset(0, -30), timeStamp: film.clock);
+        await film.frame();
+      }
+      await film.frames(4);
+      await gesture.up(timeStamp: film.clock);
+      await film.untilSettled();
+    },
+  );
+
+  testFilm(
     'nav/hero-detail',
     location: '/recommended',
     notes:

@@ -30,6 +30,10 @@ class _RenderMarkerProbe extends RenderBox {
   @override
   Size computeDryLayout(BoxConstraints constraints) => constraints.biggest;
 
+  // A page: a finger lands on it.
+  @override
+  bool hitTestSelf(Offset position) => true;
+
   @override
   void paint(PaintingContext context, Offset offset) {
     context.addLayer(_marker);
@@ -148,8 +152,11 @@ void main() {
   ) async {
     final controllers = await pumpSnapshot(tester);
 
+    // Back half a second after the tap: Android's ink sparkle on the
+    // tapped tile is still fading.
     controllers.secondary.forward();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
     controllers.secondary.reverse();
 
     await pumpMidTransition(tester);
@@ -157,7 +164,33 @@ void main() {
     expect(snapshotting(tester), isFalse);
     await tester.pumpAndSettle();
     // Let the pending press-settle timer fire before the test ends.
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 650));
+  });
+
+  testWidgets('a finger on a settled reveal turns it live until it ends', (
+    tester,
+  ) async {
+    final controllers = await pumpSnapshot(tester);
+    Future<void> revealSettled() async {
+      controllers.secondary.forward();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+      controllers.secondary.reverse();
+      await tester.pump();
+      await pumpMidTransition(tester, 2);
+    }
+
+    await revealSettled();
+    expect(snapshotting(tester), isTrue);
+    await tester.tapAt(const Offset(10, 10));
+    await pumpMidTransition(tester, 2);
+    expect(pageIsLive(tester), isTrue);
+    await tester.pumpAndSettle();
+
+    // The next reveal is a texture again.
+    await revealSettled();
+    expect(snapshotting(tester), isTrue);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('a TurnCurve goes on from where it turns, on the other curve', (
