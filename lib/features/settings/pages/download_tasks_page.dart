@@ -246,36 +246,50 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
       if (group.jobIds.length > 1) group,
   ];
 
-  /// Flatten the groups into the group list's entries (§3.1): a group
-  /// contributes one header row plus its children only while expanded (D1),
-  /// so expanding a several-hundred-item group still builds lazily.
-  List<_DownloadEntry> _groupEntries(List<DownloadGroupSnapshot> groups) {
-    final entries = <_DownloadEntry>[];
-    for (final group in groups) {
-      final children = [for (final id in group.jobIds) ?_manager.taskById(id)];
-      final expanded = _expandedGroups.contains(group.id);
-      entries.add(_GroupHeaderEntry(group, children, expanded: expanded));
-      if (expanded) {
-        for (final child in children) {
-          entries.add(_GroupChildEntry(child, group.id));
-        }
-      }
-    }
-    return entries;
+  /// The list's entries (§3.1), the newest submission first: a group by
+  /// its own, its pages in order under its header; a task outside a shown
+  /// group by its own. A group contributes its children only while
+  /// expanded (D1), so expanding a several-hundred-item group still builds
+  /// lazily.
+  List<_DownloadEntry> _entries(List<DownloadTaskSnapshot> tasks) {
+    final groups = _shownGroups;
+    // Grouped children render inside their group; a child must not appear
+    // at both levels.
+    final grouped = {for (final group in groups) ...group.jobIds};
+    final items = [
+      for (final group in groups)
+        (group.submission.submittedAt, _groupEntries(group)),
+      for (final task in tasks)
+        if (!grouped.contains(task.id))
+          (task.submission?.submittedAt, [_TaskEntry(task)]),
+    ].reversed.indexed.toList();
+    // Ties (and undated tasks) keep the manager's order, reversed: the
+    // later submission first.
+    items.sort((a, b) {
+      final (aIndex, (aAt, _)) = a;
+      final (bIndex, (bAt, _)) = b;
+      final byTime = aAt == null || bAt == null || aAt == bAt
+          ? 0
+          : bAt.compareTo(aAt);
+      return byTime != 0 ? byTime : aIndex.compareTo(bIndex);
+    });
+    return [for (final (_, (_, entries)) in items) ...entries];
+  }
+
+  List<_DownloadEntry> _groupEntries(DownloadGroupSnapshot group) {
+    final children = [for (final id in group.jobIds) ?_manager.taskById(id)];
+    final expanded = _expandedGroups.contains(group.id);
+    return [
+      _GroupHeaderEntry(group, children, expanded: expanded),
+      if (expanded)
+        for (final child in children) _GroupChildEntry(child, group.id),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
     final tasks = _manager.tasks;
-    final groups = _shownGroups;
-    final groupedJobIds = {for (final group in groups) ...group.jobIds};
-    final groupEntries = _groupEntries(groups);
-    // Grouped children render inside their group; a child must not appear
-    // at both levels.
-    final ungrouped = [
-      for (final task in tasks)
-        if (!groupedJobIds.contains(task.id)) _TaskEntry(task),
-    ];
+    final entries = _entries(tasks);
     final selectedNonTerminal = [
       for (final task in tasks)
         if (_selected.contains(task.id) && !isTerminal(task.status)) task,
@@ -361,60 +375,47 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
                     controller: _removals,
                     child: CustomScrollView(
                       restorationId: 'download-tasks',
-                      // Keyed: the ungrouped rows keep their state when the
-                      // last group leaves.
                       slivers: [
-                        if (groupEntries.isNotEmpty)
-                          SliverPadding(
-                            key: const ValueKey('groups'),
-                            // Each header brings _groupGap above it; the
-                            // surfaces keep the old cards' spacing.
-                            padding: EdgeInsets.fromLTRB(
-                              FuncSpacing.md,
-                              FuncSpacing.sm + FuncSpacing.xs - _groupGap,
-                              FuncSpacing.md,
-                              ungrouped.isEmpty
-                                  ? FuncSpacing.sm + FuncSpacing.xs
-                                  : 0,
-                            ),
-                            // One surface per group, drawn around its rows as
-                            // they are laid out: the outline follows rows
-                            // growing in, folding away and leaving.
-                            sliver: SliverSurfaceList.builder(
-                              groups: [
-                                for (final entry in groupEntries)
-                                  (entry as _GroupedEntry).groupId,
-                              ],
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainer,
-                              borderRadius: FuncShape.card,
-                              leadingGap: _groupGap,
-                              findChildIndexCallback: (key) =>
-                                  _indexOfKey(groupEntries, key),
-                              itemBuilder: (context, index) =>
-                                  _row(groupEntries[index]),
+                        SliverPadding(
+                          // A group header brings _groupGap above it; the
+                          // surfaces keep the old cards' spacing.
+                          padding: EdgeInsets.fromLTRB(
+                            FuncSpacing.md,
+                            entries.first is _GroupedEntry
+                                ? FuncSpacing.sm + FuncSpacing.xs - _groupGap
+                                : FuncSpacing.sm,
+                            FuncSpacing.md,
+                            entries.last is _GroupedEntry
+                                ? FuncSpacing.sm + FuncSpacing.xs
+                                : FuncSpacing.sm,
+                          ),
+                          // One surface per group, drawn around its rows as
+                          // they are laid out: the outline follows rows
+                          // growing in, folding away and leaving. A task on
+                          // its own is a plain row.
+                          sliver: SliverSurfaceList.builder(
+                            groups: [
+                              for (final entry in entries)
+                                if (entry case _GroupedEntry(:final groupId))
+                                  groupId
+                                else
+                                  null,
+                            ],
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainer,
+                            borderRadius: FuncShape.card,
+                            leadingGap: _groupGap,
+                            findChildIndexCallback: (key) =>
+                                _indexOfKey(entries, key),
+                            itemBuilder: (context, index) => _row(
+                              entries[index],
+                              afterSurface:
+                                  index > 0 &&
+                                  entries[index - 1] is _GroupedEntry,
                             ),
                           ),
-                        if (ungrouped.isNotEmpty)
-                          SliverPadding(
-                            key: const ValueKey('ungrouped'),
-                            padding: EdgeInsets.fromLTRB(
-                              FuncSpacing.md,
-                              groupEntries.isEmpty
-                                  ? FuncSpacing.sm
-                                  : FuncSpacing.xs,
-                              FuncSpacing.md,
-                              FuncSpacing.sm,
-                            ),
-                            sliver: SliverList.builder(
-                              itemCount: ungrouped.length,
-                              findChildIndexCallback: (key) =>
-                                  _indexOfKey(ungrouped, key),
-                              itemBuilder: (context, index) =>
-                                  _row(ungrouped[index]),
-                            ),
-                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -424,7 +425,9 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     );
   }
 
-  Widget _row(_DownloadEntry entry) => Removable(
+  /// [afterSurface]: a plain row right under a group's surface keeps a
+  /// little off it.
+  Widget _row(_DownloadEntry entry, {required bool afterSurface}) => Removable(
     key: ValueKey(entry.key),
     id: entry.key,
     animateIn: _growingRows.contains(entry.key),
@@ -443,7 +446,10 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
           ),
         ),
       _GroupChildEntry(:final task) => _taskRow(task, dense: true),
-      _TaskEntry(:final task) => _taskRow(task),
+      _TaskEntry(:final task) => Padding(
+        padding: EdgeInsets.only(top: afterSurface ? FuncSpacing.xs : 0),
+        child: _taskRow(task),
+      ),
     },
   );
 
@@ -482,7 +488,7 @@ String _groupRowKey(String groupId) => 'download-group-$groupId';
 /// owned by the page so the Undo prompt outlives the removed rows.
 typedef _RemoveTasks = Future<void> Function(List<String> taskIds);
 
-/// The lazy lists' entries (§3.1): a group header, one child of an
+/// The lazy list's entries (§3.1): a group header, one child of an
 /// expanded group, or an ungrouped task.
 sealed class _DownloadEntry {
   const _DownloadEntry();

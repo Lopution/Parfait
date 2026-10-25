@@ -6,7 +6,8 @@ import 'package:flutter/widgets.dart';
 /// A lazily built list whose rows sit on rounded surfaces by group:
 /// consecutive rows with the same [groups] entry share one [color]
 /// rectangle with [borderRadius] corners, and their content (ink
-/// included) is clipped to it.
+/// included) is clipped to it. A row whose entry is null sits on no
+/// surface.
 ///
 /// The surfaces are worked out from the rows' current layout every paint,
 /// so rows growing in, folding away or leaving move a group's outline with
@@ -34,8 +35,9 @@ class SliverSurfaceList extends SliverList {
          ),
        );
 
-  /// The group of each row, by index; one entry per row.
-  final List<Object> groups;
+  /// The group of each row, by index; one entry per row. Null for a row
+  /// on no surface.
+  final List<Object?> groups;
   final Color color;
   final BorderRadius borderRadius;
   final double leadingGap;
@@ -66,7 +68,7 @@ class SliverSurfaceList extends SliverList {
 class RenderSliverSurfaceList extends RenderSliverList {
   RenderSliverSurfaceList({
     required super.childManager,
-    required List<Object> groups,
+    required List<Object?> groups,
     required Color color,
     required BorderRadius borderRadius,
     required double leadingGap,
@@ -75,9 +77,9 @@ class RenderSliverSurfaceList extends RenderSliverList {
        _borderRadius = borderRadius,
        _leadingGap = leadingGap;
 
-  List<Object> get groups => _groups;
-  List<Object> _groups;
-  set groups(List<Object> value) {
+  List<Object?> get groups => _groups;
+  List<Object?> _groups;
+  set groups(List<Object?> value) {
     if (identical(value, _groups)) return;
     _groups = value;
     markNeedsPaint();
@@ -112,7 +114,8 @@ class RenderSliverSurfaceList extends RenderSliverList {
   /// The surfaces of the groups with a row built, relative to the sliver's
   /// paint offset, top to bottom.
   List<RRect> get surfaces => [
-    for (final (first, last) in _groupSpans()) _surface(first, last),
+    for (final (first, last) in _groupSpans())
+      if (_groups[indexOf(first)] != null) _surface(first, last),
   ];
 
   @override
@@ -125,7 +128,8 @@ class RenderSliverSurfaceList extends RenderSliverList {
     super.performLayout();
   }
 
-  /// The built rows of each group, as (first, last).
+  /// The built rows of each group, and each run of rows on no surface,
+  /// as (first, last).
   Iterable<(RenderBox, RenderBox)> _groupSpans() sync* {
     var first = firstChild;
     while (first != null) {
@@ -171,6 +175,10 @@ class RenderSliverSurfaceList extends RenderSliverList {
   void paint(PaintingContext context, Offset offset) {
     var used = 0;
     for (final (first, last) in _groupSpans()) {
+      if (_groups[indexOf(first)] == null) {
+        _paintRows(context, offset, first, last);
+        continue;
+      }
       final surface = _surface(first, last);
       // A group whose first row is collapsing past its gap has no surface
       // left; one outside the paint extent draws nothing.

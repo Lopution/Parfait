@@ -236,10 +236,12 @@ reviewed: 2026-10-17
 - **Code:** `lib/features/settings/pages/muted_items_page.dart`, `lib/core/mute`
 
 ### PAGE-14 Management lists are lazy rows on one surface per group
-- **Rule:** Management lists are two flat lazy lists (groups, ungrouped
-  items) keyed by task or group id. A group's rows share one
-  `SliverSurfaceList` container; never split a group into its own slivers
-  or reparent rows with `GlobalKey`s. Progress bars show only on
+- **Rule:** A management list is one flat lazy list keyed by task or
+  group id, the newest submission first, groups among the single items
+  (a group by its own submission, its rows in page order). A group's
+  rows share one `SliverSurfaceList` surface, a single item sits on none;
+  never split a group into its own slivers or reparent rows with
+  `GlobalKey`s. Progress bars show only on
   unfinished rows. A group of one is a plain row. A row's action buttons
   stand on its title row while its text keeps 160dp; only a narrower row
   moves them to a line of their own. The actions end the row, so a
@@ -247,8 +249,10 @@ reviewed: 2026-10-17
 - **Why:** Eager lists built hundreds of rows; reparented rows dropped
   their ink and showed square corners mid-animation. On every phone a
   lone remove button took a line of its own under the row. A group's
-  remove button stood one icon left of its rows'.
-- **Check:** `test/download_tasks_page_test.dart` "a five-hundred-item list only builds the visible rows" "a group of one is a plain task row" "on a phone a finished row keeps remove on its title row" "a collapsed group expands on tap and folds its children in"
+  remove button stood one icon left of its rows'. Oldest first, with the
+  groups all above the single items, put a new download at the bottom
+  (user report).
+- **Check:** `test/download_tasks_page_test.dart` "a five-hundred-item list only builds the visible rows" "a group of one is a plain task row" "the newest submission comes first, groups among tasks" "on a phone a finished row keeps remove on its title row" "a collapsed group expands on tap and folds its children in"
 - **Code:** `lib/features/settings/pages/download_tasks_page.dart`, `lib/app/widgets/sliver_surface_list.dart`
 
 ## Wide and short windows
