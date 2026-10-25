@@ -49,18 +49,26 @@ void main() {
     'feed/bottom-bar-on-scroll',
     location: '/recommended',
     notes:
-        'Scrolling the feed up hides the bottom bar, scrolling back down '
-        'brings it back. The bar slides as a unit, its pill indicator stays '
-        'on the selected destination, and nothing behind it flickers.',
+        'The bottom bar moves with the feed pixel for pixel: a slow short '
+        'drag takes it part way and it settles back once released; '
+        'scrolling up hides it, scrolling back down brings it back. The '
+        'bar slides as a unit, its pill indicator stays on the selected '
+        'destination, and nothing behind it flickers.',
     script: (film, router) async {
       await film.swipe(
         find.text('illust 1002'),
-        const Offset(0, -600),
+        const Offset(0, -50),
         count: 20,
         hold: 2,
       );
       await film.swipe(
         find.text('illust 1004'),
+        const Offset(0, -600),
+        count: 20,
+        hold: 2,
+      );
+      await film.swipe(
+        find.text('illust 1008'),
         const Offset(0, 300),
         count: 15,
         hold: 2,

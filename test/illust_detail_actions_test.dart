@@ -78,6 +78,37 @@ void main() {
       );
     });
 
+    testWidgets('the action bar follows a drag and settles at the nearer end', (
+      tester,
+    ) async {
+      final (container, _, _) = await makeWorld();
+      await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
+      await tester.pumpAndSettle();
+      final shownTop = toolbarRect(tester).top;
+      double moved() => toolbarRect(tester).top - shownTop;
+      final page = tester.getCenter(find.byType(IllustDetailPage));
+
+      final short = await tester.startGesture(page);
+      await short.moveBy(const Offset(0, -20));
+      await tester.pump();
+      final start = moved();
+      await short.moveBy(const Offset(0, -10));
+      await tester.pump();
+      expect(moved() - start, closeTo(10, 0.01));
+      await short.up();
+      await tester.pumpAndSettle();
+      expect(moved(), closeTo(0, 0.5));
+
+      final far = await tester.startGesture(page);
+      await far.moveBy(const Offset(0, -20));
+      await tester.pump();
+      await far.moveBy(const Offset(0, -DetailActionBar.height));
+      await tester.pump();
+      await far.up();
+      await tester.pumpAndSettle();
+      expect(inBar(find.byType(Material)).hitTestable(), findsNothing);
+    });
+
     testWidgets('download shows the ring, then the saved state; its prompt '
         'rests above the bar', (tester) async {
       final (container, transport, _) = await makeWorld(

@@ -414,8 +414,7 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav> {
 
   /// What is still on screen of the bar as it slides.
   void _publishVisibleExtent() {
-    widget.visibleExtent.value =
-        _restingExtent * ScrollHiddenChrome.shownOf(widget.scrollVisibility);
+    widget.visibleExtent.value = _restingExtent * widget.scrollVisibility.value;
   }
 
   @override
