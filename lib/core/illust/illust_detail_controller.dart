@@ -124,9 +124,9 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
     final buildRef = ref;
     final store = ref.read(illustStoreProvider);
     try {
-      // Snapshot revision captured before the fetch gates stale bookmark
-      // payloads against locally confirmed changes (R2).
-      final bookmarkRevision = store.bookmarkRevisionNow();
+      // Snapshot revisions captured before the fetch gate stale bookmark and
+      // follow payloads against locally confirmed changes (R2).
+      final revision = store.revisionNow();
       final repository = ref.read(_illustDetailRepositoryProvider);
       // When the snapshot already proves the work is multi-page (the
       // feed→detail path), the pages call races the app detail instead of
@@ -138,7 +138,7 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
       store.mergeAll(
         [fresh],
         source: EntityMergeSource.detail,
-        bookmarkSnapshotRevision: bookmarkRevision,
+        snapshotRevision: revision,
       );
       final merged = store.get(id)!;
       if (!merged.visible) {

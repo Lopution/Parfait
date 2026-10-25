@@ -11,7 +11,7 @@ import 'series_store.dart';
 /// This is a single fetch, not a paged feed, so there is no commit gate —
 /// the notifier is the valid write path. The series detail merges into the
 /// IllustSeriesStore and the prev/next neighbour payloads into the shared
-/// IllustStore (gated on the fetch-time bookmark revision) so the section's
+/// IllustStore (gated on the fetch-time revisions) so the section's
 /// navigation buttons can push a detail page with a warm entity.
 class _IllustSeriesContextController
     extends AsyncNotifier<IllustSeriesContext?> {
@@ -23,7 +23,7 @@ class _IllustSeriesContextController
   Future<IllustSeriesContext?> build() async {
     ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
     final illustStore = ref.read(illustStoreProvider);
-    final bookmarkRevision = illustStore.bookmarkRevisionNow();
+    final revision = illustStore.revisionNow();
     final result = await ref
         .read(seriesRepositoryProvider)
         .fetchIllustSeriesContext(illustId);
@@ -36,10 +36,7 @@ class _IllustSeriesContextController
       if (result.nextIllust != null) result.nextIllust!,
     ];
     if (neighbours.isNotEmpty) {
-      illustStore.mergeAll(
-        neighbours,
-        bookmarkSnapshotRevision: bookmarkRevision,
-      );
+      illustStore.mergeAll(neighbours, snapshotRevision: revision);
     }
     return result.context;
   }
