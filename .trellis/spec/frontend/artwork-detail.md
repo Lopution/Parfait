@@ -32,12 +32,16 @@ reviewed: 2026-10-17
   the expand button and the title follow right under the image. An
   expanded set drops the band. The Hero, placeholder and error states
   stay inside the ratio box, not the slot. Page 1 always goes through the
-  slot box so expanding a set never remounts it.
+  slot box so expanding a set never remounts it. In selection, every
+  page's badge keeps one inset from its image's top-end corner, moved
+  down only by the part of the image the toolbar covers.
 - **Why:** A wide image at the very top was hard to see and to tap; the
   matching band below it only pushed the title down. The flight landed on
   empty slot space; remounting page 1 lost its decode. On a portrait
-  tablet the slot only opened a gap.
-- **Check:** `test/illust_detail_page_test.dart` "gives the first image of a set the same slot"
+  tablet the slot only opened a gap. A badge moved down a toolbar's
+  height on an image the bar did not reach sat mid-image (user report,
+  10-24).
+- **Check:** `test/illust_detail_page_test.dart` "a short first image sits a band low; Hero and badge keep to it" "gives the first image of a set the same slot"
 - **Code:** `lib/features/illust/detail/widgets/page_image.dart`
 
 ### DETAIL-03 A panorama scrolls before the pager takes over

@@ -54,8 +54,9 @@ class DetailPageImage extends ConsumerStatefulWidget {
   /// does not exist in the feed snapshot yet.
   final bool placeholderOnly;
 
-  /// How far the page's top runs under the detail page's see-through bar;
-  /// the selection badge sits below it.
+  /// How far the image's top runs under the detail page's see-through bar
+  /// (none for an image low in its slot); the selection badge sits below
+  /// it.
   final double overlayTopInset;
 
   /// Height of the sideways-scrolling viewport a page of [aspectRatio] gets
