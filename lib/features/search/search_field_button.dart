@@ -2,12 +2,13 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../app/theme/func_semantic_tokens.dart';
 import '../../app/layout/content_widths.dart';
+import 'search_keyword_pills.dart';
 
 /// Looks like a search field, acts as a button: the input page owns typing.
 ///
 /// The search guide shows the hint; the result page shows the query, in
 /// the place the input page's field sits, so the field reads as the same
-/// one across the push.
+/// one across the push, its keywords on pills as the field draws them.
 class SearchFieldButton extends StatelessWidget {
   const SearchFieldButton({
     super.key,
@@ -53,16 +54,7 @@ class SearchFieldButton extends StatelessWidget {
                   Icon(Icons.search, color: colors.onSurfaceVariant),
                   // Where SearchBar puts its text after a bare leading icon.
                   const SizedBox(width: FuncSpacing.lg),
-                  Expanded(
-                    child: Text(
-                      text,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: isHint ? colors.onSurfaceVariant : null,
-                      ),
-                    ),
-                  ),
+                  Expanded(child: isHint ? _hint(theme) : _query(theme)),
                 ],
               ),
             ),
@@ -75,4 +67,22 @@ class SearchFieldButton extends StatelessWidget {
       child: field,
     );
   }
+
+  Widget _hint(ThemeData theme) => Text(
+    text,
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: theme.textTheme.bodyLarge?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    ),
+  );
+
+  Widget _query(ThemeData theme) => SearchKeywordPills(
+    text: text,
+    child: Text.rich(
+      searchKeywordSpan(text, theme.textTheme.bodyLarge),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    ),
+  );
 }

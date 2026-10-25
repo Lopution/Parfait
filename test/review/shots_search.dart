@@ -7,7 +7,7 @@ import 'review_support.dart';
 /// Search input, results for the three targets, the filter sheet and the
 /// reverse-image page.
 void main() {
-  const illusts = '/search/results?q=cat&type=illust';
+  const illusts = '/search/results?q=landscape%20cat&type=illust';
 
   const history = ReviewSetup(
     searchHistory: ['初音ミク', 'landscape', '猫', 'オリジナル', 'scenery'],
@@ -21,9 +21,10 @@ void main() {
   testShot(
     'search/input-suggestions',
     location: '/search/input',
-    state: 'typed keyword',
+    state: 'typed keywords',
+    variants: {ShotVariant.dark},
     before: (tester, router) async {
-      await tester.enterText(find.byType(TextField).last, 'cat');
+      await tester.enterText(find.byType(TextField).last, 'landscape cat -g');
       // Past the debounce, so the settle's IO turns deliver the request.
       await tester.pump(SearchAutocompleteController.debounceDuration);
     },
