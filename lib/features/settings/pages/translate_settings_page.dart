@@ -96,13 +96,6 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
     if (mounted) setState(_refreshCredentials);
   }
 
-  /// The note under the providers for [provider], if it has one.
-  String? _providerHint(TranslationProvider provider) => switch (provider) {
-    TranslationProvider.baidu => context.l10n.translateBaiduHint,
-    TranslationProvider.doubao => context.l10n.translateDoubaoHint,
-    _ => null,
-  };
-
   /// The account or credential row of [provider], if it has one.
   Widget? _providerRow(TranslationProvider provider) => switch (provider) {
     TranslationProvider.baidu => SettingsTile(
@@ -194,21 +187,11 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
             bottom: FuncSpacing.xl,
           ),
           children: [
-            // A provider's own row and note come and go with it: the group
-            // springs to its new height and they fade in.
+            // A provider's own row comes and goes with it: the group
+            // springs to its new height and the row fades in.
             SpringSize(
               child: SettingsGroup(
                 setting: Setting.translationProvider,
-                footer: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(context.l10n.translateCredentialHint),
-                    if (_providerHint(provider) case final hint?) ...[
-                      const SizedBox(height: FuncSpacing.xs),
-                      StateFade(kind: provider, child: Text(hint)),
-                    ],
-                  ],
-                ),
                 children: [
                   for (final item in items)
                     SettingsChoiceTile(

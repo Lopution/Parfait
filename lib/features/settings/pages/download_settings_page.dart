@@ -123,7 +123,6 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
             children: [
               SettingsGroup(
                 title: Text(context.l10n.downloadGroupTasks),
-                footer: Text(context.l10n.maxDownloadCountHint),
                 children: [
                   // One row: the label names the slider under it.
                   SettingsGroupContent(
@@ -249,11 +248,6 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                                 ),
                               ),
                             ),
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          const SizedBox(height: FuncSpacing.xs),
-                          Text(
-                            context.l10n.namingTemplateSanitizeNote,
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                           // An invalid template disables the action instead

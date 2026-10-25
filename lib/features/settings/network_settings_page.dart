@@ -116,7 +116,6 @@ class NetworkSettingsPage extends ConsumerWidget {
                 SettingsTile(
                   icon: Icons.network_check,
                   setting: SettingsPageRef.networkProbe,
-                  subtitle: Text(context.l10n.networkProbeHint),
                   onTap: () => context.push<void>('/settings/network/probe'),
                 ),
               ],
@@ -128,7 +127,6 @@ class NetworkSettingsPage extends ConsumerWidget {
                 SettingsTile(
                   icon: Icons.tune_outlined,
                   setting: SettingsPageRef.networkAdvanced,
-                  subtitle: Text(context.l10n.networkAdvancedHint),
                   onTap: () => context.push<void>('/settings/network/advanced'),
                 ),
               ],
@@ -686,7 +684,7 @@ class _EffectiveRoutesSectionState
           ),
         ],
       ),
-      // Nothing to list is a note under the heading, not a card to press.
+      // Nothing to list says so under the heading, not on a card to press.
       footer: empty ? Text(context.l10n.networkEffectiveRoutesEmpty) : null,
       children: [
         for (final route in _routes.entries) _routeTile(context, route),
@@ -767,15 +765,6 @@ class _ThirdPartyReachabilitySectionState
             tooltip: context.l10n.refresh,
             onPressed: _check,
           ),
-        ],
-      ),
-      footer: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // D7: the check still fires on page entry; the note tells the
-          // user so the "checking" state is not mistaken for a manual tap.
-          Text(context.l10n.networkThirdPartyAuto),
-          Text(context.l10n.networkThirdPartyHint),
         ],
       ),
       children: [

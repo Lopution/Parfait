@@ -509,8 +509,6 @@ class _WithBottomAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final muted = theme.colorScheme.onSurfaceVariant;
     return Column(
       children: [
         Expanded(child: child),
@@ -521,25 +519,7 @@ class _WithBottomAction extends StatelessWidget {
             FuncSpacing.xl,
             FuncSpacing.lg,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.privacy_tip_outlined, size: 16, color: muted),
-                  const SizedBox(width: FuncSpacing.xs),
-                  Expanded(
-                    child: Text(
-                      context.l10n.searchReversePrivacyNote,
-                      style: theme.textTheme.bodySmall?.copyWith(color: muted),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: FuncSpacing.sm),
-              action,
-            ],
-          ),
+          child: action,
         ),
       ],
     );

@@ -189,19 +189,16 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
           children: [
             // The page title already names the only group.
             SettingsGroup(
-              footer: Text(l10n.backupHint),
               children: [
                 SettingsActionTile(
                   icon: Icons.file_upload_outlined,
                   setting: Setting.backupExport,
-                  subtitle: Text(l10n.backupExportHint),
                   enabled: !_busy,
                   onTap: _export,
                 ),
                 SettingsActionTile(
                   icon: Icons.file_open_outlined,
                   setting: Setting.backupImport,
-                  subtitle: Text(l10n.backupImportHint),
                   enabled: !_busy,
                   onTap: _import,
                 ),

@@ -103,11 +103,9 @@ void main() {
     expect(find.text('bad-tag'), findsNothing);
   });
 
-  testWidgets('an empty group says where its mutes come from, off the cards', (
-    tester,
-  ) async {
+  testWidgets('an empty group says it is empty, off the cards', (tester) async {
     await _pump(tester);
-    final hints = find.textContaining('长按作品卡片');
+    final hints = find.text('暂无屏蔽条目');
     // Muted users and muted works are both empty.
     expect(hints, findsNWidgets(2));
     expect(

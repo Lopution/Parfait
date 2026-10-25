@@ -245,7 +245,6 @@ class _RankingCategorySheetState<M extends RankingCategory>
     final theme = Theme.of(context);
     final draft = _draft;
     final all = [...draft.shown, ...draft.hidden];
-    final anyBlocked = draft.shown.any(blocked);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -278,21 +277,6 @@ class _RankingCategorySheetState<M extends RankingCategory>
             onMove: (next) => _save(next),
           ),
         ),
-        if (anyBlocked)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              FuncSpacing.xl,
-              FuncSpacing.sm,
-              FuncSpacing.xl,
-              0,
-            ),
-            child: Text(
-              l10n.rankingBlockedNote,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
         _SectionLabel(l10n.arrangementHidden),
         if (draft.hidden.isEmpty)
           // Fades in as the last hidden category leaves.
