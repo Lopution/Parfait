@@ -282,7 +282,6 @@ void main() {
       final (container, _) = await _makeWorld();
       const key = BookmarkKey(BookmarkEntityType.illust, 11);
       final store = container.read(illustStoreProvider);
-      final bookmarks = container.read(bookmarkStoreProvider.notifier);
 
       // Entity arrives unbookmarked and merges before any local action.
       store.mergeAll([_entity(11, bookmarked: false)]);
@@ -290,11 +289,11 @@ void main() {
 
       // Local add confirms at revision R; a refetch that STARTED before R
       // must not clear it.
+      final staleRevision = store.revisionNow();
       await container.read(bookmarkActionsProvider).toggle(key);
-      final staleRevision = bookmarks.revisionNow() - 1;
       store.mergeAll([
         _entity(11, bookmarked: false),
-      ], bookmarkSnapshotRevision: staleRevision);
+      ], snapshotRevision: staleRevision);
       expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isTrue);
       expect(
         store.get(11)!.isBookmarked,
@@ -305,7 +304,7 @@ void main() {
       // A refetch started after the confirmation is fresh and applies.
       store.mergeAll([
         _entity(11, bookmarked: false),
-      ], bookmarkSnapshotRevision: bookmarks.revisionNow() + 1);
+      ], snapshotRevision: store.revisionNow());
       expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isFalse);
     },
   );

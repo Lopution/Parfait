@@ -40,6 +40,8 @@ final trendingTagsProvider =
       );
       final token = CancelToken();
       ref.onDispose(token.cancel);
+      final store = ref.read(illustStoreProvider);
+      final revision = store.revisionNow();
       final tags = await ref
           .read(searchRepositoryProvider)
           .trendingTags(type: type, cancelToken: token);
@@ -48,11 +50,7 @@ final trendingTagsProvider =
           if (tag.representative != null) tag.representative!,
       ];
       if (representatives.isNotEmpty) {
-        final store = ref.read(illustStoreProvider);
-        store.mergeAll(
-          representatives,
-          bookmarkSnapshotRevision: store.bookmarkRevisionNow(),
-        );
+        store.mergeAll(representatives, snapshotRevision: revision);
       }
       return tags;
     }, retry: noRetry);

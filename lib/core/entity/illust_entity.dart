@@ -12,12 +12,18 @@ class IllustUser {
     required this.name,
     required this.account,
     required this.profileImageUrl,
+    this.isFollowed,
   });
 
   final int id;
   final String name;
   final String account;
   final String? profileImageUrl;
+
+  /// Whether the signed-in user followed this author when the payload was
+  /// sent; null when it does not say. IllustStore forwards it to the
+  /// FollowStore, which owns the live value: read that, not this.
+  final bool? isFollowed;
 
   /// Serializes back to the API shape so [IllustEntity.fromJson] round-trips
   /// (watch-later payload, feed snapshots).
@@ -26,6 +32,7 @@ class IllustUser {
     'name': name,
     'account': account,
     'profile_image_urls': {'medium': profileImageUrl},
+    if (isFollowed != null) 'is_followed': isFollowed,
   };
 }
 
@@ -505,6 +512,9 @@ class IllustEntity {
       profileImageUrl: readOptionalString(
         (userJson['profile_image_urls'] as Map<String, dynamic>?)?['medium'],
       ),
+      isFollowed: userJson['is_followed'] is bool
+          ? userJson['is_followed'] as bool
+          : null,
     );
     String requiredUrl(String key) {
       final value = imageUrlsJson[key];

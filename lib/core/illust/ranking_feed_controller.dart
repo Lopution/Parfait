@@ -52,7 +52,7 @@ class _RankingFeedController extends PagedFeedController {
   @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
     final store = ref.read(illustStoreProvider);
-    final bookmarkRevision = store.bookmarkRevisionNow();
+    final revision = store.revisionNow();
     final page = await ref
         .read(rankingRepositoryProvider)
         .fetchPage(
@@ -65,10 +65,7 @@ class _RankingFeedController extends PagedFeedController {
       ids: [for (final illust in page.illusts) illust.id],
       nextCursor: page.nextUrl,
       incomingIllusts: {for (final illust in page.illusts) illust.id: illust},
-      commit: (_) => store.mergeAll(
-        page.illusts,
-        bookmarkSnapshotRevision: bookmarkRevision,
-      ),
+      commit: (_) => store.mergeAll(page.illusts, snapshotRevision: revision),
     );
   }
 

@@ -56,6 +56,7 @@ reviewed: 2026-10-13
   | Field | Feed | Detail |
   |---|---|---|
   | `isBookmarked` | `BookmarkStore` decides | `BookmarkStore` decides |
+  | `user.isFollowed` | forwarded to `FollowStore`, which decides | same |
   | page URLs | keep old when empty | incoming wins |
   | `caption`, `tags` | keep old when empty | incoming, even empty |
   | `visible` | `new && old` | incoming |
@@ -64,7 +65,9 @@ reviewed: 2026-10-13
 
 - **Why:** Feed refreshes stripped viewer and download URLs and erased
   multi-page counts; a snapshot without the series key forgot the series.
-- **Check:** `test/illust_store_test.dart` "feed merge does not regress caption/tags/pageCount" "detail merge may overwrite empty caption/tags, visible=false, smaller pageCount" "a payload that does not mention series keeps the known one"
+  The parser dropped `user.is_followed`, so the detail page showed a
+  followed author as not followed until their profile was opened.
+- **Check:** `test/illust_store_test.dart` "feed merge does not regress caption/tags/pageCount" "detail merge may overwrite empty caption/tags, visible=false, smaller pageCount" "a payload that does not mention series keeps the known one"; `test/follow_actions_test.dart` "a work's payload brings its author's follow"
 - **Code:** `lib/core/entity/illust_store.dart`
 
 ### STORE-04 Mutation stores never read entity stores
@@ -79,11 +82,14 @@ reviewed: 2026-10-13
 ### STORE-05 Detail controllers do not watch the store they write
 - **Rule:** A detail controller that merges into `UserStore` or
   `IllustStore` reads its initial snapshot with `ref.read` and watches
-  only the current-account boundary. A follow fetch captures
-  `FollowStore.revisionNow()` before the request and passes it to the
-  merge.
+  only the current-account boundary. A fetch into either store captures
+  the revisions of the state its payload carries before the request and
+  passes them to the merge: `UserStore.followRevisionNow()` for users,
+  `IllustStore.revisionNow()` (bookmark and follow) for works.
 - **Why:** Watching the whole store made the controller's own merge
-  invalidate it: an unbounded detail-request loop.
+  invalidate it: an unbounded detail-request loop. A revision read after
+  the response gates nothing: a late payload undid a change confirmed
+  while it was in flight.
 - **Check:** manual
 - **Code:** `lib/core/user`, `lib/core/illust`
 

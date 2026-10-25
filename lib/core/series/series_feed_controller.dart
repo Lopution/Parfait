@@ -26,7 +26,7 @@ class _IllustSeriesFeedController extends PagedFeedController {
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
     final repository = ref.read(seriesRepositoryProvider);
     final illustStore = ref.read(illustStoreProvider);
-    final bookmarkRevision = illustStore.bookmarkRevisionNow();
+    final revision = illustStore.revisionNow();
     final page = await repository.fetchSeriesWorks(
       seriesId,
       cursor: context.cursor,
@@ -37,10 +37,7 @@ class _IllustSeriesFeedController extends PagedFeedController {
       nextCursor: page.nextUrl,
       incomingIllusts: {for (final illust in page.illusts) illust.id: illust},
       commit: (_) {
-        illustStore.mergeAll(
-          page.illusts,
-          bookmarkSnapshotRevision: bookmarkRevision,
-        );
+        illustStore.mergeAll(page.illusts, snapshotRevision: revision);
         final detail = page.detail;
         if (detail != null) {
           ref.read(illustSeriesStoreProvider.notifier).mergeAll([detail]);

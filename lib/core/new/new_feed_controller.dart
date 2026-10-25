@@ -33,7 +33,7 @@ class _NewFeedController extends PagedFeedController {
     final repository = ref.read(newFeedRepositoryProvider);
     if (key.type == NewFeedType.illust) {
       final store = ref.read(illustStoreProvider);
-      final bookmarkRevision = store.bookmarkRevisionNow();
+      final revision = store.revisionNow();
       final page = await repository.fetchIllust(
         key,
         cursor: context.cursor,
@@ -43,10 +43,7 @@ class _NewFeedController extends PagedFeedController {
         ids: [for (final item in page.illusts) item.id],
         nextCursor: page.nextUrl,
         incomingIllusts: {for (final item in page.illusts) item.id: item},
-        commit: (_) => store.mergeAll(
-          page.illusts,
-          bookmarkSnapshotRevision: bookmarkRevision,
-        ),
+        commit: (_) => store.mergeAll(page.illusts, snapshotRevision: revision),
       );
     }
     final store = ref.read(novelStoreProvider.notifier);
