@@ -97,11 +97,12 @@ reviewed: 2026-10-17
 ### NAV-07 The bottom bar is the Shaft-style bar
 - **Rule:** `FuncBottomNav` is a custom 56dp bar: no indicator shape,
   selection is a tint (icon and label to `primary`, label weight up) on
-  `effectsFast`; nothing moves or resizes. Do not swap it for the M3
-  `NavigationBar`. The wide layout's `NavigationRail` keeps the M3 rail.
-  Labels share one `LabelFit` capped at 1.3x text scale.
-- **Why:** User decision after comparing with Shaft. No capsule or
-  segmented bar.
+  `effectsFast`; nothing moves or resizes. It casts `barShadow` up over
+  the content (no hairline), as the comment composer does. Do not swap
+  it for the M3 `NavigationBar`; the wide layout's `NavigationRail` keeps
+  the M3 rail. Labels share one `LabelFit` capped at 1.3x text scale.
+- **Why:** User decision after comparing with Shaft: no capsule or
+  segmented bar; a shadow over a hairline on every bottom bar (10-25).
 - **Check:** `test/locale_layout/compact_controls_test.dart`
 - **Code:** `lib/app/widgets/func_bottom_nav.dart`
 
@@ -257,12 +258,16 @@ reviewed: 2026-10-17
   `SliverAppBar` outside it. Titles start at the leading edge on every
   page. A hand-built bar (the reader's) lays out with
   `NavigationToolbar`: a title with `centerMiddle: false`, a readout
-  centered on the whole bar.
-- **Why:** `AppTopBar` owns the scrolled-under edge line; pages with a raw
+  centered on the whole bar. Content scrolled under a top bar is marked
+  by `ScrollEdgeShadow`, `barShadow` cast down (`topBarShadow`), never a
+  hairline; a self-drawn pinned strip that is the page's top edge (the
+  profile tabs) wraps itself in it.
+- **Why:** `AppTopBar` owns the scrolled-under shadow; pages with a raw
   bar had no scroll edge at all. The agreement and login pages centered
   their titles alone, and a readout centered between unequal neighbours
-  sat off the bar's middle.
-- **Check:** `test/architecture/top_bar_test.dart` "page top bars are AppTopBar"
+  sat off the bar's middle. User decision: top and bottom bars set
+  themselves off the content alike (10-25).
+- **Check:** `test/architecture/top_bar_test.dart` "page top bars are AppTopBar"; `test/app_tab_bar_test.dart` "a top bar with tabs casts its shadow once content scrolls under it"
 - **Code:** `lib/app/widgets/app_top_bar.dart`
 
 ## Wide windows

@@ -22,12 +22,14 @@ dependencies:
   dynamic_color: ^2.1.0
   # Fork: EasyRefresh depends on no MediaQuery; its indicator views read
   # only the padding. A keyboard animation or a system bar toggle no longer
-  # rebuilds every feed's refresh and walks its list after the frame. Back
-  # to ^4.0.x once xuelongqy/flutter_easy_refresh releases it.
+  # rebuilds every feed's refresh and walks its list after the frame. A
+  # profile tab's closing refresh header no longer moves the outer scroll
+  # without a layout, which jumped the profile header on the next drag.
+  # Back to ^4.0.x once xuelongqy/flutter_easy_refresh releases both.
   easy_refresh:
     git:
       url: https://github.com/Lopution/flutter_easy_refresh.git
-      ref: 03e2e185a081f30f4fb73c047ba5c7b9c3f68e33
+      ref: d0a95b97cbcf4c0924980dc50b65ada65a7e60f7
       path: packages/easy_refresh
   file_selector: ^1.1.0
   flutter:

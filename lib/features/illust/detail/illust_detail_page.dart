@@ -157,6 +157,9 @@ class _FirstImageLayout {
   /// need lifting off it.
   bool get artworkUnderBar => top < topChrome;
 
+  /// How much of the image's top the toolbar covers.
+  double get artworkUnderBarExtent => math.max(0.0, topChrome - top);
+
   /// Where the bar starts drawing in: over the last toolbar height before
   /// the image leaves the top, or, for an image below the bar, before it
   /// reaches the bar.
@@ -955,7 +958,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
                     onToggleSelect: () => _togglePageSelected(index),
                     onLongPress: _enterDownloadMode,
                     placeholderOnly: !detailReady && index > 0,
-                    overlayTopInset: index == 0 ? topChrome - statusInset : 0,
+                    overlayTopInset: index == 0
+                        ? layout.artworkUnderBarExtent
+                        : 0,
                     imageSlotHeight: index == 0 && slotsFirstImage
                         ? firstImageExtent
                         : null,
