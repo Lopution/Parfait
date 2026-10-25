@@ -24,6 +24,23 @@ void main() {
   );
 
   testFilm(
+    'feed/profile-pull-to-refresh',
+    location: '/recommended/user/99',
+    notes:
+        "The same pull on a profile's works tab: the list slides down "
+        'under the tabs with the indicator in the gap, as on the home '
+        'feed; the header and the tabs stay put.',
+    script: (film, router) async {
+      await film.swipe(
+        find.byType(NestedScrollView),
+        const Offset(0, 360),
+        count: 24,
+        hold: 4,
+      );
+    },
+  );
+
+  testFilm(
     'feed/load-more',
     location: '/recommended',
     notes:

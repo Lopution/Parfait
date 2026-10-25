@@ -175,11 +175,14 @@ reviewed: 2026-10-19
 - **Rule:** Feeds refresh through `PullToRefresh`, with
   `clamping: false` for ordinary lists: the whole list follows the finger
   down and the header shows above it. A tab body inside a
-  `NestedScrollView` passes `isNested: true` and has exactly one
-  `HeaderLocator` as its first item; its header is clamping, the only kind
-  EasyRefresh 4 accepts there. Nothing wraps the whole
-  `NestedScrollView`; its outer physics is `NestedRefreshOuterPhysics`,
-  which holds the outer scroll while the user drags a feed's header out.
+  `NestedScrollView` passes `isNested: true` and starts its list with
+  `PullToRefresh.nestedHeader`, its only `HeaderLocator`. Its header is
+  clamping, the only kind EasyRefresh 4 accepts there; the locator takes
+  the header's height, so the list still slides down under the tabs,
+  and the fork gives that height back on the list that holds it, never
+  on the outer scroll. Nothing wraps the whole `NestedScrollView`; its
+  outer physics is `NestedRefreshOuterPhysics`, which holds the outer
+  scroll while the user drags a feed's header out.
 - **Why:** Per-page wrappers diverged; under clamping the reversed pull is
   not real overscroll, so the indicator stayed pinned while the list
   moved. A clamping header keeps the feed at its top, so the coordinator
@@ -188,9 +191,12 @@ reviewed: 2026-10-19
   that runs its own physics. A clamping header on every feed, its disc
   dropping over a still list as `SwipeRefreshLayout` draws it, was tried
   on device and dropped: the user kept the list pulling down (user
-  decision 10-24).
-- **Check:** `test/pull_to_refresh_test.dart` "the shared wrapper refreshes a nested scroll view once", `test/user_profile_test.dart` "a reversed pull retracts the indicator before the header collapses"
-- **Code:** `lib/app/pull_to_refresh.dart`, `lib/features/profile/user_page.dart`
+  decision 10-24). A locator without height left that disc over a still
+  list on the profile tabs alone (user report). EasyRefresh took a closing
+  header's height off the outer scroll without a layout, so a profile
+  header pushed up during a refresh jumped open on the next drag.
+- **Check:** `test/pull_to_refresh_test.dart` "the shared wrapper refreshes a nested scroll view once", `test/user_profile_test.dart` "a reversed pull retracts the indicator before the header collapses" "a header pushed up during a refresh stays when it ends"
+- **Code:** `lib/app/pull_to_refresh.dart`, `lib/features/profile/user_page.dart`, `lib/features/profile/profile_illust_feed.dart`, `pubspec.yaml`
 
 ### FEED-08 The indicator follows observable outcomes
 - **Rule:** A reversed pull moves the indicator back with the finger, and

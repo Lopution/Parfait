@@ -20,6 +20,8 @@ import 'package:parfait/core/user/user_repository.dart';
 import 'package:parfait/core/user/user_store.dart';
 import 'package:parfait/core/profile/profile_models.dart';
 import 'package:parfait/app/scroll_behavior.dart';
+import 'package:parfait/app/widgets/app_tab_bar.dart';
+import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/features/profile/profile_header_delegate.dart';
 import 'package:parfait/features/profile/profile_novel_feed.dart';
@@ -627,7 +629,15 @@ void main() {
     expect(find.byType(ChoiceChip), findsNothing);
     expect(repository.requests, contains('works:42:illust:first'));
     expect(find.byType(EasyRefresh), findsOneWidget);
-    expect(find.byType(HeaderLocator), findsOneWidget);
+    // At rest the locator has no height, so it is not on stage.
+    expect(
+      find.descendant(
+        of: find.byType(EasyRefresh),
+        matching: find.byType(HeaderLocator, skipOffstage: false),
+        skipOffstage: false,
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('小说'));
     await tester.pumpAndSettle();
@@ -1096,6 +1106,9 @@ void main() {
         final inner = activeFeedPosition(tester);
         final indicator = find.byType(RefreshProgressIndicator);
         final requests = repository.requests.length;
+        final card = find.byType(IllustCard).first;
+        final cardTop = tester.getTopLeft(card).dy;
+        final tabsTop = tester.getTopLeft(find.byType(AppTabBar)).dy;
 
         final gesture = await tester.startGesture(
           tester.getCenter(find.byType(NestedScrollView)),
@@ -1106,6 +1119,9 @@ void main() {
           await tester.pump();
         }
         expect(indicator, findsOneWidget);
+        // As in any feed, the list slides down; the tabs above stay.
+        expect(tester.getTopLeft(card).dy, greaterThan(cardTop + 80));
+        expect(tester.getTopLeft(find.byType(AppTabBar)).dy, tabsTop);
         var retracted = false;
         for (var i = 0; i < 24; i++) {
           await gesture.moveBy(const Offset(0, -30));
@@ -1126,6 +1142,53 @@ void main() {
       });
     },
   );
+
+  // EasyRefresh took the closing header's height off the outer scroll
+  // without a layout: the header stayed collapsed, then jumped open on the
+  // next drag.
+  testWidgets('a header pushed up during a refresh stays when it ends', (
+    tester,
+  ) async {
+    setViewSize(tester, const Size(360, 640));
+    final repository = FakeUserRepository(works: _works(30));
+    final container = await makeProfileWorld(users: repository);
+    await mockNetworkImagesFor(() async {
+      await _pumpProfile(
+        tester,
+        container,
+        scrollBehavior: const FuncScrollBehavior(),
+      );
+      final outer = outerPosition(tester);
+      final tabs = find.byType(AppTabBar);
+      final refresh = repository.worksGate = Completer<void>();
+      Future<void> frames(int count) async {
+        for (var i = 0; i < count; i++) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+      }
+
+      final pull = await tester.startGesture(
+        tester.getCenter(find.byType(NestedScrollView)),
+      );
+      for (var i = 0; i < 10; i++) {
+        await pull.moveBy(const Offset(0, 40));
+        await tester.pump();
+      }
+      await pull.up();
+      await frames(30);
+      await tester.drag(find.byType(NestedScrollView), const Offset(0, -250));
+      await frames(60);
+      final pushedUp = outer.pixels;
+      final tabsTop = tester.getTopLeft(tabs).dy;
+
+      refresh.complete();
+      await frames(100);
+      expect(outer.pixels, pushedUp);
+      await tester.drag(find.byType(NestedScrollView), const Offset(0, -10));
+      await frames(60);
+      expect(tester.getTopLeft(tabs).dy, tabsTop, reason: 'no jump open');
+    });
+  });
 
   testWidgets(
     'same work tab tap returns both profile scroll positions to top',

@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:easy_refresh/easy_refresh.dart';
 
 import '../../app/pull_to_refresh.dart';
 import '../../app/widgets/feed/feed_states.dart';
@@ -63,7 +62,7 @@ class ProfileNovelFeed extends ConsumerWidget {
               restorationId: 'profile-novel-$userId',
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                const HeaderLocator.sliver(),
+                PullToRefresh.nestedHeader,
                 if (novels.isEmpty)
                   // Same centred empty state as the works tab — not a
                   // top-aligned list item.

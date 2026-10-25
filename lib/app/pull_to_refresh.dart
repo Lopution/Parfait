@@ -15,9 +15,10 @@ import 'scroll_behavior.dart';
 /// the list scrolls; without clamping the indicator retracts with the
 /// reverse gesture first, then the list starts moving — the expected
 /// pull-to-refresh behaviour. Inside a NestedScrollView ([isNested])
-/// EasyRefresh 4 only takes a clamping header; the NestedScrollView runs
-/// [NestedRefreshOuterPhysics] so that header retracts before the outer one
-/// collapses.
+/// EasyRefresh 4 only takes a clamping header; the list starts with
+/// [nestedHeader], which pushes it down as far, and the NestedScrollView
+/// runs [NestedRefreshOuterPhysics] so that header retracts before the
+/// outer one collapses.
 class PullToRefresh extends StatefulWidget {
   const PullToRefresh({
     super.key,
@@ -54,6 +55,11 @@ class PullToRefresh extends StatefulWidget {
     );
     return true;
   }
+
+  /// The first sliver of an [isNested] feed's list, where its header shows.
+  /// It takes the header's height, so the list slides down under the tabs
+  /// the way an ordinary feed's list follows the finger.
+  static const nestedHeader = HeaderLocator.sliver(clearExtent: false);
 
   /// Mounted wrappers by the controller of the list they wrap.
   static final _mounted = Expando<_PullToRefreshState>();
