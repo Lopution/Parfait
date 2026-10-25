@@ -40,6 +40,7 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
     required this.surfaceRaised,
     required this.surfaceOverlay,
     required this.divider,
+    required this.barShadow,
     required this.contentPrimary,
     required this.contentSecondary,
     required this.contentTertiary,
@@ -75,6 +76,7 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
           : FuncTokens.lightContainerHigh,
       surfaceOverlay: FuncTokens.surfaceOverlay,
       divider: dark ? FuncTokens.darkDivider : FuncTokens.lightDivider,
+      barShadow: dark ? FuncTokens.darkBarShadow : FuncTokens.lightBarShadow,
       contentPrimary: text,
       contentSecondary: textSecondary,
       contentTertiary: dark
@@ -106,6 +108,9 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
   final Color surfaceRaised;
   final Color surfaceOverlay;
   final Color divider;
+
+  /// Cast up by a bar at the screen bottom over the content under it.
+  final List<BoxShadow> barShadow;
 
   // Content ladder.
   final Color contentPrimary;
@@ -148,6 +153,7 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
     Color? surfaceRaised,
     Color? surfaceOverlay,
     Color? divider,
+    List<BoxShadow>? barShadow,
     Color? contentPrimary,
     Color? contentSecondary,
     Color? contentTertiary,
@@ -169,6 +175,7 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       surfaceRaised: surfaceRaised ?? this.surfaceRaised,
       surfaceOverlay: surfaceOverlay ?? this.surfaceOverlay,
       divider: divider ?? this.divider,
+      barShadow: barShadow ?? this.barShadow,
       contentPrimary: contentPrimary ?? this.contentPrimary,
       contentSecondary: contentSecondary ?? this.contentSecondary,
       contentTertiary: contentTertiary ?? this.contentTertiary,
@@ -195,6 +202,7 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
       surfaceRaised: Color.lerp(surfaceRaised, other.surfaceRaised, t)!,
       surfaceOverlay: Color.lerp(surfaceOverlay, other.surfaceOverlay, t)!,
       divider: Color.lerp(divider, other.divider, t)!,
+      barShadow: BoxShadow.lerpList(barShadow, other.barShadow, t)!,
       contentPrimary: Color.lerp(contentPrimary, other.contentPrimary, t)!,
       contentSecondary: Color.lerp(
         contentSecondary,

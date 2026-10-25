@@ -97,11 +97,12 @@ reviewed: 2026-10-17
 ### NAV-07 The bottom bar is the Shaft-style bar
 - **Rule:** `FuncBottomNav` is a custom 56dp bar: no indicator shape,
   selection is a tint (icon and label to `primary`, label weight up) on
-  `effectsFast`; nothing moves or resizes. Do not swap it for the M3
-  `NavigationBar`. The wide layout's `NavigationRail` keeps the M3 rail.
-  Labels share one `LabelFit` capped at 1.3x text scale.
-- **Why:** User decision after comparing with Shaft. No capsule or
-  segmented bar.
+  `effectsFast`; nothing moves or resizes. It casts `barShadow` up over
+  the content (no hairline), as the comment composer does. Do not swap
+  it for the M3 `NavigationBar`; the wide layout's `NavigationRail` keeps
+  the M3 rail. Labels share one `LabelFit` capped at 1.3x text scale.
+- **Why:** User decision after comparing with Shaft: no capsule or
+  segmented bar; a shadow over a hairline on every bottom bar (10-25).
 - **Check:** `test/locale_layout/compact_controls_test.dart`
 - **Code:** `lib/app/widgets/func_bottom_nav.dart`
 

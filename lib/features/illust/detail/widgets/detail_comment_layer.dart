@@ -54,33 +54,23 @@ class DetailCommentLayer extends ConsumerWidget {
       dismiss();
     }
 
-    final theme = Theme.of(context);
     // Only the composer takes hits: the rest of the layer lets every touch
     // through to the page.
     return Align(
       alignment: Alignment.bottomCenter,
       child: TapRegion(
         onTapOutside: (_) => dismiss(),
-        child: DecoratedBox(
-          // Sets the composer off the page running on behind it.
-          position: DecorationPosition.foreground,
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(color: theme.colorScheme.outlineVariant),
-            ),
-          ),
-          child: CommentComposer(
-            key: composerKey,
-            sending: sending,
-            onSend: (text) => send(text: text),
-            onStampSend: (stampId) => send(stampId: stampId),
-            onError: (error) => showCommentSendError(context, error),
-            keyboardHeights: ref.watch(keyboardHeightsProvider.notifier),
-            initialText: ref.read(commentDraftsProvider)[workKey] ?? '',
-            onChanged: (text) =>
-                ref.read(commentDraftsProvider.notifier).keep(workKey, text),
-            onGone: onClose,
-          ),
+        child: CommentComposer(
+          key: composerKey,
+          sending: sending,
+          onSend: (text) => send(text: text),
+          onStampSend: (stampId) => send(stampId: stampId),
+          onError: (error) => showCommentSendError(context, error),
+          keyboardHeights: ref.watch(keyboardHeightsProvider.notifier),
+          initialText: ref.read(commentDraftsProvider)[workKey] ?? '',
+          onChanged: (text) =>
+              ref.read(commentDraftsProvider.notifier).keep(workKey, text),
+          onGone: onClose,
         ),
       ),
     );
