@@ -13,6 +13,7 @@ import '../layout/app_breakpoints.dart';
 import '../motion/motion_tokens.dart';
 import '../motion/scroll_hide.dart';
 import '../motion/still_work.dart';
+import '../motion/swipe_paging.dart';
 import '../pull_to_refresh.dart';
 import '../navigation/home_shell_metrics.dart';
 import 'func_bottom_nav.dart';
@@ -57,6 +58,12 @@ void reTapScrollToTop(BuildContext context, ScrollController controller) {
 /// destination sits on the bar. The bar and rail show the user's
 /// destinations in their order.
 ///
+/// On a phone, a swipe on a branch's root page moves to the destination
+/// beside it on the bar ([SwipePaging]; user decision, against Material's
+/// guidance). A page's own tabs take the swipe first and hand it over at
+/// their first or last tab ([SwipePagerScope]). The bar's selection moves
+/// when the swipe lands.
+///
 /// The branch on screen mounts at once; the other destinations on the bar
 /// mount one at a time on a still screen ([StillWork]), so a first switch
 /// to one does not build its whole page inside the switch. A mounted
@@ -85,7 +92,11 @@ class HomeBranchStack extends ConsumerStatefulWidget {
 }
 
 class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
-    with TickerProviderStateMixin, WidgetsBindingObserver, StillWork {
+    with
+        TickerProviderStateMixin,
+        WidgetsBindingObserver,
+        StillWork,
+        SwipePaging {
   late final AnimationController _switch = AnimationController(
     vsync: this,
     value: 1,
@@ -121,6 +132,16 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
   /// How far the bottom bar slides to hide, as of the last build; none on
   /// the rail.
   double _bottomBarExtent = 0;
+
+  /// Where the branches under a swipe are, in places on the bar; null
+  /// while no swipe moves them.
+  final _swipe = ValueNotifier<double?>(null);
+
+  /// The branch beside the current one that a swipe shows.
+  int? _swipePeer;
+
+  /// Whether the last build laid the destinations out on a rail.
+  bool _rail = false;
 
   /// `accessibleNavigation` below TouchExplorationScope: TalkBack is
   /// exploring, not merely some assistive service reading nodes.
@@ -186,6 +207,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     super.didUpdateWidget(oldWidget);
     final index = widget.shell.currentIndex;
     if (index == _current) return;
+    _dropSwipe();
     _mounted.add(index);
     _outgoing = _current;
     _current = index;
@@ -218,6 +240,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     _rememberDestination();
     WidgetsBinding.instance.removeObserver(this);
     _reTap.dispose();
+    _swipe.dispose();
     _switch.dispose();
     _switchSnapshot.dispose();
     _idleSnapshot.dispose();
@@ -252,6 +275,89 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
               route.popDisposition == RoutePopDisposition.doNotPop),
     );
     _reTap.emit(index);
+  }
+
+  int get _barPlace => _barBranches.indexOf(_current);
+
+  /// A swipe pages the branches on a phone's bar, from a branch at its
+  /// root page, outside touch exploration and a bar tap's switch.
+  bool _swipeAllowed() {
+    if (_rail || _touchExploration || _outgoing != null || _barPlace < 0) {
+      return false;
+    }
+    final navigator =
+        widget.shell.route.branches[_current].navigatorKey.currentState;
+    return navigator != null && !navigator.canPop();
+  }
+
+  /// Whether a page's tabs at their edge hand a swipe to the branches.
+  bool _canSwipeTo(bool forward) {
+    if (!_swipeAllowed()) return false;
+    final place = _barPlace + (forward ? 1 : -1);
+    return pageSettling || (place >= 0 && place < _barBranches.length);
+  }
+
+  void _dropSwipe() {
+    stopPaging();
+    _swipe.value = null;
+    _swipePeer = null;
+  }
+
+  @override
+  int get pageCount => _barBranches.length;
+
+  @override
+  double get pagePosition => _swipe.value ?? _barPlace.toDouble();
+
+  @override
+  void showPagePosition(double position) {
+    _swipe.value = position;
+    final place = _barPlace;
+    final side = position > place
+        ? place + 1
+        : position < place
+        ? place - 1
+        : -1;
+    final peer = side >= 0 && side < _barBranches.length
+        ? _barBranches[side]
+        : null;
+    if (peer == _swipePeer) return;
+    setState(() {
+      _swipePeer = peer;
+      if (peer != null) _mounted.add(peer);
+    });
+  }
+
+  @override
+  void landOnPage(int page) {
+    final target = _barBranches[page];
+    _swipe.value = null;
+    setState(() {
+      _swipePeer = null;
+      _current = target;
+    });
+    if (target == widget.shell.currentIndex) return;
+    // The bar shows where the swipe went.
+    slideChrome(context, _navVisibility, hidden: false);
+    widget.shell.goBranch(target);
+  }
+
+  /// Slides branch [i] by the swipe, by its place on the bar against the
+  /// swipe's position; mirrored for right-to-left bars.
+  Widget _swipeSlide(int i, Widget child) {
+    final place = _barBranches.indexOf(i);
+    final sign = Directionality.of(context) == TextDirection.rtl ? -1.0 : 1.0;
+    return ValueListenableBuilder<double?>(
+      valueListenable: _swipe,
+      builder: (context, position, child) => FractionalTranslation(
+        translation: Offset(
+          position == null || place < 0 ? 0 : (place - position) * sign,
+          0,
+        ),
+        child: child,
+      ),
+      child: child,
+    );
   }
 
   bool _onBranchRootScroll(ScrollNotification notification) {
@@ -317,13 +423,69 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     );
   }
 
+  /// Branch [i] in the stack: on screen while current, sliding out, or
+  /// shown beside the current one by a swipe.
+  Widget _buildBranch(
+    int i, {
+    required bool rail,
+    required List<HomeDestination> order,
+  }) {
+    return _swipeSlide(
+      i,
+      Offstage(
+        offstage: i != _current && i != _outgoing && i != _swipePeer,
+        // Only the leaving branch freezes: its texture slides in a
+        // single draw while the incoming branch runs live — entrances,
+        // image fades and press feedback keep animating through the
+        // switch instead of jumping at the end.
+        child: TickerMode(
+          enabled: i == _current || i == _swipePeer,
+          // A route on the root navigator (the viewer) pairs its Hero
+          // with every branch's top page; only the branch on screen
+          // may answer, or an image flew to the same work's card in a
+          // branch out of sight (TRANS-07).
+          child: HeroMode(
+            enabled: i == _current,
+            child: IgnorePointer(
+              ignoring: i != _current,
+              // A branch mounting off screen pushes its first route, which
+              // would take the focus from the text field on screen.
+              child: ExcludeFocus(
+                excluding: i != _current,
+                child: ExcludeSemantics(
+                  excluding: i != _current,
+                  child: SlideTransition(
+                    position: _slideOf(i, rail: rail, order: order),
+                    // Always in the tree, so starting a switch never
+                    // remounts a branch; only the outgoing branch paints
+                    // from a texture.
+                    child: SnapshotWidget(
+                      // A branch showing a platform view paints live.
+                      mode: SnapshotMode.permissive,
+                      controller: i == _outgoing
+                          ? _switchSnapshot
+                          : _idleSnapshot,
+                      child: _mounted.contains(i)
+                          ? widget.children[i]
+                          : const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final arrangement = ref.watch(homeArrangementProvider);
     final order = [...arrangement.shown, ...arrangement.hidden];
     _barBranches = [for (final d in arrangement.shown) d.branchIndex];
     final width = MediaQuery.sizeOf(context).width;
-    final rail = AppBreakpoints.useNavigationRail(width);
+    final rail = _rail = AppBreakpoints.useNavigationRail(width);
     // An immersive page (the novel reader) takes the rail's room too, as it
     // covers the bottom bar on a phone.
     final railShown = rail && !ref.watch(shellRailHiddenProvider);
@@ -335,51 +497,19 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
       fit: StackFit.expand,
       clipBehavior: Clip.hardEdge,
       children: [
-        for (var i = 0; i < widget.children.length; i++)
-          Offstage(
-            offstage: i != _current && i != _outgoing,
-            // Only the leaving branch freezes: its texture slides in a
-            // single draw while the incoming branch runs live — entrances,
-            // image fades and press feedback keep animating through the
-            // switch instead of jumping at the end.
-            child: TickerMode(
-              enabled: i == _current,
-              // A route on the root navigator (the viewer) pairs its Hero
-              // with every branch's top page; only the branch on screen
-              // may answer, or an image flew to the same work's card in a
-              // branch out of sight (TRANS-07).
-              child: HeroMode(
-                enabled: i == _current,
-                child: IgnorePointer(
-                  ignoring: i != _current,
-                  // A branch mounting off screen pushes its first route, which
-                  // would take the focus from the text field on screen.
-                  child: ExcludeFocus(
-                    excluding: i != _current,
-                    child: ExcludeSemantics(
-                      excluding: i != _current,
-                      child: SlideTransition(
-                        position: _slideOf(i, rail: rail, order: order),
-                        // Always in the tree, so starting a switch never
-                        // remounts a branch; only the outgoing branch paints
-                        // from a texture.
-                        child: SnapshotWidget(
-                          // A branch showing a platform view paints live.
-                          mode: SnapshotMode.permissive,
-                          controller: i == _outgoing
-                              ? _switchSnapshot
-                              : _idleSnapshot,
-                          child: _mounted.contains(i)
-                              ? widget.children[i]
-                              : const SizedBox.shrink(),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+        SwipePagerScope(
+          canPage: _canSwipeTo,
+          child: swipeGestures(
+            allowsPointer: _swipeAllowed,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                for (var i = 0; i < widget.children.length; i++)
+                  _buildBranch(i, rail: rail, order: order),
+              ],
             ),
           ),
+        ),
         if (!rail)
           Align(
             alignment: Alignment.bottomCenter,

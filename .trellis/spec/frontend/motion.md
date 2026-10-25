@@ -128,41 +128,53 @@ reviewed: 2026-10-19
 - **Check:** `test/motion_test.dart` "inside a scrollable a swipe never shows the press" "the press-feedback setting turns the scale off"
 - **Code:** `lib/app/motion/press_scale.dart`
 
-### MOTION-18 Drags take the device's slop; sideways pagers double it
+### MOTION-18 Drags take the device's slop; sideways pagers judge the angle
 - **Rule:** A hand-built drag recognizer takes
   `MediaQuery.maybeGestureSettingsOf(context)`, and a slop check uses
   `computeHitSlop` with the settings its competing scrollable reads; never
-  `kTouchSlop`. A sideways pager (detail pages, viewer pages, tab swipe)
-  accepts only past `pagingSlopFactor` times the device slop, as Android's
-  ViewPager does: `PagingSlop` wraps the `PageView`, `PagingSlopPage`
-  gives each page the device slop back. A page whose pan accepts at twice
-  the slop (`InteractiveViewer`) keeps the paging slop while the pager can
-  page. A recognizer given the paging slop keeps the device slop as its
-  `minFlingDistance`.
+  `kTouchSlop`. The detail and viewer pagers accept only past
+  `pagingSlopFactor` times the device slop, as Android's ViewPager does:
+  `PagingSlop` wraps the `PageView`, `PagingSlopPage` gives each page the
+  device slop back. A page whose pan accepts at twice the slop
+  (`InteractiveViewer`) keeps the paging slop while the pager can page. A
+  recognizer given the paging slop keeps the device slop as its
+  `minFlingDistance`. The tab and branch swipe (`SwipePagingRecognizer`)
+  start at the device slop sideways, and only while the finger leans no
+  more than `swipePagingMaxDegrees` (40°) off horizontal.
 - **Why:** Android's slop is 8dp, `kTouchSlop` 18: pull-to-dismiss and a
   panorama lost to the pager, a card stayed pressed while its list
   scrolled. With equal slops a swipe up to 45° off horizontal turned the
   page instead of scrolling the detail. Restored, the viewer image's pan
-  tied with the pager and the inner one won.
-- **Check:** `test/motion_test.dart` "a scroll takeover releases the pressed scale", `test/illust_detail_pager_test.dart` "scrolls the detail" "a panorama scrolls first and hands the swipe on at its edge", `test/tab_swipe_switcher_test.dart` "leaves the tabs", `test/hero_transition_test.dart` "only the entry page flies back"
-- **Code:** `lib/app/scroll_behavior.dart`, `lib/app/motion/drag_to_dismiss.dart`, `lib/app/motion/press_scale.dart`, `lib/app/widgets/tab_swipe_switcher.dart`
+  tied with the pager and the inner one won. Twice the slop gave a feed
+  every swipe steeper than about 27°: a thumb's arc meant for the next
+  tab jiggled the list up and down (user report).
+- **Check:** `test/motion_test.dart` "a scroll takeover releases the pressed scale", `test/illust_detail_pager_test.dart` "scrolls the detail" "a panorama scrolls first and hands the swipe on at its edge", `test/tab_swipe_switcher_test.dart` "moves the tabs" "leaves the tabs", `test/hero_transition_test.dart` "only the entry page flies back"
+- **Code:** `lib/app/scroll_behavior.dart`, `lib/app/motion/drag_to_dismiss.dart`, `lib/app/motion/press_scale.dart`, `lib/app/motion/swipe_paging.dart`
 
 ### MOTION-20 A released swipe lands from the finger's speed
-- **Rule:** A sideways swipe released between tabs or pages lands on a
-  spring that starts at the release velocity. `TabSwipeSwitcher` carries
-  both the switch and the spring-back on `MotionSpring.spatialDefault`,
-  picks the next tab in the release's direction from where the tabs are
-  (as ViewPager does), and changes the index once, on landing. A
-  `PageView` the user swipes takes `PageSnapPhysics`, which swaps only the
-  page snap's spring (about 300 ms to the end of the scroll); the
-  overscroll bounce keeps the list physics' spring.
+- **Rule:** A sideways swipe released between tabs, branches or pages
+  lands on a spring that starts at the release velocity. `SwipePaging`
+  (tabs and branches) carries both the switch and the spring-back on
+  `MotionSpring.spatialDefault`. A release lands on the nearest page; a
+  fling lands on the next one in its direction from where the pages are
+  (as ViewPager does). The index changes once, on landing; only a drag a
+  whole page away moves it early, as in `TabBarView`. Past the first or
+  last page the drag meets `BouncingScrollPhysics`' friction and springs
+  back. Semantics hold while the pages move. A `PageView` the user swipes
+  takes `PageSnapPhysics`, which swaps only the page snap's spring (about
+  300 ms to the end of the scroll); the overscroll bounce keeps the list
+  physics' spring.
 - **Why:** The tab switch ran a fixed 300 ms ease and the spring-back
   started at rest, so a fast fling slowed down on release and a
   spring-back stalled before turning. The framework's page spring ended
   the scroll after about 0.7 s, and the detail pager builds a page's
-  content and its neighbours only then.
-- **Check:** `test/tab_swipe_switcher_test.dart` "from the finger's speed", `test/scroll_behavior_test.dart` "ends its page snap in about 300 ms"
-- **Code:** `lib/app/widgets/tab_swipe_switcher.dart`, `lib/app/scroll_behavior.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/features/illust/viewer/image_viewer_page.dart`
+  content and its neighbours only then. The tab index changed as a drag
+  crossed halfway: the page rebuilt, the top bar took the other tab's
+  edge and the route was rewritten under the finger. A quarter of the
+  width committed a slow drag, where `PageView` and ViewPager2 take half,
+  and the last tab took a drag outwards without moving.
+- **Check:** `test/tab_swipe_switcher_test.dart` "from the finger's speed" "a slow drag" "the index waits for the landing" "past the first tab the body pulls on a rubber band", `test/scroll_behavior_test.dart` "ends its page snap in about 300 ms"
+- **Code:** `lib/app/motion/swipe_paging.dart`, `lib/app/widgets/tab_swipe_switcher.dart`, `lib/app/scroll_behavior.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/features/illust/viewer/image_viewer_page.dart`
 
 ### MOTION-07 Feed cards land in place
 - **Rule:** Grid content has no entrance animation and no `StateFade`
