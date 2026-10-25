@@ -841,6 +841,60 @@ void main() {
     expect(row(), typing);
   });
 
+  // Some IMEs leave the navigation bar in viewInsets with nothing focused:
+  // a keyboard down to the bar is down.
+  testWidgets(
+    'a composer on its surface goes with a keyboard down to the bar',
+    (tester) async {
+      var gone = 0;
+      Widget withKeyboard(double inset) => composerApp(
+        Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              viewPadding: const EdgeInsets.only(bottom: 24),
+              viewInsets: EdgeInsets.only(bottom: inset),
+            ),
+            child: Scaffold(
+              resizeToAvoidBottomInset: false,
+              body: Align(
+                alignment: Alignment.bottomCenter,
+                child: CommentComposer(
+                  onSend: (_) async {},
+                  onStampSend: (_) async {},
+                  onGone: () => gone++,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      double shown() => tester
+          .widget<Opacity>(
+            find
+                .descendant(
+                  of: find.byType(CommentComposer),
+                  matching: find.byType(Opacity),
+                )
+                .first,
+          )
+          .opacity;
+
+      await tester.pumpWidget(withKeyboard(24));
+      tester
+          .state<CommentComposerState>(find.byType(CommentComposer))
+          .open(CommentComposerInputState.keyboard);
+      await tester.pump();
+      await tester.pumpWidget(withKeyboard(300));
+      expect(shown(), 1);
+      await tester.pumpWidget(withKeyboard(24));
+      expect(shown(), 0);
+      // Down, out of focus, then gone: a frame each.
+      await tester.pump();
+      await tester.pump();
+      expect(gone, 1);
+    },
+  );
+
   test('keyboard heights persist per screen shape', () async {
     installMemoryPreferences();
     final first = ProviderContainer();

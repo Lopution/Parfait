@@ -53,6 +53,18 @@ abstract final class FuncTokens {
   static const Color darkDivider = Color(0x1FD8D4D4);
   static const Color lightDivider = Color(0x1F3B3737);
 
+  /// The shadow a bar at the screen bottom casts up over the content
+  /// under it: a tight edge and a soft spread. Darker on the dark theme,
+  /// where a faint black disappears into the page.
+  static const List<BoxShadow> lightBarShadow = [
+    BoxShadow(color: Color(0x24000000), offset: Offset(0, -1), blurRadius: 3),
+    BoxShadow(color: Color(0x14000000), offset: Offset(0, -2), blurRadius: 10),
+  ];
+  static const List<BoxShadow> darkBarShadow = [
+    BoxShadow(color: Color(0x47000000), offset: Offset(0, -1), blurRadius: 2),
+    BoxShadow(color: Color(0x3D000000), offset: Offset(0, -2), blurRadius: 8),
+  ];
+
   /// Scrim/overlay tone for dimming content under floating surfaces.
   static const Color surfaceOverlay = Color(0x52000000);
 
