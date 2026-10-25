@@ -15,8 +15,6 @@
 
 > [!NOTE]
 > 本项目是非官方的第三方客户端，与 pixiv Inc. 无关。作品版权归原作者所有，下载内容仅供个人收藏，请勿二次上传或商用。
->
-> Parfait 目前处于公开测试阶段，欢迎通过 [Issues](https://github.com/Lopution/Parfait/issues) 反馈问题。
 
 Parfait 是 Android 上的第三方 pixiv 客户端，源自开源项目 Pixiv Func。
 
