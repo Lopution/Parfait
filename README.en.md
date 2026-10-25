@@ -15,8 +15,6 @@
 
 > [!NOTE]
 > Parfait is an unofficial client and is not affiliated with pixiv Inc. All works belong to their creators; downloads are for your personal collection, so please do not re-upload them or use them commercially.
->
-> Parfait is in public beta. Bug reports are welcome in [Issues](https://github.com/Lopution/Parfait/issues).
 
 Parfait is an unofficial pixiv client for Android. It started from the open-source Pixiv Func.
 
