@@ -10,6 +10,7 @@ import '../auth/account_store.dart';
 import '../bookmark/bookmark_models.dart';
 import '../bookmark/bookmark_store.dart';
 import '../novel/novel_store.dart';
+import '../user/follow_store.dart';
 import 'illust_entity.dart';
 
 /// Payload provenance for entity merges (C3/audit R7.3).
@@ -20,6 +21,10 @@ import 'illust_entity.dart';
 ///   `visible=false` or a reduced page count is a real server state and may
 ///   overwrite the previous snapshot.
 enum EntityMergeSource { feed, detail }
+
+/// The BookmarkStore and FollowStore revisions a fetch site captures before
+/// its request ([IllustStore.revisionNow]); a payload carries both states.
+typedef IllustSnapshotRevision = ({int bookmark, int follow});
 
 /// Shared, account-scoped store of illust entities keyed by work ID.
 ///
@@ -46,6 +51,14 @@ class IllustStore {
 
   int Function()? _revisionNow;
 
+  void Function(
+    Iterable<(int userId, bool followed)> snapshots,
+    int? snapshotRevision,
+  )?
+  _observeFollows;
+
+  int Function()? _followRevisionNow;
+
   /// Binds the canonical BookmarkStore (wired once in illustStoreProvider).
   /// Callbacks keep the two stores decoupled without import cycles:
   /// - [observeRemote] forwards a merge's remote snapshots, as one batch,
@@ -69,9 +82,27 @@ class IllustStore {
     _revisionNow = revisionNow;
   }
 
-  /// Store revision for fetch sites to capture BEFORE issuing a request so
+  /// Binds the canonical FollowStore: each payload names its author's
+  /// follow, which [observeRemote] forwards with the fetch-time revision.
+  /// Entities keep the payload's value; nothing reads it back from here.
+  void bindFollows({
+    required void Function(
+      Iterable<(int userId, bool followed)> snapshots,
+      int? snapshotRevision,
+    )
+    observeRemote,
+    required int Function() revisionNow,
+  }) {
+    _observeFollows = observeRemote;
+    _followRevisionNow = revisionNow;
+  }
+
+  /// Store revisions for fetch sites to capture BEFORE issuing a request so
   /// the response can be staleness-gated on merge (0 when unbound).
-  int bookmarkRevisionNow() => _revisionNow?.call() ?? 0;
+  IllustSnapshotRevision revisionNow() => (
+    bookmark: _revisionNow?.call() ?? 0,
+    follow: _followRevisionNow?.call() ?? 0,
+  );
 
   /// Returns all known entities for [ids] in the given order. Unknown IDs
   /// (should not happen) are skipped.
@@ -91,7 +122,8 @@ class IllustStore {
 
   /// Merges entities: newer parse wins; bookmark state follows the bound
   /// BookmarkStore when bound (remote snapshots are forwarded with the
-  /// fetch-time revision and the confirmed local value wins — R2); when
+  /// fetch-time revision and the confirmed local value wins — R2), and
+  /// each author's follow goes to the bound FollowStore the same way; when
   /// unbound the legacy no-regress OR rule keeps older snapshots from
   /// clearing a bookmark they have not observed. Page-URL payloads
   /// (`metaPages`/`metaSinglePageOriginalUrl`) are kept when only the older
@@ -105,7 +137,7 @@ class IllustStore {
   void mergeAll(
     Iterable<IllustEntity> incoming, {
     EntityMergeSource source = EntityMergeSource.feed,
-    int? bookmarkSnapshotRevision,
+    IllustSnapshotRevision? snapshotRevision,
     bool fromLocalCache = false,
   }) {
     final entities = incoming.toList(growable: false);
@@ -114,7 +146,12 @@ class IllustStore {
     // the post-gate values.
     _observeRemote?.call([
       for (final entity in entities) (entity.id, entity.isBookmarked),
-    ], bookmarkSnapshotRevision);
+    ], snapshotRevision?.bookmark);
+    _observeFollows?.call([
+      for (final entity in entities)
+        if (entity.user.isFollowed case final followed?)
+          (entity.user.id, followed),
+    ], snapshotRevision?.follow);
     final now = clock.now();
     for (final entity in entities) {
       if (!fromLocalCache) _receivedAt[entity.id] = now;
@@ -228,6 +265,14 @@ final illustStoreProvider = Provider<IllustStore>((ref) {
         .entryOf(BookmarkKey(BookmarkEntityType.illust, id))
         ?.bookmarked,
     revisionNow: bookmarks.revisionNow,
+  );
+  final follows = ref.watch(followStoreProvider.notifier);
+  store.bindFollows(
+    observeRemote: (snapshots, snapshotRevision) => follows.observeRemoteAll([
+      for (final (userId, followed) in snapshots)
+        (userId: userId, followed: followed, restrict: null),
+    ], snapshotRevision: snapshotRevision),
+    revisionNow: follows.revisionNow,
   );
   bookmarks.onConfirmed = (key, bookmarked) => switch (key.type) {
     BookmarkEntityType.illust => store.updateBookmark(key.id, bookmarked),

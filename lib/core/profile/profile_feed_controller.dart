@@ -44,7 +44,7 @@ class _ProfileIllustFeedController extends PagedFeedController {
     }
     final repository = ref.read(userRepositoryProvider);
     final store = ref.read(illustStoreProvider);
-    final bookmarkRevision = store.bookmarkRevisionNow();
+    final revision = store.revisionNow();
     final page = key.kind == ProfileFeedKind.work
         ? await repository.fetchWorks(
             key.userId,
@@ -63,10 +63,7 @@ class _ProfileIllustFeedController extends PagedFeedController {
       ids: [for (final item in page.illusts) item.id],
       nextCursor: page.nextUrl,
       incomingIllusts: {for (final item in page.illusts) item.id: item},
-      commit: (_) => store.mergeAll(
-        page.illusts,
-        bookmarkSnapshotRevision: bookmarkRevision,
-      ),
+      commit: (_) => store.mergeAll(page.illusts, snapshotRevision: revision),
     );
   }
 

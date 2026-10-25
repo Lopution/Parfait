@@ -61,7 +61,7 @@ class _RecommendedFeedController extends PagedFeedController {
 
   Future<FeedPage> _fetchIllust(FeedRequestContext context) async {
     final store = ref.read(illustStoreProvider);
-    final bookmarkRevision = store.bookmarkRevisionNow();
+    final revision = store.revisionNow();
     final page = await ref
         .read(recommendedIllustRepositoryProvider)
         .fetchPage(
@@ -73,10 +73,7 @@ class _RecommendedFeedController extends PagedFeedController {
       ids: [for (final item in page.illusts) item.id],
       nextCursor: page.nextUrl,
       incomingIllusts: {for (final item in page.illusts) item.id: item},
-      commit: (_) => store.mergeAll(
-        page.illusts,
-        bookmarkSnapshotRevision: bookmarkRevision,
-      ),
+      commit: (_) => store.mergeAll(page.illusts, snapshotRevision: revision),
     );
   }
 
@@ -98,7 +95,7 @@ class _RecommendedFeedController extends PagedFeedController {
   Future<FeedPage> _fetchUsers(FeedRequestContext context) async {
     final store = ref.read(userStoreProvider.notifier);
     final illustStore = ref.read(illustStoreProvider);
-    final bookmarkRevision = illustStore.bookmarkRevisionNow();
+    final revision = illustStore.revisionNow();
     final page = await ref
         .read(userRepositoryProvider)
         .fetchRecommended(
@@ -109,10 +106,10 @@ class _RecommendedFeedController extends PagedFeedController {
       ids: [for (final item in page.users) item.id],
       nextCursor: page.nextUrl,
       commit: (_) {
-        store.mergeAll(page.users);
+        store.mergeAll(page.users, followSnapshotRevision: revision.follow);
         illustStore.mergeAll(
           page.previewIllusts.values.expand((illusts) => illusts),
-          bookmarkSnapshotRevision: bookmarkRevision,
+          snapshotRevision: revision,
         );
         ref.read(userPreviewIdsProvider.notifier).record({
           for (final MapEntry(:key, :value) in page.previewIllusts.entries)
