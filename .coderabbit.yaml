@@ -18,6 +18,9 @@ reviews:
   auto_review:
     enabled: true
     drafts: false
+    # Hotfix pull requests target hotfix/X.Y.Z, not main.
+    base_branches:
+      - ".*"
   path_filters:
     - "!lib/l10n/app_localizations*.dart"
     - "!**/*.freezed.dart"

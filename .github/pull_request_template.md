@@ -34,6 +34,6 @@ and migrations, downloads, release and signing, CI workflows.
 <!--
 Suggested for high-risk changes, not required: `codex review --base main`.
 List each finding and how it was handled (fixed, or why not), or say why
-the review was skipped. CodeRabbit comments on every pull request: answer
-its findings here or in its threads.
+the review was skipped. CodeRabbit comments on every non-draft pull
+request: answer its findings here or in its threads.
 -->
