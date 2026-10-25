@@ -92,7 +92,6 @@
   "accountSettings": "账号",
   "networkSettings": "网络",
   "networkMode": "Pixiv 官方网络兼容",
-  "networkModeHint": "打不开时自动尝试兼容通道；只作用于 Pixiv 官方域名，不会代理其他流量。",
   "networkModeListTitle": "网络模式",
   "networkModeAutomatic": "自动",
   "networkModeAutomaticHint": "自动选择能用的连接方式。",
@@ -101,18 +100,15 @@
   "networkModeCompatPrefer": "兼容优先",
   "networkModeCompatPreferHint": "优先尝试兼容通道，不行再直连；适合直连已被阻断的网络。",
   "networkEffectiveRoutes": "当前生效路由",
-  "networkEffectiveRoutesEmpty": "暂无路由记录，浏览一会儿后再刷新。",
+  "networkEffectiveRoutesEmpty": "暂无路由记录",
   "networkRouteForImages": "图片加载",
   "networkRouteKindDirect": "直连",
   "networkRouteKindCompat": "兼容通道",
   "networkThirdParty": "第三方服务可达性",
-  "networkThirdPartyAuto": "进入本页时自动检测一次。",
-  "networkThirdPartyHint": "走系统网络，你的 VPN/代理会照常生效。",
   "networkReachable": "可达",
   "networkUnreachable": "不可达",
   "networkChecking": "检测中…",
   "networkAdvanced": "高级设置",
-  "networkAdvancedHint": "面向高级用户的底层选项。",
   "networkAdvancedReset": "恢复默认",
   "networkAdvancedResetConfirm": "将 DoH 端点与 ECH 前置主机恢复为默认值。",
   "networkDoh": "严格回退使用 DoH 解析",
@@ -124,7 +120,6 @@
   "networkEchHostInvalid": "前置主机名无效",
   "networkProbe": "分层连通性探测",
   "networkProbeTitle": "分层连通性探测",
-  "networkProbeHint": "逐层检测 Pixiv 连通性，定位打不开的原因。",
   "frameProbeTitle": "帧探针",
   "frameProbeHint": "滚动时记录帧耗时。可离开本页去目标页面滚动，回来停止并复制报告。仅 debug/profile 构建可见。",
   "heroAnomalyTitle": "Hero 异常",
@@ -163,7 +158,6 @@
   "networkProbeOverview": "探测总览",
   "networkProbeWorst": "最劣",
   "networkProbeDetails": "明细",
-  "networkProbeNotPersisted": "结果不保存——离开本页即丢失。",
   "networkProbeAdviceAllReachable": "全部可达，无需调整。",
   "networkProbeAdviceEchAvailable": "ECH 可用——「自动」或「兼容优先」模式都会用它。",
   "networkProbeAdviceNoSniAvailable": "空 SNI 通道可用——「兼容优先」模式会用它。",
@@ -188,7 +182,6 @@
   "historyRecordLocal": "记录本地浏览历史",
   "historyRecordPixiv": "记录到 Pixiv 浏览历史",
   "historyEmpty": "暂无浏览历史",
-  "historyEmptyDetail": "看过的作品会显示在这里",
   "historyEmptyRecordingOff": "「{setting}」已关闭",
   "@historyEmptyRecordingOff": {
     "description": "Empty history page while local recording is off. setting is historyRecordLocal.",
@@ -251,15 +244,13 @@
   "profileReadOnly": "这里显示当前账号的已保存资料。完整资料编辑由个人资料模块提供。",
   "serverDisplaySettings": "账号显示设置",
   "accountSignedIn": "已登录账号",
-  "serverDisplayHint": "由 Pixiv 服务端保存，作用于接口为该账号返回的内容。",
   "serverShowAi": "显示 AI 生成作品",
   "serverRestrictedMode": "受限模式",
   "serverDisplayLoadFailed": "服务端设置读取失败",
   "serverDisplayWriteFailed": "服务端设置保存失败",
   "backupSettings": "备份与导入",
-  "backupHint": "导出当前设置、屏蔽列表和浏览历史；凭据不会写入文件。",
+  "backupHint": "设置、屏蔽列表、浏览历史",
   "backupExport": "导出备份",
-  "backupExportHint": "选择目录后写入 parfait-backup-*.json",
   "backupExported": "已导出 {name}",
   "@backupExported": {
     "placeholders": {
@@ -270,7 +261,6 @@
   },
   "backupExportFailed": "导出失败",
   "backupImport": "导入备份",
-  "backupImportHint": "从 JSON 文件导入，可选合并或覆盖",
   "backupImportInvalid": "备份文件无效",
   "backupImportFailed": "导入失败",
   "backupImportStrategyTitle": "选择导入方式",
@@ -385,15 +375,6 @@
   "mutedUsersSection": "屏蔽用户",
   "mutedWorksSection": "屏蔽作品",
   "mutedEmpty": "暂无屏蔽条目",
-  "cardMenuHint": "长按作品卡片，或在作品页点 ⋮，选择「{action}」",
-  "@cardMenuHint": {
-    "description": "Hint on an empty list: where its entries are made. action is the label of a work card menu action (muteAuthor, muteWork, cardActionWatchLater).",
-    "placeholders": {
-      "action": {
-        "type": "String"
-      }
-    }
-  },
   "muteTagInputHint": "输入要屏蔽的标签",
   "muteWork": "屏蔽此作品",
   "unmuteWork": "解除屏蔽此作品",
@@ -409,13 +390,10 @@
   "animationSpeedFast": "快",
   "animationSpeedNormal": "标准",
   "animationSpeedSlow": "慢",
-  "animationSpeedHint": "作用于应用内全部动画；水波纹等系统控件动画不受影响",
-  "animationSpeedReduceHint": "开启「减少动态效果」时不播放动画，速度不生效",
   "motionSettings": "动效与触感",
   "motionAnimation": "动画",
   "motionHaptics": "触感",
   "maxDownloadCount": "最大并行下载数",
-  "maxDownloadCountHint": "拖动预览数值，松手后生效",
   "namingRule": "文件命名规则",
   "namingRuleHint": "留空使用默认命名",
   "saveFolder": "保存目录",
@@ -426,7 +404,6 @@
   "saveLocationCustomAlbumHint": "仅字母、数字、中文与下划线",
   "saveLocationAlbumInvalid": "相册名称无效",
   "saveLocationSafFolder": "文件夹（系统目录选择）",
-  "saveLocationSafFolderHint": "通过系统 SAF 选择目录并持久授权",
   "safStorageInternal": "内部存储",
   "safStorageSdCard": "SD 卡（{volume}）",
   "@safStorageSdCard": {
@@ -539,7 +516,6 @@
   "@namingSampleSeries": {
     "description": "Sample value in the naming template preview."
   },
-  "namingTemplateSanitizeNote": "非法字符自动替换为 _，超长自动裁剪。",
   "notConfigured": "未配置",
   "translateProvider": "翻译服务",
   "translateGoogle": "Google Translate",
@@ -561,14 +537,10 @@
   "translateCredentialsCleared": "凭据已清除",
   "translateCredentialsStoreError": "安全存储操作失败",
   "translateCredentialsInvalid": "输入不完整或接口地址不是 HTTPS",
-  "translateBaiduHint": "百度翻译标准版无需认证，但只有 5 万字符/月、每秒 1 次，评论翻译基本不够；高级版需个人实名认证（姓名 + 身份证号），100 万字符/月、每秒 10 次。凭据仅用于翻译请求。",
-  "translateLlmCredentialHint": "仅允许 HTTPS 接口；翻译使用固定提示词，不开放模型与高级参数。评论正文与译文不会持久化。",
-  "translateCredentialHint": "翻译凭据不会写入普通设置；需要时由安全存储管理。",
   "translateDoubao": "豆包（网页登录）",
   "translateDoubaoAccount": "豆包账号",
   "translateDoubaoSignedIn": "已登录",
   "translateDoubaoSignedOut": "未登录",
-  "translateDoubaoHint": "用你在应用内登录的豆包网页账号翻译，无需 API Key，请求以你的豆包账号身份发出。这是非官方接口，可能随时失效，也可能触发账号风控。",
   "translateDoubaoSignOut": "退出豆包登录？",
   "translateDoubaoSignOutConfirm": "将删除保存的豆包登录信息，翻译前需要重新登录。",
   "translateDoubaoSignOutAction": "退出登录",
@@ -869,7 +841,6 @@
   "rankingHiddenEmpty": "所有分类都已显示",
   "restoreDefault": "恢复默认",
   "rankingBlocked": "已在浏览设置中屏蔽",
-  "rankingBlockedNote": "置灰的分类已在浏览设置中屏蔽，不会显示",
   "rankingMoveToFront": "移到最前",
   "rankingMoveEarlier": "前移",
   "@rankingMoveEarlier": {
@@ -895,24 +866,6 @@
   "bottomBarMeLocked": "设置在这里，始终显示",
   "@bottomBarMeLocked": {
     "description": "Subtitle of the Me item in the bottom bar editor: it cannot be hidden because the settings are there"
-  },
-  "bottomBarNote": "底栏至少保留 {min} 项。未显示的页面可从「{me}」进入；{search}不在底栏时，{recommended}顶栏会显示搜索按钮。",
-  "@bottomBarNote": {
-    "description": "Footnote of the bottom bar editor; me, search and recommended are the destination names",
-    "placeholders": {
-      "min": {
-        "type": "int"
-      },
-      "me": {
-        "type": "String"
-      },
-      "search": {
-        "type": "String"
-      },
-      "recommended": {
-        "type": "String"
-      }
-    }
   },
   "homeStartPage": "启动页",
   "homeStartFirstVisible": "底栏第一项",
@@ -1055,7 +1008,6 @@
   "searchReverseImageUnreadable": "无法读取这张图片，请重新选择",
   "searchReverseCleanupFailed": "临时图片清理失败",
   "searchReversePickerUnavailable": "此设备无法选择图片",
-  "searchReversePrivacyNote": "图片只会上传到所选引擎，离开本页即删除",
   "searchReverseOpenInBrowser": "在网页中搜索",
   "searchReverseTryEngine": "换用 {engine} 搜索",
   "@searchReverseTryEngine": {
@@ -1473,7 +1425,6 @@
   "profileRetry": "重试",
   "profileNovelPending": "小说列表将在 Novel Reader 模块接入",
   "profileShare": "分享用户",
-  "profileShareHint": "可分享以下用户链接",
   "profileShareClose": "关闭",
   "profileSettings": "设置",
   "restrictSelector": "选择公开范围",
@@ -1595,15 +1546,6 @@
   "watchlistManga": "漫画",
   "watchlistNovel": "小说",
   "watchlistEmpty": "暂无追更的系列",
-  "watchlistEmptyDetail": "在系列页或小说阅读器中点「{action}」",
-  "@watchlistEmptyDetail": {
-    "description": "Empty watchlist: where series are added (the series page, the novel reader). action is watchlistAdd.",
-    "placeholders": {
-      "action": {
-        "type": "String"
-      }
-    }
-  },
   "watchlistLoadFailed": "追更列表加载失败",
   "watchlistLoadMoreFailed": "加载更多失败",
   "watchlistAdd": "追更",

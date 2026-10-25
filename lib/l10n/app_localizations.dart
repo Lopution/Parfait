@@ -570,12 +570,6 @@ abstract class AppLocalizations {
   /// **'Pixiv 官方网络兼容'**
   String get networkMode;
 
-  /// No description provided for @networkModeHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'打不开时自动尝试兼容通道；只作用于 Pixiv 官方域名，不会代理其他流量。'**
-  String get networkModeHint;
-
   /// No description provided for @networkModeListTitle.
   ///
   /// In zh, this message translates to:
@@ -627,7 +621,7 @@ abstract class AppLocalizations {
   /// No description provided for @networkEffectiveRoutesEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'暂无路由记录，浏览一会儿后再刷新。'**
+  /// **'暂无路由记录'**
   String get networkEffectiveRoutesEmpty;
 
   /// No description provided for @networkRouteForImages.
@@ -654,18 +648,6 @@ abstract class AppLocalizations {
   /// **'第三方服务可达性'**
   String get networkThirdParty;
 
-  /// No description provided for @networkThirdPartyAuto.
-  ///
-  /// In zh, this message translates to:
-  /// **'进入本页时自动检测一次。'**
-  String get networkThirdPartyAuto;
-
-  /// No description provided for @networkThirdPartyHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'走系统网络，你的 VPN/代理会照常生效。'**
-  String get networkThirdPartyHint;
-
   /// No description provided for @networkReachable.
   ///
   /// In zh, this message translates to:
@@ -689,12 +671,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'高级设置'**
   String get networkAdvanced;
-
-  /// No description provided for @networkAdvancedHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'面向高级用户的底层选项。'**
-  String get networkAdvancedHint;
 
   /// No description provided for @networkAdvancedReset.
   ///
@@ -761,12 +737,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'分层连通性探测'**
   String get networkProbeTitle;
-
-  /// No description provided for @networkProbeHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'逐层检测 Pixiv 连通性，定位打不开的原因。'**
-  String get networkProbeHint;
 
   /// No description provided for @frameProbeTitle.
   ///
@@ -996,12 +966,6 @@ abstract class AppLocalizations {
   /// **'明细'**
   String get networkProbeDetails;
 
-  /// No description provided for @networkProbeNotPersisted.
-  ///
-  /// In zh, this message translates to:
-  /// **'结果不保存——离开本页即丢失。'**
-  String get networkProbeNotPersisted;
-
   /// No description provided for @networkProbeAdviceAllReachable.
   ///
   /// In zh, this message translates to:
@@ -1145,12 +1109,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暂无浏览历史'**
   String get historyEmpty;
-
-  /// No description provided for @historyEmptyDetail.
-  ///
-  /// In zh, this message translates to:
-  /// **'看过的作品会显示在这里'**
-  String get historyEmptyDetail;
 
   /// Empty history page while local recording is off. setting is historyRecordLocal.
   ///
@@ -1422,12 +1380,6 @@ abstract class AppLocalizations {
   /// **'已登录账号'**
   String get accountSignedIn;
 
-  /// No description provided for @serverDisplayHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'由 Pixiv 服务端保存，作用于接口为该账号返回的内容。'**
-  String get serverDisplayHint;
-
   /// No description provided for @serverShowAi.
   ///
   /// In zh, this message translates to:
@@ -1461,7 +1413,7 @@ abstract class AppLocalizations {
   /// No description provided for @backupHint.
   ///
   /// In zh, this message translates to:
-  /// **'导出当前设置、屏蔽列表和浏览历史；凭据不会写入文件。'**
+  /// **'设置、屏蔽列表、浏览历史'**
   String get backupHint;
 
   /// No description provided for @backupExport.
@@ -1469,12 +1421,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'导出备份'**
   String get backupExport;
-
-  /// No description provided for @backupExportHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'选择目录后写入 parfait-backup-*.json'**
-  String get backupExportHint;
 
   /// No description provided for @backupExported.
   ///
@@ -1493,12 +1439,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'导入备份'**
   String get backupImport;
-
-  /// No description provided for @backupImportHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'从 JSON 文件导入，可选合并或覆盖'**
-  String get backupImportHint;
 
   /// No description provided for @backupImportInvalid.
   ///
@@ -1805,12 +1745,6 @@ abstract class AppLocalizations {
   /// **'暂无屏蔽条目'**
   String get mutedEmpty;
 
-  /// Hint on an empty list: where its entries are made. action is the label of a work card menu action (muteAuthor, muteWork, cardActionWatchLater).
-  ///
-  /// In zh, this message translates to:
-  /// **'长按作品卡片，或在作品页点 ⋮，选择「{action}」'**
-  String cardMenuHint(String action);
-
   /// No description provided for @muteTagInputHint.
   ///
   /// In zh, this message translates to:
@@ -1901,18 +1835,6 @@ abstract class AppLocalizations {
   /// **'慢'**
   String get animationSpeedSlow;
 
-  /// No description provided for @animationSpeedHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'作用于应用内全部动画；水波纹等系统控件动画不受影响'**
-  String get animationSpeedHint;
-
-  /// No description provided for @animationSpeedReduceHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'开启「减少动态效果」时不播放动画，速度不生效'**
-  String get animationSpeedReduceHint;
-
   /// No description provided for @motionSettings.
   ///
   /// In zh, this message translates to:
@@ -1936,12 +1858,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'最大并行下载数'**
   String get maxDownloadCount;
-
-  /// No description provided for @maxDownloadCountHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'拖动预览数值，松手后生效'**
-  String get maxDownloadCountHint;
 
   /// No description provided for @namingRule.
   ///
@@ -2002,12 +1918,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'文件夹（系统目录选择）'**
   String get saveLocationSafFolder;
-
-  /// No description provided for @saveLocationSafFolderHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'通过系统 SAF 选择目录并持久授权'**
-  String get saveLocationSafFolderHint;
 
   /// No description provided for @safStorageInternal.
   ///
@@ -2207,12 +2117,6 @@ abstract class AppLocalizations {
   /// **'系列名'**
   String get namingSampleSeries;
 
-  /// No description provided for @namingTemplateSanitizeNote.
-  ///
-  /// In zh, this message translates to:
-  /// **'非法字符自动替换为 _，超长自动裁剪。'**
-  String get namingTemplateSanitizeNote;
-
   /// No description provided for @notConfigured.
   ///
   /// In zh, this message translates to:
@@ -2339,24 +2243,6 @@ abstract class AppLocalizations {
   /// **'输入不完整或接口地址不是 HTTPS'**
   String get translateCredentialsInvalid;
 
-  /// No description provided for @translateBaiduHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'百度翻译标准版无需认证，但只有 5 万字符/月、每秒 1 次，评论翻译基本不够；高级版需个人实名认证（姓名 + 身份证号），100 万字符/月、每秒 10 次。凭据仅用于翻译请求。'**
-  String get translateBaiduHint;
-
-  /// No description provided for @translateLlmCredentialHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'仅允许 HTTPS 接口；翻译使用固定提示词，不开放模型与高级参数。评论正文与译文不会持久化。'**
-  String get translateLlmCredentialHint;
-
-  /// No description provided for @translateCredentialHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'翻译凭据不会写入普通设置；需要时由安全存储管理。'**
-  String get translateCredentialHint;
-
   /// No description provided for @translateDoubao.
   ///
   /// In zh, this message translates to:
@@ -2380,12 +2266,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'未登录'**
   String get translateDoubaoSignedOut;
-
-  /// No description provided for @translateDoubaoHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'用你在应用内登录的豆包网页账号翻译，无需 API Key，请求以你的豆包账号身份发出。这是非官方接口，可能随时失效，也可能触发账号风控。'**
-  String get translateDoubaoHint;
 
   /// No description provided for @translateDoubaoSignOut.
   ///
@@ -3341,12 +3221,6 @@ abstract class AppLocalizations {
   /// **'已在浏览设置中屏蔽'**
   String get rankingBlocked;
 
-  /// No description provided for @rankingBlockedNote.
-  ///
-  /// In zh, this message translates to:
-  /// **'置灰的分类已在浏览设置中屏蔽，不会显示'**
-  String get rankingBlockedNote;
-
   /// No description provided for @rankingMoveToFront.
   ///
   /// In zh, this message translates to:
@@ -3430,12 +3304,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'设置在这里，始终显示'**
   String get bottomBarMeLocked;
-
-  /// Footnote of the bottom bar editor; me, search and recommended are the destination names
-  ///
-  /// In zh, this message translates to:
-  /// **'底栏至少保留 {min} 项。未显示的页面可从「{me}」进入；{search}不在底栏时，{recommended}顶栏会显示搜索按钮。'**
-  String bottomBarNote(int min, String me, String search, String recommended);
 
   /// No description provided for @homeStartPage.
   ///
@@ -3862,12 +3730,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'此设备无法选择图片'**
   String get searchReversePickerUnavailable;
-
-  /// No description provided for @searchReversePrivacyNote.
-  ///
-  /// In zh, this message translates to:
-  /// **'图片只会上传到所选引擎，离开本页即删除'**
-  String get searchReversePrivacyNote;
 
   /// No description provided for @searchReverseOpenInBrowser.
   ///
@@ -4919,12 +4781,6 @@ abstract class AppLocalizations {
   /// **'分享用户'**
   String get profileShare;
 
-  /// No description provided for @profileShareHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'可分享以下用户链接'**
-  String get profileShareHint;
-
   /// No description provided for @profileShareClose.
   ///
   /// In zh, this message translates to:
@@ -5410,12 +5266,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暂无追更的系列'**
   String get watchlistEmpty;
-
-  /// Empty watchlist: where series are added (the series page, the novel reader). action is watchlistAdd.
-  ///
-  /// In zh, this message translates to:
-  /// **'在系列页或小说阅读器中点「{action}」'**
-  String watchlistEmptyDetail(String action);
 
   /// No description provided for @watchlistLoadFailed.
   ///

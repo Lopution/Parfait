@@ -146,7 +146,6 @@ class _WatchLaterPageState extends ConsumerState<WatchLaterPage> {
                 ? FeedEmpty(
                     icon: Icons.bookmark_border,
                     title: l10n.watchLaterEmpty,
-                    detail: l10n.cardMenuHint(l10n.cardActionWatchLater),
                   )
                 : RemovalScope(
                     controller: _removals,

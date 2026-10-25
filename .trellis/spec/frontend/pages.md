@@ -132,6 +132,20 @@ reviewed: 2026-10-17
 - **Check:** `test/author_row_test.dart` "the whole row is one 48dp target that opens the profile" "a person card is one target; its trailing button is its own"
 - **Code:** `lib/app/widgets/author_row.dart`, `lib/app/widgets/person_card.dart`
 
+### PAGE-20 Pages carry no explanatory notes
+- **Rule:** No page, group, sheet or empty state carries a note on how
+  to use it, where its content comes from or how it works inside: no
+  group footer of that kind, no line under an empty state's title, no
+  paragraph by a button. Text under a title is a state (an error's
+  category, a setting that is off, "nothing muted yet") or what an
+  option does (a switch's or a choice's subtitle); a confirmation keeps
+  the consequences it asks about. Developer pages and help the user
+  opens are exempt.
+- **Why:** User decision (10-25): the notes read as secondary headings
+  written as annotations. The Doubao risk paragraph went with them.
+- **Check:** `test/muted_items_page_test.dart` "an empty group says it is empty, off the cards"; `test/history_page_test.dart` "an empty history with recording off offers to turn it on"
+- **Code:** `lib/features/settings/`, `lib/app/widgets/feed/feed_states.dart`
+
 ### PAGE-08 Long user text uses ExpandableText
 - **Rule:** Captions and descriptions use `ExpandableText`; text that fits
   shows no toggle, and links stay tappable while collapsed. Collapsed,

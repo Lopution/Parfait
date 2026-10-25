@@ -22,16 +22,16 @@ reviewed: 2026-10-17
   separator; never a `Divider`, never a hand-built group container.
   A note on one row is that row's subtitle; a note on the whole group, or
   on content without a subtitle (a slider, a form), is the group
-  `footer`. So is the note of an empty group (what it would list, where
-  that comes from): never a card of its own. On one page either every
-  group has a title or none does. A leaving `Removable` row stops
-  counting from the exit's first frame.
+  `footer`. So is an empty group's line saying it is empty: never a card
+  of its own. Notes on how to use a setting are not written (PAGE-20).
+  On one page either every group has a title or none does. A leaving
+  `Removable` row stops counting from the exit's first frame.
 - **Why:** User decision: separate cards on settings pages replaced the 2dp
   segmented list. The Me tab is not a settings page and lists its rows
   plainly (SET-07). Notes set apart from their row and a
   page with one titled group read as unrelated. An empty group's note on
   a card read as a row to press (user report, 10-25).
-- **Check:** `test/architecture/settings_rows_test.dart` "SettingsSection is gone from lib/"; `test/muted_items_page_test.dart` "an empty group says where its mutes come from, off the cards"
+- **Check:** `test/architecture/settings_rows_test.dart` "SettingsSection is gone from lib/"; `test/muted_items_page_test.dart` "an empty group says it is empty, off the cards"
 - **Code:** `lib/app/widgets/settings/settings_group.dart`
 
 ### SET-02 Choose the row by the number of values

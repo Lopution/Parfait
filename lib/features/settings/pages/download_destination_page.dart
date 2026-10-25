@@ -140,7 +140,6 @@ class _DownloadDestinationPageState
                 children: [
                   SettingsChoiceTile(
                     title: Text(context.l10n.saveLocationSafFolder),
-                    subtitle: Text(context.l10n.saveLocationSafFolderHint),
                     selected: destination.isSafFolder,
                     onTap: () => _pickSafFolder(),
                   ),

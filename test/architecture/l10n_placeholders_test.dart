@@ -34,7 +34,6 @@ const _textPlaceholderKeys = <String, String>{
   // status, not an exception (design §2.4 class 5 precedent).
   'loginNetworkError': 'HTTP status and host',
   'backupExported': 'exported file name',
-  'cardMenuHint': 'label of a work card menu action',
   'backupImportPrompt': 'account name stored in the backup',
   'imageSourceTestOk': 'HTTP status of a successful probe',
   'imageSourceAutoWinner': 'selected mirror host',
@@ -68,10 +67,8 @@ const _textPlaceholderKeys = <String, String>{
   'searchDateUntil': 'formatted date',
   'searchDateBetween': 'formatted dates',
   'rankingDateLabel': 'formatted date',
-  'bottomBarNote': 'localized destination names',
   'commentTitleCount': 'compact count (AppFormat.count)',
   'historyEmptyRecordingOff': 'localized setting name',
-  'watchlistEmptyDetail': 'localized action label',
 };
 
 const _textTypes = {'String', 'Object'};

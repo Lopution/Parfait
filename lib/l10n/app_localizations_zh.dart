@@ -262,9 +262,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkMode => 'Pixiv 官方网络兼容';
 
   @override
-  String get networkModeHint => '打不开时自动尝试兼容通道；只作用于 Pixiv 官方域名，不会代理其他流量。';
-
-  @override
   String get networkModeListTitle => '网络模式';
 
   @override
@@ -289,7 +286,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkEffectiveRoutes => '当前生效路由';
 
   @override
-  String get networkEffectiveRoutesEmpty => '暂无路由记录，浏览一会儿后再刷新。';
+  String get networkEffectiveRoutesEmpty => '暂无路由记录';
 
   @override
   String get networkRouteForImages => '图片加载';
@@ -304,12 +301,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkThirdParty => '第三方服务可达性';
 
   @override
-  String get networkThirdPartyAuto => '进入本页时自动检测一次。';
-
-  @override
-  String get networkThirdPartyHint => '走系统网络，你的 VPN/代理会照常生效。';
-
-  @override
   String get networkReachable => '可达';
 
   @override
@@ -320,9 +311,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get networkAdvanced => '高级设置';
-
-  @override
-  String get networkAdvancedHint => '面向高级用户的底层选项。';
 
   @override
   String get networkAdvancedReset => '恢复默认';
@@ -358,9 +346,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get networkProbeTitle => '分层连通性探测';
-
-  @override
-  String get networkProbeHint => '逐层检测 Pixiv 连通性，定位打不开的原因。';
 
   @override
   String get frameProbeTitle => '帧探针';
@@ -478,9 +463,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get networkProbeDetails => '明细';
 
   @override
-  String get networkProbeNotPersisted => '结果不保存——离开本页即丢失。';
-
-  @override
   String get networkProbeAdviceAllReachable => '全部可达，无需调整。';
 
   @override
@@ -551,9 +533,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get historyEmpty => '暂无浏览历史';
-
-  @override
-  String get historyEmptyDetail => '看过的作品会显示在这里';
 
   @override
   String historyEmptyRecordingOff(String setting) {
@@ -693,9 +672,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accountSignedIn => '已登录账号';
 
   @override
-  String get serverDisplayHint => '由 Pixiv 服务端保存，作用于接口为该账号返回的内容。';
-
-  @override
   String get serverShowAi => '显示 AI 生成作品';
 
   @override
@@ -711,13 +687,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backupSettings => '备份与导入';
 
   @override
-  String get backupHint => '导出当前设置、屏蔽列表和浏览历史；凭据不会写入文件。';
+  String get backupHint => '设置、屏蔽列表、浏览历史';
 
   @override
   String get backupExport => '导出备份';
-
-  @override
-  String get backupExportHint => '选择目录后写入 parfait-backup-*.json';
 
   @override
   String backupExported(String name) {
@@ -729,9 +702,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backupImport => '导入备份';
-
-  @override
-  String get backupImportHint => '从 JSON 文件导入，可选合并或覆盖';
 
   @override
   String get backupImportInvalid => '备份文件无效';
@@ -904,11 +874,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mutedEmpty => '暂无屏蔽条目';
 
   @override
-  String cardMenuHint(String action) {
-    return '长按作品卡片，或在作品页点 ⋮，选择「$action」';
-  }
-
-  @override
   String get muteTagInputHint => '输入要屏蔽的标签';
 
   @override
@@ -954,12 +919,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get animationSpeedSlow => '慢';
 
   @override
-  String get animationSpeedHint => '作用于应用内全部动画；水波纹等系统控件动画不受影响';
-
-  @override
-  String get animationSpeedReduceHint => '开启「减少动态效果」时不播放动画，速度不生效';
-
-  @override
   String get motionSettings => '动效与触感';
 
   @override
@@ -970,9 +929,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get maxDownloadCount => '最大并行下载数';
-
-  @override
-  String get maxDownloadCountHint => '拖动预览数值，松手后生效';
 
   @override
   String get namingRule => '文件命名规则';
@@ -1003,9 +959,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get saveLocationSafFolder => '文件夹（系统目录选择）';
-
-  @override
-  String get saveLocationSafFolderHint => '通过系统 SAF 选择目录并持久授权';
 
   @override
   String get safStorageInternal => '内部存储';
@@ -1114,9 +1067,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get namingSampleSeries => '系列名';
 
   @override
-  String get namingTemplateSanitizeNote => '非法字符自动替换为 _，超长自动裁剪。';
-
-  @override
   String get notConfigured => '未配置';
 
   @override
@@ -1180,17 +1130,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get translateCredentialsInvalid => '输入不完整或接口地址不是 HTTPS';
 
   @override
-  String get translateBaiduHint =>
-      '百度翻译标准版无需认证，但只有 5 万字符/月、每秒 1 次，评论翻译基本不够；高级版需个人实名认证（姓名 + 身份证号），100 万字符/月、每秒 10 次。凭据仅用于翻译请求。';
-
-  @override
-  String get translateLlmCredentialHint =>
-      '仅允许 HTTPS 接口；翻译使用固定提示词，不开放模型与高级参数。评论正文与译文不会持久化。';
-
-  @override
-  String get translateCredentialHint => '翻译凭据不会写入普通设置；需要时由安全存储管理。';
-
-  @override
   String get translateDoubao => '豆包（网页登录）';
 
   @override
@@ -1201,10 +1140,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get translateDoubaoSignedOut => '未登录';
-
-  @override
-  String get translateDoubaoHint =>
-      '用你在应用内登录的豆包网页账号翻译，无需 API Key，请求以你的豆包账号身份发出。这是非官方接口，可能随时失效，也可能触发账号风控。';
 
   @override
   String get translateDoubaoSignOut => '退出豆包登录？';
@@ -1714,9 +1649,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get rankingBlocked => '已在浏览设置中屏蔽';
 
   @override
-  String get rankingBlockedNote => '置灰的分类已在浏览设置中屏蔽，不会显示';
-
-  @override
   String get rankingMoveToFront => '移到最前';
 
   @override
@@ -1757,11 +1689,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get bottomBarMeLocked => '设置在这里，始终显示';
-
-  @override
-  String bottomBarNote(int min, String me, String search, String recommended) {
-    return '底栏至少保留 $min 项。未显示的页面可从「$me」进入；$search不在底栏时，$recommended顶栏会显示搜索按钮。';
-  }
 
   @override
   String get homeStartPage => '启动页';
@@ -1989,9 +1916,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get searchReversePickerUnavailable => '此设备无法选择图片';
-
-  @override
-  String get searchReversePrivacyNote => '图片只会上传到所选引擎，离开本页即删除';
 
   @override
   String get searchReverseOpenInBrowser => '在网页中搜索';
@@ -2561,9 +2485,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get profileShare => '分享用户';
 
   @override
-  String get profileShareHint => '可分享以下用户链接';
-
-  @override
   String get profileShareClose => '关闭';
 
   @override
@@ -2811,11 +2732,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get watchlistEmpty => '暂无追更的系列';
-
-  @override
-  String watchlistEmptyDetail(String action) {
-    return '在系列页或小说阅读器中点「$action」';
-  }
 
   @override
   String get watchlistLoadFailed => '追更列表加载失败';

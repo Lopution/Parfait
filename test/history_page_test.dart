@@ -238,7 +238,8 @@ void main() {
     await tester.tap(find.text('开启记录'));
     await settle();
     expect(container.read(settingsProvider).value!.enableHistory, isTrue);
-    expect(find.text('看过的作品会显示在这里'), findsOneWidget);
+    expect(find.text('「记录本地浏览历史」已关闭'), findsNothing);
+    expect(find.text('暂无浏览历史'), findsOneWidget);
   });
 
   testWidgets('overflow menu toggles record switches and shows checks', (

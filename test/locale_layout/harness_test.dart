@@ -9,8 +9,8 @@ const _en = Locale('en');
 
 /// UI text: these are l10n messages.
 const _hint =
-    'Applies to every in-app animation; system effects such as '
-    'ripples are unaffected';
+    'Turn off decorative animation: page transitions, list entrances and '
+    'press feedback';
 const _short = 'Motion & haptics';
 
 Future<RenderParagraph> _pumpText(

@@ -54,13 +54,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // One line of privacy, the pick fixed under it.
-      expect(find.text('图片只会上传到所选引擎，离开本页即删除'), findsOneWidget);
       expect(find.text('选择图片'), findsOneWidget);
       await tester.tap(find.text('选择图片'));
       await pumpUntilVisible(tester, find.text('图片已准备好'));
       expect(find.text('开始反向搜图'), findsOneWidget);
-      expect(find.text('图片只会上传到所选引擎，离开本页即删除'), findsOneWidget);
 
       await tester.tap(find.text('开始反向搜图'));
       await pumpUntilVisible(tester, find.text('SauceNAO 暂时无法使用'));

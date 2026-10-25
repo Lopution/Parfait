@@ -27,10 +27,13 @@ reviewed: 2026-10-19
 - **Rule:** Empty, error and tail states use `FeedEmpty`, `FeedError` and
   `FeedTail`; a custom status (restricted, blocked) uses
   `StateActionButton` as its one button. Their user-visible strings are
-  `required` parameters with no English fallback.
+  `required` parameters with no English fallback. The first-load, empty
+  and error views centre on the area under the page's toolbar, the
+  bar's extension (tabs, a filter row, a search field) counted in.
 - **Why:** Hand-drawn status buttons drifted in look; a fallback label
-  shipped untranslated UI.
-- **Check:** `test/shared_widgets_test.dart`
+  shipped untranslated UI. Centred under the tabs, an empty state stood
+  half a tab bar lower than on a page without them (user report).
+- **Check:** `test/shared_widgets_test.dart` "an empty state stands as high under a bar with tabs as without"
 - **Code:** `lib/app/widgets/feed/feed_states.dart`
 
 ### FEED-02 Refresh only where content can still arrive

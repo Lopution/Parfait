@@ -339,7 +339,6 @@ class _ServerDisplaySection extends ConsumerWidget {
     return SettingsGroup(
       setting: Setting.serverDisplay,
       title: Text(context.l10n.serverDisplaySettings),
-      footer: Text(context.l10n.serverDisplayHint),
       children: settings.when(
         loading: () => const [
           SettingsGroupContent(

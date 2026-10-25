@@ -268,10 +268,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkMode => 'Pixiv公式ネットワーク互換';
 
   @override
-  String get networkModeHint =>
-      '開けない時は互換ルートを自動で試行。Pixiv 公式ドメインのみに作用し、他の通信はプロキシしません。';
-
-  @override
   String get networkModeListTitle => 'ネットワークモード';
 
   @override
@@ -297,7 +293,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkEffectiveRoutes => '現在有効な経路';
 
   @override
-  String get networkEffectiveRoutesEmpty => '経路情報はまだありません——少し閲覧してから更新してください。';
+  String get networkEffectiveRoutesEmpty => '経路情報はまだありません';
 
   @override
   String get networkRouteForImages => '画像の読み込み';
@@ -312,12 +308,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkThirdParty => 'サードパーティ到達性';
 
   @override
-  String get networkThirdPartyAuto => 'このページを開くと自動で一度チェックします。';
-
-  @override
-  String get networkThirdPartyHint => 'システムのネットワークを使用。VPN/プロキシがそのまま有効です。';
-
-  @override
   String get networkReachable => '到達可能';
 
   @override
@@ -328,9 +318,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get networkAdvanced => '詳細設定';
-
-  @override
-  String get networkAdvancedHint => '上級者向けの低レベル設定。';
 
   @override
   String get networkAdvancedReset => 'デフォルトに戻す';
@@ -367,9 +354,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get networkProbeTitle => '階層接続プローブ';
-
-  @override
-  String get networkProbeHint => 'Pixiv への接続を段階的に検査し、開けない原因を特定します。';
 
   @override
   String get frameProbeTitle => 'フレームプローブ';
@@ -488,9 +472,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get networkProbeDetails => '詳細';
 
   @override
-  String get networkProbeNotPersisted => '結果は保存されません。このページを離れると破棄されます。';
-
-  @override
   String get networkProbeAdviceAllReachable => 'すべてのホストに到達可能。調整は不要です。';
 
   @override
@@ -568,9 +549,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get historyEmpty => '閲覧履歴はありません';
-
-  @override
-  String get historyEmptyDetail => '閲覧した作品がここに表示されます';
 
   @override
   String historyEmptyRecordingOff(String setting) {
@@ -710,9 +688,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get accountSignedIn => 'ログイン中のアカウント';
 
   @override
-  String get serverDisplayHint => 'Pixiv サーバーに保存され、このアカウントへの API 返却内容に作用します。';
-
-  @override
   String get serverShowAi => 'AI 生成作品を表示';
 
   @override
@@ -728,13 +703,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get backupSettings => 'バックアップと復元';
 
   @override
-  String get backupHint => '設定・ミュート一覧・閲覧履歴を書き出します。認証情報はファイルに含まれません。';
+  String get backupHint => '設定・ミュート一覧・閲覧履歴';
 
   @override
   String get backupExport => 'バックアップを書き出す';
-
-  @override
-  String get backupExportHint => '選択したフォルダに parfait-backup-*.json を保存';
 
   @override
   String backupExported(String name) {
@@ -746,9 +718,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get backupImport => 'バックアップを読み込む';
-
-  @override
-  String get backupImportHint => 'JSON ファイルから読み込み（マージまたは上書き）';
 
   @override
   String get backupImportInvalid => 'バックアップファイルが無効です';
@@ -923,11 +892,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mutedEmpty => 'ミュート項目はありません';
 
   @override
-  String cardMenuHint(String action) {
-    return '作品カードを長押しするか、作品ページの ⋮ をタップして「$action」を選択';
-  }
-
-  @override
   String get muteTagInputHint => 'ミュートするタグ';
 
   @override
@@ -973,13 +937,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get animationSpeedSlow => '遅い';
 
   @override
-  String get animationSpeedHint => 'アプリ内のすべてのアニメーションに適用されます。波紋などのシステム効果は変わりません';
-
-  @override
-  String get animationSpeedReduceHint =>
-      '「視覚効果を減らす」がオンの間はアニメーションを再生しないため、速度は反映されません';
-
-  @override
   String get motionSettings => 'モーションと触覚';
 
   @override
@@ -990,9 +947,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get maxDownloadCount => '同時ダウンロード数の上限';
-
-  @override
-  String get maxDownloadCountHint => 'ドラッグでプレビュー、離すと適用';
 
   @override
   String get namingRule => 'ファイル名規則';
@@ -1023,9 +977,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get saveLocationSafFolder => 'フォルダー（システムディレクトリ選択）';
-
-  @override
-  String get saveLocationSafFolderHint => 'システム SAF でフォルダーを選択し、権限を永続化';
 
   @override
   String get safStorageInternal => '内部ストレージ';
@@ -1134,9 +1085,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get namingSampleSeries => 'シリーズ名';
 
   @override
-  String get namingTemplateSanitizeNote => '不正な文字は _ に置換され、長い名前は切り詰められます。';
-
-  @override
   String get notConfigured => '未設定';
 
   @override
@@ -1201,18 +1149,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get translateCredentialsInvalid => '入力が不完全か、エンドポイントが HTTPS ではありません';
 
   @override
-  String get translateBaiduHint =>
-      '百度翻訳の標準版は認証不要ですが月 5 万文字・毎秒 1 回までで、コメント翻訳には足りません。高級版は個人の実名認証（氏名 + 身分証番号）が必要で、月 100 万文字・毎秒 10 回です。認証情報は翻訳リクエストにのみ使用します。';
-
-  @override
-  String get translateLlmCredentialHint =>
-      'HTTPS エンドポイントのみ。翻訳は固定プロンプトで、モデルや詳細パラメータは変更できません。コメント本文と翻訳は保存されません。';
-
-  @override
-  String get translateCredentialHint =>
-      '翻訳の認証情報は通常の設定に保存せず、必要な場合は安全なストレージで管理します。';
-
-  @override
   String get translateDoubao => 'Doubao（ウェブログイン）';
 
   @override
@@ -1223,10 +1159,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get translateDoubaoSignedOut => '未ログイン';
-
-  @override
-  String get translateDoubaoHint =>
-      'アプリ内でログインした Doubao ウェブアカウントで翻訳します。API キーは不要で、リクエストはあなたの Doubao アカウントとして送信されます。非公式のエンドポイントのため、いつでも使えなくなる可能性があり、アカウントのリスク判定を受けることもあります。';
 
   @override
   String get translateDoubaoSignOut => 'Doubao からログアウトしますか？';
@@ -1742,9 +1674,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get rankingBlocked => '閲覧設定でブロック中';
 
   @override
-  String get rankingBlockedNote => 'グレーのカテゴリーは閲覧設定でブロック中のため表示されません';
-
-  @override
   String get rankingMoveToFront => '先頭に移動';
 
   @override
@@ -1785,11 +1714,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get bottomBarMeLocked => '設定があるため常に表示';
-
-  @override
-  String bottomBarNote(int min, String me, String search, String recommended) {
-    return 'バーには $min 項目以上が残ります。非表示のページは「$me」から開けます。$searchがバーにないときは、$recommendedの上部に検索ボタンが表示されます。';
-  }
 
   @override
   String get homeStartPage => '起動時のページ';
@@ -2019,9 +1943,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get searchReversePickerUnavailable => 'この端末では画像を選べません';
-
-  @override
-  String get searchReversePrivacyNote => '画像は選んだエンジンにだけ送信され、このページを離れると削除されます';
 
   @override
   String get searchReverseOpenInBrowser => 'ウェブページで検索';
@@ -2591,9 +2512,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get profileShare => 'ユーザーを共有';
 
   @override
-  String get profileShareHint => '次のユーザーリンクを共有できます';
-
-  @override
   String get profileShareClose => '閉じる';
 
   @override
@@ -2841,11 +2759,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get watchlistEmpty => 'フォロー中のシリーズはまだありません';
-
-  @override
-  String watchlistEmptyDetail(String action) {
-    return 'シリーズページか小説リーダーで「$action」をタップ';
-  }
 
   @override
   String get watchlistLoadFailed => 'ウォッチリストの読み込みに失敗しました';
