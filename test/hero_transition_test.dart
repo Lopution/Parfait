@@ -21,6 +21,7 @@ import 'package:parfait/features/illust/detail/widgets/page_image.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import 'helpers/connectivity_channels.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/image_network.dart';
 import 'helpers/detail_world.dart';
@@ -35,6 +36,11 @@ import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
 
 void main() {
+  // Every test that builds an image creates the network factory, which
+  // listens to connectivity. Unanswered, a cancel's reply lands in a later
+  // test's real async (the decode test's runAsync) as an exception.
+  setUp(answerConnectivityChannels);
+
   // The real router on the feed, then the detail page of the work in [json]
   // pushed with the feed's hero scope.
   Future<void> pushFromFeed(
