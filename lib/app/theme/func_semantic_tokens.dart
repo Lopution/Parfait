@@ -112,6 +112,17 @@ class FuncSemanticTokens extends ThemeExtension<FuncSemanticTokens> {
   /// Cast up by a bar at the screen bottom over the content under it.
   final List<BoxShadow> barShadow;
 
+  /// [barShadow] mirrored: cast down by a bar at the screen top.
+  List<BoxShadow> get topBarShadow => [
+    for (final shadow in barShadow)
+      BoxShadow(
+        color: shadow.color,
+        offset: Offset(shadow.offset.dx, -shadow.offset.dy),
+        blurRadius: shadow.blurRadius,
+        spreadRadius: shadow.spreadRadius,
+      ),
+  ];
+
   // Content ladder.
   final Color contentPrimary;
   final Color contentSecondary;
