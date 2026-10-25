@@ -75,8 +75,8 @@ class _FuncPageRoute<T> extends PageRoute<T> {
 
   /// Each route's page right above it, announced by that page as it is
   /// pushed or moved. A pop announces nothing, so through a pop this is
-  /// still the page leaving. Keyed by any route: the home shell is not a
-  /// [FuncPage].
+  /// still the page leaving. Keyed by any route: a page can sit on a route
+  /// that is not a [FuncPage].
   static final _above = Expando<_FuncPageRoute<dynamic>>();
 
   bool get _backdrop => _page.sharedElement && _page.sharedElementBackdrop;

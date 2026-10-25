@@ -29,17 +29,21 @@ reviewed: 2026-10-25
   turn where they are (`TurnCurve`, handed over with `linearTransition`):
   back during a push sends the page back from where it is, on the pop
   curve. A leaving page takes no touch; the page below answers, also
-  where the page still is. There is no transition setting and no
-  hand-written transition. A stored `pageTransitionStyle` is ignored and
-  not written back. Shared-element pages have their own transition
-  (TRANS-09).
+  where the page still is. The home shell is a `FuncPage` too, with no
+  duration of its own: it appears at once and moves aside under a page
+  pushed over it on the root navigator (Me, downloads, reverse image
+  search, login), as a branch root does under a branch push. There is no
+  transition setting and no hand-written transition. A stored
+  `pageTransitionStyle` is ignored and not written back. Shared-element
+  pages have their own transition (TRANS-09).
 - **Why:** User decision (10-20): FadeForwards read as odd; the slide is
   one motion the user can follow. Earlier, shared axis and zoom were
   dropped, and fade-through is for unrelated destinations, not pushes.
   `CurvedAnimation` keeps the curve it started with: a push cut short
   crept back and then left at full speed (10-24). The slide's shadow box
-  took every touch on the leaving page.
-- **Check:** `test/func_page_test.dart` "a page slides in from the trailing edge over the page below" "back mid-push turns the slide where it is; the page below answers"; `test/pop_snapshot_paint_test.dart` "a TurnCurve goes on from where it turns, on the other curve"; `test/app_settings_test.dart` "a retired pageTransitionStyle key reads and is not written"
+  took every touch on the leaving page. A still shell under root pages
+  made two kinds of push from one menu (user report).
+- **Check:** `test/func_page_test.dart` "a page slides in from the trailing edge over the page below" "back mid-push turns the slide where it is; the page below answers"; `test/navigation_router_test.dart` "openDownloadTasks lands on /downloads; the shell moves aside"; `test/pop_snapshot_paint_test.dart` "a TurnCurve goes on from where it turns, on the other curve"; `test/app_settings_test.dart` "a retired pageTransitionStyle key reads and is not written"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/core/settings/app_settings.dart`
 
 ### TRANS-02 The slide uses the Cupertino widget, not its builder
