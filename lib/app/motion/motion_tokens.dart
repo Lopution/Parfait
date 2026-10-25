@@ -19,8 +19,7 @@ abstract final class MotionTokens {
 
   /// The shared-element transition (a card into its detail, a detail
   /// image into the viewer), both ways: M3's long1. The Hero flies on
-  /// [spatialCurve]; every artwork Hero end sets it, since a flight reads
-  /// the curve of the page that opens or leaves.
+  /// [spatialCurve], turning with the route (`illustHeroCurve`).
   static const sharedElement = Duration(milliseconds: 450);
 
   /// A shared-element page with a background (the detail): opening, the

@@ -25,6 +25,34 @@ void main() {
   );
 
   testFilm(
+    'nav/page-interrupt',
+    location: '/settings/all',
+    notes:
+        'A plain push cut short by back at several points, then back and '
+        'forth faster than a slide: the page turns around where it is and '
+        'leaves on the pop curve, off fast and easing out at the edge, '
+        'never creeping back and then shooting off; the hub below moves '
+        'aside and back without a jump, and the tapped tile shows no '
+        'press highlight that hangs on after the page has gone.',
+    script: (film, router) async {
+      final tile = film.tester.getCenter(find.text('主题'));
+      for (final at in [3, 8, 14]) {
+        await _tapUp(film, tile);
+        await film.frames(at);
+        await _systemBack();
+        await film.untilSettled();
+      }
+      for (final at in [4, 4, 4]) {
+        await _tapUp(film, tile);
+        await film.frames(at);
+        await _systemBack();
+        await film.frames(at);
+      }
+      await film.untilSettled();
+    },
+  );
+
+  testFilm(
     'nav/hero-detail',
     location: '/recommended',
     notes:

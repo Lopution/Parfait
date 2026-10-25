@@ -25,14 +25,21 @@ reviewed: 2026-10-25
 ### TRANS-01 One page transition: the Cupertino slide
 - **Rule:** Every pushed page slides in from the trailing edge with
   `CupertinoPageTransition` (the page below darkens and moves aside) on
-  every platform, over `MotionTokens.pageTransition` (500ms). There is no
-  transition setting and no hand-written transition. A stored
-  `pageTransitionStyle` is ignored and not written back. Shared-element
-  pages have their own transition (TRANS-09).
+  every platform, over `MotionTokens.pageTransition` (500ms). Its curves
+  turn where they are (`TurnCurve`, handed over with `linearTransition`):
+  back during a push sends the page back from where it is, on the pop
+  curve. A leaving page takes no touch; the page below answers, also
+  where the page still is. There is no transition setting and no
+  hand-written transition. A stored `pageTransitionStyle` is ignored and
+  not written back. Shared-element pages have their own transition
+  (TRANS-09).
 - **Why:** User decision (10-20): FadeForwards read as odd; the slide is
   one motion the user can follow. Earlier, shared axis and zoom were
   dropped, and fade-through is for unrelated destinations, not pushes.
-- **Check:** `test/func_page_test.dart` "a page slides in from the trailing edge over the page below"; `test/app_settings_test.dart` "a retired pageTransitionStyle key reads and is not written"
+  `CurvedAnimation` keeps the curve it started with: a push cut short
+  crept back and then left at full speed (10-24). The slide's shadow box
+  took every touch on the leaving page.
+- **Check:** `test/func_page_test.dart` "a page slides in from the trailing edge over the page below" "back mid-push turns the slide where it is; the page below answers"; `test/pop_snapshot_paint_test.dart` "a TurnCurve goes on from where it turns, on the other curve"; `test/app_settings_test.dart` "a retired pageTransitionStyle key reads and is not written"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/core/settings/app_settings.dart`
 
 ### TRANS-02 The slide uses the Cupertino widget, not its builder
@@ -121,9 +128,11 @@ reviewed: 2026-10-25
   `sharedElementContentOut`, then the background over
   `sharedElementBackdropOut`. The viewer has no background: its stage
   fades whole (`sharedElementFadeIn`/`Out`). A leave that cuts an opening
-  short takes each layer down from the opacity it reached. The Hero flies
-  on `MotionTokens.spatialCurve`, set on every artwork Hero end (a flight
-  reads the curve of the page that opens or leaves). A leaving page takes
+  short takes each layer down from the opacity it reached (`TurnCurve`).
+  The Hero flies on `illustHeroCurve`, `MotionTokens.spatialCurve`
+  turning with its route, set as `curve` and `reverseCurve` on the ends
+  in the page that opens or leaves (a flight reads that end's curve), so
+  an image sent back mid-flight goes home from where it is. A leaving page takes
   no touch, so the page below answers while the image flies. While a
   landed page leaves, `HeroLiftHole` cuts the flying image's spot out of
   its content, so what is under the content shows there; an opening page
@@ -139,7 +148,8 @@ reviewed: 2026-10-25
   Shared-element transitions on Android, iOS (zoom) and in Flutter's
   Wonderous keep the page below still. One curve played backwards held
   the leaving page until the image had nearly landed; switching curves
-  mid-opening dropped a half-shown page in one frame. The viewer's dark
+  mid-opening dropped a half-shown page in one frame; a flight sent back
+  retraced the opening curve (10-24). The viewer's dark
   stage covers the page below by itself, and a drag to dismiss it reveals
   that page. A changed transition widget type reparents the page's
   GlobalKey subtree and rebuilds the whole page in that frame. Hero pairs
@@ -150,7 +160,7 @@ reviewed: 2026-10-25
   stage. Content at alpha 0 is not painted, so its whole page of text was
   first drawn when its fade began, mid-flight: a raster frame of 12–20ms
   stalled the image on every opening (10-24).
-- **Check:** `test/func_page_test.dart` "a shared-element page covers a still page" "the viewer stage fades whole, with no background"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight"; `test/architecture/feedback_channels_test.dart` "Hero uses only the shared illustHeroTag family"; `test/illust_card_badges_test.dart` "the pager image flies back only to a card on screen"
+- **Check:** `test/func_page_test.dart` "a shared-element page covers a still page" "the viewer stage fades whole, with no background"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight" "an image sent back mid-flight turns where it is"; `test/architecture/feedback_channels_test.dart` "Hero uses only the shared illustHeroTag family"; `test/illust_card_badges_test.dart` "the pager image flies back only to a card on screen"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/app/navigation/routes.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/widgets/feed/feed_grid.dart`
 
 ### TRANS-10 The card page's bars ride over a card flight; other flights clip

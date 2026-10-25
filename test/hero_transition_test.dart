@@ -303,6 +303,36 @@ void main() {
     });
   });
 
+  testWidgets('an image sent back mid-flight turns where it is', (
+    tester,
+  ) async {
+    await mockNetworkImagesFor(() async {
+      await pushFromFeed(tester, illustJson(42));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DetailPageImage).first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 180));
+      Offset at() => tester.getCenter(find.byType(HeroRectClip));
+      var last = at();
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      expect(at(), last, reason: 'turns without a jump');
+      final steps = <double>[];
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (find.byType(HeroRectClip).evaluate().isEmpty) break;
+        steps.add((at() - last).distance);
+        last = at();
+      }
+      // Home on the return curve from where it was: it starts from rest.
+      // The opening curve played backwards set off at its fastest.
+      expect(steps.length, greaterThan(4));
+      expect(steps.first, lessThan(steps[1] / 2));
+      await tester.pumpAndSettle();
+      expect(find.byType(ImageViewerPage), findsNothing);
+    });
+  });
+
   testWidgets(
     'the viewer leaves whole and square; the detail page answers mid-flight',
     (tester) async {

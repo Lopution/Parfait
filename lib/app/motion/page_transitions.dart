@@ -5,6 +5,94 @@ import 'package:flutter/widgets.dart';
 import '../../core/debug/frame_probe.dart';
 import '../../core/platform/app_root_pipeline_owner.dart';
 
+/// A route transition's curve that turns around where it is: over a whole
+/// opening it is [curve] and over a whole leave [reverseCurve], but a leave
+/// that cuts an opening short (or the other way round) runs the rest of
+/// the way from the value it had reached, on the other direction's curve,
+/// over what the route has left to run. `CurvedAnimation` keeps the curve
+/// it started with, so a push cut short by back played the push curve
+/// backwards: the slide, steep at its start, crept back and then left the
+/// screen at full speed.
+///
+/// It follows [route]'s direction and maps only that animation's values;
+/// it lives as long as [route].
+class TurnCurve extends Curve {
+  TurnCurve(this.route, {required this.curve, Curve? reverseCurve})
+    : reverseCurve = reverseCurve ?? curve.flipped,
+      _run = _Run(route.status) {
+    route.addStatusListener(_onStatus);
+  }
+
+  /// [route] run through a new [TurnCurve].
+  static Animation<double> drive(
+    Animation<double> route, {
+    required Curve curve,
+    Curve? reverseCurve,
+  }) => route.drive(
+    CurveTween(
+      curve: TurnCurve(route, curve: curve, reverseCurve: reverseCurve),
+    ),
+  );
+
+  final Animation<double> route;
+  final Curve curve;
+  final Curve reverseCurve;
+
+  /// Curves are immutable; the run this one is on changes with [route].
+  final _Run _run;
+
+  void _onStatus(AnimationStatus status) {
+    final previous = _run.status;
+    if (status.isAnimating && previous.isAnimating && status != previous) {
+      final t = route.value;
+      _run.turn(status, t, _valueOn(previous, t));
+    } else {
+      _run.start(status);
+    }
+  }
+
+  double _valueOn(AnimationStatus direction, double t) {
+    final _Run(:fromT, :fromValue) = _run;
+    return switch (direction) {
+      AnimationStatus.forward when fromT < 1 =>
+        fromValue +
+            (1 - fromValue) *
+                curve.transform(((t - fromT) / (1 - fromT)).clamp(0.0, 1.0)),
+      AnimationStatus.reverse when fromT > 0 =>
+        fromValue * reverseCurve.transform((t / fromT).clamp(0.0, 1.0)),
+      _ => t,
+    };
+  }
+
+  @override
+  double transformInternal(double t) => _valueOn(_run.status, t);
+}
+
+/// The way a [TurnCurve]'s route runs, and the route value and curve value
+/// the run began at: an end, unless it turned another run around.
+class _Run {
+  _Run(this.status) {
+    start(status);
+  }
+
+  AnimationStatus status;
+  double fromT = 0;
+  double fromValue = 0;
+
+  void start(AnimationStatus status) {
+    this.status = status;
+    if (status.isAnimating) {
+      fromT = fromValue = status == AnimationStatus.forward ? 0 : 1;
+    }
+  }
+
+  void turn(AnimationStatus status, double t, double value) {
+    this.status = status;
+    fromT = t;
+    fromValue = value;
+  }
+}
+
 /// Transition-window guard shared by every route transition: wraps the route
 /// content in a [RoutePopSnapshot] through [transition], so the transform
 /// (the slide) moves the captured texture when the route leaves the stage. Pages stay
