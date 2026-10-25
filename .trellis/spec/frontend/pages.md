@@ -139,7 +139,8 @@ reviewed: 2026-10-17
   paragraph by a button. Text under a title is a state (an error's
   category, a setting that is off, "nothing muted yet") or what an
   option does (a switch's or a choice's subtitle); a confirmation keeps
-  the consequences it asks about. Developer pages and help the user
+  the consequences it asks about, and an action that exposes a
+  credential keeps its risk note. Developer pages and help the user
   opens are exempt.
 - **Why:** User decision (10-25): the notes read as secondary headings
   written as annotations. The Doubao risk paragraph went with them.

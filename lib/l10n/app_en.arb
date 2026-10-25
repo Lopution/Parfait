@@ -37,7 +37,6 @@
   "useLoginWithClipboard": "Log in with clipboard data",
   "accountTransferExportTitle": "Export account credential",
   "accountTransferWarning": "The credential sits in the clipboard in plaintext and may be read by other apps; this format provides neither encryption nor sender authentication. Clear the clipboard yourself after pasting.",
-  "loginClipboardHint": "On a signed-in device, open Me → Accounts → Export account credential to copy it, then come back here to import.",
   "accountTransferSensitiveWarning": "This device cannot mark clipboard entries as sensitive (Android 13+ only), so the credential is not marked as sensitive. Paste it as soon as possible.",
   "accountTransferCopied": "Account-transfer data copied. Paste it on the target device soon; it is cleared when you return to Parfait after 5 minutes.",
   "accountTransferImported": "Account transfer succeeded",

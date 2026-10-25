@@ -105,10 +105,6 @@ class AppLocalizationsJa extends AppLocalizations {
       'クリップボード内の認証情報は平文で、他のアプリに読み取られる可能性があります。この形式は暗号化も送信者認証も提供しません。貼り付けた後はご自身でクリップボードを消去してください。';
 
   @override
-  String get loginClipboardHint =>
-      'ログイン済みの端末で「マイページ → アカウント管理 → アカウント認証情報をエクスポート」からコピーし、ここに戻ってインポートしてください。';
-
-  @override
   String get accountTransferSensitiveWarning =>
       'この端末はクリップボードの機密マーク（Android 13+）に対応していないため、認証情報は機密としてマークされません。すぐに貼り付けてください。';
 

@@ -105,9 +105,6 @@ class AppLocalizationsZh extends AppLocalizations {
       '剪贴板里的凭据是明文，可能被其他应用读取；此格式不提供加密或发送者认证。粘贴后请自行清空剪贴板。';
 
   @override
-  String get loginClipboardHint => '先在已登录的设备上打开「我的 → 账号管理 → 导出账号凭据」复制，再回到这里导入。';
-
-  @override
   String get accountTransferSensitiveWarning =>
       '此设备不支持敏感剪贴板标记（Android 13+ 才支持），凭据不会被标记为敏感内容。请尽快粘贴。';
 
