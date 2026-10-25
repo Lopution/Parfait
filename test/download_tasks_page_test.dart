@@ -379,6 +379,33 @@ void main() {
     expect(_taskRows(), findsOneWidget);
   });
 
+  testWidgets('the newest submission comes first, groups among tasks', (
+    tester,
+  ) async {
+    final (container, manager, _) = await makeDownloadWorld(
+      maxConcurrent: 1,
+      responses: [gatedResponse(Completer<void>())],
+    );
+    final first = manager.submit(downloadRequest(1));
+    final group = manager.submitGroup([
+      downloadRequest(2),
+      downloadRequest(2, pageIndex: 1),
+    ]);
+    final last = manager.submit(downloadRequest(3));
+    await _pumpPage(tester, container);
+    await tester.pump();
+
+    final tops = [
+      for (final row in [
+        _taskRow(last.id),
+        _groupHeader(group.id),
+        _taskRow(first.id),
+      ])
+        tester.getRect(row).top,
+    ];
+    expect(tops, orderedEquals([...tops]..sort()));
+  });
+
   testWidgets('a collapsed group expands on tap and folds its children in', (
     tester,
   ) async {
