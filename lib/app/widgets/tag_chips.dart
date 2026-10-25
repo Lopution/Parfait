@@ -111,10 +111,14 @@ class _TagChipState extends State<TagChip> {
             horizontal: FuncSpacing.md,
             vertical: FuncSpacing.xs,
           ),
+          // One line: a tag too long for the row loses its end, the
+          // translation first.
           child: Center(
             widthFactor: 1,
             child: Text.rich(
               TagChip._span(tokens, widget.label, widget.translated),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ),

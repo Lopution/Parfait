@@ -7,11 +7,11 @@ import '../../../../app/clipboard.dart';
 import '../../../../app/format/app_format.dart';
 import '../../../../app/navigation/routes.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
-import '../../../../app/widgets/author_row.dart';
 import '../../../../app/widgets/author_summary.dart';
 import '../../../../app/widgets/edge_icon_buttons.dart';
 import '../../../../app/widgets/feed/feed_text_warmup.dart';
 import '../../../../app/widgets/follow_switch_button.dart';
+import '../../../../app/widgets/person_card.dart';
 import '../../../../app/widgets/tag_chips.dart';
 import '../../../../core/auth/account_store.dart';
 import '../../../../core/entity/illust_entity.dart';
@@ -39,9 +39,9 @@ Widget _inMargin(Widget child) => Padding(padding: _margin, child: child);
 String? _handle(IllustUser author) =>
     author.account.isEmpty ? null : '@${author.account}';
 
-/// The work's title, facts, author, caption and tags: one sliver list,
-/// so a part below the first screen is built as it scrolls near rather
-/// than with the page. Built parts stay built ([_KeptPart]).
+/// The work's title, marks and stats, author, caption, tags and facts: one
+/// sliver list, so a part below the first screen is built as it scrolls
+/// near rather than with the page. Built parts stay built ([_KeptPart]).
 class InfoBlock extends StatelessWidget {
   const InfoBlock({
     super.key,
@@ -104,31 +104,18 @@ class InfoBlock extends StatelessWidget {
                 : _inMargin(_Title(title: entity.title)),
           ),
         ),
-        if (entity.isAi || entity.isR18 || entity.isR18G)
-          _KeptPart(
-            child: Padding(
-              padding: _margin.copyWith(top: FuncSpacing.sm),
-              child: _Marks(entity: entity),
-            ),
-          ),
         _KeptPart(
           child: Padding(
             padding: _margin.copyWith(top: FuncSpacing.sm),
-            child: _StatsLine(entity: entity),
+            child: _MarksAndStats(entity: entity),
           ),
         ),
-        // The ID's target reaches [_FactsRow.targetInset] above and below
-        // its text; the gaps around the row take that much less.
         _KeptPart(
           child: Padding(
-            padding: _margin.copyWith(
-              top: FuncSpacing.xs - _FactsRow.targetInset / 2,
-              bottom: FuncSpacing.sm - _FactsRow.targetInset / 2,
-            ),
-            child: _FactsRow(entity: entity),
+            padding: _margin.copyWith(top: FuncSpacing.md),
+            child: _Author(entity: entity),
           ),
         ),
-        _KeptPart(child: _inMargin(_AuthorBlock(entity: entity))),
         if (entity.caption.isNotEmpty)
           _KeptPart(
             key: const Key('illust-detail-caption'),
@@ -140,6 +127,17 @@ class InfoBlock extends StatelessWidget {
             entity: entity,
             blockMode: blockMode,
             onToggleBlockMode: onToggleBlockMode,
+          ),
+        ),
+        // Each fact pads its text by [_FactsRow.inset]; the row starts
+        // that much short of the margin, so every wrapped line's first
+        // text sits on it. Above, the tags' hit margin adds to the box.
+        _KeptPart(
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: FuncSpacing.lg - _FactsRow.inset.left,
+            ),
+            child: _FactsRow(entity: entity),
           ),
         ),
       ],
@@ -171,10 +169,11 @@ class _KeptPartState extends State<_KeptPart>
   }
 }
 
-/// The author, name over @account, with a follow button unless it is the
-/// signed-in user. No card: it reads as one more row of the page.
-class _AuthorBlock extends ConsumerWidget {
-  const _AuthorBlock({required this.entity});
+/// The author on a [PersonCard], name over @account, with a follow button
+/// unless it is the signed-in user. The card shows the whole of it opens
+/// the profile.
+class _Author extends ConsumerWidget {
+  const _Author({required this.entity});
 
   final IllustEntity entity;
 
@@ -186,21 +185,31 @@ class _AuthorBlock extends ConsumerWidget {
       ),
     );
     final author = entity.user;
-    return AuthorRow(
-      key: const Key('illust-author-row'),
-      userId: author.id,
-      name: author.name,
-      account: _handle(author),
-      avatarUrl: author.profileImageUrl,
-      avatarRadius: 20,
-      trailing: author.id == ownUserId
-          ? null
-          : FollowSwitchButton(
-              userId: author.id,
-              userName: author.name,
-              userAccount: author.account,
-              compact: true,
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) => PersonCard(
+        key: const Key('illust-author-row'),
+        onTap: () => openUser(context, author.id),
+        tapHint: context.l10n.openAuthorProfile,
+        trailing: author.id == ownUserId
+            ? null
+            // Capped at half the card so a long localized label leaves
+            // the name a lane; the button scales its label down past it.
+            : ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: constraints.maxWidth / 2),
+                child: FollowSwitchButton(
+                  userId: author.id,
+                  userName: author.name,
+                  userAccount: author.account,
+                  compact: true,
+                ),
+              ),
+        child: AuthorSummary(
+          name: author.name,
+          account: _handle(author),
+          imageUrl: author.profileImageUrl,
+          avatarRadius: 20,
+        ),
+      ),
     );
   }
 }
@@ -274,25 +283,7 @@ class _TagsSection extends ConsumerWidget {
   }
 }
 
-/// What the work is marked as: AI-generated, R-18 or R-18G, each on a
-/// tonal label in the accent.
-class _Marks extends StatelessWidget {
-  const _Marks({required this.entity});
-
-  final IllustEntity entity;
-
-  @override
-  Widget build(BuildContext context) => Wrap(
-    spacing: FuncSpacing.xs,
-    runSpacing: FuncSpacing.xs,
-    children: [
-      if (entity.isAi) _Mark(context.l10n.badgeAi),
-      if (entity.isR18) const _Mark('R-18'),
-      if (entity.isR18G) const _Mark('R-18G'),
-    ],
-  );
-}
-
+/// One tonal label in the accent: AI-generated, R-18 or R-18G.
 class _Mark extends StatelessWidget {
   const _Mark(this.label);
 
@@ -327,13 +318,15 @@ class _Mark extends StatelessWidget {
   }
 }
 
-/// How the work was received and when it came out: views, bookmarks and
-/// the full posting time. Every list payload carries the counts, so the
-/// line is complete on a neighbour page before it is swiped in; the
-/// comment count only the detail API has sits on the comments section.
-/// Screen readers hear one sentence.
-class _StatsLine extends StatelessWidget {
-  const _StatsLine({required this.entity});
+/// What the work is marked as and how it was received, under the title:
+/// the marks (AI-generated, R-18, R-18G; only those it has), then views,
+/// bookmarks and the full posting time, wrapping as whole items. Every
+/// list payload carries these, so the line is complete on a neighbour
+/// page before it is swiped in; the comment count only the detail API has
+/// sits on the comments section. Screen readers hear one node: the marks,
+/// then the stats as one sentence.
+class _MarksAndStats extends StatelessWidget {
+  const _MarksAndStats({required this.entity});
 
   final IllustEntity entity;
 
@@ -347,66 +340,102 @@ class _StatsLine extends StatelessWidget {
     final date = created == null
         ? null
         : AppFormat.date(context, created, withTime: true);
-    return Semantics(
+    final marks = [
+      if (entity.isAi) _Mark(l10n.badgeAi),
+      if (entity.isR18) const _Mark('R-18'),
+      if (entity.isR18G) const _Mark('R-18G'),
+    ];
+    return MergeSemantics(
       key: const Key('illust-detail-stats'),
-      container: true,
-      label: date == null
-          ? l10n.detailMetaCountsSemantics(views, bookmarks)
-          : l10n.detailStatsSemantics(views, bookmarks, date),
-      child: ExcludeSemantics(
-        child: Wrap(
-          spacing: FuncSpacing.md,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            _Fact(icon: Icons.visibility_outlined, text: views, style: style),
-            _Fact(icon: Icons.favorite_outline, text: bookmarks, style: style),
-            if (date != null) Text(date, style: style),
-          ],
-        ),
+      child: Wrap(
+        spacing: FuncSpacing.md,
+        runSpacing: FuncSpacing.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (marks.isNotEmpty)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: FuncSpacing.xs,
+              children: marks,
+            ),
+          Semantics(
+            label: date == null
+                ? l10n.detailMetaCountsSemantics(views, bookmarks)
+                : l10n.detailStatsSemantics(views, bookmarks, date),
+            child: ExcludeSemantics(
+              child: _Fact(
+                icon: Icons.visibility_outlined,
+                text: views,
+                style: style,
+              ),
+            ),
+          ),
+          ExcludeSemantics(
+            child: _Fact(
+              icon: Icons.favorite_outline,
+              text: bookmarks,
+              style: style,
+            ),
+          ),
+          if (date != null) ExcludeSemantics(child: Text(date, style: style)),
+        ],
       ),
     );
   }
 }
 
-/// The work's facts, each behind its glyph: size, pages (two or more),
-/// the software it was made with, and the ID, which a tap copies — users
-/// quote artwork IDs. Wraps as whole facts.
+/// The work's facts, each behind its glyph, as the block's last line:
+/// size, pages (two or more), the software it was made with, and the ID,
+/// which a tap copies — users quote artwork IDs. Wraps as whole facts.
 class _FactsRow extends StatelessWidget {
   const _FactsRow({required this.entity});
 
   final IllustEntity entity;
 
-  /// How far the ID's target reaches past its text, up and down: 32dp in
-  /// all with the 16dp line. A full 48dp would push the row away from the
-  /// lines around it.
-  static const targetInset = FuncSpacing.sm;
+  /// The box around each fact's text. The ID's target is that box: 8dp
+  /// past its text up and down, 32dp in all with the 16dp line (a full
+  /// 48dp would push the line away from the tags). The other facts take
+  /// the same box, so every wrapped line has the same height and starts
+  /// its text on the margin.
+  static const inset = EdgeInsets.symmetric(
+    horizontal: FuncSpacing.xs,
+    vertical: FuncSpacing.sm,
+  );
 
   @override
   Widget build(BuildContext context) {
     final style = _metaStyle(context);
+    Widget boxed(Widget fact) => Padding(padding: inset, child: fact);
     return Wrap(
       key: const Key('illust-detail-facts'),
-      spacing: FuncSpacing.md,
+      // With the boxes, 12dp between two facts' text.
+      spacing: FuncSpacing.md - inset.horizontal,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        _Fact(
-          icon: Icons.aspect_ratio,
-          text: '${entity.width}×${entity.height}',
-          style: style,
+        boxed(
+          _Fact(
+            icon: Icons.aspect_ratio,
+            text: '${entity.width}×${entity.height}',
+            style: style,
+          ),
         ),
         if (entity.pageCount > 1)
-          _Fact(
-            icon: Icons.collections_outlined,
-            text: context.l10n.detailPageCount(entity.pageCount),
-            style: style,
+          boxed(
+            _Fact(
+              icon: Icons.collections_outlined,
+              text: context.l10n.detailPageCount(entity.pageCount),
+              style: style,
+            ),
           ),
         if (entity.tools.isNotEmpty)
           Semantics(
             label: context.l10n.detailTools,
-            child: _Fact(
-              icon: Icons.brush_outlined,
-              text: entity.tools.join(' / '),
-              style: style,
+            child: boxed(
+              _Fact(
+                icon: Icons.brush_outlined,
+                text: entity.tools.join(' / '),
+                style: style,
+              ),
             ),
           ),
         _CopyableId(id: entity.id, style: style),
@@ -437,8 +466,8 @@ class _Fact extends StatelessWidget {
   );
 }
 
-/// "# 123" with a copy glyph. The ink is the small box around them; the
-/// target reaches [_FactsRow.targetInset] past the text on each side.
+/// "# 123" with a copy glyph. The ink and the target are the fact's box
+/// ([_FactsRow.inset]).
 class _CopyableId extends StatelessWidget {
   const _CopyableId({required this.id, required this.style});
 
@@ -457,10 +486,7 @@ class _CopyableId extends StatelessWidget {
           copyToClipboard(context, '$id', message: l10n.artworkIdCopied),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: FuncSpacing.xs,
-            vertical: _FactsRow.targetInset,
-          ),
+          padding: _FactsRow.inset,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

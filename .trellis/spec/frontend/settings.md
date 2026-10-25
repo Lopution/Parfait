@@ -109,13 +109,15 @@ reviewed: 2026-10-17
 ## Me tab
 
 ### SET-07 The Me tab puts content before settings
-- **Rule:** The Me root is laid out as YouTube's: no cards and no buttons
-  on its top bar. First the account header: a 72dp avatar, the name with
-  a neutral "Premium" pill for a premium account, and the user ID under
-  it, together one button that opens the profile (its screen-reader hint
-  says so); account management is its own icon button beside it.
-  Signed out, the header is one button to the login, with no manage
-  button. Then the last eight history records as a row of covers with
+- **Rule:** The Me root is laid out as YouTube's: no buttons on its top
+  bar, and no card but the account header. First the account header, a
+  `PersonCard` (PAGE-07): a 72dp avatar, the name with a neutral
+  "Premium" pill for a premium account, and the user ID under it,
+  together one button that opens the profile (its screen-reader hint
+  says so); account management is its own icon button at the card's
+  end, its glyph on the card's padding. Signed out, the header is one
+  button to the login, with no manage button. Then the last eight
+  history records as a row of covers with
   "see all" (hidden when the history is empty), then the content entries
   as list rows with a neutral icon (bookmarks, following, watchlist,
   watch later, local novels, download tasks with the active-task count
@@ -150,6 +152,8 @@ reviewed: 2026-10-17
   (user decision 10-20: catch up at the landing, with the slide). Read
   from TickerMode, a page not opened from the row (the profile, the
   history page) let the row reorder behind it, and the slide was over
-  before the user came back.
+  before the user came back. 10-25: the header, plain, did not show it
+  opened the profile; it took the person card every author block uses
+  (user decision).
 - **Check:** `test/settings_test.dart` "the Me header, manage button and end rows open their pages" "signed out, the Me header is one button to the login" "the dashboard badge counts downloads as they start and end" "the recent row follows the history and pages in its own order" "a recent cover flies to its work and back, an unseen one not" "a page over the row holds its order until it has left"
 - **Code:** `lib/features/settings/me_dashboard_page.dart`

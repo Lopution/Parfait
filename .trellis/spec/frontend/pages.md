@@ -115,14 +115,20 @@ reviewed: 2026-10-17
 
 ## Shared page pieces
 
-### PAGE-07 An author link is the whole row
-- **Rule:** An author shown as a link is `AuthorRow`: the avatar and name
-  are one target of at least 48dp announced as one button; a trailing
-  follow button is a separate target. Never make only the name tappable.
-  Inside a card the card is the target and the byline stays plain.
-- **Why:** Name-only links were too small to hit.
-- **Check:** `test/author_row_test.dart` "the whole row is one 48dp target that opens the profile"
-- **Code:** `lib/app/widgets/author_row.dart`
+### PAGE-07 An author link is the whole row or the whole card
+- **Rule:** A byline inside a header is `AuthorRow`: the avatar and name
+  are one target of at least 48dp announced as one button. A person that
+  stands as its own block (the detail page's author, the novel info
+  sheet's author, the Me tab's account header) is a `PersonCard`: the
+  whole card is that target, with a hint saying where it goes, and the
+  card is what shows it can be tapped. A trailing button (follow, manage)
+  is a separate target in either. Never make only the name tappable.
+  Inside any other card the card is the target and the byline stays
+  plain. On a sheet, already the card tier, the card takes the next tier.
+- **Why:** Name-only links were too small to hit. A whole-row target with
+  no edge looked like plain text (user report, 10-25).
+- **Check:** `test/author_row_test.dart` "the whole row is one 48dp target that opens the profile" "a person card is one target; its trailing button is its own"
+- **Code:** `lib/app/widgets/author_row.dart`, `lib/app/widgets/person_card.dart`
 
 ### PAGE-08 Long user text uses ExpandableText
 - **Rule:** Captions and descriptions use `ExpandableText`; text that fits

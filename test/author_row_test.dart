@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/widgets/author_row.dart';
+import 'package:parfait/app/widgets/person_card.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -66,5 +67,56 @@ void main() {
       await tester.pump();
       expect(router.state.uri.path, '/recommended/user/42');
     });
+  });
+
+  testWidgets('a person card is one target; its trailing button is its own', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    var opened = 0;
+    var followed = 0;
+    await tester.pumpWidget(
+      localizedApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 300,
+              child: PersonCard(
+                onTap: () => opened++,
+                tapHint: 'open',
+                trailing: TextButton(
+                  onPressed: () => followed++,
+                  child: const Text('follow'),
+                ),
+                child: const Text('name'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final card = find.byType(PersonCard);
+    expect(
+      tester.getSize(card).height,
+      greaterThanOrEqualTo(kMinInteractiveDimension),
+    );
+    // One button node for the card; the trailing button is not in it.
+    expect(
+      tester.getSemantics(
+        find.descendant(of: card, matching: find.byType(InkWell)).first,
+      ),
+      isSemantics(
+        label: 'name',
+        isButton: true,
+        hasTapAction: true,
+        onTapHint: 'open',
+      ),
+    );
+
+    await tester.tapAt(tester.getRect(card).centerLeft + const Offset(8, 0));
+    await tester.tap(find.text('follow'));
+    expect((opened, followed), (1, 1));
+    semantics.dispose();
   });
 }
