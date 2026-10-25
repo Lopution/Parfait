@@ -68,9 +68,11 @@ RAW_SIZE = (1440, 3136)
 # inside the status bar that is redrawn anyway.
 CROP_TOP = 16
 STATUS_BAND = 150  # rows (after the crop) holding the old status bar icons
-# Region of the old icons on edge-to-edge shots, and what counts as an icon
-# pixel there: neutral white glyphs, the black hotspot pill and the green
-# battery level.
+# Regions of the old status bar on edge-to-edge shots. The clock and
+# notification icons on the left come in any colour, so that whole box is
+# repainted; on the right only icon pixels are: neutral white glyphs, the
+# black hotspot pill and text, and the green battery level.
+CLOCK_BOX = (90, 14, 500, 124)
 ICON_BOX = (630, 14, 1340, 124)
 ICON_WHITE_MIN = 225
 ICON_NEUTRAL_SPREAD = 20
@@ -216,18 +218,21 @@ def clear_flat_bar(screen: Image.Image) -> None:
     ImageDraw.Draw(screen).rectangle((0, 0, screen.width, STATUS_BAND - 1), color)
 
 
-def clear_icons_on_picture(screen: Image.Image) -> None:
-    """Remove the old icons from edge-to-edge content by diffusing the
-    surrounding picture into the icon pixels."""
-    x0, y0, x1, y1 = ICON_BOX
-    pixels = np.asarray(screen).astype(float)
-    region = pixels[y0:y1, x0:x1].copy()
+def icon_pixels(region: np.ndarray) -> np.ndarray:
     lo, hi = region.min(axis=2), region.max(axis=2)
     white = (lo >= ICON_WHITE_MIN) & (hi - lo <= ICON_NEUTRAL_SPREAD)
     r, g, b = region[..., 0], region[..., 1], region[..., 2]
     green = g - np.maximum(r, b) >= ICON_GREEN_MARGIN
-    mask = binary_dilation(white | green | (hi <= ICON_BLACK_MAX),
+    return binary_dilation(white | green | (hi <= ICON_BLACK_MAX),
                            iterations=ICON_GROW)
+
+
+def inpaint(pixels: np.ndarray, box: tuple[int, int, int, int],
+            mask: np.ndarray) -> None:
+    """Diffuse the picture around the box into its masked pixels."""
+    x0, y0, x1, y1 = box
+    region = pixels[y0:y1, x0:x1].copy()
+    mask = mask.copy()
     mask[[0, -1], :] = False  # keep the box border as the boundary condition
     mask[:, [0, -1]] = False
     kernel = np.array([[0, 0.25, 0], [0.25, 0, 0.25], [0, 0.25, 0]])
@@ -237,6 +242,15 @@ def clear_icons_on_picture(screen: Image.Image) -> None:
             smoothed = convolve(region[..., c], kernel, mode="nearest")
             region[..., c][mask] = smoothed[mask]
     pixels[y0:y1, x0:x1] = region
+
+
+def clear_icons_on_picture(screen: Image.Image) -> None:
+    """Remove the old status bar from edge-to-edge content."""
+    pixels = np.asarray(screen).astype(float)
+    x0, y0, x1, y1 = CLOCK_BOX
+    inpaint(pixels, CLOCK_BOX, np.ones((y1 - y0, x1 - x0), dtype=bool))
+    x0, y0, x1, y1 = ICON_BOX
+    inpaint(pixels, ICON_BOX, icon_pixels(pixels[y0:y1, x0:x1]))
     screen.paste(Image.fromarray(pixels.round().astype(np.uint8)))
 
 
