@@ -64,8 +64,9 @@ class HomeShellChrome extends InheritedWidget {
   /// are safe.
   final ValueListenable<double> bottomBarVisibleExtent;
 
-  /// The bar's scroll hide, 1 shown and 0 hidden, linear (see
-  /// `ScrollHiddenChrome`). Stable, like [bottomBarVisibleExtent].
+  /// The bar's scroll hide, 1 shown and 0 hidden; the bar slides linearly
+  /// with it (see `ScrollHiddenChrome`). Stable, like
+  /// [bottomBarVisibleExtent].
   final Animation<double> bottomBarVisibility;
 
   /// Scroll notifications of the current branch's root page: the user's

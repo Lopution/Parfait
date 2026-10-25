@@ -327,15 +327,25 @@ void main() {
           'TRANS-07 Hero callsites must stay in the shared illustHeroTag '
           'family — tag new Heroes with illustHeroTag or update the census',
     );
+    // Ends in the page that opens or leaves fly on illustHeroCurve, as both
+    // curves; card ends, whose curve no flight reads, keep the plain one.
+    final plain = RegExp(
+      r'Hero\(\s*tag: [^,]+,\s*curve: MotionTokens\.spatialCurve,',
+    );
+    final turning = RegExp(
+      r'Hero\(\s*tag: [^,]+,\s*curve: (\w+),\s*reverseCurve: \1,',
+    );
     for (final file in files) {
       final src = File(file).readAsStringSync();
+      final turns = turning.allMatches(src).length;
       expect(
-        RegExp(
-          r'Hero\(\s*tag: [^,]+,\s*curve: MotionTokens\.spatialCurve,',
-        ).allMatches(src).length,
+        plain.allMatches(src).length + turns,
         RegExp(r'(?<![A-Za-z])Hero\(').allMatches(src).length,
         reason: 'TRANS-09 every artwork Hero flies on the spatial curve: $file',
       );
+      if (turns > 0) {
+        expect(src, contains(' = illustHeroCurve(context);'), reason: file);
+      }
     }
   });
 

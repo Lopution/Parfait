@@ -417,7 +417,7 @@ void main() {
     expect(find.byType(RecommendedHomePage), findsOneWidget);
   });
 
-  testWidgets('openDownloadTasks lands on the root downloads route', (
+  testWidgets('openDownloadTasks lands on /downloads; the shell moves aside', (
     tester,
   ) async {
     setViewSize(tester, const Size(390, 844));
@@ -429,6 +429,8 @@ void main() {
       openDownloadTasks(tester.element(find.byType(RecommendedHomePage))),
     );
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(tester.getTopLeft(find.byType(HomePage)).dx, lessThan(0));
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(router.state.uri.path, '/downloads');
@@ -436,6 +438,7 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/recommended');
+    expect(tester.getTopLeft(find.byType(HomePage)), Offset.zero);
   });
 
   for (final origin in [

@@ -86,7 +86,7 @@ Future<PageRoute<void>> _pushSecondPage(
   Widget second = const Text('page b'),
   bool settle = true,
 }) async {
-  late final PageRoute<void> pushed;
+  late PageRoute<void> pushed;
   late BuildContext rootContext;
   PageRoute<void> page(Widget child) =>
       FuncPage<void>(
@@ -313,6 +313,49 @@ void main() {
     expect([entering, leaving], everyElement(inExclusiveRange(0, width)));
     expect(below, lessThan(tester.getTopLeft(find.text('page a')).dx));
   });
+
+  testWidgets(
+    'back mid-push turns the slide where it is; the page below answers',
+    (tester) async {
+      // The page below fills its button, so a tap anywhere reaches it.
+      final route = await _pushSecondPage(
+        tester,
+        home: const SizedBox.expand(child: Text('page a')),
+        settle: false,
+      );
+      await tester.pump(const Duration(milliseconds: 320));
+      final navigator = route.navigator!;
+      final pageB = find.text('page b');
+      double x() => tester.getTopLeft(pageB).dx;
+      var last = x();
+      navigator.pop();
+      await tester.pump();
+      expect(x(), last, reason: 'turns without a jump');
+      final steps = <double>[];
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (pageB.evaluate().isEmpty) break;
+        steps.add(x() - last);
+        last = x();
+      }
+      // The rest of the way on the pop curve: off fast, easing out at the
+      // edge. The push curve played backwards crept off and left at speed.
+      expect(steps, everyElement(greaterThanOrEqualTo(0)));
+      expect(steps.first, greaterThan(4 * steps.last));
+
+      // Leaving, the page takes no touch: a tap where it still is lands on
+      // the page below, which opens a page again.
+      await tester.tap(find.text('page a'));
+      await tester.pumpAndSettle();
+      navigator.pop();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tapAt(const Offset(700, 300));
+      await tester.pump();
+      expect(find.text('page b'), findsNWidgets(2));
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets('a shared-element page covers a still page, then shows its '
       'content while its Hero flies; leaving runs the other way', (

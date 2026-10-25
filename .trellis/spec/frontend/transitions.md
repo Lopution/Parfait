@@ -25,14 +25,25 @@ reviewed: 2026-10-25
 ### TRANS-01 One page transition: the Cupertino slide
 - **Rule:** Every pushed page slides in from the trailing edge with
   `CupertinoPageTransition` (the page below darkens and moves aside) on
-  every platform, over `MotionTokens.pageTransition` (500ms). There is no
+  every platform, over `MotionTokens.pageTransition` (500ms). Its curves
+  turn where they are (`TurnCurve`, handed over with `linearTransition`):
+  back during a push sends the page back from where it is, on the pop
+  curve. A leaving page takes no touch; the page below answers, also
+  where the page still is. The home shell is a `FuncPage` too, with no
+  duration of its own: it appears at once and moves aside under a page
+  pushed over it on the root navigator (Me, downloads, reverse image
+  search, login), as a branch root does under a branch push. There is no
   transition setting and no hand-written transition. A stored
   `pageTransitionStyle` is ignored and not written back. Shared-element
   pages have their own transition (TRANS-09).
 - **Why:** User decision (10-20): FadeForwards read as odd; the slide is
   one motion the user can follow. Earlier, shared axis and zoom were
   dropped, and fade-through is for unrelated destinations, not pushes.
-- **Check:** `test/func_page_test.dart` "a page slides in from the trailing edge over the page below"; `test/app_settings_test.dart` "a retired pageTransitionStyle key reads and is not written"
+  `CurvedAnimation` keeps the curve it started with: a push cut short
+  crept back and then left at full speed (10-24). The slide's shadow box
+  took every touch on the leaving page. A still shell under root pages
+  made two kinds of push from one menu (user report).
+- **Check:** `test/func_page_test.dart` "a page slides in from the trailing edge over the page below" "back mid-push turns the slide where it is; the page below answers"; `test/navigation_router_test.dart` "openDownloadTasks lands on /downloads; the shell moves aside"; `test/pop_snapshot_paint_test.dart` "a TurnCurve goes on from where it turns, on the other curve"; `test/app_settings_test.dart` "a retired pageTransitionStyle key reads and is not written"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/core/settings/app_settings.dart`
 
 ### TRANS-02 The slide uses the Cupertino widget, not its builder
@@ -71,14 +82,19 @@ reviewed: 2026-10-25
 ### TRANS-06 Transitions snapshot only what does not move live
 - **Rule:** Every transition runs inside `FuncTransitionGuard`: entering
   and covered pages paint live with running tickers; a popping page and a
-  settled reveal paint one snapshot each. A page under a shared-element
-  page (`underSharedElement`), the home shell under the viewer included,
-  is never frozen: it stays live while the image flies.
+  settled reveal paint one snapshot each. A reveal is settled 650ms after
+  its cover began (Android's ink sparkle runs 617ms from the tap); a
+  finger down on a revealing page turns it live until the reveal ends. A
+  page under a shared-element page (`underSharedElement`), the home shell
+  under the viewer included, is never frozen: it stays live while the
+  image flies.
 - **Why:** Re-rendering the leaving page every frame dropped frames;
   freezing the entering page froze its entrances. A detail page frozen
   under the viewer's return flight could not be scrolled or tapped to any
-  visible effect until the image had landed.
-- **Check:** `test/func_page_test.dart` "the entering page stays live while a transition runs"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight"
+  visible effect until the image had landed. A swipe on a revealed page
+  showed only once the reveal ended, and a sparkle frozen mid-fade went
+  at once at its end (10-24).
+- **Check:** `test/func_page_test.dart` "the entering page stays live while a transition runs"; `test/pop_snapshot_paint_test.dart` "a finger on a settled reveal turns it live until it ends" "a reveal inside the press window keeps the page live"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight"
 - **Code:** `lib/app/motion/page_transitions.dart`
 
 ## Hero flights
@@ -121,9 +137,11 @@ reviewed: 2026-10-25
   `sharedElementContentOut`, then the background over
   `sharedElementBackdropOut`. The viewer has no background: its stage
   fades whole (`sharedElementFadeIn`/`Out`). A leave that cuts an opening
-  short takes each layer down from the opacity it reached. The Hero flies
-  on `MotionTokens.spatialCurve`, set on every artwork Hero end (a flight
-  reads the curve of the page that opens or leaves). A leaving page takes
+  short takes each layer down from the opacity it reached (`TurnCurve`).
+  The Hero flies on `illustHeroCurve`, `MotionTokens.spatialCurve`
+  turning with its route, set as `curve` and `reverseCurve` on the ends
+  in the page that opens or leaves (a flight reads that end's curve), so
+  an image sent back mid-flight goes home from where it is. A leaving page takes
   no touch, so the page below answers while the image flies. While a
   landed page leaves, `HeroLiftHole` cuts the flying image's spot out of
   its content, so what is under the content shows there; an opening page
@@ -139,7 +157,8 @@ reviewed: 2026-10-25
   Shared-element transitions on Android, iOS (zoom) and in Flutter's
   Wonderous keep the page below still. One curve played backwards held
   the leaving page until the image had nearly landed; switching curves
-  mid-opening dropped a half-shown page in one frame. The viewer's dark
+  mid-opening dropped a half-shown page in one frame; a flight sent back
+  retraced the opening curve (10-24). The viewer's dark
   stage covers the page below by itself, and a drag to dismiss it reveals
   that page. A changed transition widget type reparents the page's
   GlobalKey subtree and rebuilds the whole page in that frame. Hero pairs
@@ -150,7 +169,7 @@ reviewed: 2026-10-25
   stage. Content at alpha 0 is not painted, so its whole page of text was
   first drawn when its fade began, mid-flight: a raster frame of 12–20ms
   stalled the image on every opening (10-24).
-- **Check:** `test/func_page_test.dart` "a shared-element page covers a still page" "the viewer stage fades whole, with no background"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight"; `test/architecture/feedback_channels_test.dart` "Hero uses only the shared illustHeroTag family"; `test/illust_card_badges_test.dart` "the pager image flies back only to a card on screen"
+- **Check:** `test/func_page_test.dart` "a shared-element page covers a still page" "the viewer stage fades whole, with no background"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight" "an image sent back mid-flight turns where it is"; `test/architecture/feedback_channels_test.dart` "Hero uses only the shared illustHeroTag family"; `test/illust_card_badges_test.dart` "the pager image flies back only to a card on screen"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/app/navigation/routes.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/widgets/feed/feed_grid.dart`
 
 ### TRANS-10 The card page's bars ride over a card flight; other flights clip

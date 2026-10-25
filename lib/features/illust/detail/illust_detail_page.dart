@@ -157,6 +157,9 @@ class _FirstImageLayout {
   /// need lifting off it.
   bool get artworkUnderBar => top < topChrome;
 
+  /// How much of the image's top the toolbar covers.
+  double get artworkUnderBarExtent => math.max(0.0, topChrome - top);
+
   /// Where the bar starts drawing in: over the last toolbar height before
   /// the image leaves the top, or, for an image below the bar, before it
   /// reaches the bar.
@@ -247,10 +250,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   late final AnimationController _barVisibility = AnimationController(
     vsync: this,
     value: widget.heroImageUrl == null ? 1 : 0,
-  );
-  late final CurvedAnimation _barCurve = CurvedAnimation(
-    parent: _barVisibility,
-    curve: MotionTokens.chromeCurve,
   );
   final _scrollHide = ScrollHideTracker();
 
@@ -393,7 +392,8 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     if (_touchExploration || _downloadMode || _composing) return false;
     final hide = _scrollHide.update(
       notification,
-      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+      _barVisibility,
+      travel: DetailActionBar.restingExtent(context),
     );
     if (hide != null) slideChrome(context, _barVisibility, hidden: hide);
     return false;
@@ -458,7 +458,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     _narrowScroll.dispose();
     _topVisiblePage.dispose();
     _pagesToggleOnScreen.dispose();
-    _barCurve.dispose();
     _barVisibility.dispose();
     _immersion.dispose();
     _routeAnimation?.removeStatusListener(_onRouteStatus);
@@ -959,7 +958,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
                     onToggleSelect: () => _togglePageSelected(index),
                     onLongPress: _enterDownloadMode,
                     placeholderOnly: !detailReady && index > 0,
-                    overlayTopInset: index == 0 ? topChrome - statusInset : 0,
+                    overlayTopInset: index == 0
+                        ? layout.artworkUnderBarExtent
+                        : 0,
                     imageSlotHeight: index == 0 && slotsFirstImage
                         ? firstImageExtent
                         : null,
@@ -1073,7 +1074,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       child: HeroChrome(
         child: DetailActionBar(
           entity: entity,
-          visibility: _barCurve,
+          visibility: _barVisibility,
           onDownload: () => unawaited(_downloadAll(entity)),
         ),
       ),

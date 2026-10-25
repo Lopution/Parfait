@@ -831,9 +831,11 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
         if (heroTag == null) {
           return Stack(fit: StackFit.expand, children: [viewer, progress]);
         }
+        final heroCurve = illustHeroCurve(context);
         final hero = Hero(
           tag: heroTag,
-          curve: MotionTokens.spatialCurve,
+          curve: heroCurve,
+          reverseCurve: heroCurve,
           createRectTween: illustHeroRectTween,
           flightShuttleBuilder: illustHeroFlightShuttleBuilder,
           child: IllustHeroFlightChild(
