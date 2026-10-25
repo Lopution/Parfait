@@ -710,7 +710,6 @@
   "aboutUpdateBusy": "已有更新任务进行中",
   "aboutUpdateCanceled": "已取消更新安装",
   "aboutLicense": "许可证",
-  "aboutAttribution": "归属",
   "aboutSource": "项目源码",
   "aboutLicenseText": "本项目基于 Pixiv Func 公开源码，遵循 GNU AGPL v3.0。",
   "aboutAttributionText": "版权所有及维护：Lopution。",
@@ -1231,7 +1230,6 @@
   "@searchResetFilters": {
     "description": "Button on an empty search result while filters are on: clears this tab's filters."
   },
-  "searchUserAccount": "账号",
   "illustDetailTitle": "作品详情",
   "detailMetaCountsSemantics": "{views} 次浏览，{bookmarks} 次收藏",
   "seriesEpisodeOf": "第 {order} 话 / 共 {total} 话",

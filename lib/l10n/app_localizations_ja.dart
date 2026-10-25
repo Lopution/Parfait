@@ -1437,9 +1437,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aboutLicense => 'ライセンス';
 
   @override
-  String get aboutAttribution => '帰属表示';
-
-  @override
   String get aboutSource => 'ソースコード';
 
   @override
@@ -2266,9 +2263,6 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get searchResetFilters => 'フィルターをリセット';
-
-  @override
-  String get searchUserAccount => 'アカウント';
 
   @override
   String get illustDetailTitle => '作品詳細';

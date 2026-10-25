@@ -2759,12 +2759,6 @@ abstract class AppLocalizations {
   /// **'许可证'**
   String get aboutLicense;
 
-  /// No description provided for @aboutAttribution.
-  ///
-  /// In zh, this message translates to:
-  /// **'归属'**
-  String get aboutAttribution;
-
   /// No description provided for @aboutSource.
   ///
   /// In zh, this message translates to:
@@ -4312,12 +4306,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'重置筛选'**
   String get searchResetFilters;
-
-  /// No description provided for @searchUserAccount.
-  ///
-  /// In zh, this message translates to:
-  /// **'账号'**
-  String get searchUserAccount;
 
   /// No description provided for @illustDetailTitle.
   ///

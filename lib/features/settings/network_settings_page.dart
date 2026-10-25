@@ -686,22 +686,12 @@ class _EffectiveRoutesSectionState
           ),
         ],
       ),
+      // Nothing to list is a note under the heading, not a card to press.
+      footer: empty ? Text(context.l10n.networkEffectiveRoutesEmpty) : null,
       children: [
-        if (empty)
-          SettingsGroupContent(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                context.l10n.networkEffectiveRoutesEmpty,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-          )
-        else ...[
-          for (final route in _routes.entries) _routeTile(context, route),
-          for (final route in _imageRoutes.entries)
-            _routeTile(context, route, images: true),
-        ],
+        for (final route in _routes.entries) _routeTile(context, route),
+        for (final route in _imageRoutes.entries)
+          _routeTile(context, route, images: true),
       ],
     );
   }

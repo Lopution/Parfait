@@ -17,7 +17,6 @@ Locale parseAppLocale(String tag) {
 /// Dynamic key lookup for call sites that cannot statically name their
 /// message (C6). Unknown keys return the key itself.
 String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
-  'aboutAttribution' => l10n.aboutAttribution,
   'aboutAttributionText' => l10n.aboutAttributionText,
   'aboutCheckUpdate' => l10n.aboutCheckUpdate,
   'aboutCheckingUpdate' => l10n.aboutCheckingUpdate,
@@ -774,7 +773,6 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'searchTrending' => l10n.searchTrending,
   'searchTrendingFailed' => l10n.searchTrendingFailed,
   'searchUser' => l10n.searchUser,
-  'searchUserAccount' => l10n.searchUserAccount,
   'searchUserFiltersUnavailable' => l10n.searchUserFiltersUnavailable,
   'searchWidth' => l10n.searchWidth,
   'searchWithinDay' => l10n.searchWithinDay,

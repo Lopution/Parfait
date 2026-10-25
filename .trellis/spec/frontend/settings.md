@@ -22,13 +22,16 @@ reviewed: 2026-10-17
   separator; never a `Divider`, never a hand-built group container.
   A note on one row is that row's subtitle; a note on the whole group, or
   on content without a subtitle (a slider, a form), is the group
-  `footer`. On one page either every group has a title or none does. A
-  leaving `Removable` row stops counting from the exit's first frame.
+  `footer`. So is the note of an empty group (what it would list, where
+  that comes from): never a card of its own. On one page either every
+  group has a title or none does. A leaving `Removable` row stops
+  counting from the exit's first frame.
 - **Why:** User decision: separate cards on settings pages replaced the 2dp
   segmented list. The Me tab is not a settings page and lists its rows
   plainly (SET-07). Notes set apart from their row and a
-  page with one titled group read as unrelated.
-- **Check:** `test/architecture/settings_rows_test.dart` "SettingsSection is gone from lib/"
+  page with one titled group read as unrelated. An empty group's note on
+  a card read as a row to press (user report, 10-25).
+- **Check:** `test/architecture/settings_rows_test.dart` "SettingsSection is gone from lib/"; `test/muted_items_page_test.dart` "an empty group says where its mutes come from, off the cards"
 - **Code:** `lib/app/widgets/settings/settings_group.dart`
 
 ### SET-02 Choose the row by the number of values
@@ -65,6 +68,22 @@ reviewed: 2026-10-17
   did not read as one form. A long label was cut at narrow widths.
 - **Check:** `test/translation_credentials_page_test.dart`
 - **Code:** `lib/features/settings/pages/translation_credentials_page.dart`, `lib/features/settings/network_settings_page.dart`
+
+### SET-10 A row's end says what a tap does
+- **Rule:** A row that opens a page of the app is a `SettingsTile` and
+  ends in a chevron. A row that leaves the app (a browser) ends its link
+  text in an `open_in_new` glyph in the text's size and colour. A row
+  that acts in place names the action and shows no glyph; a value row
+  shows its value at its end. Facts about the app (its icon, name and
+  attribution) head the About page on the page surface, not in a card.
+  The version stays a plain value row, though seven taps on it unlock
+  the developer options.
+- **Why:** User report (10-25): on the About page the license, the
+  source link and the facts were alike cards; what opened a page, what
+  left the app and what did nothing could not be told apart. The
+  attribution left the settings search: it is not a setting.
+- **Check:** manual
+- **Code:** `lib/features/settings/pages/about_settings_page.dart`, `lib/app/widgets/settings/settings_tile.dart`
 
 ### SET-03 Hand-written ListTiles only for content rows
 - **Rule:** A hand-written `ListTile` is allowed only for data entries

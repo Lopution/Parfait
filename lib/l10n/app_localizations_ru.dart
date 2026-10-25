@@ -1480,9 +1480,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aboutLicense => 'Лицензия';
 
   @override
-  String get aboutAttribution => 'Атрибуция';
-
-  @override
   String get aboutSource => 'Исходный код';
 
   @override
@@ -2334,9 +2331,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get searchResetFilters => 'Сбросить фильтры';
-
-  @override
-  String get searchUserAccount => 'Аккаунт';
 
   @override
   String get illustDetailTitle => 'Работа';

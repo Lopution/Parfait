@@ -5,73 +5,63 @@ import '../navigation/routes.dart';
 import '../theme/func_semantic_tokens.dart';
 import 'author_summary.dart';
 
-/// The whole avatar + name row opens the author's profile: one target at
-/// least 48dp tall, announced as a button. [AuthorSummary] owns the avatar
-/// and name layout; this row owns the target, the navigation and the
-/// semantics. [trailing] (a follow button) stays a separate target.
+/// An inline byline: the avatar and name, then a chevron that says the row
+/// opens the author's profile. The whole row is one target at least 48dp
+/// tall, announced as a button. [AuthorSummary] owns the avatar and name
+/// layout; this row owns the target, the navigation and the semantics. An
+/// author that stands as its own block is a `PersonCard` instead.
 class AuthorRow extends StatelessWidget {
   const AuthorRow({
     super.key,
     required this.userId,
     required this.name,
-    this.account,
     this.avatarUrl,
-    this.trailing,
-    this.avatarRadius = 16,
   });
 
   /// Minimum height of the tap target (Material's 48dp touch target).
   static const double minHeight = kMinInteractiveDimension;
 
+  /// The chevron, as tall as the name's line.
+  static const double _chevronSize = 20;
+
   final int userId;
   final String name;
-
-  /// Shown under [name] ("@account"); without it the row is one line.
-  final String? account;
   final String? avatarUrl;
-  final Widget? trailing;
-
-  /// 16 in a list row; a card that stands on its own uses a larger one.
-  final double avatarRadius;
 
   @override
   Widget build(BuildContext context) {
     void open() => openUser(context, userId);
-    final trailing = this.trailing;
-    return Row(
-      children: [
-        Expanded(
-          child: Semantics(
-            container: true,
-            button: true,
-            label: name,
-            hint: context.l10n.openAuthorProfile,
-            onTap: open,
-            excludeSemantics: true,
-            child: InkWell(
-              onTap: open,
-              borderRadius: FuncShape.control,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: minHeight),
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: AuthorSummary(
-                    name: name,
-                    account: account,
-                    imageUrl: avatarUrl,
-                    avatarRadius: avatarRadius,
-                    compact: account == null,
-                  ),
+    return Semantics(
+      container: true,
+      button: true,
+      label: name,
+      hint: context.l10n.openAuthorProfile,
+      onTap: open,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: open,
+        borderRadius: FuncShape.control,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: minHeight),
+          child: Row(
+            children: [
+              Flexible(
+                child: AuthorSummary(
+                  name: name,
+                  imageUrl: avatarUrl,
+                  avatarRadius: 16,
+                  compact: true,
                 ),
               ),
-            ),
+              Icon(
+                Icons.chevron_right,
+                size: _chevronSize,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ],
           ),
         ),
-        if (trailing != null) ...[
-          const SizedBox(width: FuncSpacing.sm),
-          trailing,
-        ],
-      ],
+      ),
     );
   }
 }

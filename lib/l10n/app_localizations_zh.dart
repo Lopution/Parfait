@@ -1411,9 +1411,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aboutLicense => '许可证';
 
   @override
-  String get aboutAttribution => '归属';
-
-  @override
   String get aboutSource => '项目源码';
 
   @override
@@ -2236,9 +2233,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get searchResetFilters => '重置筛选';
-
-  @override
-  String get searchUserAccount => '账号';
 
   @override
   String get illustDetailTitle => '作品详情';

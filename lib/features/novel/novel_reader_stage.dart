@@ -37,6 +37,12 @@ import '../../app/widgets/app_slider.dart';
 @visibleForTesting
 const novelReaderHintAlpha = 0.75;
 
+/// How far the progress pill's outline fades the page's text: no further
+/// than keeps 3:1 against every reader palette (the green one is the
+/// closest, about 3.4:1).
+@visibleForTesting
+const novelReaderPillOutlineAlpha = 0.6;
+
 /// Data seam for [NovelReaderStage]: everything that differs between the
 /// online novel page and the local TXT reader is injected here, so the
 /// stage itself stays source-agnostic.
@@ -655,25 +661,27 @@ class _NovelReaderStageState extends ConsumerState<NovelReaderStage>
                     ),
                     icon: const Icon(Icons.text_decrease_outlined),
                   ),
-                  // Tap opens the progress/TOC sheet — the readout keeps
-                  // its a11y label so screen readers announce it as the
-                  // progress control, not a bare number.
-                  middle: InkWell(
-                    onTap: () => _showProgressSheet(context),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: FuncSpacing.xl,
-                        vertical: FuncSpacing.md,
+                  // A pill with an expand glyph: it opens the progress
+                  // sheet. The readout keeps its a11y label so screen
+                  // readers announce the progress control, not a number.
+                  middle: OutlinedButton.icon(
+                    onPressed: () => _showProgressSheet(context),
+                    iconAlignment: IconAlignment.end,
+                    icon: const Icon(Icons.expand_less),
+                    label: Text(
+                      '${_page + 1}/$_pageCount · ${percent.round()}%',
+                      semanticsLabel: l10n.novelReadingProgress,
+                      maxLines: 1,
+                      style: Theme.of(context).textTheme.bodyMedium?.tabular,
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: foreground,
+                      side: BorderSide(
+                        color: foreground.withValues(
+                          alpha: novelReaderPillOutlineAlpha,
+                        ),
                       ),
-                      child: Text(
-                        '${_page + 1}/$_pageCount · ${percent.round()}%',
-                        textAlign: TextAlign.center,
-                        semanticsLabel: l10n.novelReadingProgress,
-                        maxLines: 1,
-                        style: Theme.of(context).textTheme.bodyMedium
-                            ?.copyWith(color: foreground)
-                            .tabular,
-                      ),
+                      visualDensity: VisualDensity.compact,
                     ),
                   ),
                   trailing: Row(

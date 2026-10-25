@@ -1487,9 +1487,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutLicense => 'License';
 
   @override
-  String get aboutAttribution => 'Attribution';
-
-  @override
   String get aboutSource => 'Source code';
 
   @override
@@ -2333,9 +2330,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchResetFilters => 'Reset filters';
-
-  @override
-  String get searchUserAccount => 'Account';
 
   @override
   String get illustDetailTitle => 'Artwork';

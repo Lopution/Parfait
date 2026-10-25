@@ -78,31 +78,39 @@ void main() {
       }
     });
 
-    test('the progress hint keeps 4.5:1 on every palette', () {
-      final pairs = [
-        for (final brightness in Brightness.values)
-          (
-            replicaTheme(brightness).colorScheme.onSurface,
-            replicaTheme(brightness).scaffoldBackgroundColor,
-          ),
-        for (final theme in [
-          NovelReaderTheme.paper,
-          NovelReaderTheme.sepia,
-          NovelReaderTheme.night,
-        ])
-          (
-            novelReaderPalette(theme).foreground!,
-            novelReaderPalette(theme).background!,
-          ),
-      ];
-      for (final (text, page) in pairs) {
-        final hint = Color.alphaBlend(
-          text.withValues(alpha: novelReaderHintAlpha),
-          page,
-        );
-        expect(contrastRatio(hint, page), greaterThanOrEqualTo(4.5));
-      }
-    });
+    test(
+      'the progress hint keeps 4.5:1 and the pill outline 3:1 on every palette',
+      () {
+        final pairs = [
+          for (final brightness in Brightness.values)
+            (
+              replicaTheme(brightness).colorScheme.onSurface,
+              replicaTheme(brightness).scaffoldBackgroundColor,
+            ),
+          for (final theme in [
+            NovelReaderTheme.paper,
+            NovelReaderTheme.sepia,
+            NovelReaderTheme.night,
+          ])
+            (
+              novelReaderPalette(theme).foreground!,
+              novelReaderPalette(theme).background!,
+            ),
+        ];
+        for (final (text, page) in pairs) {
+          final hint = Color.alphaBlend(
+            text.withValues(alpha: novelReaderHintAlpha),
+            page,
+          );
+          expect(contrastRatio(hint, page), greaterThanOrEqualTo(4.5));
+          final outline = Color.alphaBlend(
+            text.withValues(alpha: novelReaderPillOutlineAlpha),
+            page,
+          );
+          expect(contrastRatio(outline, page), greaterThanOrEqualTo(3));
+        }
+      },
+    );
   });
 
   group('NovelReaderSettingsStore', () {
