@@ -1018,14 +1018,13 @@ void main() {
         inner.jumpTo(115);
         await tester.pump();
 
-        // A deliberate ~80px pull released at a light 600px/s, whose fling
-        // coasts about 80px: the inner feed slides back to 0 and the
-        // leftover momentum must expand the header, not die at the
-        // boundary.
+        // A deliberate ~80px pull released at low speed: the inner feed
+        // slides back to 0 and the leftover momentum must expand the
+        // header, not die at the boundary.
         await tester.flingFrom(
           tester.getCenter(find.byType(NestedScrollView)),
           const Offset(0, 80),
-          600,
+          300,
         );
         var frames = 0;
         while (frames < 240 &&
