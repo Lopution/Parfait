@@ -119,10 +119,16 @@ reviewed: 2026-10-17
 - **Check:** `test/novel_reader_test.dart` "the pages beside the page on screen are built at rest" "at rest the pages two away are queued as their lines lay"; `test/novel_reader_chrome_test.dart` "immersive reader: chrome toggles, back closes chrome first"
 - **Code:** `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_stage.dart`, `lib/app/widgets/feed/feed_text_warmup.dart`
 
-### NOVEL-10 The progress hint keeps 4.5:1 on every palette
+### NOVEL-10 The progress hint and pill keep their contrast on every palette
 - **Rule:** The bottom progress hint uses `bodySmall` and the page's text
   color at `novelReaderHintAlpha`, set no fainter than keeps 4.5:1 on the
-  system and every reader palette.
+  system and every reader palette. In the chrome's bottom bar the
+  progress readout is an outlined pill ending in an expand glyph, which
+  opens the progress sheet; its outline is the text color at
+  `novelReaderPillOutlineAlpha`, no fainter than keeps 3:1 on every
+  palette.
 - **Why:** An 11sp hint at 45% of the text color measured about 2.9:1.
-- **Check:** `test/novel_reader_settings_test.dart` "the progress hint keeps 4.5:1 on every palette"
+  The readout as bare text did not show it opened anything (user report,
+  10-25).
+- **Check:** `test/novel_reader_settings_test.dart` "the progress hint keeps 4.5:1 and the pill outline 3:1 on every palette"
 - **Code:** `lib/features/novel/novel_reader_stage.dart`
