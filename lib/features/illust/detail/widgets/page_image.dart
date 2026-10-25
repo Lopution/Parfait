@@ -209,6 +209,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
         widget.index == 0 &&
         widget.heroImageUrl != null &&
         isTopSquareThumbnail(widget.heroImageUrl!);
+    final heroCurve = illustHeroCurve(context);
     final image = GestureDetector(
       // Opaque: while the image flies, its Hero is an offstage placeholder
       // that takes no hits, and a tap there must still open the viewer.
@@ -248,7 +249,8 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
               aspectRatio: entity.pageAspectRatioAt(widget.index),
               builder: (panoramaDecodeWidth) => Hero(
                 tag: widget.heroTag,
-                curve: MotionTokens.spatialCurve,
+                curve: heroCurve,
+                reverseCurve: heroCurve,
                 createRectTween: illustHeroRectTween,
                 flightShuttleBuilder: illustHeroFlightShuttleBuilder,
                 child: IllustHeroFlightChild(
