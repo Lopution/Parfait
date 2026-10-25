@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:easy_refresh/easy_refresh.dart';
 
 import '../../app/layout/deferred_cache_scroll_view.dart';
 import '../../app/motion/press_scale.dart';
@@ -20,7 +19,7 @@ import '../../app/widgets/feed/load_more_listener.dart';
 
 /// Profile work-tab section: the user's public illust series as a card
 /// grid (`/v1/user/illust-series`). Mounted inside the profile
-/// NestedScrollView, so it keeps the HeaderLocator/isNested contract of the
+/// NestedScrollView, so it keeps the nested refresh contract of the
 /// sibling work feeds.
 /// Grid padding and spacing shared by this feed and its first-load
 /// skeleton.
@@ -85,7 +84,7 @@ class UserSeriesFeed extends ConsumerWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               scrollCacheExtent: kFeedCacheExtent,
               slivers: [
-                const HeaderLocator.sliver(),
+                PullToRefresh.nestedHeader,
                 if (entities.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,

@@ -1,21 +1,22 @@
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:flutter/foundation.dart' show clampDouble;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../core/platform/app_root_pipeline_owner.dart';
-import 'motion/motion_tokens.dart';
 
 /// App-wide scroll behavior: on desktop the mouse and trackpad drag like
 /// touch (Flutter's default excludes them, leaving wheel-only scrolling).
 /// Wheel smoothing itself is per-scrollable — see `SmoothWheelScroll`.
 ///
-/// Touch physics follow Android's lists app-wide ([FuncScrollPhysics]):
-/// the fling of `OverScroller` and a hard stop at both ends, with Android
-/// 12's stretch at the ends ([stretchOverscroll]). Feeds run EasyRefresh's
-/// physics on the same fling (see `PullToRefresh`), so
-/// detail/settings/search pages, profile NestedScrollView outer scrolls and
-/// feed scrolls share one scheme.
+/// Touch physics follow the EasyRefresh convention app-wide: feed pages get
+/// their feel from `_ERScrollPhysics` (a `BouncingScrollPhysics` with an
+/// always-scrollable parent and no platform overscroll glow, a fling
+/// stopping at the ends), and before this every other page ran platform
+/// `ClampingScrollPhysics` instead — one app, two physics stacks. Mirroring
+/// the same feel here ([FuncScrollPhysics]) keeps detail/settings/search
+/// pages, profile NestedScrollView outer scrolls and feed scrolls on a
+/// single scheme.
 ///
 /// Vertical lists show a scrollbar while a mouse is connected
 /// ([mouseScrollbar]), and no scrollable pushes semantics while it scrolls
@@ -36,14 +37,16 @@ class FuncScrollBehavior extends MaterialScrollBehavior {
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) =>
       textScrollPhysics(context) ??
-      const FuncScrollPhysics(parent: AlwaysScrollableScrollPhysics());
+      const NoDragDeadZonePhysics(
+        parent: FuncScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      );
 
   @override
   Widget buildOverscrollIndicator(
     BuildContext context,
     Widget child,
     ScrollableDetails details,
-  ) => ScrollSemanticsHold(child: stretchOverscroll(context, child, details));
+  ) => ScrollSemanticsHold(child: child);
 
   @override
   Widget buildScrollbar(
@@ -56,43 +59,6 @@ class FuncScrollBehavior extends MaterialScrollBehavior {
     TargetPlatform.windows => super.buildScrollbar(context, child, details),
     _ => mouseScrollbar(child, details),
   };
-}
-
-/// [child] with the edge effect of Android 12's lists: a drag past an end
-/// stretches the content and a fling into one stretches by its speed,
-/// both springing back, while the physics still stop the list at the end.
-/// Other platforms, reduced motion and the scrollable inside a text
-/// control keep the bare edge, and so does a NestedScrollView's outer
-/// scroll: its body's lists stretch, as only the RecyclerView under an
-/// `AppBarLayout` does, and the outer one stretching too at the end of a
-/// fling doubled the effect.
-///
-/// [refreshAtLeadingEdge]: the vertical list pulls a refresh header out at
-/// its top. A drag there is the header's alone, so it does not stretch; a
-/// fling into the top still does, as under `SwipeRefreshLayout`.
-Widget stretchOverscroll(
-  BuildContext context,
-  Widget child,
-  ScrollableDetails details, {
-  bool refreshAtLeadingEdge = false,
-}) {
-  if (defaultTargetPlatform != TargetPlatform.android ||
-      textScrollPhysics(context) != null ||
-      details.controller?.debugLabel == _nestedOuterLabel ||
-      !MotionTokens.enabled(context)) {
-    return child;
-  }
-  final pullsRefresh =
-      refreshAtLeadingEdge &&
-      axisDirectionToAxis(details.direction) == Axis.vertical;
-  return StretchingOverscrollIndicator(
-    axisDirection: details.direction,
-    clipBehavior: details.decorationClipBehavior ?? Clip.hardEdge,
-    notificationPredicate: pullsRefresh
-        ? _notRefreshPull
-        : defaultScrollNotificationPredicate,
-    child: child,
-  );
 }
 
 /// Holds the app's semantics pushes ([AppRootPipelineOwner.holdSemantics])
@@ -182,24 +148,12 @@ class _ScrollSemanticsHoldState extends State<ScrollSemanticsHold> {
       );
 }
 
-/// The debug label NestedScrollView gives its outer controller ('inner'
-/// for the body's).
-const _nestedOuterLabel = 'outer';
-
-/// Every notification but a drag past the leading edge: the indicator
-/// reads a negative overscroll as the leading edge's.
-bool _notRefreshPull(ScrollNotification notification) =>
-    defaultScrollNotificationPredicate(notification) &&
-    !(notification is OverscrollNotification &&
-        notification.dragDetails != null &&
-        notification.overscroll < 0);
-
 /// The physics of the scrollable a text control (`SelectableText`,
 /// `TextField`) keeps inside its [EditableText], or null for any other
 /// scrollable. That scrollable takes its physics from the nearest scroll
 /// behavior; always scrollable, text that fits followed the finger and the
 /// page under it stayed put. Without that parent, text that fits takes no
-/// drag and text that overflows still scrolls, on the app's physics.
+/// drag and text that overflows still scrolls, with the app's bounce.
 ///
 /// Every scroll behavior the app installs asks this first.
 ScrollPhysics? textScrollPhysics(BuildContext context) =>
@@ -219,7 +173,7 @@ Widget mouseScrollbar(Widget child, ScrollableDetails details) {
       controller == null ||
       controller.positions.length > 1 ||
       controller.debugLabel == 'inner' ||
-      controller.debugLabel == _nestedOuterLabel) {
+      controller.debugLabel == 'outer') {
     return child;
   }
   return _MouseScrollbar(controller: controller, child: child);
@@ -268,16 +222,49 @@ class _MouseScrollbarState extends State<_MouseScrollbar> {
   }
 }
 
-/// The app's list physics: [ClampingScrollPhysics], as Android lists with
-/// `overScrollMode="never"` scroll. A fling runs `OverScroller`'s curve
-/// ([ClampingScrollSimulation]) and both a fling and a drag stop at the
-/// ends.
-class FuncScrollPhysics extends ClampingScrollPhysics {
+/// [BouncingScrollPhysics] whose fling stops at either end, the way the
+/// feed's EasyRefresh footer does with `hitOver` off: a fling into the end
+/// of a page that is loading more no longer overshoots and springs back
+/// against the content arriving. A drag still pulls past the ends and
+/// springs back on release.
+class FuncScrollPhysics extends BouncingScrollPhysics {
   const FuncScrollPhysics({super.parent});
 
   @override
   FuncScrollPhysics applyTo(ScrollPhysics? ancestor) =>
       FuncScrollPhysics(parent: buildParent(ancestor));
+
+  @override
+  Simulation? createBallisticSimulation(
+    ScrollMetrics position,
+    double velocity,
+  ) {
+    final simulation = super.createBallisticSimulation(position, velocity);
+    // Out of range a drag left the page pulled past an end: spring back.
+    if (simulation == null || position.outOfRange) return simulation;
+    return _EdgeStopSimulation(
+      simulation,
+      min: position.minScrollExtent,
+      max: position.maxScrollExtent,
+    );
+  }
+}
+
+/// [parent] without the drag dead zone of [BouncingScrollPhysics]: iOS
+/// holds a drag for 3.5 more pixels past the touch slop, at its start and
+/// again after every pause, which reads as sticky on a slow drag. Android
+/// follows the finger once the slop is crossed. Bouncing physics declares
+/// the threshold non-nullable, so it is dropped by this wrapper on top;
+/// everything else is the parent's.
+class NoDragDeadZonePhysics extends ScrollPhysics {
+  const NoDragDeadZonePhysics({required ScrollPhysics super.parent});
+
+  @override
+  NoDragDeadZonePhysics applyTo(ScrollPhysics? ancestor) =>
+      NoDragDeadZonePhysics(parent: buildParent(ancestor)!);
+
+  @override
+  double? get dragStartDistanceMotionThreshold => null;
 }
 
 /// A pager's snap to its page on Material's default spatial spring
@@ -289,10 +276,10 @@ class FuncScrollPhysics extends ClampingScrollPhysics {
 ///
 /// Give it as a [PageView]'s physics: the page physics on top still picks
 /// the target page and starts the snap at the release velocity, and the
-/// app's list physics below stop the first and last page at the edge.
-/// Like a fling, the snap carries on the finger's motion, so the
-/// reduced-motion gate and the animation speed leave it alone, as they
-/// leave ViewPager's scroller.
+/// app's list physics below keep their own spring for the bounce past the
+/// first and last page. Like a fling, the snap carries on the finger's
+/// motion, so the reduced-motion gate and the animation speed leave it
+/// alone, as they leave ViewPager's scroller.
 class PageSnapPhysics extends ScrollPhysics {
   const PageSnapPhysics({super.parent});
 
@@ -308,6 +295,30 @@ class PageSnapPhysics extends ScrollPhysics {
 
   @override
   SpringDescription get spring => _spring;
+}
+
+/// Runs [_inner] until it would leave [min]..[max], then rests at the edge.
+class _EdgeStopSimulation extends Simulation {
+  _EdgeStopSimulation(this._inner, {required this.min, required this.max})
+    : super(tolerance: _inner.tolerance);
+
+  final Simulation _inner;
+  final double min;
+  final double max;
+
+  bool _past(double time) {
+    final x = _inner.x(time);
+    return x < min || x > max;
+  }
+
+  @override
+  double x(double time) => clampDouble(_inner.x(time), min, max);
+
+  @override
+  double dx(double time) => _past(time) ? 0 : _inner.dx(time);
+
+  @override
+  bool isDone(double time) => _past(time) || _inner.isDone(time);
 }
 
 /// How much further than the device's touch slop a sideways pager's own
