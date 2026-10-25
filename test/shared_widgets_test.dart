@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:parfait/app/theme/replica_theme.dart';
+import 'package:parfait/app/widgets/app_tab_bar.dart';
+import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/widgets/skeleton/func_skeleton.dart';
 import 'package:parfait/core/network/api_error.dart';
@@ -194,4 +196,30 @@ void main() {
       );
     }
   });
+
+  testWidgets(
+    'an empty state stands as high under a bar with tabs as without',
+    (tester) async {
+      Future<double> centerUnder(PreferredSizeWidget? tabs) async {
+        await tester.pumpWidget(
+          localizedApp(
+            theme: replicaTheme(Brightness.light),
+            home: DefaultTabController(
+              length: 2,
+              child: Scaffold(
+                appBar: AppTopBar(title: const Text('page'), bottom: tabs),
+                body: const FeedEmpty(title: 'nothing here'),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        return tester.getCenter(find.text('nothing here')).dy;
+      }
+
+      final plain = await centerUnder(null);
+      final tabbed = await centerUnder(const AppTabBar(labels: ['a', 'b']));
+      expect(tabbed, moreOrLessEquals(plain));
+    },
+  );
 }

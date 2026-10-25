@@ -129,6 +129,10 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
   List<int> _barBranches = const [];
   final _scrollHide = ScrollHideTracker();
 
+  /// How far the bottom bar slides to hide, as of the last build; none on
+  /// the rail.
+  double _bottomBarExtent = 0;
+
   /// Where the branches under a swipe are, in places on the bar; null
   /// while no swipe moves them.
   final _swipe = ValueNotifier<double?>(null);
@@ -360,7 +364,8 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     if (_touchExploration) return false;
     final hide = _scrollHide.update(
       notification,
-      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+      _navVisibility,
+      travel: _bottomBarExtent,
     );
     if (hide != null) slideChrome(context, _navVisibility, hidden: hide);
     return false;
@@ -485,7 +490,7 @@ class _HomeBranchStackState extends ConsumerState<HomeBranchStack>
     // covers the bottom bar on a phone.
     final railShown = rail && !ref.watch(shellRailHiddenProvider);
     final extended = AppBreakpoints.useExtendedRail(width);
-    final bottomBarExtent = rail
+    final bottomBarExtent = _bottomBarExtent = rail
         ? 0.0
         : FuncBottomNav.restingExtent(MediaQuery.paddingOf(context).bottom);
     final branches = Stack(

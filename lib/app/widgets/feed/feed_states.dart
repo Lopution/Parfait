@@ -9,6 +9,7 @@ import '../../../core/network/network_restore_signal.dart';
 import '../../../core/paging/paged_feed_controller.dart';
 import '../../../l10n/context.dart';
 import '../../motion/state_fade.dart';
+import '../app_top_bar.dart';
 import '../errors/error_details.dart';
 import '../../theme/func_semantic_tokens.dart';
 
@@ -120,7 +121,7 @@ class FeedLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return _StatusCenter(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -192,7 +193,7 @@ class FeedEmpty extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     // Always the result of a state change (loading → empty): fade in.
     final content = StateFade.onMount(
-      child: Center(
+      child: _StatusCenter(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -300,7 +301,7 @@ class FeedError extends StatelessWidget {
       error: error,
       onRetry: onRetry,
       child: StateFade.onMount(
-        child: Center(
+        child: _StatusCenter(
           child: scrollable
               ? SingleChildScrollView(
                   padding: const EdgeInsets.all(FuncSpacing.xl),
@@ -312,6 +313,28 @@ class FeedError extends StatelessWidget {
                 ),
         ),
       ),
+    );
+  }
+}
+
+/// Centres a status view on the area under the page's toolbar, the
+/// bar's extension (tabs, a filter row, a search field) counted in: an
+/// empty or failed page shows its status as high whether or not its bar
+/// carries tabs, and a first load and the state after it share the spot.
+class _StatusCenter extends StatelessWidget {
+  const _StatusCenter({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final bar = Scaffold.maybeOf(context)?.widget.appBar;
+    final extension = bar is AppTopBar
+        ? bar.bottom?.preferredSize.height ?? 0.0
+        : 0.0;
+    return Padding(
+      padding: EdgeInsets.only(bottom: extension),
+      child: Center(child: child),
     );
   }
 }

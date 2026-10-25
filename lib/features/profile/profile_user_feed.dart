@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:easy_refresh/easy_refresh.dart';
 
 import '../../app/format/content_locale.dart';
 import '../../app/navigation/routes.dart';
@@ -70,7 +69,7 @@ class ProfileUserFeed extends ConsumerWidget {
               restorationId: 'profile-${feedKey.toString()}',
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                const HeaderLocator.sliver(),
+                PullToRefresh.nestedHeader,
                 if (users.isEmpty)
                   // Match the works tab: the empty state centres in the
                   // remaining viewport instead of sitting as a small block

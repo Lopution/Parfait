@@ -132,6 +132,21 @@ reviewed: 2026-10-17
 - **Check:** `test/author_row_test.dart` "the whole row is one 48dp target that opens the profile" "a person card is one target; its trailing button is its own"
 - **Code:** `lib/app/widgets/author_row.dart`, `lib/app/widgets/person_card.dart`
 
+### PAGE-20 Pages carry no explanatory notes
+- **Rule:** No page, group, sheet or empty state carries a note on how
+  to use it, where its content comes from or how it works inside: no
+  group footer of that kind, no line under an empty state's title, no
+  paragraph by a button. Text under a title is a state (an error's
+  category, a setting that is off, "nothing muted yet") or what an
+  option does (a switch's or a choice's subtitle); a confirmation keeps
+  the consequences it asks about, and an action that exposes a
+  credential keeps its risk note. Developer pages and help the user
+  opens are exempt.
+- **Why:** User decision (10-25): the notes read as secondary headings
+  written as annotations. The Doubao risk paragraph went with them.
+- **Check:** `test/muted_items_page_test.dart` "an empty group says it is empty, off the cards"; `test/history_page_test.dart` "an empty history with recording off offers to turn it on"
+- **Code:** `lib/features/settings/`, `lib/app/widgets/feed/feed_states.dart`
+
 ### PAGE-08 Long user text uses ExpandableText
 - **Rule:** Captions and descriptions use `ExpandableText`; text that fits
   shows no toggle, and links stay tappable while collapsed. Collapsed,
@@ -236,10 +251,12 @@ reviewed: 2026-10-17
 - **Code:** `lib/features/settings/pages/muted_items_page.dart`, `lib/core/mute`
 
 ### PAGE-14 Management lists are lazy rows on one surface per group
-- **Rule:** Management lists are two flat lazy lists (groups, ungrouped
-  items) keyed by task or group id. A group's rows share one
-  `SliverSurfaceList` container; never split a group into its own slivers
-  or reparent rows with `GlobalKey`s. Progress bars show only on
+- **Rule:** A management list is one flat lazy list keyed by task or
+  group id, the newest submission first, groups among the single items
+  (a group by its own submission, its rows in page order). A group's
+  rows share one `SliverSurfaceList` surface, a single item sits on none;
+  never split a group into its own slivers or reparent rows with
+  `GlobalKey`s. Progress bars show only on
   unfinished rows. A group of one is a plain row. A row's action buttons
   stand on its title row while its text keeps 160dp; only a narrower row
   moves them to a line of their own. The actions end the row, so a
@@ -247,8 +264,10 @@ reviewed: 2026-10-17
 - **Why:** Eager lists built hundreds of rows; reparented rows dropped
   their ink and showed square corners mid-animation. On every phone a
   lone remove button took a line of its own under the row. A group's
-  remove button stood one icon left of its rows'.
-- **Check:** `test/download_tasks_page_test.dart` "a five-hundred-item list only builds the visible rows" "a group of one is a plain task row" "on a phone a finished row keeps remove on its title row" "a collapsed group expands on tap and folds its children in"
+  remove button stood one icon left of its rows'. Oldest first, with the
+  groups all above the single items, put a new download at the bottom
+  (user report).
+- **Check:** `test/download_tasks_page_test.dart` "a five-hundred-item list only builds the visible rows" "a group of one is a plain task row" "the newest submission comes first, groups among tasks" "on a phone a finished row keeps remove on its title row" "a collapsed group expands on tap and folds its children in"
 - **Code:** `lib/features/settings/pages/download_tasks_page.dart`, `lib/app/widgets/sliver_surface_list.dart`
 
 ## Wide and short windows

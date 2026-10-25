@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../../../app/motion/scroll_hide.dart';
 import '../../../../app/motion/state_icon_switcher.dart';
 import '../../../../app/theme/func_semantic_tokens.dart';
 import '../../../../app/widgets/bookmark_switch_button.dart';
@@ -19,9 +20,10 @@ import '../../../../l10n/context.dart';
 ///
 /// One slightly translucent, shadowless surface with separate buttons —
 /// no dividers, no segments.
-/// [visibility] (1 shown, 0 hidden) slides it below the screen edge and
-/// fades it; the page drives it from scrolling. It is the page's prompt anchor, so a
-/// snackbar rests above it and moves with it.
+/// [visibility] (1 shown, 0 hidden) slides it below the screen edge as
+/// [ScrollHiddenChrome] slides the shell's bar; the page drives it from
+/// scrolling. It is the page's prompt anchor, so a snackbar rests above it
+/// and moves with it.
 class DetailActionBar extends StatefulWidget {
   const DetailActionBar({
     super.key,
@@ -119,7 +121,7 @@ class _DetailActionBarState extends State<DetailActionBar> {
     return PromptAnchor(
       extent: _visibleExtent,
       child: FadeTransition(
-        opacity: widget.visibility,
+        opacity: ScrollHiddenChrome.opacityOf(widget.visibility),
         child: AnimatedBuilder(
           animation: widget.visibility,
           builder: (context, child) {

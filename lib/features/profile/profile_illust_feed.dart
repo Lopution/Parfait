@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:easy_refresh/easy_refresh.dart';
 
 import '../../app/layout/deferred_cache_scroll_view.dart';
 import '../../app/pull_to_refresh.dart';
@@ -90,7 +89,7 @@ class ProfileIllustFeed extends ConsumerWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               scrollCacheExtent: kFeedCacheExtent,
               slivers: [
-                const HeaderLocator.sliver(),
+                PullToRefresh.nestedHeader,
                 if (visibleEntities.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,

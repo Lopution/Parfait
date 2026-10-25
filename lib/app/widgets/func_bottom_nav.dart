@@ -14,7 +14,6 @@ import '../icons/app_icons.dart';
 import '../navigation/frozen_while_hidden.dart';
 import '../navigation/home_shell_metrics.dart';
 import '../theme/func_semantic_tokens.dart';
-import 'app_top_bar.dart' show ScrollEdgeLine;
 import 'fit_label.dart';
 import 'prompt_anchor.dart';
 
@@ -59,9 +58,10 @@ int? homeBarIndexOf(List<HomeDestination> destinations, int branch) {
 }
 
 /// Primary bottom navigation for narrow layouts, after Shaft's
-/// `BottomNavigationView`: a 56dp row on the page background under a
-/// hairline, every destination an icon over its label, the selected one
-/// tinted in the theme's selected colour. No indicator shape.
+/// `BottomNavigationView`: a 56dp row on the page background, casting a
+/// shadow up over the content under it, every destination an icon over
+/// its label, the selected one tinted in the theme's selected colour. No
+/// indicator shape.
 class FuncBottomNav extends StatelessWidget {
   const FuncBottomNav({
     super.key,
@@ -96,76 +96,76 @@ class FuncBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final navTheme = NavigationBarTheme.of(context);
-    return Material(
-      color: navTheme.backgroundColor ?? colors.surface,
-      shape: Border(
-        top: BorderSide(
-          color: FuncSemanticTokens.of(context).divider,
-          width: ScrollEdgeLine.thickness,
-        ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        boxShadow: FuncSemanticTokens.of(context).barShadow,
       ),
-      child: SafeArea(
-        top: false,
-        // The labels are exempt from the user's text scale past
-        // NavigationBar's own 1.3 ceiling — measurement and drawing read
-        // the same clamped scaler inside.
-        child: MediaQuery.withClampedTextScaling(
-          maxScaleFactor: 1.3,
-          child: SizedBox(
-            height: _height,
-            child: Semantics(
-              role: ui.SemanticsRole.tabBar,
-              explicitChildNodes: true,
-              container: true,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  // The ambient default lives below this widget's Material —
-                  // read it here so labels inherit the app font, not whatever
-                  // style floats above the shell.
-                  final ambient = DefaultTextStyle.of(context).style;
-                  // The theme's label style merged over the ambient keeps the
-                  // inherited font family. The selected weight is the wider
-                  // one, so the fit measured in it holds for every label.
-                  final measureStyle = ambient.merge(
-                    navTheme.labelTextStyle?.resolve(const {
-                      WidgetState.selected,
-                    }),
-                  );
-                  final itemWidth = constraints.maxWidth / destinations.length;
-                  // Uniform label scale: every destination shares one
-                  // size, shrunk until the widest translation fits its
-                  // slot, down to LabelFit.minScale; past that the labels
-                  // ellipsize.
-                  final fit = LabelFit.group(
-                    labels: [for (final d in destinations) d.label],
-                    style: measureStyle,
-                    textScaler: MediaQuery.textScalerOf(context),
-                    textDirection: Directionality.of(context),
-                    slotWidth: _labelSlot(itemWidth),
-                  );
-                  return Row(
-                    children: [
-                      for (var i = 0; i < destinations.length; i++)
-                        Expanded(
-                          child: MergeSemantics(
-                            child: Semantics(
-                              role: ui.SemanticsRole.tab,
-                              selected: i == selectedIndex,
-                              child: _FuncBottomNavItem(
-                                destination: destinations[i],
-                                index: i,
-                                count: destinations.length,
+      child: Material(
+        color: navTheme.backgroundColor ?? colors.surface,
+        child: SafeArea(
+          top: false,
+          // The labels are exempt from the user's text scale past
+          // NavigationBar's own 1.3 ceiling — measurement and drawing read
+          // the same clamped scaler inside.
+          child: MediaQuery.withClampedTextScaling(
+            maxScaleFactor: 1.3,
+            child: SizedBox(
+              height: _height,
+              child: Semantics(
+                role: ui.SemanticsRole.tabBar,
+                explicitChildNodes: true,
+                container: true,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // The ambient default lives below this widget's Material —
+                    // read it here so labels inherit the app font, not whatever
+                    // style floats above the shell.
+                    final ambient = DefaultTextStyle.of(context).style;
+                    // The theme's label style merged over the ambient keeps the
+                    // inherited font family. The selected weight is the wider
+                    // one, so the fit measured in it holds for every label.
+                    final measureStyle = ambient.merge(
+                      navTheme.labelTextStyle?.resolve(const {
+                        WidgetState.selected,
+                      }),
+                    );
+                    final itemWidth =
+                        constraints.maxWidth / destinations.length;
+                    // Uniform label scale: every destination shares one
+                    // size, shrunk until the widest translation fits its
+                    // slot, down to LabelFit.minScale; past that the labels
+                    // ellipsize.
+                    final fit = LabelFit.group(
+                      labels: [for (final d in destinations) d.label],
+                      style: measureStyle,
+                      textScaler: MediaQuery.textScalerOf(context),
+                      textDirection: Directionality.of(context),
+                      slotWidth: _labelSlot(itemWidth),
+                    );
+                    return Row(
+                      children: [
+                        for (var i = 0; i < destinations.length; i++)
+                          Expanded(
+                            child: MergeSemantics(
+                              child: Semantics(
+                                role: ui.SemanticsRole.tab,
                                 selected: i == selectedIndex,
-                                ambientStyle: ambient,
-                                labelFit: fit,
-                                onTap: () => onSelected(i),
+                                child: _FuncBottomNavItem(
+                                  destination: destinations[i],
+                                  index: i,
+                                  count: destinations.length,
+                                  selected: i == selectedIndex,
+                                  ambientStyle: ambient,
+                                  labelFit: fit,
+                                  onTap: () => onSelected(i),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
-                  );
-                },
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -414,8 +414,7 @@ class _FuncShellBottomNavState extends ConsumerState<FuncShellBottomNav> {
 
   /// What is still on screen of the bar as it slides.
   void _publishVisibleExtent() {
-    widget.visibleExtent.value =
-        _restingExtent * ScrollHiddenChrome.shownOf(widget.scrollVisibility);
+    widget.visibleExtent.value = _restingExtent * widget.scrollVisibility.value;
   }
 
   @override

@@ -105,10 +105,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'The credential sits in the clipboard in plaintext and may be read by other apps; this format provides neither encryption nor sender authentication. Clear the clipboard yourself after pasting.';
 
   @override
-  String get loginClipboardHint =>
-      'On a signed-in device, open Me → Accounts → Export account credential to copy it, then come back here to import.';
-
-  @override
   String get accountTransferSensitiveWarning =>
       'This device cannot mark clipboard entries as sensitive (Android 13+ only), so the credential is not marked as sensitive. Paste it as soon as possible.';
 
@@ -272,10 +268,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkMode => 'Pixiv official network compatibility';
 
   @override
-  String get networkModeHint =>
-      'Retries compatibility routes when Pixiv won\'t open. Only affects official Pixiv domains — other traffic is never proxied.';
-
-  @override
   String get networkModeListTitle => 'Network mode';
 
   @override
@@ -303,8 +295,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkEffectiveRoutes => 'Effective routes';
 
   @override
-  String get networkEffectiveRoutesEmpty =>
-      'No route learned yet — browse a bit and refresh.';
+  String get networkEffectiveRoutesEmpty => 'No route learned yet';
 
   @override
   String get networkRouteForImages => 'Image loading';
@@ -319,14 +310,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkThirdParty => 'Third-party reachability';
 
   @override
-  String get networkThirdPartyAuto =>
-      'Checks once automatically when this page opens.';
-
-  @override
-  String get networkThirdPartyHint =>
-      'Uses your system network — your VPN/proxy applies.';
-
-  @override
   String get networkReachable => 'Reachable';
 
   @override
@@ -337,9 +320,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networkAdvanced => 'Advanced';
-
-  @override
-  String get networkAdvancedHint => 'Low-level options for advanced users.';
 
   @override
   String get networkAdvancedReset => 'Restore defaults';
@@ -376,10 +356,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networkProbeTitle => 'Network probe';
-
-  @override
-  String get networkProbeHint =>
-      'Checks Pixiv connectivity layer by layer to locate the failure.';
 
   @override
   String get frameProbeTitle => 'Frame probe';
@@ -500,10 +476,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkProbeDetails => 'Details';
 
   @override
-  String get networkProbeNotPersisted =>
-      'Results are not kept — leaving this page discards them.';
-
-  @override
   String get networkProbeAdviceAllReachable =>
       'All hosts reachable — nothing to change.';
 
@@ -583,9 +555,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get historyEmpty => 'No browsing history';
-
-  @override
-  String get historyEmptyDetail => 'Works you view show up here';
 
   @override
   String historyEmptyRecordingOff(String setting) {
@@ -730,10 +699,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accountSignedIn => 'Signed-in accounts';
 
   @override
-  String get serverDisplayHint =>
-      'Stored by Pixiv; these flags shape what the API returns for this account.';
-
-  @override
   String get serverShowAi => 'Show AI-generated works';
 
   @override
@@ -749,15 +714,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backupSettings => 'Backup & restore';
 
   @override
-  String get backupHint =>
-      'Exports settings, the mute list and browsing history. Credentials are never written to the file.';
+  String get backupHint => 'Settings, mute list, browsing history';
 
   @override
   String get backupExport => 'Export backup';
-
-  @override
-  String get backupExportHint =>
-      'Writes parfait-backup-*.json into a directory you choose';
 
   @override
   String backupExported(String name) {
@@ -769,9 +729,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backupImport => 'Import backup';
-
-  @override
-  String get backupImportHint => 'Import from a JSON file; merge or overwrite';
 
   @override
   String get backupImportInvalid => 'Invalid backup file';
@@ -951,11 +908,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mutedEmpty => 'Nothing muted yet';
 
   @override
-  String cardMenuHint(String action) {
-    return 'Long-press a work\'s card, or tap ⋮ on its page, and choose \"$action\"';
-  }
-
-  @override
   String get muteTagInputHint => 'Tag to mute';
 
   @override
@@ -1002,14 +954,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get animationSpeedSlow => 'Slow';
 
   @override
-  String get animationSpeedHint =>
-      'Applies to every in-app animation; system effects such as ripples are unaffected';
-
-  @override
-  String get animationSpeedReduceHint =>
-      'Animations are off while Reduce motion is on, so the speed has no effect';
-
-  @override
   String get motionSettings => 'Motion & haptics';
 
   @override
@@ -1020,9 +964,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get maxDownloadCount => 'Maximum concurrent downloads';
-
-  @override
-  String get maxDownloadCountHint => 'Drag to preview; release to apply';
 
   @override
   String get namingRule => 'File naming rule';
@@ -1054,10 +995,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get saveLocationSafFolder => 'Folder (system directory picker)';
-
-  @override
-  String get saveLocationSafFolderHint =>
-      'Picks a directory via the system SAF and persists the grant';
 
   @override
   String get safStorageInternal => 'Internal storage';
@@ -1167,10 +1104,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get namingSampleSeries => 'Series';
 
   @override
-  String get namingTemplateSanitizeNote =>
-      'Illegal characters become _, and long names are trimmed.';
-
-  @override
   String get notConfigured => 'Not configured';
 
   @override
@@ -1237,18 +1170,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Incomplete input or endpoint is not HTTPS';
 
   @override
-  String get translateBaiduHint =>
-      'Baidu standard needs no verification but allows only 50k chars/month at 1 QPS, too little for comments; premium requires personal real-name verification (name + ID number) for 1M chars/month at 10 QPS. Credentials are used only for translation requests.';
-
-  @override
-  String get translateLlmCredentialHint =>
-      'HTTPS endpoints only; translation uses a fixed prompt without model/advanced knobs. Comment text and translations are never persisted.';
-
-  @override
-  String get translateCredentialHint =>
-      'Translation credentials are never written to ordinary settings; secure storage owns them when needed.';
-
-  @override
   String get translateDoubao => 'Doubao (web sign-in)';
 
   @override
@@ -1259,10 +1180,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get translateDoubaoSignedOut => 'Not signed in';
-
-  @override
-  String get translateDoubaoHint =>
-      'Translates with the Doubao web account you sign in to inside the app. No API key is needed; requests are sent as your Doubao account. This is an unofficial endpoint: it may stop working at any time and may trigger account risk checks.';
 
   @override
   String get translateDoubaoSignOut => 'Sign out of Doubao?';
@@ -1795,10 +1712,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rankingBlocked => 'Blocked in browse settings';
 
   @override
-  String get rankingBlockedNote =>
-      'Greyed-out categories are blocked in browse settings and stay hidden';
-
-  @override
   String get rankingMoveToFront => 'Move to front';
 
   @override
@@ -1840,11 +1753,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bottomBarMeLocked => 'Always shown: settings live here';
-
-  @override
-  String bottomBarNote(int min, String me, String search, String recommended) {
-    return 'The bar keeps at least $min items. Hidden pages open from $me; with $search off the bar, $recommended shows a search button.';
-  }
 
   @override
   String get homeStartPage => 'Start page';
@@ -2083,10 +1991,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get searchReversePickerUnavailable =>
       'Images can\'t be picked on this device';
-
-  @override
-  String get searchReversePrivacyNote =>
-      'The image goes only to the selected engine and is deleted when you leave';
 
   @override
   String get searchReverseOpenInBrowser => 'Search on the web page';
@@ -2671,9 +2575,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileShare => 'Share user';
 
   @override
-  String get profileShareHint => 'Share this user link';
-
-  @override
   String get profileShareClose => 'Close';
 
   @override
@@ -2923,11 +2824,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get watchlistEmpty => 'No series in your watchlist yet';
-
-  @override
-  String watchlistEmptyDetail(String action) {
-    return 'Tap \"$action\" on a series page or in the novel reader';
-  }
 
   @override
   String get watchlistLoadFailed => 'Failed to load watchlist';

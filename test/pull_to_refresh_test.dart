@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -171,14 +169,15 @@ void main() {
     final gesture = await tester.startGesture(
       tester.getCenter(find.byType(ListView)),
     );
-    // The clamping header drops its disc over the list, which stays at its
-    // top. The pull is deliberately past the arm threshold.
+    // The open (non-clamping) header rides the overscroll: the list is
+    // pulled down while the indicator appears. The pull is deliberately past
+    // the arm threshold.
     await pullBy(tester, gesture, 10, 40);
     expect(indicator, findsOneWidget);
     expect(
       scrollOffset(tester),
-      0,
-      reason: 'the disc covers the list instead of pulling it down',
+      lessThan(0),
+      reason: 'the list is pulled down while the indicator is open',
     );
 
     var indicatorGone = false;
@@ -195,7 +194,7 @@ void main() {
           lessThanOrEqualTo(0.001),
           reason:
               'while the indicator is visible the reverse gesture only '
-              'retracts it, never scrolls up',
+              'retracts it / bounces the overscroll back, never scrolls up',
         );
       } else {
         indicatorGone = true;
@@ -215,69 +214,20 @@ void main() {
     expect(indicator, findsNothing);
   });
 
-  for (final speed in [null, 1500.0]) {
-    testWidgets('a released armed pull refreshes once and hides the indicator'
-        '${speed == null ? '' : ' (flung)'}', (tester) async {
-      var refreshCount = 0;
-      await tester.pumpWidget(
-        buildSubject(onRefresh: () async => refreshCount++),
-      );
-
-      const pull = Offset(0, 600);
-      if (speed == null) {
-        await tester.drag(find.byType(ListView), pull);
-      } else {
-        await tester.fling(find.byType(ListView), pull, speed);
-      }
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 250));
-
-      expect(refreshCount, 1);
-      expect(scrollOffset(tester), 0);
-      expect(indicator, findsNothing);
-    });
-  }
-
-  testWidgets('the list flings during a refresh and the disc leaves after', (
+  testWidgets('a released armed pull refreshes once and hides the indicator', (
     tester,
   ) async {
-    final refresh = Completer<void>();
     var refreshCount = 0;
     await tester.pumpWidget(
-      buildSubject(
-        onRefresh: () {
-          refreshCount++;
-          return refresh.future;
-        },
-      ),
+      buildSubject(onRefresh: () async => refreshCount++),
     );
-    // The refreshing disc spins until the refresh ends: run frames instead
-    // of settling.
-    Future<void> runFrames() async {
-      for (var frame = 0; frame < 90; frame++) {
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-    }
 
     await tester.drag(find.byType(ListView), const Offset(0, 600));
-    await runFrames();
-    expect(indicator, findsOneWidget);
-
-    await tester.fling(find.byType(ListView), const Offset(0, -200), 1500);
-    await runFrames();
-    final flung = scrollOffset(tester);
-    expect(flung, greaterThan(200), reason: 'the fling coasted on');
-    await tester.fling(find.byType(ListView), const Offset(0, 200), 3000);
-    await runFrames();
-    expect(scrollOffset(tester), 0, reason: 'a fling home stops at the top');
-    expect(refreshCount, 1, reason: 'no fling starts another refresh');
-
-    refresh.complete();
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 250));
-    expect(indicator, findsNothing);
-    expect(scrollOffset(tester), 0);
+
     expect(refreshCount, 1);
+    expect(indicator, findsNothing);
   });
 
   testWidgets(

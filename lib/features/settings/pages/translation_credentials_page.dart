@@ -273,17 +273,8 @@ class _TranslationCredentialsPageState
             ),
             children: [
               // A form is one card: its fields, then its save at the end
-              // (THEME-13). The note covers the whole form, so it sits
-              // under the card.
+              // (THEME-13).
               SettingsGroup(
-                footer: Text(
-                  settingsText(
-                    context,
-                    widget.baidu
-                        ? 'translateBaiduHint'
-                        : 'translateLlmCredentialHint',
-                  ),
-                ),
                 children: [
                   SettingsGroupContent(
                     child: Column(

@@ -140,10 +140,10 @@ void main() {
 
       final button = find.widgetWithText(OutlinedButton, '使用剪贴板数据登录');
       expect(button, findsOneWidget);
-      // The hint says where the data comes from and keeps the risk note.
-      final hint = find.textContaining('导出账号凭据');
+      // Only the risk note stays under it; the how-to line is gone.
+      final hint = find.textContaining('粘贴后请自行清空剪贴板');
       expect(hint, findsOneWidget);
-      expect(tester.widget<Text>(hint).data, contains('粘贴后请自行清空剪贴板'));
+      expect(find.textContaining('导出账号凭据'), findsNothing);
       // It sits under the register/login row, above the agreement line.
       final login = find.widgetWithText(ReplicaButton, '登录');
       expect(

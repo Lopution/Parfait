@@ -71,7 +71,9 @@ void main() {
     expect(find.text('真实 SNI 被封——建议把网络模式设为「兼容优先」。'), findsOneWidget);
   });
 
-  testWidgets('probe page states results are not persisted', (tester) async {
+  testWidgets('before a run the probe page lists its hosts unprobed', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       localizedApp(
         overrides: [
@@ -90,7 +92,6 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('结果不保存——离开本页即丢失。'), findsOneWidget);
     expect(find.text('开始探测'), findsOneWidget);
     // No run yet: host cards render in the not-run state and no overview.
     expect(find.text('探测总览'), findsNothing);

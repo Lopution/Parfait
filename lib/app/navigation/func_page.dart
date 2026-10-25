@@ -75,31 +75,52 @@ class _FuncPageRoute<T> extends PageRoute<T> {
 
   /// Each route's page right above it, announced by that page as it is
   /// pushed or moved. A pop announces nothing, so through a pop this is
-  /// still the page leaving. Keyed by any route: the home shell is not a
-  /// [FuncPage].
+  /// still the page leaving. Keyed by any route: a page can sit on a route
+  /// that is not a [FuncPage].
   static final _above = Expando<_FuncPageRoute<dynamic>>();
 
   bool get _backdrop => _page.sharedElement && _page.sharedElementBackdrop;
 
+  /// The slide in and out and the slide aside under a page pushed on top,
+  /// on `CupertinoPageTransition`'s curves turning where they are
+  /// ([TurnCurve]); the transition takes them as they are
+  /// (`linearTransition`).
+  late final Animation<double> _slideIn = TurnCurve.drive(
+    animation!,
+    curve: Curves.fastEaseInToSlowEaseOut,
+  );
+  late final Animation<double> _slideAside = TurnCurve.drive(
+    secondaryAnimation!,
+    curve: Curves.linearToEaseOut,
+    reverseCurve: Curves.easeInToLinear,
+  );
+
+  // A shared-element page's layers show over their part of an opening and
+  // hide over their part of a leave, both of the route value, which runs
+  // 1 → 0 when leaving: one curve played backwards would hold a layer
+  // until the image had nearly landed. They read the controller: the route
+  // animation reports complete for the frame a Hero measures the opening
+  // page.
+
   /// A shared-element page's background over the page below.
-  late final Animation<double> _backdropFade = _SharedElementFade(
+  late final Animation<double> _backdropFade = TurnCurve.drive(
     controller!,
-    opening: MotionTokens.sharedElementBackdropIn,
-    leaving: MotionTokens.sharedElementBackdropOut,
+    curve: MotionTokens.sharedElementBackdropIn,
+    reverseCurve: MotionTokens.sharedElementBackdropOut,
   );
 
   /// A shared-element page's content: over its background, or over the
   /// page below without one.
   late final Animation<double> _contentFade = _backdrop
-      ? _SharedElementFade(
+      ? TurnCurve.drive(
           controller!,
-          opening: const _Primed(MotionTokens.sharedElementContentIn),
-          leaving: MotionTokens.sharedElementContentOut,
+          curve: const _Primed(MotionTokens.sharedElementContentIn),
+          reverseCurve: MotionTokens.sharedElementContentOut,
         )
-      : _SharedElementFade(
+      : TurnCurve.drive(
           controller!,
-          opening: MotionTokens.sharedElementFadeIn,
-          leaving: MotionTokens.sharedElementFadeOut,
+          curve: MotionTokens.sharedElementFadeIn,
+          reverseCurve: MotionTokens.sharedElementFadeOut,
         );
 
   /// The route a shared-element page covers, for [HeroPageCover].
@@ -193,29 +214,28 @@ class _FuncPageRoute<T> extends PageRoute<T> {
     // page lives under the route's GlobalKey, and a changed widget type
     // here would reparent it, rebuilding the whole page in that frame.
     final shared = _page.sharedElement;
-    final secondary = underSharedElement(this)
-        ? kAlwaysDismissedAnimation
-        : secondaryAnimation;
-    // The transition widget, not CupertinoPageTransitionsBuilder: the
-    // builder adds an iOS edge-swipe back detector that would take
-    // horizontal drags from in-page pagers.
-    Widget slide(Widget child) => CupertinoPageTransition(
-      primaryRouteAnimation: shared ? kAlwaysCompleteAnimation : animation,
-      secondaryRouteAnimation: secondary,
-      linearTransition: false,
-      child: child,
-    );
+    final still = underSharedElement(this);
+    final secondary = still ? kAlwaysDismissedAnimation : secondaryAnimation;
     return FuncTransitionGuard(
       animation: animation,
       secondaryAnimation: secondary,
-      transition: shared
-          ? (child) => IgnorePointer(
-              // Leaving, nothing of the page takes a touch, so the page
-              // below answers while the image flies home.
-              ignoring: animation.status == AnimationStatus.reverse,
-              child: slide(_sharedElementStage(context, child)),
-            )
-          : slide,
+      transition: (child) => IgnorePointer(
+        // Leaving, nothing of the page takes a touch, so the page below
+        // answers at once: while the image flies home, and where the
+        // sliding page still is.
+        ignoring: animation.status == AnimationStatus.reverse,
+        // The transition widget, not CupertinoPageTransitionsBuilder: the
+        // builder adds an iOS edge-swipe back detector that would take
+        // horizontal drags from in-page pagers.
+        child: CupertinoPageTransition(
+          primaryRouteAnimation: shared ? kAlwaysCompleteAnimation : _slideIn,
+          secondaryRouteAnimation: still
+              ? kAlwaysDismissedAnimation
+              : _slideAside,
+          linearTransition: true,
+          child: shared ? _sharedElementStage(context, child) : child,
+        ),
+      ),
       child: child,
     );
   }
@@ -272,75 +292,6 @@ class _Primed extends Curve {
 
   @override
   double transformInternal(double t) => math.max(curve.transform(t), _faintest);
-}
-
-/// One layer of a shared-element page: shown over [opening] of an opening
-/// and hidden over [leaving] of a leave, both of the route value, which
-/// runs 1 → 0 when leaving. One curve played backwards would hold each
-/// layer until the image had nearly landed. Reads the controller: the
-/// route animation reports complete for the frame a Hero measures the
-/// opening page.
-///
-/// A leave that cuts an opening short hides the layer from the opacity
-/// the opening got to, over the same share of what is left: switching
-/// curves at the turn dropped the half-shown page in one frame.
-class _SharedElementFade extends Animation<double>
-    with AnimationWithParentMixin<double> {
-  // Built once the opening has started: when the pushed route announces
-  // the route below it, or with its first transition.
-  _SharedElementFade(
-    this.parent, {
-    required this.opening,
-    required this.leaving,
-  }) : _status = parent.status,
-       _opening = parent.status == AnimationStatus.forward {
-    parent.addStatusListener(_onStatus);
-  }
-
-  @override
-  final Animation<double> parent;
-
-  final Curve opening;
-  final Curve leaving;
-
-  /// The route value and the opacity when the leave began: 1 and 1 unless
-  /// it turned an opening around.
-  double _leaveFrom = 1;
-  double _leaveOpacity = 1;
-
-  /// Whether the page is running its opening.
-  bool _opening;
-  AnimationStatus _status;
-
-  void _onStatus(AnimationStatus status) {
-    final previous = _status;
-    _status = status;
-    switch (status) {
-      case AnimationStatus.forward:
-        _opening |= previous == AnimationStatus.dismissed;
-      case AnimationStatus.reverse:
-        if (_opening) {
-          _leaveFrom = parent.value;
-          _leaveOpacity = opening.transform(parent.value);
-        }
-        _opening = false;
-      case AnimationStatus.completed || AnimationStatus.dismissed:
-        _opening = false;
-        _leaveFrom = 1;
-        _leaveOpacity = 1;
-    }
-  }
-
-  @override
-  double get value {
-    if (parent.status != AnimationStatus.reverse) {
-      return opening.transform(parent.value);
-    }
-    final left = _leaveFrom > 0
-        ? (parent.value / _leaveFrom).clamp(0.0, 1.0)
-        : 0.0;
-    return _leaveOpacity * leaving.transform(left);
-  }
 }
 
 /// `CupertinoPageRoute`'s barrier over the page below a slide.

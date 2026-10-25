@@ -47,11 +47,6 @@ class MotionSettingsPage extends ConsumerWidget {
               children: [
                 SettingsMenuTile<AnimationSpeed>(
                   setting: Setting.animationSpeed,
-                  subtitle: Text(
-                    settings.reduceMotion
-                        ? context.l10n.animationSpeedReduceHint
-                        : context.l10n.animationSpeedHint,
-                  ),
                   value: settings.animationSpeed,
                   options: [
                     for (final speed in AnimationSpeed.values)

@@ -401,7 +401,7 @@ class _HistoryBody extends ConsumerWidget {
             icon: Icons.history,
             title: l10n.historyEmpty,
             detail: recording
-                ? l10n.historyEmptyDetail
+                ? null
                 : l10n.historyEmptyRecordingOff(l10n.historyRecordLocal),
             actionLabel: recording ? null : l10n.historyTurnOnRecording,
             actionIcon: Icons.history,

@@ -187,9 +187,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
               SettingsGroup(
                 setting: Setting.mutedUsers,
                 title: Text(l10n.mutedUsersSection),
-                footer: users.isEmpty
-                    ? _EmptyHint(l10n.cardMenuHint(l10n.muteAuthor))
-                    : null,
+                footer: users.isEmpty ? _EmptyHint(l10n.mutedEmpty) : null,
                 children: [
                   for (final user in users)
                     Removable(
@@ -224,9 +222,7 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
               SettingsGroup(
                 setting: Setting.mutedWorks,
                 title: Text(l10n.mutedWorksSection),
-                footer: works.isEmpty
-                    ? _EmptyHint(l10n.cardMenuHint(l10n.muteWork))
-                    : null,
+                footer: works.isEmpty ? _EmptyHint(l10n.mutedEmpty) : null,
                 children: [
                   for (final work in works)
                     Removable(
@@ -273,10 +269,9 @@ class _MutedItemsPageState extends ConsumerState<MutedItemsPage> {
   }
 }
 
-/// The footer of an empty group: where its mutes come from. Text under
-/// the heading, not a card, so it does not read as a row to press; the
-/// action lives on the work cards. Fades in as the last mute of its group
-/// leaves.
+/// The footer of an empty group: that it is empty. Text under the
+/// heading, not a card, so it does not read as a row to press. Fades in
+/// as the last mute of its group leaves.
 class _EmptyHint extends StatelessWidget {
   const _EmptyHint(this.text);
 

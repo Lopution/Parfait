@@ -363,10 +363,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           ),
         ),
         const SizedBox(height: FuncSpacing.sm),
-        // Where the data comes from, then the shared clipboard risk note
-        // (also shown by the settings export dialog).
+        // The clipboard risk note, shared with the settings export dialog.
         Text(
-          '${text('loginClipboardHint')}\n${text('accountTransferWarning')}',
+          text('accountTransferWarning'),
           textAlign: TextAlign.center,
           style: FuncSemanticTokens.of(context).caption,
         ),

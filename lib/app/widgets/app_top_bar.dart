@@ -9,8 +9,8 @@ import '../theme/func_semantic_tokens.dart';
 import 'artwork_controls.dart';
 
 /// The single entry point for page top bars: an [AppBar] that keeps the
-/// page colour in both states and marks content scrolled under it with a
-/// [ScrollEdgeLine] along its bottom edge.
+/// page colour in both states and casts a [ScrollEdgeShadow] over content
+/// scrolled under it.
 ///
 /// "Scrolled under" is the [AppBar] rule, tracked here because the bar
 /// does not expose it: a [ScrollUpdateNotification] that passes
@@ -54,7 +54,7 @@ class AppTopBar extends StatefulWidget implements PreferredSizeWidget {
   /// the normal bar. Values between fade one into the other. The
   /// status bar strip stays the page surface throughout, its icons
   /// following the theme: the artwork starts below it rather than under
-  /// the clock. The edge line shows only once the bar is fully drawn —
+  /// the clock. The shadow shows only once the bar is fully drawn —
   /// until then the fading surface is the edge. Null is the normal bar.
   final ValueListenable<double>? immersion;
 
@@ -174,35 +174,32 @@ class _AppTopBarState extends State<AppTopBar> {
             height: statusInset,
             child: ColoredBox(color: surface),
           ),
-        AppBar(
-          leading: widget.leading,
-          automaticallyImplyLeading: widget.automaticallyImplyLeading,
-          title: title == null || !immersed
-              ? title
-              : Opacity(opacity: drawn, child: title),
-          titleSpacing: widget.titleSpacing,
-          actions: widget.actions,
-          bottom: widget.bottom,
-          backgroundColor: immersed
-              ? surface.withValues(alpha: surface.a * drawn)
-              : widget.backgroundColor,
-          foregroundColor: immersed ? foreground : null,
-          iconTheme: liftedIcons,
-          // The status strip is the page surface, so its icons follow the
-          // theme like the navigation bar's.
-          systemOverlayStyle: immersed
-              ? funcSystemBarsStyle(theme.brightness)
-              : null,
-          notificationPredicate: widget.notificationPredicate,
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: ValueListenableBuilder(
-            valueListenable: _scrolledUnder,
-            builder: (context, scrolledUnder, _) =>
-                ScrollEdgeLine(visible: scrolledUnder && !immersed),
+        ValueListenableBuilder(
+          valueListenable: _scrolledUnder,
+          builder: (context, scrolledUnder, bar) => ScrollEdgeShadow(
+            visible: scrolledUnder && !immersed,
+            child: bar!,
+          ),
+          child: AppBar(
+            leading: widget.leading,
+            automaticallyImplyLeading: widget.automaticallyImplyLeading,
+            title: title == null || !immersed
+                ? title
+                : Opacity(opacity: drawn, child: title),
+            titleSpacing: widget.titleSpacing,
+            actions: widget.actions,
+            bottom: widget.bottom,
+            backgroundColor: immersed
+                ? surface.withValues(alpha: surface.a * drawn)
+                : widget.backgroundColor,
+            foregroundColor: immersed ? foreground : null,
+            iconTheme: liftedIcons,
+            // The status strip is the page surface, so its icons follow the
+            // theme like the navigation bar's.
+            systemOverlayStyle: immersed
+                ? funcSystemBarsStyle(theme.brightness)
+                : null,
+            notificationPredicate: widget.notificationPredicate,
           ),
         ),
       ],
@@ -210,17 +207,22 @@ class _AppTopBarState extends State<AppTopBar> {
   }
 }
 
-/// The hairline at the bottom edge of a top bar while content is scrolled
-/// under it, faded in and out on the effects spring (at once under reduced
-/// motion). [AppTopBar] draws it; a self-drawn pinned bar that is the
-/// page's top edge (the profile tab strip) puts it at its own bottom.
-class ScrollEdgeLine extends StatelessWidget {
-  const ScrollEdgeLine({super.key, required this.visible});
+/// The shadow a top bar casts down over the content scrolled under it
+/// (`topBarShadow`), faded in and out on the effects spring (at once under
+/// reduced motion). [AppTopBar] draws it; a self-drawn pinned bar that is
+/// the page's top edge (the profile tab strip) wraps itself in it.
+class ScrollEdgeShadow extends StatelessWidget {
+  const ScrollEdgeShadow({
+    super.key,
+    required this.visible,
+    required this.child,
+  });
 
   final bool visible;
 
-  /// One logical pixel, the app's divider thickness.
-  static const thickness = 1.0;
+  /// The bar, opaque: the shadow is cast by a box as large as it, and the
+  /// bar covers the part that falls on itself.
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -228,16 +230,26 @@ class ScrollEdgeLine extends StatelessWidget {
       context,
       MotionSpring.effectsFast,
     );
-    return IgnorePointer(
-      child: AnimatedOpacity(
-        opacity: visible ? 1 : 0,
-        duration: duration,
-        curve: curve,
-        child: SizedBox(
-          height: thickness,
-          child: ColoredBox(color: FuncSemanticTokens.of(context).divider),
+    return Stack(
+      fit: StackFit.passthrough,
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              opacity: visible ? 1 : 0,
+              duration: duration,
+              curve: curve,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  boxShadow: FuncSemanticTokens.of(context).topBarShadow,
+                ),
+              ),
+            ),
+          ),
         ),
-      ),
+        child,
+      ],
     );
   }
 }

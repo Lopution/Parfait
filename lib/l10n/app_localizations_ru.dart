@@ -106,10 +106,6 @@ class AppLocalizationsRu extends AppLocalizations {
       'Учётные данные лежат в буфере обмена открытым текстом и могут быть прочитаны другими приложениями; этот формат не обеспечивает шифрование или аутентификацию отправителя. После вставки очистите буфер сами.';
 
   @override
-  String get loginClipboardHint =>
-      'На устройстве, где вы уже вошли, откройте «Профиль → Управление аккаунтами → Экспорт учётных данных аккаунта», скопируйте данные и вернитесь сюда для импорта.';
-
-  @override
   String get accountTransferSensitiveWarning =>
       'Это устройство не поддерживает пометку буфера как конфиденциального (только Android 13+), поэтому учётные данные не будут помечены. Вставьте их как можно скорее.';
 
@@ -272,10 +268,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkMode => 'Совместимость с официальной сетью Pixiv';
 
   @override
-  String get networkModeHint =>
-      'Если Pixiv не открывается — автоматически пробует совместимые каналы. Действует только на официальные домены Pixiv, другой трафик не проксируется.';
-
-  @override
   String get networkModeListTitle => 'Режим сети';
 
   @override
@@ -303,8 +295,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkEffectiveRoutes => 'Текущие маршруты';
 
   @override
-  String get networkEffectiveRoutesEmpty =>
-      'Маршрутов пока нет — поработайте в приложении и обновите.';
+  String get networkEffectiveRoutesEmpty => 'Маршрутов пока нет';
 
   @override
   String get networkRouteForImages => 'Загрузка изображений';
@@ -319,14 +310,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkThirdParty => 'Доступность сторонних сервисов';
 
   @override
-  String get networkThirdPartyAuto =>
-      'Проверяется автоматически при открытии страницы.';
-
-  @override
-  String get networkThirdPartyHint =>
-      'Обычное системное подключение — ваш VPN/прокси применяется.';
-
-  @override
   String get networkReachable => 'Доступно';
 
   @override
@@ -337,10 +320,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get networkAdvanced => 'Дополнительно';
-
-  @override
-  String get networkAdvancedHint =>
-      'Низкоуровневые параметры для опытных пользователей.';
 
   @override
   String get networkAdvancedReset => 'Сбросить';
@@ -377,10 +356,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get networkProbeTitle => 'Многоуровневый зонд связи';
-
-  @override
-  String get networkProbeHint =>
-      'Поэтапная проверка связи с Pixiv для поиска причины сбоя.';
 
   @override
   String get frameProbeTitle => 'Зонд кадров';
@@ -501,10 +476,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get networkProbeDetails => 'Подробности';
 
   @override
-  String get networkProbeNotPersisted =>
-      'Результаты не сохраняются — при выходе со страницы они теряются.';
-
-  @override
   String get networkProbeAdviceAllReachable =>
       'Все хосты доступны — менять ничего не нужно.';
 
@@ -584,9 +555,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get historyEmpty => 'История просмотров пуста';
-
-  @override
-  String get historyEmptyDetail => 'Здесь появятся просмотренные работы';
 
   @override
   String historyEmptyRecordingOff(String setting) {
@@ -731,10 +699,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get accountSignedIn => 'Выполнен вход';
 
   @override
-  String get serverDisplayHint =>
-      'Хранится на сервере Pixiv и влияет на то, что API возвращает этому аккаунту.';
-
-  @override
   String get serverShowAi => 'Показывать AI-работы';
 
   @override
@@ -752,15 +716,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get backupSettings => 'Резервная копия';
 
   @override
-  String get backupHint =>
-      'Экспорт настроек, списка скрытого и истории просмотра; учётные данные в файл не записываются.';
+  String get backupHint => 'Настройки, список скрытого, история просмотра';
 
   @override
   String get backupExport => 'Экспортировать копию';
-
-  @override
-  String get backupExportHint =>
-      'Сохраняет parfait-backup-*.json в выбранную папку';
 
   @override
   String backupExported(String name) {
@@ -772,9 +731,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get backupImport => 'Импортировать копию';
-
-  @override
-  String get backupImportHint => 'Импорт из JSON-файла; слияние или замена';
 
   @override
   String get backupImportInvalid => 'Недействительный файл резервной копии';
@@ -953,11 +909,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get mutedEmpty => 'Ничего не заглушено';
 
   @override
-  String cardMenuHint(String action) {
-    return 'Нажмите и удерживайте карточку работы или нажмите ⋮ на её странице и выберите «$action»';
-  }
-
-  @override
   String get muteTagInputHint => 'Тег для заглушения';
 
   @override
@@ -1004,14 +955,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get animationSpeedSlow => 'Медленно';
 
   @override
-  String get animationSpeedHint =>
-      'Действует на все анимации приложения; системные эффекты, например рябь, не меняются';
-
-  @override
-  String get animationSpeedReduceHint =>
-      'Пока включено «Меньше анимаций», анимации не воспроизводятся и скорость не действует';
-
-  @override
   String get motionSettings => 'Анимация и отклик';
 
   @override
@@ -1022,10 +965,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get maxDownloadCount => 'Максимум параллельных загрузок';
-
-  @override
-  String get maxDownloadCountHint =>
-      'Потяните для предпросмотра; отпустите — применится';
 
   @override
   String get namingRule => 'Правило имени файла';
@@ -1057,10 +996,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get saveLocationSafFolder => 'Папка (системный выбор каталога)';
-
-  @override
-  String get saveLocationSafFolderHint =>
-      'Выбор каталога через системный SAF с сохранением прав';
 
   @override
   String get safStorageInternal => 'Внутренняя память';
@@ -1170,10 +1105,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get namingSampleSeries => 'Серия';
 
   @override
-  String get namingTemplateSanitizeNote =>
-      'Недопустимые символы заменяются на _, длинные имена обрезаются.';
-
-  @override
   String get notConfigured => 'Не настроено';
 
   @override
@@ -1238,18 +1169,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get translateCredentialsInvalid => 'Неполный ввод или адрес не HTTPS';
 
   @override
-  String get translateBaiduHint =>
-      'Стандартная версия Baidu не требует верификации, но даёт лишь 50 тыс. символов/мес при 1 запросе/с — для комментариев этого мало; премиум требует личную верификацию (имя + номер удостоверения): 1 млн символов/мес, 10 запросов/с. Учётные данные используются только для запросов перевода.';
-
-  @override
-  String get translateLlmCredentialHint =>
-      'Только HTTPS; перевод использует фиксированный промпт без настроек модели. Текст и перевод не сохраняются.';
-
-  @override
-  String get translateCredentialHint =>
-      'Данные перевода не записываются в обычные настройки; при необходимости они хранятся в защищённом хранилище.';
-
-  @override
   String get translateDoubao => 'Doubao (вход через веб)';
 
   @override
@@ -1260,10 +1179,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get translateDoubaoSignedOut => 'Вход не выполнен';
-
-  @override
-  String get translateDoubaoHint =>
-      'Перевод через веб-аккаунт Doubao, в который вы вошли в приложении. Ключ API не нужен; запросы отправляются от имени вашего аккаунта Doubao. Это неофициальный интерфейс: он может перестать работать в любой момент и может вызвать проверку аккаунта.';
 
   @override
   String get translateDoubaoSignOut => 'Выйти из Doubao?';
@@ -1791,10 +1706,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get rankingBlocked => 'Скрыто в настройках просмотра';
 
   @override
-  String get rankingBlockedNote =>
-      'Серые категории скрыты в настройках просмотра';
-
-  @override
   String get rankingMoveToFront => 'В начало';
 
   @override
@@ -1835,11 +1746,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get bottomBarMeLocked => 'Всегда на панели: здесь настройки';
-
-  @override
-  String bottomBarNote(int min, String me, String search, String recommended) {
-    return 'На панели остаётся не менее $min пунктов. Скрытые страницы открываются из раздела «$me»; если «$search» нет на панели, в разделе «$recommended» появится кнопка поиска.';
-  }
 
   @override
   String get homeStartPage => 'Стартовая страница';
@@ -2082,10 +1988,6 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get searchReversePickerUnavailable =>
       'На этом устройстве нельзя выбрать изображение';
-
-  @override
-  String get searchReversePrivacyNote =>
-      'Изображение уходит только выбранному сервису и удаляется, когда вы уходите со страницы';
 
   @override
   String get searchReverseOpenInBrowser => 'Искать на веб-странице';
@@ -2664,9 +2566,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get profileShare => 'Поделиться пользователем';
 
   @override
-  String get profileShareHint => 'Можно поделиться ссылкой на пользователя';
-
-  @override
   String get profileShareClose => 'Закрыть';
 
   @override
@@ -2915,11 +2814,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get watchlistEmpty => 'Вы пока не отслеживаете ни одной серии';
-
-  @override
-  String watchlistEmptyDetail(String action) {
-    return 'Нажмите «$action» на странице серии или в читалке';
-  }
 
   @override
   String get watchlistLoadFailed => 'Не удалось загрузить список';

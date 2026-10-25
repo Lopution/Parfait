@@ -213,8 +213,8 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/easy_refresh"
-      ref: "03e2e185a081f30f4fb73c047ba5c7b9c3f68e33"
-      resolved-ref: "03e2e185a081f30f4fb73c047ba5c7b9c3f68e33"
+      ref: d0a95b97cbcf4c0924980dc50b65ada65a7e60f7
+      resolved-ref: d0a95b97cbcf4c0924980dc50b65ada65a7e60f7
       url: "https://github.com/Lopution/flutter_easy_refresh.git"
     source: git
     version: "4.0.0"

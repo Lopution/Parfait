@@ -72,7 +72,6 @@ import '../../features/settings/pages/translation_credentials_page.dart';
 import '../../l10n/context.dart';
 import '../motion/hero_transition.dart';
 import '../motion/motion_tokens.dart';
-import '../motion/page_transitions.dart';
 import 'func_page.dart';
 import '../pixiv_image.dart';
 import '../startup_gate.dart';
@@ -209,33 +208,6 @@ Page<dynamic> _page(
     sharedElement: sharedElement,
     sharedElementBackdrop: sharedElementBackdrop,
   );
-}
-
-/// Applies the same raster snapshot as `_page`'s transition builder, driven
-/// by the enclosing route's `secondaryAnimation`. The home shell is a
-/// [NoTransitionPage], so root-level pushes/pops (settings, viewer) over it
-/// would otherwise re-raster the whole shell — branch feeds, bottom
-/// navigation and the active branch page — on every frame. Under a
-/// shared-element page (the viewer) it stays live like any page below one,
-/// so the detail page answers touches while the image flies back.
-class _SecondaryAnimationSnapshotGate extends StatelessWidget {
-  const _SecondaryAnimationSnapshotGate({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final route = ModalRoute.of(context);
-    return RoutePopSnapshot(
-      animation: route?.animation ?? const AlwaysStoppedAnimation<double>(1),
-      secondaryAnimation: route == null
-          ? const AlwaysStoppedAnimation<double>(0)
-          : underSharedElement(route)
-          ? kAlwaysDismissedAnimation
-          : route.secondaryAnimation!,
-      child: child,
-    );
-  }
 }
 
 int _pathId(GoRouterState state, String name) =>
@@ -1212,16 +1184,18 @@ GoRouter createPixivRouter({String initialLocation = '/splash'}) {
         // selected home destination changes.
         navigatorContainerBuilder: (context, navigationShell, children) =>
             HomeBranchStack(shell: navigationShell, children: children),
-        pageBuilder: (context, state, navigationShell) => NoTransitionPage(
+        // The shell appears at once, and moves aside under a page pushed
+        // over it like any page under a branch push (TRANS-01).
+        pageBuilder: (context, state, navigationShell) => FuncPage<dynamic>(
           key: state.pageKey,
           restorationId: RestorationScope.maybeOf(context) == null
               ? null
               : 'home-shell-page',
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
           child: _scoped(
             appRootRouteObserver,
-            _SecondaryAnimationSnapshotGate(
-              child: HomePage(navigationShell: navigationShell),
-            ),
+            HomePage(navigationShell: navigationShell),
           ),
         ),
         branches: [

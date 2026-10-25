@@ -86,17 +86,6 @@ class _BottomBarEditorState extends ConsumerState<_BottomBarEditor> {
       footer: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SettingsGroup(
-            footer: Text(
-              l10n.bottomBarNote(
-                minHomeDestinations,
-                homeDestinationLabel(context, HomeDestination.me),
-                homeDestinationLabel(context, HomeDestination.search),
-                homeDestinationLabel(context, HomeDestination.recommended),
-              ),
-            ),
-            children: const [],
-          ),
           Reveal(
             child: draft.hidden.isEmpty
                 ? null

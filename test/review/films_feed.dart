@@ -24,6 +24,23 @@ void main() {
   );
 
   testFilm(
+    'feed/profile-pull-to-refresh',
+    location: '/recommended/user/99',
+    notes:
+        "The same pull on a profile's works tab: the list slides down "
+        'under the tabs with the indicator in the gap, as on the home '
+        'feed; the header and the tabs stay put.',
+    script: (film, router) async {
+      await film.swipe(
+        find.byType(NestedScrollView),
+        const Offset(0, 360),
+        count: 24,
+        hold: 4,
+      );
+    },
+  );
+
+  testFilm(
     'feed/load-more',
     location: '/recommended',
     notes:
@@ -49,18 +66,26 @@ void main() {
     'feed/bottom-bar-on-scroll',
     location: '/recommended',
     notes:
-        'Scrolling the feed up hides the bottom bar, scrolling back down '
-        'brings it back. The bar slides as a unit, its pill indicator stays '
-        'on the selected destination, and nothing behind it flickers.',
+        'The bottom bar moves with the feed pixel for pixel: a slow short '
+        'drag takes it part way and it settles back once released; '
+        'scrolling up hides it, scrolling back down brings it back. The '
+        'bar slides as a unit, its pill indicator stays on the selected '
+        'destination, and nothing behind it flickers.',
     script: (film, router) async {
       await film.swipe(
         find.text('illust 1002'),
-        const Offset(0, -600),
+        const Offset(0, -50),
         count: 20,
         hold: 2,
       );
       await film.swipe(
         find.text('illust 1004'),
+        const Offset(0, -600),
+        count: 20,
+        hold: 2,
+      );
+      await film.swipe(
+        find.text('illust 1008'),
         const Offset(0, 300),
         count: 15,
         hold: 2,
@@ -77,9 +102,9 @@ void main() {
       brightness: brightness,
       notes:
           'Cards scroll up under the top bar, then back to the top. The bar '
-          'keeps the page colour throughout; a thin line along its bottom '
-          'edge fades in once content is under it and fades out at the top. '
-          'No tint, no snap.',
+          'keeps the page colour throughout; a shadow cast down from its '
+          'bottom edge, like the bottom bar\'s cast up, fades in once '
+          'content is under it and fades out at the top. No tint, no snap.',
       script: (film, router) async {
         await film.swipe(
           find.text('illust 1002'),

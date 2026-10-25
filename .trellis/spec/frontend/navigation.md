@@ -97,11 +97,12 @@ reviewed: 2026-10-17
 ### NAV-07 The bottom bar is the Shaft-style bar
 - **Rule:** `FuncBottomNav` is a custom 56dp bar: no indicator shape,
   selection is a tint (icon and label to `primary`, label weight up) on
-  `effectsFast`; nothing moves or resizes. Do not swap it for the M3
-  `NavigationBar`. The wide layout's `NavigationRail` keeps the M3 rail.
-  Labels share one `LabelFit` capped at 1.3x text scale.
-- **Why:** User decision after comparing with Shaft. No capsule or
-  segmented bar.
+  `effectsFast`; nothing moves or resizes. It casts `barShadow` up over
+  the content (no hairline), as the comment composer does. Do not swap
+  it for the M3 `NavigationBar`; the wide layout's `NavigationRail` keeps
+  the M3 rail. Labels share one `LabelFit` capped at 1.3x text scale.
+- **Why:** User decision after comparing with Shaft: no capsule or
+  segmented bar; a shadow over a hairline on every bottom bar (10-25).
 - **Check:** `test/locale_layout/compact_controls_test.dart`
 - **Code:** `lib/app/widgets/func_bottom_nav.dart`
 
@@ -113,18 +114,22 @@ reviewed: 2026-10-17
   rebuilding. No consumer measures or copies the bar geometry.
 - **Why:** Post-layout measurement put the Hero landing clip and spacers a
   frame late.
-- **Check:** `test/func_bottom_nav_test.dart` "the shell bar publishes its live visible extent"
+- **Check:** `test/func_bottom_nav_test.dart` "the bar follows a drag and settles at the nearer end"
 - **Code:** `lib/app/navigation/home_shell_metrics.dart`
 
-### NAV-09 Only the user's own scrolling hides the bar
-- **Rule:** The bar hides when one frame's user scroll exceeds 8 physical
-  pixels down and shows on the same going up. Programmatic scrolls
-  (`animateTo`, `jumpTo`, restored offsets), overscroll, bounces and
-  nested horizontal strips never move it. Only the current branch's root
-  page drives it; a branch switch brings it back. The detail action bar
-  uses the same tracker.
-- **Why:** Edge bounces and scroll-to-top toggled the bar.
-- **Check:** `test/func_bottom_nav_test.dart` "edge bounce never toggles the bar" "slow frames and scrolls the user did not make keep the bar"
+### NAV-09 The bar follows the user's own scrolling
+- **Rule:** The bar moves pixel for pixel with the user's own scroll of
+  the current branch's root page, out going down and back going up. Once
+  the scroll rests, a bar left part way settles at the nearer end after a
+  drag, the way the page went after a wheel tick. Programmatic scrolls
+  (`animateTo`, `jumpTo`, restored offsets), overscroll and nested
+  horizontal strips never move it; a branch switch brings it back. The
+  detail action bar follows its page the same way.
+- **Why:** Edge bounces and scroll-to-top toggled the bar. Shaft's rule,
+  a frame past 8 physical pixels, gated on speed: a slow scroll never
+  moved it. The user chose Material 3's `exitAlways` follow (user
+  decision 10-24).
+- **Check:** `test/func_bottom_nav_test.dart` "edge bounce never toggles the bar" "the bar follows a drag and settles at the nearer end" "a wheel tick settles the way it went; other scrolls do not", `test/illust_detail_actions_test.dart` "the action bar follows a drag and settles at the nearer end"
 - **Code:** `lib/app/motion/scroll_hide.dart`
 
 ### NAV-10 Pushed pages cover the bar
@@ -260,12 +265,16 @@ reviewed: 2026-10-17
   `SliverAppBar` outside it. Titles start at the leading edge on every
   page. A hand-built bar (the reader's) lays out with
   `NavigationToolbar`: a title with `centerMiddle: false`, a readout
-  centered on the whole bar.
-- **Why:** `AppTopBar` owns the scrolled-under edge line; pages with a raw
+  centered on the whole bar. Content scrolled under a top bar is marked
+  by `ScrollEdgeShadow`, `barShadow` cast down (`topBarShadow`), never a
+  hairline; a self-drawn pinned strip that is the page's top edge (the
+  profile tabs) wraps itself in it.
+- **Why:** `AppTopBar` owns the scrolled-under shadow; pages with a raw
   bar had no scroll edge at all. The agreement and login pages centered
   their titles alone, and a readout centered between unequal neighbours
-  sat off the bar's middle.
-- **Check:** `test/architecture/top_bar_test.dart` "page top bars are AppTopBar"
+  sat off the bar's middle. User decision: top and bottom bars set
+  themselves off the content alike (10-25).
+- **Check:** `test/architecture/top_bar_test.dart` "page top bars are AppTopBar"; `test/app_tab_bar_test.dart` "a top bar with tabs casts its shadow once content scrolls under it"
 - **Code:** `lib/app/widgets/app_top_bar.dart`
 
 ## Wide windows
