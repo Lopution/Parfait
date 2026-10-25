@@ -140,18 +140,26 @@ class CommentComposerState extends State<CommentComposer>
   Timer? _keyboardHold;
 
   /// [CommentComposer.onGone] only: a surface has opened, so the composer
-  /// can be gone; the tallest keyboard inset seen; the inset of the last
-  /// build; no keyboard has risen for the keyboard leg (a hardware or
-  /// floating one), so the composer rests above the navigation bar; the
-  /// wait for that; and [CommentComposer.onGone] has been called.
+  /// can be gone; the tallest keyboard inset seen; the keyboard was up at
+  /// the last build; no keyboard has risen for the keyboard leg (a
+  /// hardware or floating one), so the composer rests above the
+  /// navigation bar; the wait for that; and [CommentComposer.onGone] has
+  /// been called.
   bool _opened = false;
   double _keyboardPeak = 0;
-  double _lastInset = 0;
+  bool _keyboardWasUp = false;
   bool _keyboardAbsent = false;
   Timer? _absentWait;
   bool _gone = false;
 
   bool get _onSurface => widget.onGone != null;
+
+  /// The bottom inset with no keyboard up: the navigation bar's. Some OEM
+  /// IMEs fold the bar into viewInsets when nothing is focused, so an
+  /// inset up to it is no keyboard.
+  double get _restInset => MediaQuery.viewPaddingOf(context).bottom;
+
+  bool get _keyboardUp => MediaQuery.viewInsetsOf(context).bottom > _restInset;
 
   bool get _disabled => widget.sending || _busy;
 
@@ -213,10 +221,11 @@ class CommentComposerState extends State<CommentComposer>
   /// stands on. One that went down under the focused field (system back,
   /// the IME's own key) takes the composer with it.
   void _followKeyboard(double inset) {
-    final fell = _lastInset > 0 && inset == 0;
-    _lastInset = inset;
+    final up = _keyboardUp;
+    final fell = _keyboardWasUp && !up;
+    _keyboardWasUp = up;
     if (inset > _keyboardPeak) _keyboardPeak = inset;
-    if (inset > 0) {
+    if (up) {
       _absentWait?.cancel();
       _keyboardAbsent = false;
     }
@@ -249,23 +258,26 @@ class CommentComposerState extends State<CommentComposer>
     if (onGone == null || _gone || !_opened || !mounted) return;
     if (_inputState != CommentComposerInputState.none ||
         _panelReveal.value > 0 ||
-        MediaQuery.viewInsetsOf(context).bottom > 0) {
+        _keyboardUp) {
       return;
     }
     _gone = true;
     onGone();
   }
 
-  /// How much of the composer shows while it stands on a surface: none at
-  /// the bottom, all from half the surface's height up.
+  /// How much of the composer shows while it stands on a surface: none
+  /// with the surface down to the navigation bar, all from half its
+  /// travel above the bar up.
   double _presence(double panelHeight) {
     if (_keyboardAbsent) return 1;
+    final rest = _restInset;
     final carrier = math.max(
       MediaQuery.viewInsetsOf(context).bottom,
       panelHeight * _panelReveal.value,
     );
-    final full = math.max(_keyboardPeak, panelHeight);
-    return (2 * carrier / full).clamp(0.0, 1.0);
+    final travel = math.max(_keyboardPeak, panelHeight) - rest;
+    if (travel <= 0) return 1;
+    return (2 * (carrier - rest) / travel).clamp(0.0, 1.0);
   }
 
   @override
@@ -353,9 +365,9 @@ class CommentComposerState extends State<CommentComposer>
     if (next != CommentComposerInputState.none) _opened = true;
     if (_onSurface &&
         next == CommentComposerInputState.keyboard &&
-        MediaQuery.viewInsetsOf(context).bottom == 0) {
+        !_keyboardUp) {
       _absentWait = Timer(CommentComposer.keyboardWait, () {
-        if (mounted && MediaQuery.viewInsetsOf(context).bottom == 0) {
+        if (mounted && !_keyboardUp) {
           setState(() => _keyboardAbsent = true);
         }
       });
