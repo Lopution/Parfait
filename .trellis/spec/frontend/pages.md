@@ -76,6 +76,21 @@ reviewed: 2026-10-17
 - **Check:** `test/search_result_page_test.dart` "each type switches to its own session filter set" "a user result route ignores stray filter params"
 - **Code:** `lib/features/search/search_result_page.dart`
 
+### PAGE-21 Search input completes the keyword at the caret
+- **Rule:** Half- and full-width spaces split a query into keywords.
+  Autocomplete asks only for the keyword at the caret, without an
+  exclusion `-`, and nothing right after a space; suggestions already in
+  the query are hidden. A tap replaces that keyword and searches the
+  whole query; ↖ or a long press replaces it and adds a space. The field
+  stays plain text: keywords a space has closed are painted as pills
+  behind it, and the result page's field button paints every keyword.
+- **Why:** Completing the whole string made a second keyword impossible
+  (user feedback). User decision: plain text with painted pills, not
+  chip widgets, whose extra states and gestures were too complex. pixiv's
+  web search completes the last word the same way.
+- **Check:** `test/search_input_test.dart` "suggestions complete the keyword at the caret" "a suggestion replaces the keyword, keeping its minus"
+- **Code:** `lib/core/search/search_keywords.dart`, `lib/features/search/search_keyword_pills.dart`
+
 ### PAGE-05 Recommended users omit hidden works
 - **Rule:** A recommended user's preview strip shows up to three works.
   Works hidden by the local R-18/AI blocks or a mute are left out, never

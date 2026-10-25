@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/widgets/tag_chips.dart';
 import 'package:parfait/core/search/search_history.dart';
+import 'package:parfait/core/search/search_keywords.dart';
 import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/core/search/search_shortcut.dart';
 import 'package:parfait/core/settings/preference_keys.dart';
+import 'package:parfait/features/search/search_keyword_pills.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/features/search/search_page.dart';
 
@@ -122,6 +124,71 @@ void main() {
           isNull,
           reason: text,
         );
+      }
+    });
+  });
+
+  group('search keywords', () {
+    String inside(String text, TextRange? range) => range!.textInside(text);
+    TextEditingValue at(String text, [int? caret]) => TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: caret ?? text.length),
+    );
+
+    test('spaces of either width split keywords; a space closes one', () {
+      for (final (text, all, finished) in [
+        ('原神 胡桃', ['原神', '胡桃'], ['原神']),
+        ('原神\u3000胡桃 ', ['原神', '胡桃'], ['原神', '胡桃']),
+        ('  a   b', ['a', 'b'], ['a']),
+        ('', <String>[], <String>[]),
+      ]) {
+        String words(List<TextRange> ranges) =>
+            ranges.map((r) => r.textInside(text)).join('|');
+        expect(words(keywordRanges(text)), all.join('|'), reason: text);
+        expect(
+          words(finishedKeywordRanges(text)),
+          finished.join('|'),
+          reason: text,
+        );
+      }
+    });
+
+    test('the keyword at the caret is the one autocomplete works on', () {
+      expect(inside('原神 胡', keywordAtCaret(at('原神 胡'))), '胡');
+      expect(inside('原神 胡桃', keywordAtCaret(at('原神 胡桃', 1))), '原神');
+      expect(keywordAtCaret(at('原神 ')), isNull);
+      expect(keywordAtCaret(at('原神', 0)), isNull);
+      expect(
+        keywordAtCaret(
+          const TextEditingValue(
+            text: '原神',
+            selection: TextSelection(baseOffset: 0, extentOffset: 2),
+          ),
+        ),
+        isNull,
+      );
+      expect(completionQueryOf('-R-18'), 'R-18');
+      expect(otherKeywords('原神 -胡桃 胡', const TextRange(start: 7, end: 8)), {
+        '原神',
+        '胡桃',
+      });
+    });
+
+    test('a suggestion replaces the keyword, keeping its minus', () {
+      for (final (before, caret, separate, after, caretAfter) in [
+        ('原神 胡', 4, false, '原神 胡桃', 5),
+        ('原神 胡', 4, true, '原神 胡桃 ', 6),
+        ('-胡 原神', 2, true, '-胡桃 原神', 4),
+        ('原神 胡\u3000x', 4, true, '原神 胡桃\u3000x', 6),
+      ]) {
+        final value = at(before, caret);
+        final replaced = replaceKeyword(
+          value,
+          keywordAtCaret(value)!,
+          '胡桃',
+          thenSeparate: separate,
+        );
+        expect(replaced, at(after, caretAfter), reason: before);
       }
     });
   });
@@ -257,38 +324,53 @@ void main() {
     expect(find.text('搜索历史'), findsNothing);
   });
 
-  testWidgets('a suggestion searches on tap and fills on long press', (
-    tester,
-  ) async {
+  testWidgets('suggestions complete the keyword at the caret', (tester) async {
+    final asked = <String>[];
     final repository = FakeSearchRepository(
-      autocompleteHandler: (keyword, _) async => const [
-        SearchSuggestion(keyword: 'neko', translatedName: '猫'),
-      ],
+      autocompleteHandler: (keyword, _) async {
+        asked.add(keyword);
+        return const [
+          SearchSuggestion(keyword: '胡桃', translatedName: 'Hu Tao'),
+          SearchSuggestion(keyword: '原神'),
+        ];
+      },
     );
     final router = await _pumpInput(tester, repository: repository);
-    await tester.enterText(find.byType(TextField), 'cat');
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pumpAndSettle();
+    Future<void> type(String text) async {
+      await tester.enterText(find.byType(TextField), text);
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+    }
 
-    await tester.longPress(find.text('猫'));
+    // A pill's outline is the field's one rounded rectangle.
+    Matcher pills(int count) => paintsExactlyCountTimes(#drawRRect, count);
+    Finder pillsOf<T>() => find.descendant(
+      of: find.byType(T),
+      matching: find.byType(SearchKeywordPills),
+    );
+
+    await type('原神 -胡');
+    expect(pillsOf<SearchInputPage>(), pills(1), reason: '-胡 is unfinished');
+    expect(asked, ['胡'], reason: 'only the keyword at the caret, no minus');
+    expect(find.text('原神'), findsNothing, reason: 'already in the query');
+    await tester.longPress(find.text('Hu Tao'));
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/search/input');
-    expect(_field(tester), 'neko');
+    expect(_field(tester), '原神 -胡桃 ');
+    expect(pillsOf<SearchInputPage>(), pills(2));
+    expect(find.byType(ListTile), findsNothing, reason: 'next keyword');
 
-    await tester.enterText(find.byType(TextField), 'cat');
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pumpAndSettle();
+    await type('原神 胡');
     await tester.tap(find.byTooltip('填入搜索框'));
     await tester.pumpAndSettle();
-    expect(_field(tester), 'neko');
+    expect(_field(tester), '原神 胡桃 ');
 
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('猫'));
+    await type('原神 胡');
+    await tester.tap(find.text('Hu Tao'));
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/search/results');
-    expect(router.state.uri.queryParameters['q'], 'neko');
-    expect(find.byType(SearchResultPage), findsOneWidget);
+    expect(router.state.uri.queryParameters['q'], '原神 胡桃');
+    expect(pillsOf<SearchResultPage>(), pills(2), reason: 'all keywords');
   });
 
   testWidgets('submitting a search replaces input so back returns home', (

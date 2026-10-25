@@ -23,6 +23,7 @@ import '../../app/widgets/tab_swipe_switcher.dart';
 import '../../app/navigation/routes.dart';
 import '../../core/search/search_autocomplete_controller.dart';
 import '../../core/search/search_history.dart';
+import '../../core/search/search_keywords.dart';
 import '../../core/search/search_models.dart';
 import '../../core/search/search_repository.dart';
 import '../../core/search/search_shortcut.dart';
@@ -34,6 +35,7 @@ import '../../core/spotlight/spotlight_store.dart';
 import 'search_field_button.dart';
 import 'search_filter_labels.dart';
 import 'search_filter_sheet.dart';
+import 'search_keyword_pills.dart';
 import 'search_text.dart';
 import '../../app/widgets/app_snack_bar.dart';
 import '../../l10n/context.dart';
@@ -753,7 +755,7 @@ class SearchInputPage extends ConsumerStatefulWidget {
 class _SearchInputPageState extends ConsumerState<SearchInputPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  late final TextEditingController _textController;
+  late final SearchKeywordController _textController;
   late final FocusNode _focusNode;
   late int _selectedIndex;
   Animation<double>? _routeAnimation;
@@ -769,15 +771,17 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
       vsync: this,
       initialIndex: _selectedIndex,
     )..addListener(_onTabChanged);
-    _textController = TextEditingController(text: widget.initialKeyword);
+    final initial = widget.initialKeyword;
+    _textController = SearchKeywordController()
+      ..value = TextEditingValue(
+        text: initial,
+        selection: TextSelection.collapsed(offset: initial.length),
+      )
+      ..addListener(_complete);
     _focusNode = FocusNode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (widget.initialKeyword.trim().isNotEmpty) {
-        ref
-            .read(searchAutocompleteProvider.notifier)
-            .update(widget.initialKeyword);
-      }
+      _complete();
       // The page exists to type a query: focus the field on arrival so the
       // keyboard is up without a second tap (pre-go_router behaviour).
       // But not mid-transition: _RoutePopSnapshot freezes the page into a
@@ -880,29 +884,37 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
     });
   }
 
-  void _onSearchChanged(String value) {
-    final autocomplete = ref.read(searchAutocompleteProvider.notifier)
-      ..update(value);
-    // An id or a link opens directly; asking for tag suggestions for it
-    // would only fill the list with noise.
-    if (searchShortcutFor(value, _types[_selectedIndex]) != null) {
-      autocomplete.cancel();
-    }
+  /// Asks autocomplete for the keyword at the caret whenever the text or
+  /// the caret moves to another one. An id or a link opens directly; tag
+  /// suggestions for it would only fill the list with noise.
+  void _complete() {
+    final value = _textController.value;
+    final range = keywordAtCaret(value);
+    final query =
+        range == null ||
+            searchShortcutFor(value.text, _types[_selectedIndex]) != null
+        ? ''
+        : completionQueryOf(range.textInside(value.text));
+    // A caret moving within the keyword asks nothing new.
+    if (query == ref.read(searchAutocompleteProvider).keyword) return;
+    ref.read(searchAutocompleteProvider.notifier).update(query);
   }
 
   /// Puts [keyword] in the field to edit it further.
-  void _fill(String keyword) {
-    _textController.value = TextEditingValue(
+  void _fill(String keyword) => _edit(
+    TextEditingValue(
       text: keyword,
       selection: TextSelection.collapsed(offset: keyword.length),
-    );
-    _onSearchChanged(keyword);
+    ),
+  );
+
+  void _edit(TextEditingValue value) {
+    _textController.value = value;
     _focusNode.requestFocus();
   }
 
   void _clear() {
     _textController.clear();
-    ref.read(searchAutocompleteProvider.notifier).update('');
     _focusNode.requestFocus();
   }
 
@@ -923,8 +935,12 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
   /// M3 SearchBar look, inline behaviour: no SearchAnchor view. The type
   /// tabs and the filter button must stay visible while typing, and the
   /// suggestions render in the page body exactly like the pre-M3 page did.
+  ///
+  /// Keywords a space has closed sit on pills ([SearchKeywordPills]); the
+  /// pills lie between the field's fill and its text, so the bar paints
+  /// no fill of its own.
   Widget _buildSearchBar(BuildContext context) {
-    return SearchBar(
+    final bar = SearchBar(
       controller: _textController,
       focusNode: _focusNode,
       // The theme's flat field, sized like [SearchFieldButton] on the
@@ -934,12 +950,27 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
         minHeight: SearchFieldButton.height,
         maxWidth: SearchFieldButton.maxWidth,
       ),
+      backgroundColor: const WidgetStatePropertyAll(FuncTokens.transparent),
       hintText: context.l10n.searchBarHint,
       leading: const Icon(Icons.search),
       trailing: [_clearSearchAction()],
-      onChanged: _onSearchChanged,
       onSubmitted: (_) => _submit(),
       textInputAction: TextInputAction.search,
+    );
+    return DecoratedBox(
+      decoration: ShapeDecoration(
+        color: SearchBarTheme.of(context).backgroundColor?.resolve(const {}),
+        shape: const StadiumBorder(),
+      ),
+      child: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: _textController,
+        builder: (context, value, bar) => SearchKeywordPills(
+          text: value.text,
+          finishedOnly: true,
+          child: bar!,
+        ),
+        child: bar,
+      ),
     );
   }
 
@@ -982,10 +1013,15 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
       ),
       body: ContentWidthCap(
         maxWidth: ContentWidths.management,
-        child: _SearchInputBody(
-          type: _types[_selectedIndex],
-          onSearch: _search,
-          onFill: _fill,
+        child: ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _textController,
+          builder: (context, value, _) => _SearchInputBody(
+            value: value,
+            type: _types[_selectedIndex],
+            onSearch: _search,
+            onFill: _fill,
+            onComplete: _edit,
+          ),
         ),
       ),
     );
@@ -993,30 +1029,39 @@ class _SearchInputPageState extends ConsumerState<SearchInputPage>
 }
 
 /// Below the input: where to start while the field is empty, the
-/// suggestions for what is typed, or the work or user an id or a link
-/// opens.
+/// suggestions for the keyword at the caret, or the work or user an id or
+/// a link opens.
 ///
 /// A suggestion, a recent search or a trending tag searches on tap; a
 /// long press (or a suggestion's trailing button) puts it in the field to
-/// edit instead.
+/// edit instead. A suggestion stands in for the keyword at the caret: a
+/// tap searches the whole query with it, and putting it in the field adds
+/// a space for the next keyword.
 class _SearchInputBody extends ConsumerWidget {
   const _SearchInputBody({
+    required this.value,
     required this.type,
     required this.onSearch,
     required this.onFill,
+    required this.onComplete,
   });
 
+  final TextEditingValue value;
   final SearchResultType type;
   final ValueChanged<String> onSearch;
   final ValueChanged<String> onFill;
+  final ValueChanged<TextEditingValue> onComplete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Watched before any return: the autocomplete state lives only while
+    // the page listens.
     final state = ref.watch(searchAutocompleteProvider);
-    if (state.keyword.isEmpty) {
+    final text = value.text;
+    if (text.trim().isEmpty) {
       return _SearchStart(type: type, onSearch: onSearch, onFill: onFill);
     }
-    final shortcut = searchShortcutFor(state.keyword, type);
+    final shortcut = searchShortcutFor(text, type);
     if (shortcut != null) {
       return ListView(
         padding: const EdgeInsets.symmetric(vertical: FuncSpacing.sm),
@@ -1042,18 +1087,29 @@ class _SearchInputBody extends ConsumerWidget {
         scrollable: false,
       );
     }
-    if (state.suggestions.isEmpty) {
+    final keyword = keywordAtCaret(value);
+    // Right after a space: the next keyword is not started yet.
+    if (keyword == null) return const SizedBox.shrink();
+    final present = otherKeywords(text, keyword);
+    final suggestions = [
+      for (final suggestion in state.suggestions)
+        if (!present.contains(suggestion.keyword)) suggestion,
+    ];
+    if (suggestions.isEmpty) {
       return Center(child: Text(context.l10n.searchNoSuggestions));
     }
+    void complete(String suggestion) => onComplete(
+      replaceKeyword(value, keyword, suggestion, thenSeparate: true),
+    );
     // No dividers: rows of one list, like M3's search view.
     return ListView.builder(
       padding: EdgeInsets.only(
         top: FuncSpacing.sm,
         bottom: FuncSpacing.sm + MediaQuery.viewInsetsOf(context).bottom,
       ),
-      itemCount: state.suggestions.length,
+      itemCount: suggestions.length,
       itemBuilder: (context, index) {
-        final suggestion = state.suggestions[index];
+        final suggestion = suggestions[index];
         return Semantics(
           onLongPressHint: context.l10n.searchSuggestionFill,
           child: ListTile(
@@ -1062,16 +1118,18 @@ class _SearchInputBody extends ConsumerWidget {
             subtitle: suggestion.translatedName == null
                 ? null
                 : Text(suggestion.keyword),
-            onTap: () => onSearch(suggestion.keyword),
+            onTap: () => onSearch(
+              replaceKeyword(value, keyword, suggestion.keyword).text.trim(),
+            ),
             onLongPress: () {
               AppHaptics.longPress();
-              onFill(suggestion.keyword);
+              complete(suggestion.keyword);
             },
             trailing: EdgeIconButtons(
               children: [
                 IconButton(
                   tooltip: context.l10n.searchSuggestionFill,
-                  onPressed: () => onFill(suggestion.keyword),
+                  onPressed: () => complete(suggestion.keyword),
                   icon: const Icon(Icons.north_west),
                 ),
               ],
