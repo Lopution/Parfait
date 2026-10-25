@@ -59,6 +59,15 @@ void main() {
       );
       // The target spans the row, not just the name text.
       expect(tester.getSize(target).width, 300);
+      // The chevron follows the name, inside the one target.
+      final chevron = find.descendant(
+        of: target,
+        matching: find.byIcon(Icons.chevron_right),
+      );
+      expect(
+        tester.getTopLeft(chevron).dx,
+        moreOrLessEquals(tester.getTopRight(find.text('author')).dx),
+      );
 
       // A tap well right of the name still lands.
       await tester.tapAt(

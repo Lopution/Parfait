@@ -2336,9 +2336,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get searchResetFilters => 'Сбросить фильтры';
 
   @override
-  String get searchUserAccount => 'Аккаунт';
-
-  @override
   String get illustDetailTitle => 'Работа';
 
   @override

@@ -1231,7 +1231,6 @@
   "@searchResetFilters": {
     "description": "Button on an empty search result while filters are on: clears this tab's filters."
   },
-  "searchUserAccount": "账号",
   "illustDetailTitle": "作品详情",
   "detailMetaCountsSemantics": "{views} 次浏览，{bookmarks} 次收藏",
   "seriesEpisodeOf": "第 {order} 话 / 共 {total} 话",

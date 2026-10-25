@@ -932,7 +932,6 @@
   "searchOpenUser": "ユーザー ID {id} を開く",
   "searchModifyQuery": "検索を編集",
   "searchResetFilters": "フィルターをリセット",
-  "searchUserAccount": "アカウント",
   "illustDetailTitle": "作品詳細",
   "detailMetaCountsSemantics": "閲覧 {views}、ブックマーク {bookmarks}",
   "seriesEpisodeOf": "第 {order} 話 / 全 {total} 話",

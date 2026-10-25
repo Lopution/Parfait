@@ -2335,9 +2335,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchResetFilters => 'Reset filters';
 
   @override
-  String get searchUserAccount => 'Account';
-
-  @override
   String get illustDetailTitle => 'Artwork';
 
   @override

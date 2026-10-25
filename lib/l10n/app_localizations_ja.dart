@@ -2268,9 +2268,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get searchResetFilters => 'フィルターをリセット';
 
   @override
-  String get searchUserAccount => 'アカウント';
-
-  @override
   String get illustDetailTitle => '作品詳細';
 
   @override

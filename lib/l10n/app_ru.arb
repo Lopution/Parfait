@@ -932,7 +932,6 @@
   "searchOpenUser": "Открыть пользователя ID {id}",
   "searchModifyQuery": "Изменить запрос",
   "searchResetFilters": "Сбросить фильтры",
-  "searchUserAccount": "Аккаунт",
   "illustDetailTitle": "Работа",
   "detailMetaCountsSemantics": "Просмотров: {views}, закладок: {bookmarks}",
   "seriesEpisodeOf": "Часть {order} из {total}",

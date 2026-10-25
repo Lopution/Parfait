@@ -2238,9 +2238,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchResetFilters => '重置筛选';
 
   @override
-  String get searchUserAccount => '账号';
-
-  @override
   String get illustDetailTitle => '作品详情';
 
   @override

@@ -932,7 +932,6 @@
   "searchOpenUser": "Open user ID {id}",
   "searchModifyQuery": "Edit search",
   "searchResetFilters": "Reset filters",
-  "searchUserAccount": "Account",
   "illustDetailTitle": "Artwork",
   "detailMetaCountsSemantics": "{views} views, {bookmarks} bookmarks",
   "seriesEpisodeOf": "Part {order} of {total}",

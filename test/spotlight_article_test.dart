@@ -20,6 +20,7 @@ import 'package:parfait/core/spotlight/spotlight_repository.dart';
 import 'package:parfait/core/spotlight/spotlight_store.dart';
 import 'package:parfait/features/spotlight/spotlight_article_page.dart';
 import 'package:parfait/app/pixiv_image.dart';
+import 'package:parfait/app/widgets/author_row.dart';
 import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -523,9 +524,17 @@ void main() {
         tester.getSemantics(image),
         isSemantics(isButton: true, hasTapAction: true, label: '作品标题'),
       );
-      // No card frame or trailing arrow around the work any more.
+      // No card frame or trailing arrow around the work any more; the one
+      // chevron ends the author's byline.
       expect(find.byType(Card), findsNothing);
-      expect(find.byIcon(Icons.chevron_right), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(AuthorRow),
+          matching: find.byIcon(Icons.chevron_right),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.chevron_right), findsOneWidget);
 
       await tester.tap(image);
       await tester.pumpAndSettle();

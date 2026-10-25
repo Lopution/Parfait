@@ -4313,12 +4313,6 @@ abstract class AppLocalizations {
   /// **'重置筛选'**
   String get searchResetFilters;
 
-  /// No description provided for @searchUserAccount.
-  ///
-  /// In zh, this message translates to:
-  /// **'账号'**
-  String get searchUserAccount;
-
   /// No description provided for @illustDetailTitle.
   ///
   /// In zh, this message translates to:
