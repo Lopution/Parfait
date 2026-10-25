@@ -150,14 +150,19 @@ reviewed: 2026-10-17
   bar, on the keyboard or, from the stamp key, the stamp panel; signed
   out it opens the sign-in. The composer lives on that surface
   (`CommentComposer.onGone`): it stands on the keyboard or panel as it
-  rises and falls, shows over the upper half of the travel, and the page
-  drops it once the surface is down (a keyboard that never insets: it
-  rests above the navigation bar after 600ms). The page stays live
-  around it: a touch outside (`TapRegion`) sends it down and goes on to
-  scroll, page or open what it landed on; back, a send, the page swiped
-  away or the keyboard put away on its own send it down too, and unsent
-  text stays as the work's draft. A sent comment heads the preview, and
-  the count grows by one.
+  rises and falls, shows over the upper half of its travel above the
+  navigation bar, and the page drops it once the surface is down (a
+  keyboard that never insets: it rests above the navigation bar after
+  600ms). A keyboard is down once its inset is no more than the
+  navigation bar's: some input methods leave the bar in the inset with
+  nothing focused.
+  The composer sets itself off the page with the bar shadow
+  (`FuncSemanticTokens.barShadow`, as NAV-07), inside its own fade. The
+  page stays live around it: a touch outside (`TapRegion`) sends it
+  down and goes on to scroll, page or open what it landed on; back, a
+  send, the page swiped away or the keyboard put away on its own send it
+  down too, and unsent text stays as the work's draft. A sent comment
+  heads the preview, and the count grows by one.
 - **Why:** User decision (10-21): an "add comment" text button misaligned
   under the heading, and writing meant leaving the work for the comments
   page. A see-through barrier that swallowed every touch was tried and
@@ -165,8 +170,12 @@ reviewed: 2026-10-17
   its keyboard was rejected too (10-22): it stood alone while the input
   method woke, vanished at once on a touch outside and left the keyboard
   to fall alone, and stayed behind when only the keyboard was put away.
-- **Check:** `test/illust_detail_actions_test.dart` "the entry composes in place; a sent comment heads the preview"
-- **Code:** `lib/features/illust/detail/comments_preview_section.dart`, `lib/features/illust/detail/widgets/detail_comment_layer.dart`
+  User report (10-25): where the input method left the bar in the inset,
+  the composer never went, back was blocked, and its top line, drawn
+  outside the fade, stayed on screen; a shadow replaced the line (user
+  decision).
+- **Check:** `test/illust_detail_actions_test.dart` "the entry composes in place; a sent comment heads the preview"; `test/comments_replies_test.dart` "a composer on its surface goes with a keyboard down to the bar"
+- **Code:** `lib/features/illust/detail/comments_preview_section.dart`, `lib/features/illust/detail/widgets/detail_comment_layer.dart`, `lib/app/widgets/comment_composer.dart`
 
 ## Chrome
 

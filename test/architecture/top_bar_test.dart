@@ -1,5 +1,5 @@
-// Page top bars go through AppTopBar: it owns the scrolled-under edge line,
-// and a raw AppBar would show neither the line nor a tint, leaving that
+// Page top bars go through AppTopBar: it owns the scrolled-under shadow,
+// and a raw AppBar would show neither the shadow nor a tint, leaving that
 // page without any scroll edge. Asserted on lib/ (repo-relative paths).
 
 import 'dart:io';
