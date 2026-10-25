@@ -1,13 +1,12 @@
-import 'package:flutter/gestures.dart';
-import 'package:flutter/physics.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../motion/motion_tokens.dart';
 import '../motion/still_work.dart';
-import '../scroll_behavior.dart';
+import '../motion/swipe_paging.dart';
 
-/// Sideways drag for a page's own tabs. The gesture stops at the first and
-/// last tab; it never changes the home branch.
+/// Sideways drag for a page's own tabs ([SwipePaging]). At the first or
+/// last tab a swipe outwards goes to the enclosing [SwipePagerScope] (the
+/// home branches) when it has a page that way, and otherwise pulls the
+/// body on a rubber band.
 ///
 /// [prepareTab] builds the tab at an index and says whether it had to: the
 /// tabs next to the one on screen are built ahead of a swipe, one at a time
@@ -26,24 +25,17 @@ class TabSwipeSwitcher extends StatefulWidget {
   final bool Function(int index)? prepareTab;
   final Widget child;
 
-  static const minFlingVelocity = 400.0;
-  static const distanceFraction = 0.25;
-
   @override
   State<TabSwipeSwitcher> createState() => _TabSwipeSwitcherState();
 }
 
 class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
-    with SingleTickerProviderStateMixin, StillWork {
-  double _rawDx = 0;
-  double _dragOrigin = 0;
-  bool _active = false;
-  AnimationController? _settle;
-  int _settleTarget = 0;
+    with SingleTickerProviderStateMixin, StillWork, SwipePaging {
+  /// How far the tabs are pulled past the first or last one, in tabs. The
+  /// controller stays between those, so the body slides by this instead.
+  final _overscroll = ValueNotifier<double>(0);
 
   TabController get _tc => widget.tabController;
-  bool get _ltr => Directionality.of(context) == TextDirection.ltr;
-  double get _position => _tc.animation?.value ?? _tc.index.toDouble();
 
   @override
   void initState() {
@@ -58,17 +50,17 @@ class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
     if (widget.tabController == oldWidget.tabController) return;
     oldWidget.tabController.removeListener(_onTabChanged);
     _tc.addListener(_onTabChanged);
-    // A new controller (the tab list changed): a settle in flight and the
-    // drag origin index the old list.
-    _settle?.stop();
-    _dragOrigin = _tc.index.toDouble();
+    // A new controller (the tab list changed): a swipe in flight indexes
+    // the old list.
+    stopPaging();
+    _overscroll.value = 0;
     scheduleStillWork();
   }
 
   @override
   void dispose() {
     _tc.removeListener(_onTabChanged);
-    _settle?.dispose();
+    _overscroll.dispose();
     super.dispose();
   }
 
@@ -90,141 +82,71 @@ class _TabSwipeSwitcherState extends State<TabSwipeSwitcher>
     return false;
   }
 
-  void _onDragStart(DragStartDetails details) {
-    _active = true;
-    _rawDx = 0;
-    _settle?.stop();
+  @override
+  int get pageCount => _tc.length;
+
+  @override
+  double get pagePosition =>
+      (_tc.animation?.value ?? _tc.index.toDouble()) + _overscroll.value;
+
+  // A tap on the tab bar mid-settle animates the controller itself.
+  @override
+  void showPagePosition(double position) {
+    if (_tc.indexIsChanging) return;
+    final inRange = position.clamp(0.0, _tc.length - 1.0);
+    _overscroll.value = position - inRange;
+    // As TabBarView: only a drag a whole tab away moves the index early.
+    if ((inRange - _tc.index).abs() > 1) _tc.index = inRange.round();
+    _tc.offset = (inRange - _tc.index).clamp(-1.0, 1.0);
+  }
+
+  @override
+  void landOnPage(int page) {
+    _overscroll.value = 0;
+    if (_tc.indexIsChanging) return;
+    _tc.index = page;
+    _tc.offset = 0;
+  }
+
+  @override
+  void pageDragStart(DragStartDetails details) {
+    super.pageDragStart(details);
     if (_tc.indexIsChanging) {
       _tc.index = _tc.animation!.value.round().clamp(0, _tc.length - 1);
     }
-    _dragOrigin = _position;
     final prepare = widget.prepareTab;
-    final origin = _dragOrigin.round();
+    // Mid-settle the index still names the tab the last swipe left.
+    final origin = pagePosition.round();
     for (final i in [origin + 1, origin - 1]) {
       if (prepare != null && i >= 0 && i < _tc.length) prepare(i);
     }
   }
 
-  void _onDragUpdate(DragUpdateDetails details) {
-    _rawDx += details.delta.dx;
-    final width = MediaQuery.sizeOf(context).width;
-    if (width <= 0 || _tc.length < 2) return;
-    final delta = (_ltr ? -details.delta.dx : details.delta.dx) / width;
-    _writeTab((_position + delta).clamp(0.0, _tc.length - 1.0));
+  /// At rest on its first or last tab, a swipe outwards goes to the
+  /// enclosing pager when that has a page there.
+  bool _yieldsTo(double dx) {
+    final forward =
+        (dx < 0) == (Directionality.of(context) == TextDirection.ltr);
+    final edge = forward ? _tc.length - 1.0 : 0.0;
+    if (pageSettling || (pagePosition - edge).abs() > 1e-3) return false;
+    return SwipePagerScope.maybeOf(context)?.canPage(forward) ?? false;
   }
 
-  void _writeTab(double target) {
-    if ((target - _tc.index).abs() > 0.5) {
-      _tc.index = target.round().clamp(0, _tc.length - 1);
-    }
-    _tc.offset = (target - _tc.index).clamp(-1.0, 1.0);
-  }
-
-  void _onDragEnd(DragEndDetails details) {
-    if (!_active) return;
-    _active = false;
-    final width = MediaQuery.sizeOf(context).width;
-    final velocity = details.primaryVelocity ?? 0;
-    final fling = velocity.abs() >= TabSwipeSwitcher.minFlingVelocity;
-    final position = _position;
-    final base = _dragOrigin.round().clamp(0, _tc.length - 1);
-    final moved = position - base;
-    final committed =
-        fling ||
-        _rawDx.abs() >= width * TabSwipeSwitcher.distanceFraction ||
-        moved.abs() >= TabSwipeSwitcher.distanceFraction;
-    final forward = ((fling ? velocity : _rawDx) < 0) == _ltr;
-    // The next tab in the release's direction from where the tabs are, as
-    // ViewPager picks: flinging back from past halfway returns to the
-    // first tab rather than skipping over it.
-    final target = committed
-        ? (forward ? position.ceil() : position.floor()).clamp(
-            0,
-            _tc.length - 1,
-          )
-        : base;
-    _settleTo(target, velocity: velocity);
-  }
-
-  void _onDragCancel() {
-    if (!_active) return;
-    _active = false;
-    _settleTo(_tc.index);
-  }
-
-  /// Carries the tabs to [target] on the [MotionSpring.spatialDefault]
-  /// spring, starting at the finger's release [velocity] (pixels per
-  /// second): a fling lands without slowing first, and a spring-back turns
-  /// round instead of stalling. The index changes once, on landing, as a
-  /// tab bar's own switch notifies its listeners after the animation.
-  void _settleTo(int target, {double velocity = 0}) {
-    final from = _position;
-    _settleTarget = target;
-    final spring = MotionTokens.spring(context, MotionSpring.spatialDefault);
-    final width = MediaQuery.sizeOf(context).width;
-    if (spring == null || width <= 0 || (from - target).abs() < 1e-4) {
-      _settle?.stop();
-      _tc.index = target;
-      _tc.offset = 0;
-      return;
-    }
-    final controller = _settle ??= AnimationController.unbounded(vsync: this)
-      ..addListener(_applySettle)
-      ..addStatusListener(_finishSettle);
-    final tabsPerSecond = (_ltr ? -velocity : velocity) / width;
-    controller.animateWith(
-      SpringSimulation(
-        spring,
-        from,
-        target.toDouble(),
-        tabsPerSecond,
-        snapToEnd: true,
-      ),
-    );
-  }
-
-  // A tap on the tab bar mid-settle animates the controller itself.
-  void _applySettle() {
-    if (_tc.indexIsChanging) return;
-    _tc.offset = (_settle!.value - _tc.index).clamp(-1.0, 1.0);
-  }
-
-  void _finishSettle(AnimationStatus status) {
-    if (status != AnimationStatus.completed || _tc.indexIsChanging) return;
-    _tc.index = _settleTarget;
-    _tc.offset = 0;
-  }
-
-  /// A [GestureDetector] horizontal drag with the paging slop: a swipe
-  /// that leans towards vertical scrolls the tab's list instead. The fling
-  /// distance stays the device slop.
   @override
   Widget build(BuildContext context) {
-    final multitouch = ScrollConfiguration.of(
-      context,
-    ).getMultitouchDragStrategy(context);
-    final device = MediaQuery.maybeGestureSettingsOf(context);
-    return RawGestureDetector(
-      behavior: HitTestBehavior.translucent,
-      gestures: {
-        HorizontalDragGestureRecognizer:
-            GestureRecognizerFactoryWithHandlers<
-              HorizontalDragGestureRecognizer
-            >(
-              () => HorizontalDragGestureRecognizer(debugOwner: this),
-              (recognizer) => recognizer
-                ..onStart = _onDragStart
-                ..onUpdate = _onDragUpdate
-                ..onEnd = _onDragEnd
-                ..onCancel = _onDragCancel
-                ..multitouchDragStrategy = multitouch
-                ..gestureSettings = pagingGestureSettings(device)
-                ..minFlingDistance = device?.touchSlop ?? kTouchSlop,
-            ),
-      },
+    final ltr = Directionality.of(context) == TextDirection.ltr;
+    return swipeGestures(
+      yieldsTo: _yieldsTo,
       child: NotificationListener<ScrollNotification>(
         onNotification: trackStillScroll,
-        child: widget.child,
+        child: ValueListenableBuilder<double>(
+          valueListenable: _overscroll,
+          builder: (context, overscroll, child) => FractionalTranslation(
+            translation: Offset(ltr ? -overscroll : overscroll, 0),
+            child: child,
+          ),
+          child: widget.child,
+        ),
       ),
     );
   }

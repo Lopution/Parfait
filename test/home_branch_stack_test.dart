@@ -437,6 +437,93 @@ void main() {
     });
   }
 
+  group('a swipe between destinations', () {
+    /// Bounded: the history page keeps a spinner running.
+    Future<void> settle(WidgetTester tester) async {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump();
+    }
+
+    int barBranch(WidgetTester tester) => tester
+        .widget<FuncShellBottomNav>(find.byType(FuncShellBottomNav))
+        .currentBranch;
+
+    testWidgets('takes over from the tabs at their last one', (tester) async {
+      await _pumpHome(tester);
+      final recommended = find.byType(RecommendedHomePage);
+      for (var i = 0; i < 3; i++) {
+        await tester.fling(recommended, const Offset(-260, 0), 900);
+        await settle(tester);
+      }
+      expect(barBranch(tester), 0, reason: 'the tabs took the first three');
+
+      // On the last tab the branches follow the finger; the bar's
+      // selection moves only when they land.
+      final gesture = await tester.startGesture(tester.getCenter(recommended));
+      for (var i = 0; i < 25; i++) {
+        await gesture.moveBy(const Offset(-10, 0));
+        await tester.pump();
+      }
+      final peer = find.byType(RankingPage);
+      final peerLeft = peer.evaluate().isEmpty
+          ? null
+          : tester.getTopLeft(peer).dx;
+      final barMidway = barBranch(tester);
+      await gesture.up();
+      await settle(tester);
+      expect(peerLeft, lessThan(200));
+      expect(barMidway, 0);
+      expect(barBranch(tester), 1);
+      expect(find.byType(RecommendedHomePage), findsNothing);
+
+      // Back from the ranking's first tab: home keeps its last tab.
+      await tester.fling(find.byType(RankingPage), const Offset(260, 0), 900);
+      await settle(tester);
+      expect(barBranch(tester), 0);
+      final tabs = tester.widget<TabBar>(
+        find.descendant(of: recommended, matching: find.byType(TabBar)),
+      );
+      expect(tabs.controller!.index, 3);
+    });
+
+    testWidgets(
+      'a page without tabs pages at once; the end of the bar bounces',
+      (tester) async {
+        await _pumpHome(tester, location: '/settings');
+        final me = find.byType(MeDashboardPage);
+        await tester.fling(me, const Offset(-260, 0), 900);
+        await settle(tester);
+        expect(barBranch(tester), 4);
+        expect(tester.getTopLeft(me).dx, 0);
+
+        await tester.fling(me, const Offset(260, 0), 900);
+        await settle(tester);
+        expect(barBranch(tester), 3);
+        expect(find.byType(SearchHomePage), findsOneWidget);
+      },
+    );
+
+    for (final (name, width, height) in [
+      ('a pushed page', 390.0, 844.0),
+      ('the rail', 896.0, 411.0),
+    ]) {
+      testWidgets('$name keeps its destination', (tester) async {
+        final router = await _pumpHome(tester, width: width, height: height);
+        var page = find.byType(RecommendedHomePage);
+        if (width < 600) {
+          unawaited(router.push<void>('/recommended/history'));
+          await settle(tester);
+          page = find.byType(HistoryPage);
+        }
+        await tester.fling(page, const Offset(-260, 0), 900);
+        await settle(tester);
+        expect(find.byType(RankingPage), findsNothing);
+        expect(page, findsOneWidget);
+      });
+    }
+  });
+
   testWidgets('a turned phone gets a scrolling icon rail', (tester) async {
     await _pumpHome(tester, width: 896, height: 411);
 

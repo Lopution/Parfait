@@ -98,6 +98,41 @@ void main() {
   }
 
   testFilm(
+    'feed/tab-edge-bounce',
+    location: '/recommended',
+    notes:
+        'A slow pull rightwards on the first home tab: the feed follows '
+        'the finger by less and less, the tabs and their indicator stay, '
+        'and on release the feed springs back flush with the edge.',
+    script: (film, router) async {
+      await film.swipe(
+        find.text('illust 1000'),
+        const Offset(200, 0),
+        count: 16,
+        hold: 4,
+      );
+    },
+  );
+
+  testFilm(
+    'feed/branch-swipe',
+    location: '/settings',
+    notes:
+        'A slow swipe rightwards on Me: the search page slides in from '
+        'the left beside it, both whole pages with their top bars, the '
+        'bottom bar still; on release the search page settles and the '
+        'bar selects Search.',
+    script: (film, router) async {
+      await film.swipe(
+        find.byType(Scaffold).first,
+        const Offset(300, 0),
+        count: 20,
+        hold: 6,
+      );
+    },
+  );
+
+  testFilm(
     'feed/tab-switch',
     location: '/recommended',
     notes:

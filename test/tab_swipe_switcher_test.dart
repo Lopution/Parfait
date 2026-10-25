@@ -84,6 +84,22 @@ Future<List<int>> _pumpPreparing(
   return prepared;
 }
 
+/// A bare switcher over [child] with [length] tabs on the first.
+Future<TabController> _pumpTabs(
+  WidgetTester tester, {
+  required int length,
+  Widget child = const SizedBox.expand(),
+}) async {
+  final controller = TabController(length: length, vsync: const TestVSync());
+  addTearDown(controller.dispose);
+  await tester.pumpWidget(
+    MaterialApp(
+      home: TabSwipeSwitcher(tabController: controller, child: child),
+    ),
+  );
+  return controller;
+}
+
 void main() {
   testWidgets('sideways flings step the page\'s own top tabs', (tester) async {
     final router = await _pumpHome(tester);
@@ -111,23 +127,17 @@ void main() {
     expect(_path(router), '/recommended');
   });
 
-  // The tabs take only a drag at least twice as horizontal as vertical, as
-  // Android's ViewPager does; a swipe leaning further scrolls the feed.
-  for (final (degrees, switches) in [(20.0, true), (35.0, false)]) {
+  // The tabs take a swipe up to 40° off horizontal once it has moved the
+  // device slop sideways; a steeper one scrolls the feed. A 35° swipe went
+  // to the feed while the tabs waited for twice the slop.
+  for (final (degrees, switches) in [(35.0, true), (50.0, false)]) {
     testWidgets('a swipe ${degrees.round()}° off horizontal '
         '${switches ? 'moves the tabs' : 'leaves the tabs'}', (tester) async {
-      final controller = TabController(length: 2, vsync: const TestVSync());
-      addTearDown(controller.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: TabSwipeSwitcher(
-            tabController: controller,
-            child: ListView(
-              children: [
-                for (var i = 0; i < 30; i++) const SizedBox(height: 80),
-              ],
-            ),
-          ),
+      final controller = await _pumpTabs(
+        tester,
+        length: 2,
+        child: ListView(
+          children: [for (var i = 0; i < 30; i++) const SizedBox(height: 80)],
         ),
       );
       setDeviceTouchSlop(tester);
@@ -138,9 +148,10 @@ void main() {
         tester.getCenter(find.byType(ListView)),
         degrees: degrees,
       );
-      expect(controller.offset > 0, switches);
+      final moved = controller.offset > 0;
       await gesture.up();
       await tester.pumpAndSettle();
+      expect(moved, switches);
     });
   }
 
@@ -151,16 +162,7 @@ void main() {
     ('a short drag springs back', -60.0, 0),
   ]) {
     testWidgets('$name from the finger\'s speed', (tester) async {
-      final controller = TabController(length: 3, vsync: const TestVSync());
-      addTearDown(controller.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: TabSwipeSwitcher(
-            tabController: controller,
-            child: const SizedBox.expand(),
-          ),
-        ),
-      );
+      final controller = await _pumpTabs(tester, length: 3);
       setDeviceTouchSlop(tester);
       const seconds = 0.2;
       await tester.timedDrag(
@@ -175,23 +177,81 @@ void main() {
       await tester.pump(const Duration(microseconds: 100));
       final speed = (controller.animation!.value - released) / 0.0001;
       expect(speed, closeTo(fingerSpeed, fingerSpeed * 0.15));
-      await tester.pumpAndSettle();
+      // Landed once the motion is under half a pixel, not after a tail of
+      // sub-pixel motion that held the index and the bar back.
+      await tester.pump(const Duration(milliseconds: 400));
       expect((controller.index, controller.offset), (landsOn, 0.0));
     });
   }
 
-  testWidgets('a slow but deliberate sideways drag still switches', (
+  // Without a fling a release lands on the nearer tab, as PageView does; a
+  // quarter of the screen used to switch.
+  for (final (name, dx, landsOn) in [
+    ('short of halfway springs back', -160.0, 0),
+    ('past halfway switches', -260.0, 1),
+  ]) {
+    testWidgets('a slow drag $name', (tester) async {
+      await _pumpHome(tester);
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(RecommendedHomePage)),
+      );
+      for (var moved = 0.0; moved > dx; moved -= 10) {
+        await gesture.moveBy(const Offset(-10, 0));
+        await tester.pump();
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(_tabIndex(tester, find.byType(RecommendedHomePage)), landsOn);
+    });
+  }
+
+  testWidgets('the index waits for the landing', (tester) async {
+    final controller = await _pumpTabs(tester, length: 3);
+    final changes = <int>[];
+    controller.addListener(() => changes.add(controller.index));
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(TabSwipeSwitcher)),
+    );
+    for (var i = 0; i < 25; i++) {
+      await gesture.moveBy(const Offset(-20, 0));
+      await tester.pump();
+    }
+    final (midway, changedMidway) = (controller.animation!.value, [...changes]);
+    await gesture.up();
+    await tester.pumpAndSettle();
+    // Past halfway with the finger down: the page, the top bar and the
+    // route still belonged to the first tab.
+    expect(midway, greaterThan(0.5));
+    expect(changedMidway, isEmpty);
+    expect(controller.index, 1);
+    expect(changes.toSet(), {1});
+  });
+
+  testWidgets('past the first tab the body pulls on a rubber band', (
     tester,
   ) async {
-    await _pumpHome(tester);
-    // Distance past a quarter of the screen commits even without a fling.
-    await tester.drag(
-      find.byType(RecommendedHomePage),
-      const Offset(-160, 0),
-      touchSlopX: 18,
+    const body = Key('body');
+    final controller = await _pumpTabs(
+      tester,
+      length: 2,
+      child: const SizedBox.expand(key: body),
     );
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byKey(body)),
+    );
+    await gesture.moveBy(const Offset(20, 0));
+    await gesture.moveBy(const Offset(100, 0));
+    await tester.pump();
+    final (pulled, tabs) = (
+      tester.getTopLeft(find.byKey(body)).dx,
+      controller.animation!.value,
+    );
+    await gesture.up();
     await tester.pumpAndSettle();
-    expect(_tabIndex(tester, find.byType(RecommendedHomePage)), 1);
+    // It followed the finger by less than the finger moved; the tabs stayed.
+    expect(pulled, inExclusiveRange(10, 100));
+    expect(tabs, 0);
+    expect(tester.getTopLeft(find.byKey(body)).dx, 0);
   });
 
   testWidgets('a new tab list drops the spring-back of the old one', (

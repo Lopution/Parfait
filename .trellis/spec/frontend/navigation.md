@@ -173,17 +173,24 @@ reviewed: 2026-10-17
 
 ## Branch switching and re-tap
 
-### NAV-12 Branches slide; the shell chrome stays still
+### NAV-12 Branches slide under a tap or a swipe; the shell chrome stays still
 - **Rule:** A bar tap slides the outgoing and incoming branches side by
   side from the side the destination sits on (300 ms,
-  `branchSwitchCurve`, a cut under reduced motion). No swipe between
-  branches. Never wrap the whole `StatefulNavigationShell` (content and
-  bar) in a transition. The outgoing branch is a frozen snapshot; the
-  incoming one stays live.
-- **Why:** User decision for the slide. A transition around the shell
-  flashed the scaffold background white.
-- **Check:** `test/home_branch_stack_test.dart` "a bar tap slides the new branch in from its side" "the incoming branch stays live while the outgoing one freezes"
-- **Code:** `lib/app/widgets/home_branch_stack.dart`
+  `branchSwitchCurve`, a cut under reduced motion). On a phone a swipe on
+  a branch's root page drags it and its neighbour on the bar
+  (`SwipePaging`, MOTION-20), in bar order, not wrapping, bouncing at the
+  ends; the bar's selection moves on landing and the bar comes back. A
+  page's tabs take a swipe first and hand it over only at their first or
+  last tab, when the swipe starts (`SwipePagerScope`). No swipe over a
+  pushed route, on the rail or under touch exploration. Never wrap the
+  whole `StatefulNavigationShell` (content and bar) in a transition. A
+  tap's outgoing branch is a frozen snapshot and the incoming one stays
+  live; under a swipe both stay live.
+- **Why:** User decisions for the slide and for the swipe, the latter
+  against Material 3's "Don't swipe between destinations". A transition
+  around the shell flashed the scaffold background white.
+- **Check:** `test/home_branch_stack_test.dart` "a bar tap slides the new branch in from its side" "the incoming branch stays live while the outgoing one freezes" "takes over from the tabs at their last one" "a page without tabs pages at once; the end of the bar bounces" "keeps its destination"
+- **Code:** `lib/app/widgets/home_branch_stack.dart`, `lib/app/motion/swipe_paging.dart`
 
 ### NAV-13 Re-tapping a destination is an edge event
 - **Rule:** A tap on the active destination pops its stack to the root and
