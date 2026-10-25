@@ -1411,9 +1411,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aboutLicense => '许可证';
 
   @override
-  String get aboutAttribution => '归属';
-
-  @override
   String get aboutSource => '项目源码';
 
   @override

@@ -224,7 +224,6 @@ enum Setting implements SettingsEntry {
   backupImport(SettingsPageRef.backup, 'backupImport'),
   aboutVersion(SettingsPageRef.about, 'aboutVersion'),
   aboutLicense(SettingsPageRef.about, 'aboutLicense'),
-  aboutAttribution(SettingsPageRef.about, 'aboutAttribution'),
   aboutSource(SettingsPageRef.about, 'aboutSource'),
   aboutExportLogs(SettingsPageRef.about, 'aboutExportLogs'),
   aboutDisplayRefreshRate(SettingsPageRef.about, 'aboutDisplayRefreshRate'),

@@ -617,7 +617,6 @@
   "aboutUpdateBusy": "別の更新タスクが進行中です",
   "aboutUpdateCanceled": "更新のインストールはキャンセルされました",
   "aboutLicense": "ライセンス",
-  "aboutAttribution": "帰属表示",
   "aboutSource": "ソースコード",
   "aboutLicenseText": "このプロジェクトは公開された Pixiv Func のソースを基にし、GNU AGPL v3.0 に従います。",
   "aboutAttributionText": "著作権およびメンテナンス：Lopution。",

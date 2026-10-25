@@ -18,6 +18,7 @@ import '../../../app/widgets/edge_icon_buttons.dart';
 import '../../../app/widgets/settings/settings_action_tile.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_group_content.dart';
+import '../../../app/widgets/settings/settings_tile.dart';
 import '../../../core/logging/crash_log.dart';
 import '../../../core/settings/shared_preferences.dart';
 import '../../../core/updater/update_manifest.dart';
@@ -39,6 +40,12 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
   static const _unlockTaps = 7;
   static const _sourceRepositoryUrl = 'https://github.com/$updateRepository';
   int _versionTaps = 0;
+
+  /// Version comes from the platform package, not a literal: the pubspec
+  /// `version:` line is the single source of truth. The build number is
+  /// left out: it is the versionCode with the split APK's ABI offset (2001
+  /// for arm64 0.9.0), which means nothing to a reader.
+  late final Future<PackageInfo> _packageInfo = PackageInfo.fromPlatform();
 
   /// Android's build-number gesture: the version tile counts presses and
   /// unlocks the developer entries after [_unlockTaps]. The countdown only
@@ -89,50 +96,43 @@ class _AboutSettingsPageState extends ConsumerState<AboutSettingsPage> {
             bottom: FuncSpacing.xl,
           ),
           children: [
+            // Facts about the app, not rows: no card, nothing to press.
+            _AppHeader(
+              name: appName,
+              attribution: Text(context.l10n.aboutAttributionText),
+            ),
             SettingsGroup(
               children: [
-                const ListTile(leading: _AppIcon(), title: Text('Parfait')),
-                // Version comes from the platform package, not a literal —
-                // the pubspec `version:` line is the single source of truth
-                // (R1). The build number is left out: it is the versionCode
-                // with the split APK's ABI offset (2001 for arm64 0.9.0),
-                // which means nothing to a reader.
+                // The version tile is also the developer-options easter
+                // egg; it looks like any value row on purpose.
                 FutureBuilder<PackageInfo>(
-                  future: PackageInfo.fromPlatform(),
-                  builder: (context, snapshot) {
-                    final info = snapshot.data;
-                    final label = info?.version ?? '—';
-                    return Column(
-                      children: [
-                        SettingsActionTile(
-                          icon: Icons.info_outline,
-                          setting: Setting.aboutVersion,
-                          trailing: Text(label),
-                          onTap: _onVersionTap,
-                        ),
-                        SettingsActionTile(
-                          icon: Icons.menu_book_outlined,
-                          setting: Setting.aboutLicense,
-                          subtitle: Text(context.l10n.aboutLicenseText),
-                          onTap: () => showLicensePage(
-                            context: context,
-                            applicationName: appName,
-                            applicationVersion: info?.version,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                  future: _packageInfo,
+                  builder: (context, snapshot) => SettingsActionTile(
+                    icon: Icons.info_outline,
+                    setting: Setting.aboutVersion,
+                    trailing: Text(snapshot.data?.version ?? '—'),
+                    onTap: _onVersionTap,
+                  ),
                 ),
-                SettingsActionTile(
-                  icon: Icons.people_outline,
-                  setting: Setting.aboutAttribution,
-                  subtitle: Text(context.l10n.aboutAttributionText),
+                FutureBuilder<PackageInfo>(
+                  future: _packageInfo,
+                  builder: (context, snapshot) => SettingsTile(
+                    icon: Icons.menu_book_outlined,
+                    setting: Setting.aboutLicense,
+                    subtitle: Text(context.l10n.aboutLicenseText),
+                    onTap: () => showLicensePage(
+                      context: context,
+                      applicationName: appName,
+                      applicationVersion: snapshot.data?.version,
+                    ),
+                  ),
                 ),
                 SettingsActionTile(
                   icon: Icons.code,
                   setting: Setting.aboutSource,
-                  subtitle: const Text('github.com/$updateRepository'),
+                  subtitle: const _ExternalLinkText(
+                    'github.com/$updateRepository',
+                  ),
                   // The row opens the repository; copying the URL is the
                   // secondary trailing action (settings action row, not a
                   // navigation row).
@@ -453,28 +453,86 @@ class _AboutUpdateSectionState extends State<_AboutUpdateSection> {
   }
 }
 
-/// The launcher icon in the 24dp icon column of the rows below it. The
-/// artwork has its own margin, so it draws larger than the column and
-/// overflows it evenly; the titles stay aligned.
-class _AppIcon extends StatelessWidget {
-  const _AppIcon();
+/// The launcher icon, the app's name and its attribution, on the page
+/// surface where the group titles start.
+class _AppHeader extends StatelessWidget {
+  const _AppHeader({required this.name, required this.attribution});
 
-  static const _columnWidth = 24.0;
-  static const _artworkSize = 40.0;
+  final String name;
+  final Widget attribution;
+
+  static const _artworkSize = 56.0;
 
   @override
-  Widget build(BuildContext context) => SizedBox.square(
-    dimension: _columnWidth,
-    child: OverflowBox(
-      maxWidth: _artworkSize,
-      maxHeight: _artworkSize,
-      // Decoration: the row's title names the app.
-      child: Image.asset(
-        'assets/branding/parfait_icon.png',
-        width: _artworkSize,
-        height: _artworkSize,
-        excludeFromSemantics: true,
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      // A group's margin and its rows' inset: where the titles start.
+      padding: const EdgeInsets.fromLTRB(
+        FuncSpacing.xxl,
+        FuncSpacing.sm,
+        FuncSpacing.xxl,
+        FuncSpacing.xl,
       ),
-    ),
-  );
+      child: Row(
+        children: [
+          // Decoration: the name beside it names the app.
+          Image.asset(
+            'assets/branding/parfait_icon.png',
+            width: _artworkSize,
+            height: _artworkSize,
+            excludeFromSemantics: true,
+          ),
+          const SizedBox(width: FuncSpacing.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: theme.textTheme.titleLarge),
+                const SizedBox(height: FuncSpacing.xxs),
+                DefaultTextStyle.merge(
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  child: attribution,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A link's text that leaves the app, ending in the glyph that says so,
+/// in the text's own size and colour.
+class _ExternalLinkText extends StatelessWidget {
+  const _ExternalLinkText(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = DefaultTextStyle.of(context).style;
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(text: text),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Padding(
+              padding: const EdgeInsetsDirectional.only(start: FuncSpacing.xs),
+              child: Icon(
+                Icons.open_in_new,
+                size: style.fontSize,
+                color: style.color,
+                applyTextScaling: true,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

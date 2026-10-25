@@ -1437,9 +1437,6 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aboutLicense => 'ライセンス';
 
   @override
-  String get aboutAttribution => '帰属表示';
-
-  @override
   String get aboutSource => 'ソースコード';
 
   @override

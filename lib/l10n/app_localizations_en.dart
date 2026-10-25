@@ -1487,9 +1487,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutLicense => 'License';
 
   @override
-  String get aboutAttribution => 'Attribution';
-
-  @override
   String get aboutSource => 'Source code';
 
   @override

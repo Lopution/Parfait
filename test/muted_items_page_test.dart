@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/motion/removal.dart';
+import 'package:parfait/app/widgets/settings/settings_group.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/features/settings/pages/muted_items_page.dart';
@@ -100,6 +101,19 @@ void main() {
     expect(api.edits.single['delete_tags[]'], 'bad-tag');
     expect(container.read(muteStoreProvider).tags, isEmpty);
     expect(find.text('bad-tag'), findsNothing);
+  });
+
+  testWidgets('an empty group says where its mutes come from, off the cards', (
+    tester,
+  ) async {
+    await _pump(tester);
+    final hints = find.textContaining('长按作品卡片');
+    // Muted users and muted works are both empty.
+    expect(hints, findsNWidgets(2));
+    expect(
+      find.descendant(of: find.byType(SettingsCard), matching: hints),
+      findsNothing,
+    );
   });
 
   testWidgets('a failed unmute brings the row back with an error', (

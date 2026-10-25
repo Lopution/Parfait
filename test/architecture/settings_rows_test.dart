@@ -26,8 +26,6 @@ const _listTileAllowList = <String, int>{
   'lib/features/settings/pages/account_settings_page.dart': 1,
   // The Me page's content and end rows: a list, not settings rows.
   'lib/features/settings/me_dashboard_page.dart': 1,
-  // The app identity row leads with the launcher icon, not a glyph.
-  'lib/features/settings/pages/about_settings_page.dart': 1,
 };
 
 /// Recursively yields `.dart` files under [dir] as repo-relative paths.

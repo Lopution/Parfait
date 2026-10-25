@@ -2759,12 +2759,6 @@ abstract class AppLocalizations {
   /// **'许可证'**
   String get aboutLicense;
 
-  /// No description provided for @aboutAttribution.
-  ///
-  /// In zh, this message translates to:
-  /// **'归属'**
-  String get aboutAttribution;
-
   /// No description provided for @aboutSource.
   ///
   /// In zh, this message translates to:
