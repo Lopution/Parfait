@@ -140,18 +140,26 @@ class CommentComposerState extends State<CommentComposer>
   Timer? _keyboardHold;
 
   /// [CommentComposer.onGone] only: a surface has opened, so the composer
-  /// can be gone; the tallest keyboard inset seen; the inset of the last
-  /// build; no keyboard has risen for the keyboard leg (a hardware or
-  /// floating one), so the composer rests above the navigation bar; the
-  /// wait for that; and [CommentComposer.onGone] has been called.
+  /// can be gone; the tallest keyboard inset seen; the keyboard was up at
+  /// the last build; no keyboard has risen for the keyboard leg (a
+  /// hardware or floating one), so the composer rests above the
+  /// navigation bar; the wait for that; and [CommentComposer.onGone] has
+  /// been called.
   bool _opened = false;
   double _keyboardPeak = 0;
-  double _lastInset = 0;
+  bool _keyboardWasUp = false;
   bool _keyboardAbsent = false;
   Timer? _absentWait;
   bool _gone = false;
 
   bool get _onSurface => widget.onGone != null;
+
+  /// The bottom inset with no keyboard up: the navigation bar's. Some OEM
+  /// IMEs fold the bar into viewInsets when nothing is focused, so an
+  /// inset up to it is no keyboard.
+  double get _restInset => MediaQuery.viewPaddingOf(context).bottom;
+
+  bool get _keyboardUp => MediaQuery.viewInsetsOf(context).bottom > _restInset;
 
   bool get _disabled => widget.sending || _busy;
 
@@ -213,10 +221,11 @@ class CommentComposerState extends State<CommentComposer>
   /// stands on. One that went down under the focused field (system back,
   /// the IME's own key) takes the composer with it.
   void _followKeyboard(double inset) {
-    final fell = _lastInset > 0 && inset == 0;
-    _lastInset = inset;
+    final up = _keyboardUp;
+    final fell = _keyboardWasUp && !up;
+    _keyboardWasUp = up;
     if (inset > _keyboardPeak) _keyboardPeak = inset;
-    if (inset > 0) {
+    if (up) {
       _absentWait?.cancel();
       _keyboardAbsent = false;
     }
@@ -249,23 +258,26 @@ class CommentComposerState extends State<CommentComposer>
     if (onGone == null || _gone || !_opened || !mounted) return;
     if (_inputState != CommentComposerInputState.none ||
         _panelReveal.value > 0 ||
-        MediaQuery.viewInsetsOf(context).bottom > 0) {
+        _keyboardUp) {
       return;
     }
     _gone = true;
     onGone();
   }
 
-  /// How much of the composer shows while it stands on a surface: none at
-  /// the bottom, all from half the surface's height up.
+  /// How much of the composer shows while it stands on a surface: none
+  /// with the surface down to the navigation bar, all from half its
+  /// travel above the bar up.
   double _presence(double panelHeight) {
     if (_keyboardAbsent) return 1;
+    final rest = _restInset;
     final carrier = math.max(
       MediaQuery.viewInsetsOf(context).bottom,
       panelHeight * _panelReveal.value,
     );
-    final full = math.max(_keyboardPeak, panelHeight);
-    return (2 * carrier / full).clamp(0.0, 1.0);
+    final travel = math.max(_keyboardPeak, panelHeight) - rest;
+    if (travel <= 0) return 1;
+    return (2 * (carrier - rest) / travel).clamp(0.0, 1.0);
   }
 
   @override
@@ -353,9 +365,9 @@ class CommentComposerState extends State<CommentComposer>
     if (next != CommentComposerInputState.none) _opened = true;
     if (_onSurface &&
         next == CommentComposerInputState.keyboard &&
-        MediaQuery.viewInsetsOf(context).bottom == 0) {
+        !_keyboardUp) {
       _absentWait = Timer(CommentComposer.keyboardWait, () {
-        if (mounted && MediaQuery.viewInsetsOf(context).bottom == 0) {
+        if (mounted && !_keyboardUp) {
           setState(() => _keyboardAbsent = true);
         }
       });
@@ -414,185 +426,195 @@ class CommentComposerState extends State<CommentComposer>
         if (didPop || !mounted) return;
         _enter(CommentComposerInputState.none);
       },
-      child: Material(
-        color: theme.colorScheme.surface,
-        // The bottom slot below takes the bottom inset itself.
-        child: SafeArea(
-          top: false,
-          bottom: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (widget.replyTo != null)
-                Semantics(
-                  // The reply context is one announcement unit — screen
-                  // readers read "Reply to <name>" + the close affordance
-                  // as a single block.
-                  container: true,
-                  child: Container(
-                    width: double.infinity,
-                    // On the page's 16dp margin; the close glyph, not its
-                    // target, ends on it (LAYOUT-15).
-                    padding: const EdgeInsetsDirectional.fromSTEB(
-                      FuncSpacing.lg,
-                      FuncSpacing.sm,
-                      FuncSpacing.lg - EdgeIconButtons.glyphInset,
-                      0,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            context.l10n.labelValue(
-                              context.l10n.commentReplyTo,
-                              widget.replyTo!,
+      // Set off the content above as the bottom bar is (NAV-07); inside
+      // the detail page's fade, so the shadow goes with the composer.
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          boxShadow: FuncSemanticTokens.of(context).barShadow,
+        ),
+        child: Material(
+          color: theme.colorScheme.surface,
+          // The bottom slot below takes the bottom inset itself.
+          child: SafeArea(
+            top: false,
+            bottom: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.replyTo != null)
+                  Semantics(
+                    // The reply context is one announcement unit — screen
+                    // readers read "Reply to <name>" + the close affordance
+                    // as a single block.
+                    container: true,
+                    child: Container(
+                      width: double.infinity,
+                      // On the page's 16dp margin; the close glyph, not its
+                      // target, ends on it (LAYOUT-15).
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                        FuncSpacing.lg,
+                        FuncSpacing.sm,
+                        FuncSpacing.lg - EdgeIconButtons.glyphInset,
+                        0,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              context.l10n.labelValue(
+                                context.l10n.commentReplyTo,
+                                widget.replyTo!,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall,
                           ),
-                        ),
-                        IconButton(
-                          tooltip: context.l10n.commentCancelReply,
-                          onPressed: _disabled ? null : widget.onCancelReply,
-                          icon: const Icon(Icons.close, size: 18),
-                        ),
-                      ],
+                          IconButton(
+                            tooltip: context.l10n.commentCancelReply,
+                            onPressed: _disabled ? null : widget.onCancelReply,
+                            icon: const Icon(Icons.close, size: 18),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              Padding(
-                // The field starts on the page's 16dp margin and the send
-                // glyph ends on it (LAYOUT-15).
-                padding: const EdgeInsetsDirectional.fromSTEB(
-                  FuncSpacing.lg,
-                  FuncSpacing.sm,
-                  FuncSpacing.lg - EdgeIconButtons.glyphInset,
-                  FuncSpacing.sm,
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        focusNode: _focusNode,
-                        minLines: 1,
-                        maxLines: 5,
-                        enabled: !_disabled,
-                        textInputAction: TextInputAction.newline,
-                        onChanged: (text) {
-                          setState(() {});
-                          widget.onChanged?.call(text);
-                        },
-                        decoration: InputDecoration(
-                          hintText: context.l10n.commentInput,
-                          // Not dense: one line stands 48dp, as tall as the
-                          // buttons beside it and the detail page's entry
-                          // pill, its text centred on them.
-                          filled: true,
-                          fillColor: theme.colorScheme.surfaceContainer,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: FuncSpacing.md,
-                            vertical: FuncSpacing.sm,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: FuncShape.pill,
-                            borderSide: BorderSide.none,
+                Padding(
+                  // The field starts on the page's 16dp margin and the send
+                  // glyph ends on it (LAYOUT-15).
+                  padding: const EdgeInsetsDirectional.fromSTEB(
+                    FuncSpacing.lg,
+                    FuncSpacing.sm,
+                    FuncSpacing.lg - EdgeIconButtons.glyphInset,
+                    FuncSpacing.sm,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _controller,
+                          focusNode: _focusNode,
+                          minLines: 1,
+                          maxLines: 5,
+                          enabled: !_disabled,
+                          textInputAction: TextInputAction.newline,
+                          onChanged: (text) {
+                            setState(() {});
+                            widget.onChanged?.call(text);
+                          },
+                          decoration: InputDecoration(
+                            hintText: context.l10n.commentInput,
+                            // Not dense: one line stands 48dp, as tall as the
+                            // buttons beside it and the detail page's entry
+                            // pill, its text centred on them.
+                            filled: true,
+                            fillColor: theme.colorScheme.surfaceContainer,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: FuncSpacing.md,
+                              vertical: FuncSpacing.sm,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: FuncShape.pill,
+                              borderSide: BorderSide.none,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: context.l10n.commentEmoji,
-                      onPressed: _disabled
-                          ? null
-                          : () => _togglePanel(CommentComposerInputState.emoji),
-                      icon: Icon(
-                        Icons.emoji_emotions_outlined,
-                        color: _inputState == CommentComposerInputState.emoji
-                            ? theme.colorScheme.primary
-                            : null,
-                      ),
-                    ),
-                    if (_controller.text.trim().isEmpty)
                       IconButton(
-                        tooltip: context.l10n.commentStamps,
+                        tooltip: context.l10n.commentEmoji,
                         onPressed: _disabled
                             ? null
                             : () =>
-                                  _togglePanel(CommentComposerInputState.stamp),
+                                  _togglePanel(CommentComposerInputState.emoji),
                         icon: Icon(
-                          Icons.image_outlined,
-                          color: _inputState == CommentComposerInputState.stamp
+                          Icons.emoji_emotions_outlined,
+                          color: _inputState == CommentComposerInputState.emoji
                               ? theme.colorScheme.primary
                               : null,
                         ),
                       ),
-                    IconButton(
-                      tooltip: context.l10n.commentSend,
-                      onPressed: _disabled || _controller.text.trim().isEmpty
+                      if (_controller.text.trim().isEmpty)
+                        IconButton(
+                          tooltip: context.l10n.commentStamps,
+                          onPressed: _disabled
+                              ? null
+                              : () => _togglePanel(
+                                  CommentComposerInputState.stamp,
+                                ),
+                          icon: Icon(
+                            Icons.image_outlined,
+                            color:
+                                _inputState == CommentComposerInputState.stamp
+                                ? theme.colorScheme.primary
+                                : null,
+                          ),
+                        ),
+                      IconButton(
+                        tooltip: context.l10n.commentSend,
+                        onPressed: _disabled || _controller.text.trim().isEmpty
+                            ? null
+                            : _sendText,
+                        // While a send is in flight the affordance becomes a
+                        // progress indicator — visible feedback for the
+                        // non-optimistic wait (R6). `_busy` covers the gap
+                        // where the store mutation key reports early false.
+                        icon: _disabled
+                            ? Semantics(
+                                label: context.l10n.commentSending,
+                                child: const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              )
+                            : const Icon(Icons.send_outlined),
+                      ),
+                    ],
+                  ),
+                ),
+                // The one bottom budget: this slot takes the keyboard, or
+                // the navigation bar when no keyboard is up, or a panel at
+                // the keyboard's height, navigation bar included, so the
+                // input row stays put as they swap (the list above is only
+                // compressed, never doubly padded — design 「避让责任唯一」).
+                // A panel rises from the slot's bottom edge like the
+                // keyboard: its top shows first.
+                AnimatedBuilder(
+                  animation: _panelReveal,
+                  // Built per composer build, not per frame of the reveal.
+                  child: _panelBuilt
+                      ? RepaintBoundary(
+                          child: StateFade(
+                            kind: _shownPanel,
+                            child: _buildPanel(context),
+                          ),
+                        )
+                      : null,
+                  builder: (context, panel) {
+                    final reveal = _panelReveal.value;
+                    return SizedBox(
+                      height: math.max(bottomInset, panelHeight * reveal),
+                      child: panel == null
                           ? null
-                          : _sendText,
-                      // While a send is in flight the affordance becomes a
-                      // progress indicator — visible feedback for the
-                      // non-optimistic wait (R6). `_busy` covers the gap
-                      // where the store mutation key reports early false.
-                      icon: _disabled
-                          ? Semantics(
-                              label: context.l10n.commentSending,
-                              child: const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                          : Offstage(
+                              offstage: reveal == 0,
+                              child: ClipRect(
+                                child: OverflowBox(
+                                  alignment: Alignment.topCenter,
+                                  minHeight: panelHeight,
+                                  maxHeight: panelHeight,
+                                  child: panel,
                                 ),
                               ),
-                            )
-                          : const Icon(Icons.send_outlined),
-                    ),
-                  ],
-                ),
-              ),
-              // The one bottom budget: this slot takes the keyboard, or
-              // the navigation bar when no keyboard is up, or a panel at
-              // the keyboard's height, navigation bar included, so the
-              // input row stays put as they swap (the list above is only
-              // compressed, never doubly padded — design 「避让责任唯一」).
-              // A panel rises from the slot's bottom edge like the
-              // keyboard: its top shows first.
-              AnimatedBuilder(
-                animation: _panelReveal,
-                // Built per composer build, not per frame of the reveal.
-                child: _panelBuilt
-                    ? RepaintBoundary(
-                        child: StateFade(
-                          kind: _shownPanel,
-                          child: _buildPanel(context),
-                        ),
-                      )
-                    : null,
-                builder: (context, panel) {
-                  final reveal = _panelReveal.value;
-                  return SizedBox(
-                    height: math.max(bottomInset, panelHeight * reveal),
-                    child: panel == null
-                        ? null
-                        : Offstage(
-                            offstage: reveal == 0,
-                            child: ClipRect(
-                              child: OverflowBox(
-                                alignment: Alignment.topCenter,
-                                minHeight: panelHeight,
-                                maxHeight: panelHeight,
-                                child: panel,
-                              ),
                             ),
-                          ),
-                  );
-                },
-              ),
-            ],
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),

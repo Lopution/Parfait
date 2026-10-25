@@ -77,46 +77,49 @@ void main() {
     expect(tester.getTopLeft(nav).dy, closeTo(shownTop, 0.5));
   });
 
-  testWidgets('bar collapses mid-drag, not on release', (tester) async {
-    await _pumpHome(tester);
-    final nav = find.byType(FuncBottomNav);
-    final shownTop = tester.getTopLeft(nav).dy;
-
-    // Finger still down: a fast frame mid-drag must already slide the bar
-    // out — waiting for release would mean only the ballistic phase
-    // counts. Time is advanced in frames: a single large pump step does
-    // not tick controllers while a pointer is held.
-    final gesture = await tester.startGesture(tester.getCenter(_settingsList));
-    await gesture.moveBy(const Offset(0, -120));
-    await tester.pump();
-    await gesture.moveBy(const Offset(0, -120));
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-    expect(tester.getTopLeft(nav).dy, greaterThan(shownTop));
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_screenHeight));
-  });
-
-  testWidgets('a continuous drag slides the bar out under the finger', (
+  testWidgets('the bar follows a drag and settles at the nearer end', (
     tester,
   ) async {
     await _pumpHome(tester);
     final nav = find.byType(FuncBottomNav);
+    final chrome = HomeShellChrome.of(
+      tester.element(find.byType(MeDashboardPage)),
+    );
+    final extent = chrome.bottomBarExtent;
+    final shownTop = tester.getTopLeft(nav).dy;
+    double moved() => tester.getTopLeft(nav).dy - shownTop;
 
-    // Every frame's move crosses 8 px and asks for the hide again; the
-    // slide must keep its own clock instead of restarting on each ask, so
-    // it finishes within a drag that outlasts MotionTokens.chrome.
-    final gesture = await tester.startGesture(tester.getCenter(_settingsList));
-    await gesture.moveBy(const Offset(0, -20));
-    for (var i = 0; i < 30; i++) {
-      await gesture.moveBy(const Offset(0, -12));
+    // However slow the drag, the bar moves as far as the list does, and
+    // the extent the hero clip and prompts read moves with it.
+    final slow = await tester.startGesture(tester.getCenter(_settingsList));
+    await slow.moveBy(const Offset(0, -20));
+    await tester.pump();
+    final start = moved();
+    for (var i = 0; i < 10; i++) {
+      await slow.moveBy(const Offset(0, -2));
       await tester.pump(const Duration(milliseconds: 16));
     }
-    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_screenHeight));
-    await gesture.up();
+    expect(moved() - start, closeTo(20, 0.01));
+    expect(
+      chrome.bottomBarVisibleExtent.value,
+      closeTo(extent - moved(), 0.01),
+    );
+    // Released short of half way, it comes back.
+    await slow.up();
     await tester.pumpAndSettle();
+    expect(moved(), closeTo(0, 0.5));
+
+    // Past half way, it goes.
+    final far = await tester.startGesture(tester.getCenter(_settingsList));
+    await far.moveBy(const Offset(0, -20));
+    await tester.pump();
+    await far.moveBy(Offset(0, -extent * 0.6));
+    await tester.pump();
+    expect(moved(), lessThan(extent));
+    await far.up();
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_screenHeight));
+    expect(chrome.bottomBarVisibleExtent.value, 0);
   });
 
   testWidgets('edge bounce never toggles the bar', (tester) async {
@@ -149,59 +152,24 @@ void main() {
     expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_screenHeight));
   });
 
-  testWidgets('the shell bar publishes its live visible extent', (
-    tester,
-  ) async {
-    await _pumpHome(tester);
-    final chrome = HomeShellChrome.of(
-      tester.element(find.byType(MeDashboardPage)),
-    );
-    final extent = chrome.bottomBarExtent;
-    expect(extent, greaterThan(0));
-    expect(chrome.bottomBarVisibleExtent.value, closeTo(extent, 0.001));
-
-    // Scrolling down slides the bar out; the published extent shrinks in
-    // step with the animation instead of snapping.
-    await tester.drag(_settingsList, const Offset(0, -200));
-    var sawPartial = false;
-    for (var i = 0; i < 20; i++) {
-      await tester.pump(const Duration(milliseconds: 16));
-      final v = chrome.bottomBarVisibleExtent.value;
-      if (v == 0) break;
-      if (v < extent) sawPartial = true;
-    }
-    expect(sawPartial, isTrue);
-    await tester.pumpAndSettle();
-    expect(chrome.bottomBarVisibleExtent.value, 0);
-
-    await tester.drag(_settingsList, const Offset(0, 120));
-    await tester.pumpAndSettle();
-    expect(chrome.bottomBarVisibleExtent.value, closeTo(extent, 0.001));
-  });
-
-  testWidgets('slow frames and scrolls the user did not make keep the bar', (
+  testWidgets('a wheel tick settles the way it went; other scrolls do not', (
     tester,
   ) async {
     await _pumpHome(tester);
     final nav = find.byType(FuncBottomNav);
     final shownTop = tester.getTopLeft(nav).dy;
 
-    // Frames under 8 px never move the bar, however long the scroll. They
-    // arrive as wheel ticks: a touch drag that slow can never claim the
-    // Scrollable's own 18px slop, and a release inside slop lands as a
-    // *tap* on whatever tile sits under the pointer.
-    // PointerScrollEvent applies its delta directly, no arena.
+    // Each tick is a scroll that rests at once, too short to pass half the
+    // bar: it settles the way the page went.
     final center = tester.getCenter(_settingsList);
-    for (var i = 0; i < 3; i++) {
-      await tester.sendEventToBinding(
-        PointerScrollEvent(position: center, scrollDelta: const Offset(0, 5)),
-      );
-      await tester.pump(const Duration(milliseconds: 60));
-      await tester.sendEventToBinding(
-        PointerScrollEvent(position: center, scrollDelta: const Offset(0, -5)),
-      );
-      await tester.pump(const Duration(milliseconds: 60));
-    }
+    await tester.sendEventToBinding(
+      PointerScrollEvent(position: center, scrollDelta: const Offset(0, 5)),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(nav).dy, greaterThanOrEqualTo(_screenHeight));
+    await tester.sendEventToBinding(
+      PointerScrollEvent(position: center, scrollDelta: const Offset(0, -5)),
+    );
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(nav).dy, closeTo(shownTop, 0.5));
 

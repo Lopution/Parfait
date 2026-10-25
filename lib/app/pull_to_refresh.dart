@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:easy_refresh/easy_refresh.dart';
-import 'package:flutter/gestures.dart' show kMinFlingVelocity;
 import 'package:material_ui/material_ui.dart';
 
 import 'haptics/app_haptics.dart';
@@ -10,12 +9,16 @@ import 'scroll_behavior.dart';
 
 /// The shared pull-to-refresh wrapper used by feed pages.
 ///
-/// EasyRefresh owns the complete scroll/refresh lifecycle. Its header is
-/// clamping, as Android's `SwipeRefreshLayout`: the list stays at its top
-/// and the [MaterialHeader] disc drops over it. A reversed pull retracts
-/// the disc first, then the list starts moving. Inside a NestedScrollView
-/// ([isNested]) the NestedScrollView runs [NestedRefreshOuterPhysics] so
-/// that header retracts before the outer one collapses.
+/// EasyRefresh owns the complete scroll/refresh lifecycle. [MaterialHeader]
+/// runs with `clamping: false` on purpose: clamping pins the indicator while
+/// the user reverses the pull, which leaves the icon stuck on screen while
+/// the list scrolls; without clamping the indicator retracts with the
+/// reverse gesture first, then the list starts moving — the expected
+/// pull-to-refresh behaviour. Inside a NestedScrollView ([isNested])
+/// EasyRefresh 4 only takes a clamping header; the list starts with
+/// [nestedHeader], which pushes it down as far, and the NestedScrollView
+/// runs [NestedRefreshOuterPhysics] so that header retracts before the
+/// outer one collapses.
 class PullToRefresh extends StatefulWidget {
   const PullToRefresh({
     super.key,
@@ -52,6 +55,11 @@ class PullToRefresh extends StatefulWidget {
     );
     return true;
   }
+
+  /// The first sliver of an [isNested] feed's list, where its header shows.
+  /// It takes the header's height, so the list slides down under the tabs
+  /// the way an ordinary feed's list follows the finger.
+  static const nestedHeader = HeaderLocator.sliver(clearExtent: false);
 
   /// Mounted wrappers by the controller of the list they wrap.
   static final _mounted = Expando<_PullToRefreshState>();
@@ -190,14 +198,14 @@ class _PullToRefreshState extends State<PullToRefresh> {
         // now fades in only after a deliberate pull while the underlying
         // trigger/retract state remains owned by EasyRefresh.
         triggerOffset: _triggerOffset,
-        clamping: true,
+        clamping: isNested,
         position: isNested
             ? IndicatorPosition.locator
             : IndicatorPosition.above,
         safeArea: !isNested,
         // This header owns the lifecycle; MaterialHeader below only paints.
-        // Its default 1s hold would keep the header open long after the
-        // 200ms indicator exit — match the painter.
+        // Its default 1s hold would keep the list pulled down over an empty
+        // gap long after the 200ms indicator exit — match the painter.
         processedDuration: indicatorExit,
         builder: (context, state) {
           final revealStart = 36.0;
@@ -219,7 +227,7 @@ class _PullToRefreshState extends State<PullToRefresh> {
               child: MaterialHeader(
                 processedDuration: indicatorExit,
                 triggerOffset: _triggerOffset,
-                clamping: true,
+                clamping: false,
                 position: isNested
                     ? IndicatorPosition.locator
                     : IndicatorPosition.above,
@@ -234,13 +242,16 @@ class _PullToRefreshState extends State<PullToRefresh> {
       // Without onLoad EasyRefresh derives this from ClassicFooter, whose
       // infinite-scroll offset turns hitOver on: a fling then overshoots
       // the end and springs back up while the feed loads its next page.
-      // Clamping, a fling and a drag stop at the end as at the top.
-      notLoadFooter: const NotLoadFooter(hitOver: false, clamping: true),
+      // Off, a fling stops at the end as it does at the top; a drag still
+      // overscrolls both edges.
+      notLoadFooter: const NotLoadFooter(hitOver: false),
       controller: _controller,
       scrollController: widget.scrollController,
       onRefresh: _onRefresh,
       isNested: isNested,
-      scrollBehaviorBuilder: _FeedScrollBehavior.new,
+      scrollBehaviorBuilder: isNested
+          ? _nestedScrollBehavior
+          : _FeedScrollBehavior.new,
       child: const _RefreshContentSlot(),
     );
   }
@@ -266,6 +277,11 @@ class _RefreshContentSlot extends StatelessWidget {
       context.dependOnInheritedWidgetOfExactType<_RefreshContent>()!.content;
 }
 
+ScrollBehavior _nestedScrollBehavior(ScrollPhysics? physics) =>
+    _FeedScrollBehavior(
+      physics == null ? null : _AppFlingPhysics(parent: physics),
+    );
+
 /// EasyRefresh's scroll behavior with the app's mouse scrollbar: its own
 /// shows one on desktop only, so feeds on a tablet with a mouse had none.
 class _FeedScrollBehavior extends ERScrollBehavior {
@@ -273,9 +289,10 @@ class _FeedScrollBehavior extends ERScrollBehavior {
     : super(
         physics == null
             ? const ScrollPhysics()
-            // The refresh and edge behaviour stay EasyRefresh's: it finds
-            // its own physics by walking the parent chain.
-            : _FeedPhysics(parent: physics),
+            // Its _ERScrollPhysics is bouncing too. The refresh, edge and
+            // fling behaviour stay EasyRefresh's: it finds its own physics
+            // by walking the parent chain.
+            : NoDragDeadZonePhysics(parent: physics),
       );
 
   /// A text control in the feed keeps the app's text physics instead of
@@ -284,22 +301,14 @@ class _FeedScrollBehavior extends ERScrollBehavior {
   ScrollPhysics getScrollPhysics(BuildContext context) =>
       textScrollPhysics(context) ?? super.getScrollPhysics(context);
 
-  /// EasyRefresh's own draws no edge effect; the feed takes the app's,
-  /// leaving a drag at the top to the refresh header, and holds semantics
-  /// while it scrolls as every app scrollable does.
+  /// No edge effect, as EasyRefresh's own; the feed holds semantics while
+  /// it scrolls, as every app scrollable does.
   @override
   Widget buildOverscrollIndicator(
     BuildContext context,
     Widget child,
     ScrollableDetails details,
-  ) => ScrollSemanticsHold(
-    child: stretchOverscroll(
-      context,
-      child,
-      details,
-      refreshAtLeadingEdge: true,
-    ),
-  );
+  ) => ScrollSemanticsHold(child: child);
 
   @override
   Widget buildScrollbar(
@@ -314,35 +323,25 @@ class _FeedScrollBehavior extends ERScrollBehavior {
   };
 }
 
-/// EasyRefresh's physics on the app's fling ([FuncScrollPhysics]) and
-/// without its drag dead zone.
+/// EasyRefresh's nested physics with the app's fling.
 ///
-/// Its physics is bouncing: in range a fling runs iOS's friction
-/// ([BouncingScrollSimulation]), takes twice the release speed to start
-/// and carries its speed into the next fling, and a drag holds 3.5 more
-/// pixels past the touch slop, at its start and again after every pause,
-/// which reads as sticky on a slow drag. Android lists fling on
-/// `OverScroller`'s curve, each fling on its own, and follow the finger
-/// once the slop is crossed. Both indicators are
-/// clamping and animate themselves, so the list's simulation only moves
-/// the list; the refresh trigger the simulation call sets off stays
-/// EasyRefresh's. Nested, EasyRefresh already flings with a
-/// [ClampingScrollSimulation], the outer scroll's own.
-class _FeedPhysics extends ScrollPhysics {
-  const _FeedPhysics({required ScrollPhysics super.parent});
+/// Inside a NestedScrollView EasyRefresh 4 flings with a
+/// [ClampingScrollSimulation], while every other list and the profile's
+/// outer scroll fling with [FuncScrollPhysics]. The coordinator runs one
+/// simulation per position, so the two disagree: a light pull-down on a
+/// collapsed profile stops in the feed instead of carrying on to expand
+/// the header. Everything else, including the refresh trigger the
+/// simulation call sets off, stays EasyRefresh's.
+class _AppFlingPhysics extends ScrollPhysics {
+  const _AppFlingPhysics({required ScrollPhysics super.parent});
+
+  static const _fling = FuncScrollPhysics(
+    parent: AlwaysScrollableScrollPhysics(),
+  );
 
   @override
-  _FeedPhysics applyTo(ScrollPhysics? ancestor) =>
-      _FeedPhysics(parent: buildParent(ancestor)!);
-
-  @override
-  double? get dragStartDistanceMotionThreshold => null;
-
-  @override
-  double get minFlingVelocity => kMinFlingVelocity;
-
-  @override
-  double carriedMomentum(double existingVelocity) => 0;
+  _AppFlingPhysics applyTo(ScrollPhysics? ancestor) =>
+      _AppFlingPhysics(parent: buildParent(ancestor)!);
 
   @override
   Simulation? createBallisticSimulation(
@@ -350,21 +349,8 @@ class _FeedPhysics extends ScrollPhysics {
     double velocity,
   ) {
     final simulation = super.createBallisticSimulation(position, velocity);
-    if (simulation is! BouncingScrollSimulation || position.outOfRange) {
-      return simulation;
-    }
-    final tolerance = toleranceFor(position);
-    if (velocity.abs() < tolerance.velocity) return simulation;
-    // At an edge a fling into it ends there, as with ClampingScrollPhysics.
-    if ((velocity > 0 && position.pixels >= position.maxScrollExtent) ||
-        (velocity < 0 && position.pixels <= position.minScrollExtent)) {
-      return null;
-    }
-    return ClampingScrollSimulation(
-      position: position.pixels,
-      velocity: velocity,
-      tolerance: tolerance,
-    );
+    if (simulation is! ClampingScrollSimulation) return simulation;
+    return _fling.createBallisticSimulation(position, velocity);
   }
 }
 

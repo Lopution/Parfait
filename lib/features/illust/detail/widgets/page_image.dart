@@ -54,8 +54,9 @@ class DetailPageImage extends ConsumerStatefulWidget {
   /// does not exist in the feed snapshot yet.
   final bool placeholderOnly;
 
-  /// How far the page's top runs under the detail page's see-through bar;
-  /// the selection badge sits below it.
+  /// How far the image's top runs under the detail page's see-through bar
+  /// (none for an image low in its slot); the selection badge sits below
+  /// it.
   final double overlayTopInset;
 
   /// Height of the sideways-scrolling viewport a page of [aspectRatio] gets
@@ -208,6 +209,7 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
         widget.index == 0 &&
         widget.heroImageUrl != null &&
         isTopSquareThumbnail(widget.heroImageUrl!);
+    final heroCurve = illustHeroCurve(context);
     final image = GestureDetector(
       // Opaque: while the image flies, its Hero is an offstage placeholder
       // that takes no hits, and a tap there must still open the viewer.
@@ -247,7 +249,8 @@ class _DetailPageImageState extends ConsumerState<DetailPageImage> {
               aspectRatio: entity.pageAspectRatioAt(widget.index),
               builder: (panoramaDecodeWidth) => Hero(
                 tag: widget.heroTag,
-                curve: MotionTokens.spatialCurve,
+                curve: heroCurve,
+                reverseCurve: heroCurve,
                 createRectTween: illustHeroRectTween,
                 flightShuttleBuilder: illustHeroFlightShuttleBuilder,
                 child: IllustHeroFlightChild(
