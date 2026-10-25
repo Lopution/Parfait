@@ -45,12 +45,12 @@ The original project is no longer maintained, and direct access to pixiv from ma
 
 ## Features
 
-- **Browse and search**: recommendations and pixivision features; rankings in 21 illustration and 12 novel categories, for any past date, with categories you can reorder or hide; search filters for bookmark count, date and AI-generated works; reverse image search with SauceNAO, IQDB, ascii2d and TinEye.
+- **Browse and search**: recommendations and pixivision features; rankings in 21 illustration and 12 novel categories, for any past date, with categories you can reorder or hide; search completes each keyword and filters by bookmark count, date and AI-generated works; reverse image search with SauceNAO, IQDB, ascii2d and TinEye.
 - **Network and image sources**: network mode Automatic, Direct only or Compatibility-first; the image source is picked by speed on your network, or set to a public mirror such as pixiv.re or your own reverse proxy.
 - **Novels and series**: a reader with adjustable font size and line spacing, and paper, eye-care and night themes; follow manga and novel series; import local TXT novels with automatic encoding detection.
 - **Collections and muting**: bookmarks with tags, follows, watch later and history; mute tags, users or single works, or hide R-18 and AI-generated works locally.
-- **Comments and translation**: emoji and stickers; translate comments and novels with Google Translate, Baidu Translate, Doubao (signed in with your own account) or any OpenAI-compatible endpoint. Text or images go to the service you chose only when you translate or search.
-- **Your setup, on any device**: multiple accounts, and move your login to another device; back up and import settings, mute lists and history; choose the bottom bar pages and the start page; English, 日本語, Русский and 中文, with colours from your wallpaper.
+- **Comments and translation**: comment right on the artwork page, with emoji and stickers; translate comments and novels with Google Translate, Baidu Translate, Doubao (signed in with your own account) or any OpenAI-compatible endpoint. Text or images go to the service you chose only when you translate or search.
+- **Your setup, on any device**: multiple accounts, and move your login to another device; back up and import settings, mute lists and history; choose the bottom bar pages, the start page and the grid density; English, 日本語, Русский and 中文, with colours from your wallpaper.
 
 ## Download
 
@@ -102,7 +102,7 @@ Rust is there because Dart's standard library cannot control the TLS handshake (
    - **ECH (Encrypted Client Hello)**: an encrypted handshake through Cloudflare that hides the real domain inside the encrypted ClientHello;
    - **DoH, then connect**: resolve over encrypted DNS to get an unpoisoned address;
    - **No-SNI handshake**: for pixiv's image servers only (such as `i.pximg.net`), a handshake without the plain-text SNI;
-   - **Plain system connection**: the only method when **Me → Network → Network mode** is **Direct only** (in mainland China you will then usually need your own proxy).
+   - **Plain system connection**: the only method when **Me → Settings → Network → Network mode** is **Direct only** (in mainland China you will then usually need your own proxy).
 
    **Security**: every method has `rustls` verify the full certificate chain and the domain, and no route can turn that off; if the server is not pixiv's, the handshake fails.
 
@@ -118,15 +118,15 @@ Rust is there because Dart's standard library cannot control the TLS handshake (
 <details>
 <summary>Pages or images load slowly or not at all?</summary>
 
-1. Open **Me → Network**, run the **Layered connectivity probe** and switch the network mode as it suggests.
-2. If pages open but images are slow, choose **Auto** or another mirror under **Me → Network → Image source**.
+1. Open **Me → Settings → Network**, run the **Network probe** and switch the network mode as it suggests.
+2. If pages open but images are slow, choose **Auto** or another mirror under **Me → Settings → Network → Image source**.
 
 </details>
 
 <details>
 <summary>Where are downloads saved?</summary>
 
-By default, in the **Parfait** album of your gallery. Under **Me → Download settings → Save location** you can pick a custom album name or any folder through the system folder picker; file name templates are on the same page.
+By default, in the **Parfait** album of your gallery. Under **Me → Settings → Download settings → Save location** you can pick a custom album name or any folder through the system folder picker; file name templates are on the **Download settings** page.
 
 </details>
 
