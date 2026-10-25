@@ -14,11 +14,13 @@ import '../../core/log.dart';
 import '../../core/settings/shared_preferences.dart';
 import '../../l10n/context.dart';
 import '../navigation/home_shell_metrics.dart';
+import '../navigation/route_animation.dart';
 import '../theme/func_semantic_tokens.dart';
 import '../widgets/app_snack_bar.dart';
 import '../widgets/app_top_bar.dart';
 import 'hero_rect_clip.dart';
 import 'motion_tokens.dart';
+import 'page_transitions.dart';
 
 part 'hero_anomaly.dart';
 part 'hero_lifted_bars.dart';
@@ -291,6 +293,22 @@ const _kHomeBottomNavHeight = 80.0;
 /// its width, then shrank a step more in height.
 RectTween illustHeroRectTween(Rect? begin, Rect? end) =>
     MaterialRectCenterArcTween(begin: begin, end: end);
+
+/// The curve of an artwork Hero in the page that opens or leaves (a
+/// flight reads that end's curve), as both its `curve` and `reverseCurve`:
+/// [MotionTokens.spatialCurve] turning where it is with the page's route
+/// ([TurnCurve]), so an image sent back mid-flight goes home from where it
+/// is instead of retracing the opening curve. One per route.
+Curve illustHeroCurve(BuildContext context) {
+  final route = RouteAnimationScope.of(context);
+  if (route == null) return MotionTokens.spatialCurve;
+  return _heroCurves[route] ??= TurnCurve(
+    route,
+    curve: MotionTokens.spatialCurve,
+  );
+}
+
+final _heroCurves = Expando<TurnCurve>();
 
 /// Shared artwork Hero flight.
 ///

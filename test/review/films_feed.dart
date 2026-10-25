@@ -94,9 +94,9 @@ void main() {
       brightness: brightness,
       notes:
           'Cards scroll up under the top bar, then back to the top. The bar '
-          'keeps the page colour throughout; a thin line along its bottom '
-          'edge fades in once content is under it and fades out at the top. '
-          'No tint, no snap.',
+          'keeps the page colour throughout; a shadow cast down from its '
+          'bottom edge, like the bottom bar\'s cast up, fades in once '
+          'content is under it and fades out at the top. No tint, no snap.',
       script: (film, router) async {
         await film.swipe(
           find.text('illust 1002'),

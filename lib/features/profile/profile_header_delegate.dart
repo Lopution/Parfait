@@ -902,7 +902,7 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
   final ValueChanged<int> onTabTap;
 
   /// Whether a tab's content has scrolled under the strip. The strip is
-  /// the page's top edge then, and shows the top bar's edge line.
+  /// the page's top edge then, and casts the top bar's shadow.
   final bool scrolled;
 
   @override
@@ -917,22 +917,18 @@ class ReplicaProfileTabsDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return Material(
-      key: const ValueKey('profile-tabs'),
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: SizedBox(
-        height: kToolbarHeight,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            AppTabBar(controller: controller, onTap: onTabTap, labels: labels),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: ScrollEdgeLine(visible: scrolled),
-            ),
-          ],
+    return ScrollEdgeShadow(
+      visible: scrolled,
+      child: Material(
+        key: const ValueKey('profile-tabs'),
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: SizedBox(
+          height: kToolbarHeight,
+          child: AppTabBar(
+            controller: controller,
+            onTap: onTabTap,
+            labels: labels,
+          ),
         ),
       ),
     );
