@@ -244,9 +244,13 @@ reviewed: 2026-10-14
   `CHANGELOG.md`. User decision: an independent `codex review --base main`
   is suggested for high-risk PRs (network and TLS, credentials and
   accounts, persistence and migrations, downloads, release and signing,
-  CI workflows) and never required. Each finding is fixed or answered in
-  the PR's "Independent review" section.
+  CI workflows) and never required. CodeRabbit (free for public
+  repositories, configured in `.coderabbit.yaml`) comments on every
+  non-draft PR; it only advises: it is not a required check, does not edit
+  the description and does not commit. Each finding, from either review,
+  is fixed or answered in the PR's "Independent review" section or its
+  thread.
 - **Why:** One agent wrote, checked and merged every change; the first
   review caught a cross-account replay the tests had missed.
 - **Check:** manual
-- **Code:** `.github/pull_request_template.md`
+- **Code:** `.github/pull_request_template.md`, `.coderabbit.yaml`
