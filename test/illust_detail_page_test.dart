@@ -282,7 +282,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      Text caption() => tester.widget<Text>(find.textContaining('line 0'));
+      // Collapsed, the caption is painted twice; the first copy is whole.
+      Text caption() =>
+          tester.widget<Text>(find.textContaining('line 0').first);
       expect(caption().maxLines, InfoBlock.captionLines);
       await tester.tap(find.text('展开'));
       await tester.pumpAndSettle();

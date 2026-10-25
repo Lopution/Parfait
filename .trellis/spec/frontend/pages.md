@@ -126,10 +126,15 @@ reviewed: 2026-10-17
 
 ### PAGE-08 Long user text uses ExpandableText
 - **Rule:** Captions and descriptions use `ExpandableText`; text that fits
-  shows no toggle, and links stay tappable while collapsed.
+  shows no toggle, and links stay tappable while collapsed. Collapsed,
+  "Show more" ends the last line, which fades out before it, and a tap
+  anywhere on the text expands it; the text is one node with an expanded
+  state. Expanded, "Show less" sits under the text. The fade masks the
+  text itself, never a painted ground, so it works on any surface.
 - **Why:** Hand-rolled folds showed a toggle on short text and broke
-  links.
-- **Check:** `test/expandable_text_test.dart` "a link stays tappable while collapsed"
+  links. A toggle on its own line under the text cost a line and was the
+  only target (user decision 10-25).
+- **Check:** `test/expandable_text_test.dart` "long text collapses to maxLines and expands on demand" "a link stays tappable while collapsed"
 - **Code:** `lib/app/widgets/expandable_text.dart`
 
 ### PAGE-09 Translations are transient and share one entry

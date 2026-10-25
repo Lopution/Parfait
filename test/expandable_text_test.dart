@@ -12,14 +12,13 @@ Widget _host(Widget child) => localizedApp(
 
 final _long = List.filled(40, 'a long caption line').join(' ');
 
-RichText _text(WidgetTester tester) => tester.widget<RichText>(
-  find
-      .descendant(
-        of: find.byType(ExpandableText),
-        matching: find.byType(RichText),
-      )
-      .first,
-);
+// Collapsed, the text is painted twice; the first copy is the unmasked one.
+Finder get _lines => find
+    .descendant(
+      of: find.byType(ExpandableText),
+      matching: find.byType(RichText),
+    )
+    .first;
 
 void main() {
   testWidgets('long text collapses to maxLines and expands on demand', (
@@ -30,21 +29,37 @@ void main() {
       _host(ExpandableText(TextSpan(text: _long), maxLines: 3)),
     );
 
-    expect(_text(tester).maxLines, 3);
-    expect(_text(tester).overflow, TextOverflow.ellipsis);
-    expect(find.text('展开'), findsOneWidget);
+    expect(tester.widget<RichText>(_lines).maxLines, 3);
+    // "Show more" ends the last line instead of adding one under it.
+    final block = tester.getRect(find.byType(ExpandableText));
+    expect(block.height, tester.getSize(_lines).height);
+    expect(tester.getRect(find.text('展开')).right, block.right);
     expect(
-      tester.getSemantics(find.byType(TextButton)),
-      isSemantics(isButton: true, hasExpandedState: true, isExpanded: false),
+      tester.getRect(find.text('展开')).bottom,
+      lessThanOrEqualTo(block.bottom),
     );
-    final collapsedHeight = tester.getSize(find.byType(ExpandableText)).height;
+    expect(
+      tester.getSemantics(
+        find.descendant(
+          of: find.byType(ExpandableText),
+          matching: find.byType(InkWell),
+        ),
+      ),
+      isSemantics(
+        hasExpandedState: true,
+        isExpanded: false,
+        hasTapAction: true,
+        onTapHint: '展开',
+      ),
+    );
 
-    await tester.tap(find.text('展开'));
+    // A tap anywhere on the text expands it.
+    await tester.tapAt(block.topLeft + const Offset(4, 4));
     await tester.pumpAndSettle();
-    expect(_text(tester).maxLines, isNull);
+    expect(tester.widget<RichText>(_lines).maxLines, isNull);
     expect(
       tester.getSize(find.byType(ExpandableText)).height,
-      greaterThan(collapsedHeight),
+      greaterThan(block.height),
     );
     expect(
       tester.getSemantics(find.byType(TextButton)),
@@ -54,8 +69,8 @@ void main() {
     await tester.ensureVisible(find.text('收起'));
     await tester.tap(find.text('收起'));
     await tester.pumpAndSettle();
-    expect(_text(tester).maxLines, 3);
-    expect(tester.getSize(find.byType(ExpandableText)).height, collapsedHeight);
+    expect(tester.widget<RichText>(_lines).maxLines, 3);
+    expect(tester.getSize(find.byType(ExpandableText)).height, block.height);
     semantics.dispose();
   });
 
@@ -78,7 +93,9 @@ void main() {
     );
     expect(find.text('展开'), findsOneWidget);
 
-    await tester.tapOnText(find.textRange.ofSubstring('link'));
+    await tester.tapOnText(find.textRange.ofSubstring('link').first);
+    await tester.pumpAndSettle();
     expect(taps, 1);
+    expect(find.text('展开'), findsOneWidget);
   });
 }
