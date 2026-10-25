@@ -1,34 +1,33 @@
 import 'package:flutter/rendering.dart' show ScrollDirection;
-import 'package:flutter/scheduler.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'motion_tokens.dart';
 
-/// Turns the vertical scroll of one page into hide/show calls for chrome
-/// that gets out of the way while reading — the shell's bottom bar, the
-/// detail page's action bar — on Shaft's rule: a frame that scrolls more
-/// than [framePhysicalPixels] down hides, up shows.
+/// Moves chrome that gets out of the way while reading — the shell's bottom
+/// bar, the detail page's action bar — with the vertical scroll of one
+/// page, as Material 3's `exitAlways` bars do: the chrome slides as far as
+/// the page scrolls, out going down and back going up, and once the scroll
+/// rests, chrome left part way settles at an end.
 ///
 /// Only the user's own scrolling counts: a drag and the fling it releases
 /// into, a wheel. Programmatic scrolls (scroll-to-top, restoring a
-/// position) leave the chrome alone. Only depth-0 vertical updates count, so a nested
-/// horizontal strip or a carousel never moves the chrome either, and
-/// overscroll (a bounce, a stretch) is not reading direction.
+/// position) leave the chrome alone. Only depth-0 vertical updates count,
+/// so a nested horizontal strip or a carousel never moves the chrome
+/// either, and overscroll (a bounce) is not reading direction.
 class ScrollHideTracker {
-  /// Shaft's `dy > 8` per `onScrolled` call: one frame's scroll, in
-  /// physical pixels.
-  static const framePhysicalPixels = 8.0;
-
   bool _userScroll = false;
-  double? _lastPixels;
+  bool _dragged = false;
+  double _lastDelta = 0;
   BuildContext? _lastScrollable;
-  Duration? _frame;
-  double _frameDelta = 0;
 
-  /// True to hide, false to show, null to leave the chrome as it is.
+  /// Slides [visibility] (1 shown, 0 hidden), which moves the chrome
+  /// [travel] logical pixels end to end, by [notification]'s scroll.
+  /// Returns where the chrome should settle once the user's scroll rests:
+  /// true hidden, false shown; null otherwise.
   bool? update(
-    ScrollNotification notification, {
-    required double devicePixelRatio,
+    ScrollNotification notification,
+    AnimationController visibility, {
+    required double travel,
   }) {
     if (notification.depth != 0) return null;
     final metrics = notification.metrics;
@@ -37,64 +36,80 @@ class ScrollHideTracker {
     }
     if (!identical(notification.context, _lastScrollable)) {
       _lastScrollable = notification.context;
-      _lastPixels = null;
       _userScroll = false;
     }
-    final pixels = metrics.pixels.clamp(
-      metrics.minScrollExtent,
-      metrics.maxScrollExtent,
-    );
-    final last = _lastPixels;
-    _lastPixels = pixels;
     switch (notification) {
       // The position reports a user direction from a drag's first move,
       // or a wheel tick, until it comes to rest — through the fling a
       // drag releases into. animateTo and jumpTo leave it idle.
       case UserScrollNotification(:final direction):
-        _userScroll = direction != ScrollDirection.idle;
-        _frame = null;
+        final scrolling = direction != ScrollDirection.idle;
+        if (scrolling == _userScroll) return null;
+        _userScroll = scrolling;
+        if (scrolling) {
+          _dragged = false;
+          _lastDelta = 0;
+          return null;
+        }
+        return _settle(visibility);
+      case ScrollUpdateNotification(:final scrollDelta?, :final dragDetails)
+          when _userScroll && travel > 0:
+        if (dragDetails != null) _dragged = true;
+        final delta =
+            _inRange(metrics, metrics.pixels) -
+            _inRange(metrics, metrics.pixels - scrollDelta);
+        if (delta == 0) return null;
+        _lastDelta = delta;
+        final shown = (visibility.value - delta / travel).clamp(0.0, 1.0);
+        if (shown != visibility.value) visibility.value = shown;
         return null;
-      case ScrollUpdateNotification() when _userScroll && last != null:
-        break;
       default:
         return null;
     }
-    // Several pointer moves can land between two frames; they add up to
-    // that frame's scroll.
-    final frame = SchedulerBinding.instance.currentSystemFrameTimeStamp;
-    if (frame != _frame) {
-      _frame = frame;
-      _frameDelta = 0;
-    }
-    _frameDelta += pixels - last;
-    if (_frameDelta.abs() * devicePixelRatio <= framePhysicalPixels) {
-      return null;
-    }
-    return _frameDelta > 0;
+  }
+
+  /// [pixels] within [metrics]' extent: the part of a scroll past an edge
+  /// does not move the chrome.
+  static double _inRange(ScrollMetrics metrics, double pixels) =>
+      pixels.clamp(metrics.minScrollExtent, metrics.maxScrollExtent);
+
+  /// The end chrome settles at when the user's scroll rests: the nearer
+  /// one after a drag, the way it went after wheel ticks, each of which
+  /// rests at once. None if it did not move, or if something else has
+  /// sent it on its way since.
+  bool? _settle(Animation<double> visibility) {
+    if (_lastDelta == 0 || visibility.isAnimating) return null;
+    return _dragged ? visibility.value < 0.5 : _lastDelta > 0;
   }
 }
 
-/// Moves chrome driven by [visibility] (1 shown, 0 hidden) toward
-/// [hidden] on [MotionTokens.chrome]; at once under reduced
-/// motion. A call that matches where it is already heading does nothing.
+/// Settles chrome driven by [visibility] (1 shown, 0 hidden) at the end
+/// [hidden] names, on [MotionTokens.chromeCurve], over its share of
+/// [visibility]'s duration from where it is; at once under reduced
+/// motion. A call that matches where it is or is already heading does
+/// nothing.
 void slideChrome(
   BuildContext context,
   AnimationController visibility, {
   required bool hidden,
 }) {
-  if (visibility.status.isForwardOrCompleted != hidden) return;
+  final target = hidden ? 0.0 : 1.0;
+  if (visibility.isAnimating
+      ? visibility.status.isForwardOrCompleted != hidden
+      : visibility.value == target) {
+    return;
+  }
   if (!MotionTokens.enabled(context)) {
-    visibility.value = hidden ? 0 : 1;
+    visibility.value = target;
   } else if (hidden) {
-    visibility.reverse();
+    visibility.animateBack(target, curve: MotionTokens.chromeCurve);
   } else {
-    visibility.forward();
+    visibility.animateTo(target, curve: MotionTokens.chromeCurve);
   }
 }
 
-/// Chrome at the screen bottom that [slideChrome] hides: it slides down by
-/// its own height and fades out together, on
-/// [MotionTokens.chromeCurve].
+/// Chrome at the screen bottom that [ScrollHideTracker] and [slideChrome]
+/// move: it slides down by its own height and fades out at the end.
 class ScrollHiddenChrome extends StatelessWidget {
   const ScrollHiddenChrome({
     super.key,
@@ -102,21 +117,27 @@ class ScrollHiddenChrome extends StatelessWidget {
     required this.child,
   });
 
-  /// 1 shown, 0 hidden; linear — the curve is applied here.
+  /// 1 shown, 0 hidden. The chrome moves linearly with it, so it follows
+  /// a scroll pixel for pixel; [slideChrome] puts the curve on the value.
   final Animation<double> visibility;
   final Widget child;
 
-  /// How much of the chrome shows at [visibility]'s current value.
-  static double shownOf(Animation<double> visibility) =>
-      MotionTokens.chromeCurve.transform(visibility.value);
+  /// The share of the way out over which chrome fades, at the hidden end.
+  /// Opaque while it moves, it never lets the page show through while a
+  /// finger holds it part way; the fade takes the shadow it casts up with
+  /// it once it is all but out.
+  static const _fade = Interval(0, 0.25);
+
+  /// The opacity of chrome at [visibility].
+  static Animation<double> opacityOf(Animation<double> visibility) =>
+      visibility.drive(CurveTween(curve: _fade));
 
   @override
   Widget build(BuildContext context) {
-    final shown = visibility.drive(CurveTween(curve: MotionTokens.chromeCurve));
     return FadeTransition(
-      opacity: shown,
+      opacity: opacityOf(visibility),
       child: SlideTransition(
-        position: shown.drive(
+        position: visibility.drive(
           Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero),
         ),
         child: child,

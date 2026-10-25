@@ -251,10 +251,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     vsync: this,
     value: widget.heroImageUrl == null ? 1 : 0,
   );
-  late final CurvedAnimation _barCurve = CurvedAnimation(
-    parent: _barVisibility,
-    curve: MotionTokens.chromeCurve,
-  );
   final _scrollHide = ScrollHideTracker();
 
   /// Whether the in-place comment composer is up ([DetailCommentLayer]).
@@ -396,7 +392,8 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     if (_touchExploration || _downloadMode || _composing) return false;
     final hide = _scrollHide.update(
       notification,
-      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+      _barVisibility,
+      travel: DetailActionBar.restingExtent(context),
     );
     if (hide != null) slideChrome(context, _barVisibility, hidden: hide);
     return false;
@@ -461,7 +458,6 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     _narrowScroll.dispose();
     _topVisiblePage.dispose();
     _pagesToggleOnScreen.dispose();
-    _barCurve.dispose();
     _barVisibility.dispose();
     _immersion.dispose();
     _routeAnimation?.removeStatusListener(_onRouteStatus);
@@ -1078,7 +1074,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       child: HeroChrome(
         child: DetailActionBar(
           entity: entity,
-          visibility: _barCurve,
+          visibility: _barVisibility,
           onDownload: () => unawaited(_downloadAll(entity)),
         ),
       ),

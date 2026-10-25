@@ -114,18 +114,22 @@ reviewed: 2026-10-17
   rebuilding. No consumer measures or copies the bar geometry.
 - **Why:** Post-layout measurement put the Hero landing clip and spacers a
   frame late.
-- **Check:** `test/func_bottom_nav_test.dart` "the shell bar publishes its live visible extent"
+- **Check:** `test/func_bottom_nav_test.dart` "the bar follows a drag and settles at the nearer end"
 - **Code:** `lib/app/navigation/home_shell_metrics.dart`
 
-### NAV-09 Only the user's own scrolling hides the bar
-- **Rule:** The bar hides when one frame's user scroll exceeds 8 physical
-  pixels down and shows on the same going up. Programmatic scrolls
-  (`animateTo`, `jumpTo`, restored offsets), overscroll, bounces and
-  nested horizontal strips never move it. Only the current branch's root
-  page drives it; a branch switch brings it back. The detail action bar
-  uses the same tracker.
-- **Why:** Edge bounces and scroll-to-top toggled the bar.
-- **Check:** `test/func_bottom_nav_test.dart` "edge bounce never toggles the bar" "slow frames and scrolls the user did not make keep the bar"
+### NAV-09 The bar follows the user's own scrolling
+- **Rule:** The bar moves pixel for pixel with the user's own scroll of
+  the current branch's root page, out going down and back going up. Once
+  the scroll rests, a bar left part way settles at the nearer end after a
+  drag, the way the page went after a wheel tick. Programmatic scrolls
+  (`animateTo`, `jumpTo`, restored offsets), overscroll and nested
+  horizontal strips never move it; a branch switch brings it back. The
+  detail action bar follows its page the same way.
+- **Why:** Edge bounces and scroll-to-top toggled the bar. Shaft's rule,
+  a frame past 8 physical pixels, gated on speed: a slow scroll never
+  moved it. The user chose Material 3's `exitAlways` follow (user
+  decision 10-24).
+- **Check:** `test/func_bottom_nav_test.dart` "edge bounce never toggles the bar" "the bar follows a drag and settles at the nearer end" "a wheel tick settles the way it went; other scrolls do not", `test/illust_detail_actions_test.dart` "the action bar follows a drag and settles at the nearer end"
 - **Code:** `lib/app/motion/scroll_hide.dart`
 
 ### NAV-10 Pushed pages cover the bar
