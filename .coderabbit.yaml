@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit advises on every pull request and never blocks or commits
+# (spec REL-16). The project's rules live in .trellis/spec/.
+language: zh-CN
+tone_instructions: >-
+  Be brief. Report only what is worth changing: bugs, regressions, security,
+  missed edge cases, tests that do not test what they claim. Skip style nits.
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  # The pull request description feeds CHANGELOG.md; leave it as written.
+  high_level_summary: false
+  sequence_diagrams: false
+  in_progress_fortune: false
+  suggested_labels: false
+  suggested_reviewers: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!lib/l10n/app_localizations*.dart"
+    - "!**/*.freezed.dart"
+    - "!**/*.g.dart"
+    - "!**/frb_generated*"
+  path_instructions:
+    - path: "test/**"
+      instructions: >-
+        Test code is capped at 0.6 times the lib code (spec TEST-05): do not
+        ask for tests of colour, spacing, order or copy. The system under
+        test always runs for real; only network, disk, clock and
+        third-party boundaries may be faked.
+    - path: "CHANGELOG.md"
+      instructions: >-
+        Written for users in Chinese and English, following Keep a
+        Changelog; check that each entry matches the app's wording.
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+    title:
+      mode: warning
+      requirements: >-
+        Conventional Commits, matching the commit messages, e.g.
+        "fix(network): keep the bootstrap tier to image hosts".
+  # Commits from the bot would break the single-author rule, and generated
+  # tests the test budget.
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+    autofix:
+      enabled: false
+    fix_ci:
+      enabled: false
+    resolve_merge_conflict:
+      enabled: false
+  tools:
+    languagetool:
+      enabled: false
+    markdownlint:
+      enabled: false
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - ".trellis/spec/**/*.md"
+      - "docs/design-language.md"
