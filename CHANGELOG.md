@@ -25,6 +25,8 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 应用在下载途中被关闭，没写完的文件不会被清理。
 - 应用重启后接着下载更新时，点「取消」不起作用，下完照样打开安装界面；下得很快时还会一直停在「正在下载并验证…」。
 - 网络连接中途卡住时，下载可能一直停在进行中，「分层连通性探测」也会一直停在检测中。
+- 个别图片加载失败后会一直失败，重试或重新打开都不行，只能清除缓存。
+- 图片源为「自动」并已测出镜像时，评论里的贴图和未设头像用户的默认头像显示不出来。
 
 ### Changed
 
@@ -45,6 +47,8 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - Unfinished files from a download cut short by closing the app were never cleaned up.
 - An update download continued after restarting the app ignored Cancel and still opened the installer once finished, and could stay on "Downloading and verifying…" if it finished quickly.
 - When a connection stalled midway, a download could hang forever, and so could the network probe.
+- An image that failed to load once could keep failing, through retries and reopening, until the cache was cleared.
+- With the image source on Auto and a mirror picked, stamps in comments and the default avatar of users without one did not load.
 
 ## [1.0.0] - 2026-10-25
 

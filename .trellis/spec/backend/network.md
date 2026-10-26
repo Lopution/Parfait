@@ -6,7 +6,8 @@ applies_to:
   - lib/core/download/*transport*.dart
   - lib/core/image/image_worker_host.dart
   - lib/core/platform/local_network.dart
-reviewed: 2026-10-14
+  - lib/core/settings/image_mirror.dart
+reviewed: 2026-10-26
 ---
 
 # Network policy, auth and transfers
@@ -34,10 +35,14 @@ reviewed: 2026-10-14
 - **Rule:** `PixivDestinationRegistry` accepts only exact ASCII HTTPS Pixiv
   hosts for their purpose; userinfo, fragments, IP literals, trailing dots,
   IDN input and non-443 ports are rejected before any request. Resolved
-  candidates must be public addresses.
-- **Why:** A suffix match would have sent tokens to `evil.pixiv.net`.
-- **Check:** `test/restricted_compat_network_test.dart` "destination registry accepts only canonical Pixiv hosts and purposes" "policy rejects private addresses from an injected resolver"
-- **Code:** `lib/core/network/compat/network_contracts.dart`
+  candidates must be public addresses. An image source's allowlist holds
+  every host it rewrites to; the auto source's holds each candidate and
+  its preset's `s.` host, whichever wins.
+- **Why:** A suffix match would have sent tokens to `evil.pixiv.net`. The
+  auto allowlist once held only the `i.` hosts, so avatars rewritten to
+  a winner's `s.` host were refused.
+- **Check:** `test/restricted_compat_network_test.dart` "destination registry accepts only canonical Pixiv hosts and purposes" "policy rejects private addresses from an injected resolver", `test/image_mirror_test.dart` "every winner rewrites to hosts the auto allowlist admits"
+- **Code:** `lib/core/network/compat/network_contracts.dart`, `lib/core/settings/image_mirror.dart`
 
 ### NET-03 Tier order per destination group
 - **Rule:** In automatic mode the cold order is:

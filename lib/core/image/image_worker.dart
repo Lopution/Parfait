@@ -132,6 +132,11 @@ class ImageWorker implements ImageFetcher {
     }
   }
 
+  /// A worker that died since the fetch leaves the file; the next failed
+  /// decode drops it through the replacement.
+  @override
+  void discard(String url) => _live?.discard(url);
+
   /// [url]'s file in the worker's disk cache, or null on a miss; never
   /// fetches it. Starts the worker like [fetch]: a lookup comes right
   /// before an image is needed (a download, a widget refresh), and a cold

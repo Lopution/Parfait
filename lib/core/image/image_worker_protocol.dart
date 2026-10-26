@@ -134,9 +134,12 @@ class ImageWorkerUnavailable implements Exception {
 }
 
 /// What an image provider needs from the worker: the committed file for a
-/// URL.
+/// URL, and a way to drop one that does not decode.
 abstract interface class ImageFetcher {
   Future<FetchResult> fetch(String url, {required ImageFetchPriority priority});
+
+  /// Drops [url]'s file from the disk cache: the next fetch downloads it.
+  void discard(String url);
 }
 
 /// A point-in-time view of the worker's queue and disk cache, for the
@@ -239,6 +242,12 @@ class LookupMessage extends WorkerMessage {
   final String url;
 }
 
+/// Drops [url]'s file from the disk cache.
+class DiscardMessage extends WorkerMessage {
+  const DiscardMessage(this.url);
+  final String url;
+}
+
 /// Parses a raw wire map; unknown shapes throw so a protocol drift is loud.
 WorkerMessage decodeWorkerMessage(Object? raw) {
   if (raw is! Map) throw StateError('worker message is not a map: $raw');
@@ -265,6 +274,8 @@ WorkerMessage decodeWorkerMessage(Object? raw) {
       return WatchMessage(raw['url'] as String, watching: raw['on'] as bool);
     case 'lookup':
       return LookupMessage(raw['id'] as int, raw['url'] as String);
+    case 'discard':
+      return DiscardMessage(raw['url'] as String);
     case 'routes':
       return RoutesMessage(raw['id'] as int);
   }
@@ -298,6 +309,11 @@ Map<String, Object?> encodeRoutesRequest(int id) => {
 Map<String, Object?> encodeLookup(int id, String url) => {
   'type': 'lookup',
   'id': id,
+  'url': url,
+};
+
+Map<String, Object?> encodeDiscard(String url) => {
+  'type': 'discard',
   'url': url,
 };
 
