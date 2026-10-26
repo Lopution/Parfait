@@ -589,89 +589,130 @@ class _IdleGuardStream extends Stream<List<int>> {
     Function? onError,
     void Function()? onDone,
     bool? cancelOnError,
-  }) {
-    Timer? timer;
-    late StreamSubscription<List<int>> sub;
-    void emitError(Object error, StackTrace stack) {
-      final handler = onError;
-      if (handler is void Function(Object, StackTrace)) {
-        handler(error, stack);
-      } else if (handler is void Function(Object)) {
-        handler(error);
-      }
-    }
-
-    void rearm() {
-      timer?.cancel();
-      // The idle budget is wall-clock semantics, so the timer is rooted in
-      // the real zone: a fake-zone timer (widget tests) would stay pending
-      // for any stream still draining at teardown, and in production there
-      // is no fake zone anyway.
-      timer = Zone.root.createTimer(idle, () {
-        emitError(
-          TimeoutException('response stream idle', idle),
-          StackTrace.current,
-        );
-        unawaited(sub.cancel());
-      });
-    }
-
-    sub = _source.listen(
-      (event) {
-        rearm();
-        onData?.call(event);
-      },
-      onError: (Object error, StackTrace stack) {
-        timer?.cancel();
-        emitError(error, stack);
-      },
-      onDone: () {
-        timer?.cancel();
-        onDone?.call();
-      },
-      cancelOnError: cancelOnError,
-    );
-    rearm();
-    // Cancelling the returned subscription must also stop the idle
-    // timer — an abandoned body (raced loser drained late, caller gone)
-    // would otherwise leak a pending timer until it fires.
-    return _GuardedSubscription(sub, () => timer?.cancel());
-  }
+  }) => _IdleGuardSubscription(
+    _source,
+    idle,
+    onData: onData,
+    onError: onError,
+    onDone: onDone,
+    cancelOnError: cancelOnError ?? false,
+  );
 }
 
-class _GuardedSubscription implements StreamSubscription<List<int>> {
-  _GuardedSubscription(this._inner, this._onCancel);
+/// Holds the handlers itself, so the ones set after `listen` — `asFuture`
+/// (behind `drain`) or `onError` — still see the idle timeout. Forwarding them to the source subscription left `drain()` on a
+/// stalled body waiting forever.
+class _IdleGuardSubscription implements StreamSubscription<List<int>> {
+  _IdleGuardSubscription(
+    Stream<List<int>> source,
+    this._idle, {
+    required void Function(List<int> event)? onData,
+    required Function? onError,
+    required void Function()? onDone,
+    required bool cancelOnError,
+  }) : _onData = onData,
+       _onError = onError,
+       _onDone = onDone,
+       _cancelOnError = cancelOnError {
+    _source = source.listen(_data, onError: _sourceError, onDone: _done);
+    _rearm();
+  }
 
-  final StreamSubscription<List<int>> _inner;
-  final void Function() _onCancel;
+  /// The listener's zone: the idle timer runs in the root zone.
+  final Zone _zone = Zone.current;
+  final Duration _idle;
+  final bool _cancelOnError;
+  late final StreamSubscription<List<int>> _source;
+  void Function(List<int> event)? _onData;
+  Function? _onError;
+  void Function()? _onDone;
+  Timer? _timer;
 
+  void _data(List<int> event) {
+    _rearm();
+    _onData?.call(event);
+  }
+
+  void _sourceError(Object error, StackTrace stack) {
+    if (_cancelOnError) {
+      _timer?.cancel();
+      unawaited(_source.cancel());
+    } else {
+      // The body goes on after the error; so does its idle budget.
+      _rearm();
+    }
+    _error(error, stack);
+  }
+
+  /// Like any subscription, an error without a handler is the zone's.
+  void _error(Object error, StackTrace stack) {
+    final handler = _onError;
+    if (handler is void Function(Object, StackTrace)) {
+      handler(error, stack);
+    } else if (handler is void Function(Object)) {
+      handler(error);
+    } else {
+      _zone.handleUncaughtError(error, stack);
+    }
+  }
+
+  void _done() {
+    _timer?.cancel();
+    _onDone?.call();
+  }
+
+  void _rearm() {
+    _timer?.cancel();
+    // The idle budget is wall-clock semantics, so the timer is rooted in
+    // the real zone: a fake-zone timer (widget tests) would stay pending
+    // for any stream still draining at teardown, and in production there
+    // is no fake zone anyway.
+    _timer = Zone.root.createTimer(_idle, () {
+      unawaited(_source.cancel());
+      _error(
+        TimeoutException('response stream idle', _idle),
+        StackTrace.current,
+      );
+    });
+  }
+
+  /// Also stops the idle timer: an abandoned body (raced loser drained
+  /// late, caller gone) would otherwise leak a pending timer until it fires.
   @override
   Future<void> cancel() {
-    _onCancel();
-    return _inner.cancel();
+    _timer?.cancel();
+    return _source.cancel();
   }
 
   @override
   void onData(void Function(List<int> event)? handleData) =>
-      _inner.onData(handleData);
+      _onData = handleData;
 
   @override
-  void onError(Function? handleError) => _inner.onError(handleError);
+  void onError(Function? handleError) => _onError = handleError;
 
   @override
-  void onDone(void Function()? handleDone) => _inner.onDone(handleDone);
+  void onDone(void Function()? handleDone) => _onDone = handleDone;
 
   @override
-  void pause([Future<void>? resumeSignal]) => _inner.pause(resumeSignal);
+  void pause([Future<void>? resumeSignal]) => _source.pause(resumeSignal);
 
   @override
-  void resume() => _inner.resume();
+  void resume() => _source.resume();
 
   @override
-  bool get isPaused => _inner.isPaused;
+  bool get isPaused => _source.isPaused;
 
   @override
-  Future<E> asFuture<E>([E? futureValue]) => _inner.asFuture(futureValue);
+  Future<E> asFuture<E>([E? futureValue]) {
+    final result = Completer<E>();
+    _onDone = () => result.complete(futureValue as E);
+    _onError = (Object error, StackTrace stack) {
+      unawaited(cancel());
+      result.completeError(error, stack);
+    };
+    return result.future;
+  }
 }
 
 enum _RouteGroup { cloudflare, image, imageMirror }

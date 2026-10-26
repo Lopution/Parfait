@@ -113,15 +113,19 @@ class NeverSendClient extends http.BaseClient {
 
 /// Emits [bytes] of body then stalls forever — a mid-body connection stall.
 class StallClient extends http.BaseClient {
-  StallClient([this.bytes = 1]);
+  StallClient([this.bytes = 1, this.error]);
 
   final int bytes;
+
+  /// Sent after the bytes, without ending the body.
+  final Object? error;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     return http.StreamedResponse(
       Stream<List<int>>.multi((controller) {
         controller.add(List.filled(bytes, 1));
+        if (error case final error?) controller.addError(error);
       }),
       200,
       request: request,

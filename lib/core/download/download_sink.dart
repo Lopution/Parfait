@@ -530,6 +530,7 @@ class DestinationAwareSinkFactory
         DownloadSinkFactory,
         OwnedDownloadSinkFactory,
         ResumableDownloadSinkFactory,
+        RecoverableDownloadSinkFactory,
         RawDownloadSinkFactory {
   DestinationAwareSinkFactory({
     required MediaStoreSinkFactory mediaStore,
@@ -595,6 +596,15 @@ class DestinationAwareSinkFactory
       destination: destination,
     );
   }
+
+  /// Pending rows are MediaStore's; SAF output has no orphan scan.
+  @override
+  Future<List<PendingMediaStoreItem>> listPending() =>
+      _mediaStore.listPending();
+
+  @override
+  Future<bool> cleanupPending(int id, {required DownloadOutputOwner owner}) =>
+      _mediaStore.cleanupPending(id, owner: owner);
 
   @override
   Future<DownloadSink?> resumeOwned(

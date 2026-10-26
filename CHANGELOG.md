@@ -15,6 +15,12 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 切换账号后，原账号在后台刷新登录，又把当前账号切了回去。
 - 删除当前账号时应用恰好被关闭，下次启动账号数据读不出来。
 - 浏览记录同步到 pixiv 的同时又看了同一作品，这次浏览不会再同步。
+- 保存到相册的下载，暂停后点「继续」会从头重新下载。
+- 下载刚点「暂停」又马上点「取消」，任务会一直停在「取消中」。
+- 取消已暂停的下载后，已下好的部分不会被删除，一直占着存储空间。
+- 应用在下载途中被关闭，没写完的文件不会被清理。
+- 应用重启后接着下载更新时，点「取消」不起作用，下完照样打开安装界面；下得很快时还会一直停在「正在下载并验证…」。
+- 网络连接中途卡住时，下载可能一直停在进行中，「分层连通性探测」也会一直停在检测中。
 
 ### Fixed
 
@@ -25,6 +31,12 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - After switching accounts, the previous account's background login refresh switched you back to it.
 - If the app was closed while removing the current account, the accounts could fail to load on the next start.
 - Viewing the same artwork again while its history was syncing to pixiv kept that view from syncing.
+- A download saved to the album started over from the beginning when you tapped Resume after pausing it.
+- Tapping Cancel right after Pause left the download stuck at Canceling.
+- Canceling a paused download left its partly downloaded file behind, taking up storage.
+- Unfinished files from a download cut short by closing the app were never cleaned up.
+- An update download continued after restarting the app ignored Cancel and still opened the installer once finished, and could stay on "Downloading and verifying…" if it finished quickly.
+- When a connection stalled midway, a download could hang forever, and so could the network probe.
 
 ## [1.0.0] - 2026-10-25
 

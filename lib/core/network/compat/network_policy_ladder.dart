@@ -530,7 +530,8 @@ extension NetworkAccessPolicyLadder on NetworkAccessPolicy {
     switch (outcome) {
       case _RaceSuccess(value: final value):
         if (value is http.StreamedResponse) {
-          unawaited(value.stream.drain<void>());
+          // Nobody waits for a loser's body: its idle timeout is no error.
+          value.stream.drain<void>().ignore();
         }
       case _RaceFailure(:final route, :final error, :final latency):
         policyRecord(destination, route, error, latency);

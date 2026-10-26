@@ -355,10 +355,11 @@ void main() {
       );
     });
 
-    test('the response body errors after an idle gap', () async {
+    // An image body over [inner] that stalls after its first bytes.
+    Future<Stream<List<int>>> stalledBody([Object? error]) async {
       final policy = NetworkAccessPolicy(
         imageIdleTimeout: const Duration(milliseconds: 50),
-        clientFactory: (_, _, _) => StallClient(),
+        clientFactory: (_, _, _) => StallClient(1, error),
       );
       addTearDown(policy.dispose);
       final client = policy.clientFor(
@@ -366,14 +367,45 @@ void main() {
         NetworkRoute.direct(policy.revision),
         'i.pximg.net',
       );
-
       final response = await client.send(
         http.Request('GET', Uri.parse('https://i.pximg.net/a.jpg')),
       );
-      await expectLater(
-        response.stream.toList(),
-        throwsA(isA<TimeoutException>()),
+      return response.stream;
+    }
+
+    for (final (name, read) in [
+      ('toList', (Stream<List<int>> body) => body.toList()),
+      ('drain', (Stream<List<int>> body) => body.drain<void>()),
+    ]) {
+      test('the response body errors after an idle gap: $name', () async {
+        await expectLater(
+          read(await stalledBody()),
+          throwsA(isA<TimeoutException>()),
+        );
+      });
+    }
+
+    test('a body that errs and goes on still times out', () async {
+      final errors = <Object>[];
+      final timedOut = Completer<void>();
+      (await stalledBody(StateError('blip'))).listen(
+        null,
+        onError: (Object error) {
+          errors.add(error);
+          if (error is TimeoutException) timedOut.complete();
+        },
       );
+      await timedOut.future;
+      expect(errors, [isA<StateError>(), isA<TimeoutException>()]);
+    });
+
+    test('an idle timeout nobody handles reaches the zone', () async {
+      final body = await stalledBody();
+      final caught = Completer<Object>();
+      runZonedGuarded(() => body.listen(null), (error, _) {
+        caught.complete(error);
+      });
+      expect(await caught.future, isA<TimeoutException>());
     });
   });
 

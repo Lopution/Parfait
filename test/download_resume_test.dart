@@ -171,13 +171,19 @@ class _PlatformStore {
 }
 
 class _ResumableSink implements ResumableDownloadSink {
-  _ResumableSink(this._store, this.locator, {this.beforeWrite}) {
+  _ResumableSink(
+    this._store,
+    this.locator, {
+    this.beforeWrite,
+    this.beforeDetach,
+  }) {
     _store.files.putIfAbsent(locator, () => <int>[]);
   }
 
   final _PlatformStore _store;
   final String locator;
   final void Function()? beforeWrite;
+  final Future<void> Function()? beforeDetach;
   var _detached = false;
   var _dead = false;
   var aborted = false;
@@ -209,6 +215,7 @@ class _ResumableSink implements ResumableDownloadSink {
 
   @override
   Future<ResumeAnchor?> detach() async {
+    await beforeDetach?.call();
     if (_dead) throw StateError('sink is closed');
     _detached = true;
     return ResumeAnchor(
@@ -228,6 +235,16 @@ class _ResumableFactory
   final sinks = <_ResumableSink>[];
   var resumeAvailable = true;
   void Function()? beforeWrite;
+  Future<void> Function()? beforeDetach;
+
+  /// Desktop-like: the output is a `.part` file named after the download,
+  /// reopened by path with no owner check.
+  var byName = false;
+  Future<void>? holdResume;
+
+  /// Owner marker per locator; like the platform, a resume under another
+  /// owner is refused.
+  final owners = <String, String>{};
 
   @override
   Future<DownloadSink> begin(
@@ -235,10 +252,12 @@ class _ResumableFactory
     String displayName, {
     DownloadDestination destination = DownloadDestination.builtin,
   }) async {
+    if (byName) store.files[displayName] = <int>[];
     final sink = _ResumableSink(
       store,
-      store.newLocator(),
+      byName ? displayName : store.newLocator(),
       beforeWrite: beforeWrite,
+      beforeDetach: beforeDetach,
     );
     sinks.add(sink);
     return sink;
@@ -250,19 +269,26 @@ class _ResumableFactory
     String displayName,
     DownloadOutputOwner owner, {
     DownloadDestination destination = DownloadDestination.builtin,
-  }) => begin(request, displayName, destination: destination);
+  }) async {
+    final sink = await begin(request, displayName, destination: destination);
+    owners[(sink as _ResumableSink).locator] = owner.ownerId;
+    return sink;
+  }
 
   @override
   Future<DownloadSink?> resumeOwned(
     ResumeAnchor anchor,
     DownloadOutputOwner owner,
   ) async {
+    await holdResume;
     if (!resumeAvailable) return null;
     if (!store.files.containsKey(anchor.locator)) return null;
+    if (!byName && owners[anchor.locator] != owner.ownerId) return null;
     final sink = _ResumableSink(
       store,
       anchor.locator,
       beforeWrite: beforeWrite,
+      beforeDetach: beforeDetach,
     );
     sinks.add(sink);
     return sink;
@@ -272,9 +298,14 @@ class _ResumableFactory
 class _CleanupSpyFactory extends _ResumableFactory
     implements RecoverableDownloadSinkFactory {
   final cleaned = <int>[];
+  final pending = <PendingMediaStoreItem>[];
+  Future<void>? holdList;
 
   @override
-  Future<List<PendingMediaStoreItem>> listPending() async => const [];
+  Future<List<PendingMediaStoreItem>> listPending() async {
+    await holdList;
+    return pending;
+  }
 
   @override
   Future<bool> cleanupPending(
@@ -286,12 +317,13 @@ class _CleanupSpyFactory extends _ResumableFactory
   }
 }
 
-/// Starts a 30-byte download whose body stalls after ten bytes, and pauses
-/// (or cancels) it there.
-Future<(DownloadManager, DownloadTaskSnapshot)> _interrupted(
+/// Starts a 30-byte download whose body stalls after ten bytes until the
+/// returned gate opens.
+Future<(DownloadManager, DownloadTaskSnapshot, Completer<void>)> _stalled(
   FakeTransport transport,
   DownloadSinkFactory sinks, {
-  bool cancel = false,
+  DownloadSubmissionContext Function() context = _context,
+  DownloadRecoveryStore? recoveryStore,
 }) async {
   final gate = Completer<void>();
   transport.responses.add(
@@ -304,11 +336,32 @@ Future<(DownloadManager, DownloadTaskSnapshot)> _interrupted(
   final manager = DownloadManager(
     transport: transport,
     sinkFactory: sinks,
-    submissionContext: _context,
+    submissionContext: context,
+    recoveryStore: recoveryStore,
   );
   addTearDown(manager.dispose);
   final task = manager.submit(_request());
   await _pumpUntil(() => manager.taskById(task.id)?.receivedBytes == 10);
+  return (manager, task, gate);
+}
+
+/// A [_stalled] download paused (or cancelled) at ten bytes. [pauseFirst]
+/// pauses before the cancel, while the pause has not landed yet.
+Future<(DownloadManager, DownloadTaskSnapshot)> _interrupted(
+  FakeTransport transport,
+  DownloadSinkFactory sinks, {
+  bool cancel = false,
+  bool pauseFirst = false,
+  DownloadSubmissionContext Function() context = _context,
+  DownloadRecoveryStore? recoveryStore,
+}) async {
+  final (manager, task, gate) = await _stalled(
+    transport,
+    sinks,
+    context: context,
+    recoveryStore: recoveryStore,
+  );
+  if (pauseFirst) await manager.pause(task.id);
   await (cancel ? manager.cancel(task.id) : manager.pause(task.id));
   gate.complete();
   final landed = cancel ? DownloadStatus.canceled : DownloadStatus.retryable;
@@ -469,18 +522,146 @@ void main() {
       },
     );
 
-    test('cancel still deletes output even on a resumable sink', () async {
-      final transport = FakeTransport();
+    for (final pauseFirst in [false, true]) {
+      final when = pauseFirst ? ' before a pause lands' : '';
+      test('cancel$when still deletes output on a resumable sink', () async {
+        final transport = FakeTransport();
+        final factory = _ResumableFactory();
+        final (manager, task) = await _interrupted(
+          transport,
+          factory,
+          cancel: true,
+          pauseFirst: pauseFirst,
+        );
+
+        final canceled = manager.taskById(task.id)!;
+        expect(canceled.resumeAnchor, isNull);
+        expect(factory.sinks.single.aborted, isTrue);
+        expect(factory.store.files, isEmpty);
+      });
+    }
+
+    test('a cancel while a pause keeps the bytes still deletes them', () async {
       final factory = _ResumableFactory();
+      final detaching = Completer<void>();
+      final held = Completer<void>();
+      factory.beforeDetach = () {
+        detaching.complete();
+        return held.future;
+      };
+      final (manager, task, gate) = await _stalled(FakeTransport(), factory);
+
+      await manager.pause(task.id);
+      gate.complete();
+      await detaching.future;
+      await manager.cancel(task.id);
+      held.complete();
+      await _pumpUntil(() => factory.store.files.isEmpty);
+      expect(manager.taskById(task.id)!.status, DownloadStatus.canceled);
+      expect(factory.store.files, isEmpty);
+    });
+
+    for (final byName in [false, true]) {
+      final named = byName ? ' of the same name' : '';
+      test('a retry under another account starts a new file$named', () async {
+        var context = _context();
+        final transport = FakeTransport();
+        final factory = _ResumableFactory()..byName = byName;
+        final (manager, task) = await _interrupted(
+          transport,
+          factory,
+          context: () => context,
+        );
+        context = const DownloadSubmissionContext(accountId: 'account-b');
+
+        transport.responses.add(
+          ScriptedResponse(contentLength: 30, chunks: [List.filled(30, 4)]),
+        );
+        await _retried(manager, task.id);
+        await _pumpUntil(() => factory.sinks.any((sink) => sink.aborted));
+        expect(factory.sinks.any((sink) => sink.aborted), isTrue);
+        expect(transport.openedHeaders.last.containsKey('Range'), isFalse);
+        expect(factory.store.files.values.single, List.filled(30, 4));
+      });
+    }
+
+    test('a new manager waits for the old one\'s deletions', () async {
+      final store = MemoryDownloadRecoveryStore();
+      final transport = FakeTransport();
+      final factory = _ResumableFactory()..byName = true;
       final (manager, task) = await _interrupted(
         transport,
         factory,
-        cancel: true,
+        recoveryStore: store,
       );
+      final deleting = Completer<void>();
+      factory.holdResume = deleting.future;
+      unawaited(manager.cancel(task.id));
+      await pumpEventQueue();
+      await manager.dispose();
 
+      final next = DownloadManager(
+        transport: transport,
+        sinkFactory: factory,
+        submissionContext: _context,
+        recoveryStore: store,
+      );
+      addTearDown(next.dispose);
+      await next.recover();
+      transport.responses.add(
+        ScriptedResponse(contentLength: 30, chunks: [List.filled(30, 4)]),
+      );
+      final retried = next.retry(task.id)!;
+      await pumpEventQueue();
+      factory.holdResume = null;
+      deleting.complete();
+      await _pumpUntil(
+        () => next.taskById(retried.id)?.status == DownloadStatus.succeeded,
+      );
+      expect(factory.store.files.values.single, List.filled(30, 4));
+    });
+
+    test('a cancel during a network failure still deletes the bytes', () async {
+      final transport = FakeTransport();
+      final factory = _ResumableFactory();
+      final detaching = Completer<void>();
+      final held = Completer<void>();
+      factory.beforeDetach = () {
+        detaching.complete();
+        return held.future;
+      };
+      transport.responses.add(
+        ScriptedResponse(
+          contentLength: 30,
+          chunks: [List.filled(10, 1)],
+          error: const SocketException('connection reset'),
+        ),
+      );
+      final manager = DownloadManager(
+        transport: transport,
+        sinkFactory: factory,
+        submissionContext: _context,
+      );
+      addTearDown(manager.dispose);
+      final task = manager.submit(_request());
+
+      await detaching.future;
+      await manager.cancel(task.id);
+      held.complete();
+      await _pumpUntil(() => factory.store.files.isEmpty);
+      expect(manager.taskById(task.id)!.status, DownloadStatus.canceled);
+      expect(factory.store.files, isEmpty);
+    });
+
+    test('cancelling a paused task deletes its kept bytes', () async {
+      final factory = _ResumableFactory();
+      final (manager, task) = await _interrupted(FakeTransport(), factory);
+
+      await manager.cancel(task.id);
+      await _pumpUntil(() => factory.store.files.isEmpty);
       final canceled = manager.taskById(task.id)!;
+      expect(canceled.status, DownloadStatus.canceled);
       expect(canceled.resumeAnchor, isNull);
-      expect(factory.sinks.single.aborted, isTrue);
       expect(factory.store.files, isEmpty);
     });
 
@@ -662,8 +843,104 @@ void main() {
   });
 
   group('recovery', () {
+    test('a later scan leaves running and paused output alone', () async {
+      final factory = _CleanupSpyFactory();
+      final (manager, task, gate) = await _stalled(FakeTransport(), factory);
+      factory.pending.add(
+        PendingMediaStoreItem(
+          id: 5,
+          ownerId: factory.owners.values.single,
+          displayName: 'x.jpg',
+        ),
+      );
+
+      await manager.recover();
+      await manager.pause(task.id);
+      gate.complete();
+      await _pumpUntil(
+        () => manager.taskById(task.id)?.status == DownloadStatus.retryable,
+      );
+      await manager.recover();
+      expect(factory.cleaned, isEmpty);
+    });
+
+    test('a paused task outlives its manager', () async {
+      final store = MemoryDownloadRecoveryStore();
+      final transport = FakeTransport();
+      final factory = _CleanupSpyFactory();
+      final (manager, task) = await _interrupted(
+        transport,
+        factory,
+        recoveryStore: store,
+      );
+      factory.pending.add(
+        PendingMediaStoreItem(
+          id: 5,
+          ownerId: factory.owners.values.single,
+          displayName: 'x.jpg',
+        ),
+      );
+      await manager.dispose();
+
+      final next = DownloadManager(
+        transport: transport,
+        sinkFactory: factory,
+        submissionContext: _context,
+        recoveryStore: store,
+      );
+      addTearDown(next.dispose);
+      await next.recover();
+      expect(factory.cleaned, isEmpty);
+      transport.responses.add(
+        ScriptedResponse(
+          statusCode: 206,
+          contentLength: 20,
+          chunks: [List.filled(20, 2)],
+        ),
+      );
+      await _retried(next, task.id);
+      expect(transport.openedHeaders.last['Range'], 'bytes=10-');
+    });
+
+    test('a scan that a retry overtakes keeps its hands off', () async {
+      final transport = FakeTransport();
+      final factory = _CleanupSpyFactory();
+      final (manager, task, gate) = await _stalled(transport, factory);
+      final listing = Completer<void>();
+      factory.holdList = listing.future;
+      final recovering = manager.recover();
+      await pumpEventQueue();
+
+      await manager.pause(task.id);
+      gate.complete();
+      await _pumpUntil(
+        () => manager.taskById(task.id)?.status == DownloadStatus.retryable,
+      );
+      transport.responses.add(
+        ScriptedResponse(
+          statusCode: 206,
+          contentLength: 20,
+          chunks: [List.filled(20, 2)],
+        ),
+      );
+      final retried = await _retried(manager, task.id);
+      factory.pending.add(
+        PendingMediaStoreItem(
+          id: 5,
+          ownerId: retried.outputOwner!.ownerId,
+          displayName: 'x.jpg',
+        ),
+      );
+      listing.complete();
+      await recovering;
+
+      expect(factory.cleaned, isEmpty);
+      expect(manager.taskById(task.id), isNull);
+      expect(manager.taskById(retried.id)!.status, DownloadStatus.succeeded);
+    });
+
     test(
-      'anchored record keeps its pending row; plain record is cleaned',
+      'an anchored record keeps its pending row; plain and canceled ones do not',
       () async {
         final request = _request();
         final snapshot = DownloadSubmissionSnapshot(
@@ -712,6 +989,23 @@ void main() {
             pendingMediaStoreId: 18,
           ),
         );
+        // Canceled while paused: its anchor is no payload to keep.
+        await store.upsert(
+          DownloadRecoveryRecord(
+            jobId: 'job-3',
+            dedupeKey: '${request.dedupeKey}|y',
+            snapshot: snapshot.copyWith(jobId: 'job-3'),
+            owner: const DownloadOutputOwner(
+              ownerId: 'output-job-3',
+              jobId: 'job-3',
+              accountId: 'account-a',
+            ),
+            status: DownloadStatus.canceled,
+            receivedBytes: 10,
+            pendingMediaStoreId: 19,
+            resumeAnchor: anchor,
+          ),
+        );
 
         final factory = _CleanupSpyFactory();
         final manager = DownloadManager(
@@ -724,9 +1018,8 @@ void main() {
 
         final report = await manager.recover();
         expect(report.retryableJobIds, containsAll(['job-1', 'job-2']));
-        // Only the unanchored pending row was cleaned; the anchored row is the
-        // resume payload and must survive.
-        expect(factory.cleaned, [18]);
+        // The live anchored row is the resume payload and must survive.
+        expect(factory.cleaned, unorderedEquals([18, 19]));
         expect(manager.taskById('job-1')!.resumeAnchor, anchor);
       },
     );

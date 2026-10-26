@@ -398,6 +398,7 @@ class UpdateDownloadCoordinator implements UpdateApkDownloader {
 
   @override
   Future<UpdateApplyResult> recover(UpdateRelease release) async {
+    _cancelRequested = false;
     final state = await _stateStore.read();
     if (state == null) {
       return const UpdateApplyResult(
@@ -436,36 +437,45 @@ class UpdateDownloadCoordinator implements UpdateApkDownloader {
         errorCode: 'no_recoverable_update',
       );
     }
-    if (task.status == DownloadStatus.retryable) {
-      task = _manager.retry(task.id);
-      if (task == null) {
-        await cleanup(state.path);
-        await _stateStore.clear();
-        return const UpdateApplyResult(
-          status: UpdateApplyStatus.failed,
-          errorCode: 'no_recoverable_update',
-        );
-      }
-      await _stateStore.write(state.copyWith(downloadId: task.id));
-    }
-    if (!isTerminal(task.status)) {
-      final event = await _manager.events.firstWhere(
-        (event) => event.snapshot.id == task!.id,
-      );
-      if (event.kind != DownloadEventKind.succeeded) {
-        await cleanup(file.path);
-        await _stateStore.clear();
-        return const UpdateApplyResult(
-          status: UpdateApplyStatus.failed,
-          errorCode: 'download_failed',
-        );
-      }
-    } else if (task.status != DownloadStatus.succeeded) {
+    if (isTerminal(task.status) && task.status != DownloadStatus.succeeded) {
       await cleanup(file.path);
       await _stateStore.clear();
       return const UpdateApplyResult(
         status: UpdateApplyStatus.failed,
         errorCode: 'no_recoverable_update',
+      );
+    }
+    final DownloadTaskSnapshot settled;
+    try {
+      if (task.status == DownloadStatus.retryable) {
+        task = _manager.retry(task.id);
+        if (task == null) {
+          await cleanup(state.path);
+          await _stateStore.clear();
+          return const UpdateApplyResult(
+            status: UpdateApplyStatus.failed,
+            errorCode: 'no_recoverable_update',
+          );
+        }
+      }
+      _activeDownloadId = task.id;
+      if (_cancelRequested) await _manager.cancel(task.id);
+      if (task.id != state.downloadId) {
+        await _stateStore.write(state.copyWith(downloadId: task.id));
+      }
+      settled = await _settled(task.id);
+    } finally {
+      _activeDownloadId = null;
+    }
+    if (settled.status != DownloadStatus.succeeded) {
+      await cleanup(file.path);
+      await _stateStore.clear();
+      final canceled = settled.status == DownloadStatus.canceled;
+      return UpdateApplyResult(
+        status: canceled
+            ? UpdateApplyStatus.canceled
+            : UpdateApplyStatus.failed,
+        errorCode: canceled ? 'canceled' : 'download_failed',
       );
     }
     final integrity = await _verifyFile(file, asset);
@@ -493,6 +503,18 @@ class UpdateDownloadCoordinator implements UpdateApkDownloader {
       status: UpdateApplyStatus.downloaded,
       path: file.path,
     );
+  }
+
+  /// [id]'s final snapshot. The status is read before listening, so a
+  /// task that ended during an earlier await is not waited on forever.
+  Future<DownloadTaskSnapshot> _settled(String id) async {
+    final task = _manager.taskById(id);
+    if (task == null) throw StateError('updater task $id is gone');
+    if (isTerminal(task.status)) return task;
+    final event = await _manager.events.firstWhere(
+      (event) => event.snapshot.id == id,
+    );
+    return event.snapshot;
   }
 
   @override

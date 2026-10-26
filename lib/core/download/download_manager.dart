@@ -101,6 +101,15 @@ class DownloadManager {
 
   Future<void> _persistenceTail = Future<void>.value();
   Future<DownloadRecoveryReport>? _recoveryInFlight;
+
+  /// Deletions of kept output still in flight. An attempt waits for them
+  /// before opening its own: a desktop `.part` file is named after the
+  /// download, so a late deletion could take the new attempt's file. The
+  /// files are the process's, so the queue is too: a manager rebuilt while
+  /// its predecessor still deletes must wait as well. Null while idle, so
+  /// no future outlives the zone that made it.
+  static Future<void>? _drops;
+  static var _dropsInFlight = 0;
   Object? _lastRecoveryError;
 
   /// Sequence numbers restart with every process, while ids live on in the
@@ -144,23 +153,19 @@ class DownloadManager {
     DownloadRequest request, {
     String? groupId,
     DownloadSubmissionContext? context,
-    ResumeAnchor? resumeAnchor,
-  }) => _submit(
-    request,
-    groupId: groupId,
-    context: context,
-    resumeAnchor: resumeAnchor,
-  );
+  }) => _submit(request, groupId: groupId, context: context);
 
   /// [frozenName] is the file name fixed at the original submission; [retry]
   /// passes it because a recovered request lacks the template inputs to
   /// recompute it (C8). A fresh submit computes the name from the request.
+  /// [predecessor] is the retired attempt whose kept output this one takes
+  /// over.
   DownloadTaskSnapshot _submit(
     DownloadRequest request, {
     String? frozenName,
     String? groupId,
     DownloadSubmissionContext? context,
-    ResumeAnchor? resumeAnchor,
+    _Job? predecessor,
   }) {
     _checkUsable();
     validateDownloadUrl(request.url, target: request.target);
@@ -187,12 +192,18 @@ class DownloadManager {
     // A terminal attempt is replaced by the new submission. Preserve its
     // resumable output and frozen name so a retry-like fresh request can
     // continue the same bytes without leaving the old record in its group.
-    final inheritedName = existing?.resumeAnchor == null
-        ? null
-        : existing!.displayName;
-    final inheritedAnchor = existing?.resumeAnchor;
     if (existing != null) _retire(existing);
-    final name = frozenName ?? inheritedName ?? request.displayName;
+    final previous = predecessor ?? existing;
+    final kept = previous?.resumeAnchor;
+    // Kept output lives in its own account's destination: another boundary
+    // starts a new file, and the old one is dropped.
+    final sameBoundary =
+        previous?.submission.accountId == ownerContext?.accountId &&
+        previous?.submission.destination.identity ==
+            (ownerContext?.destination ?? DownloadDestination.builtin).identity;
+    if (kept != null && !sameBoundary) unawaited(_drop(previous!, kept));
+    final resumed = kept != null && sameBoundary ? previous : null;
+    final name = frozenName ?? resumed?.displayName ?? request.displayName;
     validateDisplayName(name);
 
     final id =
@@ -209,7 +220,9 @@ class DownloadManager {
       displayName: name,
     );
     final owner = DownloadOutputOwner(
-      ownerId: 'output_$id',
+      // The kept output carries its first attempt's marker, and the
+      // platform reopens it only under that marker.
+      ownerId: resumed?.owner.ownerId ?? 'output_$id',
       jobId: id,
       accountId: snapshot.accountId,
     );
@@ -223,7 +236,7 @@ class DownloadManager {
     );
     // The anchor must be attached before _schedule() runs the job: _run
     // reads it synchronously before its first await (D8).
-    job.resumeAnchor = resumeAnchor ?? inheritedAnchor;
+    job.resumeAnchor = resumed?.resumeAnchor;
     _jobs[key] = job;
     _notifyChange();
     _persist(job);
@@ -318,10 +331,15 @@ class DownloadManager {
     switch (job.snapshot.status) {
       case DownloadStatus.queued:
       case DownloadStatus.retryable:
+        final kept = job.resumeAnchor;
+        job.resumeAnchor = null;
         _transition(job, DownloadStatus.canceled);
         _complete(job, DownloadEvent.canceled(job.snapshot));
         _schedule();
+        if (kept != null) await _drop(job, kept);
       case DownloadStatus.running:
+        // A pause still unwinding gives way: the exit must not keep bytes.
+        job.pauseRequested = false;
         _transition(job, DownloadStatus.canceling);
         job.cancelToken.cancel();
       case DownloadStatus.canceling:
@@ -347,14 +365,13 @@ class DownloadManager {
             job.snapshot.status != DownloadStatus.retryable)) {
       return null;
     }
-    final anchor = job.resumeAnchor;
     final groupId = job.snapshot.groupId;
     _retire(job);
     final retried = _submit(
       job.request,
       frozenName: job.displayName,
       groupId: groupId,
-      resumeAnchor: anchor,
+      predecessor: job,
     );
     if (groupId != null && retried.submission?.groupId == groupId) {
       final group = _groups[groupId] ??= _DownloadGroup(
@@ -593,6 +610,11 @@ class DownloadManager {
         latestByDedupeKey[record.dedupeKey] = record;
       }
     }
+    // A retry carries its predecessor's marker on: a superseded record
+    // sharing it with a newer attempt or a live job no longer owns the row.
+    final heldOwners = {
+      for (final record in latestByDedupeKey.values) record.owner.ownerId,
+    };
     final records = <DownloadRecoveryRecord>[];
     for (final record in loadedRecords) {
       if (identical(latestByDedupeKey[record.dedupeKey], record)) {
@@ -605,7 +627,9 @@ class DownloadManager {
       var cleanupOk = true;
       if (pendingId != null &&
           record.status != DownloadStatus.succeeded &&
-          record.resumeAnchor == null) {
+          !_keepsOutput(record) &&
+          !heldOwners.contains(record.owner.ownerId) &&
+          !_ownerLive(record.owner.ownerId)) {
         cleanupOk = await _cleanupPendingOutput(pendingId, record.owner);
         if (!cleanupOk) {
           cleanupFailed.add(record.jobId);
@@ -623,7 +647,7 @@ class DownloadManager {
       recordsByOwner[record.owner.ownerId] = record;
     }
     for (final record in records) {
-      if (_findById(record.jobId) != null) {
+      if (_isLive(record)) {
         skipped.add(record.jobId);
         continue;
       }
@@ -631,15 +655,18 @@ class DownloadManager {
       final pendingId = record.pendingMediaStoreId ?? scannedPending?.id;
       if (pendingId != null) matchedPending.add(pendingId);
       var cleanupOk = true;
-      // A record carrying a resume anchor keeps its pending row on purpose:
-      // the row IS the resume payload (D8), not interrupted output to clean.
       if (pendingId != null &&
           record.status != DownloadStatus.succeeded &&
-          record.resumeAnchor == null) {
+          !_keepsOutput(record)) {
         cleanupOk = await _cleanupPendingOutput(pendingId, record.owner);
         if (!cleanupOk) {
           cleanupFailed.add(record.jobId);
           cleanupFailedPending.add(pendingId);
+        }
+        // The cleanup awaited; a retry may have taken the identity since.
+        if (_isLive(record)) {
+          skipped.add(record.jobId);
+          continue;
         }
       }
       if (record.status == DownloadStatus.succeeded && pendingId != null) {
@@ -746,6 +773,7 @@ class DownloadManager {
     for (final item in pendingItems) {
       if (matchedPending.contains(item.id)) continue;
       final ownerId = item.ownerId;
+      if (_ownerLive(ownerId)) continue;
       final record = ownerId == null ? null : recordsByOwner[ownerId];
       if (record == null || record.status == DownloadStatus.succeeded) {
         orphanedPending.add(item.id);
@@ -771,6 +799,25 @@ class DownloadManager {
       error: recoveryError,
     );
   }
+
+  /// Records are loaded before the platform scan and cleanups are awaited,
+  /// and the user may pause, retry or download meanwhile: a record whose
+  /// job, identity or output marker is alive in this process is stale, and
+  /// its output is not recovery's to clean.
+  bool _isLive(DownloadRecoveryRecord record) =>
+      _findById(record.jobId) != null ||
+      _jobs.containsKey(record.dedupeKey) ||
+      _ownerLive(record.owner.ownerId);
+
+  bool _ownerLive(String? ownerId) =>
+      ownerId != null &&
+      _jobs.values.any((job) => job.owner.ownerId == ownerId);
+
+  /// A live resume anchor keeps its pending row on purpose: the row IS the
+  /// resume payload (D8), not interrupted output to clean. A canceled
+  /// record's anchor is left over from a cancel that died mid-cleanup.
+  static bool _keepsOutput(DownloadRecoveryRecord record) =>
+      record.resumeAnchor != null && record.status != DownloadStatus.canceled;
 
   /// Waits for queued metadata writes. Tests and lifecycle owners use this to
   /// make a restart fixture deterministic.
@@ -859,6 +906,8 @@ class DownloadManager {
     };
     var resumeOffset = 0;
     try {
+      final drops = _drops;
+      if (drops != null) await drops;
       _checkOwner(job);
       final anchor = job.resumeAnchor;
       if (anchor != null) {
@@ -1011,6 +1060,7 @@ class DownloadManager {
     if (job.pauseRequested && !job.ownerInvalidated) {
       _finishPause(job);
     } else {
+      await _dropAnchor(job);
       _completeCancellation(job, orphaned: job.ownerInvalidated);
     }
   }
@@ -1093,10 +1143,14 @@ class DownloadManager {
           : failureKind == DownloadFailureKind.network,
     );
     await closeResponse();
-    if (cancelled) {
+    // A cancel can also land while a failure is keeping the bytes.
+    if (cancelled ||
+        job.cancelToken.isCancelled &&
+            job.snapshot.status != DownloadStatus.finalizing) {
       if (job.pauseRequested && !job.ownerInvalidated) {
         _finishPause(job);
       } else {
+        await _dropAnchor(job);
         _completeCancellation(job, orphaned: job.ownerInvalidated);
       }
     } else {
@@ -1438,6 +1492,26 @@ class DownloadManager {
     await _discardSink(sink);
   }
 
+  /// Deletes kept output by reopening it under [job]'s owner: once its
+  /// attempt has ended, nothing else holds a handle to those bytes.
+  Future<void> _drop(_Job job, ResumeAnchor kept) {
+    _dropsInFlight++;
+    return _drops = (_drops ?? Future<void>.value())
+        .then((_) async => _discardSink(await _resumeSink(job, kept)))
+        .whenComplete(() {
+          if (--_dropsInFlight == 0) _drops = null;
+        });
+  }
+
+  /// A cancel can land while a pause is already keeping the bytes (its
+  /// detach in flight); the canceled task must not keep them.
+  Future<void> _dropAnchor(_Job job) async {
+    final kept = job.resumeAnchor;
+    if (kept == null) return;
+    job.resumeAnchor = null;
+    await _drop(job, kept);
+  }
+
   Future<void> _discardSink(DownloadSink? sink) async {
     if (sink == null) return;
     try {
@@ -1569,10 +1643,16 @@ class DownloadManager {
     if (_disposed) return;
     _disposed = true;
     for (final job in _jobs.values.toList(growable: false)) {
-      if (job.snapshot.status == DownloadStatus.queued ||
-          job.snapshot.status == DownloadStatus.retryable) {
-        _transition(job, DownloadStatus.canceled);
-        _complete(job, DownloadEvent.canceled(job.snapshot));
+      // Disposal is no user cancel: kept bytes stay with a paused task (a
+      // queued one carrying them pauses), for the next manager to resume.
+      if (job.snapshot.status == DownloadStatus.retryable) continue;
+      if (job.snapshot.status == DownloadStatus.queued) {
+        if (job.resumeAnchor != null) {
+          await pause(job.id);
+        } else {
+          _transition(job, DownloadStatus.canceled);
+          _complete(job, DownloadEvent.canceled(job.snapshot));
+        }
       } else if (!isTerminal(job.snapshot.status)) {
         // Disposal prefers preserving resumable bytes: if the transport
         // unwinds cooperatively before teardown, the detach path persists a
