@@ -90,18 +90,49 @@ class AccountStore extends AsyncNotifier<AccountState> {
   }
 
   /// Re-runs hydration, e.g. after the user acknowledges a failure.
-  Future<void> reload() async {
+  Future<void> reload() => _serial(() async {
     state = const AsyncLoading<AccountState>();
     state = await AsyncValue.guard(() => build());
-  }
+  });
 
   /// Public snapshot accessor for collaborators outside riverpod internals
   /// (e.g. the network client).
   Future<AccountState> resolveState() => future;
 
+  /// Account mutations run one at a time: each reads, persists and
+  /// publishes the state before the next one starts, so a late token
+  /// refresh can neither undo a switch nor bring back a removed account.
+  Future<void> _tail = Future<void>.value();
+
+  Future<T> _serial<T>(Future<T> Function() mutation) {
+    final result = _tail.then((_) => mutation());
+    _tail = result.then<void>((_) {}, onError: (_, _) {});
+    return result;
+  }
+
   /// Adds an account (or refreshes credentials of an existing one) and makes
   /// it current, mirroring the beta56 add-then-select behaviour.
-  Future<void> upsertAccount(Account account, Credential credential) async {
+  Future<void> upsertAccount(Account account, Credential credential) =>
+      _serial(() => _commit(account, credential, select: true));
+
+  /// Saves a refreshed session of [account] while it is still stored,
+  /// leaving the current account and the network session as they are.
+  /// False when the account was removed while the refresh ran.
+  Future<bool> saveRefreshed(Account account, Credential credential) =>
+      _serial(() async {
+        final current = await future;
+        if (!current.accounts.any((existing) => existing.id == account.id)) {
+          return false;
+        }
+        await _commit(account, credential, select: false);
+        return true;
+      });
+
+  Future<void> _commit(
+    Account account,
+    Credential credential, {
+    required bool select,
+  }) async {
     final repository = ref.read(accountMetadataRepositoryProvider);
     final credentials = ref.read(credentialStoreProvider);
     // A first-login tap can arrive before the cold-start hydration has
@@ -133,19 +164,28 @@ class AccountStore extends AsyncNotifier<AccountState> {
       return;
     }
     try {
-      final accounts = [
-        ...current.accounts.where((existing) => existing.id != account.id),
-        account.copyWith(authState: AccountAuthState.authenticated),
-      ];
-      await repository.save(accounts, account.id);
+      final saved = account.copyWith(authState: AccountAuthState.authenticated);
+      final accounts = select
+          ? [
+              ...current.accounts.where(
+                (existing) => existing.id != account.id,
+              ),
+              saved,
+            ]
+          : [
+              for (final existing in current.accounts)
+                existing.id == account.id ? saved : existing,
+            ];
+      final currentId = select ? account.id : current.currentId;
+      await repository.save(accounts, currentId);
       state = AsyncData(
         AccountState(
           status: AccountStatus.ready,
           accounts: accounts,
-          currentId: account.id,
+          currentId: currentId,
         ),
       );
-      _resetNetworkSession();
+      if (select) _resetNetworkSession();
     } on Object catch (error) {
       // Metadata failed to commit: restore the previous secret for an
       // existing account, or remove the new secret for a new account. This
@@ -170,7 +210,7 @@ class AccountStore extends AsyncNotifier<AccountState> {
   }
 
   /// Updates the stored user profile metadata of an existing account.
-  Future<void> updateAccount(Account account) async {
+  Future<void> updateAccount(Account account) => _serial(() async {
     final repository = ref.read(accountMetadataRepositoryProvider);
     final current = state.requireValue;
     final accounts = current.accounts
@@ -185,10 +225,10 @@ class AccountStore extends AsyncNotifier<AccountState> {
         currentId: currentId,
       ),
     );
-  }
+  });
 
   /// Switches the current account to [accountId].
-  Future<void> switchAccount(String accountId) async {
+  Future<void> switchAccount(String accountId) => _serial(() async {
     final repository = ref.read(accountMetadataRepositoryProvider);
     final current = state.requireValue;
     if (!current.accounts.any((account) => account.id == accountId)) {
@@ -197,10 +237,10 @@ class AccountStore extends AsyncNotifier<AccountState> {
     await repository.save(current.accounts, accountId);
     state = AsyncData(current.copyWith(currentId: accountId));
     if (current.currentId != accountId) _resetNetworkSession();
-  }
+  });
 
   /// Marks an account as needing a fresh login.
-  Future<void> markReauthRequired(String accountId) async {
+  Future<void> markReauthRequired(String accountId) => _serial(() async {
     final repository = ref.read(accountMetadataRepositoryProvider);
     final current = state.requireValue;
     final accounts = current.accounts
@@ -213,10 +253,10 @@ class AccountStore extends AsyncNotifier<AccountState> {
     await repository.save(accounts, current.currentId);
     state = AsyncData(current.copyWith(accounts: accounts));
     if (current.currentId == accountId) _resetNetworkSession();
-  }
+  });
 
   /// Removes an account entirely (beta56 logout removes the account).
-  Future<void> removeAccount(String accountId) async {
+  Future<void> removeAccount(String accountId) => _serial(() async {
     final repository = ref.read(accountMetadataRepositoryProvider);
     final credentials = ref.read(credentialStoreProvider);
     final current = state.requireValue;
@@ -243,7 +283,7 @@ class AccountStore extends AsyncNotifier<AccountState> {
     // Local history rows stay; a re-added account never replays outbox
     // entries from a previous lifecycle.
     await ref.read(historyRepositoryProvider).clearOutbox(accountId);
-  }
+  });
 
   Future<List<Account>> _resolveAuthStates(
     CredentialStore credentials,

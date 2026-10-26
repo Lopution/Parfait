@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -9,7 +11,10 @@ import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/credential_store.dart';
 import 'package:parfait/core/history/history_database.dart';
 import 'package:parfait/core/history/history_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:shared_preferences_platform_interface/types.dart';
 
 class InMemoryCredentialStore implements CredentialStore {
   final Map<String, Credential> _secrets = {};
@@ -18,6 +23,9 @@ class InMemoryCredentialStore implements CredentialStore {
 
   void breakAccount(String accountId) => _brokenAccounts.add(accountId);
   void failWritesFor(String accountId) => _failWrites.add(accountId);
+
+  /// Holds the next write until completed.
+  Completer<void>? holdWrite;
 
   @override
   Future<Credential?> read(String accountId) async {
@@ -32,6 +40,9 @@ class InMemoryCredentialStore implements CredentialStore {
     if (_failWrites.contains(accountId)) {
       throw CredentialStoreException('write', accountId, 'keystore full');
     }
+    final hold = holdWrite;
+    holdWrite = null;
+    await hold?.future;
     _secrets[accountId] = credential;
   }
 
@@ -50,6 +61,9 @@ class InMemoryMetadataRepository implements AccountMetadataRepository {
   bool failSave = false;
   Object? corruptOnLoad;
 
+  /// Holds the next save until completed.
+  Completer<void>? holdSave;
+
   @override
   Future<AccountMetadataSnapshot> load() async {
     final error = corruptOnLoad;
@@ -64,9 +78,48 @@ class InMemoryMetadataRepository implements AccountMetadataRepository {
     if (failSave) {
       throw AccountDataException('disk full');
     }
+    final hold = holdSave;
+    holdSave = null;
+    await hold?.future;
     stored = List.of(accounts);
     storedCurrentId = currentId;
   }
+}
+
+/// Preferences whose process dies (they throw) once [writesLeft] more
+/// writes have landed.
+final class _DyingPreferences extends InMemorySharedPreferencesAsync {
+  _DyingPreferences() : super.empty();
+
+  int? writesLeft;
+
+  Future<bool> _write(Future<bool> Function() write) {
+    if (writesLeft case final left?) {
+      if (left == 0) throw StateError('process died');
+      writesLeft = left - 1;
+    }
+    return write();
+  }
+
+  @override
+  Future<bool> setString(
+    String key,
+    String value,
+    SharedPreferencesOptions options,
+  ) => _write(() => super.setString(key, value, options));
+
+  @override
+  Future<bool> setStringList(
+    String key,
+    List<String> value,
+    SharedPreferencesOptions options,
+  ) => _write(() => super.setStringList(key, value, options));
+
+  @override
+  Future<bool> clear(
+    ClearPreferencesParameters parameters,
+    SharedPreferencesOptions options,
+  ) => _write(() => super.clear(parameters, options));
 }
 
 Account account(
@@ -210,6 +263,67 @@ void main() {
       expect(await credentials.read('200'), isNull);
     },
   );
+
+  test('metadata cut short at any write still loads', () async {
+    for (final (before, beforeCurrent, after, afterCurrent) in [
+      (['100', '200'], '200', ['100'], '100'), // remove the current account
+      (['100'], '100', <String>[], null), // remove the last one
+      (['100'], '100', ['100', '200'], '200'), // add and select
+    ]) {
+      for (var writes = 0; writes < 3; writes++) {
+        final preferences = _DyingPreferences();
+        SharedPreferencesAsyncPlatform.instance = preferences;
+        final repository = PreferencesAccountMetadataRepository(
+          preferences: SharedPreferencesAsync(),
+        );
+        await repository.save(before.map(account).toList(), beforeCurrent);
+        preferences.writesLeft = writes;
+        try {
+          await repository.save(after.map(account).toList(), afterCurrent);
+        } on StateError {
+          // Died mid-save.
+        }
+        preferences.writesLeft = null;
+        final loaded = await repository.load();
+        expect(
+          [beforeCurrent, afterCurrent],
+          contains(loaded.currentId),
+          reason: '$before → $after, died after $writes writes',
+        );
+      }
+    }
+  });
+
+  test('a refresh saved mid-way neither revives nor reselects', () async {
+    final (container, credentials, metadata) = makeContainer();
+    final store = container.read(accountStoreProvider.notifier);
+    await container.read(accountStoreProvider.future);
+    await store.upsertAccount(account('100'), credential('100'));
+    await store.upsertAccount(account('200'), credential('200'));
+    AccountState state() => container.read(accountStoreProvider).requireValue;
+
+    // Removed while the refreshed credential is being written.
+    final writing = credentials.holdWrite = Completer();
+    final revived = store.saveRefreshed(account('100'), credential('100'));
+    await pumpEventQueue();
+    final removed = store.removeAccount('100');
+    await pumpEventQueue();
+    writing.complete();
+    await removed;
+    await revived;
+    expect(state().accounts.map((a) => a.id), ['200']);
+
+    // Switched while the refreshed metadata is being saved.
+    await store.upsertAccount(account('100'), credential('100'));
+    final saving = metadata.holdSave = Completer();
+    final refreshed = store.saveRefreshed(account('100'), credential('100'));
+    await pumpEventQueue();
+    final switched = store.switchAccount('200');
+    await pumpEventQueue();
+    saving.complete();
+    await Future.wait([refreshed, switched]);
+    expect(state().currentId, '200');
+  });
 
   test('removing the last account clears current', () async {
     final (container, _, _) = makeContainer();

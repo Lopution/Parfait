@@ -78,20 +78,50 @@ class PreferencesAccountMetadataRepository
     return AccountMetadataSnapshot(accounts: accounts, currentId: currentId);
   }
 
+  /// Two keys, two writes, in an order where a failure or a death between
+  /// them leaves loadable metadata with a current id from before or after:
+  /// the current id first while the stored list holds it (a switch, a
+  /// removal); the list first while the new list keeps the stored current
+  /// id (an added account); otherwise cleared first and set last.
   @override
   Future<void> save(List<Account> accounts, String? currentId) async {
     if (currentId != null &&
         !accounts.any((account) => account.id == currentId)) {
       throw AccountDataException('cannot save current id outside account list');
     }
-    await _preferences.setStringList(
-      _accountsKey,
-      accounts.map((account) => jsonEncode(account.toJson())).toList(),
-    );
-    if (currentId == null) {
-      await _preferences.remove(_currentKey);
+    final list = accounts
+        .map((account) => jsonEncode(account.toJson()))
+        .toList();
+    final storedCurrent = await _preferences.getString(_currentKey);
+    if (currentId == null || (await _storedIds()).contains(currentId)) {
+      await _writeCurrent(currentId);
+      await _preferences.setStringList(_accountsKey, list);
+    } else if (storedCurrent == null ||
+        accounts.any((account) => account.id == storedCurrent)) {
+      await _preferences.setStringList(_accountsKey, list);
+      await _writeCurrent(currentId);
     } else {
-      await _preferences.setString(_currentKey, currentId);
+      await _preferences.remove(_currentKey);
+      await _preferences.setStringList(_accountsKey, list);
+      await _writeCurrent(currentId);
     }
+  }
+
+  Future<void> _writeCurrent(String? currentId) => currentId == null
+      ? _preferences.remove(_currentKey)
+      : _preferences.setString(_currentKey, currentId);
+
+  /// The ids in the stored list; none when it is missing or unreadable.
+  Future<Set<String>> _storedIds() async {
+    final ids = <String>{};
+    for (final raw
+        in await _preferences.getStringList(_accountsKey) ?? const <String>[]) {
+      try {
+        if (jsonDecode(raw) case {'id': final String id}) ids.add(id);
+      } on FormatException {
+        // An unreadable entry holds no id this save could keep current.
+      }
+    }
+    return ids;
   }
 }

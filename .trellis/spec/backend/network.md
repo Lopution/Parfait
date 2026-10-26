@@ -119,10 +119,13 @@ reviewed: 2026-10-14
   `invalid_grant`; a plain 400 never refreshes. Concurrent callers share
   one refresh per account. A POST replays its body after a refresh only
   when the caller sets `allowAuthReplay: true` (bookmark, follow, comment),
-  and only once.
+  and only once. A request keeps the account current as it started: its
+  refresh and replay use that account's credential even after a switch;
+  a removed or signed-out account is not refreshed.
 - **Why:** `/v1/illust/recommended` reports an expired token as 400
-  `invalid_grant`; replaying arbitrary POST bodies is unsafe.
-- **Check:** `test/pixiv_http_client_test.dart` "plain 400 without invalid_grant never triggers refresh" "opt-in POST surfaces a second 401 without another replay", `test/token_refresh_gate_test.dart` "20 concurrent callers share exactly one refresh per account"
+  `invalid_grant`; replaying arbitrary POST bodies is unsafe. After a
+  switch, a 401 replayed account A's bookmark with B's token.
+- **Check:** `test/pixiv_http_client_test.dart` "plain 400 without invalid_grant never triggers refresh" "opt-in POST surfaces a second 401 without another replay" "a request keeps its account through a switch, its refresh too", `test/token_refresh_gate_test.dart` "20 concurrent callers share exactly one refresh per account"
 - **Code:** `lib/core/network/pixiv_http_client.dart`
 
 ### NET-09 Rate limits pause reads, not writes

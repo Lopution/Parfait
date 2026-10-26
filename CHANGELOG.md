@@ -11,6 +11,9 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 从作者主页连续按返回回到列表时，列表从侧边滑进来，飞回的图片和顶栏、底栏错开。
 - 打开或返回作品时，底栏跟着图片滑开、滑回的过程中没有阴影，图片落定时阴影才突然出现。
 - 以「覆盖」方式导入备份时，文件里有一条历史记录写不进去，或导入途中应用被关闭，本地浏览历史会被清空。
+- 收藏等操作还没完成就切换了账号，登录过期时这个操作会被重新发到新账号上。
+- 切换账号后，原账号在后台刷新登录，又把当前账号切了回去。
+- 删除当前账号时应用恰好被关闭，下次启动账号数据读不出来。
 - 浏览记录同步到 pixiv 的同时又看了同一作品，这次浏览不会再同步。
 
 ### Fixed
@@ -18,6 +21,9 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - Pressing back twice in a row from an artist's profile slid the feed in from the side, so the returning image landed out of line with the top and bottom bars.
 - While the bottom bar slid away and back with an opening or closing artwork it cast no shadow, which popped in only when the image landed.
 - Importing a backup with Overwrite wiped the local browsing history if one history entry in the file could not be saved, or if the app was closed mid-import.
+- A bookmark or similar action still in progress when you switched accounts could be resent from the new account once the login expired.
+- After switching accounts, the previous account's background login refresh switched you back to it.
+- If the app was closed while removing the current account, the accounts could fail to load on the next start.
 - Viewing the same artwork again while its history was syncing to pixiv kept that view from syncing.
 
 ## [1.0.0] - 2026-10-25

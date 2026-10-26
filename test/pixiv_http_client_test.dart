@@ -68,9 +68,17 @@ class _Fixture {
   final List<http.Request> apiRequests = [];
   var refreshCalls = 0;
 
+  /// Holds the first API request until completed; [arrived] says it came.
+  Completer<void>? holdFirst;
+  final arrived = Completer<void>();
+
   http.Client buildApiTransport() {
     return MockClient((request) async {
       apiRequests.add(request);
+      if (apiRequests.length == 1 && holdFirst != null) {
+        arrived.complete();
+        await holdFirst!.future;
+      }
       if (apiDelay > Duration.zero) {
         await Future<void>.delayed(apiDelay);
       }
@@ -127,6 +135,7 @@ _makeWorld({
     Account(id: '100', userId: 100, name: 'user100'),
   ],
   String currentId = '100',
+  Map<String, Credential> moreCredentials = const {},
   Duration requestTimeout = PixivHttpClient.defaultRequestTimeout,
   String languageTag = 'zh-CN',
 }) async {
@@ -134,8 +143,12 @@ _makeWorld({
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
 
   final credentials = FakeCredentialStore(
-    values: const {
-      '100': Credential(accessToken: 'old-access', refreshToken: 'old-refresh'),
+    values: {
+      '100': const Credential(
+        accessToken: 'old-access',
+        refreshToken: 'old-refresh',
+      ),
+      ...moreCredentials,
     },
   );
 
@@ -546,6 +559,46 @@ void main() {
       );
       expect(fixtureF.apiRequests.last.bodyFields['illust_id'], '42');
       expect(fixtureF.apiRequests.last.bodyFields['restrict'], 'public');
+    },
+  );
+
+  test(
+    'a request keeps its account through a switch, its refresh too',
+    () async {
+      final fixture = _Fixture(rejectStaleSeed: true)..holdFirst = Completer();
+      final (container, client, credentials, _) = await _makeWorld(
+        fixture: fixture,
+        accounts: const [
+          Account(id: '100', userId: 100, name: 'user100'),
+          Account(id: '200', userId: 200, name: 'user200'),
+        ],
+        moreCredentials: const {
+          '200': Credential(accessToken: 'b-access', refreshToken: 'b-refresh'),
+        },
+      );
+
+      final bookmark = client.post(
+        Uri.parse('https://$_apiHost/v2/illust/bookmark/add'),
+        body: const {'illust_id': '42', 'restrict': 'public'},
+        allowAuthReplay: true,
+      );
+      await fixture.arrived.future;
+      await container.read(accountStoreProvider.notifier).switchAccount('200');
+      fixture.holdFirst!.complete();
+
+      expect((await bookmark).statusCode, 200);
+      // Account 100's bookmark, sent and replayed with 100's tokens only.
+      expect(fixture.apiRequests.map((r) => r.headers['Authorization']), [
+        'Bearer old-access',
+        'Bearer new-access',
+      ]);
+      expect((await credentials.read('100'))!.accessToken, 'new-access');
+      expect((await credentials.read('200'))!.accessToken, 'b-access');
+      // The refresh saved 100's tokens without taking the user back to 100.
+      expect(
+        container.read(accountStoreProvider).requireValue.currentId,
+        '200',
+      );
     },
   );
 
