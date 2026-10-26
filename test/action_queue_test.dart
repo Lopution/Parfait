@@ -334,20 +334,26 @@ void main() {
           now: async.getClock(DateTime.utc(2026, 10)).now,
           wrap: _BusyOnceStore.new,
         )..register('t');
-        // A row the last process left: no enqueue armed a wake for it.
-        h.store.enqueue(
-          const StoredAction(
-            id: 0,
-            owner: 'acc',
-            type: 't',
-            dedupeKey: 'k:1',
-            payload: '{"target":1}',
-            status: ActionStatus.pending,
-            attempt: 0,
-            createdAt: 0,
-          ),
-        );
+        // A row the last process left running: no enqueue armed a wake for
+        // it, and only a recovery makes it ready again.
+        var running = false;
+        h.store
+            .enqueue(
+              const StoredAction(
+                id: 0,
+                owner: 'acc',
+                type: 't',
+                dedupeKey: 'k:1',
+                payload: '{"target":1}',
+                status: ActionStatus.pending,
+                attempt: 0,
+                createdAt: 0,
+              ),
+            )
+            .then(h.store.markRunning)
+            .then((marked) => running = marked);
         async.flushMicrotasks();
+        expect(running, isTrue);
         Object? failure;
         h.queue.drain('acc').catchError((Object e) => failure = e);
         async.flushMicrotasks();
