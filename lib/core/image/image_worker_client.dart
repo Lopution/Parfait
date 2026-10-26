@@ -83,7 +83,7 @@ class ImageWorkerClient implements ImageFetcher {
     // then on exitPort.
     final errors = errorPort.listen((raw) {
       final [message, stack] = (raw as List).cast<String?>();
-      CrashLog.record(RemoteError('$message', stack ?? ''));
+      _recordRemote(RemoteError('$message', stack ?? ''));
     });
     Isolate? isolate;
     try {
@@ -310,7 +310,7 @@ class ImageWorkerClient implements ImageFetcher {
       case RouteExhaustedEvent(:final host):
         onRouteExhausted?.call(host);
       case WorkerErrorEvent(:final message, :final stack):
-        CrashLog.record(RemoteError(message, stack));
+        _recordRemote(RemoteError(message, stack));
       case StatusEvent(:final id) ||
           CachedEvent(:final id) ||
           RoutesEvent(:final id):
@@ -330,6 +330,11 @@ class ImageWorkerClient implements ImageFetcher {
     if (ids != null && ids.isEmpty) _idsByUrl.remove(entry.$1);
     run(entry);
   }
+
+  /// Logs a worker's error with the worker's stack: [RemoteError] prints
+  /// only its message, and an escaped error is otherwise untraceable.
+  static void _recordRemote(RemoteError error) =>
+      CrashLog.record(error, error.stackTrace);
 
   void _onExit() {
     _die(const ImageWorkerUnavailable('isolate exited'));

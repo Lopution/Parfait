@@ -146,7 +146,10 @@ reviewed: 2026-10-25
   landed page leaves, `HeroLiftHole` cuts the flying image's spot out of
   its content, so what is under the content shows there; an opening page
   has none. The viewer's endpoint (`IllustHeroFlightChild.containsImage`)
-  cuts nothing. Under a page pushed on top it slides like any page. The
+  cuts nothing. Under a page pushed on top it slides like any page. A
+  page that is leaving keeps the page it was on (`didChangePrevious` is
+  ignored once it is not active), so two backs in a row leave the page
+  under the shared-element page still. The
   transition's widget structure never changes over the route's life. A
   detail pager aims each settled work's back flight
   (`IllustPagerSource.aimHomeFlight`): a card with nothing on screen takes
@@ -168,8 +171,12 @@ reviewed: 2026-10-25
   the viewer read as a sharp-edged window that did not fade with the
   stage. Content at alpha 0 is not painted, so its whole page of text was
   first drawn when its fade began, mid-flight: a raster frame of 12–20ms
-  stalled the image on every opening (10-24).
-- **Check:** `test/func_page_test.dart` "a shared-element page covers a still page" "the viewer stage fades whole, with no background"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight" "an image sent back mid-flight turns where it is"; `test/architecture/feedback_channels_test.dart` "Hero uses only the shared illustHeroTag family"; `test/illust_card_badges_test.dart` "the pager image flies back only to a card on screen"
+  stalled the image on every opening (10-24). The Navigator announces the
+  route below both to a page still leaving when the page under it leaves
+  too (`suitableForAnnouncement` keeps popping routes); taking it handed
+  the leaving page's slide to the feed under the detail, which slid in
+  from a third of the way across while the image landed (10-26).
+- **Check:** `test/func_page_test.dart` "a shared-element page covers a still page" "the viewer stage fades whole, with no background" "two backs in a row leave the page under the shared-element"; `test/hero_transition_test.dart` "the viewer leaves whole and square; the detail page answers mid-flight" "an image sent back mid-flight turns where it is"; `test/architecture/feedback_channels_test.dart` "Hero uses only the shared illustHeroTag family"; `test/illust_card_badges_test.dart` "the pager image flies back only to a card on screen"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/app/navigation/routes.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/widgets/feed/feed_grid.dart`
 
 ### TRANS-10 The card page's bars ride over a card flight; other flights clip
@@ -184,7 +191,14 @@ reviewed: 2026-10-25
   alone. Meanwhile the shared-element page's `HeroBarsCover`, over its
   background and under its content, paints the real bars over in the
   page colour; they show again as the flight ends, where the lifted ones
-  rest. Other flights use a global clip between the source and
+  rest. A bar's shadow over the content beside it is a `LiftableShadow`:
+  the lifted bar casts it (the one whose inner edge meets the band's),
+  and the real one holds off while its page's bars are lifted. "Its
+  page" is the card's route and every route holding the card's
+  Navigator: the home shell's bottom bar floats over a branch on the
+  shell's route, and the branch page's copy appears only a frame after
+  takeoff. The hold-off's repaint schedules its own frame (a flight lets
+  go after the frame's paint). Other flights use a global clip between the source and
   destination chrome boundaries, interpolated by how much the
   shared-element page over the card's route covers it (its background,
   or the whole page without one), or over the route holding
@@ -211,15 +225,18 @@ reviewed: 2026-10-25
   slides them away (`renderInSharedTransitionScopeOverlay` with
   `animateEnterExit`). A whole bar fading over the image showed the image
   through it, split in two; its solid background does not. Only the bands
-  are captured, so the takeoff frame rasterizes two strips, not a page. A card opened again while its image flew home
+  are captured, so the takeoff frame rasterizes two strips, not a page.
+  Without the shadow the image met the lifted bottom bar with a hard edge
+  and the real shadow stayed at the rest line, popping back on landing
+  (10-26). A card opened again while its image flew home
   sends the flight to the new page but keeps the shuttle, built with the
   old route's animation, which stops: the clip and the corners froze at
   the card end and the tab row cut the image on the detail page. The
   shuttle is painted over every page, so chrome on the image was covered
   as a flight set off and popped back whole at the landing, and badges
   floated over the card's empty slot.
-- **Check:** `test/hero_transition_test.dart` "a card flight lifts the card page's bars over the image" "Hero pop flight is occluded by the chrome" "Hero push from a nested feed stays intact" "chrome over a flight steps aside until the landing"
-- **Code:** `lib/app/motion/hero_rect_clip.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/motion/hero_lifted_bars.dart`, `lib/app/navigation/func_page.dart`
+- **Check:** `test/hero_transition_test.dart` "a card flight lifts the card page's bars over the image" (with their shadows) "Hero pop flight is occluded by the chrome" "Hero push from a nested feed stays intact" "chrome over a flight steps aside until the landing"
+- **Code:** `lib/app/motion/hero_rect_clip.dart`, `lib/app/motion/hero_transition.dart`, `lib/app/motion/hero_lifted_bars.dart`, `lib/app/navigation/func_page.dart`, `lib/app/widgets/func_bottom_nav.dart`, `lib/app/widgets/app_top_bar.dart`
 
 ### TRANS-11 Card rounding lives inside the Hero child
 - **Rule:** The card's corner clip (`IllustHeroCardFrame`) wraps the Hero
@@ -379,7 +396,7 @@ reviewed: 2026-10-25
   frame probe page shows, copies and clears the log. A normal flight
   does only the comparisons.
 - **Why:** A wrong flight showed on devices a few times a day and never
-  on demand, so the user could not record one. Widget type names are
-  obfuscated in release builds; route names and restoration ids are not.
+  on demand, so the user could not record one. Route names and
+  restoration ids say which page and branch a flight end is on.
 - **Check:** `test/hero_transition_test.dart` "a flight from a card out of sight is logged, others not"
 - **Code:** `lib/app/motion/hero_anomaly.dart`, `lib/core/debug/hero_anomaly_log.dart`, `lib/features/settings/pages/frame_probe_page.dart`

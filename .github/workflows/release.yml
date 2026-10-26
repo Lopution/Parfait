@@ -66,7 +66,7 @@ jobs:
           test -n "$PIXIV_UPDATE_PUBLIC_KEY_DER_B64" || { echo "::error::missing updater public key secret"; exit 1; }
           flutter build apk --release --flavor github \
             --split-per-abi --target-platform android-arm64,android-arm \
-            --obfuscate --split-debug-info=build/symbols/github \
+            --split-debug-info=build/symbols/github \
             -PPIXIV_RELEASE_KEYSTORE="$HOME/.pixivfunc-release/pixivfunc-release.jks" \
             -PPIXIV_RELEASE_KEYSTORE_PASSWORD="$PIXIV_RELEASE_KEYSTORE_PASSWORD" \
             -PPIXIV_RELEASE_KEY_ALIAS="$PIXIV_RELEASE_KEY_ALIAS" \
@@ -151,11 +151,15 @@ jobs:
               --target "${{ github.sha }}" \
               --draft
           fi
+          # Dart symbols to decode users' stack traces (tool/RELEASE.md),
+          # kept with the release: an Actions artifact expires first.
+          (cd build/symbols && zip -qr "$GITHUB_WORKSPACE/parfait-v${VERSION}-symbols.zip" github)
           # Upload on every run (a re-run for an existing draft must still
           # replace the assets), overwriting same-named files.
           gh release upload "v${VERSION}" --clobber \
             "parfait-v${VERSION}-github-arm64-v8a.apk" \
             "parfait-v${VERSION}-github-armeabi-v7a.apk" \
+            "parfait-v${VERSION}-symbols.zip" \
             "assets/update-manifest.json" \
             "assets/update-manifest.sig"
 
@@ -175,11 +179,6 @@ jobs:
             test -s release-notes.md || echo "**See commit history for changes.**" > release-notes.md
             gh release edit "v${VERSION}" --notes-file release-notes.md
           fi
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: github-release-symbols
-          path: build/symbols/github
 
       - name: Scan for leaked secrets (fail on match)
         run: |

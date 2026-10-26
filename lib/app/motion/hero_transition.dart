@@ -586,6 +586,9 @@ class _LiftedEndpointsState extends State<_LiftedEndpoints> {
       HeroBarsCover._cover(route, bars.rects);
       _releases = [..._releases, () => HeroBarsCover._uncover(route)];
     }
+    for (final route in _bars?.routes ?? const <Route<dynamic>>[]) {
+      _releases = [..._releases, LiftableShadow._lift(route)];
+    }
     _holdOver(ModalRoute.of(widget.card), _heroScreenRect(widget.card));
     _holdOver(ModalRoute.of(page), _pageRect);
   }

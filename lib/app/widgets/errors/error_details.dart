@@ -138,7 +138,7 @@ void showErrorSnackBar(
   PromptAction? snackBarAction,
   Duration duration = const Duration(seconds: 4),
 }) {
-  CrashLog.record(error, stack);
+  CrashLog.report(action, error, stack);
   showAppSnackBar(
     context,
     context.l10n.errorWithReason(

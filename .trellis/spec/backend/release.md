@@ -33,7 +33,9 @@ reviewed: 2026-10-14
 
 ### REL-01 Releases are per-ABI splits
 - **Rule:** Release builds are per-ABI splits for `arm64-v8a` and
-  `armeabi-v7a` only, obfuscated with symbols kept as Actions artifacts.
+  `armeabi-v7a` only, built with `--split-debug-info` and without
+  `--obfuscate` (the AGPL source is public anyway, and logs keep readable
+  type names); the symbols ship as `parfait-v<ver>-symbols.zip` on the release.
   No universal or x86_64 APK. Split `versionCode`s keep Flutter's offsets
   (`1000 + n`, `2000 + n`); never pass
   `-Pforce-version-code-ignoring-abi`. `libsqlite3.so` stays excluded on

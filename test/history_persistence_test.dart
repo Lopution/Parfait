@@ -9,6 +9,7 @@ import 'package:parfait/core/history/history_database.dart';
 import 'package:parfait/core/history/history_models.dart';
 import 'package:parfait/core/history/history_repository.dart';
 import 'package:parfait/core/history/history_tracker.dart';
+import 'package:parfait/core/network/api_error.dart';
 
 void main() {
   setUpAll(sqfliteFfiInit);
@@ -265,6 +266,23 @@ void main() {
       expect(await repository.pendingOutbox(accountId: 'a'), isEmpty);
     });
 
+    test('a server error waits out its backoff without a report', () async {
+      await repository.commitView(
+        record: _record('a', HistoryContentType.illust, 1),
+        writeLocal: false,
+        enqueuePixiv: true,
+        unsubmittedPixivDuration: const Duration(seconds: 10),
+      );
+      final remote = _FakeRemote()
+        ..shouldFail = true
+        ..failure = const ApiHttpError(503);
+      await repository.flushOutbox(accountId: 'a', remote: remote);
+      expect(remote.calls, [1]);
+      expect(await repository.pendingOutbox(accountId: 'a'), isEmpty);
+      now = now.add(const Duration(seconds: 2));
+      expect(await repository.pendingOutbox(accountId: 'a'), hasLength(1));
+    });
+
     test('surfaces a corrupt row instead of fabricating history', () async {
       final db = await database.database;
       await db.execute('PRAGMA ignore_check_constraints = ON');
@@ -435,11 +453,12 @@ HistoryRecord _record(
 class _FakeRemote implements PixivHistoryRemote {
   final List<int> calls = [];
   bool shouldFail = false;
+  Object failure = StateError('rejected');
 
   @override
   Future<void> addIllust(int illustId) async {
     calls.add(illustId);
-    if (shouldFail) throw StateError('offline');
+    if (shouldFail) throw failure;
   }
 }
 

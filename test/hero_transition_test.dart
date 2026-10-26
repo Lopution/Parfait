@@ -984,40 +984,55 @@ void main() {
       flightShuttleBuilder: illustHeroFlightShuttleBuilder,
       child: child,
     );
-    // A card right under a 100px app bar, over a 100px bottom bar.
+    // A card right under a 100px app bar, over a 100px bottom bar that, as
+    // the home shell's, floats over the card's Navigator on the page
+    // around it.
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
           builder: (context) {
             root = context;
-            return Navigator(
-              observers: [HeroController()],
-              onGenerateRoute: (_) => page(
-                Builder(
-                  builder: (context) {
-                    navigator = Navigator.of(context);
-                    return Scaffold(
-                      appBar: const PreferredSize(
-                        preferredSize: Size.fromHeight(100),
-                        child: ColoredBox(color: Colors.green),
-                      ),
-                      body: ListView(
-                        children: [
-                          Align(
-                            alignment: Alignment.topLeft,
-                            child: art(
-                              const IllustHeroCardFrame(
-                                child: SizedBox.square(dimension: 200),
-                              ),
-                            ),
+            return Stack(
+              children: [
+                Navigator(
+                  observers: [HeroController()],
+                  onGenerateRoute: (_) => page(
+                    Builder(
+                      builder: (context) {
+                        navigator = Navigator.of(context);
+                        return Scaffold(
+                          appBar: const PreferredSize(
+                            preferredSize: Size.fromHeight(100),
+                            child: ColoredBox(color: Colors.green),
                           ),
-                        ],
-                      ),
-                      bottomNavigationBar: _bottomBar,
-                    );
-                  },
+                          body: ListView(
+                            children: [
+                              Align(
+                                alignment: Alignment.topLeft,
+                                child: art(
+                                  const IllustHeroCardFrame(
+                                    child: SizedBox.square(dimension: 200),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          bottomNavigationBar: const SizedBox(height: 100),
+                        );
+                      },
+                    ),
+                  ),
                 ),
-              ),
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: LiftableShadow(
+                    shadows: [BoxShadow(blurRadius: 4)],
+                    child: _bottomBar,
+                  ),
+                ),
+              ],
             );
           },
         ),
@@ -1025,6 +1040,11 @@ void main() {
     );
     const top = Rect.fromLTRB(0, 0, 400, 100);
     const bottom = Rect.fromLTRB(0, 700, 400, 800);
+    bool realShadow() =>
+        (tester.state(find.byType(LiftableShadow, skipOffstage: false))
+                    as dynamic)
+                .debugCasting
+            as bool;
     // Each bar [shown] of the way in, its content as faded.
     void expectBars(double shown) {
       final bars = _liftedBars(tester);
@@ -1033,6 +1053,10 @@ void main() {
         top.translate(0, -100 * (1 - shown)),
         bottom.translate(0, 100 * (1 - shown)),
       ]);
+      // The bottom bar's shadow moves with the lifted copy; the real one
+      // holds off. The top bar casts none.
+      expect(bars.map((bar) => bar.shadows), [0, 1]);
+      expect(realShadow(), isFalse);
     }
 
     double shown() => _liftedBars(tester).first.opacity;
@@ -1066,6 +1090,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(_liftedBars(tester), isEmpty);
     expect(covered(), isEmpty);
+    expect(realShadow(), isTrue);
 
     navigator.pop();
     await tester.pump();
@@ -1080,6 +1105,8 @@ void main() {
     expect(shown(), greaterThan(returning));
     await tester.pumpAndSettle();
     expect(_liftedBars(tester), isEmpty);
+    // Repainted once the flight lets go, with no frame left to ask for it.
+    expect(realShadow(), isTrue);
   });
 
   testWidgets('Hero pop flight is occluded by the chrome', (tester) async {
@@ -1269,13 +1296,15 @@ Rect? _heroPaintClipRect(WidgetTester tester) {
 
 /// The card page's bars a flight last painted over its image, and their
 /// content's opacity; none outside a card flight.
-List<({Rect rect, double opacity})> _liftedBars(WidgetTester tester) {
+List<({Rect rect, double opacity, int shadows})> _liftedBars(
+  WidgetTester tester,
+) {
   final paint = find.byWidgetPredicate(
     (widget) => '${widget.runtimeType}' == '_LiftedBarsPaint',
   );
   if (paint.evaluate().isEmpty) return const [];
   return (tester.renderObject(paint) as dynamic).debugLastPaintedBars
-      as List<({Rect rect, double opacity})>;
+      as List<({Rect rect, double opacity, int shadows})>;
 }
 
 class _FixedHeaderDelegate extends SliverPersistentHeaderDelegate {

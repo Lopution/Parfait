@@ -136,6 +136,7 @@ void main() {
         await CrashLog.pending;
       });
       final content = file.readAsStringSync();
+      expect(content, contains('reported: 历史记录加载失败'));
       expect(content, contains('SocketException'));
       expect(content, contains('connection reset'));
 

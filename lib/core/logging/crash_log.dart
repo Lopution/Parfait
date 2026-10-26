@@ -10,10 +10,11 @@ import 'package:path/path.dart' as p;
 /// Two kinds of entries land here. Uncaught errors: [install] hooks
 /// [FlutterError.onError] and is paired with `runZonedGuarded(record, ...)`
 /// in `main` so framework and zone errors land in `crash.log` under the
-/// app support directory. Reported errors: `showErrorSnackBar` records the
-/// failures it already surfaced to the user, so the one file a user can
-/// share still carries the raw text the UI replaced with a category — the
-/// file therefore mixes non-fatal entries with real crashes.
+/// app support directory. Reported errors ([report]): `showErrorSnackBar`
+/// records the failures it already surfaced to the user, so the one file a
+/// user can share still carries the raw text the UI replaced with a
+/// category. Their header names the action that failed, which tells them
+/// apart from real crashes.
 ///
 /// Writes are serialized through a queue so a burst of errors cannot
 /// interleave or drop entries. The file is capped at [maxBytes]: past the
@@ -54,14 +55,25 @@ class CrashLog {
 
   /// Appends one entry. Also usable as the `runZonedGuarded` onError.
   /// Never throws: a failing logger must not mask the original crash.
-  static void record(Object error, [StackTrace? stack]) {
+  static void record(Object error, [StackTrace? stack]) =>
+      _enqueue(null, error, stack);
+
+  /// Appends a failure the UI already showed the user while doing
+  /// [action] (its localized label): not a crash.
+  static void report(String action, Object error, [StackTrace? stack]) =>
+      _enqueue(action, error, stack);
+
+  static void _enqueue(String? action, Object error, StackTrace? stack) {
     final file = _file;
     if (file == null) return;
-    _tail = _tail.then((_) => _append(file, error, stack)).catchError((_) {});
+    _tail = _tail
+        .then((_) => _append(file, action, error, stack))
+        .catchError((_) {});
   }
 
   static Future<void> _append(
     File file,
+    String? action,
     Object error,
     StackTrace? stack,
   ) async {
@@ -75,7 +87,10 @@ class CrashLog {
       );
     }
     final entry = StringBuffer()
-      ..writeln('=== ${DateTime.now().toIso8601String()} ===')
+      ..writeln(
+        '=== ${DateTime.now().toIso8601String()}'
+        '${action == null ? '' : ' · reported: $action'} ===',
+      )
       ..writeln(error);
     if (stack != null) entry.writeln(stack);
     await file.writeAsString(

@@ -41,9 +41,11 @@ reviewed: 2026-10-12
   `error_category.dart` are the only classification; call sites never
   re-classify or branch on `toString()` substrings. Error SnackBars go
   through `showErrorSnackBar`, which records the original error to
-  `CrashLog` and shows `action: category`.
+  `CrashLog` with `CrashLog.report` (its header reads `reported: <action>`,
+  apart from crashes) and shows `action: category`.
 - **Why:** Per-page classification disagreed about the same failure and
-  left no durable trace for support.
+  left no durable trace for support. Unlabelled, five 503 SnackBars read
+  as five crashes in a user's crash.log (10-26).
 - **Check:** `test/error_category_test.dart` "ApiHttpError splits by status" "parse family", `test/error_details_test.dart` "shows action + category and records the raw error"
 - **Code:** `lib/core/errors/error_category.dart`, `lib/core/logging/crash_log.dart`
 
