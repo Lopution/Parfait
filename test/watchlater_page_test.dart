@@ -90,6 +90,20 @@ void main() {
     expect(find.byType(IllustCard), findsNWidgets(3));
   });
 
+  testWidgets('a page closed during the exit still removes the works', (
+    tester,
+  ) async {
+    await pumpPage(tester);
+    await enterManaging(tester);
+    await tester.tap(_tile(3).first);
+    await tester.pump();
+    await tester.tap(find.byTooltip('从稍后再看移除'));
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+    expect(await _ids(repository), [2, 1]);
+  });
+
   testWidgets('select all, and the remove action needs a selection', (
     tester,
   ) async {
