@@ -61,14 +61,14 @@ class _WatchLaterPageState extends ConsumerState<WatchLaterPage> {
   }
 
   /// The tiles leave first, then the rows go in one transaction; Undo puts
-  /// them back in place (D5 — no confirmation).
+  /// them back in place (D5 — no confirmation). A page closed mid-exit
+  /// still removes them.
   Future<void> _removeSelected() async {
     final ids = List<int>.of(_selected);
+    final store = ref.read(watchLaterStoreProvider.notifier);
     _exitManaging();
     await _removals.playExit(ids);
-    final removal = await ref
-        .read(watchLaterStoreProvider.notifier)
-        .removeAll(ids);
+    final removal = await store.removeAll(ids);
     if (removal == null) {
       _removals.restore(ids);
       return;

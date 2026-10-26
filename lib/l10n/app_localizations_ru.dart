@@ -1316,6 +1316,10 @@ class AppLocalizationsRu extends AppLocalizations {
       'При скачивании иллюстраций и манги сохранять название, автора и описание в одноимённый .txt';
 
   @override
+  String get downloadCaptionAlbumUnsupported =>
+      'В альбом нельзя сохранять текстовые файлы; доступно при сохранении в папку';
+
+  @override
   String get aboutVersion => 'Версия';
 
   @override

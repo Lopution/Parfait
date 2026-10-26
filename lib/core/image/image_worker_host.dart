@@ -182,6 +182,9 @@ class ImageWorkerHost {
           _applyConfig(config);
         case LookupMessage(:final id, :final url):
           unawaited(_lookup(id, url));
+        case DiscardMessage(:final url):
+          // The index drops it at once; a fetch after this one misses.
+          unawaited(_cache.remove(url));
         case RoutesMessage(:final id):
           final routes = _policy?.effectiveRouteSnapshot() ?? const {};
           _send(

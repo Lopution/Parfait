@@ -229,6 +229,11 @@ class ImageWorkerClient implements ImageFetcher {
     if (_dead == null) _worker.send(encodeWatch(url, watching: watching));
   }
 
+  @override
+  void discard(String url) {
+    if (_dead == null) _worker.send(encodeDiscard(url));
+  }
+
   /// The worker's queue and disk usage right now.
   Future<ImageWorkerStatus> status() async =>
       (await _ask(encodeStatusRequest) as StatusEvent).status;

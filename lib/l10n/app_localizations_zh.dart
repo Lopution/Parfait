@@ -1271,6 +1271,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloadCaptionHint => '下载插画/漫画时，把标题、作者与简介保存为同名 .txt';
 
   @override
+  String get downloadCaptionAlbumUnsupported => '相册不能存放文本文件；下载位置选「文件夹」时可用';
+
+  @override
   String get aboutVersion => '版本';
 
   @override

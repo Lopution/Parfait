@@ -6,7 +6,7 @@ applies_to:
   - lib/app/pixiv_image.dart
   - lib/app/image_tier_cache.dart
   - lib/app/widgets/image_load_progress.dart
-reviewed: 2026-10-19
+reviewed: 2026-10-26
 ---
 
 # Image pipeline and animated media
@@ -137,11 +137,16 @@ reviewed: 2026-10-19
   `FlutterError.onError`. The visible `PixivImage` retries a transient
   failure after 1 s, 3 s and 8 s, then shows a retry button; 403, 404 and
   410 are permanent. A retry evicts the key the widget resolves: the
-  `ResizeImage` wrapping, or the `BlurredImage` around it.
+  `ResizeImage` wrapping, or the `BlurredImage` around it. A file whose
+  header or any frame fails to decode is dropped from the worker's disk
+  cache (`ImageFetcher.discard`) before the error surfaces, so the retry
+  downloads it again.
 - **Why:** Preload failures flooded the crash log; evicting the bare
-  provider key missed the cached error, so retry did nothing.
-- **Check:** `test/pixiv_image_retry_test.dart` "three failed retries end in a manual retry button" "a missing image is asked for once; the button asks again", `test/pixiv_image_preload_test.dart`
-- **Code:** `lib/app/pixiv_image.dart`
+  provider key missed the cached error, so retry did nothing. An error
+  page served with 200, or a body cut short, was cached under the image
+  URL and answered every retry; a cut body fails only at its frame.
+- **Check:** `test/pixiv_image_retry_test.dart` "three failed retries end in a manual retry button" "a missing image is asked for once; the button asks again" "bytes that do not decode are downloaded again", `test/pixiv_image_preload_test.dart`
+- **Code:** `lib/app/pixiv_image.dart`, `lib/core/image/worker_image_provider.dart`
 
 ## Tests
 

@@ -95,6 +95,25 @@ void main() {
       );
     });
 
+    test('every winner rewrites to hosts the auto allowlist admits', () {
+      final registry = PixivDestinationRegistry(
+        extraImageHosts: ImageMirror.of('auto').extraHosts,
+      );
+      for (final winner in ImageMirror.autoCandidates) {
+        for (final url in [
+          url,
+          Uri.parse('https://s.pximg.net/common/x.png'),
+        ]) {
+          final rewritten = ImageMirror.auto(winner).rewrite(url);
+          expect(
+            registry.resolve(rewritten, PixivDestinationPurpose.image),
+            isNotNull,
+            reason: '$rewritten',
+          );
+        }
+      }
+    });
+
     test('a pximg winner is direct passthrough', () {
       final mirror = ImageMirror.auto('i.pximg.net');
       expect(identical(mirror.rewrite(url), url), isTrue);

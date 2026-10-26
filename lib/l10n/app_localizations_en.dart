@@ -1323,6 +1323,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Save the title, author and caption as a matching .txt next to downloaded illusts and manga';
 
   @override
+  String get downloadCaptionAlbumUnsupported =>
+      'Albums can\'t hold text files; available when downloads go to a folder';
+
+  @override
   String get aboutVersion => 'Version';
 
   @override

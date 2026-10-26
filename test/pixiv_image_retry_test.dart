@@ -18,7 +18,10 @@ const _originalUrl = 'https://i.pximg.net/img-original/retry-original.png';
 const _blurredUrl = 'https://i.pximg.net/img-master/retry-blurred.jpg';
 
 /// What the network does on one attempt.
-enum _Outcome { transient, notFound, image }
+/// What the network does on one attempt; [garbage] is a 200 whose body is
+/// no image, as a portal's error page, and [cut] an image body cut short:
+/// its header decodes, its pixels do not.
+enum _Outcome { transient, notFound, garbage, cut, image }
 
 /// The worker's network behind one script. The retry policy above it is
 /// the same for a capped image, an original fetched in ranges (the script
@@ -39,6 +42,8 @@ class _Pipeline {
         return switch (script(requests)) {
           _Outcome.transient => throw const SocketException('connection reset'),
           _Outcome.notFound => http.Response('', 404),
+          _Outcome.garbage => http.Response('<html>busy</html>', 200),
+          _Outcome.cut => http.Response.bytes(onePixelPng.sublist(0, 45), 200),
           _Outcome.image => http.Response.bytes(onePixelPng, 200),
         };
       }),
@@ -126,6 +131,28 @@ void main() {
         }
         expect(_painted(tester), isTrue);
         expect(find.byIcon(Icons.broken_image_outlined), findsNothing);
+      });
+
+      testWidgets('bytes that do not decode are downloaded again', (
+        tester,
+      ) async {
+        final network = pipeline()
+          ..script = (attempt) => switch (attempt) {
+            1 => _Outcome.garbage,
+            2 => _Outcome.cut,
+            _ => _Outcome.image,
+          };
+        await _pump(tester, network);
+        bool failed(int attempt) =>
+            network.requests == attempt &&
+            find.byIcon(Icons.broken_image_outlined).evaluate().isNotEmpty;
+        expect(failed(1), isTrue);
+
+        await tester.pump(const Duration(seconds: 1));
+        await pumpIoUntil(tester, () => failed(2));
+        await tester.pump(const Duration(seconds: 3));
+        await pumpIoUntil(tester, () => _painted(tester));
+        expect(network.requests, 3, reason: 'not answered from the disk');
       });
 
       testWidgets('three failed retries end in a manual retry button', (

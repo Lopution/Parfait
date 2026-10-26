@@ -61,12 +61,15 @@ class ImageMirror {
   /// allowlist admits every candidate so probes are routable.
   factory ImageMirror.auto(String? winnerHost) {
     final preset = winnerHost == null ? null : _presets[winnerHost];
-    return ImageMirror._(
-      preset?._presetPair,
-      null,
-      Set.unmodifiable(autoCandidates),
-    );
+    return ImageMirror._(preset?._presetPair, null, _autoHosts);
   }
+
+  /// Every candidate with the `s.` host its preset rewrites `s.pximg.net`
+  /// to: the same set whichever candidate wins.
+  static final Set<String> _autoHosts = Set.unmodifiable({
+    ...autoCandidates,
+    for (final host in autoCandidates) ...?_presets[host]?.extraHosts,
+  });
 
   /// Preset mirrors keyed by their persisted `imageSource` value (the
   /// `ImageSourceMode.host` of the matching enum entry). Each entry maps

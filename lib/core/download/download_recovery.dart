@@ -140,6 +140,10 @@ class DownloadOutputOwner {
     required this.accountId,
   });
 
+  /// The owner ids Android's `MediaStoreChannel.beginPending` accepts as a
+  /// pending row's marker; it refuses any other, so the row is never made.
+  static final idPattern = RegExp(r'^[A-Za-z0-9_.-]{1,128}$');
+
   final String ownerId;
   final String jobId;
   final String? accountId;

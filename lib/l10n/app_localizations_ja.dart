@@ -1292,6 +1292,10 @@ class AppLocalizationsJa extends AppLocalizations {
       'イラスト・マンガのダウンロード時に、タイトル・作者・キャプションを同名の .txt として保存します';
 
   @override
+  String get downloadCaptionAlbumUnsupported =>
+      'アルバムにはテキストファイルを保存できません。保存先が「フォルダー」のときに使えます';
+
+  @override
   String get aboutVersion => 'バージョン';
 
   @override

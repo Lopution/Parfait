@@ -572,6 +572,7 @@
   "downloadAuthorFailed": "作者の作品を取得できませんでした",
   "downloadCaption": "作品のキャプションを書き出す",
   "downloadCaptionHint": "イラスト・マンガのダウンロード時に、タイトル・作者・キャプションを同名の .txt として保存します",
+  "downloadCaptionAlbumUnsupported": "アルバムにはテキストファイルを保存できません。保存先が「フォルダー」のときに使えます",
   "aboutVersion": "バージョン",
   "aboutCheckUpdate": "更新を確認",
   "aboutCheckingUpdate": "更新を確認中…",

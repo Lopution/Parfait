@@ -10,7 +10,7 @@ applies_to:
   - lib/app/navigation/route_animation.dart
   - lib/app/layout/sliver_width_builder.dart
   - lib/app/startup_gate.dart
-reviewed: 2026-10-19
+reviewed: 2026-10-26
 ---
 
 # Motion, press feedback and the rebuild budget
@@ -193,7 +193,7 @@ reviewed: 2026-10-19
   without `controller.leaving` from the exit's first frame.
 - **Why:** Committing first rebuilt the list and cut the row out; reads
   after the await hit a disposed widget.
-- **Check:** `test/motion_test.dart` "restore brings a row back after a failed commit" "a row disposed mid-exit does not leave the exit hanging"
+- **Check:** `test/motion_test.dart` "restore brings a row back after a failed commit" "a row disposed mid-exit does not leave the exit hanging", `test/watchlater_page_test.dart` "a page closed during the exit still removes the works"
 - **Code:** `lib/app/motion/removal.dart`
 
 ### MOTION-09 Grow-in rows are few and marked on insert
