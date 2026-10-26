@@ -33,7 +33,7 @@ Then build two split APKs (no fat / universal, no x86_64):
 ```bash
 flutter build apk --release --flavor github \
   --split-per-abi --target-platform android-arm64,android-arm \
-  --obfuscate --split-debug-info=build/symbols/github \
+  --split-debug-info=build/symbols/github \
   -PPIXIV_RELEASE_KEYSTORE=$HOME/.pixivfunc-release/pixivfunc-release.jks \
   -PPIXIV_RELEASE_KEYSTORE_PASSWORD=... \
   -PPIXIV_RELEASE_KEY_ALIAS=pixivfunc \
@@ -131,15 +131,26 @@ cannot run.
    ```
    Top-level `versionCode` is the unshifted base `n`. Each asset stores the
    Flutter offset (`arm64-v8a` = `2000+n`, `armeabi-v7a` = `1000+n`).
-4. Upload to the GitHub draft release exactly these four files (no fat APK):
+4. Upload to the GitHub draft release exactly these five files (no fat APK):
    `parfait-v<ver>-github-arm64-v8a.apk`,
    `parfait-v<ver>-github-armeabi-v7a.apk`,
+   `parfait-v<ver>-symbols.zip` (`build/symbols/github`, zipped),
    `update-manifest.json`, and `update-manifest.sig`.
    The derived asset URL is
    `https://github.com/Lopution/Parfait/releases/download/v<ver>/parfait-v<ver>-github-<abi>.apk`
    (repository-name case is significant). See
-   `.github/workflows/release.yml` for the automated path. Obfuscation
-   symbols stay on the Actions artifact, not the public release.
+   `.github/workflows/release.yml` for the automated path. Release builds
+   are not obfuscated (the source is public); the symbols zip turns a
+   user's native stack trace back into Dart frames. `flutter symbolize`
+   on Flutter 3.47.7 bundles `native_stack_traces` 0.6.1, which cannot
+   read this engine's snapshots ("Cannot locate isolate instructions
+   section"); 0.7.0 can:
+   ```bash
+   dart pub global activate native_stack_traces 0.7.0
+   dart pub global run native_stack_traces:decode translate \
+     -d github/app.android-arm64.symbols -i <trace.txt>
+   ```
+   The trace's `build_id` must match the build's.
 5. Verify on real devices: API 29 and a modern Android, each selecting its
    ABI asset. The negative case (tampered manifest/signature, or a manifest
    missing the device ABI) must be rejected with a visible reason — never

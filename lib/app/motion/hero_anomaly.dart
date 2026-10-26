@@ -84,8 +84,8 @@ bool _awayFromTap(Object tag, Rect? cardRect) {
   return cardRect == null || !cardRect.overlaps(open.rect.inflate(_openSlack));
 }
 
-/// The route, navigator (a branch's restoration id; release builds
-/// obfuscate widget types) and box of a flight end.
+/// The route, navigator (a branch's restoration id) and box of a flight
+/// end.
 String _describe(BuildContext context, Rect? rect) {
   final route = ModalRoute.of(context)?.settings.name;
   final navigator = Navigator.maybeOf(context)?.widget.restorationScopeId;

@@ -81,8 +81,8 @@ class ApiParseError extends ApiError {
 
   final Object cause;
 
-  /// The cause rides along: release builds obfuscate [runtimeType], so the
-  /// extractor's own diagnostics ("missing bootstrap script", "no value
+  /// The cause rides along: [runtimeType] says only that parsing failed, so
+  /// the extractor's own diagnostics ("missing bootstrap script", "no value
   /// entry") are the only way to tell WHICH parse stage failed from a
   /// user report. Causes are FormatExceptions or short literals — never
   /// headers, tokens or cookies — and are capped so an HTML page fragment

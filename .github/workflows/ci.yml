@@ -196,7 +196,7 @@ jobs:
           test -n "$PIXIV_RELEASE_KEY_PASSWORD" || { echo "::error::missing key password secret"; exit 1; }
           flutter build apk --release --flavor github \
             --split-per-abi --target-platform android-arm64,android-arm \
-            --obfuscate --split-debug-info=build/symbols/github \
+            --split-debug-info=build/symbols/github \
             -PPIXIV_RELEASE_KEYSTORE="$HOME/.pixivfunc-release/pixivfunc-release.jks" \
             -PPIXIV_RELEASE_KEYSTORE_PASSWORD="$PIXIV_RELEASE_KEYSTORE_PASSWORD" \
             -PPIXIV_RELEASE_KEY_ALIAS="$PIXIV_RELEASE_KEY_ALIAS" \
@@ -300,7 +300,7 @@ jobs:
         run: |
           flutter build apk --release --flavor fdroid \
             --split-per-abi --target-platform android-arm64,android-arm \
-            --obfuscate --split-debug-info=build/symbols/fdroid
+            --split-debug-info=build/symbols/fdroid
       - name: Report split APK sizes
         # Defaults = measured github split bytes + 1_000_000 headroom,
         # re-baselined 2026-10-23 when the native libraries became
