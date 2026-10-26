@@ -10,7 +10,9 @@ import '../../../app/widgets/settings/settings_control.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_group_content.dart';
 import '../../../app/widgets/settings/settings_tile.dart';
+import '../../../core/download/caption_exporter.dart';
 import '../../../core/download/naming_rule.dart';
+import '../../../core/platform/platform_caps.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../l10n/context.dart';
@@ -110,6 +112,10 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
       _templateController.text = namingRule.template ?? '';
     }
     final destination = settings.downloadDestination;
+    final captionFitsHere = captionFits(
+      destination,
+      isAndroid: ref.watch(platformCapsProvider).isAndroid,
+    );
     return guardDraft(
       dirty: _templateDirty,
       child: Scaffold(
@@ -173,14 +179,20 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                   ),
                   SettingsControl(
                     setting: Setting.downloadCaption,
-                    subtitle: Text(context.l10n.downloadCaptionHint),
-                    value: settings.downloadCaption,
-                    onChanged: (enabled) => persistSettings(
-                      context,
-                      () => ref
-                          .read(settingsProvider.notifier)
-                          .setDownloadCaption(enabled),
+                    subtitle: Text(
+                      captionFitsHere
+                          ? context.l10n.downloadCaptionHint
+                          : context.l10n.downloadCaptionAlbumUnsupported,
                     ),
+                    value: settings.downloadCaption && captionFitsHere,
+                    onChanged: captionFitsHere
+                        ? (enabled) => persistSettings(
+                            context,
+                            () => ref
+                                .read(settingsProvider.notifier)
+                                .setDownloadCaption(enabled),
+                          )
+                        : null,
                   ),
                 ],
               ),

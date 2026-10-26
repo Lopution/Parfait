@@ -2489,6 +2489,12 @@ abstract class AppLocalizations {
   /// **'下载插画/漫画时，把标题、作者与简介保存为同名 .txt'**
   String get downloadCaptionHint;
 
+  /// No description provided for @downloadCaptionAlbumUnsupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'相册不能存放文本文件；下载位置选「文件夹」时可用'**
+  String get downloadCaptionAlbumUnsupported;
+
   /// No description provided for @aboutVersion.
   ///
   /// In zh, this message translates to:

@@ -3,8 +3,15 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../entity/illust_entity.dart';
+import 'download_destination.dart';
 import 'download_recovery.dart';
 import 'download_sink.dart';
+
+/// Whether a caption file can go to [destination]. On Android an album is
+/// a MediaStore image collection, which refuses a text file; a folder, and
+/// any destination on the desktop, takes one.
+bool captionFits(DownloadDestination destination, {required bool isAndroid}) =>
+    !isAndroid || destination.kind == DownloadDestinationKind.safFolder;
 
 /// Writes the work caption next to the downloaded image as `<stem>.txt`:
 /// an info header followed by the caption with `<br>` turned into newlines.
@@ -15,11 +22,14 @@ class CaptionExporter {
   CaptionExporter({
     required RawDownloadSinkFactory sinkFactory,
     required SharedPreferencesAsync preferences,
+    required bool isAndroid,
   }) : _sinkFactory = sinkFactory,
-       _preferences = preferences;
+       _preferences = preferences,
+       _isAndroid = isAndroid;
 
   final RawDownloadSinkFactory _sinkFactory;
   final SharedPreferencesAsync _preferences;
+  final bool _isAndroid;
 
   /// Only illust/manga pages participate — ugoira and other targets carry
   /// no downloadable image caption pairing.
@@ -34,8 +44,9 @@ class CaptionExporter {
 
   /// Exports [illust]'s caption as `<pageZeroStem>.txt` into the same
   /// destination the submission used. No-op when already exported for this
-  /// (account, illust, destination). Write failures abort the pending
-  /// output and propagate to the caller — never silent.
+  /// (account, illust, destination), or when the destination takes no
+  /// caption ([captionFits]; the setting says so). Write failures abort the
+  /// pending output and propagate to the caller — never silent.
   Future<void> export({
     required IllustEntity illust,
     required DownloadSubmissionSnapshot submission,
@@ -43,6 +54,7 @@ class CaptionExporter {
   }) async {
     if (!_supportedTypes.contains(illust.type)) return;
     if (!submission.isOwned) return;
+    if (!captionFits(submission.destination, isAndroid: _isAndroid)) return;
     final key = _dedupeKey(submission, illust.id);
     if (await _preferences.getBool(key) ?? false) return;
 
@@ -53,7 +65,7 @@ class CaptionExporter {
       mimeType: 'text/plain',
       destination: submission.destination,
       owner: DownloadOutputOwner(
-        ownerId: 'caption:${illust.id}',
+        ownerId: 'caption-${illust.id}',
         jobId: submission.jobId,
         accountId: submission.accountId,
       ),

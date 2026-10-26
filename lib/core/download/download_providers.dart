@@ -58,6 +58,7 @@ final captionExporterProvider = Provider<CaptionExporter?>((ref) {
   return CaptionExporter(
     sinkFactory: factory as RawDownloadSinkFactory,
     preferences: ref.watch(sharedPreferencesProvider),
+    isAndroid: ref.watch(platformCapsProvider).isAndroid,
   );
 });
 

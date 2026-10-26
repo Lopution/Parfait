@@ -6,6 +6,10 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+### 变更
+
+- **相册里不再导出简介：** 系统不允许相册存放文本文件，下载位置为相册时「同时导出作品简介」显示为不可用并注明原因，选「文件夹」时照常导出。以前在相册下打开它，下载时会报错，也不会生成简介。
+
 ### 修复
 
 - 从作者主页连续按返回回到列表时，列表从侧边滑进来，飞回的图片和顶栏、底栏错开。
@@ -21,6 +25,10 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 应用在下载途中被关闭，没写完的文件不会被清理。
 - 应用重启后接着下载更新时，点「取消」不起作用，下完照样打开安装界面；下得很快时还会一直停在「正在下载并验证…」。
 - 网络连接中途卡住时，下载可能一直停在进行中，「分层连通性探测」也会一直停在检测中。
+
+### Changed
+
+- **No captions in albums:** Android does not let an album hold text files, so Export work caption is greyed out with the reason while downloads go to an album, and works as before with a folder. Before, turning it on with an album made downloads report an error and wrote no caption.
 
 ### Fixed
 

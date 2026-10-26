@@ -420,7 +420,10 @@ class MemorySinkFactory
     String displayName,
     DownloadOutputOwner owner, {
     DownloadDestination destination = DownloadDestination.builtin,
-  }) => begin(request, displayName, destination: destination);
+  }) {
+    _checkOwner(owner);
+    return begin(request, displayName, destination: destination);
+  }
 
   @override
   Future<DownloadSink> beginRaw({
@@ -429,10 +432,19 @@ class MemorySinkFactory
     required DownloadDestination destination,
     DownloadOutputOwner? owner,
   }) async {
+    _checkOwner(owner);
     rawNames.add(displayName);
     final sink = MemorySink();
     sinks.add(sink);
     return sink;
+  }
+
+  /// Refuses an owner id as MediaStore does, so a test catches it.
+  static void _checkOwner(DownloadOutputOwner? owner) {
+    if (owner != null &&
+        !DownloadOutputOwner.idPattern.hasMatch(owner.ownerId)) {
+      throw ArgumentError.value(owner.ownerId, 'ownerId');
+    }
   }
 }
 

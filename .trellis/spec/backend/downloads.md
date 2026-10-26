@@ -52,6 +52,27 @@ reviewed: 2026-10-26
 - **Check:** `test/download_recovery_test.dart` "restart scan cleans only recorded owners and reports unknown rows" "recovery reports a platform owner-cleanup refusal", `test/download_sink_test.dart` "DestinationAwareSinkFactory exposes MediaStore pending rows", `test/download_resume_test.dart` "an anchored record keeps its pending row; plain and canceled ones do not" "a later scan leaves running and paused output alone" "a scan that a retry overtakes keeps its hands off"
 - **Code:** `lib/core/download/download_recovery.dart`, `lib/core/download/download_sink.dart`
 
+### DL-10 Owner ids fit the platform marker
+- **Rule:** Every output owner id matches
+  `DownloadOutputOwner.idPattern` (`[A-Za-z0-9_.-]{1,128}`), the ids
+  Android's `MediaStoreChannel.beginPending` accepts. `MemorySinkFactory`
+  refuses any other, so a producer's id is checked by its own tests.
+- **Why:** The caption sidecar's `caption:<id>` was refused by MediaStore;
+  the Dart fakes accepted it.
+- **Check:** `test/caption_exporter_test.dart` "writes <stem>.txt with the info header"
+- **Code:** `lib/core/download/download_recovery.dart`, `lib/core/download/download_sink.dart`
+
+### DL-11 A caption goes only where a text file fits
+- **Rule:** On Android a caption sidecar is written only to a folder (SAF)
+  destination (`captionFits`): an album is a MediaStore image collection,
+  which refuses a text file and keeps non-media files out of `Pictures/`.
+  While an album is the destination the caption switch is greyed out and
+  says why; the stored choice comes back with a folder.
+- **Why:** With an album, every caption export failed and the download
+  reported an error.
+- **Check:** `test/caption_exporter_test.dart` "on Android only a folder takes the caption", `test/download_settings_page_test.dart` "on Android an album greys the caption switch out"
+- **Code:** `lib/core/download/caption_exporter.dart`, `lib/features/settings/pages/download_settings_page.dart`
+
 ### DL-04 Job and group ids are unique across launches
 - **Rule:** Job and group ids carry a random per-launch token next to the
   in-process sequence. A task belongs to the group of its submission; the

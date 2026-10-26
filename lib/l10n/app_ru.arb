@@ -572,6 +572,7 @@
   "downloadAuthorFailed": "Не удалось получить работы автора",
   "downloadCaption": "Экспортировать описание работы",
   "downloadCaptionHint": "При скачивании иллюстраций и манги сохранять название, автора и описание в одноимённый .txt",
+  "downloadCaptionAlbumUnsupported": "В альбом нельзя сохранять текстовые файлы; доступно при сохранении в папку",
   "aboutVersion": "Версия",
   "aboutCheckUpdate": "Проверить обновления",
   "aboutCheckingUpdate": "Проверка обновлений…",

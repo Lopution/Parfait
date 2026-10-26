@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/naming_rule.dart';
+import 'package:parfait/core/platform/platform_caps.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/settings/pages/download_settings_page.dart';
 
@@ -83,6 +85,46 @@ void main() {
     // `{w}` still fits: 125 + 3 = 128.
     await tapChip(tester, '宽度');
     expect(controller.text, '$full{w}');
+  });
+
+  testWidgets('on Android an album greys the caption switch out', (
+    tester,
+  ) async {
+    for (final (destination, available) in const [
+      (DownloadDestination.builtin, false),
+      (DownloadDestination.safFolder('content://tree/x'), true),
+    ]) {
+      setViewSize(tester, const Size(800, 4000));
+      await tester.pumpWidget(
+        localizedApp(
+          overrides: [
+            settingsRepositoryProvider.overrideWithValue(
+              FakeSettingsRepository(
+                baseTestSettings().copyWith(
+                  downloadCaption: true,
+                  downloadDestination: destination,
+                ),
+              ),
+            ),
+            platformCapsProvider.overrideWithValue(
+              const PlatformCaps(isAndroid: true),
+            ),
+          ],
+          home: DownloadSettingsPage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final caption = tester.widget<SwitchListTile>(
+        find.widgetWithText(SwitchListTile, '同时导出作品简介'),
+      );
+      expect(caption.onChanged != null, available, reason: '$destination');
+      expect(caption.value, available);
+      expect(
+        find.text('相册不能存放文本文件；下载位置选「文件夹」时可用'),
+        available ? findsNothing : findsOneWidget,
+      );
+      await tester.pumpWidget(const SizedBox());
+    }
   });
 
   testWidgets('the limit counts characters, as the field does', (tester) async {

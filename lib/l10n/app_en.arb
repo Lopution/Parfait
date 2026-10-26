@@ -572,6 +572,7 @@
   "downloadAuthorFailed": "Failed to get the author's works",
   "downloadCaption": "Export work caption",
   "downloadCaptionHint": "Save the title, author and caption as a matching .txt next to downloaded illusts and manga",
+  "downloadCaptionAlbumUnsupported": "Albums can't hold text files; available when downloads go to a folder",
   "aboutVersion": "Version",
   "aboutCheckUpdate": "Check for updates",
   "aboutCheckingUpdate": "Checking for updates…",

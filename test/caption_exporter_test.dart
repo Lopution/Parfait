@@ -35,9 +35,11 @@ DownloadSubmissionSnapshot _submission({
 CaptionExporter _exporter(
   MemorySinkFactory sinks, {
   SharedPreferencesAsync? prefs,
+  bool isAndroid = false,
 }) => CaptionExporter(
   sinkFactory: sinks,
   preferences: prefs ?? SharedPreferencesAsync(),
+  isAndroid: isAndroid,
 );
 
 class _FailingRawFactory implements RawDownloadSinkFactory {
@@ -153,11 +155,29 @@ void main() {
       expect(sinks.sinks, isEmpty);
     });
 
+    test('on Android only a folder takes the caption', () async {
+      final sinks = MemorySinkFactory();
+      final exporter = _exporter(sinks, isAndroid: true);
+      for (final destination in const [
+        DownloadDestination.builtin,
+        DownloadDestination.customAlbum('Manga'),
+        DownloadDestination.safFolder('content://tree/x'),
+      ]) {
+        await exporter.export(
+          illust: parseIllust(illustJson(7)),
+          submission: _submission(destination: destination),
+          pageZeroName: '7_p0.jpg',
+        );
+      }
+      expect(sinks.rawNames, ['7_p0.txt']);
+    });
+
     test('write failure aborts the output and stays retryable', () async {
       final factory = _FailingRawFactory();
       final exporter = CaptionExporter(
         sinkFactory: factory,
         preferences: SharedPreferencesAsync(),
+        isAndroid: false,
       );
       final illust = parseIllust(illustJson(7));
 
