@@ -416,12 +416,21 @@ void main() {
     // image worker with the raw rhttp error.
     test('a body error after the idle timeout is dropped', () async {
       final rust = RustBodyClient();
+      final received = <Object>[];
       final timedOut = Completer<void>();
-      (await guardedBody(
-        rust,
-      )).listen(null, onError: (Object _) => timedOut.complete());
+      (await guardedBody(rust)).listen(
+        received.add,
+        onError: (Object error) {
+          received.add(error);
+          if (error is TimeoutException) timedOut.complete();
+        },
+      );
       rust.port.add([1]);
       await timedOut.future;
+      expect(received, [
+        [1],
+        isA<TimeoutException>(),
+      ]);
       rust.port.add('error decoding response body');
       await pumpEventQueue();
     });
