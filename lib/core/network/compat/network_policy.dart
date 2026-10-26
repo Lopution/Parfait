@@ -636,7 +636,7 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
   void _sourceError(Object error, StackTrace stack) {
     if (_cancelOnError) {
       _timer?.cancel();
-      unawaited(_source.cancel());
+      unawaited(_cancelSource());
     } else {
       // The body goes on after the error; so does its idle budget.
       _rearm();
@@ -668,7 +668,7 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
     // for any stream still draining at teardown, and in production there
     // is no fake zone anyway.
     _timer = Zone.root.createTimer(_idle, () {
-      unawaited(_source.cancel());
+      unawaited(_cancelSource());
       _error(
         TimeoutException('response stream idle', _idle),
         StackTrace.current,
@@ -681,8 +681,15 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
   @override
   Future<void> cancel() {
     _timer?.cancel();
-    return _source.cancel();
+    return _cancelSource();
   }
+
+  /// rhttp's body is flutter_rust_bridge's `async*` stream: cancelled while
+  /// it waits for Rust, it goes on waiting, and a body error Rust reports
+  /// next fails the cancel future instead of reaching any handler. The
+  /// listener gave the body up, so that error is dropped; unhandled, it
+  /// ended the image worker isolate.
+  Future<void> _cancelSource() => _source.cancel().catchError((Object _) {});
 
   @override
   void onData(void Function(List<int> event)? handleData) =>

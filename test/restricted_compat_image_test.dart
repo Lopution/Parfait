@@ -355,11 +355,11 @@ void main() {
       );
     });
 
-    // An image body over [inner] that stalls after its first bytes.
-    Future<Stream<List<int>>> stalledBody([Object? error]) async {
+    // An image body from [inner], behind a 50 ms idle timeout.
+    Future<Stream<List<int>>> guardedBody(http.Client inner) async {
       final policy = NetworkAccessPolicy(
         imageIdleTimeout: const Duration(milliseconds: 50),
-        clientFactory: (_, _, _) => StallClient(1, error),
+        clientFactory: (_, _, _) => inner,
       );
       addTearDown(policy.dispose);
       final client = policy.clientFor(
@@ -372,6 +372,10 @@ void main() {
       );
       return response.stream;
     }
+
+    // An image body that stalls after its first bytes.
+    Future<Stream<List<int>>> stalledBody([Object? error]) =>
+        guardedBody(StallClient(1, error));
 
     for (final (name, read) in [
       ('toList', (Stream<List<int>> body) => body.toList()),
@@ -406,6 +410,39 @@ void main() {
         caught.complete(error);
       });
       expect(await caught.future, isA<TimeoutException>());
+    });
+
+    // A stalled body that died after the idle timeout let it go ended the
+    // image worker with the raw rhttp error.
+    test('a body error after the idle timeout is dropped', () async {
+      final rust = RustBodyClient();
+      final received = <Object>[];
+      final timedOut = Completer<void>();
+      (await guardedBody(rust)).listen(
+        received.add,
+        onError: (Object error) {
+          received.add(error);
+          if (error is TimeoutException) timedOut.complete();
+        },
+      );
+      rust.port.add([1]);
+      await timedOut.future;
+      expect(received, [
+        [1],
+        isA<TimeoutException>(),
+      ]);
+      rust.port.add('error decoding response body');
+      await pumpEventQueue();
+    });
+
+    test('a cancel completes though the body errs after it', () async {
+      final rust = RustBodyClient();
+      final body = (await guardedBody(rust)).listen(null);
+      rust.port.add([1]);
+      await pumpEventQueue();
+      final cancelled = body.cancel();
+      rust.port.add('error decoding response body');
+      await cancelled;
     });
   });
 
