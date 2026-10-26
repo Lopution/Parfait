@@ -614,10 +614,12 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
        _onError = onError,
        _onDone = onDone,
        _cancelOnError = cancelOnError {
-    _source = source.listen(_data, onError: _error, onDone: _done);
+    _source = source.listen(_data, onError: _sourceError, onDone: _done);
     _rearm();
   }
 
+  /// The listener's zone: the idle timer runs in the root zone.
+  final Zone _zone = Zone.current;
   final Duration _idle;
   final bool _cancelOnError;
   late final StreamSubscription<List<int>> _source;
@@ -631,14 +633,26 @@ class _IdleGuardSubscription implements StreamSubscription<List<int>> {
     _onData?.call(event);
   }
 
+  void _sourceError(Object error, StackTrace stack) {
+    if (_cancelOnError) {
+      _timer?.cancel();
+      unawaited(_source.cancel());
+    } else {
+      // The body goes on after the error; so does its idle budget.
+      _rearm();
+    }
+    _error(error, stack);
+  }
+
+  /// Like any subscription, an error without a handler is the zone's.
   void _error(Object error, StackTrace stack) {
-    _timer?.cancel();
-    if (_cancelOnError) unawaited(_source.cancel());
     final handler = _onError;
     if (handler is void Function(Object, StackTrace)) {
       handler(error, stack);
     } else if (handler is void Function(Object)) {
       handler(error);
+    } else {
+      _zone.handleUncaughtError(error, stack);
     }
   }
 
