@@ -355,26 +355,31 @@ void main() {
       );
     });
 
-    test('the response body errors after an idle gap', () async {
-      final policy = NetworkAccessPolicy(
-        imageIdleTimeout: const Duration(milliseconds: 50),
-        clientFactory: (_, _, _) => StallClient(),
-      );
-      addTearDown(policy.dispose);
-      final client = policy.clientFor(
-        PixivDestinationPurpose.image,
-        NetworkRoute.direct(policy.revision),
-        'i.pximg.net',
-      );
+    for (final (name, read) in [
+      ('toList', (Stream<List<int>> body) => body.toList()),
+      ('drain', (Stream<List<int>> body) => body.drain<void>()),
+    ]) {
+      test('the response body errors after an idle gap: $name', () async {
+        final policy = NetworkAccessPolicy(
+          imageIdleTimeout: const Duration(milliseconds: 50),
+          clientFactory: (_, _, _) => StallClient(),
+        );
+        addTearDown(policy.dispose);
+        final client = policy.clientFor(
+          PixivDestinationPurpose.image,
+          NetworkRoute.direct(policy.revision),
+          'i.pximg.net',
+        );
 
-      final response = await client.send(
-        http.Request('GET', Uri.parse('https://i.pximg.net/a.jpg')),
-      );
-      await expectLater(
-        response.stream.toList(),
-        throwsA(isA<TimeoutException>()),
-      );
-    });
+        final response = await client.send(
+          http.Request('GET', Uri.parse('https://i.pximg.net/a.jpg')),
+        );
+        await expectLater(
+          read(response.stream),
+          throwsA(isA<TimeoutException>()),
+        );
+      });
+    }
   });
 
   // Racing is for mirrors only; pixiv's own image hosts stay serial on ECH

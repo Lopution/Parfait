@@ -20,6 +20,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - 取消已暂停的下载后，已下好的部分不会被删除，一直占着存储空间。
 - 应用在下载途中被关闭，没写完的文件不会被清理。
 - 应用重启后接着下载更新时，点「取消」不起作用，下完照样打开安装界面；下得很快时还会一直停在「正在下载并验证…」。
+- 网络连接中途卡住时，下载可能一直停在进行中，「分层连通性探测」也会一直停在检测中。
 
 ### Fixed
 
@@ -35,6 +36,7 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 - Canceling a paused download left its partly downloaded file behind, taking up storage.
 - Unfinished files from a download cut short by closing the app were never cleaned up.
 - An update download continued after restarting the app ignored Cancel and still opened the installer once finished, and could stay on "Downloading and verifying…" if it finished quickly.
+- When a connection stalled midway, a download could hang forever, and so could the network probe.
 
 ## [1.0.0] - 2026-10-25
 

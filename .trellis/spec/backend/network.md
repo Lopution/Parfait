@@ -86,10 +86,11 @@ reviewed: 2026-10-14
 ### NET-05 Image and download exits use HTTP/1.1
 - **Rule:** Image and download exits run HTTP/1.1, one connection per
   transfer, with a connect budget and an idle guard instead of a total
-  timeout. Other exits negotiate through ALPN.
+  timeout. Other exits negotiate through ALPN. The idle timeout reaches
+  handlers set after `listen`, so `drain()` on a stalled body ends.
 - **Why:** One shared HTTP/2 connection let a throttled flow stall every
-  image.
-- **Check:** `test/rhttp_client_factory_test.dart` "image exits use HTTP/1.1, every other exit negotiates" "streaming exits carry no total timeout"
+  image. `drain()` once waited forever on a stalled body.
+- **Check:** `test/rhttp_client_factory_test.dart` "image exits use HTTP/1.1, every other exit negotiates" "streaming exits carry no total timeout", `test/restricted_compat_image_test.dart` "the response body errors after an idle gap"
 - **Code:** `lib/core/network/compat/rhttp_client_factory.dart`
 
 ## Failures and replay
