@@ -10,11 +10,15 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 - 从作者主页连续按返回回到列表时，列表从侧边滑进来，飞回的图片和顶栏、底栏错开。
 - 打开或返回作品时，底栏跟着图片滑开、滑回的过程中没有阴影，图片落定时阴影才突然出现。
+- 以「覆盖」方式导入备份时，文件里有一条历史记录写不进去，或导入途中应用被关闭，本地浏览历史会被清空。
+- 浏览记录同步到 pixiv 的同时又看了同一作品，这次浏览不会再同步。
 
 ### Fixed
 
 - Pressing back twice in a row from an artist's profile slid the feed in from the side, so the returning image landed out of line with the top and bottom bars.
 - While the bottom bar slid away and back with an opening or closing artwork it cast no shadow, which popped in only when the image landed.
+- Importing a backup with Overwrite wiped the local browsing history if one history entry in the file could not be saved, or if the app was closed mid-import.
+- Viewing the same artwork again while its history was syncing to pixiv kept that view from syncing.
 
 ## [1.0.0] - 2026-10-25
 

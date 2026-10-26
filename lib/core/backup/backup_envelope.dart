@@ -260,7 +260,8 @@ class BackupEnvelope {
 
   static HistoryRecord _readHistoryRow(Map<String, dynamic> row) {
     try {
-      return HistoryRecord.fromRow(row);
+      // Refused here, before an import writes anything.
+      return HistoryRecord.fromRow(row)..checkStorable();
     } on Object catch (error) {
       throw BackupImportException(
         BackupImportErrorCode.malformedField,

@@ -376,6 +376,14 @@ void main() {
             {'content_id': 'x'},
           ],
         },
+        // Rows that parse but that the history table refuses.
+        for (final bad in [
+          {'content_id': 0},
+          {'snapshot_version': 0},
+        ])
+          {
+            'history': [_record(1).toColumns()..addAll(bad)],
+          },
       ]) {
         final json = doc()..addAll(patch);
         expect(
@@ -572,6 +580,22 @@ void main() {
         expect(container.read(settingsProvider).value!.languageTag, 'ru-RU');
       },
     );
+
+    test('a row overwrite cannot store leaves the old history whole', () async {
+      final world = await _world(seededHistory: [_record(1), _record(2)]);
+      final envelope = BackupEnvelope(
+        exportedAt: DateTime.utc(2026, 9, 20),
+        settings: const {},
+        history: [_record(9), _record(0)],
+      );
+
+      await expectLater(
+        world.service.apply(envelope, BackupImportStrategy.overwrite),
+        throwsArgumentError,
+      );
+      final rows = await world.history.page(accountId: '100', limit: 100);
+      expect(rows.records.map((r) => r.contentId), unorderedEquals([1, 2]));
+    });
 
     test('import without a usable account fails visibly', () async {
       final world = await _world(accountId: null);

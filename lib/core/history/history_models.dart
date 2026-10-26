@@ -91,6 +91,16 @@ class HistoryRecord {
   final Duration visibleDuration;
   final int snapshotVersion;
 
+  /// Throws [ArgumentError] unless the history table takes this row's
+  /// content: a positive id and a snapshot version from 1. The account is
+  /// the writer's to check (an import rewrites it).
+  void checkStorable() {
+    if (contentId <= 0) throw ArgumentError.value(contentId, 'contentId');
+    if (snapshotVersion < 1) {
+      throw ArgumentError.value(snapshotVersion, 'snapshotVersion');
+    }
+  }
+
   Map<String, Object?> toColumns() {
     return {
       'account_id': accountId,
