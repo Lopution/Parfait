@@ -195,6 +195,29 @@ void main() {
       expect((sink! as ResumableDownloadSink).storedBytes, 5);
     },
   );
+
+  test('DestinationAwareSinkFactory exposes MediaStore pending rows', () async {
+    const item = PendingMediaStoreItem(
+      id: 4,
+      ownerId: 'o1',
+      displayName: 'a.jpg',
+    );
+    final session = _FakeResumableSession()..pending.add(item);
+    final DownloadSinkFactory factory = DestinationAwareSinkFactory(
+      mediaStore: MediaStoreSinkFactory(session),
+      saf: _FakeResumableSafFactory(),
+    );
+    final recoverable = factory as RecoverableDownloadSinkFactory;
+
+    expect(await recoverable.listPending(), [item]);
+    const owner = DownloadOutputOwner(
+      ownerId: 'o1',
+      jobId: 'j1',
+      accountId: 'a1',
+    );
+    expect(await recoverable.cleanupPending(4, owner: owner), isTrue);
+    expect(session.abortedPending, [(4, 'o1')]);
+  });
 }
 
 class _FakeSafDocument implements SafDocumentSink {
@@ -247,10 +270,15 @@ class _FakeStagedSafDocument extends _FakeSafDocument
 }
 
 class _FakeResumableSession
-    implements MediaStoreSession, ResumableMediaStoreSession {
+    implements
+        MediaStoreSession,
+        ResumableMediaStoreSession,
+        RecoverableMediaStoreSession {
   _FakeResumableSession({this.storedBytes = 0});
 
   final int storedBytes;
+  final pending = <PendingMediaStoreItem>[];
+  final abortedPending = <(int, String)>[];
   int? lastResumedId;
   String? lastOwnerId;
   ResumedPendingItem? _next;
@@ -267,6 +295,15 @@ class _FakeResumableSession
     required String mimeType,
     String? relativePath,
   }) => throw UnimplementedError();
+
+  @override
+  Future<List<PendingMediaStoreItem>> listPending() async => pending;
+
+  @override
+  Future<bool> abortPending(int id, {required String ownerId}) async {
+    abortedPending.add((id, ownerId));
+    return true;
+  }
 
   @override
   Future<ResumedPendingItem?> resumePending(
