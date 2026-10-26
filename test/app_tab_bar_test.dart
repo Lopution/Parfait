@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:parfait/app/motion/hero_transition.dart' show LiftableShadow;
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/app_tab_bar.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
@@ -134,12 +135,12 @@ void main() {
       await tester.drag(find.byType(ListView), const Offset(0, -200));
       await tester.pumpAndSettle();
       expect(opacity(), 1);
-      final box = tester.widget<DecoratedBox>(
-        find.descendant(of: shadow, matching: find.byType(DecoratedBox)),
+      final cast = tester.widget<LiftableShadow>(
+        find.descendant(of: shadow, matching: find.byType(LiftableShadow)),
       );
       // Cast down, over the content under the bar, as the bottom bar's goes up.
       expect(
-        (box.decoration as BoxDecoration).boxShadow!.map((s) => s.offset.dy),
+        cast.shadows.map((s) => s.offset.dy),
         everyElement(greaterThan(0)),
       );
 

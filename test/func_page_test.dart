@@ -492,6 +492,59 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('two backs in a row leave the page under the shared-element '
+      'page still', (tester) async {
+    // Feed → detail (shared element) → author page, then back twice
+    // while the author page is still leaving: the Navigator announces the
+    // feed to the leaving author page, which must not make the feed slide
+    // in under the landing image.
+    late BuildContext rootContext;
+    PageRoute<void> page(String label, {bool sharedElement = false}) =>
+        FuncPage<void>(
+              transitionDuration: const Duration(milliseconds: 400),
+              reverseTransitionDuration: const Duration(milliseconds: 400),
+              sharedElement: sharedElement,
+              child: Text(label),
+            ).createRoute(rootContext)
+            as PageRoute<void>;
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Builder(
+          builder: (context) {
+            rootContext = context;
+            return Navigator(onGenerateRoute: (_) => page('feed'));
+          },
+        ),
+      ),
+    );
+    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+    navigator.push(page('detail', sharedElement: true));
+    await tester.pumpAndSettle();
+    navigator.push(page('author'));
+    await tester.pumpAndSettle();
+
+    navigator.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    navigator.pop();
+    for (var frame = 0; frame < 30; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(tester.getTopLeft(find.text('feed')), Offset.zero);
+    }
+    await tester.pumpAndSettle();
+    expect(find.text('detail'), findsNothing);
+
+    // A shared-element page removed without a pop lets the feed go.
+    final detail = page('detail', sharedElement: true);
+    navigator.push(detail);
+    await tester.pumpAndSettle();
+    navigator.removeRoute(detail);
+    await tester.pump();
+    final feed = ModalRoute.of(tester.element(find.text('feed')))!;
+    expect(underSharedElement(feed), isFalse);
+  });
+
   testWidgets('the viewer stage fades whole, with no background', (
     tester,
   ) async {

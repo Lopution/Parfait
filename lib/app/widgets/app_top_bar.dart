@@ -2,7 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:flutter/foundation.dart';
 
-import '../motion/hero_transition.dart' show HeroChrome;
+import '../motion/hero_transition.dart' show HeroChrome, LiftableShadow;
 import '../motion/motion_tokens.dart';
 import '../system_ui.dart';
 import '../theme/func_semantic_tokens.dart';
@@ -240,10 +240,9 @@ class ScrollEdgeShadow extends StatelessWidget {
               opacity: visible ? 1 : 0,
               duration: duration,
               curve: curve,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  boxShadow: FuncSemanticTokens.of(context).topBarShadow,
-                ),
+              child: LiftableShadow(
+                shadows: FuncSemanticTokens.of(context).topBarShadow,
+                visible: visible,
               ),
             ),
           ),

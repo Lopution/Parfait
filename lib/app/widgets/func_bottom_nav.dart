@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/navigation/home_destination.dart';
 import '../../core/navigation/route_observer.dart';
 import '../../l10n/context.dart';
+import '../motion/hero_transition.dart' show LiftableShadow;
 import '../motion/motion_tokens.dart';
 import '../motion/scroll_hide.dart';
 import '../icons/app_icons.dart';
@@ -96,10 +97,8 @@ class FuncBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final navTheme = NavigationBarTheme.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        boxShadow: FuncSemanticTokens.of(context).barShadow,
-      ),
+    return LiftableShadow(
+      shadows: FuncSemanticTokens.of(context).barShadow,
       child: Material(
         color: navTheme.backgroundColor ?? colors.surface,
         child: SafeArea(

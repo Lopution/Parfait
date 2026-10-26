@@ -6,6 +6,16 @@ User-facing changes in each Parfait release. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+### 修复
+
+- 从作者主页连续按返回回到列表时，列表从侧边滑进来，飞回的图片和顶栏、底栏错开。
+- 打开或返回作品时，底栏跟着图片滑开、滑回的过程中没有阴影，图片落定时阴影才突然出现。
+
+### Fixed
+
+- Pressing back twice in a row from an artist's profile slid the feed in from the side, so the returning image landed out of line with the top and bottom bars.
+- While the bottom bar slid away and back with an opening or closing artwork it cast no shadow, which popped in only when the image landed.
+
 ## [1.0.0] - 2026-10-25
 
 第一个正式版。The first stable release.

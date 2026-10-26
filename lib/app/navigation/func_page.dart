@@ -74,10 +74,14 @@ class _FuncPageRoute<T> extends PageRoute<T> {
   FuncPage<T> get _page => settings as FuncPage<T>;
 
   /// Each route's page right above it, announced by that page as it is
-  /// pushed or moved. A pop announces nothing, so through a pop this is
-  /// still the page leaving. Keyed by any route: a page can sit on a route
-  /// that is not a [FuncPage].
+  /// pushed or moved. A leaving page ignores later announcements, so
+  /// through a pop this is still the page leaving; a disposed page clears
+  /// its own entry. Keyed by any route: a page can sit on a route that is
+  /// not a [FuncPage].
   static final _above = Expando<_FuncPageRoute<dynamic>>();
+
+  /// The route this page last took as its [_above] key.
+  Route<dynamic>? _below;
 
   bool get _backdrop => _page.sharedElement && _page.sharedElementBackdrop;
 
@@ -128,7 +132,16 @@ class _FuncPageRoute<T> extends PageRoute<T> {
 
   @override
   void didChangePrevious(Route<dynamic>? previousRoute) {
+    // A leaving page keeps the page it was on. When the page under it
+    // leaves too (two backs in a row), the Navigator announces the page
+    // below both to it; taking that would hand the leaving page's slide
+    // to a page a shared-element page is leaving.
+    if (!isActive) {
+      super.didChangePrevious(previousRoute);
+      return;
+    }
     if (previousRoute != null) _above[previousRoute] = this;
+    _below = previousRoute;
     if (_page.sharedElement && previousRoute != _covered) {
       _uncover();
       if (previousRoute != null) {
@@ -153,6 +166,11 @@ class _FuncPageRoute<T> extends PageRoute<T> {
   @override
   void dispose() {
     _uncover();
+    // A page removed without a pop never finished leaving: left behind, its
+    // entry would hold the page below still for good.
+    if (_below case final below? when identical(_above[below], this)) {
+      _above[below] = null;
+    }
     super.dispose();
   }
 
