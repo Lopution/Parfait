@@ -143,17 +143,16 @@ void main() {
             _ => _Outcome.image,
           };
         await _pump(tester, network);
-        expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
+        bool failed(int attempt) =>
+            network.requests == attempt &&
+            find.byIcon(Icons.broken_image_outlined).evaluate().isNotEmpty;
+        expect(failed(1), isTrue);
 
-        for (final wait in const [1, 3]) {
-          await tester.pump(Duration(seconds: wait));
-          await _settle(tester);
-        }
-        for (var i = 0; i < 20 && !_painted(tester); i++) {
-          await _settle(tester);
-        }
+        await tester.pump(const Duration(seconds: 1));
+        await pumpIoUntil(tester, () => failed(2));
+        await tester.pump(const Duration(seconds: 3));
+        await pumpIoUntil(tester, () => _painted(tester));
         expect(network.requests, 3, reason: 'not answered from the disk');
-        expect(_painted(tester), isTrue);
       });
 
       testWidgets('three failed retries end in a manual retry button', (

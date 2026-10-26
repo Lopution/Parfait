@@ -114,11 +114,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      final caption = tester.widget<SwitchListTile>(
-        find.widgetWithText(SwitchListTile, '同时导出作品简介'),
+      expect(
+        tester.getSemantics(find.widgetWithText(SwitchListTile, '同时导出作品简介')),
+        isSemantics(
+          hasEnabledState: true,
+          isEnabled: available,
+          hasToggledState: true,
+          isToggled: available,
+        ),
+        reason: '$destination',
       );
-      expect(caption.onChanged != null, available, reason: '$destination');
-      expect(caption.value, available);
       expect(
         find.text('相册不能存放文本文件；下载位置选「文件夹」时可用'),
         available ? findsNothing : findsOneWidget,
