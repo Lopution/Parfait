@@ -133,6 +133,25 @@ class StallClient extends http.BaseClient {
   }
 }
 
+/// A body shaped like rhttp's: flutter_rust_bridge's `async*` generator over
+/// the Rust [port], where an error message throws. Cancelled while it
+/// waits, the generator goes on waiting; an error that comes next fails the
+/// cancel future instead of reaching any handler.
+class RustBodyClient extends http.BaseClient {
+  final port = StreamController<Object>();
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async =>
+      http.StreamedResponse(_body(), 200, request: request);
+
+  Stream<List<int>> _body() async* {
+    await for (final message in port.stream) {
+      if (message is String) throw http.ClientException(message);
+      yield message as List<int>;
+    }
+  }
+}
+
 class ScriptedClient extends http.BaseClient {
   ScriptedClient(this.outcomes);
 

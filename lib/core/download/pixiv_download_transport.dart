@@ -166,7 +166,8 @@ class HttpDownloadTransport
       throw DownloadTransportException('request failed', cause: error);
     }
     if (cancelToken.isCancelled) {
-      unawaited(response.stream.listen(null).cancel());
+      // rhttp may report a late body error through the cancel future.
+      response.stream.listen(null).cancel().ignore();
       throw const DownloadCancelledException();
     }
     final lengthHeader = response.contentLength;

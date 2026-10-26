@@ -170,6 +170,19 @@ reviewed: 2026-10-26
 - **Check:** `test/local_network_test.dart` "configured local hosts ask once; denied, none connects", `test/doh_resolver_test.dart` "a blocked local endpoint is skipped without a request"
 - **Code:** `lib/core/platform/local_network.dart`, `lib/core/network/local_network_address.dart`, `android/app/src/main/kotlin/io/github/lopution/parfait/LocalNetworkChannel.kt`
 
+### NET-18 A cancelled body's late error is dropped
+- **Rule:** A cancelled rhttp body can fail its cancel future with a body
+  error Rust reports afterwards: flutter_rust_bridge's `async*` stream
+  keeps waiting through a cancel, and rhttp maps only error events. The
+  image idle guard drops that error from its own cancels and from
+  `cancel()`; any other cancel of an rhttp body awaits it inside a `try`
+  or calls `.ignore()`, never `unawaited`.
+- **Why:** The idle timeout dropped a stalled body's cancel future; when
+  the connection died later, the raw `AnyhowException` went uncaught and
+  ended the image worker isolate.
+- **Check:** `test/restricted_compat_image_test.dart` "a body error after the idle timeout is dropped" "a cancel completes though the body errs after it"
+- **Code:** `lib/core/network/compat/network_policy.dart`
+
 ## Clients and diagnostics
 
 ### NET-11 Pixiv traffic goes only through the policy stack
