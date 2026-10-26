@@ -16,3 +16,14 @@ void readyThenExitWorkerEntry(Map<String, Object?> args) {
   );
   inbox.listen((_) => Isolate.exit());
 }
+
+/// A worker isolate that reports ready, then throws an uncaught error on
+/// its first message — an error that escaped the host's boundary.
+@pragma('vm:entry-point')
+void readyThenThrowWorkerEntry(Map<String, Object?> args) {
+  final inbox = ReceivePort();
+  (args['sendPort'] as SendPort).send(
+    encodeWorkerEvent(ReadyEvent(inbox.sendPort)),
+  );
+  inbox.listen((_) => throw StateError('escaped the host'));
+}

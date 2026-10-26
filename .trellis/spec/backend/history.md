@@ -42,11 +42,14 @@ reviewed: 2026-10-12
 
 ### HIST-04 The outbox never crosses accounts
 - **Rule:** Outbox flushes are serialized; a success deletes the row, a
-  failure keeps it with bounded backoff. A changed account stops the flush
+  failure keeps it with bounded backoff. A rejection is thrown
+  (`HistorySyncException`); a connectivity-class failure
+  (`isConnectivityError`: no network, 5xx, 429) only logs, since every page
+  visit flushes and would report the same outage again. A changed account stops the flush
   before submitting. Removing an account clears only its outbox, keeping
   local rows, so re-adding it does not flush old work.
 - **Why:** Account A's views were submitted under account B.
-- **Check:** `test/history_persistence_test.dart` "flushes successful work and retains failures with backoff" "clear removes only the selected account and its outbox"
+- **Check:** `test/history_persistence_test.dart` "flushes successful work and retains failures with backoff" "a server error waits out its backoff without a report" "clear removes only the selected account and its outbox"
 - **Code:** `lib/core/history/history_repository.dart`, `lib/core/auth/account_store.dart`
 
 ### HIST-05 Switches stop writes, never delete

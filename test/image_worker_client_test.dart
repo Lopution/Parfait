@@ -13,6 +13,7 @@ import 'package:parfait/core/image/image_worker_client.dart';
 import 'package:parfait/core/image/image_worker_host.dart';
 import 'package:parfait/core/image/image_worker_protocol.dart';
 import 'package:parfait/core/image/lane_permit_gate.dart';
+import 'package:parfait/core/logging/crash_log.dart';
 import 'package:parfait/core/image/image_demand.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 
@@ -310,6 +311,34 @@ void main() {
       client.routeSnapshot(),
       throwsA(isA<ImageWorkerUnavailable>()),
     );
+  });
+
+  test('an error that escapes the worker is logged with its stack', () async {
+    final dir = Directory.systemTemp.createTempSync('parfait-client-throws-');
+    addTearDown(() => dir.delete(recursive: true));
+    final log = File('${dir.path}/crash.log');
+    CrashLog.useFile(log);
+    addTearDown(() => CrashLog.useFile(null));
+    final client = await ImageWorkerClient.start(
+      config: testImageWorkerConfig,
+      cacheDir: dir.path,
+      demand: ImageDemand(),
+      entry: readyThenThrowWorkerEntry,
+    );
+    addTearDown(client.dispose);
+    final died = Completer<Object>();
+    client.onDied = died.complete;
+    client
+        .fetch(
+          'https://i.pximg.net/a.jpg',
+          priority: ImageFetchPriority.foreground,
+        )
+        .ignore();
+    await died.future.timeout(_exitBound);
+    await CrashLog.pending;
+    final text = log.readAsStringSync();
+    expect(text, contains('escaped the host'));
+    expect(text, contains('worker_entries.dart'));
   });
 
   test('a worker that dies fails pending and later requests loudly', () async {

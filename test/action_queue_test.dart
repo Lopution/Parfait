@@ -21,11 +21,15 @@ class _Clock {
 }
 
 class _Harness {
-  /// [now] replaces the manual [clock], e.g. with a fake_async clock.
-  _Harness({DateTime Function()? now}) {
+  /// [now] replaces the manual [clock], e.g. with a fake_async clock;
+  /// [wrap] puts a store in front of the in-memory one.
+  _Harness({
+    DateTime Function()? now,
+    ActionStore Function(InMemoryActionStore)? wrap,
+  }) {
     store = InMemoryActionStore(now: now ?? clock.call);
     queue = ActionQueue(
-      store: store,
+      store: wrap?.call(store) ?? store,
       now: now ?? clock.call,
       cooldown: const Duration(seconds: 30),
       rowBackoff: const Duration(seconds: 10),
@@ -58,6 +62,49 @@ class _Harness {
         dedupeKey: dedupeKey,
         payload: {'target': target},
       );
+}
+
+/// Fails its first recovery, as a locked database did in the field.
+final class _BusyOnceStore implements ActionStore {
+  _BusyOnceStore(this._inner);
+
+  final InMemoryActionStore _inner;
+  var _busy = true;
+
+  @override
+  Future<({int reset, int dropped})> recoverInterrupted() async {
+    if (!_busy) return _inner.recoverInterrupted();
+    _busy = false;
+    throw StateError('database is locked');
+  }
+
+  @override
+  Future<int> enqueue(StoredAction draft) => _inner.enqueue(draft);
+  @override
+  Future<StoredAction?> nextReady(String owner, int nowMs) =>
+      _inner.nextReady(owner, nowMs);
+  @override
+  Future<bool> markRunning(int id) => _inner.markRunning(id);
+  @override
+  Future<void> markPending(int id, {int? attempt, int? nextAttemptAtMs}) =>
+      _inner.markPending(
+        id,
+        attempt: attempt,
+        nextAttemptAtMs: nextAttemptAtMs,
+      );
+  @override
+  Future<void> markFailed(int id) => _inner.markFailed(id);
+  @override
+  Future<void> delete(int id) => _inner.delete(id);
+  @override
+  Future<bool> deletePending(String owner, String dedupeKey) =>
+      _inner.deletePending(owner, dedupeKey);
+  @override
+  Future<int?> nextPendingAt(String owner) => _inner.nextPendingAt(owner);
+  @override
+  Future<List<StoredAction>> listFor(String owner) => _inner.listFor(owner);
+  @override
+  Future<void> clearAccount(String owner) => _inner.clearAccount(owner);
 }
 
 void main() {
@@ -278,6 +325,37 @@ void main() {
         expect(h.handled.last, 't:2', reason: 'rejected: row backs off 10s');
         async.elapse(const Duration(seconds: 10));
         expect(h.handled, ['t:1', 't:1', 't:2', 't:2']);
+      });
+    });
+
+    test('a failed recovery wakes the queue itself one cooldown later', () {
+      fakeAsync((async) {
+        final h = _Harness(
+          now: async.getClock(DateTime.utc(2026, 10)).now,
+          wrap: _BusyOnceStore.new,
+        )..register('t');
+        // A row the last process left: no enqueue armed a wake for it.
+        h.store.enqueue(
+          const StoredAction(
+            id: 0,
+            owner: 'acc',
+            type: 't',
+            dedupeKey: 'k:1',
+            payload: '{"target":1}',
+            status: ActionStatus.pending,
+            attempt: 0,
+            createdAt: 0,
+          ),
+        );
+        async.flushMicrotasks();
+        Object? failure;
+        h.queue.drain('acc').catchError((Object e) => failure = e);
+        async.flushMicrotasks();
+        expect(failure, isA<StateError>());
+        expect(h.handled, isEmpty);
+
+        async.elapse(const Duration(seconds: 30));
+        expect(h.handled, ['t:1']);
       });
     });
 

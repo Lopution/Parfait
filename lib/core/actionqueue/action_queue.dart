@@ -110,7 +110,7 @@ final class ActionQueue {
     if (_disposed) return;
     _parked.remove(owner);
     try {
-      await _recoverOnce();
+      await _recoverFor(owner);
       await _drainExclusive(owner);
     } on Object {
       // The store closes together with the queue: a drain that dispose
@@ -199,6 +199,18 @@ final class ActionQueue {
         _recovery = null;
         Error.throwWithStackTrace(error, stack);
       });
+
+  /// [_recoverOnce], arming [owner]'s wake when it fails: the next drain
+  /// retries it, and no outside event may come to start one (a locked
+  /// database left the rows waiting for the next resume).
+  Future<void> _recoverFor(String owner) async {
+    try {
+      await _recoverOnce();
+    } on Object {
+      _wakeAt(owner, _now().add(cooldown));
+      rethrow;
+    }
+  }
 
   Future<void> _recover() async {
     final (:reset, :dropped) = await _store.recoverInterrupted();

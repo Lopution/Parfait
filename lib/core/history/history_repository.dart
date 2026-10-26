@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../actionqueue/action_models.dart' show isConnectivityError;
 import '../auth/account_store.dart';
+import '../log.dart';
 import '../network/pixiv_client_identity.dart';
 import '../network/pixiv_http_client.dart';
 import 'history_database.dart';
@@ -257,8 +259,11 @@ class HistoryRepository {
   }
 
   /// Flushes one account serially. Failures remain in the outbox with bounded
-  /// backoff and are surfaced to the caller; they are never converted to a
-  /// false success.
+  /// backoff; they are never converted to a false success. Rejections are
+  /// surfaced to the caller as a [HistorySyncException]. A lost network or
+  /// a server error (5xx, 429) only logs: the backoff retries it, and the
+  /// next page visit would report it again (a 503 burst wrote three
+  /// entries to the crash log in 8 s).
   Future<void> flushOutbox({
     required String accountId,
     required PixivHistoryRemote remote,
@@ -294,7 +299,11 @@ class HistoryRepository {
         await remote.addIllust(entry.contentId);
         await _deleteOutbox(entry);
       } on Object catch (error) {
-        failures.add(error);
+        if (isConnectivityError(error)) {
+          log('history sync: ${entry.contentId} retries later: $error');
+        } else {
+          failures.add(error);
+        }
         try {
           await _recordOutboxFailure(entry);
         } on Object catch (recordError) {
