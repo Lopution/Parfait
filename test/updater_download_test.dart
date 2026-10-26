@@ -4,8 +4,11 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:parfait/core/download/download_manager.dart';
+import 'package:parfait/core/download/download_recovery.dart';
 import 'package:parfait/core/download/download_request.dart';
+import 'package:parfait/core/download/download_task.dart';
 import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/download/pixiv_download_transport.dart';
 import 'package:parfait/core/updater/update_download.dart';
@@ -41,6 +44,72 @@ void main() {
       directory: directory,
       stateStore: MemoryUpdateDownloadStateStore(),
     );
+  }
+
+  // A coordinator after a restart that cut [release]'s APK download short:
+  // the task came back retryable and the saved state points at it.
+  Future<(UpdateDownloadCoordinator, DownloadManager)> recoveredOver(
+    DownloadTransport transport,
+    UpdateRelease release,
+    UpdateDownloadStateStore stateStore,
+  ) async {
+    const context = DownloadSubmissionContext(accountId: 'updater');
+    final asset = release.manifest.asset;
+    final request = DownloadRequest(
+      illustId: release.manifest.versionCode,
+      pageIndex: 0,
+      url: asset.url,
+      target: DownloadTarget.updaterApk,
+    );
+    final records = MemoryDownloadRecoveryStore();
+    await records.upsert(
+      DownloadRecoveryRecord(
+        jobId: 'job-1',
+        dedupeKey: request.dedupeKey,
+        snapshot: DownloadSubmissionSnapshot(
+          snapshotId: 'submission-1',
+          jobId: 'job-1',
+          groupId: null,
+          request: request,
+          accountId: context.accountId,
+          submittedAt: DateTime.utc(2026, 10, 26),
+        ),
+        owner: const DownloadOutputOwner(
+          ownerId: 'output-job-1',
+          jobId: 'job-1',
+          accountId: 'updater',
+        ),
+        status: DownloadStatus.running,
+      ),
+    );
+    final manager = DownloadManager(
+      transport: transport,
+      sinkFactory: UpdateFileSinkFactory(directory),
+      recoveryStore: records,
+      submissionContext: () => context,
+    );
+    addTearDown(manager.dispose);
+    await manager.recover();
+    await stateStore.write(
+      UpdateDownloadState(
+        downloadId: 'job-1',
+        version: release.manifest.version.toString(),
+        versionCode: release.manifest.versionCode,
+        assetUrl: asset.url.toString(),
+        exactSize: asset.exactSize,
+        sha256: asset.sha256,
+        packageName: asset.packageName,
+        signingCertificateSha256: asset.signingCertificateSha256,
+        path: p.join(directory.path, request.displayName),
+      ),
+    );
+    final coordinator = UpdateDownloadCoordinator(
+      manager: manager,
+      platform: FakeUpdatePlatform(),
+      directory: directory,
+      stateStore: stateStore,
+    );
+    return (coordinator, manager);
   }
 
   test(
@@ -92,6 +161,42 @@ void main() {
       expect(directory.listSync(), isEmpty);
     },
   );
+
+  test('cancel stops a recovered updater download too', () async {
+    final bytes = <int>[1, 2, 3, 4];
+    final release = _release(bytes);
+    final transport = _BlockingTransport(bytes);
+    final (coordinator, _) = await recoveredOver(
+      transport,
+      release,
+      MemoryUpdateDownloadStateStore(),
+    );
+    final recovering = coordinator.recover(release);
+
+    await transport.opened.future;
+    await coordinator.cancel();
+    transport.release();
+
+    final result = await recovering;
+    expect(result.status, UpdateApplyStatus.canceled);
+    expect(directory.listSync(), isEmpty);
+  });
+
+  test('a recovered download that ends before its state is saved', () async {
+    final bytes = <int>[1, 2, 3, 4];
+    final release = _release(bytes);
+    final store = _HeldStateStore();
+    final (coordinator, manager) = await recoveredOver(
+      _BytesTransport(bytes),
+      release,
+      store,
+    );
+    store.hold = manager.events.first;
+
+    final result = await coordinator.recover(release);
+    expect(result.status, UpdateApplyStatus.downloaded);
+    expect(File(result.path!).readAsBytesSync(), bytes);
+  });
 
   test(
     'apply requires explicit confirmation and never silently installs',
@@ -294,8 +399,15 @@ class _BytesTransport implements DownloadTransport {
   }) async => _BytesResponse(bytes);
 }
 
+/// Holds the response until cancelled, or until [release] serves [bytes].
 class _BlockingTransport implements DownloadTransport {
+  _BlockingTransport([this.bytes]);
+
+  final List<int>? bytes;
   final opened = Completer<void>();
+  final _released = Completer<void>();
+
+  void release() => _released.complete();
 
   @override
   Future<DownloadResponse> open(
@@ -304,8 +416,20 @@ class _BlockingTransport implements DownloadTransport {
     required DownloadCancelToken cancelToken,
   }) async {
     opened.complete();
-    await cancelToken.whenCancel;
-    throw const DownloadCancelledException();
+    await Future.any([cancelToken.whenCancel, _released.future]);
+    if (cancelToken.isCancelled) throw const DownloadCancelledException();
+    return _BytesResponse(bytes!);
+  }
+}
+
+/// Writes wait for [hold].
+class _HeldStateStore extends MemoryUpdateDownloadStateStore {
+  Future<void>? hold;
+
+  @override
+  Future<void> write(UpdateDownloadState state) async {
+    await hold;
+    await super.write(state);
   }
 }
 

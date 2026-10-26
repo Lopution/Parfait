@@ -105,10 +105,13 @@ reviewed: 2026-10-14
   app-private `files/updates/`, and checks size, SHA-256, package and
   signer before a `content://` install intent. The F-Droid flavor never
   fetches a manifest. Download redirects follow only `kUpdateDownloadHosts`
-  and the measured CDN hosts; a new host needs a transport test.
+  and the measured CDN hosts; a new host needs a transport test. A
+  download resumed after a restart obeys Cancel like a fresh one, and its
+  end is read from the task before waiting for an event.
 - **Why:** Installing without checks or from shared storage would allow a
-  swapped APK.
-- **Check:** `test/updater_download_test.dart` "apply requires explicit confirmation and never silently installs" "hash or exact-size mismatch fails closed and cleans the APK", `test/updater_manifest_test.dart` "F-Droid capability never fetches a manifest or signature"
+  swapped APK. A resumed download ignored Cancel and opened the installer,
+  or hung when it ended while its state was being saved.
+- **Check:** `test/updater_download_test.dart` "apply requires explicit confirmation and never silently installs" "hash or exact-size mismatch fails closed and cleans the APK" "cancel stops a recovered updater download too" "a recovered download that ends before its state is saved", `test/updater_manifest_test.dart` "F-Droid capability never fetches a manifest or signature"
 - **Code:** `lib/core/updater`, `lib/core/download/download_request.dart`
 
 ## CI
