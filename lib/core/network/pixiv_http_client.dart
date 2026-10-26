@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:rhttp/rhttp.dart' as rhttp;
 
+import '../auth/account.dart';
 import '../auth/account_store.dart';
 import '../auth/credential.dart';
 import '../auth/credential_store.dart';
@@ -272,7 +273,10 @@ class PixivHttpClient {
   }) async {
     if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
     if (method == 'GET') _throwIfReadsCoolingDown();
-    var usedToken = await _requireAccessToken();
+    // The request belongs to the account current as it starts: a refresh
+    // and a replay after a switch stay that account's.
+    final (:accountId, accessToken: firstToken) = await _requireContext();
+    var usedToken = firstToken;
     http.Response response = await _issue(
       uri,
       method,
@@ -290,7 +294,6 @@ class PixivHttpClient {
     // single-flight refresh/retry protocol; other 400 bodies are genuine
     // parameter errors and must not refresh.
     while (_isAuthFailure(response) && retries < maxRetries) {
-      final accountId = await _requireCurrentAccountId();
       final storedToken = (await _credentialStore.read(accountId))?.accessToken;
       final outcome = await _refreshGate.refresh(
         accountId: accountId,
@@ -551,20 +554,12 @@ class PixivHttpClient {
     _ => null,
   };
 
-  Future<String> _requireAccessToken() async {
+  Future<({String accountId, String accessToken})> _requireContext() async {
     final context = await _currentContext();
     if (context == null) {
       throw const ApiUnauthorized('no signed-in account');
     }
-    return context.accessToken;
-  }
-
-  Future<String> _requireCurrentAccountId() async {
-    final context = await _currentContext();
-    if (context == null) {
-      throw const ApiUnauthorized('no signed-in account');
-    }
-    return context.accountId;
+    return context;
   }
 
   Future<({String accountId, String accessToken})?> _currentContext() async {
@@ -576,11 +571,13 @@ class PixivHttpClient {
     return (accountId: account.id, accessToken: credential.accessToken);
   }
 
+  /// Refreshes [accountId]'s session, current or not, and saves it without
+  /// making it current: the user may have switched while it ran.
   Future<RefreshOutcome> _doRefresh(String accountId) async {
     try {
-      final account = (await _accountStore.resolveState()).usableCurrent;
-      if (account == null || account.id != accountId) {
-        return const RefreshFailed('account changed during refresh');
+      final account = await _signedIn(accountId);
+      if (account == null) {
+        return const RefreshFailed('account removed or signed out');
       }
       final credential = await _credentialStore.read(accountId);
       if (credential == null) {
@@ -589,7 +586,7 @@ class PixivHttpClient {
       final result = await _oauthService.refreshSession(
         credential.refreshToken,
       );
-      await _accountStore.upsertAccount(
+      final saved = await _accountStore.saveRefreshed(
         account.copyWith(
           name: result.profile.name,
           mailAddress: result.profile.mailAddress,
@@ -598,6 +595,7 @@ class PixivHttpClient {
         ),
         result.credential,
       );
+      if (!saved) return const RefreshFailed('account removed during refresh');
       return Refreshed(result.credential.accessToken);
     } on OAuthException catch (error) {
       if (error.rejectsCredential) return RefreshFailed(error);
@@ -605,6 +603,18 @@ class PixivHttpClient {
       // the account signed in so the next request refreshes again.
       throw _refreshAttemptError(error);
     }
+  }
+
+  /// [accountId]'s account while it is stored and not awaiting a login.
+  Future<Account?> _signedIn(String accountId) async {
+    for (final account in (await _accountStore.resolveState()).accounts) {
+      if (account.id == accountId) {
+        return account.authState == AccountAuthState.reauthRequired
+            ? null
+            : account;
+      }
+    }
+    return null;
   }
 
   static ApiError _refreshAttemptError(OAuthException error) =>

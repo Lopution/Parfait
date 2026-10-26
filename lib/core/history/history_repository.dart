@@ -181,6 +181,42 @@ class HistoryRepository {
     _changed();
   }
 
+  /// Replaces [accountId]'s rows with [records] and drops its unsent
+  /// outbox, in one transaction: a row the table refuses, or a death
+  /// mid-way, leaves the old rows as they were.
+  Future<void> replaceAll(String accountId, List<HistoryRecord> records) async {
+    _validateAccount(accountId);
+    for (final record in records) {
+      if (record.accountId != accountId) {
+        throw ArgumentError.value(record.accountId, 'record.accountId');
+      }
+      record.checkStorable();
+    }
+    final db = await _database.database;
+    await db.transaction((txn) async {
+      for (final table in [
+        HistoryDatabase.historyTable,
+        HistoryDatabase.outboxTable,
+      ]) {
+        await txn.delete(
+          table,
+          where: 'account_id = ?',
+          whereArgs: [accountId],
+        );
+      }
+      final batch = txn.batch();
+      for (final record in records) {
+        batch.insert(
+          HistoryDatabase.historyTable,
+          record.toColumns(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+    });
+    _changed();
+  }
+
   /// Removes only the unsent remote-Pixiv history outbox of [accountId]
   /// (C21). Local history rows stay untouched; a re-added account never
   /// replays outbox entries from a previous lifecycle.
@@ -314,15 +350,21 @@ class HistoryRepository {
     if (failures.isNotEmpty) throw HistorySyncException(failures);
   }
 
+  /// Acknowledges [entry] as it was sent: a visit merged into its row while
+  /// the POST was in flight changed the row, which stays for the next flush.
   Future<void> _deleteOutbox(PixivHistoryOutboxEntry entry) async {
     final db = await _database.database;
     await db.delete(
       HistoryDatabase.outboxTable,
-      where: 'account_id = ? AND content_type = ? AND content_id = ?',
+      where:
+          'account_id = ? AND content_type = ? AND content_id = ? AND '
+          'last_viewed_at = ? AND duration_ms = ?',
       whereArgs: [
         entry.accountId,
         entry.contentType.storageValue,
         entry.contentId,
+        entry.lastViewedAt.toUtc().microsecondsSinceEpoch,
+        entry.unsubmittedDuration.inMilliseconds,
       ],
     );
   }
@@ -373,10 +415,7 @@ class HistoryRepository {
 
   void _validateRecord(HistoryRecord record) {
     _validateAccount(record.accountId);
-    _validateContentId(record.contentId);
-    if (record.snapshotVersion < 1) {
-      throw ArgumentError.value(record.snapshotVersion, 'snapshotVersion');
-    }
+    record.checkStorable();
   }
 
   static void _validateAccount(String accountId) {

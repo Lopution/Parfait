@@ -12,9 +12,14 @@ reviewed: 2026-10-12
 - **Rule:** `HistoryDatabase` opens `history.db` lazily once per provider
   container and closes it on dispose. All access goes through
   `HistoryRepository`; a write that touches a record and the outbox uses
-  one transaction.
-- **Why:** Opening per operation raced concurrent first opens.
-- **Check:** `test/history_persistence_test.dart` "commits local row and merged outbox duration atomically"
+  one transaction. A backup overwrite replaces an account's rows in one
+  transaction (`replaceAll`); rows the table refuses
+  (`HistoryRecord.checkStorable`) fail the file at parse, before an import
+  writes anything.
+- **Why:** Opening per operation raced concurrent first opens. An
+  overwrite cleared the history, then inserted row by row: a refused row
+  or a death mid-way left it empty.
+- **Check:** `test/history_persistence_test.dart` "commits local row and merged outbox duration atomically"; `test/backup_test.dart` "a row overwrite cannot store leaves the old history whole" "rejects structurally malformed fields"
 - **Code:** `lib/core/history/history_database.dart`, `lib/core/history/history_repository.dart`
 
 ### HIST-02 Store a compact snapshot, never payloads
@@ -41,7 +46,8 @@ reviewed: 2026-10-12
 - **Code:** `lib/core/history/history_tracker.dart`, `lib/core/history/history_visibility.dart`
 
 ### HIST-04 The outbox never crosses accounts
-- **Rule:** Outbox flushes are serialized; a success deletes the row, a
+- **Rule:** Outbox flushes are serialized; a success deletes the row as
+  it was sent (a visit merged into it during the POST keeps it), a
   failure keeps it with bounded backoff. A rejection is thrown
   (`HistorySyncException`); a connectivity-class failure
   (`isConnectivityError`: no network, 5xx, 429) only logs, since every page
@@ -49,7 +55,7 @@ reviewed: 2026-10-12
   before submitting. Removing an account clears only its outbox, keeping
   local rows, so re-adding it does not flush old work.
 - **Why:** Account A's views were submitted under account B.
-- **Check:** `test/history_persistence_test.dart` "flushes successful work and retains failures with backoff" "a server error waits out its backoff without a report" "clear removes only the selected account and its outbox"
+- **Check:** `test/history_persistence_test.dart` "flushes successful work and retains failures with backoff" "a server error waits out its backoff without a report" "a visit made while its POST is in flight stays queued" "clear removes only the selected account and its outbox"
 - **Code:** `lib/core/history/history_repository.dart`, `lib/core/auth/account_store.dart`
 
 ### HIST-05 Switches stop writes, never delete

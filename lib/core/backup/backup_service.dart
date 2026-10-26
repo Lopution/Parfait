@@ -226,10 +226,9 @@ class BackupService {
   }
 
   Future<int> _replaceHistory(String accountId, BackupEnvelope envelope) async {
-    await _history.clear(accountId);
-    for (final record in envelope.history) {
-      await _history.upsert(_forAccount(record, accountId));
-    }
+    await _history.replaceAll(accountId, [
+      for (final record in envelope.history) _forAccount(record, accountId),
+    ]);
     return envelope.history.length;
   }
 

@@ -266,6 +266,23 @@ void main() {
       expect(await repository.pendingOutbox(accountId: 'a'), isEmpty);
     });
 
+    test('a visit made while its POST is in flight stays queued', () async {
+      final record = _record('a', HistoryContentType.illust, 1);
+      Future<void> visit(DateTime at) => repository.commitView(
+        record: record.copyWith(lastViewedAt: at),
+        writeLocal: false,
+        enqueuePixiv: true,
+        unsubmittedPixivDuration: const Duration(seconds: 10),
+      );
+      await visit(DateTime.utc(2026, 8, 27, 12));
+      final later = DateTime.utc(2026, 8, 27, 12, 1);
+      final remote = _FakeRemote()..inFlight = () => visit(later);
+
+      await repository.flushOutbox(accountId: 'a', remote: remote);
+      final pending = await repository.pendingOutbox(accountId: 'a');
+      expect(pending.map((entry) => entry.lastViewedAt), [later]);
+    });
+
     test('a server error waits out its backoff without a report', () async {
       await repository.commitView(
         record: _record('a', HistoryContentType.illust, 1),
@@ -455,9 +472,13 @@ class _FakeRemote implements PixivHistoryRemote {
   bool shouldFail = false;
   Object failure = StateError('rejected');
 
+  /// Runs while the POST is in flight.
+  Future<void> Function()? inFlight;
+
   @override
   Future<void> addIllust(int illustId) async {
     calls.add(illustId);
+    await inFlight?.call();
     if (shouldFail) throw failure;
   }
 }
