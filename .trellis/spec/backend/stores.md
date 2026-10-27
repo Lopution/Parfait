@@ -10,6 +10,9 @@ applies_to:
   - lib/core/watchlist/**
   - lib/core/auth/account_store.dart
   - lib/core/illust/**
+  - lib/core/paging/**
+  - lib/core/series/**
+  - lib/core/novel/**
 reviewed: 2026-10-13
 ---
 
@@ -181,14 +184,40 @@ reviewed: 2026-10-13
 ## Account boundary
 
 ### STORE-12 Account-scoped state resets before the new account renders
-- **Rule:** Account-scoped stores and feed families watch the current
-  account and reset before the new account's responses render. Feeds use
+- **Rule:** Account-scoped stores, feed families and providers of account
+  data (the bookmark sheet's prefill) watch the current account and
+  reset before the new account's responses render. Feeds use
   generation and cancellation, mutations the account id, downloads the
   account id plus destination identity.
 - **Why:** User ids and pending maps are not portable across accounts;
-  re-keying feeds on token refresh lost tab stacks.
-- **Check:** `test/bookmark_store_test.dart` "state resets when the current account changes"
+  re-keying feeds on token refresh lost tab stacks. The bookmark prefill
+  kept the previous account's restrict and tags.
+- **Check:** `test/bookmark_store_test.dart` "state resets when the current account changes", `test/account_switch_late_payload_test.dart` "A's first loads landing after the switch stay out of B's stores"
 - **Code:** `lib/core/auth/account_store.dart`
+
+### STORE-15 Late async results write only for the account they loaded
+- **Rule:** An async Notifier or provider takes its ref before its first
+  await and, after it, writes its own state only while that ref is
+  mounted. Writes into shared account-scoped stores (UserStore,
+  NovelStore, the series, watchlist and entity stores, snapshot restores)
+  also need the account it started under to be current: an
+  `AccountClaim` taken before the await, checked with `holds`; so does a
+  method's write to its own state (`reload`, `loadMore`, `refresh`, a
+  background refresh), which a listener would otherwise see for one
+  flush before the rebuild. A
+  Notifier never calls `build()` by hand; a retry invalidates itself.
+  `AccountStore.reload` is the exception: it is the boundary itself and
+  must re-read inside its serial mutation queue.
+  Bookmark and Follow stores raise a revision floor at an account
+  boundary and drop snapshots taken before it; a rebuilt `IllustStore`
+  is retired and ignores writes.
+- **Why:** A dependent rebuilds lazily, at the next frame or at its next
+  read when nothing listens, so the old ref stays mounted after a switch
+  while the stores it writes to already serve the next account: account
+  A's late page, profile or snapshot landed in B's stores, and a late
+  reload overwrote B's state with A's.
+- **Check:** `test/account_switch_late_payload_test.dart` "A's first loads landing after the switch stay out of B's stores" "A's reloads landing around B's rebuild leave B's state"; `test/feed_snapshot_cold_start_test.dart` "a snapshot read landing after a switch restores nothing"; `test/bookmark_store_test.dart` "a payload fetched under account A stays out of account B"
+- **Code:** `lib/core/auth/account_store.dart`, `lib/core/entity/illust_store.dart`
 
 ### STORE-14 Account mutations run one at a time and save safely
 - **Rule:** `AccountStore` runs its mutations (add, refresh save, update,

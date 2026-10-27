@@ -394,9 +394,16 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     // with a stale generation. Feeds without a codec keep the fully
     // synchronous pre-fetch path — no suspension point is added.
     final codec = snapshotCodec;
-    final snapshotAccountId = _accountId;
-    if (codec != null && snapshotAccountId != null) {
-      final restored = await _restoreSnapshot(codec, snapshotAccountId);
+    // This build's claim. The controller instance outlives a rebuild (an
+    // account switch), which also resets the flags below, so only the
+    // claim tells a superseded build: it must not restore, refresh or open
+    // a generation over the next build's request.
+    final claim = AccountClaim(ref);
+    if (codec != null && claim.accountId != null) {
+      final restored = await _restoreSnapshot(codec, claim);
+      if (!claim.holds) {
+        return const PagedFeedState(initialPhase: FeedPhase.idle);
+      }
       if (restored != null) {
         // Content is already visible; refresh revalidates it in the
         // background without blocking the first frame on the network.
@@ -634,10 +641,17 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     if (wait > Duration.zero) await Future<void>.delayed(wait);
   }
 
-  /// Retry the initial load.
+  /// Retry the initial load: an ordinary rebuild, with its own ref, so a
+  /// switch during it fences it like any build. Plain loading first keeps
+  /// the spinner up; an invalidate alone refreshes behind the old error.
   Future<void> retryInitial() async {
     state = const AsyncLoading<PagedFeedState>();
-    state = await AsyncValue.guard(() => build());
+    ref.invalidateSelf();
+    try {
+      await future;
+    } on Object {
+      // The state carries the failure; the retry button's future must not.
+    }
   }
 
   /// The user asked for the next page: retry a failed load-more, or
@@ -783,27 +797,29 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   /// Reads the persisted page-one view of this feed, if any. A hit merges
   /// its entities back into the shared store and returns an idle state with
   /// the stored cursor so load-more continues where the snapshot left off.
-  /// Only called when a codec and an account are both present.
+  /// Only called when a codec and the claim's account are both present.
   Future<PagedFeedState?> _restoreSnapshot(
     FeedSnapshotCodec codec,
-    String accountId,
+    AccountClaim claim,
   ) async {
     final FeedSnapshot? snapshot;
     try {
       snapshot = await ref
           .read(feedSnapshotStoreProvider)
-          .read(accountId, feedKey);
+          .read(claim.accountId!, feedKey);
     } on Object {
       // A broken snapshot store must never break the feed itself.
       return null;
     }
-    if (snapshot == null || _disposed || _cancelRequested) return null;
+    if (snapshot == null || !claim.holds || _disposed || _cancelRequested) {
+      return null;
+    }
     // A row written by a different payload format is a miss; the next
     // successful fetch rewrites it under the current version.
     if (snapshot.snapshotVersion != codec.snapshotVersion) return null;
     final payload = snapshot.entities[codec.entityType];
     if (payload is! Map<String, Object?>) return null;
-    final ids = codec.restoreEntities(ref, snapshot.ids, payload);
+    final ids = codec.restoreEntities(claim.ref, snapshot.ids, payload);
     if (ids.isEmpty && snapshot.ids.isNotEmpty) return null;
     _nextCursor = snapshot.cursor;
     _recordCursor(snapshot.cursor);

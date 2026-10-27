@@ -635,6 +635,25 @@ void main() {
     await settle();
     await tester.pump(const Duration(seconds: 1));
     expect(viewAll, findsNothing);
+
+    // Another account taken under a page, its read still pending: A's
+    // covers are gone once the row shows again.
+    await view(3, 5);
+    await tester.tap(viewAll);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.runAsync(
+      () => container
+          .read(accountStoreProvider.notifier)
+          .upsertAccount(
+            const Account(id: '200', userId: 200, name: 'b'),
+            const Credential(accessToken: 'b', refreshToken: 'b'),
+          ),
+    );
+    router.pop();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(cover(3), findsNothing);
   });
 
   testWidgets('a recent cover flies to its work and back, an unseen one not', (

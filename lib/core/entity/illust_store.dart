@@ -59,6 +59,14 @@ class IllustStore {
 
   int Function()? _followRevisionNow;
 
+  /// Set when [illustStoreProvider] rebuilds for another account. Work
+  /// started under the old account may still hold this instance; its late
+  /// payloads must neither land here nor reach the bookmark and follow
+  /// stores, which carry on under the new account.
+  bool _retired = false;
+
+  void retire() => _retired = true;
+
   /// Binds the canonical BookmarkStore (wired once in illustStoreProvider).
   /// Callbacks keep the two stores decoupled without import cycles:
   /// - [observeRemote] forwards a merge's remote snapshots, as one batch,
@@ -140,6 +148,7 @@ class IllustStore {
     IllustSnapshotRevision? snapshotRevision,
     bool fromLocalCache = false,
   }) {
+    if (_retired) return;
     final entities = incoming.toList(growable: false);
     // Forward the remote snapshots before anything else so the bound
     // BookmarkStore can gate them; the authority reads below then reflect
@@ -221,6 +230,7 @@ class IllustStore {
   /// work itself, so it leaves [receivedAt] and [hasDetail] alone. Returns
   /// whether anything changed.
   bool applyPageDimensions(int id, List<({int width, int height})> dims) {
+    if (_retired) return false;
     final current = _entities[id];
     if (current == null) return false;
     final enriched = current.withPageDimensions(dims);
@@ -232,6 +242,7 @@ class IllustStore {
   /// Applies a confirmed bookmark state change coming from the shared
   /// BookmarkStore (also used as the commit sync target).
   void updateBookmark(int id, bool bookmarked) {
+    if (_retired) return;
     final existing = _entities[id];
     if (existing != null) {
       _entities[id] = existing.copyWith(isBookmarked: bookmarked);
@@ -251,6 +262,7 @@ final illustStoreProvider = Provider<IllustStore>((ref) {
   // cannot be rendered while account B is loading its own snapshot.
   ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
   final store = IllustStore();
+  ref.onDispose(store.retire);
   final bookmarks = ref.watch(bookmarkStoreProvider.notifier);
   store.bindBookmarks(
     observeRemote: (snapshots, snapshotRevision) => bookmarks.observeRemoteAll([

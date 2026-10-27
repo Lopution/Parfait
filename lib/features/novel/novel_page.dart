@@ -39,11 +39,19 @@ import '../../app/theme/func_semantic_tokens.dart';
 
 final _novelDetailProvider = FutureProvider.autoDispose
     .family<NovelEntity, int>((ref, novelId) async {
+      // Account-scoped like the store it fills: a switch refetches, and the
+      // previous account's late payload stays out of the reused NovelStore.
+      ref.watch(
+        accountStoreProvider.select((async) => async.value?.current?.id),
+      );
+      final claim = AccountClaim(ref);
       final token = CancelToken();
       ref.onDispose(token.cancel);
       final repository = ref.read(novelRepositoryProvider);
       final entity = await repository.fetchDetail(novelId, cancelToken: token);
-      ref.read(novelStoreProvider.notifier).mergeAll([entity]);
+      if (claim.holds) {
+        ref.read(novelStoreProvider.notifier).mergeAll([entity]);
+      }
       return entity;
     }, retry: noRetry);
 

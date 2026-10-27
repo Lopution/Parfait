@@ -346,6 +346,25 @@ final accountStoreProvider = AsyncNotifierProvider<AccountStore, AccountState>(
   AccountStore.new,
 );
 
+/// A build's or method's ref with the account it loads for, taken before
+/// its first await, for writes into shared account-scoped stores.
+/// `ref.mounted` alone lags a switch: a dependent rebuilds lazily — at the
+/// next frame, or at its next read when nothing listens — so the old ref
+/// stays mounted while the stores it writes to already serve the next
+/// account.
+final class AccountClaim {
+  AccountClaim(this.ref) : accountId = _currentAccountId(ref);
+
+  final Ref ref;
+  final String? accountId;
+
+  /// Whether [ref] is still its provider's and [accountId] still current.
+  bool get holds => ref.mounted && _currentAccountId(ref) == accountId;
+
+  static String? _currentAccountId(Ref ref) =>
+      ref.read(accountStoreProvider).value?.current?.id;
+}
+
 final oauthServiceProvider = Provider<OAuthService>((ref) {
   return OAuthService(
     client: ref

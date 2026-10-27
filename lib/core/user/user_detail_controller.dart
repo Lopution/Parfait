@@ -48,11 +48,16 @@ class _UserDetailController extends AsyncNotifier<UserDetailState> {
   Future<UserDetailState> build() => _load();
 
   Future<void> reload() async {
+    final claim = AccountClaim(ref);
     state = const AsyncLoading<UserDetailState>();
-    state = await AsyncValue.guard(_load);
+    final next = await AsyncValue.guard(_load);
+    if (claim.holds) state = next;
   }
 
   Future<UserDetailState> _load() async {
+    // UserStore is a reused Notifier: a payload landing after a switch
+    // must not reach it.
+    final claim = AccountClaim(ref);
     // The detail request writes into UserStore. Reading the snapshot avoids a
     // self-invalidating dependency loop while the account watch still resets
     // this controller when the active account changes.
@@ -66,6 +71,7 @@ class _UserDetailController extends AsyncNotifier<UserDetailState> {
       final store = ref.read(userStoreProvider.notifier);
       final followRevision = store.followRevisionNow();
       final fresh = await ref.read(userRepositoryProvider).fetchDetail(userId);
+      if (!claim.holds) return UserDetailReady(fresh);
       store.mergeAll([fresh], followSnapshotRevision: followRevision);
       final merged = store.get(userId) ?? fresh;
       return merged.visible

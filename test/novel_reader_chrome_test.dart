@@ -12,6 +12,8 @@ import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/system_ui.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/novel/novel_store.dart';
 import 'package:parfait/core/novel/reader_settings.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
@@ -40,7 +42,9 @@ Future<ProviderContainer> _apiContainer({
     MockClient((request) async {
       if (request.url.path == '/v2/novel/detail') {
         await detailGate?.future;
-        if (detailFails) return http.Response('{}', 503);
+        // Account B ('200') has no detail.
+        final b = request.headers['authorization']!.contains('access-200');
+        if (detailFails || b) return http.Response('{}', 503);
         return http.Response.bytes(
           utf8.encode(
             jsonEncode({
@@ -103,6 +107,7 @@ Object.defineProperty(window, 'pixiv', {value: {
       return http.Response('not found', 404);
     }),
     account: const Account(id: 'account', userId: 10, name: 'tester'),
+    others: const [Account(id: '200', userId: 200, name: 'b')],
   );
   return container;
 }
@@ -335,6 +340,22 @@ void main() {
     gate.complete();
     await tester.pumpAndSettle();
     expect(find.byType(NovelPageSkeleton), findsNothing);
+  });
+
+  testWidgets('a detail landing after a switch stays out of B\'s store', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final container = await _apiContainer(detailGate: gate);
+    await tester.pumpWidget(
+      localizedApp(container: container, home: NovelPage(novelId: 1)),
+    );
+    await tester.pump();
+    await container.read(accountStoreProvider.notifier).switchAccount('200');
+    container.read(novelStoreProvider);
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(container.read(novelStoreProvider)[1], isNull);
   });
 
   testWidgets('a failed detail reaches the error state at once', (

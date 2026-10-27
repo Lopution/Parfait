@@ -316,6 +316,24 @@ void main() {
         'updated name',
       );
       expect(userStore.get(42)!.name, 'updated name');
+
+      // A switch landing during the save keeps A's profile out of B's
+      // store; A's card still takes it.
+      await accountStore.upsertAccount(
+        const Account(id: 'account-b', userId: 7, name: 'b'),
+        const Credential(accessToken: 'b', refreshToken: 'b'),
+      );
+      await accountStore.switchAccount('account-a');
+      final commit = ProfileEditStoreCommitter(
+        accountStore: accountStore,
+        userStore: userStore,
+      ).commit(_user().copyWith(name: 'late name'));
+      await accountStore.switchAccount('account-b');
+      container.read(userStoreProvider);
+      await commit;
+      expect(container.read(userStoreProvider), isEmpty);
+      final cards = container.read(accountStoreProvider).requireValue.accounts;
+      expect(cards.first.name, 'late name');
     },
   );
 
