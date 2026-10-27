@@ -461,7 +461,8 @@ class _Fact extends StatelessWidget {
     children: [
       Icon(icon, size: glyph, color: style.color),
       const SizedBox(width: FuncSpacing.xs),
-      Text(text, style: style),
+      // A long tools list wraps inside its fact.
+      Flexible(child: Text(text, style: style)),
     ],
   );
 }

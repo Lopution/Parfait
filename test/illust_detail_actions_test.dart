@@ -283,6 +283,12 @@ void main() {
             42: [comment(1)],
           },
         );
+        // Under TalkBack, where the bar never slides away on its own.
+        tester.platformDispatcher.accessibilityFeaturesTestValue =
+            const FakeAccessibilityFeatures(accessibleNavigation: true);
+        addTearDown(
+          tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+        );
         await pumpDetail(tester, container, locale: const Locale('zh', 'CN'));
         await tester.pumpAndSettle();
         await showSection(tester, find.text('评论（1）'));

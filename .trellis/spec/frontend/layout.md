@@ -61,8 +61,10 @@ reviewed: 2026-10-17
   style and text scaler it paints with. `FitLabel` never measures; its
   host computes the fit from the slot it lays out.
 - **Why:** Measured and painted widths disagreed under non-linear text
-  scalers, so labels ellipsized that should have fit.
-- **Check:** `test/fit_label_test.dart` "the painted width is the measured width times the scale" "a non-linear text scaler measures and paints alike"
+  scalers, so labels ellipsized that should have fit. The novel reader
+  measured its pages unscaled and painted them at the system size, so
+  large text cut the tail off every line.
+- **Check:** `test/fit_label_test.dart` "the painted width is the measured width times the scale" "a non-linear text scaler measures and paints alike"; `test/novel_reader_test.dart` "large system text is laid out as wide as it paints"
 - **Code:** `lib/app/widgets/fit_label.dart`, `lib/app/widgets/func_bottom_nav.dart`, `lib/app/widgets/app_tab_bar.dart`
 
 ### LAYOUT-05 The selection bar title is the bare count
@@ -128,16 +130,18 @@ reviewed: 2026-10-17
 - **Code:** `lib/features/profile/profile_header_delegate.dart`
 
 ### LAYOUT-10 The keyboard pads the scrollable, not the page
-- **Rule:** A `Scaffold` with a text field sets
-  `resizeToAvoidBottomInset: false` and pads its scrollable by
-  `viewInsets.bottom`. A composer raised over the page for a moment (the
-  detail page's) takes the inset in its own bottom slot instead, and the
-  page under it keeps its size.
+- **Rule:** A page the keyboard passes over without being its form sets
+  `resizeToAvoidBottomInset: false`: a page under a composer raised for a
+  moment (the detail page's, a comment thread's) and the search input,
+  root and result pages. The composer takes the inset in its own bottom
+  slot and a list pads its tail by `viewInsets.bottom`; the page under it
+  keeps its size. A plain form page (settings fields, login) keeps the
+  default resize, which keeps the focused field above the keyboard.
 - **Why:** The default resize compressed the page geometry under the
   keyboard. Resizing a long detail page under a passing composer would
   lay it out on every keyboard frame and move what its Hero measures.
-- **Check:** `test/scrollable_form_shell_test.dart`
-- **Code:** `lib/app/widgets/scrollable_form_shell.dart`
+- **Check:** `test/comments_replies_test.dart` "keyboard open pads only the composer — page chrome holds still"; `test/search_catalog_test.dart` "search input keeps its geometry when the IME opens"
+- **Code:** `lib/features/comments/comments_page.dart`, `lib/features/search/search_page.dart`, `lib/features/illust/detail/illust_detail_page.dart`
 
 ### LAYOUT-11 Long documents use one SelectionArea
 - **Rule:** A long document page wraps its one list in a single

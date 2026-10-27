@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 
 import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/app/widgets/feed/feed_text_warmup.dart';
@@ -215,6 +216,45 @@ void main() {
     await tester.tapAt(const Offset(20, 300));
     await tester.pumpAndSettle();
     expect(handle.currentPage?.call(), 0);
+  });
+
+  testWidgets('large system text is laid out as wide as it paints', (
+    tester,
+  ) async {
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final pageCounts = <double, int>{};
+    for (final scale in [1.0, 2.0]) {
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      await tester.pumpWidget(
+        localizedApp(
+          home: Scaffold(
+            body: NovelReader(
+              novel: _novel('reader ' * 400),
+              onProgressChanged: (_, count) => pageCounts[scale] = count,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    // The body really is larger, not only measured as it paints.
+    expect(pageCounts[2.0], greaterThan(pageCounts[1.0]!));
+
+    final lines = tester.renderObjectList<RenderParagraph>(
+      find.descendant(
+        of: find.byType(PageView),
+        matching: find.byType(RichText),
+      ),
+    );
+    expect(lines, isNotEmpty);
+    for (final line in lines) {
+      expect(
+        line.getMaxIntrinsicWidth(double.infinity),
+        lessThanOrEqualTo(line.size.width + 0.5),
+        reason: line.text.toPlainText(),
+      );
+    }
   });
 
   testWidgets('the pages beside the page on screen are built at rest', (
@@ -488,6 +528,7 @@ class _CountingLayoutEngine extends NovelLayoutEngine {
     required Color textColor,
     required Brightness brightness,
     TextDirection textDirection = TextDirection.ltr,
+    TextScaler textScaler = TextScaler.noScaling,
     Map<String, String> translations = const {},
     CancelToken? cancelToken,
     NovelLayoutBudget budget = const NovelLayoutBudget(),
@@ -502,6 +543,7 @@ class _CountingLayoutEngine extends NovelLayoutEngine {
       textColor: textColor,
       brightness: brightness,
       textDirection: textDirection,
+      textScaler: textScaler,
       translations: translations,
       cancelToken: cancelToken,
       budget: budget,

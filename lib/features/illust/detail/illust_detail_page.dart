@@ -301,7 +301,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
       MotionTokens.chrome,
     );
     _touchExploration = MediaQuery.accessibleNavigationOf(context);
-    if (_touchExploration && !_downloadMode) _barVisibility.value = 1;
+    if (_touchExploration && !_downloadMode && !_composing) {
+      _barVisibility.value = 1;
+    }
     _topBarEntrance.duration = MotionTokens.resolve(
       context,
       MotionTokens.chrome,
@@ -503,9 +505,9 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
   void _closeComposer() {
     if (!_composing || !mounted) return;
     setState(() => _composing = false);
-    if (!_touchExploration) {
-      slideChrome(context, _barVisibility, hidden: false);
-    }
+    // Opening hid the bar under touch exploration too. The selection bar
+    // keeps it hidden while that mode is on.
+    if (!_downloadMode) slideChrome(context, _barVisibility, hidden: false);
   }
 
   /// Entering the mode is a management-mode transition → confirm haptic.
@@ -572,6 +574,7 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
     if (!mounted) return;
     showDownloadSubmittedSnackBar(context);
     setState(() => _selectedPages = null);
+    if (!_composing) slideChrome(context, _barVisibility, hidden: false);
   }
 
   @override
