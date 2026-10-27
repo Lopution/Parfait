@@ -70,9 +70,12 @@ class _UserBookmarkTagsController extends AsyncNotifier<UserBookmarkTagsState> {
     if (current == null || nextUrl == null || current.loadingMore) return;
     final userId = ref.read(accountStoreProvider).value?.usableCurrent?.userId;
     if (userId == null) return;
+    final claim = AccountClaim(ref);
     state = AsyncData(current.copyWith(loadingMore: true));
     try {
       final page = await _fetch(userId, nextUrl);
+      // Another account's tags never land, not even before the rebuild.
+      if (!claim.holds) return;
       state = AsyncData(
         current.copyWith(
           tags: [...current.tags, ...page.tags],
@@ -84,6 +87,7 @@ class _UserBookmarkTagsController extends AsyncNotifier<UserBookmarkTagsState> {
         ),
       );
     } on Object catch (error) {
+      if (!claim.holds) return;
       state = AsyncData(
         current.copyWith(loadingMore: false, loadMoreError: error),
       );
@@ -93,8 +97,10 @@ class _UserBookmarkTagsController extends AsyncNotifier<UserBookmarkTagsState> {
   Future<void> refresh() async {
     final userId = ref.read(accountStoreProvider).value?.usableCurrent?.userId;
     if (userId == null) return;
+    final claim = AccountClaim(ref);
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() => _fetch(userId, null));
+    final next = await AsyncValue.guard(() => _fetch(userId, null));
+    if (claim.holds) state = next;
   }
 
   Future<UserBookmarkTagsState> _fetch(int userId, String? cursor) {

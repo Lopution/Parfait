@@ -146,6 +146,11 @@ class MutationLedger {
 
   int get revisionNow => _sequence;
 
+  /// Moves the sequence past every revision handed out so far and returns
+  /// the new one: a snapshot revision captured before this call reads as
+  /// older than it, one captured after as equal.
+  int advance() => ++_sequence;
+
   List<MutationDiscardEvent> get discardEvents =>
       List.unmodifiable(_discardEvents);
 

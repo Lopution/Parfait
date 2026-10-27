@@ -14,6 +14,10 @@ import 'follow_models.dart';
 class FollowStore extends Notifier<Map<int, FollowEntry>> {
   final MutationLedger _ledger = MutationLedger();
   MutationBoundary? _boundary;
+
+  /// The revision the current account boundary began at: remote snapshots
+  /// captured before it belong to the previous account and are dropped.
+  int _boundaryRevision = 0;
   bool _built = false;
   bool _disposeRegistered = false;
 
@@ -216,6 +220,9 @@ class FollowStore extends Notifier<Map<int, FollowEntry>> {
     Iterable<FollowSnapshot> snapshots, {
     int? snapshotRevision,
   }) {
+    if (snapshotRevision != null && snapshotRevision < _boundaryRevision) {
+      return;
+    }
     Map<int, FollowEntry>? next;
     for (final snapshot in snapshots) {
       final merged = _mergeRemote(
@@ -301,6 +308,7 @@ class FollowStore extends Notifier<Map<int, FollowEntry>> {
         : _boundary!.accountId != current.accountId
         ? MutationDiscardReason.accountChanged
         : MutationDiscardReason.accountChanged;
+    _boundaryRevision = _ledger.advance();
     _ledger.cancelAll(reason);
     if (!settleState) return;
     final next = <int, FollowEntry>{...state};

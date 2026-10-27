@@ -62,6 +62,9 @@ class FakeAccountMetadataRepository implements AccountMetadataRepository {
   List<Account> accounts;
   String? currentId;
 
+  /// Holds every save until it completes.
+  Future<void>? saveGate;
+
   @override
   Future<AccountMetadataSnapshot> load() async => AccountMetadataSnapshot(
     accounts: List<Account>.of(accounts),
@@ -70,6 +73,7 @@ class FakeAccountMetadataRepository implements AccountMetadataRepository {
 
   @override
   Future<void> save(List<Account> next, String? nextCurrentId) async {
+    await saveGate;
     accounts = List<Account>.of(next);
     currentId = nextCurrentId;
   }

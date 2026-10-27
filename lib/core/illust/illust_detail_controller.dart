@@ -9,6 +9,7 @@ import 'package:clock/clock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../auth/account_store.dart';
 import '../entity/illust_entity.dart';
 import '../entity/illust_store.dart';
 import '../log.dart';
@@ -73,7 +74,7 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
   Future<IllustDetailState> _load(int id) async {
     // This build's ref: a rebuild (account switch) unmounts it, so work
     // started here never writes into the next build's state.
-    final buildRef = ref;
+    final claim = AccountClaim(ref);
     final store = ref.watch(illustStoreProvider);
     final snapshot = store.get(id);
     if (snapshot != null && !snapshot.visible) {
@@ -84,14 +85,14 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
     }
     if (_wantsDetail(store, snapshot)) {
       // After build's Ready has landed: the refresh replaces it.
-      unawaited(Future(() => _refreshInBackground(buildRef)));
+      unawaited(Future(() => _refreshInBackground(claim)));
     }
     if (snapshot.pageCount > 1 && !snapshot.hasPageDimensions) {
       unawaited(
         _seedPageDimensions(
           id,
           ref.read(_illustDetailRepositoryProvider).fetchPageDimensions(id),
-          buildRef,
+          claim,
         ),
       );
     }
@@ -105,11 +106,11 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
         clock.now().difference(receivedAt) > illustDetailFreshness;
   }
 
-  Future<void> _refreshInBackground(Ref buildRef) async {
-    if (!buildRef.mounted) return;
+  Future<void> _refreshInBackground(AccountClaim claim) async {
+    if (!claim.holds) return;
     final store = ref.read(illustStoreProvider);
     final result = await _fetch(illustId, store.get(illustId));
-    if (!buildRef.mounted) return;
+    if (!claim.holds) return;
     if (result is IllustDetailError) {
       // The snapshot on screen stays; the next visit tries again.
       log(
@@ -121,7 +122,7 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
   }
 
   Future<IllustDetailState> _fetch(int id, IllustEntity? snapshot) async {
-    final buildRef = ref;
+    final claim = AccountClaim(ref);
     final store = ref.read(illustStoreProvider);
     try {
       // Snapshot revisions captured before the fetch gate stale bookmark and
@@ -135,6 +136,9 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
           (snapshot?.pageCount ?? 0) > 1 && !snapshot!.hasPageDimensions;
       final dimsFuture = wantsDims ? repository.fetchPageDimensions(id) : null;
       final fresh = await repository.fetch(id);
+      // After a switch [store] is the previous account's; the result stays
+      // out of the stores.
+      if (!claim.holds) return IllustDetailReady(fresh);
       store.mergeAll(
         [fresh],
         source: EntityMergeSource.detail,
@@ -153,7 +157,7 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
           _seedPageDimensions(
             id,
             dimsFuture ?? repository.fetchPageDimensions(id),
-            buildRef,
+            claim,
           ),
         );
       }
@@ -174,10 +178,12 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
   /// Re-runs the fetch (pull-to-refresh / error retry): always asks the
   /// server, however fresh the snapshot.
   Future<void> reload() async {
+    final claim = AccountClaim(ref);
     state = const AsyncLoading<IllustDetailState>();
-    state = await AsyncValue.guard(
+    final next = await AsyncValue.guard(
       () => _fetch(illustId, ref.read(illustStoreProvider).get(illustId)),
     );
+    if (claim.holds) state = next;
   }
 
   /// Enriches the merged entity with true per-page dimensions once the web
@@ -186,11 +192,11 @@ class _IllustDetailController extends AsyncNotifier<IllustDetailState> {
   Future<void> _seedPageDimensions(
     int id,
     Future<List<({int width, int height})>?> dimsFuture,
-    Ref buildRef,
+    AccountClaim claim,
   ) async {
     final dims = await dimsFuture;
-    if (dims == null || !buildRef.mounted) return;
-    final store = ref.read(illustStoreProvider);
+    if (dims == null || !claim.holds) return;
+    final store = claim.ref.read(illustStoreProvider);
     if (!store.applyPageDimensions(id, dims)) return;
     if (state.asData?.value is IllustDetailReady) {
       state = AsyncData(IllustDetailReady(store.get(id)!));

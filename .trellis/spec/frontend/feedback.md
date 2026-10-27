@@ -13,6 +13,7 @@ applies_to:
   - lib/app/widgets/bookmark_switch_button.dart
   - lib/app/widgets/follow_switch_button.dart
   - lib/app/widgets/watchlist_toggle.dart
+  - lib/app/widgets/comment_composer.dart
 reviewed: 2026-10-17
 ---
 
@@ -24,6 +25,7 @@ reviewed: 2026-10-17
 - [Prompts](#prompts)
 - [Undo](#undo)
 - [Haptics](#haptics)
+- [Late callbacks](#late-callbacks)
 
 ## Menus and overlays
 
@@ -181,3 +183,25 @@ reviewed: 2026-10-17
 - **Why:** Copies without confirmation looked like nothing happened.
 - **Check:** `test/architecture/feedback_channels_test.dart` "UI clipboard writes go through copyToClipboard"
 - **Code:** `lib/app/clipboard.dart`
+
+## Late callbacks
+
+### FB-15 A callback that outlives its widget stays inside its owner
+- **Rule:** An async callback reads the stores, actions, prompt host and
+  texts it needs before its first await (`deferAppSnackBar`,
+  `deferCommentSendError`). After the await it touches the widget only
+  if `mounted`, pops a sheet only while its route `isCurrent`, and acts
+  only while the account boundary it read (`BookmarkStore.boundaryToken`,
+  `CommentDrafts.owner`) is still the same object. A save queued behind
+  other account writes asks once more before writing
+  (`upsertAccount(stillWanted:)`). Independent cleanups each get their
+  own `try` and their own error.
+- **Why:** A login left during the token exchange or its queued save
+  signed in anyway or touched the gone page; a batch cancel and a
+  Doubao sign-out ending after their page closed used a disposed context;
+  a bookmark sheet closed mid-submit popped the page under it, since a
+  closed sheet stays mounted while it animates out; a comment error was
+  lost with the composer, and its draft landed in the next account. One
+  failed cleanup skipped the next.
+- **Check:** `test/login_navigation_test.dart` "leaving during the token exchange drops its outcome", `test/download_tasks_page_test.dart` "a batch cancel ending after the page left is quiet", `test/bookmark_switch_button_test.dart` "a submit outlives its sheet but not its account", `test/comments_replies_test.dart` "a send ending after the detail composer left still lands", `test/settings_test.dart` "signing out of Doubao clears the session and its cookies"
+- **Code:** `lib/app/widgets/bookmark_switch_button.dart`, `lib/app/widgets/comment_composer.dart`

@@ -25,6 +25,23 @@ import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 
+/// Cancels end when [cancels] completes, as dropping kept bytes on disk
+/// does.
+class _SlowCancelManager extends DownloadManager {
+  _SlowCancelManager(FakeTransport transport)
+    : super(transport: transport, sinkFactory: MemorySinkFactory());
+
+  final cancels = Completer<void>();
+  var waiting = 0;
+
+  @override
+  Future<void> cancel(String taskId) async {
+    await super.cancel(taskId);
+    waiting++;
+    await cancels.future;
+  }
+}
+
 Future<void> _pumpPage(WidgetTester tester, ProviderContainer container) async {
   await tester.pumpWidget(
     UncontrolledProviderScope(
@@ -636,6 +653,34 @@ void main() {
       expect(manager.taskById(finished.id)!.status, DownloadStatus.succeeded);
     },
   );
+
+  testWidgets('a batch cancel ending after the page left is quiet', (
+    tester,
+  ) async {
+    installMemoryPreferences();
+    final manager = _SlowCancelManager(
+      FakeTransport()..responses.add(gatedResponse(Completer<void>())),
+    );
+    final container = ProviderContainer.test(
+      overrides: [downloadManagerProvider.overrideWithValue(manager)],
+    );
+    manager.submit(downloadRequest(1));
+    await _pumpPage(tester, container);
+    await tester.tap(find.widgetWithText(TextButton, '管理'));
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.select_all));
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.cancel_outlined));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.widgetWithText(FilledButton, '取消'));
+    await tester.pump();
+    expect(manager.waiting, 1, reason: 'the batch waits on its cancel');
+
+    await tester.pumpWidget(const SizedBox());
+    manager.cancels.complete();
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
 
   group('row tap, clear completed and undo', () {
     /// The page under a stand-in router: a work opens as a text page.

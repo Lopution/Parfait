@@ -11,11 +11,12 @@ import 'web_profile_repository.dart';
 import 'web_profile_session.dart';
 
 /// Selects the in-app transport based on the session created by the ordinary
-/// Pixiv login flow. A logged-in pixiv.net web session activates the
-/// same-origin adapter (the only channel that also edits the background
-/// image); otherwise the official App API `v1/user/profile/edit` covers
-/// name/comment/webpage/avatar through the same OAuth transport every other
-/// request uses — the editor is never left without a working channel.
+/// Pixiv login flow. A pixiv.net web session signed in as the edited user
+/// activates the same-origin adapter (the only channel that also edits the
+/// background image); otherwise the official App API
+/// `v1/user/profile/edit` covers name/comment/webpage/avatar through the
+/// same OAuth transport every other request uses — the editor is never left
+/// without a working channel.
 final profileEditRepositoryProvider = Provider<ProfileEditRepository>((ref) {
   // Resolve the session once per editor load. The request itself stays inside
   // the shared compatibility policy (pixivWeb ECH tier), so the form does not
@@ -51,7 +52,7 @@ class _SelectingProfileEditRepository implements ProfileEditRepository {
     required int userId,
     CancelToken? cancelToken,
   }) async {
-    final resolved = await _resolved();
+    final resolved = await _resolved(userId);
     return resolved.loadCapabilities(
       accountId: accountId,
       userId: userId,
@@ -65,7 +66,7 @@ class _SelectingProfileEditRepository implements ProfileEditRepository {
     required int userId,
     CancelToken? cancelToken,
   }) async {
-    final resolved = await _resolved();
+    final resolved = await _resolved(userId);
     return resolved.loadDraft(
       accountId: accountId,
       userId: userId,
@@ -78,13 +79,16 @@ class _SelectingProfileEditRepository implements ProfileEditRepository {
     ProfileSubmitRequest request, {
     CancelToken? cancelToken,
   }) async {
-    final resolved = await _resolved();
+    final resolved = await _resolved(request.patch.userId);
     return resolved.submit(request, cancelToken: cancelToken);
   }
 
-  Future<ProfileEditRepository> _resolved() async {
+  /// The web channel only for a WebView session signed in as [userId]:
+  /// the jar is shared and outlives account switches, and the web save
+  /// rewrites whichever profile the session owns.
+  Future<ProfileEditRepository> _resolved(int userId) async {
     final cookie = await session.readSessionCookie();
-    if (hasWebProfileSession(cookie)) {
+    if (webSessionUserId(cookie) == userId) {
       // Reuse the same adapter so loadDraft's local snapshot is still
       // available if the App API refresh fails after a successful web save.
       return _web ??= PixivWebProfileEditRepository(
@@ -93,9 +97,10 @@ class _SelectingProfileEditRepository implements ProfileEditRepository {
         policy: policy,
       );
     }
-    // No www.pixiv.net cookie — the OAuth WebView login does not plant one.
-    // The App API channel edits name/comment/webpage/avatar through the
-    // same authenticated transport as every other request.
+    // No web session for this user — the OAuth WebView login does not
+    // always plant one, and another account's must not be used. The App
+    // API channel edits name/comment/webpage/avatar through the same
+    // authenticated transport as every other request.
     return _appApi ??= PixivAppApiProfileEditRepository(
       client: client,
       userRepository: userRepository,

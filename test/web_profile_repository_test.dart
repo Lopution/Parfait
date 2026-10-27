@@ -1,15 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/profile/profile_edit_models.dart';
+import 'package:parfait/core/profile/profile_edit_repository.dart';
 import 'package:parfait/core/profile/web_profile_repository.dart';
 import 'package:parfait/core/profile/web_profile_session.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:parfait/core/user/user_repository.dart';
+
+import 'helpers/test_preferences.dart';
 
 class _FakeSession implements WebProfileSession {
   _FakeSession(this.cookie);
@@ -26,7 +31,7 @@ class _FakeSession implements WebProfileSession {
   }
 }
 
-const _sessionCookie = 'PHPSESSID=0123456789abcdef0123456789abcdef01234567';
+const _sessionCookie = 'PHPSESSID=1_0123456789abcdef0123456789abcdef';
 
 /// Renames account a's user 1 to NewName.
 ProfileSubmitRequest _renameRequest() => ProfileSubmitRequest(
@@ -39,29 +44,66 @@ ProfileSubmitRequest _renameRequest() => ProfileSubmitRequest(
 );
 
 void main() {
-  group('hasWebProfileSession', () {
-    test('empty/null cookie is not a session', () {
-      expect(hasWebProfileSession(null), isFalse);
-      expect(hasWebProfileSession(''), isFalse);
-      expect(hasWebProfileSession('device_token=abc'), isFalse);
-    });
+  TestWidgetsFlutterBinding.ensureInitialized();
+  installMemoryPreferences();
 
-    test('PHPSESSID cookie is a session', () {
-      expect(
-        hasWebProfileSession(
-          'PHPSESSID=0123456789abcdef0123456789abcdef01234567; '
-          'device_token=xyz',
-        ),
-        isTrue,
-      );
-    });
-
-    test('does not use unrelated or empty cookie values as a session', () {
-      expect(hasWebProfileSession('PHPSESSID='), isFalse);
-      expect(hasWebProfileSession('PHPSESSID ; device_token=abc'), isFalse);
-      expect(hasWebProfileSession('device_token=abc; foo=bar'), isFalse);
+  test('a session counts only when one signed-in PHPSESSID names the user', () {
+    const cases = <String?, int?>{
+      null: null,
+      '': null,
+      'device_token=abc': null,
+      'PHPSESSID=': null,
+      'PHPSESSID=0123456789abcdef0123456789abcdef': null,
+      'PHPSESSID=123_': null,
+      'PHPSESSID=0_abc': null,
+      'PHPSESSID=99999999999999999999_abc': null,
+      'otherPHPSESSID=123_abc': null,
+      'PHPSESSID=123_abc; device_token=xyz': 123,
+      'phpsessid=123_abc': 123,
+      'PHPSESSID=123_abc; PHPSESSID=123_abc': 123,
+      'PHPSESSID=0123abcd; PHPSESSID=123_abc': null,
+      'PHPSESSID=123_old; PHPSESSID=456_new': null,
+    };
+    cases.forEach((cookie, userId) {
+      expect(webSessionUserId(cookie), userId, reason: cookie);
     });
   });
+
+  test(
+    "another account's web session sends the editor to the App API",
+    () async {
+      // The WebView jar is shared: after signing in as user 2 on the web,
+      // editing user 1 must not reach user 2's profile.
+      var cookie = 'PHPSESSID=2_abc';
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('parfait/webprofile'),
+            (call) async => cookie,
+          );
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(
+              const MethodChannel('parfait/webprofile'),
+              null,
+            ),
+      );
+      final container = ProviderContainer.test(
+        overrides: [
+          userRepositoryProvider.overrideWithValue(_StubUserRepository()),
+        ],
+      );
+      final repository = container.read(profileEditRepositoryProvider);
+      Future<ProfileEditChannel> channel() async =>
+          (await repository.loadCapabilities(
+            accountId: 'a',
+            userId: 1,
+          )).channel;
+
+      expect(await channel(), ProfileEditChannel.appApi);
+      cookie = 'PHPSESSID=1_abc';
+      expect(await channel(), ProfileEditChannel.web);
+    },
+  );
 
   group('PixivWebProfileEditRepository capabilities', () {
     test('no session -> unavailable with in-app session guidance', () async {
@@ -96,25 +138,28 @@ void main() {
     });
   });
 
-  group('submit without session', () {
-    test('fails as unavailable instead of touching the network', () async {
-      final repo = PixivWebProfileEditRepository(
-        userRepository: _StubUserRepository(),
-        session: _FakeSession(null),
-      );
-      final outcome = await repo.submit(_renameRequest());
-      expect(outcome, isA<ProfileEditSubmitFailure>());
-      final failure = outcome as ProfileEditSubmitFailure;
-      expect(failure.code, ProfileEditFailureCode.unavailable);
-      expect(failure.retryable, isTrue);
-    });
+  group('submit without a session for the user', () {
+    for (final cookie in [null, 'PHPSESSID=2_abc']) {
+      test('$cookie fails as unavailable before any request', () async {
+        final client = _RecordingWebClient(const []);
+        final repo = PixivWebProfileEditRepository(
+          userRepository: _StubUserRepository(),
+          session: _FakeSession(cookie),
+          httpClient: client,
+        );
+        final outcome = await repo.submit(_renameRequest());
+        expect(outcome, isA<ProfileEditSubmitFailure>());
+        final failure = outcome as ProfileEditSubmitFailure;
+        expect(failure.code, ProfileEditFailureCode.unavailable);
+        expect(failure.retryable, isTrue);
+        expect(client.requests, isEmpty);
+      });
+    }
   });
 
   group('current Pixiv web profile protocol', () {
     test('round-trips the profile and posts multipart update', () async {
-      const cookie =
-          'PHPSESSID=0123456789abcdef0123456789abcdef01234567; '
-          'device_token=xyz';
+      const cookie = 'PHPSESSID=1_0123456789abcdef; device_token=xyz';
       final client = _RecordingWebClient([
         const _QueuedWebResponse(
           200,

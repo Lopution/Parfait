@@ -62,7 +62,7 @@ reviewed: 2026-10-13
 
 ### TEST-05 The suite stays within its budget
 - **Rule:** User decision: `test/` holds at most `ratio` × `lib/` Dart
-  code lines (`tool/test_budget.json`, 0.6; blank and comment lines
+  code lines (`tool/test_budget.json`, 0.607; blank and comment lines
   excluded; `test/review/` and `test/fixtures/` not counted), so tests
   grow with the code but not faster. Only the user changes the ratio; an
   agent asks and never edits it. A change that needs room makes it in this order: dedupe or

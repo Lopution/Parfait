@@ -82,8 +82,16 @@ class FakeTranslationStore implements TranslationCredentialStore {
   @override
   Future<void> deleteLlm() async => llm = null;
 
+  /// Holds, then fails, [deleteDoubao] when set.
+  Future<void>? deleteDoubaoGate;
+  Object? deleteDoubaoError;
+
   @override
-  Future<void> deleteDoubao() async => doubao = null;
+  Future<void> deleteDoubao() async {
+    await deleteDoubaoGate;
+    if (deleteDoubaoError case final error?) throw error;
+    doubao = null;
+  }
 
   @override
   Future<void> deleteAll() async {

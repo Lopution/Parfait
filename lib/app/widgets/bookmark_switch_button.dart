@@ -428,17 +428,18 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
   Future<void> _confirm() async {
     final pending = _tagInput.text.trim();
     final tags = pending.isEmpty ? _tags : [..._tags, pending];
-    final before =
-        ref.read(bookmarkStoreProvider)[widget.bookmarkKey]?.bookmarked ??
-        false;
+    // The sheet may close during the submit: everything after the await
+    // goes through objects read before it.
+    final store = ref.read(bookmarkStoreProvider.notifier);
+    final before = store.entryOf(widget.bookmarkKey)?.bookmarked ?? false;
+    final boundary = store.boundaryToken;
+    final actions = ref.read(bookmarkActionsProvider);
     setState(() {
       _submitting = true;
       _submitError = null;
     });
     try {
-      await ref
-          .read(bookmarkActionsProvider)
-          .addWithRestrict(widget.bookmarkKey, _restrict, tags: tags);
+      await actions.addWithRestrict(widget.bookmarkKey, _restrict, tags: tags);
     } on Object catch (error) {
       // Thrown before the store even saw the op (e.g. no session): same
       // keep-open + inline-error handling as a store-level failure.
@@ -450,12 +451,20 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
       }
       return;
     }
-    final entry = ref.read(bookmarkStoreProvider)[widget.bookmarkKey];
-    // Same rule as [toggleBookmark]: a queued submit stays silent.
+    final entry = store.entryOf(widget.bookmarkKey);
+    if (!identical(store.boundaryToken, boundary)) {
+      // Another account since: an entry for this key is not this submit's.
+      if (mounted) setState(() => _submitting = false);
+      return;
+    }
+    // Same rule as [toggleBookmark]: a queued submit stays silent. A sheet
+    // closed during the submit still reports its outcome.
     if (entry != null && !entry.isPending) {
       entry.error != null ? AppHaptics.error() : AppHaptics.success();
     }
-    if (!mounted) return;
+    // A sheet closed during the submit stays mounted while it animates
+    // out; popping then would close the page under it.
+    if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? false)) return;
     final error = entry?.error;
     if (error != null) {
       // Non-connectivity failure: keep the sheet open, keep the draft

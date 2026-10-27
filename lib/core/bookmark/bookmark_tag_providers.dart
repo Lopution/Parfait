@@ -8,6 +8,10 @@ import 'bookmark_repository.dart';
 /// only meaningful while the work is bookmarked.
 final bookmarkDetailProvider = FutureProvider.autoDispose
     .family<BookmarkDetail, BookmarkKey>((ref, key) {
+      // The restrict and tags are the current account's.
+      ref.watch(
+        accountStoreProvider.select((async) => async.value?.current?.id),
+      );
       return ref.watch(bookmarkRepositoryProvider).fetchDetail(key);
     });
 

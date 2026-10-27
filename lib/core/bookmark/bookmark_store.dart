@@ -20,6 +20,11 @@ import 'bookmark_models.dart';
 class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
   final MutationLedger _ledger = MutationLedger();
   MutationBoundary? _boundary;
+
+  /// The revision the current account boundary began at: remote snapshots
+  /// captured before it belong to the previous account and are dropped.
+  int _boundaryRevision = 0;
+  Object _boundaryToken = Object();
   bool _built = false;
   bool _disposeRegistered = false;
 
@@ -46,6 +51,7 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
       _invalidateBoundary(current, settleState: false);
     }
     _boundary = current;
+    _boundaryToken = Object();
     if (!_disposeRegistered) {
       _disposeRegistered = true;
       ref.onDispose(() {
@@ -56,6 +62,11 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
     _built = true;
     return {};
   }
+
+  /// A new object for each build, i.e. each account boundary (A → B → A
+  /// gives a third). Read it after [entryOf]: reading the state brings a
+  /// pending rebuild in.
+  Object get boundaryToken => _boundaryToken;
 
   int revisionNow() => _ledger.revisionNow;
 
@@ -243,6 +254,9 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
     Iterable<BookmarkSnapshot> snapshots, {
     int? snapshotRevision,
   }) {
+    if (snapshotRevision != null && snapshotRevision < _boundaryRevision) {
+      return;
+    }
     Map<BookmarkKey, BookmarkEntry>? next;
     for (final snapshot in snapshots) {
       final merged = _mergeRemote(
@@ -331,6 +345,7 @@ class BookmarkStore extends Notifier<Map<BookmarkKey, BookmarkEntry>> {
         : _boundary!.accountId != current.accountId
         ? MutationDiscardReason.accountChanged
         : MutationDiscardReason.accountChanged;
+    _boundaryRevision = _ledger.advance();
     _ledger.cancelAll(reason);
     if (!settleState) return;
     final next = <BookmarkKey, BookmarkEntry>{...state};

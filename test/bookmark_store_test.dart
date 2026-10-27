@@ -3,7 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
+import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/user/follow_store.dart';
 import 'helpers/fake_account.dart';
+import 'helpers/illust_fixtures.dart';
 
 void main() {
   late ProviderContainer container;
@@ -237,6 +240,53 @@ void main() {
         isNull,
         reason: 'account B must not observe account A bookmark state',
       );
+    });
+
+    test('a payload fetched under account A stays out of account B', () {
+      const key = BookmarkKey(BookmarkEntityType.illust, 21);
+      final old = container.read(illustStoreProvider)
+        ..mergeAll([parseIllust(illustJson(21, pageCount: 2))]);
+      final revision = old.revisionNow();
+      final follows = container.read(followStoreProvider.notifier);
+
+      (container.read(accountStoreProvider.notifier) as StubAccountStore)
+          .switchCurrentTo('200');
+      container.read(illustStoreProvider);
+      container.read(followStoreProvider);
+      store().observeRemote(
+        key,
+        bookmarked: true,
+        snapshotRevision: revision.bookmark,
+      );
+      follows.observeRemoteAll([
+        (userId: 7, followed: true, restrict: null),
+      ], snapshotRevision: revision.follow);
+      expect(container.read(bookmarkStoreProvider)[key], isNull);
+      expect(container.read(followStoreProvider)[7], isNull);
+
+      // The retired store of account A takes nothing and forwards nothing.
+      old
+        ..mergeAll([parseIllust(illustJson(22, bookmarked: true))])
+        ..updateBookmark(21, true);
+      expect(old.get(22), isNull);
+      expect(old.get(21)!.isBookmarked, isFalse);
+      expect(
+        old.applyPageDimensions(21, const [(width: 1, height: 2)]),
+        isFalse,
+      );
+      expect(
+        container.read(bookmarkStoreProvider),
+        isEmpty,
+        reason: 'the retired store must not forward to B',
+      );
+
+      // Captured under B, it lands.
+      store().observeRemote(
+        key,
+        bookmarked: true,
+        snapshotRevision: store().revisionNow(),
+      );
+      expect(container.read(bookmarkStoreProvider)[key]!.bookmarked, isTrue);
     });
   });
 }

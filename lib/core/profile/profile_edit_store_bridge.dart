@@ -28,6 +28,10 @@ class ProfileEditStoreCommitter {
       profileImageUrl: user.profileImageUrl,
     );
     await accountStore.updateAccount(updated);
+    // UserStore is reused across a switch; another account's store gets
+    // nothing from this commit.
+    final after = await accountStore.resolveState();
+    if (after.usableCurrent?.id != account.id) return;
     userStore.mergeAll([user]);
   }
 }

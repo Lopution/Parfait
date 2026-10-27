@@ -22,14 +22,18 @@ class _IllustSeriesContextController
   @override
   Future<IllustSeriesContext?> build() async {
     ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
+    final claim = AccountClaim(ref);
     final illustStore = ref.read(illustStoreProvider);
     final revision = illustStore.revisionNow();
     final result = await ref
         .read(seriesRepositoryProvider)
         .fetchIllustSeriesContext(illustId);
+    // The series store outlives a switch; the previous account's late
+    // context stays out of it.
+    if (!claim.holds) return result.context;
     final detail = result.detail;
     if (detail != null) {
-      ref.read(illustSeriesStoreProvider.notifier).mergeAll([detail]);
+      claim.ref.read(illustSeriesStoreProvider.notifier).mergeAll([detail]);
     }
     final neighbours = [
       if (result.prevIllust != null) result.prevIllust!,

@@ -20,11 +20,22 @@ import '../theme/func_semantic_tokens.dart';
 const double _panelCellSpacing = 8;
 
 /// Says why a comment send failed.
-void showCommentSendError(BuildContext context, Object error) {
-  final key = error is CommentPermissionException
-      ? 'commentPermissionDenied'
-      : 'commentSendFailed';
-  showAppSnackBar(context, commentText(context, key));
+void showCommentSendError(BuildContext context, Object error) =>
+    deferCommentSendError(context)(error);
+
+/// [showCommentSendError] for a send that ends after an await: the host
+/// and the messages are taken now, so the error still shows once the
+/// context that asked is gone.
+void Function(Object error) deferCommentSendError(BuildContext context) {
+  final denied = deferAppSnackBar(
+    context,
+    commentText(context, 'commentPermissionDenied'),
+  );
+  final failed = deferAppSnackBar(
+    context,
+    commentText(context, 'commentSendFailed'),
+  );
+  return (error) => (error is CommentPermissionException ? denied : failed)();
 }
 
 /// Unsent comment text by the work it was written for
@@ -34,17 +45,29 @@ final commentDraftsProvider =
     NotifierProvider<CommentDrafts, Map<String, String>>(CommentDrafts.new);
 
 class CommentDrafts extends Notifier<Map<String, String>> {
+  Object _owner = Object();
+
   @override
   Map<String, String> build() {
     ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
+    _owner = Object();
     return const {};
   }
 
-  void keep(String workKey, String text) {
-    if ((state[workKey] ?? '') == text) return;
+  /// A new object for each account's drafts (A → B → A gives a third).
+  /// Read it after the state: reading the state brings a pending rebuild
+  /// in.
+  Object get owner => _owner;
+
+  /// Keeps [text] as the draft for [workKey] if [owner] still owns the
+  /// drafts: a send that ends after a switch clears nothing of the next
+  /// account's.
+  void keep(String workKey, String text, {required Object owner}) {
+    final drafts = state;
+    if (!identical(owner, _owner) || (drafts[workKey] ?? '') == text) return;
     state = text.isEmpty
-        ? ({...state}..remove(workKey))
-        : {...state, workKey: text};
+        ? ({...drafts}..remove(workKey))
+        : {...drafts, workKey: text};
   }
 }
 
@@ -752,10 +775,11 @@ class CommentComposerState extends State<CommentComposer>
     setState(() => _busy = true);
     try {
       await widget.onSend(text);
+      // Sent text is no draft, whether or not the composer is still up.
+      widget.onChanged?.call('');
       if (mounted) {
         _controller.clear();
         setState(() {});
-        widget.onChanged?.call('');
       }
     } on Object catch (error) {
       widget.onError?.call(error);

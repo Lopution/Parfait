@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -7,6 +8,8 @@ import 'package:path/path.dart' as path;
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/illust/illust_snapshot_codec.dart';
@@ -57,6 +60,23 @@ Map<String, Object?> _novelSnapshotJson(int id) => {
   'create_date': '2026-09-01',
 };
 
+/// Snapshot reads wait on [reads].
+class _HeldSnapshotStore extends FeedSnapshotStore {
+  _HeldSnapshotStore(FeedDatabase database) : super(database: database);
+
+  Completer<void> reads = Completer<void>()..complete();
+
+  @override
+  Future<FeedSnapshot?> read(
+    String accountId,
+    String feedKey, {
+    Duration maxAge = FeedSnapshotStore.maxAge,
+  }) async {
+    await reads.future;
+    return super.read(accountId, feedKey, maxAge: maxAge);
+  }
+}
+
 class _World {
   _World(this.container, this.fixture, this.database, this.directory);
   final ProviderContainer container;
@@ -64,7 +84,8 @@ class _World {
   final FeedDatabase database;
   final Directory directory;
 
-  FeedSnapshotStore get snapshots => container.read(feedSnapshotStoreProvider);
+  _HeldSnapshotStore get snapshots =>
+      container.read(feedSnapshotStoreProvider) as _HeldSnapshotStore;
 
   Future<void> dispose() async {
     container.dispose();
@@ -83,10 +104,9 @@ Future<_World> _makeWorld() async {
   );
   final container = await signedInApiContainer(
     fixture.client(),
+    others: const [Account(id: '200', userId: 200, name: 'b')],
     overrides: [
-      feedSnapshotStoreProvider.overrideWithValue(
-        FeedSnapshotStore(database: database),
-      ),
+      feedSnapshotStoreProvider.overrideWithValue(_HeldSnapshotStore(database)),
       // Snapshot writes encode inline so a test can await them; the
       // isolate round trip is data_worker_test's.
       dataWorkerProvider.overrideWithValue(const InlineDataWorker()),
@@ -198,6 +218,30 @@ void main() {
     final state = await world.container.read(provider.future);
     expect(state.ids, [1, 2]);
     expect(world.container.read(novelStoreProvider)[10], isNull);
+  });
+
+  test('a snapshot read landing after a switch restores nothing', () async {
+    final world = await _makeWorld();
+    addTearDown(world.dispose);
+    await world.snapshots.write(
+      '100',
+      feedKey,
+      ids: const [10],
+      entities: {
+        'novel': {'10': _novelSnapshotJson(10)},
+      },
+    );
+    final reads = world.snapshots.reads = Completer<void>();
+    world.container.listen(provider, (_, _) {});
+    final accounts = world.container.read(accountStoreProvider.notifier);
+    await accounts.switchAccount('200');
+    world.container.read(novelStoreProvider);
+    reads.complete();
+    await pumpEventQueue();
+
+    expect(world.container.read(novelStoreProvider)[10], isNull);
+    expect(world.container.read(provider).value!.ids, [1, 2]);
+    expect(world.fixture.requests, hasLength(1), reason: 'B\'s load only');
   });
 
   test('a snapshot without the feed entity payload is ignored', () async {

@@ -112,8 +112,15 @@ class AccountStore extends AsyncNotifier<AccountState> {
 
   /// Adds an account (or refreshes credentials of an existing one) and makes
   /// it current, mirroring the beta56 add-then-select behaviour.
-  Future<void> upsertAccount(Account account, Credential credential) =>
-      _serial(() => _commit(account, credential, select: true));
+  /// [stillWanted] is asked once more right before anything is written: a
+  /// login whose page closed while it waited saves nothing.
+  Future<void> upsertAccount(
+    Account account,
+    Credential credential, {
+    bool Function()? stillWanted,
+  }) => _serial(
+    () => _commit(account, credential, select: true, stillWanted: stillWanted),
+  );
 
   /// Saves a refreshed session of [account] while it is still stored,
   /// leaving the current account and the network session as they are.
@@ -132,6 +139,7 @@ class AccountStore extends AsyncNotifier<AccountState> {
     Account account,
     Credential credential, {
     required bool select,
+    bool Function()? stillWanted,
   }) async {
     final repository = ref.read(accountMetadataRepositoryProvider);
     final credentials = ref.read(credentialStoreProvider);
@@ -154,6 +162,7 @@ class AccountStore extends AsyncNotifier<AccountState> {
         return;
       }
     }
+    if (stillWanted?.call() == false) return;
 
     try {
       await credentials.write(account.id, credential);
@@ -345,6 +354,25 @@ final credentialStoreProvider = Provider<CredentialStore>((ref) {
 final accountStoreProvider = AsyncNotifierProvider<AccountStore, AccountState>(
   AccountStore.new,
 );
+
+/// A build's or method's ref with the account it loads for, taken before
+/// its first await, for writes into shared account-scoped stores.
+/// `ref.mounted` alone lags a switch: a dependent rebuilds lazily — at the
+/// next frame, or at its next read when nothing listens — so the old ref
+/// stays mounted while the stores it writes to already serve the next
+/// account.
+final class AccountClaim {
+  AccountClaim(this.ref) : accountId = _currentAccountId(ref);
+
+  final Ref ref;
+  final String? accountId;
+
+  /// Whether [ref] is still its provider's and [accountId] still current.
+  bool get holds => ref.mounted && _currentAccountId(ref) == accountId;
+
+  static String? _currentAccountId(Ref ref) =>
+      ref.read(accountStoreProvider).value?.current?.id;
+}
 
 final oauthServiceProvider = Provider<OAuthService>((ref) {
   return OAuthService(

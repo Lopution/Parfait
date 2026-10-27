@@ -152,6 +152,7 @@ class _DownloadTasksPageState extends ConsumerState<DownloadTasksPage> {
     for (final id in targets) {
       await _manager.cancel(id);
     }
+    if (!mounted) return;
     _exitManaging();
   }
 

@@ -108,11 +108,16 @@ class StartupGate extends ConsumerWidget {
               })) {
                 return child;
               }
-            } else if (_isAuthFlowPath(path) || isSplash) {
+            } else if (_isAuthFlowPath(path) &&
+                _isAuthFlowPath(_basePath(router))) {
               // Signed-in: rescue users still sitting on an auth/onboarding
               // route or the pending splash. Every other location (branch
               // roots, /me, pushed detail and settings pages…) is a
               // legitimate place to be — a rebuild here must never navigate.
+              // Login pushed over an app page is "add account": a token
+              // refresh or settings write rebuilding the gate mid-OAuth
+              // must leave it alone. So must a page pushed over the splash,
+              // such as an image shared into a cold start.
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (context.mounted) {
                   router.go(homeStartDestination(settings).rootPath);
@@ -143,11 +148,18 @@ class StartupGate extends ConsumerWidget {
     }
   }
 
+  /// An auth or onboarding route, or the pending splash.
   static bool _isAuthFlowPath(String path) =>
+      path == '/splash' ||
       path == '/login' ||
       path.startsWith('/login/') ||
       path == '/welcome' ||
       path.startsWith('/welcome/');
+
+  /// The stack's base: the location without pushed pages, which go_router's
+  /// `currentConfiguration.uri` reflects.
+  static String _basePath(GoRouter router) =>
+      router.routerDelegate.currentConfiguration.uri.path;
 
   /// True when the live location is already inside one of [roots]; false
   /// (with the redirect scheduled) when the current route is stale and must

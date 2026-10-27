@@ -25,6 +25,8 @@ import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/app/widgets/comment_composer.dart';
 import 'package:parfait/features/comments/comment_item.dart';
 import 'package:parfait/features/comments/comments_page.dart';
+import 'package:parfait/features/illust/detail/detail_page_activity.dart';
+import 'package:parfait/features/illust/detail/widgets/detail_comment_layer.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/l10n/context.dart';
 import 'package:parfait/app/motion/removal.dart';
@@ -625,6 +627,69 @@ void main() {
       ],
     ),
   );
+
+  testWidgets('a send ending after the detail composer left still lands', (
+    tester,
+  ) async {
+    final workKey = CommentFeedQuery.root(workId: 42).workKey;
+    // A success still clears the draft, a failure is still reported.
+    for (final fails in [false, true]) {
+      final gate = Completer<void>();
+      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+      final container = await signedInApiContainer(
+        MockClient((request) async {
+          await gate.future;
+          return fails
+              ? http.Response('{}', 500)
+              : _json({'comment': _commentJson(5)});
+        }),
+        others: const [Account(id: '200', userId: 200, name: 'b')],
+      );
+      final drafts = container.read(commentDraftsProvider.notifier);
+      container.read(commentDraftsProvider);
+      final owner = drafts.owner;
+      drafts.keep(workKey, 'hi', owner: owner);
+      Widget app(Widget home) => localizedApp(
+        container: container,
+        builder: promptHostBuilder,
+        home: Scaffold(body: home),
+      );
+      await tester.pumpWidget(
+        app(
+          DetailPageActivity(
+            active: true,
+            child: DetailCommentLayer(
+              illustId: 42,
+              composerKey: GlobalKey<CommentComposerState>(),
+              onClose: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byIcon(Icons.send_outlined));
+      await tester.pump();
+      await tester.pumpWidget(app(const SizedBox()));
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('发送评论失败'), fails ? findsOneWidget : findsNothing);
+      final draft = container.read(commentDraftsProvider)[workKey];
+      expect(draft, fails ? 'hi' : isNull);
+      if (!fails) {
+        // A clear from before A → B → A leaves A's newer draft alone.
+        final accounts = container.read(accountStoreProvider.notifier);
+        await accounts.switchAccount('200');
+        await accounts.switchAccount('100');
+        container.read(commentDraftsProvider);
+        drafts.keep(workKey, 'new', owner: drafts.owner);
+        drafts.keep(workKey, '', owner: owner);
+        expect(container.read(commentDraftsProvider)[workKey], 'new');
+      }
+      await tester.pumpWidget(const SizedBox());
+      container.dispose();
+    }
+  });
 
   testWidgets('composer keeps the keyboard and the panels mutually exclusive', (
     tester,

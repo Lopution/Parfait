@@ -112,6 +112,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   isPremium: result.profile.isPremium,
                 ),
                 result.credential,
+                // Leaving the page cancels the login, as in the WebView.
+                stillWanted: () => mounted,
               );
           if (mounted) context.go(_homeStart);
         } on Object catch (error, stackTrace) {
@@ -163,11 +165,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         queryParameters: create ? {'create': 'true'} : null,
       ).toString(),
     );
-    if (!mounted || result != true || !widget.returnToHomeOnSuccess) return;
-    // The account store is updated before the WebView pops.  Popping the
-    // onboarding/login routes now lets StartupGate rebuild to Home without
-    // leaving the user stranded on a stale login surface.
-    context.go(_homeStart);
+    if (!mounted || result != true) return;
+    if (widget.returnToHomeOnSuccess) {
+      // The account store is updated before the WebView pops.  Popping the
+      // onboarding/login routes now lets StartupGate rebuild to Home
+      // without leaving the user stranded on a stale login surface.
+      context.go(_homeStart);
+    } else if (context.canPop()) {
+      // Add account: back to the page that opened the login. A login at
+      // the stack's base is the gate's to leave.
+      context.pop();
+    }
   }
 
   void _persistNetworkMode(NetworkMode mode) {

@@ -427,7 +427,20 @@ class _RecentHistoryState extends ConsumerState<_RecentHistory>
     // Under another tab the row is left; it catches up once it shows
     // again. Under a page it holds until that page has left.
     final showing = TickerMode.valuesOf(context).enabled;
-    final records = ref.watch(_recentHistoryProvider).value;
+    // After a switch the provider keeps the previous account's records
+    // while the next ones load, or for good if that read fails: covers of
+    // another account leave at once, slide-free, whatever is over the row.
+    final account = ref.watch(historyAccountIdProvider);
+    if (_shown.isNotEmpty && _shown.first.accountId != account) {
+      _shown = const [];
+      _from = const {};
+      _joined = const {};
+    }
+    final records = ref
+        .watch(_recentHistoryProvider)
+        .value
+        ?.where((record) => record.accountId == account)
+        .toList();
     if (records != null && showing && !_covered) _adopt(records);
     final shown = _shown;
     if (shown.isEmpty) return const SizedBox.shrink();
