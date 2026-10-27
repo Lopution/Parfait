@@ -28,7 +28,9 @@ Future<(ProviderContainer, RecordingBookmarkRepository)> _pump(
   final repository = RecordingBookmarkRepository();
   final container = ProviderContainer.test(
     overrides: [
-      accountStoreProvider.overrideWith(StubAccountStore.new),
+      accountStoreProvider.overrideWith(
+        () => StubAccountStore(accounts: stubAccountPair),
+      ),
       bookmarkRepositoryProvider.overrideWithValue(repository),
     ],
   );
@@ -381,6 +383,54 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('收藏插画'), findsNothing);
     expect(repository.adds, isEmpty);
+  });
+
+  testWidgets('a submit outlives its sheet but not its account', (
+    tester,
+  ) async {
+    final haptics = recordHaptics();
+    final (container, repository) = await _pump(tester);
+    final accounts =
+        container.read(accountStoreProvider.notifier) as StubAccountStore;
+    const key = BookmarkKey(BookmarkEntityType.illust, 1);
+    // Closed during the submit: the outcome is still felt. Then across a
+    // switch, and back again: the entry the store holds for the key by
+    // then is not this submit's, so nothing is.
+    for (final switches in [
+      <String>[],
+      ['200'],
+      ['200', '100'],
+    ]) {
+      await accounts.future;
+      final gate = repository.addGate = Completer<void>();
+      await tester.longPress(find.byType(BookmarkSwitchButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('确定'));
+      await tester.pump();
+      switches.forEach(accounts.switchCurrentTo);
+      if (switches.isEmpty) {
+        tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      } else {
+        container
+            .read(bookmarkStoreProvider.notifier)
+            .observeRemote(key, bookmarked: true);
+      }
+      final felt = haptics.roles.length;
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(
+        haptics.roles.skip(felt),
+        switches.isEmpty ? [HapticRole.success] : isEmpty,
+        reason: 'switches: $switches',
+      );
+      if (switches.isNotEmpty) {
+        tester.state<NavigatorState>(find.byType(Navigator)).pop();
+        await tester.pumpAndSettle();
+      }
+      accounts.switchCurrentTo('100');
+      await tester.pumpAndSettle();
+    }
   });
 
   testWidgets('failed confirm keeps the sheet open and preserves the draft', (

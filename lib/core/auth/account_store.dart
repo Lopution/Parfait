@@ -112,8 +112,15 @@ class AccountStore extends AsyncNotifier<AccountState> {
 
   /// Adds an account (or refreshes credentials of an existing one) and makes
   /// it current, mirroring the beta56 add-then-select behaviour.
-  Future<void> upsertAccount(Account account, Credential credential) =>
-      _serial(() => _commit(account, credential, select: true));
+  /// [stillWanted] is asked once more right before anything is written: a
+  /// login whose page closed while it waited saves nothing.
+  Future<void> upsertAccount(
+    Account account,
+    Credential credential, {
+    bool Function()? stillWanted,
+  }) => _serial(
+    () => _commit(account, credential, select: true, stillWanted: stillWanted),
+  );
 
   /// Saves a refreshed session of [account] while it is still stored,
   /// leaving the current account and the network session as they are.
@@ -132,6 +139,7 @@ class AccountStore extends AsyncNotifier<AccountState> {
     Account account,
     Credential credential, {
     required bool select,
+    bool Function()? stillWanted,
   }) async {
     final repository = ref.read(accountMetadataRepositoryProvider);
     final credentials = ref.read(credentialStoreProvider);
@@ -154,6 +162,7 @@ class AccountStore extends AsyncNotifier<AccountState> {
         return;
       }
     }
+    if (stillWanted?.call() == false) return;
 
     try {
       await credentials.write(account.id, credential);

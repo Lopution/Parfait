@@ -112,6 +112,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   isPremium: result.profile.isPremium,
                 ),
                 result.credential,
+                // Leaving the page cancels the login, as in the WebView.
+                stillWanted: () => mounted,
               );
           if (mounted) context.go(_homeStart);
         } on Object catch (error, stackTrace) {

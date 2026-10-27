@@ -54,6 +54,13 @@ class DetailCommentLayer extends ConsumerWidget {
       dismiss();
     }
 
+    // A send can end after this layer is gone: its callbacks hold what
+    // they need from now. The draft state is read before its owner.
+    final drafts = ref.read(commentDraftsProvider.notifier);
+    final draft = ref.read(commentDraftsProvider)[workKey] ?? '';
+    final draftOwner = drafts.owner;
+    final reportError = deferCommentSendError(context);
+
     // Only the composer takes hits: the rest of the layer lets every touch
     // through to the page.
     return Align(
@@ -65,11 +72,10 @@ class DetailCommentLayer extends ConsumerWidget {
           sending: sending,
           onSend: (text) => send(text: text),
           onStampSend: (stampId) => send(stampId: stampId),
-          onError: (error) => showCommentSendError(context, error),
+          onError: reportError,
           keyboardHeights: ref.watch(keyboardHeightsProvider.notifier),
-          initialText: ref.read(commentDraftsProvider)[workKey] ?? '',
-          onChanged: (text) =>
-              ref.read(commentDraftsProvider.notifier).keep(workKey, text),
+          initialText: draft,
+          onChanged: (text) => drafts.keep(workKey, text, owner: draftOwner),
           onGone: onClose,
         ),
       ),

@@ -236,6 +236,8 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
               isPremium: result.profile.isPremium,
             ),
             result.credential,
+            // Leaving the page cancels the login, while the save waits too.
+            stillWanted: () => mounted,
           );
       if (!mounted) return;
       // The StartupGate reacts to the new usable account and shows Home.
@@ -243,6 +245,8 @@ class _LoginWebViewPageState extends ConsumerState<LoginWebViewPage>
     } on Object catch (error, stackTrace) {
       // The authorization code was already consumed by this exchange.
       CrashLog.record(error, stackTrace);
+      // Left during the exchange: dispose discarded the session already.
+      if (!mounted) return;
       _abortLogin(context.l10n.loginFailed, error: error);
     }
   }

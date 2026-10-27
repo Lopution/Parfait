@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/core/auth/account_store.dart';
+import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/network/compat/network_policy.dart';
@@ -76,6 +79,22 @@ class _SpyOAuthService extends OAuthService {
   }
 }
 
+/// Holds the token exchange until [result] completes.
+const _exchanged = OAuthResult(
+  accountId: '7',
+  credential: Credential(accessToken: 'a', refreshToken: 'r'),
+  profile: OAuthUserProfile(userId: 7, name: 'n'),
+);
+
+class _HeldExchange extends OAuthService {
+  _HeldExchange() : super(exchangeTimeout: Duration.zero);
+
+  final result = Completer<OAuthResult>();
+
+  @override
+  Future<OAuthResult> exchangeCode(String code) => result.future;
+}
+
 /// Settings storage that fails a fixed number of reads, then succeeds.
 /// Retry has to be observable as a real second read, not a rebuild.
 class _FlakySettingsRepository implements SettingsRepository {
@@ -112,12 +131,13 @@ void main() {
     OAuthService? service,
     bool create = false,
     PlatformCaps? caps,
+    FakeAccountMetadataRepository? accounts,
   }) async {
     final oauth = service ?? OAuthService(exchangeTimeout: Duration.zero);
     await tester.pumpWidget(
       localizedApp(
         overrides: [
-          ...accountProviderOverrides(),
+          ...accountProviderOverrides(metadataRepository: accounts),
           oauthServiceProvider.overrideWithValue(oauth),
           if (caps != null) platformCapsProvider.overrideWithValue(caps),
         ],
@@ -250,6 +270,66 @@ void main() {
     await tester.tap(find.text('详情'));
     await tester.pump();
     expect(find.text('missing code'), findsOneWidget);
+  });
+
+  testWidgets('leaving during the token exchange drops its outcome', (
+    tester,
+  ) async {
+    // Left while the exchange runs, or once it is back but its save waits
+    // behind another account write.
+    for (final (fails, queued) in [
+      (true, false),
+      (false, false),
+      (false, true),
+    ]) {
+      await tester.pumpWidget(const SizedBox());
+      final service = _HeldExchange();
+      final accounts = FakeAccountMetadataRepository();
+      final webView = await pumpLoginPage(
+        tester,
+        service: service,
+        accounts: accounts,
+      );
+      final saves = Completer<void>();
+      if (queued) {
+        accounts.saveGate = saves.future;
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(LoginWebViewPage)),
+        );
+        await container.read(accountStoreProvider.future);
+        final store = container.read(accountStoreProvider.notifier);
+        unawaited(store.updateAccount(testerAccount));
+      }
+      await webView.navigate('pixiv://account?code=abc');
+      await tester.pump();
+      if (queued) service.result.complete(_exchanged);
+      await tester.pump();
+      // Left the way the app leaves it: the providers stay.
+      unawaited(
+        tester
+            .state<NavigatorState>(find.byType(Navigator))
+            .pushReplacement(
+              MaterialPageRoute<void>(builder: (_) => const SizedBox()),
+            ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(LoginWebViewPage), findsNothing);
+      if (fails) {
+        service.result.completeError(StateError('exchange failed'));
+      } else if (!queued) {
+        service.result.complete(_exchanged);
+      }
+      saves.complete();
+      await tester.pump();
+      final reason = 'fails: $fails, queued: $queued';
+      expect(tester.takeException(), isNull, reason: reason);
+      expect(
+        accounts.accounts.map((account) => account.id),
+        isEmpty,
+        reason: 'leaving is a cancel; $reason',
+      );
+    }
   });
 
   testWidgets('Windows stops the callback as it starts or lands in history', (

@@ -10,9 +10,12 @@ import '../../../app/motion/state_fade.dart';
 import '../../../app/theme/func_semantic_tokens.dart';
 import '../../../app/widgets/app_snack_bar.dart';
 import '../../../app/widgets/app_top_bar.dart';
+import '../../../app/widgets/errors/error_details.dart';
 import '../../../app/widgets/settings/settings_choice_tile.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../app/widgets/settings/settings_tile.dart';
+import '../../../core/errors/error_category.dart';
+import '../../../core/logging/crash_log.dart';
 import '../../../core/translation/translation_credentials.dart';
 import '../../../core/translation/translation_service.dart';
 import '../../../core/settings/app_settings.dart';
@@ -85,12 +88,28 @@ class _TranslateSettingsPageState extends ConsumerState<TranslateSettingsPage> {
       ),
     );
     if (confirmed != true || !mounted) return;
+    // Read before the first await: the page may be gone after it. Signing
+    // out clears the web session whatever the credential store does, or
+    // the next login would pick the old one up.
+    final credentials = ref.read(translationCredentialStoreProvider);
+    final cookies = ref.read(doubaoWebCookiesProvider);
     try {
-      await ref.read(translationCredentialStoreProvider).deleteDoubao();
-      await ref.read(doubaoWebCookiesProvider).clear();
-    } on TranslationCredentialsStoreException {
+      await credentials.deleteDoubao();
+    } on TranslationCredentialsStoreException catch (error, stack) {
+      CrashLog.record(error, stack);
       if (mounted) {
         showAppSnackBar(context, l10n.translateCredentialsStoreError);
+      }
+    }
+    try {
+      await cookies.clear();
+    } on Object catch (error, stack) {
+      CrashLog.record(error, stack);
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          errorCategoryText(context, categorizeError(error)),
+        );
       }
     }
     if (mounted) setState(_refreshCredentials);

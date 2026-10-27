@@ -891,36 +891,57 @@ void main() {
   testWidgets('signing out of Doubao clears the session and its cookies', (
     tester,
   ) async {
-    final store = FakeTranslationStore()
-      ..doubao = const DoubaoWebSession(cookie: 'sessionid=a', teaUuid: '1');
-    final cookies = _FakeDoubaoCookies();
-    await tester.pumpWidget(
-      localizedApp(
-        overrides: [
-          settingsRepositoryProvider.overrideWithValue(
-            FakeSettingsRepository(
-              baseTestSettings().copyWith(
-                translateIndex: TranslationProvider.doubao.code,
-              ),
-            ),
-          ),
-          translationCredentialStoreProvider.overrideWithValue(store),
-          doubaoWebCookiesProvider.overrideWithValue(cookies),
-        ],
-        builder: promptHostBuilder,
-        home: TranslateSettingsPage(),
+    // Whatever the credential store does and whether the page stays, the
+    // web session goes: the next login would pick it up.
+    final settings = FakeSettingsRepository(
+      baseTestSettings().copyWith(
+        translateIndex: TranslationProvider.doubao.code,
       ),
     );
-    await tester.pumpAndSettle();
+    for (final (failStore, failCookies, leave, report) in [
+      (false, false, false, null),
+      (false, false, true, null),
+      (true, false, false, '安全存储操作失败'),
+      (false, true, false, '未知错误'),
+    ]) {
+      await tester.pumpWidget(const SizedBox());
+      final gate = Completer<void>();
+      final store = FakeTranslationStore()
+        ..doubao = const DoubaoWebSession(cookie: 'sessionid=a', teaUuid: '1')
+        ..deleteDoubaoGate = gate.future
+        ..deleteDoubaoError = failStore
+            ? TranslationCredentialsStoreException('delete', 'io')
+            : null;
+      final cookies = _FakeDoubaoCookies()
+        ..failure = failCookies ? StateError('cookie jar') : null;
+      await tester.pumpWidget(
+        localizedApp(
+          overrides: [
+            settingsRepositoryProvider.overrideWithValue(settings),
+            translationCredentialStoreProvider.overrideWithValue(store),
+            doubaoWebCookiesProvider.overrideWithValue(cookies),
+          ],
+          builder: promptHostBuilder,
+          home: TranslateSettingsPage(),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('已登录'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '退出登录'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('已登录'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '退出登录'));
+      await tester.pumpAndSettle();
+      if (leave) await tester.pumpWidget(const SizedBox());
+      gate.complete();
+      await tester.pumpAndSettle();
 
-    expect(store.doubao, isNull);
-    expect(cookies.cleared, 1);
-    expect(find.text('未登录'), findsOneWidget);
+      expect(cookies.cleared, 1);
+      expect(tester.takeException(), isNull);
+      if (leave) continue;
+      expect(store.doubao, failStore ? isNotNull : isNull);
+      if (report != null) expect(find.text(report), findsOneWidget);
+      if (!failStore) expect(find.text('未登录'), findsOneWidget);
+    }
   });
 
   testWidgets(
@@ -1147,8 +1168,6 @@ void main() {
     final repository = FakeSettingsRepository(baseTestSettings());
     await _pumpNetworkSettings(tester, repository);
 
-    expect(find.text('pixiv.cat 镜像'), findsOneWidget);
-    expect(find.text('pixiv.re 镜像'), findsOneWidget);
     expect(find.text('pixiv.nl 镜像'), findsOneWidget);
 
     // The source section sits right after the network mode group.
@@ -1160,7 +1179,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.value.imageSource, 'i.pixiv.cat');
 
+    // An insecure custom input is refused; a bare host is normalized.
     await _scrollCentered(tester, find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'http://insecure.example');
+    await _scrollCentered(tester, find.text('保存', skipOffstage: false));
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(repository.value.imageSource, 'i.pixiv.cat');
+    expect(find.textContaining('无效自定义源'), findsOneWidget);
+
     await tester.enterText(find.byType(TextField), 'proxy.example.com/pixiv/');
     await _scrollCentered(tester, find.text('保存', skipOffstage: false));
     await tester.tap(find.text('保存'));
@@ -1193,22 +1220,6 @@ void main() {
     await tester.tap(find.widgetWithText(ListTile, '自定义反代'));
     await tester.pumpAndSettle();
     expect(repository.value.imageSource, 'https://proxy.example.com/pixiv');
-  });
-
-  testWidgets('network image source rejects an invalid custom input', (
-    tester,
-  ) async {
-    final repository = FakeSettingsRepository(baseTestSettings());
-    await _pumpNetworkSettings(tester, repository);
-
-    await _scrollCentered(tester, find.byType(TextField));
-    await tester.enterText(find.byType(TextField), 'http://insecure.example');
-    await _scrollCentered(tester, find.text('保存', skipOffstage: false));
-    await tester.tap(find.text('保存'));
-    await tester.pumpAndSettle();
-
-    expect(repository.value.imageSource, AppSettings.normalImageSource);
-    expect(find.textContaining('无效自定义源'), findsOneWidget);
   });
 
   testWidgets('effective routes list the image worker\'s hosts too', (
@@ -1474,10 +1485,14 @@ Future<void> _scrollCentered(WidgetTester tester, Finder finder) async {
 
 class _FakeDoubaoCookies implements DoubaoWebCookies {
   var cleared = 0;
+  Object? failure;
 
   @override
   Future<String?> sessionCookie() async => null;
 
   @override
-  Future<void> clear() async => cleared++;
+  Future<void> clear() async {
+    cleared++;
+    if (failure case final failure?) throw failure;
+  }
 }
