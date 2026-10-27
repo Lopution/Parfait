@@ -245,6 +245,7 @@
   "backupImport": "バックアップを読み込む",
   "backupImportInvalid": "バックアップファイルが無効です",
   "backupImportFailed": "読み込みに失敗しました",
+  "importFileTooLarge": "ファイルが {limitMb} MB を超えています",
   "backupImportStrategyTitle": "読み込み方法を選択",
   "backupImportPrompt": "ファイル内容：ミュートタグ {tags} 件、ミュートユーザー {users} 件、作品ミュート {works} 件、履歴 {history} 件。\n書き出し元アカウント：{account}",
   "@backupImportPrompt": {

@@ -216,6 +216,26 @@ class ReverseImageInputChannelTest {
         }
     }
 
+    @Test
+    fun `picked image is probed off main and failures still reply`() {
+        val queued = mutableListOf<Runnable>()
+        var probed = 0
+        val ok = RecordingMethodResult()
+        ReverseImageInputChannel.deliverPick(ok, { queued += it }) {
+            probed += 1
+            mapOf("uri" to "content://a")
+        }
+        val failed = RecordingMethodResult()
+        ReverseImageInputChannel.deliverPick(failed, { queued += it }) {
+            throw SecurityException("grant revoked")
+        }
+        assertEquals(0, probed)
+        assertFalse(ok.hasSuccess())
+        queued.forEach { it.run() }
+        assertEquals(mapOf("uri" to "content://a"), ok.successValue)
+        assertEquals("permission_denied", failed.errorCode)
+    }
+
     private fun dispatch(
         method: String,
         args: Map<String, Any?>? = null,

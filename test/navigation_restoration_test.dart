@@ -8,6 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:parfait/app/navigation/routes.dart';
+import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -21,6 +22,8 @@ import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/core/search/search_trending_controller.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
+import 'package:parfait/features/illust/detail/illust_detail_page.dart';
+import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:parfait/features/profile/bookmark_tag_feed_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
@@ -28,6 +31,7 @@ import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
@@ -394,6 +398,64 @@ void main() {
 
     expect(router.state.uri.path, '/recommended/illust/42/viewer/1');
     expect(find.byType(ImageViewerPage), findsOneWidget);
+  });
+
+  testWidgets('a restored pager opens the work it settled on', (tester) async {
+    // Detail pages track visibility; a zero interval avoids a periodic
+    // timer outliving the test.
+    VisibilityDetectorController.instance.updateInterval = Duration.zero;
+    addTearDown(
+      () => VisibilityDetectorController.instance.updateInterval =
+          const Duration(milliseconds: 500),
+    );
+    final router = pixivRouter('/recommended');
+    await tester.pumpWidget(
+      _routerApp(
+        router,
+        httpHandler: (request) async {
+          if (request.url.path == '/v1/illust/detail') {
+            final id = int.parse(request.url.queryParameters['illust_id']!);
+            return _json({'illust': illustJson(id)});
+          }
+          return _json({'illusts': <Object?>[], 'next_url': null});
+        },
+      ),
+    );
+    await tester.pump();
+    final source = IllustPagerSource()..update(const [42, 43]);
+    unawaited(
+      router.push(
+        '/recommended/illust/42',
+        extra: IllustRouteExtra(pagerSource: source),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final pager = find
+        .descendant(
+          of: find.byType(IllustDetailPagerPage),
+          matching: find.byType(PageView),
+        )
+        .first;
+
+    await tester.flingFrom(
+      tester.getTopLeft(pager) + const Offset(195, 200),
+      const Offset(-260, 0),
+      900,
+    );
+    await tester.pumpAndSettle();
+    // Past the dwell: 43 is the work being read, not one swiped through.
+    await tester.pump(IllustDetailPagerPage.activeDwell);
+    expect(tester.widget<PageView>(pager).controller!.page, 1);
+
+    await tester.restartAndRestore();
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.path, '/recommended/illust/42');
+    expect(find.byType(IllustDetailPagerPage), findsNothing);
+    expect(
+      tester.widget<IllustDetailPage>(find.byType(IllustDetailPage)).illustId,
+      43,
+    );
   });
 
   for (final (path, type) in [

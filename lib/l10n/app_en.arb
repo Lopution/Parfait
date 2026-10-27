@@ -245,6 +245,14 @@
   "backupImport": "Import backup",
   "backupImportInvalid": "Invalid backup file",
   "backupImportFailed": "Import failed",
+  "importFileTooLarge": "The file is larger than {limitMb} MB",
+  "@importFileTooLarge": {
+    "placeholders": {
+      "limitMb": {
+        "type": "int"
+      }
+    }
+  },
   "backupImportStrategyTitle": "Choose how to import",
   "backupImportPrompt": "The file contains {tags} muted tags, {users} muted users, {works} muted works and {history} history rows.\nExported by account: {account}",
   "@backupImportPrompt": {

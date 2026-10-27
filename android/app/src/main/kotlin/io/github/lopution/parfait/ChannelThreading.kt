@@ -5,6 +5,8 @@ import android.os.Looper
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.StandardMethodCodec
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /**
  * Posts work to the Android main looper. Injected so JVM tests can run the
@@ -30,6 +32,16 @@ internal object AndroidMainThreadPoster : MainThreadPoster {
 internal object ImmediateMainThreadPoster : MainThreadPoster {
     override fun post(action: Runnable) = action.run()
 }
+
+/**
+ * A serial thread for probing other apps' content URIs (shared intents,
+ * picker results) that arrive on main: a slow or hostile provider then
+ * blocks this thread instead of the UI, and queued probes keep their order.
+ * Each channel configuration gets its own, so an activity recreated while a
+ * probe hangs does not queue behind it; the old one is shut down.
+ */
+internal fun foreignContentExecutor(name: String): ExecutorService =
+    Executors.newSingleThreadExecutor { task -> Thread(task, name) }
 
 /**
  * Registers a MethodChannel whose handler runs on a serial background

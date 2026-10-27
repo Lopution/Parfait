@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../download/download_recovery.dart';
+import '../log.dart';
 import 'desktop_file_sink.dart';
 import 'platform_caps.dart';
 
@@ -77,17 +80,48 @@ abstract interface class ResumableSafDocumentFactory {
   });
 }
 
+/// A user-picked file, read into memory.
+typedef PickedDocument = ({String name, Uint8List bytes});
+
+/// Opens one file the user picks for import (a backup, a TXT novel).
+abstract interface class DocumentPicker {
+  /// Null when the user cancelled. Throws [DocumentTooLargeException] when
+  /// the file is over [maxBytes]. Android filters by [mimeTypes], desktop
+  /// dialogs by [label] and [extensions].
+  Future<PickedDocument?> pickDocument({
+    required String label,
+    required List<String> extensions,
+    required List<String> mimeTypes,
+    required int maxBytes,
+  });
+}
+
+/// The picked file is over the caller's limit; nothing was imported.
+class DocumentTooLargeException implements Exception {
+  const DocumentTooLargeException(this.maxBytes);
+
+  final int maxBytes;
+
+  /// The limit in whole MiB, for the user-facing message.
+  int get maxMegabytes => maxBytes ~/ (1024 * 1024);
+
+  @override
+  String toString() => 'DocumentTooLargeException(maxBytes: $maxBytes)';
+}
+
 /// Production implementation backed by the Android host.
 /// Native failures use `saf_<reason>` (`saf_invalid_argument`,
 /// `saf_busy`, `saf_unavailable`, `saf_launch_failed`, `saf_permission`,
 /// `saf_create_failed`, `saf_write_failed`, `saf_not_found`,
-/// `saf_delete_failed`, `saf_io_failed`). [create] may send `ownerId`;
-/// the Kotlin handler does not read it.
+/// `saf_delete_failed`, `saf_finalize_failed`, `saf_resume_failed`,
+/// `saf_too_large`, `saf_io_failed`). [create] may send `ownerId`; the
+/// Kotlin handler does not read it.
 class MethodChannelSafTree
     implements
         SafTreePicker,
         SafDocumentSinkFactory,
-        ResumableSafDocumentFactory {
+        ResumableSafDocumentFactory,
+        DocumentPicker {
   const MethodChannelSafTree([
     this._channel = const MethodChannel('parfait/saf_tree'),
   ]);
@@ -97,6 +131,50 @@ class MethodChannelSafTree
   @override
   Future<String?> pickTree() async {
     return await _channel.invokeMethod<String>('pickTree');
+  }
+
+  /// The host returns only the picked URI, then copies the document into
+  /// its cache on the background queue under [maxBytes]; the copy is read
+  /// here and deleted.
+  @override
+  Future<PickedDocument?> pickDocument({
+    required String label,
+    required List<String> extensions,
+    required List<String> mimeTypes,
+    required int maxBytes,
+  }) async {
+    final uri = await _channel.invokeMethod<String>('pickDocument', {
+      'mimeTypes': mimeTypes,
+    });
+    if (uri == null) return null;
+    final Map<Object?, Object?>? copy;
+    try {
+      copy = await _channel.invokeMethod<Map<Object?, Object?>>(
+        'copyDocument',
+        {'uri': uri, 'maxBytes': maxBytes},
+      );
+    } on PlatformException catch (error) {
+      if (error.code == 'saf_too_large') {
+        throw DocumentTooLargeException(maxBytes);
+      }
+      rethrow;
+    }
+    final path = copy?['path'];
+    final name = copy?['name'];
+    if (path is! String || name is! String) {
+      throw const _SafTreeChannelException('copyDocument payload malformed');
+    }
+    final file = File(path);
+    try {
+      return (name: name, bytes: await file.readAsBytes());
+    } finally {
+      // The host sweeps copies left behind, so a failed delete only logs.
+      try {
+        await file.delete();
+      } on FileSystemException catch (error) {
+        log('[saf] picked copy not deleted: ${error.osError?.errorCode}');
+      }
+    }
   }
 
   @override
@@ -192,6 +270,12 @@ final safTreePickerProvider = Provider<SafTreePicker>((ref) {
   return ref.watch(platformCapsProvider).isAndroid
       ? const MethodChannelSafTree()
       : const DesktopDirectoryPicker();
+});
+
+final documentPickerProvider = Provider<DocumentPicker>((ref) {
+  return ref.watch(platformCapsProvider).isAndroid
+      ? const MethodChannelSafTree()
+      : const DesktopDocumentPicker();
 });
 
 final safDocumentSinkFactoryProvider = Provider<SafDocumentSinkFactory>((ref) {

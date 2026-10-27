@@ -739,6 +739,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get backupImportFailed => 'Не удалось импортировать';
 
   @override
+  String importFileTooLarge(int limitMb) {
+    return 'Файл больше $limitMb МБ';
+  }
+
+  @override
   String get backupImportStrategyTitle => 'Способ импорта';
 
   @override

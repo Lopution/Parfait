@@ -1,8 +1,12 @@
 package io.github.lopution.parfait
 
 import android.app.Activity
+import android.content.Intent
 import io.flutter.plugin.common.MethodCall
+import java.io.ByteArrayInputStream
+import java.io.File
 import java.io.IOException
+import java.nio.file.Files
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -237,14 +241,14 @@ class SafTreeChannelTest {
     @Test
     fun `RESULT_OK with null uri is saf_launch_failed`() {
         val result = RecordingMethodResult()
-        SafTreeChannel.completePickTree(result, Activity.RESULT_OK, null) { _, _ -> }
+        SafTreeChannel.completePick(result, Activity.RESULT_OK, null) { _, _ -> }
         assertEquals("saf_launch_failed", result.errorCode)
     }
 
     @Test
     fun `user cancel is success null`() {
         val result = RecordingMethodResult()
-        SafTreeChannel.completePickTree(
+        SafTreeChannel.completePick(
             result,
             Activity.RESULT_CANCELED,
             null,
@@ -353,6 +357,120 @@ class SafTreeChannelTest {
         assertNull(second.errorCode)
     }
 
+    @Test
+    fun `create goes under the tree's root document, staged untyped`() {
+        val provider = RecordingDocumentProvider()
+        SafTreeChannel.createInTree(provider, "content://p/tree/t", "a.jpg", "image/jpeg", true)
+        SafTreeChannel.createInTree(provider, "content://p/tree/t", "a.txt", "text/plain", false)
+        assertEquals(
+            listOf(
+                Triple("content://p/tree/t/document/t", "application/octet-stream", "a.jpg.part"),
+                Triple("content://p/tree/t/document/t", "text/plain", "a.txt"),
+            ),
+            provider.created,
+        )
+    }
+
+    @Test
+    fun `create provider refusal is an error, not a null uri`() {
+        val provider = RecordingDocumentProvider(refuse = true)
+        val error = runCatching {
+            SafTreeChannel.createInTree(provider, "content://p/tree/t", "a.jpg", "image/jpeg", false)
+        }.exceptionOrNull()
+        assertEquals("saf_create_failed", SafTreeChannel.safErrorCode("create", error!!))
+    }
+
+    @Test
+    fun `picker persists only the read and write grants`() {
+        val read = Intent.FLAG_GRANT_READ_URI_PERMISSION
+        val write = Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        val other = Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or
+            Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+        assertEquals(read, SafTreeChannel.persistableGrant(read or other))
+        assertEquals(read or write, SafTreeChannel.persistableGrant(read or write or other))
+    }
+
+    @Test
+    fun `copy keeps a stream within the limit and leaves nothing past it`() {
+        val directory = Files.createTempDirectory("inputs").toFile()
+        val (file, copied) = SafTreeChannel.copyIntoCache(directory, 4) {
+            ByteArrayInputStream(ByteArray(4))
+        }
+        assertEquals(4L, copied)
+        assertEquals(4L, file.length())
+        // No declared size: the bytes actually read trip the limit.
+        val error = runCatching {
+            SafTreeChannel.copyIntoCache(directory, 4) { ByteArrayInputStream(ByteArray(5)) }
+        }.exceptionOrNull()!!
+        assertEquals("saf_too_large", SafTreeChannel.safErrorCode("copyDocument", error))
+        assertEquals(listOf(file), directory.listFiles()!!.toList())
+        directory.deleteRecursively()
+    }
+
+    @Test
+    fun `copy sweeps only inputs older than an hour`() {
+        val directory = Files.createTempDirectory("inputs").toFile()
+        val now = 10L * 60 * 60 * 1000
+        val stale = File(directory, "stale").apply { writeText("x") }
+        val fresh = File(directory, "fresh").apply { writeText("x") }
+        stale.setLastModified(now - 61 * 60 * 1000)
+        fresh.setLastModified(now - 59 * 60 * 1000)
+        SafTreeChannel.sweepStaleInputs(directory, now)
+        assertEquals(listOf(fresh), directory.listFiles()!!.toList())
+        directory.deleteRecursively()
+    }
+
+    @Test
+    fun `pickDocument shares the picker slot and passes its types on main`() {
+        val poster = RecordingMainThreadPoster()
+        val types = mutableListOf<List<String>>()
+        val first = RecordingMethodResult()
+        SafTreeChannel.handle(
+            MethodCall("pickDocument", mapOf("mimeTypes" to listOf("text/plain"))),
+            first,
+            FakeSafOps(),
+            SafTreeLauncher { true },
+            poster,
+            SafDocumentLauncher {
+                types += it
+                true
+            },
+        )
+        assertEquals("saf_busy", dispatch("pickTree", emptyMap()).errorCode)
+        assertTrue(types.isEmpty())
+        poster.runAll()
+        assertEquals(listOf(listOf("text/plain")), types)
+        assertTrue(SafTreeChannel.onActivityResult(0x53B0, Activity.RESULT_CANCELED, null))
+        assertNull(first.successValue)
+    }
+
+    @Test
+    fun `copyDocument validates its limit and maps too large`() {
+        val zero = dispatch("copyDocument", mapOf("uri" to "content://d", "maxBytes" to 0))
+        assertEquals("saf_invalid_argument", zero.errorCode)
+        val ops = FakeSafOps()
+        ops.fail("copyDocument", DocumentTooLargeException(4))
+        val large = dispatch("copyDocument", mapOf("uri" to "content://d", "maxBytes" to 4), ops)
+        assertEquals("saf_too_large", large.errorCode)
+    }
+
+    private class RecordingDocumentProvider(
+        private val refuse: Boolean = false,
+    ) : SafDocumentProvider {
+        val created = mutableListOf<Triple<String, String, String>>()
+
+        override fun treeRootDocument(treeUri: String) = "$treeUri/document/t"
+
+        override fun createDocument(
+            parentUri: String,
+            mimeType: String,
+            displayName: String,
+        ): String? {
+            created += Triple(parentUri, mimeType, displayName)
+            return if (refuse) null else "$parentUri%2F$displayName"
+        }
+    }
+
     private fun dispatch(
         method: String,
         args: Map<String, Any?>,
@@ -415,6 +533,11 @@ class SafTreeChannelTest {
         override fun finalize(uri: String): String {
             maybeThrow("finalize")
             return finalizeResult
+        }
+
+        override fun copyDocument(uri: String, maxBytes: Long): Map<String, Any> {
+            maybeThrow("copyDocument")
+            return mapOf("path" to "/cache/x", "name" to "x.txt", "sizeBytes" to 1L)
         }
     }
 }

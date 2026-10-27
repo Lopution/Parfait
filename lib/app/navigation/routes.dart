@@ -213,6 +213,44 @@ Page<dynamic> _page(
 int _pathId(GoRouterState state, String name) =>
     int.parse(state.pathParameters[name]!);
 
+/// Keeps the work the detail pager last settled on in the route's
+/// restoration bucket. The pager source travels in `extra`, which a
+/// restored route no longer has, so without this a restore after swiping
+/// A→B reopened A.
+class _RememberedIllust extends StatefulWidget {
+  const _RememberedIllust({required this.builder});
+
+  /// `remembered` is null until the pager settles on another work.
+  final Widget Function(int? remembered, ValueChanged<int> remember) builder;
+
+  @override
+  State<_RememberedIllust> createState() => _RememberedIllustState();
+}
+
+class _RememberedIllustState extends State<_RememberedIllust>
+    with RestorationMixin {
+  final _shown = RestorableIntN(null);
+
+  @override
+  String get restorationId => 'illust-shown';
+
+  @override
+  void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
+    registerForRestoration(_shown, 'id');
+  }
+
+  void _remember(int id) => _shown.value = id;
+
+  @override
+  void dispose() {
+    _shown.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(_shown.value, _remember);
+}
+
 /// `?mode=` of the ranking routes; null (absent or unknown) lets the page
 /// open on the last category viewed.
 RankingMode? _rankingMode(String? raw) => RankingMode.values.asNameMap()[raw];
@@ -503,12 +541,15 @@ List<RouteBase> _commonBranchRoutes(
               context,
               state,
               branchObserver,
-              IllustDetailPagerPage(
-                source: source,
-                initialIllustId: illustId,
-                heroScope: extra.heroScope,
-                heroImageUrl: extra.heroImageUrl,
-                heroImageDecodeWidth: extra.heroImageDecodeWidth,
+              _RememberedIllust(
+                builder: (_, remember) => IllustDetailPagerPage(
+                  source: source,
+                  initialIllustId: illustId,
+                  heroScope: extra.heroScope,
+                  heroImageUrl: extra.heroImageUrl,
+                  heroImageDecodeWidth: extra.heroImageDecodeWidth,
+                  onActiveChanged: remember,
+                ),
               ),
               sharedElement: extra.heroImageUrl != null,
             );
@@ -517,23 +558,31 @@ List<RouteBase> _commonBranchRoutes(
             context,
             state,
             branchObserver,
-            IllustDetailPage(
-              illustId: illustId,
-              initialEntity: extra.entity,
-              heroScope: extra.heroScope,
-              heroImageUrl: extra.heroImageUrl,
-              heroImageDecodeWidth: extra.heroImageDecodeWidth,
+            _RememberedIllust(
+              builder: (_, _) => IllustDetailPage(
+                illustId: illustId,
+                initialEntity: extra.entity,
+                heroScope: extra.heroScope,
+                heroImageUrl: extra.heroImageUrl,
+                heroImageDecodeWidth: extra.heroImageDecodeWidth,
+              ),
             ),
             sharedElement: extra.heroImageUrl != null,
           );
         }
+        // A restored route has lost its extra, pager source included: it
+        // opens the work the pager last settled on.
         return _page(
           context,
           state,
           branchObserver,
-          IllustDetailPage(
-            illustId: illustId,
-            initialEntity: extra is IllustEntity ? extra : null,
+          _RememberedIllust(
+            builder: (remembered, _) => IllustDetailPage(
+              illustId: remembered ?? illustId,
+              initialEntity: remembered == null && extra is IllustEntity
+                  ? extra
+                  : null,
+            ),
           ),
         );
       },

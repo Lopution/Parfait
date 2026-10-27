@@ -40,6 +40,10 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         transferClipboard?.dispose()
+        // The engine, and the Dart call waiting on an open picker, go with
+        // this activity; a kept slot would answer every later pick busy.
+        SafTreeChannel.abandonPendingPicker()
+        ReverseImageInputChannel.abandonPendingPicker()
         super.onDestroy()
     }
 
@@ -92,7 +96,7 @@ class MainActivity : FlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        AndroidIntentChannel.dispatch(this, intent)
+        AndroidIntentChannel.dispatch(intent)
     }
 
     override fun onRequestPermissionsResult(

@@ -245,6 +245,7 @@
   "backupImport": "Импортировать копию",
   "backupImportInvalid": "Недействительный файл резервной копии",
   "backupImportFailed": "Не удалось импортировать",
+  "importFileTooLarge": "Файл больше {limitMb} МБ",
   "backupImportStrategyTitle": "Способ импорта",
   "backupImportPrompt": "В файле: скрытых тегов {tags}, пользователей {users}, скрытых работ {works}, записей истории {history}.\nЭкспортировано аккаунтом: {account}",
   "@backupImportPrompt": {

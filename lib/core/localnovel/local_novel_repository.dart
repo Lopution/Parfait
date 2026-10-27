@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
+import '../platform/saf_tree.dart';
 import 'local_novel_database.dart';
 import 'local_novel_decoder.dart';
 
@@ -50,6 +51,10 @@ class LocalNovelRepository {
 
   final LocalNovelDatabase _database;
 
+  /// Largest TXT accepted for import. The whole text is decoded and held
+  /// in memory, and a very long web novel is a few tens of MiB.
+  static const maxImportBytes = 64 * 1024 * 1024;
+
   /// Directory that owns copied-in TXT files; injectable for tests.
   static Future<Directory> defaultNovelsDirectory() async {
     final support = await getApplicationSupportDirectory();
@@ -84,6 +89,9 @@ class LocalNovelRepository {
     required Uint8List bytes,
     required Directory targetDir,
   }) async {
+    if (bytes.length > maxImportBytes) {
+      throw const DocumentTooLargeException(maxImportBytes);
+    }
     final (text, encoding) = decodeLocalNovelText(bytes);
     await targetDir.create(recursive: true);
     final file = await _uniqueFile(targetDir, fileName);

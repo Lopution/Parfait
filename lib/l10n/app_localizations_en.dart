@@ -737,6 +737,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backupImportFailed => 'Import failed';
 
   @override
+  String importFileTooLarge(int limitMb) {
+    return 'The file is larger than $limitMb MB';
+  }
+
+  @override
   String get backupImportStrategyTitle => 'Choose how to import';
 
   @override

@@ -648,6 +648,7 @@ void main() {
     Future<_FakeBackupService> pumpPage(
       WidgetTester tester, {
       List<int>? fileBytes,
+      Future<List<int>?> Function()? picker,
       double textScale = 1,
     }) async {
       final service = _FakeBackupService();
@@ -655,7 +656,9 @@ void main() {
         localizedApp(
           overrides: [
             backupServiceProvider.overrideWithValue(service),
-            backupFilePickerProvider.overrideWithValue(() async => fileBytes),
+            backupFilePickerProvider.overrideWithValue(
+              picker ?? () async => fileBytes,
+            ),
           ],
           builder: promptHostBuilder,
           home: MediaQuery(
@@ -667,6 +670,23 @@ void main() {
       await tester.pumpAndSettle();
       return service;
     }
+
+    testWidgets('a picked file over the limit is refused with the limit', (
+      tester,
+    ) async {
+      final service = await pumpPage(
+        tester,
+        picker: () async => throw const DocumentTooLargeException(
+          BackupEnvelope.maxEncodedLength,
+        ),
+      );
+
+      await tester.tap(find.text('导入备份'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('文件超过 64 MB'), findsOneWidget);
+      expect(service.lastEnvelope, isNull);
+    });
 
     testWidgets('import picks a strategy, then confirms before applying', (
       tester,

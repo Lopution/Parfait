@@ -1446,6 +1446,12 @@ abstract class AppLocalizations {
   /// **'导入失败'**
   String get backupImportFailed;
 
+  /// No description provided for @importFileTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件超过 {limitMb} MB'**
+  String importFileTooLarge(int limitMb);
+
   /// No description provided for @backupImportStrategyTitle.
   ///
   /// In zh, this message translates to:
