@@ -4,10 +4,10 @@ library;
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../errors/no_retry.dart';
+import '../platform/saf_tree.dart';
 import 'local_novel_repository.dart';
 
 /// The directory imported TXT files are copied into; injectable so tests
@@ -21,14 +21,16 @@ final localNovelDirectoryProvider = Provider<Future<Directory> Function()>(
 /// `backupFilePickerProvider`.
 final localNovelFilePickerProvider =
     Provider<Future<(String, Uint8List)?> Function()>((ref) {
+      final picker = ref.watch(documentPickerProvider);
       return () async {
-        final file = await openFile(
-          acceptedTypeGroups: [
-            const XTypeGroup(label: 'TXT', extensions: ['txt']),
-          ],
+        final picked = await picker.pickDocument(
+          label: 'TXT',
+          extensions: const ['txt'],
+          mimeTypes: const ['text/plain'],
+          maxBytes: LocalNovelRepository.maxImportBytes,
         );
-        if (file == null) return null;
-        return (file.name, await file.readAsBytes());
+        if (picked == null) return null;
+        return (picked.name, picked.bytes);
       };
     });
 

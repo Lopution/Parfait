@@ -20,6 +20,7 @@ import '../../app/widgets/feed/feed_states.dart';
 import '../../core/localnovel/local_novel_decoder.dart';
 import '../../core/localnovel/local_novel_repository.dart';
 import '../../core/localnovel/local_novel_store.dart';
+import '../../core/platform/saf_tree.dart';
 import '../../l10n/context.dart';
 import '../../app/theme/func_semantic_tokens.dart';
 
@@ -104,6 +105,15 @@ class _LocalNovelsPageState extends ConsumerState<LocalNovelsPage> {
         novel.encoding == LocalNovelEncoding.utf8Lossy
             ? context.l10n.localNovelsImportedLossy
             : context.l10n.localNovelsImported(novel.title),
+      );
+    } on DocumentTooLargeException catch (error) {
+      if (!context.mounted) return;
+      showAppSnackBar(
+        context,
+        context.l10n.errorWithReason(
+          context.l10n.localNovelsImportFailed,
+          context.l10n.importFileTooLarge(error.maxMegabytes),
+        ),
       );
     } on Object catch (error) {
       if (!context.mounted) return;

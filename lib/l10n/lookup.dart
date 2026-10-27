@@ -195,6 +195,7 @@ String l10nLookup(AppLocalizations l10n, String key) => switch (key) {
   'downloadCanceled' => l10n.downloadCanceled,
   'downloadCanceling' => l10n.downloadCanceling,
   'downloadCaption' => l10n.downloadCaption,
+  'downloadCaptionAlbumUnsupported' => l10n.downloadCaptionAlbumUnsupported,
   'downloadCaptionHint' => l10n.downloadCaptionHint,
   'downloadClearCompleted' => l10n.downloadClearCompleted,
   'downloadFailed' => l10n.downloadFailed,

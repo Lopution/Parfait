@@ -10,6 +10,7 @@ import 'package:parfait/core/localnovel/local_novel_database.dart';
 import 'package:parfait/core/localnovel/local_novel_decoder.dart';
 import 'package:parfait/core/localnovel/local_novel_repository.dart';
 import 'package:parfait/core/localnovel/local_novel_store.dart';
+import 'package:parfait/core/platform/saf_tree.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -101,6 +102,23 @@ void main() {
         final listed = await repository.list();
         expect(listed, hasLength(1));
         expect(listed.single.id, novel.id);
+      },
+    );
+
+    test(
+      'a file over the limit is refused before anything is stored',
+      () async {
+        final target = Directory('${dir.path}/novels');
+        await expectLater(
+          repository.importBytes(
+            fileName: 'huge.txt',
+            bytes: Uint8List(LocalNovelRepository.maxImportBytes + 1),
+            targetDir: target,
+          ),
+          throwsA(isA<DocumentTooLargeException>()),
+        );
+        expect(await repository.list(), isEmpty);
+        expect(target.existsSync(), isFalse);
       },
     );
 

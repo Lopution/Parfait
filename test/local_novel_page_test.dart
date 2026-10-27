@@ -12,6 +12,7 @@ import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/core/localnovel/local_novel_database.dart';
 import 'package:parfait/core/localnovel/local_novel_repository.dart';
 import 'package:parfait/core/localnovel/local_novel_store.dart';
+import 'package:parfait/core/platform/saf_tree.dart';
 import 'package:parfait/features/novel/local_novel_reader_page.dart';
 import 'package:parfait/features/localnovel/local_novels_page.dart';
 import 'package:parfait/app/motion/removal.dart';
@@ -20,6 +21,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/prompt_host.dart';
 
 Widget _app(Widget child) => localizedApp(locale: null, home: child);
 
@@ -113,6 +115,36 @@ void main() {
       () => container.read(localNovelRepositoryProvider).list(),
     );
   }
+
+  testWidgets('a TXT over the limit is refused with the limit', (tester) async {
+    final refusing = ProviderContainer.test(
+      overrides: [
+        localNovelDatabaseProvider.overrideWithValue(database),
+        localNovelDirectoryProvider.overrideWithValue(() async => dir),
+        localNovelFilePickerProvider.overrideWithValue(
+          () async => throw const DocumentTooLargeException(
+            LocalNovelRepository.maxImportBytes,
+          ),
+        ),
+      ],
+    );
+    await tester.runAsync(
+      () => refusing.read(localNovelRepositoryProvider).list(),
+    );
+    await tester.pumpWidget(
+      localizedApp(
+        container: refusing,
+        locale: null,
+        builder: promptHostBuilder,
+        home: const LocalNovelsPage(),
+      ),
+    );
+    await _pumpUntil(tester, find.byTooltip('Import TXT'));
+    await tester.tap(find.byTooltip('Import TXT'));
+    await _pumpUntil(tester, find.textContaining('larger than 64 MB'));
+
+    expect(find.textContaining('larger than 64 MB'), findsOneWidget);
+  });
 
   testWidgets('tile tap pushes the local reader route', (tester) async {
     await warmDatabase(tester);

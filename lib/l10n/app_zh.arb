@@ -262,6 +262,14 @@
   "backupImport": "导入备份",
   "backupImportInvalid": "备份文件无效",
   "backupImportFailed": "导入失败",
+  "importFileTooLarge": "文件超过 {limitMb} MB",
+  "@importFileTooLarge": {
+    "placeholders": {
+      "limitMb": {
+        "type": "int"
+      }
+    }
+  },
   "backupImportStrategyTitle": "选择导入方式",
   "backupImportPrompt": "文件包含 {tags} 个屏蔽标签、{users} 个屏蔽用户、{works} 条作品屏蔽、{history} 条历史。\n导出账号：{account}",
   "@backupImportPrompt": {

@@ -14,6 +14,8 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileNotFoundException
 import java.util.UUID
+import java.util.concurrent.Executor
+import java.util.concurrent.ExecutorService
 
 internal interface ReverseImageOperations {
     fun copyToTemp(uri: String): Map<String, Any>
@@ -55,7 +57,13 @@ object ReverseImageInputChannel {
     private val pickerLock = Any()
     private var pendingPickerResult: MethodChannel.Result? = null
 
+    // Picker-result probes; replaced with each configuration, see
+    // [foreignContentExecutor].
+    private var pickProbe: ExecutorService? = null
+
     fun configure(activity: MainActivity, engine: FlutterEngine) {
+        pickProbe?.shutdownNow()
+        pickProbe = foreignContentExecutor("parfait-pick-probe")
         val appContext = activity.applicationContext
         val ops = object : ReverseImageOperations {
             override fun copyToTemp(uri: String): Map<String, Any> =
@@ -201,10 +209,28 @@ object ReverseImageInputChannel {
             result.error("malformed_response", "image picker returned no image", null)
             return true
         }
-        runCatching { encodeReference(activity, uri, data.flags) }
-            .onSuccess(result::success)
-            .onFailure { result.error(codeFor(it), messageFor(it), null) }
+        val flags = data.flags
+        val context = activity.applicationContext
+        // A pick only starts through a configured channel.
+        val io = checkNotNull(pickProbe) { "reverse image channel not configured" }
+        deliverPick(result, io) { encodeReference(context, uri, flags) }
         return true
+    }
+
+    /**
+     * Runs the picked image's provider probes on [io], not on the
+     * activity-result (main) thread, and replies from there.
+     */
+    internal fun deliverPick(
+        result: MethodChannel.Result,
+        io: Executor,
+        encode: () -> Map<String, Any>,
+    ) {
+        io.execute {
+            runCatching(encode)
+                .onSuccess(result::success)
+                .onFailure { result.error(codeFor(it), messageFor(it), null) }
+        }
     }
 
     private fun pickImage(

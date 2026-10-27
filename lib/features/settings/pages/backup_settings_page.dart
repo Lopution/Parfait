@@ -1,4 +1,3 @@
-import 'package:file_selector/file_selector.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,22 +11,25 @@ import '../../../app/widgets/settings/settings_choice_tile.dart';
 import '../../../app/widgets/settings/settings_group.dart';
 import '../../../core/backup/backup_envelope.dart';
 import '../../../core/backup/backup_service.dart';
+import '../../../core/platform/saf_tree.dart';
 import '../../../l10n/context.dart';
 import '../settings_helpers.dart';
 import '../settings_catalog.dart';
 
 /// Platform file open for backup import. Behind a provider so widget tests
 /// can inject bytes without a platform file picker.
-final backupFilePickerProvider = Provider<Future<List<int>?> Function()>(
-  (ref) => () async {
-    final file = await openFile(
-      acceptedTypeGroups: [
-        const XTypeGroup(label: 'JSON', extensions: ['json']),
-      ],
+final backupFilePickerProvider = Provider<Future<List<int>?> Function()>((ref) {
+  final picker = ref.watch(documentPickerProvider);
+  return () async {
+    final picked = await picker.pickDocument(
+      label: 'JSON',
+      extensions: const ['json'],
+      mimeTypes: const [BackupEnvelope.mimeType],
+      maxBytes: BackupEnvelope.maxEncodedLength,
     );
-    return file?.readAsBytes();
-  },
-);
+    return picked?.bytes;
+  };
+});
 
 /// Export/import entry for the `pixivfunc.backup.v1` document. Export picks
 /// a SAF tree and streams the JSON; import parses the file, asks for the
@@ -63,7 +65,30 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
   }
 
   Future<void> _import() async {
-    final bytes = await ref.read(backupFilePickerProvider)();
+    final List<int>? bytes;
+    try {
+      bytes = await ref.read(backupFilePickerProvider)();
+    } on DocumentTooLargeException catch (error) {
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          context.l10n.errorWithReason(
+            context.l10n.backupImportFailed,
+            context.l10n.importFileTooLarge(error.maxMegabytes),
+          ),
+        );
+      }
+      return;
+    } on Object catch (error) {
+      if (mounted) {
+        showErrorSnackBar(
+          context,
+          action: context.l10n.backupImportFailed,
+          error: error,
+        );
+      }
+      return;
+    }
     if (!mounted || bytes == null) return;
     final BackupEnvelope envelope;
     try {

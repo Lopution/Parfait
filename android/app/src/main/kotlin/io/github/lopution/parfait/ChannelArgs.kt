@@ -81,6 +81,27 @@ internal object ChannelArgs {
         }
         return raw
     }
+
+    /** A non-empty list of strings. */
+    fun requiredStrings(
+        call: MethodCall,
+        result: MethodChannel.Result,
+        name: String,
+        prefix: String,
+    ): List<String>? {
+        val raw = call.argument<Any?>(name)
+        if (raw == null) {
+            result.error("${prefix}invalid_argument", "$name missing", null)
+            return null
+        }
+        val list = raw as? List<*>
+        val values = list?.filterIsInstance<String>()
+        if (values == null || values.isEmpty() || values.size != list.size) {
+            result.error("${prefix}invalid_argument", "$name has wrong type", null)
+            return null
+        }
+        return values
+    }
 }
 
 internal data class OptionalString(val value: String?, val ok: Boolean)

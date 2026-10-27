@@ -7,12 +7,20 @@ import android.provider.DocumentsContract
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import android.provider.OpenableColumns
+import java.io.File
 import java.io.FileNotFoundException
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
+import java.util.UUID
 
 /**
  * SAF tree picker bridge (D5). Opens the system directory chooser and
  * persists the granted tree URI permission so downloads can write into the
- * user-selected folder without broad storage permissions.
+ * user-selected folder without broad storage permissions. Also opens single
+ * documents for import: the pick returns only the URI, and [copyDocument]
+ * copies it into the cache on the background queue under a byte limit.
  *
  * Dart [create] may send `ownerId`; this handler does not read it. Ownership
  * is not persisted on SAF documents today.
@@ -29,7 +37,14 @@ internal interface SafTreeOperations {
     fun resume(uri: String): Map<String, Any>?
 
     fun finalize(uri: String): String
+
+    /** `{path, name, sizeBytes}` of a cache copy of [uri]; over [maxBytes] throws. */
+    fun copyDocument(uri: String, maxBytes: Long): Map<String, Any>
 }
+
+/** The picked document is larger than the caller's limit. */
+internal class DocumentTooLargeException(maxBytes: Long) :
+    IOException("document is larger than $maxBytes bytes")
 
 /** The `DocumentsContract` calls behind `create`, faked in JVM tests. */
 internal interface SafDocumentProvider {
@@ -44,11 +59,22 @@ internal fun interface SafTreeLauncher {
     fun start(): Boolean
 }
 
+internal fun interface SafDocumentLauncher {
+    /** Starts the document picker. `false` when no Activity is available. */
+    fun start(mimeTypes: List<String>): Boolean
+}
+
 object SafTreeChannel {
 
     private const val CHANNEL = "parfait/saf_tree"
     private const val PREFIX = "saf_"
     private const val REQUEST_OPEN_TREE = 0x53AF
+    private const val REQUEST_OPEN_DOCUMENT = 0x53B0
+    private const val DOCUMENT_INPUTS = "document_inputs"
+
+    // A copy Dart never read (process death in between) is swept by a later
+    // copy; an hour is far longer than any copy-then-read.
+    private const val STALE_INPUT_MILLIS = 60L * 60L * 1000L
     private const val STAGED_SUFFIX = ".part"
 
     // A staged document is created untyped: providers then keep the
@@ -79,9 +105,19 @@ object SafTreeChannel {
             activity.startActivityForResult(intent, REQUEST_OPEN_TREE)
             true
         }
+        val documentLauncher = SafDocumentLauncher { mimeTypes ->
+            val activity = context as? Activity ?: return@SafDocumentLauncher false
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "*/*"
+                putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes.toTypedArray())
+            }
+            activity.startActivityForResult(intent, REQUEST_OPEN_DOCUMENT)
+            true
+        }
         backgroundMethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
-                handle(call, result, ops, launcher, AndroidMainThreadPoster)
+                handle(call, result, ops, launcher, AndroidMainThreadPoster, documentLauncher)
             }
     }
 
@@ -91,32 +127,24 @@ object SafTreeChannel {
         ops: SafTreeOperations,
         launcher: SafTreeLauncher,
         mainThread: MainThreadPoster = ImmediateMainThreadPoster,
+        documentLauncher: SafDocumentLauncher = SafDocumentLauncher { false },
     ) {
         try {
             when (call.method) {
-                "pickTree" -> {
-                    synchronized(pendingLock) {
-                        if (pendingResult != null) {
-                            result.error("saf_busy", "a picker is already open", null)
-                            return
-                        }
-                        pendingResult = result
-                    }
-                    mainThread.post {
-                        try {
-                            if (!launcher.start()) {
-                                clearPendingIfSame(result)
-                                result.error(
-                                    "saf_unavailable",
-                                    "no activity to start picker",
-                                    null,
-                                )
-                            }
-                        } catch (error: Exception) {
-                            clearPendingIfSame(result)
-                            result.error("saf_launch_failed", error.message, null)
-                        }
-                    }
+                "pickTree" -> startPicker(result, mainThread) { launcher.start() }
+                "pickDocument" -> {
+                    val mimeTypes = ChannelArgs.requiredStrings(
+                        call, result, "mimeTypes", PREFIX,
+                    ) ?: return
+                    startPicker(result, mainThread) { documentLauncher.start(mimeTypes) }
+                }
+                "copyDocument" -> {
+                    val uri = ChannelArgs.requiredString(call, result, "uri", PREFIX) ?: return
+                    val maxBytes = ChannelArgs.requiredInt(
+                        call, result, "maxBytes", PREFIX,
+                    ) ?: return
+                    require(maxBytes > 0) { "maxBytes must be positive" }
+                    result.success(ops.copyDocument(uri, maxBytes.toLong()))
                 }
                 "create" -> {
                     val treeUri = ChannelArgs.requiredString(
@@ -164,7 +192,34 @@ object SafTreeChannel {
         }
     }
 
+    /** One picker at a time, tree or document: they share the pending slot. */
+    private fun startPicker(
+        result: MethodChannel.Result,
+        mainThread: MainThreadPoster,
+        launch: () -> Boolean,
+    ) {
+        synchronized(pendingLock) {
+            if (pendingResult != null) {
+                result.error("saf_busy", "a picker is already open", null)
+                return
+            }
+            pendingResult = result
+        }
+        mainThread.post {
+            try {
+                if (!launch()) {
+                    clearPendingIfSame(result)
+                    result.error("saf_unavailable", "no activity to start picker", null)
+                }
+            } catch (error: Exception) {
+                clearPendingIfSame(result)
+                result.error("saf_launch_failed", error.message, null)
+            }
+        }
+    }
+
     internal fun safErrorCode(method: String, error: Throwable): String {
+        if (error is DocumentTooLargeException) return "saf_too_large"
         if (error is SecurityException) return "saf_permission"
         if (error is IllegalArgumentException) return "saf_invalid_argument"
         if (error is FileNotFoundException) return "saf_not_found"
@@ -180,7 +235,7 @@ object SafTreeChannel {
         return "saf_io_failed"
     }
 
-    internal fun completePickTree(
+    internal fun completePick(
         result: MethodChannel.Result,
         resultCode: Int,
         data: Intent?,
@@ -192,7 +247,7 @@ object SafTreeChannel {
         }
         val uri = data?.data
         if (uri == null) {
-            result.error("saf_launch_failed", "picker returned no tree uri", null)
+            result.error("saf_launch_failed", "picker returned no uri", null)
             return
         }
         try {
@@ -279,6 +334,87 @@ object SafTreeChannel {
         override fun resume(uri: String): Map<String, Any>? = resumeDocument(context, uri)
 
         override fun finalize(uri: String): String = finalizeDocument(context, uri)
+
+        override fun copyDocument(uri: String, maxBytes: Long): Map<String, Any> =
+            copyDocument(context, uri, maxBytes)
+    }
+
+    /** Copies [input] into [output]; more than [maxBytes] throws. */
+    private fun copyCapped(input: InputStream, output: OutputStream, maxBytes: Long): Long {
+        val buffer = ByteArray(64 * 1024)
+        var copied = 0L
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) return copied
+            copied += count
+            if (copied > maxBytes) throw DocumentTooLargeException(maxBytes)
+            output.write(buffer, 0, count)
+        }
+    }
+
+    /** Deletes cache copies older than [STALE_INPUT_MILLIS] at [now]. */
+    internal fun sweepStaleInputs(directory: File, now: Long) {
+        directory.listFiles()?.forEach { file ->
+            if (now - file.lastModified() > STALE_INPUT_MILLIS) file.delete()
+        }
+    }
+
+    private fun copyDocument(
+        context: android.content.Context,
+        uri: String,
+        maxBytes: Long,
+    ): Map<String, Any> {
+        val parsed = Uri.parse(uri)
+        val directory = File(context.cacheDir, DOCUMENT_INPUTS)
+        check(directory.mkdirs() || directory.isDirectory) { "document cache unavailable" }
+        sweepStaleInputs(directory, System.currentTimeMillis())
+        var name: String? = null
+        context.contentResolver.query(
+            parsed,
+            arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            if (!cursor.moveToFirst()) return@use
+            val nameColumn = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (nameColumn >= 0) name = cursor.getString(nameColumn)
+            // The declared size only refuses early; the copy enforces the
+            // limit on the bytes actually read.
+            val sizeColumn = cursor.getColumnIndex(OpenableColumns.SIZE)
+            if (sizeColumn >= 0 && !cursor.isNull(sizeColumn) &&
+                cursor.getLong(sizeColumn) > maxBytes
+            ) {
+                throw DocumentTooLargeException(maxBytes)
+            }
+        }
+        val (target, copied) = copyIntoCache(directory, maxBytes) {
+            context.contentResolver.openInputStream(parsed)
+        }
+        return mapOf(
+            "path" to target.absolutePath,
+            "name" to (name ?: parsed.lastPathSegment ?: "document"),
+            "sizeBytes" to copied,
+        )
+    }
+
+    /** Copies the opened stream into a new file in [directory]; a failed copy leaves nothing. */
+    internal fun copyIntoCache(
+        directory: File,
+        maxBytes: Long,
+        open: () -> InputStream?,
+    ): Pair<File, Long> {
+        val target = File(directory, "input-${UUID.randomUUID()}")
+        try {
+            val input = open() ?: throw FileNotFoundException("document could not be opened")
+            val copied = input.use { source ->
+                target.outputStream().use { copyCapped(source, it, maxBytes) }
+            }
+            return target to copied
+        } catch (error: Throwable) {
+            target.delete()
+            throw error
+        }
     }
 
     // Handler-only: serial background TaskQueue. pickTree / onActivityResult
@@ -376,13 +512,19 @@ object SafTreeChannel {
     }
 
     fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
-        if (requestCode != REQUEST_OPEN_TREE) return false
+        if (requestCode != REQUEST_OPEN_TREE && requestCode != REQUEST_OPEN_DOCUMENT) return false
         val result = synchronized(pendingLock) {
             val pending = pendingResult
             pendingResult = null
             pending
         } ?: return true
-        completePickTree(result, resultCode, data) { uri, intent ->
+        // A picked document is only read by copyDocument on the background
+        // queue; its grant lasts as long as this activity.
+        if (requestCode == REQUEST_OPEN_DOCUMENT) {
+            completePick(result, resultCode, data) { _, _ -> }
+            return true
+        }
+        completePick(result, resultCode, data) { uri, intent ->
             val flags = persistableGrant(intent.flags)
             // Persistable permissions are required for writes after process
             // restart; a refused grant is a visible failure, not silent.

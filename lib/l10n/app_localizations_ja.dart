@@ -722,6 +722,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get backupImportFailed => '読み込みに失敗しました';
 
   @override
+  String importFileTooLarge(int limitMb) {
+    return 'ファイルが $limitMb MB を超えています';
+  }
+
+  @override
   String get backupImportStrategyTitle => '読み込み方法を選択';
 
   @override

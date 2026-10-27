@@ -26,10 +26,18 @@ reviewed: 2026-10-14
   reverse-image input, the github updater, fonts) register with
   `messenger.makeBackgroundTaskQueue()`; Activity work is posted to the
   main looper through `MainThreadPoster`. `parfait/webprofile`, clipboard,
-  intents, haptics and accessibility stay on main.
+  intents, haptics and accessibility stay on main. Another app's content
+  URI that arrives on main (a shared or opened intent, a picker result) is
+  never opened there: main takes a plain snapshot, probes run on
+  `foreignContentExecutor`, and events go back to main. A picked file is
+  never read whole on main: the pick returns its URI and the copy runs on
+  the background queue under a byte limit (`file_selector` reads it whole
+  on main, so Android imports do not use it).
 - **Why:** The serial queue keeps begin → write → finalize ordered off the
-  UI thread; `CookieManager` is not documented as thread-safe.
-- **Check:** `android/app/src/test/kotlin/io/github/lopution/parfait/SafTreeChannelTest.kt` "pickTree is posted to main", `android/app/src/test/kotlin/io/github/lopution/parfait/ReverseImageInputChannelTest.kt` "pickImage is posted to main"
+  UI thread; `CookieManager` is not documented as thread-safe. A slow or
+  hostile provider on main is an ANR, and a huge picked file was an
+  OutOfMemoryError before any size check ran.
+- **Check:** `android/app/src/test/kotlin/io/github/lopution/parfait/SafTreeChannelTest.kt` "pickTree is posted to main" "copy keeps a stream within the limit and leaves nothing past it", `android/app/src/test/kotlin/io/github/lopution/parfait/ReverseImageInputChannelTest.kt` "pickImage is posted to main" "picked image is probed off main and failures still reply", `android/app/src/test/kotlin/io/github/lopution/parfait/AndroidIntentChannelTest.kt` "initial and new intents are probed off main in arrival order"
 - **Code:** `android/app/src/main/kotlin/io/github/lopution/parfait`
 
 ### DROID-02 Arguments and errors keep each channel's style

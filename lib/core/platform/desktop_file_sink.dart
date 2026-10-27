@@ -20,6 +20,29 @@ class DesktopDirectoryPicker implements SafTreePicker {
   Future<String?> pickTree() => getDirectoryPath(confirmButtonText: null);
 }
 
+/// Desktop [DocumentPicker]: the platform file dialog, then a size check
+/// before the file is read.
+class DesktopDocumentPicker implements DocumentPicker {
+  const DesktopDocumentPicker();
+
+  @override
+  Future<PickedDocument?> pickDocument({
+    required String label,
+    required List<String> extensions,
+    required List<String> mimeTypes,
+    required int maxBytes,
+  }) async {
+    final file = await openFile(
+      acceptedTypeGroups: [XTypeGroup(label: label, extensions: extensions)],
+    );
+    if (file == null) return null;
+    if (await file.length() > maxBytes) {
+      throw DocumentTooLargeException(maxBytes);
+    }
+    return (name: file.name, bytes: await file.readAsBytes());
+  }
+}
+
 /// Streaming file sink that stages into `<name>.part` and only materialises
 /// the final file on commit — the desktop equivalent of MediaStore's
 /// pending-row semantics (a crashed or aborted transfer never leaves a

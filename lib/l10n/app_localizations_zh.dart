@@ -707,6 +707,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backupImportFailed => '导入失败';
 
   @override
+  String importFileTooLarge(int limitMb) {
+    return '文件超过 $limitMb MB';
+  }
+
+  @override
   String get backupImportStrategyTitle => '选择导入方式';
 
   @override
