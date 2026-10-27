@@ -357,6 +357,10 @@ void main() {
     expect(platform.deletedPaths, isEmpty);
     expect(state.engineFailures, contains(ReverseImageEngine.sauceNao));
     expect(state.noMatchEngines, {ReverseImageEngine.iqdb});
+
+    // Another image, then the picker is cancelled: the page is as it was.
+    await controller.pick();
+    expect(controller.state, same(state));
   });
 
   test('the next engine skips failed, empty and unfit engines', () async {

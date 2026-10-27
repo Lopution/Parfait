@@ -417,6 +417,12 @@ void main() {
           await tester.sendKeyEvent(LogicalKeyboardKey.equal);
           await tester.pumpAndSettle();
           expect(_scale(tester), greaterThan(1.0));
+          // Held down, it stops where a pinch does.
+          for (var i = 0; i < 12; i++) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+            await tester.pumpAndSettle();
+          }
+          expect(_scale(tester), closeTo(ImageViewerPage.maxScale, 0.01));
           await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
           await tester.pumpAndSettle();
           expect(_scale(tester), closeTo(1.0, 0.01));

@@ -26,7 +26,7 @@ import 'theme/func_semantic_tokens.dart';
 ///
 /// Hydration failures surface an explicit retryable error instead of silently
 /// degrading to the no-account branch.
-class StartupGate extends ConsumerWidget {
+class StartupGate extends ConsumerStatefulWidget {
   const StartupGate({
     super.key,
     required this.settings,
@@ -47,9 +47,76 @@ class StartupGate extends ConsumerWidget {
   final bool settingsPending;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StartupGate> createState() => _StartupGateState();
+
+  /// Live matched location — `router.state` covers imperative `push`ed routes
+  /// too, while `routeInformationProvider.value` only tracks the last
+  /// declarative navigation. Reading the latter while the user sits on a
+  /// pushed page returns a stale path and makes every gate rebuild misjudge.
+  /// `state` throws while the very first match is still being established,
+  /// so fall back to the info provider for those early frames.
+  static String _currentPath(GoRouter router) {
+    try {
+      return router.state.uri.path;
+    } on Object {
+      return router.routeInformationProvider.value.uri.path;
+    }
+  }
+
+  /// An auth or onboarding route, or the pending splash.
+  static bool _isAuthFlowPath(String path) =>
+      path == '/splash' ||
+      path == '/login' ||
+      path.startsWith('/login/') ||
+      path == '/welcome' ||
+      path.startsWith('/welcome/');
+
+  /// The stack's base: the location without pushed pages, which go_router's
+  /// `currentConfiguration.uri` reflects.
+  static String _basePath(GoRouter router) =>
+      router.routerDelegate.currentConfiguration.uri.path;
+}
+
+class _StartupGateState extends ConsumerState<StartupGate> {
+  @override
+  void initState() {
+    super.initState();
+    widget.router.routerDelegate.addListener(_onStackChanged);
+  }
+
+  @override
+  void didUpdateWidget(StartupGate oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.router, widget.router)) return;
+    oldWidget.router.routerDelegate.removeListener(_onStackChanged);
+    widget.router.routerDelegate.addListener(_onStackChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.router.routerDelegate.removeListener(_onStackChanged);
+    super.dispose();
+  }
+
+  /// A pop (system back onto the splash, say) changes the stack without a
+  /// route information notification. The delegate also notifies during
+  /// the Router's own build, where rebuilding the gate would assert, so
+  /// the gate looks again once the frame is done.
+  void _onStackChanged() {
+    WidgetsBinding.instance
+      ..addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      })
+      ..ensureVisualUpdate();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final router = widget.router;
+    final settings = widget.settings;
+    final child = widget.child;
     final accounts = ref.watch(accountStoreProvider);
-    if (settingsPending) return child;
+    if (widget.settingsPending) return child;
     // The gate must rebuild when the route changes: while a redirect is
     // pending the route child is held back, so only a route notification
     // can release the spinner once go() lands. `routeInformationProvider`
@@ -58,7 +125,7 @@ class StartupGate extends ConsumerWidget {
     return ValueListenableBuilder<RouteInformation>(
       valueListenable: router.routeInformationProvider,
       builder: (context, _, _) {
-        final path = _currentPath(router);
+        final path = StartupGate._currentPath(router);
         // /splash is a pending surface, never a destination: while a
         // redirect is in flight it stays painted (it is neutral content),
         // where a stale welcome/login route must not appear.
@@ -108,8 +175,8 @@ class StartupGate extends ConsumerWidget {
               })) {
                 return child;
               }
-            } else if (_isAuthFlowPath(path) &&
-                _isAuthFlowPath(_basePath(router))) {
+            } else if (StartupGate._isAuthFlowPath(path) &&
+                StartupGate._isAuthFlowPath(StartupGate._basePath(router))) {
               // Signed-in: rescue users still sitting on an auth/onboarding
               // route or the pending splash. Every other location (branch
               // roots, /me, pushed detail and settings pages…) is a
@@ -134,38 +201,12 @@ class StartupGate extends ConsumerWidget {
     );
   }
 
-  /// Live matched location — `router.state` covers imperative `push`ed routes
-  /// too, while `routeInformationProvider.value` only tracks the last
-  /// declarative navigation. Reading the latter while the user sits on a
-  /// pushed page returns a stale path and makes every gate rebuild misjudge.
-  /// `state` throws while the very first match is still being established,
-  /// so fall back to the info provider for those early frames.
-  static String _currentPath(GoRouter router) {
-    try {
-      return router.state.uri.path;
-    } on Object {
-      return router.routeInformationProvider.value.uri.path;
-    }
-  }
-
-  /// An auth or onboarding route, or the pending splash.
-  static bool _isAuthFlowPath(String path) =>
-      path == '/splash' ||
-      path == '/login' ||
-      path.startsWith('/login/') ||
-      path == '/welcome' ||
-      path.startsWith('/welcome/');
-
-  /// The stack's base: the location without pushed pages, which go_router's
-  /// `currentConfiguration.uri` reflects.
-  static String _basePath(GoRouter router) =>
-      router.routerDelegate.currentConfiguration.uri.path;
-
   /// True when the live location is already inside one of [roots]; false
   /// (with the redirect scheduled) when the current route is stale and must
   /// not be painted.
   bool _ensureLocation(BuildContext context, Set<String> roots) {
-    final path = _currentPath(router);
+    final router = widget.router;
+    final path = StartupGate._currentPath(router);
     if (roots.any((root) => path == root || path.startsWith('$root/'))) {
       return true;
     }

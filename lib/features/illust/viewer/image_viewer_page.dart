@@ -705,9 +705,18 @@ class _ImageViewerPageState extends ConsumerState<ImageViewerPage>
   void _zoomBy(double factor) =>
       _zoomAt(MediaQuery.sizeOf(context).center(Offset.zero), factor);
 
+  /// Keys and the wheel stay inside a pinch's bounds.
   void _zoomAt(Offset focal, double factor) {
     final target = _transformationFor(_activePage);
-    _animateZoom(target, _focalZoom(focal, factor)..multiply(target.value));
+    final scale = target.value.getMaxScaleOnAxis();
+    final next = (scale * factor).clamp(
+      ImageViewerPage.minScale,
+      ImageViewerPage.maxScale,
+    );
+    _animateZoom(
+      target,
+      _focalZoom(focal, next / scale)..multiply(target.value),
+    );
   }
 
   /// Imperative pop — explicit exits (back button, Esc/Backspace) always
