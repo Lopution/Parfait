@@ -36,6 +36,7 @@ class IllustDetailPagerPage extends ConsumerStatefulWidget {
     this.heroScope = 'feed',
     this.heroImageUrl,
     this.heroImageDecodeWidth,
+    this.onActiveChanged,
     this.debugTextLaidOut,
   });
 
@@ -49,6 +50,10 @@ class IllustDetailPagerPage extends ConsumerStatefulWidget {
   final String heroScope;
   final String? heroImageUrl;
   final int? heroImageDecodeWidth;
+
+  /// Called when the work the user is reading changes (settled for
+  /// [activeDwell], or re-seated by a list change), never mid-drag.
+  final ValueChanged<int>? onActiveChanged;
 
   /// Test seam: called with each paragraph of a neighbour laid out ahead.
   final void Function(WarmText text)? debugTextLaidOut;
@@ -119,7 +124,8 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage>
     _ready = ValueNotifier((center: _initialIndex, neighbours: const {}));
     _currentId = ids.isEmpty ? widget.initialIllustId : ids[_initialIndex];
     _initialId = _currentId;
-    _activeId = ValueNotifier(_currentId);
+    _activeId = ValueNotifier(_currentId)
+      ..addListener(() => widget.onActiveChanged?.call(_activeId.value));
     _controller = PageController(initialPage: _initialIndex);
     widget.source.addListener(_onSourceChanged);
   }
