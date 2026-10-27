@@ -39,6 +39,7 @@ class _AuthorWorksDownloadDialogState
   int _scanned = 0;
   AuthorWorksResult? _result;
   Object? _error;
+  bool _submitting = false;
 
   @override
   void initState() {
@@ -85,7 +86,10 @@ class _AuthorWorksDownloadDialogState
   }
 
   Future<void> _confirm() async {
+    // A second tap can land before the rebuild that disables the button.
+    if (_submitting) return;
     final works = _result!.works;
+    setState(() => _submitting = true);
     // Submission failure (ownership, validation, channel) must stay visible —
     // it surfaces as the dialog's failure state instead of a silent pop.
     try {
@@ -96,12 +100,23 @@ class _AuthorWorksDownloadDialogState
             namingRule: ref.read(namingRuleProvider),
           );
       if (!mounted) return;
-      Navigator.of(context).pop(submission.group?.childCount ?? 0);
+      // A dialog already on its way out stays mounted through its exit
+      // animation; popping then would close the page under it. One covered
+      // by a page opened meanwhile (a share) is removed from under it.
+      final route = ModalRoute.of(context);
+      if (route == null || !route.isActive) return;
+      final count = submission.group?.childCount ?? 0;
+      if (route.isCurrent) {
+        Navigator.of(context).pop(count);
+      } else {
+        Navigator.of(context).removeRoute(route, count);
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error;
         _phase = _Phase.failed;
+        _submitting = false;
       });
     }
   }
@@ -153,9 +168,17 @@ class _AuthorWorksDownloadDialogState
             );
           },
         ),
+        // The submission cannot be taken back once sent: both actions
+        // wait for it.
         actions: [
-          TextButton(onPressed: _cancel, child: Text(l10n.cancel)),
-          FilledButton(onPressed: _confirm, child: Text(l10n.confirm)),
+          TextButton(
+            onPressed: _submitting ? null : _cancel,
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: _submitting ? null : _confirm,
+            child: Text(l10n.confirm),
+          ),
         ],
       ),
       _Phase.failed => AlertDialog(

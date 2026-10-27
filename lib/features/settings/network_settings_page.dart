@@ -198,7 +198,12 @@ class _ImageSourceSectionState extends ConsumerState<_ImageSourceSection> {
     }
     final saved = await _selectSource(normalized);
     if (!saved || !mounted) return null;
-    setState(() => _customDirty = false);
+    // Edited during the write: a newer draft.
+    setState(
+      () => _customDirty =
+          ImageMirror.normalizeCustomSource(_customController.text) !=
+          normalized,
+    );
     return normalized;
   }
 
@@ -435,9 +440,11 @@ class _NetworkAdvancedSettingsPageState
       }
     });
     if (saved && mounted) {
+      // A field edited during the write holds a newer draft.
       setState(() {
-        _dohDirty = false;
-        _echHostDirty = false;
+        _dohDirty = _dohDirty && _dohController.text.trim() != dohValue;
+        _echHostDirty =
+            _echHostDirty && _echHostController.text.trim() != echValue;
       });
       showAppSnackBar(context, context.l10n.saved);
     }

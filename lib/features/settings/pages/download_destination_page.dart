@@ -61,10 +61,14 @@ class _DownloadDestinationPageState
           .setDownloadDestination(DownloadDestination.customAlbum(name)),
     );
     if (saved && mounted) {
-      // Committed: the draft became the persisted
-      // value, so leaving no longer needs the discard
-      // prompt.
-      setState(() => _albumDirty = false);
+      // Committed: the draft became the persisted value, so leaving no
+      // longer needs the discard prompt — unless it was edited during the
+      // write, when it is a newer draft.
+      setState(
+        () => _albumDirty =
+            DownloadDestination.normalizeAlbumName(_albumController.text) !=
+            name,
+      );
       showAppSnackBar(context, context.l10n.saved);
     }
   }

@@ -67,6 +67,10 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
   ProviderSubscription<ProfileEditState>? _editSubscription;
   Object? _initializationError;
 
+  /// A picked image is being copied and read. Saving now would send the
+  /// form without it.
+  bool _preparingImage = false;
+
   @override
   void initState() {
     super.initState();
@@ -233,6 +237,9 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
                 : _ProfileEditBody(
                     key: _bodyKey,
                     session: session,
+                    preparingImage: _preparingImage,
+                    onPreparingImage: (preparing) =>
+                        setState(() => _preparingImage = preparing),
                     imagePlatform:
                         widget.imagePlatform ??
                         (PlatformCaps.system().isAndroid
@@ -268,7 +275,7 @@ class _ProfileEditPageState extends ConsumerState<ProfileEditPage> {
                         child: SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
-                            onPressed: editingEnabled
+                            onPressed: editingEnabled && !_preparingImage
                                 ? () {
                                     final bodyState = _bodyKey.currentState;
                                     if (bodyState != null) {
@@ -302,10 +309,14 @@ class _ProfileEditBody extends ConsumerStatefulWidget {
     super.key,
     required this.session,
     required this.imagePlatform,
+    required this.preparingImage,
+    required this.onPreparingImage,
   });
 
   final ProfileEditSession session;
   final ReverseImageInputPlatform imagePlatform;
+  final bool preparingImage;
+  final ValueChanged<bool> onPreparingImage;
 
   @override
   ConsumerState<_ProfileEditBody> createState() => _ProfileEditBodyState();
@@ -357,6 +368,7 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
   Future<void> _pickImage(ProfileField field) async {
     final reference = await widget.imagePlatform.pickImage();
     if (!mounted || reference == null) return;
+    widget.onPreparingImage(true);
     ProfileImageSelection? selection;
     try {
       selection = await ProfileImagePreprocessor.prepare(
@@ -372,6 +384,8 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
         action: context.l10n.profileEditChooseImage,
         error: error,
       );
+    } finally {
+      if (mounted) widget.onPreparingImage(false);
     }
   }
 
@@ -491,7 +505,9 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
             selection: draft.avatar,
             avatar: true,
             enabled:
-                editingEnabled && capabilities.supports(ProfileField.avatar),
+                editingEnabled &&
+                !widget.preparingImage &&
+                capabilities.supports(ProfileField.avatar),
             unsupported: !capabilities.supports(ProfileField.avatar),
             onPick: () => _pickImage(ProfileField.avatar),
           ),
@@ -503,6 +519,7 @@ class _ProfileEditBodyState extends ConsumerState<_ProfileEditBody> {
             avatar: false,
             enabled:
                 editingEnabled &&
+                !widget.preparingImage &&
                 capabilities.supports(ProfileField.background),
             unsupported: !capabilities.supports(ProfileField.background),
             onPick: () => _pickImage(ProfileField.background),
