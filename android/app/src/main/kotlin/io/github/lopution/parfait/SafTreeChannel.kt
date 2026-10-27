@@ -3,6 +3,7 @@ package io.github.lopution.parfait
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.provider.DocumentsContract
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -30,6 +31,14 @@ internal interface SafTreeOperations {
     fun finalize(uri: String): String
 }
 
+/** The `DocumentsContract` calls behind `create`, faked in JVM tests. */
+internal interface SafDocumentProvider {
+    /** The document URI of [treeUri]'s root: the parent `createDocument` needs. */
+    fun treeRootDocument(treeUri: String): String
+
+    fun createDocument(parentUri: String, mimeType: String, displayName: String): String?
+}
+
 internal fun interface SafTreeLauncher {
     /** Starts the directory picker. `false` when no Activity is available. */
     fun start(): Boolean
@@ -40,6 +49,13 @@ object SafTreeChannel {
     private const val CHANNEL = "parfait/saf_tree"
     private const val PREFIX = "saf_"
     private const val REQUEST_OPEN_TREE = 0x53AF
+    private const val STAGED_SUFFIX = ".part"
+
+    // A staged document is created untyped: providers then keep the
+    // `.part` name as given instead of appending the MIME's extension
+    // (`x.jpg.part.jpg`), and nothing indexes the partial file as an image.
+    // The rename on commit lets local providers derive the type again.
+    private const val STAGED_MIME = "application/octet-stream"
 
     private val pendingLock = Any()
     private var pendingResult: MethodChannel.Result? = null
@@ -187,15 +203,72 @@ object SafTreeChannel {
         }
     }
 
+    /**
+     * Creates the document under the tree's root document and returns its
+     * URI. D8: staged downloads land under `<name>.part` and only get the
+     * final display name when [finalizeDocument] renames on commit.
+     */
+    internal fun createInTree(
+        provider: SafDocumentProvider,
+        treeUri: String,
+        displayName: String,
+        mimeType: String,
+        staged: Boolean,
+    ): String {
+        require(displayName.isNotEmpty() && displayName.length <= 255)
+        require(!displayName.contains('/') && !displayName.contains('\\'))
+        require(mimeType.isNotEmpty())
+        val parent = provider.treeRootDocument(treeUri)
+        return if (staged) {
+            provider.createDocument(parent, STAGED_MIME, displayName + STAGED_SUFFIX)
+        } else {
+            provider.createDocument(parent, mimeType, displayName)
+        } ?: throw IllegalStateException("SAF createDocument failed")
+    }
+
+    /** The grant bits worth persisting from the picker's result flags. */
+    internal fun persistableGrant(intentFlags: Int): Int =
+        intentFlags and
+            (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+
+    private class AndroidSafDocumentProvider(
+        private val context: android.content.Context,
+    ) : SafDocumentProvider {
+        override fun treeRootDocument(treeUri: String): String {
+            val tree = Uri.parse(treeUri)
+            require(DocumentsContract.isTreeUri(tree)) { "not a SAF tree uri" }
+            return DocumentsContract.buildDocumentUriUsingTree(
+                tree,
+                DocumentsContract.getTreeDocumentId(tree),
+            ).toString()
+        }
+
+        override fun createDocument(
+            parentUri: String,
+            mimeType: String,
+            displayName: String,
+        ): String? = DocumentsContract.createDocument(
+            context.contentResolver,
+            Uri.parse(parentUri),
+            mimeType,
+            displayName,
+        )?.toString()
+    }
+
     private class AndroidSafTreeOperations(
         private val context: android.content.Context,
     ) : SafTreeOperations {
+        private val provider = AndroidSafDocumentProvider(context)
+
         override fun create(
             treeUri: String,
             displayName: String,
             mimeType: String,
             staged: Boolean,
-        ): String = createDocument(context, treeUri, displayName, mimeType, staged)
+        ): String = openCreated(
+            context,
+            createInTree(provider, treeUri, displayName, mimeType, staged),
+        )
 
         override fun write(uri: String, bytes: ByteArray) = writeDocument(uri, bytes)
 
@@ -212,26 +285,8 @@ object SafTreeChannel {
     // do not touch this map.
     private val streams = mutableMapOf<String, java.io.OutputStream>()
 
-    private fun createDocument(
-        context: android.content.Context,
-        treeUri: String,
-        displayName: String,
-        mimeType: String,
-        staged: Boolean,
-    ): String {
-        require(displayName.isNotEmpty() && displayName.length <= 255)
-        require(!displayName.contains('/') && !displayName.contains('\\'))
-        require(mimeType.isNotEmpty())
-        val tree = Uri.parse(treeUri)
-        // D8: staged downloads land under `<name>.part` and only get the
-        // final display name when finalizeDocument renames on commit.
-        val effectiveName = if (staged) "$displayName.part" else displayName
-        val docUri = android.provider.DocumentsContract.createDocument(
-            context.contentResolver,
-            tree,
-            mimeType,
-            effectiveName,
-        ) ?: throw IllegalStateException("SAF createDocument failed")
+    private fun openCreated(context: android.content.Context, uri: String): String {
+        val docUri = Uri.parse(uri)
         val output = context.contentResolver.openOutputStream(docUri, "w")
             ?: run {
                 runCatching { context.contentResolver.delete(docUri, null, null) }
@@ -290,18 +345,18 @@ object SafTreeChannel {
         val parsed = Uri.parse(uri)
         val name = context.contentResolver.query(
             parsed,
-            arrayOf(android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+            arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
             null,
             null,
             null,
         )?.use { cursor ->
             if (cursor.moveToFirst()) cursor.getString(0) else null
         } ?: return uri
-        if (!name.endsWith(".part")) return uri
-        val renamed = android.provider.DocumentsContract.renameDocument(
+        if (!name.endsWith(STAGED_SUFFIX)) return uri
+        val renamed = DocumentsContract.renameDocument(
             context.contentResolver,
             parsed,
-            name.removeSuffix(".part"),
+            name.removeSuffix(STAGED_SUFFIX),
         ) ?: throw IllegalStateException("SAF rename failed")
         return renamed.toString()
     }
@@ -328,8 +383,7 @@ object SafTreeChannel {
             pending
         } ?: return true
         completePickTree(result, resultCode, data) { uri, intent ->
-            val flags = intent.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            val flags = persistableGrant(intent.flags)
             // Persistable permissions are required for writes after process
             // restart; a refused grant is a visible failure, not silent.
             appContext?.contentResolver?.takePersistableUriPermission(uri, flags)

@@ -1,6 +1,7 @@
 package io.github.lopution.parfait
 
 import android.app.Activity
+import android.content.Intent
 import io.flutter.plugin.common.MethodCall
 import java.io.IOException
 import org.junit.After
@@ -351,6 +352,56 @@ class SafTreeChannelTest {
         )
         assertEquals(1, started)
         assertNull(second.errorCode)
+    }
+
+    @Test
+    fun `create goes under the tree's root document, staged untyped`() {
+        val provider = RecordingDocumentProvider()
+        SafTreeChannel.createInTree(provider, "content://p/tree/t", "a.jpg", "image/jpeg", true)
+        SafTreeChannel.createInTree(provider, "content://p/tree/t", "a.txt", "text/plain", false)
+        assertEquals(
+            listOf(
+                Triple("content://p/tree/t/document/t", "application/octet-stream", "a.jpg.part"),
+                Triple("content://p/tree/t/document/t", "text/plain", "a.txt"),
+            ),
+            provider.created,
+        )
+    }
+
+    @Test
+    fun `create provider refusal is an error, not a null uri`() {
+        val provider = RecordingDocumentProvider(refuse = true)
+        val error = runCatching {
+            SafTreeChannel.createInTree(provider, "content://p/tree/t", "a.jpg", "image/jpeg", false)
+        }.exceptionOrNull()
+        assertEquals("saf_create_failed", SafTreeChannel.safErrorCode("create", error!!))
+    }
+
+    @Test
+    fun `picker persists only the read and write grants`() {
+        val read = Intent.FLAG_GRANT_READ_URI_PERMISSION
+        val write = Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        val other = Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or
+            Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+        assertEquals(read, SafTreeChannel.persistableGrant(read or other))
+        assertEquals(read or write, SafTreeChannel.persistableGrant(read or write or other))
+    }
+
+    private class RecordingDocumentProvider(
+        private val refuse: Boolean = false,
+    ) : SafDocumentProvider {
+        val created = mutableListOf<Triple<String, String, String>>()
+
+        override fun treeRootDocument(treeUri: String) = "$treeUri/document/t"
+
+        override fun createDocument(
+            parentUri: String,
+            mimeType: String,
+            displayName: String,
+        ): String? {
+            created += Triple(parentUri, mimeType, displayName)
+            return if (refuse) null else "$parentUri%2F$displayName"
+        }
     }
 
     private fun dispatch(
