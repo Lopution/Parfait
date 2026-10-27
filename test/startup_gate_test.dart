@@ -1,5 +1,8 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_repository.dart';
@@ -11,12 +14,14 @@ import 'package:parfait/features/home/home_page.dart';
 import 'package:parfait/features/login/login_page.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/startup_gate.dart';
+import 'package:parfait/app/widgets/replica_button.dart';
 import 'package:parfait/features/onboarding/user_agreement_page.dart';
 import 'package:parfait/features/onboarding/welcome_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'dart:async';
 
 import 'helpers/fake_account.dart';
+import 'helpers/fake_webview.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 
@@ -67,8 +72,9 @@ Widget _wrap({
   String? initialLocation,
   bool settingsPending = false,
   AccountMetadataRepository? metadataRepository,
+  GoRouter? router,
 }) {
-  final router = createPixivRouter(
+  router ??= createPixivRouter(
     initialLocation:
         initialLocation ??
         (settings.guideCompleted ? '/recommended' : '/welcome'),
@@ -101,7 +107,7 @@ Widget _wrap({
     ],
     builder: (context, child) => StartupGate(
       settings: settings,
-      router: router,
+      router: router!,
       settingsPending: settingsPending,
       child: child!,
     ),
@@ -259,6 +265,53 @@ void main() {
     router.pop();
     await tester.pumpAndSettle();
     expect(find.byType(LoginPage), findsOneWidget);
+  });
+
+  testWidgets('add account survives the gate rebuilding under it', (
+    tester,
+  ) async {
+    final router = createPixivRouter(initialLocation: '/recommended');
+    await tester.pumpWidget(_wrap(snapshot: _signedIn, router: router));
+    await tester.pumpAndSettle();
+    unawaited(router.push<void>('/login'));
+    await tester.pumpAndSettle();
+    final accounts = ProviderScope.containerOf(
+      tester.element(find.byType(LoginPage)),
+    ).read(accountStoreProvider.notifier);
+
+    // A reload passes through loading to a new value, as a token refresh
+    // or a settings write rebuilding the gate mid-OAuth does.
+    await accounts.reload();
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/login');
+    expect(find.byType(LoginPage), findsOneWidget);
+
+    // Once the WebView reports the account, the login closes back to the
+    // page that opened it.
+    InAppWebViewPlatform.instance = FakeInAppWebViewPlatform();
+    await tester.tap(find.byType(ReplicaButton).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('我已开启代理'));
+    await tester.pumpAndSettle();
+    router.pop(true);
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/recommended');
+  });
+
+  testWidgets('an image shared into a cold start stays open', (tester) async {
+    // Android pushes the share over the splash before the account loads.
+    InAppWebViewPlatform.instance = FakeInAppWebViewPlatform();
+    final metadata = _PendingMetadataRepository();
+    final router = createPixivRouter(initialLocation: '/splash');
+    await tester.pumpWidget(
+      _wrap(snapshot: _signedIn, router: router, metadataRepository: metadata),
+    );
+    await tester.pump();
+    unawaited(router.push<void>('/reverse-image'));
+    await tester.pump();
+    metadata._completer.complete(_signedIn);
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/reverse-image');
   });
 
   testWidgets('corrupt metadata surfaces a retryable error', (tester) async {

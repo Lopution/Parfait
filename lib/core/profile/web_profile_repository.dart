@@ -75,7 +75,7 @@ class PixivWebProfileEditRepository implements ProfileEditRepository {
     CancelToken? cancelToken,
   }) async {
     final cookie = await _session.readSessionCookie();
-    if (!hasWebProfileSession(cookie)) {
+    if (webSessionUserId(cookie) != userId) {
       return ProfileCapabilities(
         editableFields: const {},
         channel: ProfileEditChannel.unavailable,
@@ -115,7 +115,9 @@ class PixivWebProfileEditRepository implements ProfileEditRepository {
     http.Client? ownedClient;
     try {
       final cookie = await _session.readSessionCookie();
-      if (!hasWebProfileSession(cookie)) {
+      // The save rewrites the profile of whoever the session is signed in
+      // as; the cookie read here is the one the requests send.
+      if (webSessionUserId(cookie) != request.patch.userId) {
         return const ProfileEditSubmitFailure(
           ProfileEditFailureCode.unavailable,
           'The in-app Pixiv session has expired; sign in again before saving',

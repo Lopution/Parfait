@@ -2,6 +2,7 @@
 prefix: NAV
 applies_to:
   - lib/app/navigation/**
+  - lib/app/startup_gate.dart
   - lib/app/widgets/home_branch_stack.dart
   - lib/app/widgets/func_bottom_nav.dart
   - lib/app/widgets/app_tab_bar.dart
@@ -91,6 +92,21 @@ reviewed: 2026-10-17
 - **Why:** Stacked search routes made back walk through every query.
 - **Check:** `test/navigation_router_test.dart` "search input and results stay on the requesting stack"
 - **Code:** `lib/app/navigation/routes.dart`, `lib/features/search/search_result_page.dart`
+
+### NAV-23 The startup gate rescues only an auth stack
+- **Rule:** Signed in, `StartupGate` sends the user home only when both
+  the top path and the stack's base location
+  (`routerDelegate.currentConfiguration.uri`, which leaves out pushed
+  pages) are a login, welcome or splash route. Login pushed over an app
+  page is "add account": it stays, and on success the login page pops
+  back to the page that opened it. A page pushed over the splash (an
+  image shared into a cold start) stays too.
+- **Why:** A token refresh or a network-mode toggle rebuilt the gate
+  during add account and threw the user home mid-OAuth. Judging the base
+  alone dropped a share pushed over the splash, and left a finished add
+  account on the login form.
+- **Check:** `test/startup_gate_test.dart` "add account survives the gate rebuilding under it" "an image shared into a cold start stays open"
+- **Code:** `lib/app/startup_gate.dart`, `lib/features/login/login_page.dart`
 
 ## Bottom bar
 

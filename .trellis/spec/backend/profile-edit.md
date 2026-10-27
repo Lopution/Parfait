@@ -44,17 +44,21 @@ reviewed: 2026-10-12
 
 ## Channels
 
-### PROF-04 Web channel with a session, App API otherwise
-- **Rule:** The selector uses the web channel when the WebView cookie jar
-  holds a non-empty `PHPSESSID`, else the App API channel
-  (`v1/user/profile/edit`, no background image). It caches each adapter
-  for the provider's life. Editing is a native form; never open a
-  profile-edit WebView.
+### PROF-04 Web channel only with the edited user's session
+- **Rule:** The selector uses the web channel only when the WebView cookie
+  header carries exactly one distinct `PHPSESSID` and it is signed in as
+  the edited user (`<uid>_<hash>`, `webSessionUserId`); anything else
+  (none, anonymous bare hex, another user, two values) gets the App API
+  channel (`v1/user/profile/edit`, no background image). The web save
+  re-checks the cookie it sends. It caches each adapter for the
+  provider's life. Editing is a native form; never open a profile-edit
+  WebView.
 - **Why:** The OAuth login does not reliably plant a web cookie, which made
   the editor permanently unavailable; a fresh adapter per call lost the
-  draft the post-save fallback needs.
-- **Check:** `test/web_profile_repository_test.dart` "does not use unrelated or empty cookie values as a session" "keeps the local draft when App API refresh fails after save", `test/app_api_profile_edit_test.dart` "capabilities advertise the app-api channel and fields"
-- **Code:** `lib/core/profile/profile_edit_repository.dart`
+  draft the post-save fallback needs. The jar is shared and outlives
+  account switches: editing account B rewrote account A's profile.
+- **Check:** `test/web_profile_repository_test.dart` "a session counts only when one signed-in PHPSESSID names the user" "another account's web session sends the editor to the App API" "keeps the local draft when App API refresh fails after save", `test/app_api_profile_edit_test.dart` "capabilities advertise the app-api channel and fields"
+- **Code:** `lib/core/profile/profile_edit_repository.dart`, `lib/core/profile/web_profile_session.dart`
 
 ### PROF-05 The web save posts the complete merged profile
 - **Rule:** The web channel reads the CSRF token from the settings page and

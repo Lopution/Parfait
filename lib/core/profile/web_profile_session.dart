@@ -51,17 +51,31 @@ abstract final class _WebProfileMethods {
   static const clearSession = 'clearSession';
 }
 
-/// True when the shared cookie header carries a non-empty PHPSESSID. The
-/// profile API requires that web session; a device_token alone (older mobile
-/// web) is not sufficient.
-bool hasWebProfileSession(String? cookie) {
-  if (cookie == null || cookie.trim().isEmpty) return false;
-  for (final part in cookie.split(';')) {
-    final separator = part.indexOf('=');
-    if (separator <= 0) continue;
-    final name = part.substring(0, separator).trim().toLowerCase();
-    final value = part.substring(separator + 1).trim();
-    if (name == 'phpsessid' && value.isNotEmpty) return true;
-  }
-  return false;
+/// The pixiv user the shared cookie header is signed in as, or null.
+///
+/// A signed-in pixiv web session is `PHPSESSID=<uid>_<hash>`; an anonymous
+/// one (the login page hands one out before sign-in) is bare hex. The
+/// header is sent as it is, so it counts only when it carries exactly one
+/// distinct PHPSESSID and that one is signed in: with two, the server may
+/// read the other.
+int? webSessionUserId(String? cookie) {
+  if (cookie == null) return null;
+  final sessions = <String>{
+    for (final part in cookie.split(';'))
+      if (_cookieName(part) == 'phpsessid')
+        part.substring(part.indexOf('=') + 1).trim(),
+  };
+  if (sessions.length != 1) return null;
+  final match = _signedInSession.firstMatch(sessions.single);
+  final userId = match == null ? null : int.tryParse(match.group(1)!);
+  return userId != null && userId > 0 ? userId : null;
+}
+
+final _signedInSession = RegExp(r'^(\d+)_.+$');
+
+String? _cookieName(String part) {
+  final separator = part.indexOf('=');
+  return separator <= 0
+      ? null
+      : part.substring(0, separator).trim().toLowerCase();
 }
