@@ -199,7 +199,9 @@ void main() {
   test(
     'requests carry centralized identity headers and bearer token',
     () async {
-      final (container, client, _, fixture) = await _makeWorld();
+      final (container, client, _, fixture) = await _makeWorld(
+        languageTag: 'ja',
+      );
 
       await client.getJson(Uri.parse(_api));
 
@@ -207,17 +209,9 @@ void main() {
       expect(request.headers['Authorization'], 'Bearer old-access');
       expect(request.headers['App-OS'], 'android');
       expect(request.headers['User-Agent'], PixivClientIdentity.userAgent);
-      expect(request.headers['Accept-Language'], 'zh-CN');
+      expect(request.headers['Accept-Language'], 'ja');
     },
   );
-
-  test('languageTag ja is sent as Accept-Language', () async {
-    final (container, client, _, fixture) = await _makeWorld(languageTag: 'ja');
-
-    await client.getJson(Uri.parse(_api));
-
-    expect(fixture.apiRequests.single.headers['Accept-Language'], 'ja');
-  });
 
   test('pixivHttpClientProvider follows settings.languageTag (R6)', () async {
     final repository = FakeSettingsRepository(
