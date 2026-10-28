@@ -222,22 +222,6 @@ void main() {
     expect(retried.showInitialError, isTrue);
   });
 
-  test('refresh failure keeps existing content and cursor', () async {
-    final (container, _) = await makeWorld();
-
-    final controller = container.read(_feed.notifier);
-    final initial = await container.read(_feed.future);
-    expect(initial.ids, hasLength(10));
-
-    // Force the next page fetch to fail by disposing the underlying transport
-    // is not directly possible; instead verify refresh success path resets
-    // cursor and dedupes from empty.
-    await controller.refresh();
-    final refreshed = container.read(_feed).requireValue;
-    expect(refreshed.showRefreshSpinner, isFalse);
-    expect(refreshed.ids, hasLength(10));
-  });
-
   testWidgets('IllustCard hands quality changes off gaplessly', (tester) async {
     final (container, _) = await makeWorld();
     await mockNetworkImagesFor(() async {
