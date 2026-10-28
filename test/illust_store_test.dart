@@ -263,7 +263,7 @@ void main() {
     });
   });
 
-  group('PagedFeedController (via RecommendedIllustController behaviour)', () {
+  group('IllustEntity.parsePage', () {
     test('page parse errors surface as ApiParseError, not empty success', () {
       expect(
         () => IllustEntity.parsePage({
