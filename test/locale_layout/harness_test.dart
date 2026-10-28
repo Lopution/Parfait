@@ -40,7 +40,11 @@ double _directWidth(String text, String family, {double fontSize = 14}) {
   return width;
 }
 
-void _expectDefect(WidgetTester tester, {LayoutProfile? profile}) {
+void _expectDefect(
+  WidgetTester tester, {
+  LayoutProfile? profile,
+  String? reason,
+}) {
   expect(
     () => expectLocaleLayoutIntact(
       tester,
@@ -48,6 +52,7 @@ void _expectDefect(WidgetTester tester, {LayoutProfile? profile}) {
       profile: profile ?? LayoutProfile.regular,
     ),
     throwsA(isA<TestFailure>()),
+    reason: reason,
   );
 }
 
@@ -109,64 +114,10 @@ void main() {
   });
 
   group('the detector', () {
-    testWidgets('accepts whole UI text', (tester) async {
-      await _pumpText(tester, const SizedBox(width: 200, child: Text(_hint)));
-      expectLocaleLayoutIntact(
-        tester,
-        locale: _en,
-        profile: LayoutProfile.regular,
-      );
-    });
-
-    testWidgets('catches UI text ellipsized at maxLines', (tester) async {
-      await _pumpText(
-        tester,
-        const SizedBox(
-          width: 60,
-          child: Text(_short, maxLines: 1, overflow: TextOverflow.ellipsis),
-        ),
-      );
-      _expectDefect(tester);
-    });
-
-    testWidgets('catches two lines pressed into one line of height', (
-      tester,
-    ) async {
-      await _pumpText(
-        tester,
-        const SizedBox(width: 200, height: 18, child: Text(_hint)),
-      );
-      _expectDefect(tester);
-    });
-
-    testWidgets('catches a Row overflow', (tester) async {
-      await _pumpText(
-        tester,
-        const SizedBox(
-          width: 60,
-          child: Row(children: [Text(_short, softWrap: false)]),
-        ),
-      );
-      _expectDefect(tester);
-    });
-
-    testWidgets('catches a FittedBox shrinking UI text below 0.8', (
-      tester,
-    ) async {
-      final width = _directWidth(_short, 'Roboto');
-      await _pumpText(
-        tester,
-        SizedBox(
-          width: width * 0.6,
-          child: const FittedBox(child: Text(_short)),
-        ),
-      );
-      _expectDefect(tester);
-    });
-
-    testWidgets('lets user content ellipsize', (tester) async {
-      await _pumpText(
-        tester,
+    testWidgets('accepts whole UI text, ellipsized user content and a '
+        'floating label shrunk by the spec', (tester) async {
+      final texts = [
+        const SizedBox(width: 200, child: Text(_hint)),
         const SizedBox(
           width: 60,
           child: Text(
@@ -175,19 +126,6 @@ void main() {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-      );
-      expectLocaleLayoutIntact(
-        tester,
-        locale: _en,
-        profile: LayoutProfile.regular,
-      );
-    });
-
-    testWidgets("lets a text field's floating label shrink by the spec", (
-      tester,
-    ) async {
-      await _pumpText(
-        tester,
         SizedBox(
           width: 300,
           child: TextField(
@@ -195,12 +133,43 @@ void main() {
             decoration: const InputDecoration(labelText: _short),
           ),
         ),
-      );
-      expectLocaleLayoutIntact(
-        tester,
-        locale: _en,
-        profile: LayoutProfile.regular,
-      );
+      ];
+      for (final text in texts) {
+        await _pumpText(tester, text);
+        expectLocaleLayoutIntact(
+          tester,
+          locale: _en,
+          profile: LayoutProfile.regular,
+        );
+      }
+    });
+
+    testWidgets('catches UI text cut, squeezed, overflowing or shrunk', (
+      tester,
+    ) async {
+      final defects = {
+        'ellipsized at maxLines': const SizedBox(
+          width: 60,
+          child: Text(_short, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+        'two lines pressed into one line of height': const SizedBox(
+          width: 200,
+          height: 18,
+          child: Text(_hint),
+        ),
+        'a Row overflow': const SizedBox(
+          width: 60,
+          child: Row(children: [Text(_short, softWrap: false)]),
+        ),
+        'a FittedBox shrinking it below 0.8': SizedBox(
+          width: _directWidth(_short, 'Roboto') * 0.6,
+          child: const FittedBox(child: Text(_short)),
+        ),
+      };
+      for (final MapEntry(key: name, value: text) in defects.entries) {
+        await _pumpText(tester, text);
+        _expectDefect(tester, reason: name);
+      }
     });
 
     testWidgets('lets a FitLabel ellipsize in the compact profile only', (

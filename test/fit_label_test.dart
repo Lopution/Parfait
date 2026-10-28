@@ -50,25 +50,19 @@ Future<RenderParagraph> _pump(
 
 void main() {
   // FlutterTest glyphs are 1em: a ten-letter label is 100px at 10px.
-  test('labels that fit keep their size', () {
+  test('a group scales to its widest label, down to 0.8, then ellipsizes', () {
+    // Labels that fit, or an unbounded slot, keep their size.
     expect(_fit(['abcde', 'abcdefghij'], 100), LabelFit.none);
-  });
-
-  test('the widest label sets one scale for the group', () {
-    final fit = _fit(['abcde', 'abcdefghij'], 90);
-    // One pixel of slack against rounding at the scaled size.
-    expect(fit.scale, moreOrLessEquals(89 / 100));
-    expect(fit.truncates, isFalse);
-  });
-
-  test('the scale stops at 0.8, then the group ellipsizes', () {
-    final fit = _fit(['abcdefghij'], 50);
-    expect(fit.scale, LabelFit.minScale);
-    expect(fit.truncates, isTrue);
-  });
-
-  test('an unbounded slot never scales', () {
     expect(_fit(['abcdefghij'], double.infinity), LabelFit.none);
+
+    final group = _fit(['abcde', 'abcdefghij'], 90);
+    // One pixel of slack against rounding at the scaled size.
+    expect(group.scale, moreOrLessEquals(89 / 100));
+    expect(group.truncates, isFalse);
+
+    final tight = _fit(['abcdefghij'], 50);
+    expect(tight.scale, LabelFit.minScale);
+    expect(tight.truncates, isTrue);
   });
 
   testWidgets('the painted width is the measured width times the scale', (
