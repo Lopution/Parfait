@@ -1,7 +1,9 @@
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/motion/hero_transition.dart' show LiftableShadow;
+import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/app_tab_bar.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
@@ -41,38 +43,66 @@ Future<void> _pumpBar(
   await tester.pump();
 }
 
-RichText _labelRichText(WidgetTester tester, String label) {
-  return tester.widget<RichText>(
-    find
-        .descendant(
-          of: find.ancestor(of: find.text(label), matching: find.byType(Tab)),
-          matching: find.byType(RichText),
-        )
-        .first,
-  );
-}
+RenderParagraph _label(WidgetTester tester, String label) =>
+    tester.renderObject(
+      find
+          .descendant(
+            of: find.ancestor(of: find.text(label), matching: find.byType(Tab)),
+            matching: find.byType(RichText),
+          )
+          .first,
+    );
 
 void main() {
-  testWidgets('eleven labels scroll from the start instead of shrinking', (
+  testWidgets('labels that do not fit scroll from the start at 14sp', (
     tester,
   ) async {
-    await _pumpBar(tester, const [
-      '插画',
-      '漫画',
-      '小说',
-      '推荐',
-      '排行',
-      '新作',
-      '追更',
-      '收藏',
-      '历史',
-      '发现',
-      '关于',
-    ]);
-
-    final bar = tester.widget<TabBar>(find.byType(TabBar));
-    expect(bar.isScrollable, isTrue);
-    expect(bar.tabAlignment, TabAlignment.start);
+    // Eleven labels, and four long ones at a 1.3x text scale.
+    for (final (labels, textScale) in [
+      (
+        const [
+          '插画',
+          '漫画',
+          '小说',
+          '推荐',
+          '排行',
+          '新作',
+          '追更',
+          '收藏',
+          '历史',
+          '发现',
+          '关于',
+        ],
+        1.0,
+      ),
+      (const ['每日排行', '昨日排行', '每周排行', '每月排行'], 1.3),
+    ]) {
+      await _pumpBar(tester, labels, textScale: textScale);
+      expect(tester.takeException(), isNull);
+      for (final label in labels) {
+        final paragraph = _label(tester, label);
+        expect((paragraph.text as TextSpan).style!.fontSize, 14, reason: label);
+        // Shown whole: not squeezed into a slot and faded out.
+        expect(
+          paragraph.size.width,
+          moreOrLessEquals(paragraph.getMaxIntrinsicWidth(double.infinity)),
+          reason: label,
+        );
+      }
+      // The first label sits at the start edge, within its label padding,
+      // and a drag reaches the last one.
+      final bar = tester.getRect(find.byType(TabBar));
+      Rect tab(String label) => tester.getRect(
+        find.ancestor(of: find.text(label), matching: find.byType(Tab)),
+      );
+      expect(
+        tab(labels.first).left,
+        inInclusiveRange(bar.left, bar.left + FuncSpacing.md),
+      );
+      await tester.drag(find.byType(TabBar), const Offset(-1000, 0));
+      await tester.pumpAndSettle();
+      expect(tab(labels.last).right, lessThanOrEqualTo(bar.right));
+    }
   });
 
   testWidgets('a wide row keeps its tabs together at the start', (
@@ -85,20 +115,6 @@ void main() {
     expect(bar.width, 4 * AppTabBar.maxSlotWidth);
     expect(bar.left, row.left);
     expect(tester.widget<TabBar>(find.byType(TabBar)).isScrollable, isFalse);
-  });
-
-  testWidgets('labels stay 14sp and scroll instead of overflowing at 1.3x', (
-    tester,
-  ) async {
-    const labels = ['每日排行', '昨日排行', '每周排行', '每月排行'];
-    await _pumpBar(tester, labels, textScale: 1.3);
-
-    expect(tester.takeException(), isNull);
-    expect(tester.widget<TabBar>(find.byType(TabBar)).isScrollable, isTrue);
-    expect(
-      (_labelRichText(tester, '每日排行').text as TextSpan).style!.fontSize,
-      14,
-    );
   });
 
   testWidgets(

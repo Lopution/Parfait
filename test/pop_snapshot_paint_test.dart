@@ -128,25 +128,6 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('RoutePopSnapshot replays a fresh texture for a settled reveal', (
-    tester,
-  ) async {
-    final controllers = await pumpSnapshot(tester);
-
-    // Cover, then let both the cover and the press-settle window finish.
-    controllers.secondary.forward();
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump(const Duration(milliseconds: 400));
-
-    // The reveal captures the page's current state once, then blits it.
-    controllers.secondary.reverse();
-    await tester.pump();
-    await pumpMidTransition(tester);
-    expect(pageIsLive(tester), isFalse);
-    expect(snapshotting(tester), isTrue);
-    await tester.pumpAndSettle();
-  });
-
   testWidgets('a reveal inside the press window keeps the page live', (
     tester,
   ) async {

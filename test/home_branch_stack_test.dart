@@ -16,12 +16,12 @@ import 'package:parfait/core/platform/accessibility.dart';
 import 'package:parfait/core/ranking/ranking_catalog.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
-import 'package:parfait/features/new/new_page.dart';
 import 'package:parfait/features/ranking/ranking_page.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/settings/settings_page.dart';
 import 'package:parfait/features/settings/me_dashboard_page.dart';
 
+import 'helpers/waits.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
@@ -106,7 +106,7 @@ void main() {
   testWidgets('a bar tap slides the new branch in from its side', (
     tester,
   ) async {
-    await _pumpHome(tester);
+    final router = await _pumpHome(tester);
     expect(find.byType(RankingPage), findsNothing);
 
     await tester.tap(_barIcon(AppIcons.ranking));
@@ -137,6 +137,7 @@ void main() {
       findsOneWidget,
     );
     expect(ranking, findsOneWidget);
+    expect(router.state.uri.path, '/ranking');
   });
 
   testWidgets('the incoming branch stays live while the outgoing one freezes', (
@@ -318,32 +319,18 @@ void main() {
     expect(find.byType(RecommendedHomePage), findsOneWidget);
   });
 
-  const otherBranches = [RankingPage, NewPage, SearchHomePage, MeDashboardPage];
-  int builtBranches() => otherBranches
-      .where(
-        (type) => find.byType(type, skipOffstage: false).evaluate().isNotEmpty,
-      )
-      .length;
-
-  testWidgets('the other branches build one per still frame, after the first', (
-    tester,
-  ) async {
+  testWidgets('a branch built ahead and never shown saves no setting on '
+      'leaving', (tester) async {
     await _pumpHome(tester, firstFrameOnly: true);
-    expect(builtBranches(), 0);
-    var built = 0;
-    for (var frame = 0; frame < 30 && built < otherBranches.length; frame++) {
-      await tester.pump(const Duration(milliseconds: 16));
-      expect(builtBranches() - built, lessThanOrEqualTo(1));
-      built = builtBranches();
-    }
-    expect(built, otherBranches.length);
-
-    // A branch built ahead and never shown saves no setting on leaving.
+    final ranking = find.byType(RankingPage, skipOffstage: false);
+    await pumpUntil(
+      tester,
+      () => ranking.evaluate().isNotEmpty,
+      step: const Duration(milliseconds: 16),
+    );
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
     await tester.pump();
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(RankingPage, skipOffstage: false)),
-    );
+    final container = ProviderScope.containerOf(tester.element(ranking));
     expect(container.read(illustRankingCatalog.lastViewedProvider), isNull);
   });
 

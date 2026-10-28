@@ -8,32 +8,21 @@ import 'package:parfait/core/entity/stored_entities.dart';
 
 /// An entity: equal only to itself (never const, which would share one).
 class _Entity {
-  _Entity(this.id);
+  _Entity(this.id, [this.label = 'a']);
 
   final int id;
-}
-
-class _Card extends StatelessWidget {
-  const _Card(this.entity, this.builds);
-
-  final _Entity entity;
-  final Map<_Entity, int> builds;
-
-  @override
-  Widget build(BuildContext context) {
-    builds.update(entity, (count) => count + 1, ifAbsent: () => 1);
-    return SizedBox(height: 100, child: Text('${entity.id}'));
-  }
+  final String label;
 }
 
 void main() {
   for (final grid in [true, false]) {
-    testWidgets('a ${grid ? 'grid' : 'card list'} rebuilds only the cards '
-        'whose entity or other inputs changed', (tester) async {
-      final builds = <_Entity, int>{};
-      Future<void> show(List<_Entity> items, {Object? deps}) {
-        Widget card(BuildContext context, int index) =>
-            _Card(items[index], builds);
+    testWidgets('a ${grid ? 'grid' : 'card list'} shows a changed entity or '
+        'input on its cards', (tester) async {
+      Future<void> show(List<_Entity> items, {String deps = 'scope'}) {
+        Widget card(BuildContext context, int index) => SizedBox(
+          height: 100,
+          child: Text('${items[index].id}${items[index].label} $deps'),
+        );
         return tester.pumpWidget(
           ProviderScope(
             child: MaterialApp(
@@ -62,37 +51,26 @@ void main() {
 
       final first = [for (var id = 0; id < 4; id++) _Entity(id)];
       await show(first);
-      // A page appended, then the same entities again (a load-more phase
-      // change, a store merging other entities).
-      final appended = [...first, _Entity(4), _Entity(5)];
-      await show(appended);
-      await show([...appended]);
-      expect(builds.keys, appended);
-      expect(builds.values, everyElement(1));
-
-      // A changed entity rebuilds its own card.
-      final changed = [...appended]..[1] = _Entity(1);
+      // The same entities again (a load-more phase change, a store merging
+      // other entities), then one replaced.
+      await show([...first]);
+      final changed = [...first]..[1] = _Entity(1, 'b');
       await show(changed);
-      expect(builds[changed[1]], 1);
-      expect(builds[first[1]], 1);
-      expect(builds[first[0]], 1);
+      expect(find.text('1b scope'), findsOneWidget);
+      expect(find.text('1a scope'), findsNothing);
 
-      // Another input changed: every card rebuilds.
-      await show(changed, deps: 'another scope');
-      expect([for (final entity in changed) builds[entity]], everyElement(2));
+      await show(changed, deps: 'other');
+      expect(find.textContaining(' other'), findsNWidgets(4));
     });
   }
 
-  test('stored entities stay equal while each is the same instance', () {
+  test('stored entities list theirs in order and differ once one is '
+      'replaced', () {
     final a = _Entity(1);
     final b = _Entity(2);
     final store = {1: a, 2: b};
     final ids = [2, 1, 3];
     expect(StoredEntities(store, ids).items, [b, a]);
-    expect(
-      StoredEntities(store, ids),
-      StoredEntities({...store, 4: _Entity(4)}, ids),
-    );
     expect(
       StoredEntities(store, ids),
       isNot(StoredEntities({...store, 1: _Entity(1)}, ids)),

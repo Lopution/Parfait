@@ -29,7 +29,7 @@ reviewed: 2026-10-17
   tags, captions, comments) may ellipsize.
 - **Why:** Every screen ships in zh, en, ja and ru down to 320dp at large
   text; Russian and English labels run up to twice as wide as Chinese.
-- **Check:** `test/locale_layout/harness_test.dart` "catches UI text ellipsized at maxLines" "catches a FittedBox shrinking UI text below 0.8" "lets a FitLabel ellipsize in the compact profile only"
+- **Check:** `test/locale_layout/harness_test.dart` "catches UI text cut, squeezed, overflowing or shrunk" "lets a FitLabel ellipsize in the compact profile only"
 - **Code:** `lib/app/widgets/fit_label.dart`
 
 ### LAYOUT-02 Fix a failing layout in a fixed order

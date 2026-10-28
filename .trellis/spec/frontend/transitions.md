@@ -122,7 +122,7 @@ reviewed: 2026-10-25
   the same worker entry as the card.
 - **Why:** Awaiting preload delayed every tap; a different first URL made
   the Hero start from a placeholder.
-- **Check:** `test/hero_transition_test.dart` "feed → detail → viewer keeps one hero tag family"
+- **Check:** `test/hero_transition_test.dart` "a top-square card flies its square alone; the work fades in once decoded"; `test/pixiv_image_pipelines_test.dart` "a preload lands on the entry of the widget that will show"
 - **Code:** `lib/app/widgets/feed/illust_card.dart`
 
 ### TRANS-09 Shared-element pages cover a still page, then show
@@ -278,7 +278,7 @@ reviewed: 2026-10-25
   known in that frame (a cached payload) was built into the flight: the
   image changed file mid-flight, and an ultra-long work's narrow `large`
   replaced the card's sharp square (10-25).
-- **Check:** `test/hero_transition_test.dart` "a top-square card flies its square alone; the work fades in once decoded"; `test/func_page_test.dart` "a page reading its route animation is not rebuilt as its route is covered, uncovered or popped"
+- **Check:** `test/hero_transition_test.dart` "a top-square card flies its square alone; the work fades in once decoded"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/app/navigation/route_animation.dart`, `lib/features/illust/detail/widgets/page_image.dart`
 
 ### TRANS-23 A tall card's square thumbnail flies alone; an author's cover does not fly
@@ -329,7 +329,7 @@ reviewed: 2026-10-25
   that appear mid-drag go after the slider in its `Stack`.
 - **Why:** A thumb drifting vertically lost the arena to the dismiss drag;
   an overlay inserted before the slider rebuilt it and killed the drag.
-- **Check:** `test/hero_transition_test.dart` "drag-to-dismiss returns to origin when canceled"
+- **Check:** `test/illust_detail_viewer_test.dart` "scrubbing jumps to the target page without building crossed pages"
 - **Code:** `lib/app/motion/drag_to_dismiss.dart`
 
 ## Image hand-off

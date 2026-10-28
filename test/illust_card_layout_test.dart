@@ -140,35 +140,24 @@ void main() {
     const path = _ownSquare;
     const squareMedium = 'https://i.pximg.net/c/360x360_70/$path';
 
-    test('a card up to 540 px takes the 540 resize', () {
-      expect(
-        squarePreviewUrl(squareMedium, 540),
-        'https://i.pximg.net/c/540x540_70/$path',
-      );
-      expect(
-        squarePreviewUrl(squareMedium, 320),
-        'https://i.pximg.net/c/540x540_70/$path',
-      );
-    });
-
-    test('a wider card takes the unresized square1200', () {
-      expect(squarePreviewUrl(squareMedium, 541), 'https://i.pximg.net/$path');
-    });
-
-    test('a mirror host is kept', () {
-      expect(
-        squarePreviewUrl('https://i.pixiv.re/c/360x360_70/$path', 500),
-        'https://i.pixiv.re/c/540x540_70/$path',
-      );
-    });
-
-    test('an unrecognised shape stays square_medium', () {
-      for (final url in [
-        'https://i.pximg.net/1/square.jpg',
-        'https://i.pximg.net/c/360x360_70/custom-thumb/x.jpg',
-        'not a url %',
-      ]) {
-        expect(squarePreviewUrl(url, 500), url);
+    test('a card takes the 540 resize up to 540 px, square1200 past it, on '
+        'its own host; other shapes stay square_medium', () {
+      final expected = {
+        (squareMedium, 540): 'https://i.pximg.net/c/540x540_70/$path',
+        (squareMedium, 320): 'https://i.pximg.net/c/540x540_70/$path',
+        (squareMedium, 541): 'https://i.pximg.net/$path',
+        ('https://i.pixiv.re/c/360x360_70/$path', 500):
+            'https://i.pixiv.re/c/540x540_70/$path',
+        for (final url in [
+          'https://i.pximg.net/1/square.jpg',
+          'https://i.pximg.net/c/360x360_70/custom-thumb/x.jpg',
+          'not a url %',
+        ])
+          (url, 500): url,
+      };
+      for (final MapEntry(key: (url, width), value: preview)
+          in expected.entries) {
+        expect(squarePreviewUrl(url, width), preview, reason: '$url at $width');
       }
     });
 

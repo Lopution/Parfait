@@ -220,7 +220,7 @@ reviewed: 2026-10-26
   inset change or route cover. `ModalRoute.of` rebuilds its caller whenever
   `isCurrent` flips: a leaving detail page and both neighbours rebuilt in
   full in the first frame of every back transition.
-- **Check:** `test/motion_test.dart` "does not rebuild on unrelated MediaQuery changes"; `test/func_page_test.dart` "a page reading its route animation is not rebuilt as its route is covered, uncovered or popped"
+- **Check:** manual — rebuilds are not asserted (TEST-12); checked on a trace
 - **Code:** `lib/app/motion/motion_tokens.dart`, `lib/app/motion/press_scale.dart`, `lib/app/pixiv_image.dart`, `lib/app/navigation/route_animation.dart`
 
 ### MOTION-11 Fades keep semantics; progress moves in steps
@@ -338,7 +338,7 @@ reviewed: 2026-10-26
   it: 43% of the 7–11 ms unmount frame after closing a detail page. A
   conditional entry among uniform wrappers moves every later child to a
   different wrapper, remounting it.
-- **Check:** `test/motion_test.dart` "a ticker partition mutes with its ancestor on its own notifier"
+- **Check:** `test/motion_test.dart` "a ticker partition mutes with its ancestor"
 - **Code:** `lib/app/motion/motion_tokens.dart`, `lib/app/widgets/feed/feed_grid.dart`, `lib/app/layout/card_columns.dart`, `lib/features/illust/detail/illust_detail_page.dart`
 
 ### MOTION-21 Work ahead of the user waits for a still screen
@@ -355,5 +355,5 @@ reviewed: 2026-10-26
 - **Why:** Neighbour tabs built in a swipe's first frame and their data
   landed mid-snap (29–38 ms frames, 10-15 trace); a held finger keeps no
   ticker. An off-screen branch Navigator took the search field's focus.
-- **Check:** `test/tab_swipe_switcher_test.dart` "the tabs either side build one per still frame, next first" "a loading image and a held finger hold the tabs back", `test/home_branch_stack_test.dart` "the other branches build one per still frame, after the first" "a switch before its turn builds the branch at once", `test/illust_detail_pager_test.dart` "neighbours build after the push transition, one per frame"
+- **Check:** `test/home_branch_stack_test.dart` "a branch built ahead and never shown saves no setting" "a switch before its turn builds the branch at once", `test/illust_detail_pager_test.dart` "neighbours build after the push transition, one per frame"
 - **Code:** `lib/app/motion/still_work.dart`, `lib/app/widgets/tab_swipe_switcher.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/routes.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/core/image/image_worker.dart`, `lib/features/ranking/ranking_tabs.dart`

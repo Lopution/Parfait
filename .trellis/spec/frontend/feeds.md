@@ -150,7 +150,7 @@ reviewed: 2026-10-19
   layout also fills SkParagraph's shared 128-entry cache (key: text, locale,
   font style), which spares the frame the shaping only if the line matches
   exactly and is not evicted before its card is built.
-- **Check:** `test/feed_text_warmup_test.dart`, `test/illust_detail_pager_test.dart` "a neighbour joins once its text is laid out as its page"
+- **Check:** `test/illust_detail_pager_test.dart` "a neighbour joins once its text is laid out as its page"
 - **Code:** `lib/app/widgets/feed/feed_text_warmup.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/features/illust/detail/widgets/info_block.dart`, `lib/app/widgets/tag_chips.dart`, `lib/app/widgets/novel_entry.dart`, `lib/app/widgets/author_summary.dart`, `lib/app/layout/card_columns.dart`, `lib/app/format/content_locale.dart`
 
 ### FEED-18 A list builds its cache area from its second frame
