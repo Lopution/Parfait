@@ -223,21 +223,37 @@ void main() {
     expect(world.fixture.requests.last.queryParameters['offset'], '77');
   });
 
-  test('snapshots from another account are not restored', () async {
-    final world = await _makeWorld();
-    addTearDown(world.dispose);
-    await world.snapshots.write(
-      'other-account',
-      feedKey,
-      ids: const [10],
-      entities: {
-        'novel': {'10': _novelSnapshotJson(10)},
-      },
-    );
+  test('a snapshot of another account or without the feed entity payload '
+      'is not restored', () async {
+    for (final (owner, entities) in [
+      (
+        'other-account',
+        {
+          'novel': {'10': _novelSnapshotJson(10)},
+        },
+      ),
+      (
+        '100',
+        {
+          'illust': {
+            '10': {'id': 10},
+          },
+        },
+      ),
+    ]) {
+      final world = await _makeWorld();
+      addTearDown(world.dispose);
+      await world.snapshots.write(
+        owner,
+        feedKey,
+        ids: const [10],
+        entities: entities,
+      );
 
-    final state = await world.container.read(provider.future);
-    expect(state.ids, [1, 2]);
-    expect(world.container.read(novelStoreProvider)[10], isNull);
+      final state = await world.container.read(provider.future);
+      expect(state.ids, [1, 2], reason: owner);
+      expect(world.container.read(novelStoreProvider)[10], isNull);
+    }
   });
 
   test('a snapshot read landing after a switch restores nothing', () async {
@@ -262,24 +278,6 @@ void main() {
     expect(world.container.read(novelStoreProvider)[10], isNull);
     expect(world.container.read(provider).value!.ids, [1, 2]);
     expect(world.fixture.requests, hasLength(1), reason: 'B\'s load only');
-  });
-
-  test('a snapshot without the feed entity payload is ignored', () async {
-    final world = await _makeWorld();
-    addTearDown(world.dispose);
-    await world.snapshots.write(
-      '100',
-      feedKey,
-      ids: const [10],
-      entities: {
-        'illust': {
-          '10': {'id': 10},
-        },
-      },
-    );
-
-    final state = await world.container.read(provider.future);
-    expect(state.ids, [1, 2]);
   });
 
   test('IllustSnapshotCodec round-trips through the shared store', () async {
