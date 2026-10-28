@@ -58,22 +58,35 @@ void main() {
     if (tempDirectory.existsSync()) tempDirectory.deleteSync(recursive: true);
   });
 
-  test('validates a real PNG header and bounded dimensions', () async {
-    final file = File('${tempDirectory.path}/image.bin')
-      ..writeAsBytesSync(pngHeader(320, 240));
+  test('reads the format and size; EXIF cannot push a JPEG frame out of '
+      'reach', () async {
+    final jpeg = img.encodeJpg(img.Image(width: 30, height: 20));
+    // A maximal APP1 segment, twice: the frame header lands past 128 KiB.
+    final app1 = [0xff, 0xe1, 0xff, 0xff, ...List.filled(0xfffd, 0)];
+    for (final (bytes, mime, format, width, height) in [
+      (pngHeader(320, 240), 'image/png', ReverseImageFormat.png, 320, 240),
+      (
+        [0xff, 0xd8, ...app1, ...app1, ...jpeg.skip(2)],
+        'image/jpeg',
+        ReverseImageFormat.jpeg,
+        30,
+        20,
+      ),
+    ]) {
+      final file = File('${tempDirectory.path}/image.bin')
+        ..writeAsBytesSync(bytes);
+      final input = await OwnedReverseImageInput.open(
+        path: file.path,
+        source: ReverseImageInputSource.picker,
+        mimeType: mime,
+        delete: (_) async {},
+      );
 
-    final input = await OwnedReverseImageInput.open(
-      path: file.path,
-      source: ReverseImageInputSource.picker,
-      mimeType: 'image/png',
-      delete: (_) async {},
-    );
-
-    expect(input.info.format, ReverseImageFormat.png);
-    expect(input.info.width, 320);
-    expect(input.info.height, 240);
-    expect(input.info.sizeBytes, file.lengthSync());
-    await input.dispose();
+      final info = input.info;
+      expect((info.format, info.width, info.height), (format, width, height));
+      expect(info.sizeBytes, file.lengthSync());
+      await input.dispose();
+    }
   });
 
   test('rejects a MIME declaration that does not match the file bytes', () {

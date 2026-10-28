@@ -18,6 +18,10 @@ enum ReverseImageFormat { png, jpeg, gif, webp }
 abstract final class ReverseImageInputLimits {
   static const maxEncodedBytes = 32 * 1024 * 1024;
   static const maxHeaderBytes = 64 * 1024;
+
+  /// JPEG segments walked looking for the frame header; real files reach
+  /// it within a few dozen.
+  static const maxJpegSegments = 512;
   static const maxDimension = 12288;
   static const maxDecodedPixels = 64 * 1024 * 1024;
 }
@@ -197,7 +201,9 @@ abstract final class ReverseImageInputValidator {
     }
 
     final header = await _readHeader(file);
-    final parsed = _ImageHeaderParser.parse(header);
+    final parsed = _ImageHeaderParser.isJpeg(header)
+        ? await _readJpegHeader(file)
+        : _ImageHeaderParser.parse(header);
     if (!_mimeMatches(normalizedMime, parsed.format)) {
       throw const ReverseImageInputException(
         ReverseImageInputFailureCode.mimeMismatch,
@@ -262,6 +268,36 @@ abstract final class ReverseImageInputValidator {
     }
     return builder.takeBytes();
   }
+
+  /// The JPEG frame header, found by walking the file's segments: each
+  /// marker and length is read and the body skipped, so EXIF, XMP or ICC
+  /// data of any size cannot push the frame out of reach.
+  static Future<_ImageHeader> _readJpegHeader(File file) async {
+    RandomAccessFile? input;
+    try {
+      input = await file.open();
+      var offset = 2;
+      for (var i = 0; i < ReverseImageInputLimits.maxJpegSegments; i++) {
+        await input.setPosition(offset);
+        final segment = await input.read(_ImageHeaderParser.jpegSegmentHead);
+        final (next, header) = _ImageHeaderParser.jpegSegment(segment, offset);
+        if (header != null) return header;
+        if (next == null) break;
+        offset = next;
+      }
+    } on FileSystemException {
+      throw const ReverseImageInputException(
+        ReverseImageInputFailureCode.unreadable,
+        'selected image could not be read',
+      );
+    } finally {
+      await input?.close();
+    }
+    throw const ReverseImageInputException(
+      ReverseImageInputFailureCode.malformedFormat,
+      'JPEG dimensions are missing',
+    );
+  }
 }
 
 class _ImageHeader {
@@ -286,7 +322,6 @@ abstract final class _ImageHeaderParser {
     ])) {
       return _parsePng(bytes);
     }
-    if (_hasPrefix(bytes, const [0xff, 0xd8])) return _parseJpeg(bytes);
     if (_asciiAt(bytes, 0, 'GIF87a') || _asciiAt(bytes, 0, 'GIF89a')) {
       return _parseGif(bytes);
     }
@@ -337,53 +372,56 @@ abstract final class _ImageHeaderParser {
     return _ImageHeader(ReverseImageFormat.gif, width, height);
   }
 
-  static _ImageHeader _parseJpeg(Uint8List bytes) {
-    var offset = 2;
-    const frameMarkers = <int>{
-      0xc0,
-      0xc1,
-      0xc2,
-      0xc3,
-      0xc5,
-      0xc6,
-      0xc7,
-      0xc9,
-      0xca,
-      0xcb,
-      0xcd,
-      0xce,
-      0xcf,
-    };
-    while (offset + 3 < bytes.length) {
-      if (bytes[offset] != 0xff) {
-        throw const ReverseImageInputException(
-          ReverseImageInputFailureCode.malformedFormat,
-          'JPEG marker is malformed',
-        );
-      }
-      while (offset < bytes.length && bytes[offset] == 0xff) {
-        offset++;
-      }
-      if (offset >= bytes.length) break;
-      final marker = bytes[offset++];
-      if (marker == 0xd9 || marker == 0xda) break;
-      if (marker == 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
-      if (offset + 2 > bytes.length) break;
-      final length = _be16(bytes, offset);
-      if (length < 2 || offset + length > bytes.length) break;
-      if (frameMarkers.contains(marker)) {
-        if (length < 7) break;
-        final height = _be16(bytes, offset + 3);
-        final width = _be16(bytes, offset + 5);
-        if (width <= 0 || height <= 0) break;
-        return _ImageHeader(ReverseImageFormat.jpeg, width, height);
-      }
-      offset += length;
+  static bool isJpeg(Uint8List bytes) => _hasPrefix(bytes, const [0xff, 0xd8]);
+
+  /// Bytes read at each JPEG segment: marker, length and, for a frame
+  /// header, precision, height and width.
+  static const jpegSegmentHead = 9;
+
+  static const _jpegFrameMarkers = <int>{
+    0xc0,
+    0xc1,
+    0xc2,
+    0xc3,
+    0xc5,
+    0xc6,
+    0xc7,
+    0xc9,
+    0xca,
+    0xcb,
+    0xcd,
+    0xce,
+    0xcf,
+  };
+
+  /// One step of the JPEG walk over [head], the [jpegSegmentHead] bytes at
+  /// [offset]: the frame's size once found, else the next segment's
+  /// offset, or neither when the walk ends without one.
+  static (int?, _ImageHeader?) jpegSegment(Uint8List head, int offset) {
+    if (head.length < 2) return (null, null);
+    if (head[0] != 0xff) {
+      throw const ReverseImageInputException(
+        ReverseImageInputFailureCode.malformedFormat,
+        'JPEG marker is malformed',
+      );
     }
-    throw const ReverseImageInputException(
-      ReverseImageInputFailureCode.malformedFormat,
-      'JPEG dimensions are missing',
-    );
+    final marker = head[1];
+    // A fill byte, then markers without a length.
+    if (marker == 0xff) return (offset + 1, null);
+    if (marker == 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      return (offset + 2, null);
+    }
+    if (marker == 0xd9 || marker == 0xda || head.length < 4) {
+      return (null, null);
+    }
+    final length = _be16(head, 2);
+    if (length < 2) return (null, null);
+    if (!_jpegFrameMarkers.contains(marker)) return (offset + 2 + length, null);
+    if (length < 7 || head.length < jpegSegmentHead) return (null, null);
+    final height = _be16(head, 5);
+    final width = _be16(head, 7);
+    if (width <= 0 || height <= 0) return (null, null);
+    return (null, _ImageHeader(ReverseImageFormat.jpeg, width, height));
   }
 
   static _ImageHeader _parseWebp(Uint8List bytes) {

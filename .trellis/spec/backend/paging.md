@@ -50,10 +50,14 @@ reviewed: 2026-10-12
 ### PAGING-04 Cursors pass an allowlist before they are stored
 - **Rule:** A non-empty `next_url` passes the feed's `validateCursor`
   allowlist (endpoint, origin, thread) before it is stored. A rejected or
-  repeated cursor is an `ApiParseError` and is never requested.
+  repeated cursor is an `ApiParseError` and is never requested. Search
+  pins every request key, except a duration search's `start_date` and
+  `end_date`: the cursor keeps the range the search began with, and each
+  page's next_url must carry the dates of the request it answers.
 - **Why:** A cursor pointing off the API origin would have sent the token
-  elsewhere; a repeated cursor looped forever.
-- **Check:** `test/illust_store_test.dart` "a cursor may not move the client off the Pixiv API origin", `test/feed_generation_commit_test.dart` "duplicate next cursor fails before entity commit or cursor advance"
+  elsewhere; a repeated cursor looped forever. A duration search left open
+  past local midnight refused every next page.
+- **Check:** `test/illust_store_test.dart` "a cursor may not move the client off the Pixiv API origin", `test/feed_generation_commit_test.dart` "duplicate next cursor fails before entity commit or cursor advance", `test/search_catalog_test.dart` "search cursors accept the new filter parameters"
 - **Code:** `lib/core/network/next_page_parser.dart`
 
 ### PAGING-10 Local filters cover every discovery list, novels alike

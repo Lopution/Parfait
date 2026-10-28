@@ -9,13 +9,16 @@ import 'errors/error_details.dart';
 import 'expandable_text.dart';
 import '../../core/entity/illust_caption.dart';
 import '../../core/platform/android_intent_channel.dart';
+import '../../core/platform/intent_router.dart';
 import '../../l10n/context.dart';
 
 /// Renders a parsed HTML caption with clickable links (U6).
 ///
-/// pixiv-internal links (www.pixiv.net users/artworks) navigate inside the
-/// app with the same right-in rhythm as feed cards; anything else opens via
-/// the outbound Android intent.
+/// Links resolve as deep links do ([IntentRouter.route]): a user or work,
+/// on www.pixiv.net or as `pixiv://`, opens inside the app with the same
+/// right-in rhythm as feed cards; any other app link (`pixiv://account`
+/// included) does nothing; anything else opens via the outbound Android
+/// intent.
 class CaptionRichText extends ConsumerStatefulWidget {
   const CaptionRichText({super.key, required this.caption, this.maxLines});
 
@@ -42,11 +45,45 @@ class _CaptionRichTextState extends ConsumerState<CaptionRichText> {
     super.dispose();
   }
 
-  void _openLink(String href, ({String kind, String id})? target) {
-    if (target != null) {
-      _openPixivRoute(context, target);
-      return;
+  void _openLink(String href) {
+    final uri = Uri.tryParse(href);
+    switch (uri == null ? null : _route(uri)) {
+      case UserRoute(:final userId):
+        // The facade pushes its own route with the right-in rhythm.
+        openUser(context, userId);
+      case IllustRoute(:final illustId):
+        openIllust(context, illustId);
+      case _ when uri?.scheme == 'pixiv' || uri?.scheme == 'parfait':
+        // No page here for it; Android would only hand it back.
+        break;
+      case _:
+        _openExternal(href);
     }
+  }
+
+  /// The deep-link allowlist refuses anything after a work or user id
+  /// (`/artworks/1?p=2`, `/users/7/illustrations`). A caption link to such
+  /// a page opened in the app before, so its kind and id alone are routed
+  /// too, after an optional language segment.
+  static DeepLinkRoute _route(Uri uri) {
+    final route = IntentRouter.route(uri);
+    if (route is! UnknownRoute ||
+        !const {'http', 'https'}.contains(uri.scheme)) {
+      return route;
+    }
+    // Raw segments: the router decodes them and refuses what is not UTF-8.
+    final segments = uri.path.split('/').where((s) => s.isNotEmpty);
+    final kept = segments.firstOrNull?.length == 2 ? 3 : 2;
+    return IntentRouter.route(
+      Uri(
+        scheme: uri.scheme,
+        host: uri.host,
+        path: '/${segments.take(kept).join('/')}',
+      ),
+    );
+  }
+
+  void _openExternal(String href) {
     final opener = ref.read(outboundUrlOpenerProvider);
     unawaited(
       opener.openExternal(href).catchError((Object error) {
@@ -86,9 +123,7 @@ class _CaptionRichTextState extends ConsumerState<CaptionRichText> {
         case CaptionLink(:final href, :final text):
           final recognizer = _recognizers.putIfAbsent(
             href,
-            () =>
-                TapGestureRecognizer()
-                  ..onTap = () => _openLink(href, _resolvePixivRoute(href)),
+            () => TapGestureRecognizer()..onTap = () => _openLink(href),
           );
           spans.add(
             TextSpan(
@@ -104,46 +139,5 @@ class _CaptionRichTextState extends ConsumerState<CaptionRichText> {
     final maxLines = widget.maxLines;
     if (maxLines == null) return Text.rich(text, style: bodyStyle);
     return ExpandableText(text, maxLines: maxLines, style: bodyStyle);
-  }
-}
-
-/// Resolves a pixiv web URL to an internal route, or null for external.
-({String kind, String id})? _resolvePixivRoute(String href) {
-  final uri = Uri.tryParse(href);
-  if (uri == null) return null;
-  final host = uri.host.toLowerCase();
-  if (host != 'www.pixiv.net' && host != 'pixiv.net') return null;
-  final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
-  if (segments.isEmpty) return null;
-  // Strip a leading language segment (en/, ja/, ...).
-  final start =
-      segments.length >= 2 &&
-          segments[0].length == 2 &&
-          !RegExp(r'^\d+$').hasMatch(segments[0])
-      ? 1
-      : 0;
-  if (segments.length <= start) return null;
-  return switch (segments[start]) {
-    'users' when segments.length > start + 1 => (
-      kind: 'user',
-      id: segments[start + 1],
-    ),
-    'artworks' || 'illusts' when segments.length > start + 1 => (
-      kind: 'illust',
-      id: segments[start + 1],
-    ),
-    _ => null,
-  };
-}
-
-void _openPixivRoute(BuildContext context, ({String kind, String id}) target) {
-  final id = int.tryParse(target.id);
-  if (id == null || id <= 0) return;
-  switch (target.kind) {
-    case 'user':
-      // The facade pushes its own route with the right-in rhythm.
-      openUser(context, id);
-    case 'illust':
-      openIllust(context, id);
   }
 }

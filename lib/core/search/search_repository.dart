@@ -109,11 +109,13 @@ class _PixivSearchRepository implements SearchRepository {
     CancelToken? cancelToken,
   }) async {
     final request = _pageRequest(query, cursor: cursor);
-    return _client.getParsed(
+    final page = await _client.getParsed(
       _target(request),
       _parseIllustPage,
       cancelToken: cancelToken,
     );
+    _requireSameDates(request, page.nextUrl);
+    return page;
   }
 
   @override
@@ -123,11 +125,13 @@ class _PixivSearchRepository implements SearchRepository {
     CancelToken? cancelToken,
   }) async {
     final request = _pageRequest(query, cursor: cursor);
-    return _client.getParsed(
+    final page = await _client.getParsed(
       _target(request),
       _parseNovelPage,
       cancelToken: cancelToken,
     );
+    _requireSameDates(request, page.nextUrl);
+    return page;
   }
 
   @override
@@ -262,10 +266,10 @@ class _PixivSearchRepository implements SearchRepository {
           // carries the rest of the paging state.
           requiredQuery: {'word': query.keyword.trim()},
         ),
-      IllustSearchQuery() => (
+      IllustSearchQuery(:final filters) => (
         path: '/v1/search/illust',
         requestQuery: query.toQuery(),
-        requiredQuery: query.toQuery(),
+        requiredQuery: _pinned(query.toQuery(), filters),
       ),
       NovelSearchQuery(:final filters)
           when filters.sort.isPopular && !isPremium =>
@@ -274,10 +278,10 @@ class _PixivSearchRepository implements SearchRepository {
           requestQuery: filters.toPreviewQuery(word: query.keyword),
           requiredQuery: {'word': query.keyword.trim()},
         ),
-      NovelSearchQuery() => (
+      NovelSearchQuery(:final filters) => (
         path: '/v1/search/novel',
         requestQuery: query.toQuery(),
-        requiredQuery: query.toQuery(),
+        requiredQuery: _pinned(query.toQuery(), filters),
       ),
       UserSearchQuery() => (
         path: '/v1/search/user',
@@ -285,6 +289,44 @@ class _PixivSearchRepository implements SearchRepository {
         requiredQuery: query.toQuery(),
       ),
     };
+  }
+
+  /// What a next_url must echo: the whole request, except a duration
+  /// search's dates. Those are today's range when the search began; the
+  /// cursor keeps it, and past local midnight a fresh one would refuse
+  /// every page. [_requireSameDates] holds the cursor to it instead.
+  static Map<String, String> _pinned(
+    Map<String, String> query,
+    SearchFilters filters,
+  ) => filters.duration == null
+      ? query
+      : (Map.of(query)
+          ..remove('start_date')
+          ..remove('end_date'));
+
+  /// A next_url carries the dates of the request it answers. The first
+  /// page sends the range the search began with and each later page sends
+  /// its cursor's, so the whole chain keeps that range.
+  /// The preview endpoints' next_url need not echo the filters ([_spec]).
+  static void _requireSameDates(NextPageRequest request, String? nextUrl) {
+    if (request.uri.path.contains('popular-preview') ||
+        !request.query.containsKey('start_date')) {
+      return;
+    }
+    final NextPageRequest? next;
+    try {
+      next = NextPageParser.parse(nextUrl);
+    } on NextPageParseError {
+      return; // The feed's cursor allowlist refuses it.
+    }
+    if (next == null) return;
+    for (final key in const ['start_date', 'end_date']) {
+      if (next.query[key] != request.query[key]) {
+        throw ApiParseError(
+          NextPageParseError('next_url $key differs from the search range'),
+        );
+      }
+    }
   }
 
   static SearchIllustPage _parseIllustPage(Map<String, dynamic> json) {

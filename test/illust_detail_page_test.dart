@@ -16,6 +16,8 @@ import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
+import 'package:parfait/app/widgets/caption_rich_text.dart';
+import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_section_header.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_detail_skeleton.dart';
@@ -34,6 +36,13 @@ import 'helpers/prompt_host.dart';
 
 import 'helpers/illust_detail_page_support.dart';
 import 'helpers/localized_app.dart';
+
+class _RecordingOpener implements OutboundUrlOpener {
+  final urls = <String>[];
+
+  @override
+  Future<void> openExternal(String url) async => urls.add(url);
+}
 
 void main() {
   installMemoryPreferences();
@@ -190,47 +199,60 @@ void main() {
       },
     );
 
-    testWidgets(
-      'U6: caption renders as rich clickable text, not literal HTML',
-      (tester) async {
-        final (container, _, _) = await makeWorld(
-          detailOverrides: {
-            42: illustJson(
-              42,
-              caption:
-                  'line1<br>line2 — <a '
-                  'href="https://www.pixiv.net/users/7">author</a> '
-                  '&amp; more',
-            ),
-          },
-        );
-        await pumpDetail(tester, container, useRouter: true);
-        await mockNetworkImagesFor(() async {
-          await tester.scrollUntilVisible(
-            find.textContaining('line1'),
-            300,
-            scrollable: find.byType(Scrollable).first,
+    for (final (href, opens) in [
+      ('pixiv://users/7', true),
+      // Pixiv web links open in the app whatever follows the id.
+      ('https://www.pixiv.net/en/users/7/illustrations?p=1', true),
+      // An id that is not UTF-8 goes outside, and the tap never throws.
+      ('https://www.pixiv.net/users/%FF/illustrations', false),
+    ]) {
+      testWidgets(
+        'U6: caption renders as rich clickable text, not literal HTML ($href)',
+        (tester) async {
+          final seen = _RecordingOpener();
+          final (container, _, _) = await makeWorld(
+            detailOverrides: {
+              42: illustJson(
+                42,
+                caption:
+                    'line1<br>line2 — <a '
+                    'href="$href">author</a> '
+                    '&amp; more',
+              ),
+            },
+            extraOverrides: [outboundUrlOpenerProvider.overrideWithValue(seen)],
           );
-          await tester.pump();
-        });
+          await pumpDetail(tester, container, useRouter: true);
+          await mockNetworkImagesFor(() async {
+            await tester.scrollUntilVisible(
+              find.textContaining('line1'),
+              300,
+              scrollable: find.byType(Scrollable).first,
+            );
+            await tester.pump();
+          });
 
-        // The key assertions: no literal `<br />` text, the caption text
-        // renders decoded, and tapping an in-app pixiv link pushes a route.
-        // ('author' also names the author block, hence .last.)
-        expect(find.textContaining('<br>'), findsNothing);
-        expect(find.textContaining('line1'), findsOneWidget);
-        expect(find.text('author'), findsWidgets);
-        expect(find.text('简介'), findsNothing);
+          // The key assertions: no literal `<br />` text, the caption text
+          // renders decoded, and tapping a pixiv link pushes a route.
+          expect(find.textContaining('<br>'), findsNothing);
+          expect(find.textContaining('line1'), findsOneWidget);
+          expect(find.text('简介'), findsNothing);
 
-        await tester.tap(find.text('author').last);
-        await tester.pumpAndSettle();
-        expect(
-          find.byType(Scaffold).evaluate().length,
-          greaterThanOrEqualTo(2),
-          reason: 'in-app pixiv link pushes a detail page route',
-        );
-      },
-    );
+          await tester.tapOnText(
+            find.textRange.ofSubstring(
+              'author',
+              descendentOf: find.byType(CaptionRichText),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            find.byWidgetPredicate((w) => w is UserPage && w.userId == 7),
+            opens ? findsOneWidget : findsNothing,
+          );
+          expect(seen.urls, opens ? isEmpty : [href]);
+        },
+      );
+    }
   });
 
   group('IllustDetailPage author block & i18n (U9 / C20)', () {
