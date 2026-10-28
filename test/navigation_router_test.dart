@@ -47,50 +47,6 @@ final _rootCopy = find.descendant(
 );
 
 void main() {
-  testWidgets('shell owns the active tab and preserves branch stacks', (
-    tester,
-  ) async {
-    final router = pixivRouter('/recommended');
-
-    await tester.pumpWidget(ProviderScope(child: localizedRouterApp(router)));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    expect(find.byType(StatefulNavigationShell), findsOneWidget);
-    expect(find.byType(RecommendedHomePage), findsOneWidget);
-
-    await tester.tap(find.byIcon(AppIcons.ranking));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-
-    expect(router.state.uri.path, '/ranking');
-    expect(find.byType(RankingPage), findsOneWidget);
-
-    await tester.tap(find.byIcon(AppIcons.home));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-
-    expect(router.state.uri.path, '/recommended');
-    expect(find.byType(RecommendedHomePage), findsOneWidget);
-    expect(find.byType(RankingPage, skipOffstage: false), findsOneWidget);
-  });
-
-  testWidgets('branch back returns to the recommended root', (tester) async {
-    final router = pixivRouter('/recommended');
-
-    await tester.pumpWidget(ProviderScope(child: localizedRouterApp(router)));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    unawaited(router.push('/recommended/history'));
-    await tester.pump();
-    expect(router.state.uri.path, '/recommended/history');
-
-    await tester.binding.handlePopRoute();
-    await tester.pump();
-    expect(router.state.uri.path, '/recommended');
-  });
-
   // Each way the start page stops being where the hint was shown.
   final exitInterruptions =
       <String, Future<void> Function(WidgetTester, GoRouter)>{

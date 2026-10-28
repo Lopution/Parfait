@@ -106,7 +106,7 @@ void main() {
   testWidgets('a bar tap slides the new branch in from its side', (
     tester,
   ) async {
-    await _pumpHome(tester);
+    final router = await _pumpHome(tester);
     expect(find.byType(RankingPage), findsNothing);
 
     await tester.tap(_barIcon(AppIcons.ranking));
@@ -137,6 +137,7 @@ void main() {
       findsOneWidget,
     );
     expect(ranking, findsOneWidget);
+    expect(router.state.uri.path, '/ranking');
   });
 
   testWidgets('the incoming branch stays live while the outgoing one freezes', (

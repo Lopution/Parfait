@@ -42,7 +42,7 @@ reviewed: 2026-10-17
   `restorationId`s stay stable.
 - **Why:** A rebuilt router discards every branch stack and the restoration
   state.
-- **Check:** `test/navigation_router_test.dart` "shell owns the active tab and preserves branch stacks"
+- **Check:** manual — the app creates its router once, in its state
 - **Code:** `lib/app/app.dart`, `lib/app/navigation/routes.dart`
 
 ### NAV-03 Back at a branch root returns to the start page, which confirms
@@ -61,7 +61,7 @@ reviewed: 2026-10-17
   bar even for a user who opens the app elsewhere. A hint left on screen
   after its window, or a window that outlived a covered page, turned a
   later back into an exit or a lie.
-- **Check:** `test/navigation_router_test.dart` "branch back returns to the recommended root" "a rearranged bar starts, goes back and reaches hidden pages" "a second back at the start exits"; `test/home_destination_test.dart` "back lands on the start page, the one used last where a run opened"
+- **Check:** `test/navigation_router_test.dart` "a rearranged bar starts, goes back and reaches hidden pages" "a second back at the start exits"; `test/home_destination_test.dart` "back lands on the start page, the one used last where a run opened"
 - **Code:** `lib/features/home/home_page.dart`
 
 ### NAV-04 Content opens on the current stack

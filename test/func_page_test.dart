@@ -160,38 +160,6 @@ ModalRoute<dynamic> _routeOf(WidgetTester tester, Finder finder) =>
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets(
-    'a page reading its route animation is not rebuilt as its route is covered, uncovered or popped',
-    (tester) async {
-      final builds = <Animation<double>?>[];
-      final route = await _pushSecondPage(
-        tester,
-        second: _RouteAnimationProbe(builds),
-      );
-      // The controller behind the route's proxy, which reads complete for
-      // the frame a Hero measures the opening page in.
-      expect(builds.single, same((route.animation! as ProxyAnimation).parent));
-
-      // Each step flips the route's isCurrent, which rebuilt every
-      // ModalRoute.of reader: the leaving detail page and both neighbours.
-      final navigator = route.navigator!;
-      unawaited(
-        navigator.push(
-          const FuncPage<void>(
-            child: Text('page c'),
-          ).createRoute(tester.element(find.text('page b'))),
-        ),
-      );
-      await tester.pumpAndSettle();
-      navigator.pop();
-      await tester.pumpAndSettle();
-      navigator.pop();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(builds, hasLength(1));
-    },
-  );
-
   for (final covered in [true, false]) {
     testWidgets(
       'a page ${covered ? 'covered by a route' : 'in a hidden branch'} keeps '

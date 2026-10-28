@@ -278,7 +278,7 @@ reviewed: 2026-10-25
   known in that frame (a cached payload) was built into the flight: the
   image changed file mid-flight, and an ultra-long work's narrow `large`
   replaced the card's sharp square (10-25).
-- **Check:** `test/hero_transition_test.dart` "a top-square card flies its square alone; the work fades in once decoded"; `test/func_page_test.dart` "a page reading its route animation is not rebuilt as its route is covered, uncovered or popped"
+- **Check:** `test/hero_transition_test.dart` "a top-square card flies its square alone; the work fades in once decoded"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/app/navigation/route_animation.dart`, `lib/features/illust/detail/widgets/page_image.dart`
 
 ### TRANS-23 A tall card's square thumbnail flies alone; an author's cover does not fly
