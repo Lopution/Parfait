@@ -53,26 +53,39 @@ RichText _labelRichText(WidgetTester tester, String label) {
 }
 
 void main() {
-  testWidgets('eleven labels scroll from the start instead of shrinking', (
+  testWidgets('labels that do not fit scroll from the start at 14sp', (
     tester,
   ) async {
-    await _pumpBar(tester, const [
-      '插画',
-      '漫画',
-      '小说',
-      '推荐',
-      '排行',
-      '新作',
-      '追更',
-      '收藏',
-      '历史',
-      '发现',
-      '关于',
-    ]);
-
-    final bar = tester.widget<TabBar>(find.byType(TabBar));
-    expect(bar.isScrollable, isTrue);
-    expect(bar.tabAlignment, TabAlignment.start);
+    // Eleven labels, and four long ones at a 1.3x text scale.
+    for (final (labels, textScale) in [
+      (
+        const [
+          '插画',
+          '漫画',
+          '小说',
+          '推荐',
+          '排行',
+          '新作',
+          '追更',
+          '收藏',
+          '历史',
+          '发现',
+          '关于',
+        ],
+        1.0,
+      ),
+      (const ['每日排行', '昨日排行', '每周排行', '每月排行'], 1.3),
+    ]) {
+      await _pumpBar(tester, labels, textScale: textScale);
+      expect(tester.takeException(), isNull);
+      final bar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(bar.isScrollable, isTrue);
+      expect(bar.tabAlignment, TabAlignment.start);
+      expect(
+        (_labelRichText(tester, labels.first).text as TextSpan).style!.fontSize,
+        14,
+      );
+    }
   });
 
   testWidgets('a wide row keeps its tabs together at the start', (
@@ -85,20 +98,6 @@ void main() {
     expect(bar.width, 4 * AppTabBar.maxSlotWidth);
     expect(bar.left, row.left);
     expect(tester.widget<TabBar>(find.byType(TabBar)).isScrollable, isFalse);
-  });
-
-  testWidgets('labels stay 14sp and scroll instead of overflowing at 1.3x', (
-    tester,
-  ) async {
-    const labels = ['每日排行', '昨日排行', '每周排行', '每月排行'];
-    await _pumpBar(tester, labels, textScale: 1.3);
-
-    expect(tester.takeException(), isNull);
-    expect(tester.widget<TabBar>(find.byType(TabBar)).isScrollable, isTrue);
-    expect(
-      (_labelRichText(tester, '每日排行').text as TextSpan).style!.fontSize,
-      14,
-    );
   });
 
   testWidgets(
