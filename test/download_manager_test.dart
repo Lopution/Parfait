@@ -652,35 +652,6 @@ void main() {
       },
     );
 
-    test('dismissAll skips non-terminal work', () async {
-      final gate = Completer<void>();
-      final transport = FakeTransport()
-        ..responses.add(
-          ScriptedResponse(
-            contentLength: 1,
-            chunks: [
-              [1],
-            ],
-            completers: [gate],
-          ),
-        );
-      final manager = _manager(transport);
-      final snapshot = manager.submit(request());
-      await turnUntil(
-        () => manager.tasks.single.status == DownloadStatus.running,
-      );
-      expect(manager.tasks.single.status, DownloadStatus.running);
-
-      // In-flight work is not history — dismissAll skips it.
-      expect(manager.dismissAll([snapshot.id]).isEmpty, isTrue);
-      expect(manager.tasks, hasLength(1));
-
-      gate.complete();
-      await _untilAllEnded(manager);
-      expect(manager.dismissAll([snapshot.id]).count, 1);
-      expect(manager.tasks, isEmpty);
-    });
-
     test('dismissAll of every task drops only finished ones', () async {
       final gate = Completer<void>();
       final transport = FakeTransport()
