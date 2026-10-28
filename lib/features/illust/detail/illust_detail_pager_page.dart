@@ -37,7 +37,6 @@ class IllustDetailPagerPage extends ConsumerStatefulWidget {
     this.heroImageUrl,
     this.heroImageDecodeWidth,
     this.onActiveChanged,
-    this.debugTextLaidOut,
   });
 
   /// Feed-order work ids the pager walks, plus the feed's next-page hook.
@@ -54,9 +53,6 @@ class IllustDetailPagerPage extends ConsumerStatefulWidget {
   /// Called when the work the user is reading changes (settled for
   /// [activeDwell], or re-seated by a list change), never mid-drag.
   final ValueChanged<int>? onActiveChanged;
-
-  /// Test seam: called with each paragraph of a neighbour laid out ahead.
-  final void Function(WarmText text)? debugTextLaidOut;
 
   /// How close to the list end a swipe lands before the pager asks the
   /// feed for its next page.
@@ -204,7 +200,6 @@ class _IllustDetailPagerPageState extends ConsumerState<IllustDetailPagerPage>
         textScaler: MediaQuery.textScalerOf(context),
         textDirection: Directionality.of(context),
       );
-      widget.debugTextLaidOut?.call(text);
       return true;
     }
     final window = _ready.value;
