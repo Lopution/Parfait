@@ -5,17 +5,14 @@ import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/core/novel/novel_ranking_feed_controller.dart';
 import 'package:parfait/core/novel/novel_repository.dart';
 import 'package:parfait/core/novel/novel_store.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/illust_fixtures.dart';
 
 Future<(ProviderContainer, NovelRankingFixture)> _makeWorld({
   NovelRankingFixture? fixture,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final activeFixture = fixture ?? NovelRankingFixture();
   final container = await signedInApiContainer(
     activeFixture.client(),
@@ -27,10 +24,6 @@ Future<(ProviderContainer, NovelRankingFixture)> _makeWorld({
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test('each mode has independent first page and load-more state', () async {
     final (container, fixture) = await _makeWorld();
 

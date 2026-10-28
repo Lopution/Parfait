@@ -46,7 +46,6 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 Future<ProviderContainer> _apiContainer(
   Future<http.Response> Function(http.Request) handler,
 ) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final container = await signedInApiContainer(
     MockClient(handler),
     account: const Account(id: 'account', userId: 10, name: 'tester'),
@@ -961,7 +960,6 @@ void main() {
   );
 
   test('keyboard heights persist per screen shape', () async {
-    installMemoryPreferences();
     final first = ProviderContainer();
     addTearDown(first.dispose);
     first.read(keyboardHeightsProvider.notifier)

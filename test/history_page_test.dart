@@ -12,10 +12,8 @@ import 'package:parfait/core/history/history_repository.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/history/history_page.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/history_world.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 
@@ -51,9 +49,6 @@ Finder _selectionTitle(String label) => find.byWidgetPredicate(
 
 void main() {
   setUpAll(sqfliteFfiInit);
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
 
   testWidgets('each open reads afresh; open, the order holds; hidden, it '
       'catches up', (tester) async {

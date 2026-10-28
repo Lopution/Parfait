@@ -31,7 +31,6 @@ import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/prompt_host.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
 
@@ -179,7 +178,6 @@ void main() {
   testWidgets('a flight from a card out of sight is logged, others not', (
     tester,
   ) async {
-    installMemoryPreferences();
     final navigator = GlobalKey<NavigatorState>();
     var live = true;
     late StateSetter setLive;

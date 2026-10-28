@@ -27,7 +27,6 @@ import 'package:parfait/l10n/app_localizations.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/settings_world.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
@@ -124,7 +123,6 @@ bool _isAnchored(Element row) {
 
 void main() {
   setUp(() {
-    installMemoryPreferences();
     PackageInfo.setMockInitialValues(
       appName: 'Parfait',
       packageName: 'io.github.lopution.parfait',

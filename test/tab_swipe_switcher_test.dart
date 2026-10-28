@@ -12,11 +12,9 @@ import 'package:parfait/core/image/image_worker_protocol.dart';
 import 'package:parfait/core/image/image_worker_providers.dart';
 import 'package:parfait/core/image/lane_permit_gate.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/image_network.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/touch.dart';
 import 'helpers/view_size.dart';
@@ -26,7 +24,6 @@ Future<GoRouter> _pumpHome(
   WidgetTester tester, {
   String location = '/recommended',
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   setViewSize(tester, const Size(390, 844));
   final router = pixivRouter(location);
   await tester.pumpWidget(

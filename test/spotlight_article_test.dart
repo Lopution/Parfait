@@ -23,13 +23,11 @@ import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/widgets/author_row.dart';
 import 'package:parfait/app/scroll_behavior.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/connectivity_channels.dart';
 import 'helpers/image_network.dart';
 import 'helpers/illust_detail_page_support.dart' show RecordingShareService;
 import 'helpers/spotlight_world.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
@@ -137,7 +135,6 @@ Future<GoRouter> pumpArticle(
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
     // Images on the page start the network policy's connectivity watch;
     // unanswered, its replies land in whichever later test runs real async.
     answerConnectivityChannels();

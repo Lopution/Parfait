@@ -8,10 +8,8 @@ import 'package:parfait/app/widgets/settings/settings_group.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/features/settings/pages/muted_items_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 
@@ -49,7 +47,6 @@ Future<(ProviderContainer, _MuteApi)> _pump(
   WidgetTester tester, {
   List<Object> users = const [],
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final api = _MuteApi(users: users);
   final container = await signedInApiContainer(api.build());
   await mockNetworkImagesFor(

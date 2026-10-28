@@ -23,7 +23,6 @@ import 'package:parfait/core/watchlist/watchlist_store.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 
 // Account A ('100', access-1) answers 9 / user 42 / illust 7 / series 3 /
 // tag 'a' / 7 bookmarked; B ('200') answers 10 / 404 / 404 / 404 / tag 'b' /
@@ -90,7 +89,6 @@ String? _next(Uri url, bool b) => b || url.queryParameters.containsKey('offset')
           .toString();
 
 Future<ProviderContainer> _world() async {
-  installMemoryPreferences();
   _gate = Completer<void>();
   final container = await signedInApiContainer(
     MockClient((request) async {

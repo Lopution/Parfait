@@ -18,7 +18,6 @@ import 'package:parfait/features/profile/author_works_download_dialog.dart';
 
 import 'helpers/download_world.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 
 /// Serves scripted works pages per type, in order.
@@ -157,7 +156,6 @@ void main() {
       WidgetTester tester,
       _PagedWorksRepository repository,
     ) async {
-      installMemoryPreferences();
       sinks = _HeldRawSinks();
       final manager = DownloadManager(
         transport: FakeTransport()

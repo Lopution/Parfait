@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/image_network.dart';
-import 'helpers/test_preferences.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/ugoira/ugoira_providers.dart';
@@ -14,7 +13,6 @@ import 'package:visibility_detector/visibility_detector.dart';
 import 'helpers/localized_app.dart';
 
 void main() {
-  installMemoryPreferences();
   VisibilityDetectorController.instance.updateInterval = Duration.zero;
 
   testWidgets(

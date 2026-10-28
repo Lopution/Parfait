@@ -22,13 +22,11 @@ import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/new/new_page.dart';
 import 'package:http/testing.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
@@ -109,7 +107,6 @@ Future<(ProviderContainer, _FakeNewFeedRepository)> _makeWorld({
   int novelCount = 0,
   List<Override> overrides = const [],
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final repository = _FakeNewFeedRepository(
     illustCount: illustCount,
     novelCount: novelCount,

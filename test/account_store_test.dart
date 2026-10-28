@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_repository.dart';
 import 'package:parfait/core/auth/account_store.dart';
@@ -174,10 +173,6 @@ makeContainer() {
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test('hydration with no persisted data yields empty ready state', () async {
     final (container, _, _) = makeContainer();
     final state = await container.read(accountStoreProvider.future);

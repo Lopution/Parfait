@@ -10,16 +10,10 @@ import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/settings/settings_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/settings_world.dart';
-import 'helpers/test_preferences.dart';
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test('defaults use safe modern values and beta56 setting names', () {
     final settings = AppSettings.defaults();
     expect(settings.guideCompleted, isFalse);

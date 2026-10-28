@@ -13,11 +13,9 @@ import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/profile/app_api_profile_edit_repository.dart';
 import 'package:parfait/core/profile/profile_edit_models.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/profile_world.dart';
-import 'helpers/test_preferences.dart';
 
 class _RecordedMultipart {
   _RecordedMultipart(this.request, this.body);
@@ -83,10 +81,6 @@ ProfilePatch _textPatch({String name = 'novo nome'}) => ProfilePatch(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
 
   test('capabilities advertise the app-api channel and fields', () async {
     final (client, container) = await _client(sent: []);

@@ -29,7 +29,6 @@ import '../helpers/illust_fixtures.dart';
 import '../helpers/locale_layout.dart';
 import '../helpers/profile_world.dart';
 import '../helpers/settings_world.dart' show baseTestSettings;
-import '../helpers/test_preferences.dart';
 
 /// A page whose button calls [open]: the sheet lays out over a real route,
 /// the way the app shows it.
@@ -66,8 +65,6 @@ Future<void> _expectOpened(
 }
 
 void main() {
-  installMemoryPreferences();
-
   localeLayoutMatrix('sheets: bookmark', (tester, locale, profile) async {
     final repository = RecordingBookmarkRepository()
       ..tagPage = const UserBookmarkTagPage(

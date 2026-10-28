@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/download_world.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/image_network.dart';
 import 'package:http/http.dart' as http;
@@ -53,7 +52,6 @@ DownloadManager _manager(
 }
 
 void main() {
-  installMemoryPreferences();
   group('DownloadRequest normalization (R4)', () {
     test('display name is traversal-safe and mime mapped', () {
       expect(request().displayName, '42_p0.jpg');

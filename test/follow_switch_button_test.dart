@@ -18,13 +18,11 @@ import 'package:parfait/features/profile/profile_header_delegate.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/recording_haptics.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/profile_world.dart';
 import 'helpers/localized_app.dart';
 
 Future<ProviderContainer> _world({FollowRepository? follows}) async {
-  installMemoryPreferences();
   final container = ProviderContainer.test(
     overrides: [
       if (follows != null) followRepositoryProvider.overrideWithValue(follows),

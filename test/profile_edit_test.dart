@@ -23,7 +23,6 @@ import 'package:parfait/core/user/user_store.dart';
 import 'package:parfait/features/profile/profile_edit_page.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/image_headers.dart';
@@ -92,7 +91,6 @@ ProviderContainer _signedInContainer([List<Override> overrides = const []]) {
 }
 
 void main() {
-  installMemoryPreferences();
   test('builds a minimal patch from dirty supported fields only', () {
     final user = _user();
     final capabilities = ProfileCapabilities(

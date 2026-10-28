@@ -6,7 +6,6 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/download_world.dart' show FakeTransport, ScriptedResponse;
-import 'helpers/test_preferences.dart';
 import 'package:parfait/core/download/download_destination.dart';
 import 'package:parfait/core/download/download_manager.dart';
 import 'package:parfait/core/download/download_request.dart';
@@ -382,8 +381,6 @@ Future<DownloadTaskSnapshot> _retried(
 }
 
 void main() {
-  installMemoryPreferences();
-
   group('pause / resume lifecycle (D8)', () {
     test('pause preserves bytes and lands retryable with an anchor', () async {
       final transport = FakeTransport();

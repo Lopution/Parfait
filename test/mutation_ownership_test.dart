@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/bookmark/bookmark_actions.dart';
@@ -17,7 +16,6 @@ import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/user/follow_store.dart';
 import 'package:parfait/core/user/user_entity.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'helpers/fake_account.dart';
 
 class _BookmarkRepository implements BookmarkRepository {
@@ -88,10 +86,6 @@ class _BookmarkRepository implements BookmarkRepository {
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test('mutation envelope has explicit owner and non-secret identity', () {
     final owner = MutationOwner(id: 'screen-1', accountId: 'a');
     final envelope = MutationEnvelope(

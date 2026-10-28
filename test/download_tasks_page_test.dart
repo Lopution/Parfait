@@ -657,7 +657,6 @@ void main() {
   testWidgets('a batch cancel ending after the page left is quiet', (
     tester,
   ) async {
-    installMemoryPreferences();
     final manager = _SlowCancelManager(
       FakeTransport()..responses.add(gatedResponse(Completer<void>())),
     );

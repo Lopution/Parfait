@@ -15,28 +15,20 @@ import 'package:parfait/features/illust/detail/widgets/detail_action_bar.dart';
 import 'package:parfait/features/illust/detail/widgets/page_image.dart';
 import 'package:parfait/features/illust/detail/ugoira_viewer.dart';
 import 'package:parfait/features/settings/pages/download_tasks_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/detail_world.dart';
 import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/illust_detail_page_support.dart';
 
 void main() {
-  installMemoryPreferences();
-
   // The detail page tracks the visible image page through
   // VisibilityDetector (compact-header page counter); a zero interval
   // defers updates to post-frame callbacks so no Timer outlives a test.
   VisibilityDetectorController.instance.updateInterval = Duration.zero;
-
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
 
   group('IllustDetailPage download mode (R4)', () {
     testWidgets('download feedback opens tasks after the detail is disposed', (

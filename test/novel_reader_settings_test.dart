@@ -12,7 +12,6 @@ import 'package:parfait/features/novel/novel_layout.dart';
 import 'package:parfait/features/novel/novel_reader.dart';
 import 'package:parfait/features/novel/novel_reader_stage.dart';
 
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'support/contrast.dart';
 
@@ -115,7 +114,6 @@ void main() {
 
   group('NovelReaderSettingsStore', () {
     test('save then load restores the settings', () async {
-      installMemoryPreferences();
       final prefs = SharedPreferencesAsync();
       final store = NovelReaderSettingsStore(prefs);
 
@@ -129,7 +127,6 @@ void main() {
     });
 
     test('corrupt blob falls back to defaults', () async {
-      installMemoryPreferences();
       final prefs = SharedPreferencesAsync();
       await prefs.setString('parfait.novel.reader_settings.v1', '{broken');
 
@@ -140,7 +137,6 @@ void main() {
 
   group('NovelProgressStore', () {
     test('write then read restores the anchor payload', () async {
-      installMemoryPreferences();
       final prefs = SharedPreferencesAsync();
       final store = NovelProgressStore(prefs);
 
@@ -152,7 +148,6 @@ void main() {
     });
 
     test('entries are scoped per account and per novel', () async {
-      installMemoryPreferences();
       final prefs = SharedPreferencesAsync();
       final store = NovelProgressStore(prefs);
 
@@ -164,7 +159,6 @@ void main() {
     });
 
     test('evicts the stalest entries beyond the 200-entry cap', () async {
-      installMemoryPreferences();
       final prefs = SharedPreferencesAsync();
       final store = NovelProgressStore(prefs);
 
@@ -179,7 +173,6 @@ void main() {
     });
 
     test('re-writing an existing entry renews its recency position', () async {
-      installMemoryPreferences();
       final prefs = SharedPreferencesAsync();
       final store = NovelProgressStore(prefs);
 

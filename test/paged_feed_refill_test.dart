@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
@@ -12,7 +11,6 @@ import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/card_world.dart';
 import 'helpers/fake_settings.dart';
@@ -123,7 +121,6 @@ Future<ProviderContainer> _container({
   bool hideMuted = false,
   MuteState mutes = const MuteState(),
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final container = ProviderContainer.test(
     overrides: [
       accountStoreProvider.overrideWith(
@@ -141,10 +138,6 @@ Future<ProviderContainer> _container({
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test('refill runs until enough show, the server ends or the cap', () async {
     // Ten wanted, two refills at most.
     for (final (enabled, blockR18, pages, fetched, ids) in [

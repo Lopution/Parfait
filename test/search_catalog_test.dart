@@ -27,13 +27,11 @@ import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/search/search_filter_sheet.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/search_world.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
@@ -43,7 +41,6 @@ Future<ProviderContainer> _apiContainer(
   bool accountIsPremium = false,
   List<Override> extraOverrides = const [],
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   return signedInApiContainer(
     MockClient(handler),
     account: Account(
@@ -62,9 +59,6 @@ void main() {
   // Widget tests below build PixivImage, which reads SharedPreferencesAsync.
   // Without this they only passed when an earlier test in the file had set the
   // platform, and failed once `flutter test --total-shards` split the file.
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
 
   Future<GoRouter> pumpSearchRouter(
     WidgetTester tester,

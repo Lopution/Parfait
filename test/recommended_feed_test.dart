@@ -9,7 +9,6 @@ import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:parfait/core/illust/recommended_feed_controller.dart';
 import 'package:parfait/core/illust/recommended_repository.dart'
@@ -17,7 +16,6 @@ import 'package:parfait/core/illust/recommended_repository.dart'
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 
 /// Local transport serving deterministic recommended pages.
@@ -62,7 +60,6 @@ Future<(ProviderContainer, _ApiFixture)> makeWorld({
   String? nextUrlOverride,
   bool failApi = false,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final fixture = _ApiFixture(nextUrlOverride: nextUrlOverride);
   final container = await signedInApiContainer(
     failApi
@@ -75,10 +72,6 @@ Future<(ProviderContainer, _ApiFixture)> makeWorld({
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test('initial load fetches real-shaped pages and merges the store', () async {
     final (container, _) = await makeWorld();
 
@@ -135,7 +128,6 @@ void main() {
   test(
     'novel recommended follows a next_url with a rewritten filter',
     () async {
-      SharedPreferencesAsyncPlatform.instance = memoryPreferences();
       var pageRequests = 0;
       final transport = MockClient((request) async {
         pageRequests += 1;

@@ -27,12 +27,10 @@ import 'package:parfait/features/search/tag_search_page.dart';
 import 'package:parfait/app/widgets/tag_chips.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/share/share_service.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/detail_world.dart';
 import 'helpers/download_world.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/settings_world.dart' show RecordingTranslationEngine;
 import 'helpers/view_size.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -44,16 +42,10 @@ import 'helpers/illust_detail_page_support.dart';
 const _short = Size(390, 560);
 
 void main() {
-  installMemoryPreferences();
-
   // The detail page tracks the visible image page through
   // VisibilityDetector (compact-header page counter); a zero interval
   // defers updates to post-frame callbacks so no Timer outlives a test.
   VisibilityDetectorController.instance.updateInterval = Duration.zero;
-
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
 
   group('floating action bar (E2)', () {
     Finder inBar(Finder finder) =>

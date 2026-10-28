@@ -5,10 +5,8 @@ import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/widgets/author_row.dart';
 import 'package:parfait/app/widgets/person_card.dart';
 import 'package:parfait/core/auth/account.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/pixiv_router.dart';
 
@@ -38,10 +36,6 @@ Future<GoRouter> _pumpOnRouter(WidgetTester tester, Widget row) async {
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets('the whole row is one 48dp target that opens the profile', (
     tester,
   ) async {

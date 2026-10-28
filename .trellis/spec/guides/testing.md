@@ -204,12 +204,16 @@ reviewed: 2026-10-28
   `InAppWebView` set a fake `InAppWebViewPlatform.instance`. Read
   `SystemChrome.latestStyle` only after a `pump`. Record haptics with
   `recordHaptics()`, not a platform-channel mock. Wrap motion subjects in
-  `MotionScope(reduce:, speed:)`.
+  `MotionScope(reduce:, speed:)`. Every case starts with empty in-memory
+  preferences from `test/flutter_test_config.dart`; a case that needs
+  stored values installs them with `installMemoryPreferences(data)`, and
+  no file adds its own empty reset.
 - **Why:** Each trap made a correct implementation look broken: finders
   matched nothing, fixtures threw on construction, styles were read before
-  the frame applied them.
+  the frame applied them. The missing preferences plugin was worked around
+  by 146 copies of one reset in `setUp` blocks and world builders.
 - **Check:** manual
-- **Code:** `test/helpers/prompt_host.dart`, `test/helpers/recording_haptics.dart`
+- **Code:** `test/flutter_test_config.dart`, `test/helpers/prompt_host.dart`, `test/helpers/recording_haptics.dart`
 
 ### TEST-11 Waits use fake time
 - **Rule:** No `sleep`. Advance time with `fakeAsync` or

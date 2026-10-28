@@ -5,17 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_series_section.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/series_world.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets('detail series section renders card and navigates', (
     tester,
   ) async {

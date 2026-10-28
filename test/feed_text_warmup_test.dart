@@ -17,7 +17,6 @@ import 'package:parfait/core/user/user_entity.dart';
 
 import 'helpers/illust_fixtures.dart';
 import 'helpers/localized_app.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/warm_text.dart';
 
 List<WarmText> _lines(int count) => [
@@ -37,8 +36,6 @@ void _add(FeedTextWarmup warmup, int count) => warmup.add(
 );
 
 void main() {
-  installMemoryPreferences();
-
   testWidgets('warms one line per frame gap, and only after a short frame', (
     tester,
   ) async {

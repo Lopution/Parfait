@@ -22,10 +22,8 @@ import 'package:parfait/core/network/network_restore_signal.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/user/follow_actions.dart';
 import 'package:parfait/core/user/follow_store.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 
 /// Records every mutation call; per-path failures simulate the offline
 /// window and per-path statuses simulate business rejections.
@@ -65,7 +63,6 @@ Future<_World> _makeWorld({
   InMemoryActionStore? store,
   bool coldStartPump = false,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final resolvedFixture = fixture ?? _MutationFixture();
   final resolvedStore = store ?? InMemoryActionStore();
   final credentials = FakeCredentialStore()
@@ -120,10 +117,6 @@ Future<_World> _makeWorld({
 const _illustKey = BookmarkKey(BookmarkEntityType.illust, 42);
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test(
     'offline bookmark add queues the intent and keeps the pending entry',
     () async {

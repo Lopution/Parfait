@@ -13,11 +13,9 @@ import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
 import 'package:parfait/core/auth/oauth_service.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 
 /// Minimal provider world for a bare [IllustCard]: the account + network
@@ -91,10 +89,6 @@ Future<void> _pumpCard(
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets('a parent rebuild with the same inputs skips the card body', (
     tester,
   ) async {

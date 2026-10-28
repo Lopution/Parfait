@@ -68,7 +68,6 @@ Future<void> _pumpChecked(
 }
 
 void main() {
-  installMemoryPreferences();
   // The detail page tracks the visible image through VisibilityDetector;
   // a zero interval keeps its timer from outliving a test.
   VisibilityDetectorController.instance.updateInterval = Duration.zero;

@@ -11,17 +11,11 @@ import 'package:parfait/core/spotlight/spotlight_feed_controller.dart';
 import 'package:parfait/core/spotlight/spotlight_models.dart';
 import 'package:parfait/core/spotlight/spotlight_store.dart';
 import 'package:parfait/features/spotlight/spotlight_feed_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/spotlight_world.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test('spotlight feed loads page one and commits the article store', () async {
     final (container, fixture) = await makeSpotlightWorld();
 

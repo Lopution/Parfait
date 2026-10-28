@@ -22,14 +22,12 @@ import 'package:parfait/core/illust/ranking_repository.dart';
 import 'package:parfait/core/network/api_date.dart';
 import 'package:parfait/core/network/next_page_parser.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:parfait/core/illust/ranking_feed_controller.dart';
 import 'package:parfait/core/ranking/ranking_catalog.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
@@ -112,7 +110,6 @@ Future<(ProviderContainer, _RankingFixture)> _makeWorld({
   bool twoAccounts = false,
   MemoryFeedSnapshotStore? snapshots,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final activeFixture = fixture ?? _RankingFixture();
   final container = await signedInApiContainer(
     activeFixture.client(),
@@ -150,10 +147,6 @@ Future<GoRouter> _pumpRanking(
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test('each mode has independent first page and load-more state', () async {
     final (container, fixture) = await _makeWorld();
 

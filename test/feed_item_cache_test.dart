@@ -6,8 +6,6 @@ import 'package:parfait/app/layout/card_columns.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
 import 'package:parfait/core/entity/stored_entities.dart';
 
-import 'helpers/test_preferences.dart';
-
 /// An entity: equal only to itself (never const, which would share one).
 class _Entity {
   _Entity(this.id);
@@ -29,8 +27,6 @@ class _Card extends StatelessWidget {
 }
 
 void main() {
-  installMemoryPreferences();
-
   for (final grid in [true, false]) {
     testWidgets('a ${grid ? 'grid' : 'card list'} rebuilds only the cards '
         'whose entity or other inputs changed', (tester) async {

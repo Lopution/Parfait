@@ -28,12 +28,10 @@ import 'package:parfait/features/profile/profile_novel_feed.dart';
 import 'package:parfait/features/profile/user_page.dart';
 import 'package:parfait/features/profile/profile_skeleton.dart';
 import 'package:parfait/features/profile/user_series_feed.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/image_network.dart';
 import 'helpers/bookmark_world.dart';
 import 'helpers/profile_world.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
@@ -120,10 +118,6 @@ int _selectedTabIndex(WidgetTester tester) =>
     tester.widget<TabBar>(find.byType(TabBar)).controller!.index;
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test('detail and preview payloads normalize without losing profile data', () {
     final detail = UserEntity.fromDetailJson(_detailJson());
     final preview = UserEntity.fromPreviewJson({

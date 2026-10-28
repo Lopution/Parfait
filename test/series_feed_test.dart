@@ -12,17 +12,14 @@ import 'package:parfait/core/series/series_store.dart';
 import 'package:parfait/core/watchlist/watchlist_models.dart';
 import 'package:parfait/core/watchlist/watchlist_store.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'helpers/series_world.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/pixiv_router.dart';
 
 void main() {
   setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
     // Navigating into the detail page brings VisibilityDetector-based page
     // tracking; a zero interval keeps timers out of test teardown.
     VisibilityDetectorController.instance.updateInterval = Duration.zero;

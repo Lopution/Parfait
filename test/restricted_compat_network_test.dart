@@ -3,8 +3,6 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'helpers/test_preferences.dart';
-
 import 'package:http/http.dart' as http;
 import 'package:rhttp/rhttp.dart' as rhttp;
 import 'package:parfait/core/download/download_transport.dart';
@@ -25,8 +23,6 @@ PixivPolicyHttpClient _appApi(NetworkAccessPolicy policy) {
 }
 
 void main() {
-  installMemoryPreferences();
-
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(

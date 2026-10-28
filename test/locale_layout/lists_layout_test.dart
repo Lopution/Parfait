@@ -28,7 +28,6 @@ import '../helpers/download_world.dart';
 import '../helpers/fake_account.dart';
 import '../helpers/history_world.dart';
 import '../helpers/locale_layout.dart';
-import '../helpers/test_preferences.dart';
 import '../helpers/watchlist_world.dart';
 
 Future<void> _expectSettled(
@@ -48,8 +47,6 @@ FakeCommentRepository _comments() => FakeCommentRepository()
   ];
 
 void main() {
-  installMemoryPreferences();
-
   localeLayoutMatrix('lists: download tasks', (tester, locale, profile) async {
     final gate = Completer<void>();
     addTearDown(() {

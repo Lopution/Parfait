@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/restricted_compat_support.dart' show FakeResolver;
 import 'helpers/settings_world.dart' show RecordingClient;
-import 'helpers/test_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:parfait/core/download/download_transport.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
@@ -16,7 +15,6 @@ import 'package:parfait/core/network/compat/policy_download_transport.dart';
 import 'package:parfait/core/network/compat/route_kind_store.dart';
 import 'package:parfait/core/network/compat/secure_resolver.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 class _HandshakeFailingClient extends http.BaseClient {
   @override
@@ -26,10 +24,6 @@ class _HandshakeFailingClient extends http.BaseClient {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
 
   test(
     'every native Pixiv exit shares the policy and strict tiers are first',

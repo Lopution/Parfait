@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:parfait/core/network/compat/network_providers.dart';
 import 'package:parfait/core/network/compat/network_contracts.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
-import 'helpers/test_preferences.dart';
 
 void main() {
   group('ImageMirror.of', () {
@@ -236,7 +235,6 @@ void main() {
     test(
       'auto winner flip keeps factory stable and shared policy alive',
       () async {
-        installMemoryPreferences();
         final container = ProviderContainer.test();
         final policy = container.read(networkAccessPolicyProvider);
         final f1 = container.read(pixivNetworkFactoryProvider);
@@ -266,7 +264,6 @@ void main() {
     );
 
     test('mirror rewrite applies the winner lazily per request', () async {
-      installMemoryPreferences();
       final container = ProviderContainer.test();
       final factory = container.read(pixivNetworkFactoryProvider);
       container.read(autoImageSourceWinnerProvider.notifier).set('i.pixiv.re');

@@ -17,12 +17,10 @@ import 'package:parfait/app/startup_gate.dart';
 import 'package:parfait/app/widgets/replica_button.dart';
 import 'package:parfait/features/onboarding/user_agreement_page.dart';
 import 'package:parfait/features/onboarding/welcome_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'dart:async';
 
 import 'helpers/fake_account.dart';
 import 'helpers/fake_webview.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 
 class _StaticMetadataRepository implements AccountMetadataRepository {
@@ -129,10 +127,6 @@ class _FailingCredentialStore implements CredentialStore {
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets('guide not completed shows the welcome shell', (tester) async {
     await tester.pumpWidget(_wrap(settings: AppSettings.defaults()));
 

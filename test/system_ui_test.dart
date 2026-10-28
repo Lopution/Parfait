@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/app/app.dart';
@@ -26,7 +25,6 @@ import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'helpers/image_network.dart';
 import 'helpers/download_world.dart';
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/localized_app.dart';
 
@@ -256,7 +254,6 @@ void main() {
   });
 
   testWidgets('startup enters edgeToEdge once (D2)', (tester) async {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
     final modes = <String>[];
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;

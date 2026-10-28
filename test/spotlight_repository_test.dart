@@ -5,11 +5,9 @@ import 'package:http/testing.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/spotlight/spotlight_models.dart';
 import 'package:parfait/core/spotlight/spotlight_repository.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/spotlight_world.dart';
-import 'helpers/test_preferences.dart';
 
 Future<PixivSpotlightRepository> _repo(SpotlightFixture fixture) async {
   final (container, _) = await makeSpotlightWorld(fixture: fixture);
@@ -17,10 +15,6 @@ Future<PixivSpotlightRepository> _repo(SpotlightFixture fixture) async {
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test('requests /v1/spotlight/articles with category and filter', () async {
     final fixture = SpotlightFixture();
     final repo = await _repo(fixture);

@@ -25,12 +25,10 @@ import 'package:parfait/features/illust/detail/widgets/page_image.dart';
 import 'package:parfait/features/illust/detail/widgets/info_block.dart';
 import 'package:parfait/features/illust/viewer/image_viewer_page.dart';
 import 'package:parfait/features/profile/user_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/detail_world.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'helpers/prompt_host.dart';
 
@@ -45,16 +43,10 @@ class _RecordingOpener implements OutboundUrlOpener {
 }
 
 void main() {
-  installMemoryPreferences();
-
   // The detail page tracks the visible image page through
   // VisibilityDetector (compact-header page counter); a zero interval
   // defers updates to post-frame callbacks so no Timer outlives a test.
   VisibilityDetectorController.instance.updateInterval = Duration.zero;
-
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
 
   group('IllustDetailPage badges & restricted states (R1/R2)', () {
     testWidgets('visible:false detail shows the restricted state', (

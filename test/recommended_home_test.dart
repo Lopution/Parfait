@@ -23,12 +23,10 @@ import 'package:parfait/core/illust/recommended_feed_controller.dart';
 import 'package:parfait/core/illust/recommended_repository.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/features/home/recommended/recommended_home_page.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/view_size.dart';
@@ -139,7 +137,6 @@ class _ApiFixture {
 Future<(ProviderContainer, _ApiFixture)> _makeWorld({
   int illustCount = 5,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final fixture = _ApiFixture(illustCount: illustCount);
   final container = await signedInApiContainer(
     fixture.build(),
@@ -151,10 +148,6 @@ Future<(ProviderContainer, _ApiFixture)> _makeWorld({
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets('switching to manga requests content_type=manga', (tester) async {
     final (container, fixture) = await _makeWorld();
     await mockNetworkImagesFor(() async {

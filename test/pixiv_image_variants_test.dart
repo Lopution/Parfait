@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:octo_image/octo_image.dart';
 
 import 'helpers/image_network.dart';
-import 'helpers/test_preferences.dart';
 import 'package:parfait/app/motion/motion_tokens.dart';
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/core/image/image_worker.dart';
@@ -38,7 +37,6 @@ const _kinds = [
 ];
 
 void main() {
-  installMemoryPreferences();
   setUp(() => _worker = stalledImageWorker());
   test('decodeWidthFor: decodes at the physical display width', () {
     // The decode target is layout x DPR — capping it at 1.5x *logical* pixels

@@ -9,7 +9,6 @@ import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/core/settings/settings_repository.dart';
 import 'package:parfait/features/login/login_page.dart';
 import 'package:parfait/l10n/app_localizations.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'dart:async';
 
@@ -17,7 +16,6 @@ import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_transfer_service.dart';
 
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/fake_settings.dart';
 import 'helpers/localized_app.dart';
@@ -41,10 +39,6 @@ class _ControlledTransferService implements AccountTransferService {
 
 /// Settings storage stub: serves a fixed snapshot and records writes.
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   Future<void> pumpLogin(
     WidgetTester tester, {
     Size size = const Size(390, 844),

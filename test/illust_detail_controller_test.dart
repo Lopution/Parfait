@@ -8,11 +8,9 @@ import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/illust/illust_detail_controller.dart';
 import 'package:parfait/core/search/search_feed_controller.dart';
 import 'package:parfait/core/search/search_models.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
-import 'helpers/test_preferences.dart';
 
 /// Drives PixivHttpClient with a scripted API transport. [webHandler]
 /// scripts the `/ajax/illust/{id}/pages` web transport separately — it is a
@@ -21,7 +19,6 @@ Future<ProviderContainer> makeContainer(
   Future<http.Response> Function(http.Request request) handler, {
   Future<http.Response> Function(http.Request request)? webHandler,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final container = await signedInApiContainer(
     MockClient(handler),
     overrides: [
@@ -44,10 +41,6 @@ Future<void> untilStore(bool Function() done) async {
 }
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   test('detail fetch merges the store and reports ready', () async {
     final container = await makeContainer((request) async {
       expect(request.url.path, '/v1/illust/detail');

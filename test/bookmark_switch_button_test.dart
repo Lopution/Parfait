@@ -8,7 +8,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'helpers/recording_haptics.dart';
 import 'helpers/bookmark_world.dart';
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'package:parfait/app/haptics/app_haptics.dart';
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/core/auth/account_store.dart';
@@ -16,7 +15,6 @@ import 'package:parfait/core/bookmark/bookmark_models.dart';
 import 'package:parfait/core/bookmark/bookmark_repository.dart';
 import 'package:parfait/core/bookmark/bookmark_store.dart';
 import 'package:parfait/app/widgets/bookmark_switch_button.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/localized_app.dart';
 
@@ -24,7 +22,6 @@ Future<(ProviderContainer, RecordingBookmarkRepository)> _pump(
   WidgetTester tester, {
   Widget? child,
 }) async {
-  SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final repository = RecordingBookmarkRepository();
   final container = ProviderContainer.test(
     overrides: [
@@ -59,10 +56,6 @@ SwitchListTile _privateSwitch(WidgetTester tester) =>
     tester.widget<SwitchListTile>(find.widgetWithText(SwitchListTile, '私密'));
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets('unknown state shows outline heart; tap sends public add (R3)', (
     tester,
   ) async {

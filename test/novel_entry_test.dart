@@ -9,11 +9,9 @@ import 'package:parfait/core/mute/mute_models.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/user/user_entity.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/card_world.dart';
 import 'helpers/fake_account.dart';
-import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
 import 'helpers/pixiv_router.dart';
 
@@ -44,10 +42,6 @@ Widget _host(Widget child, {MuteState mutes = const MuteState()}) =>
     );
 
 void main() {
-  setUp(() {
-    SharedPreferencesAsyncPlatform.instance = memoryPreferences();
-  });
-
   testWidgets('series, tags and the bookmark count join the identity', (
     tester,
   ) async {
