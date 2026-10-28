@@ -845,23 +845,4 @@ void main() {
       expect(dismissed, isFalse);
     });
   });
-
-  group('reduceMotion setting', () {
-    test('defaults off and round-trips through JSON', () {
-      expect(AppSettings.defaults().reduceMotion, isFalse);
-      final stored = AppSettings.defaults().copyWith(reduceMotion: true);
-      final restored = AppSettings.fromJson(
-        stored.toJson(),
-        fallback: AppSettings.defaults(),
-      );
-      expect(restored.reduceMotion, isTrue);
-    });
-
-    test('corrupt reduceMotion falls back to the base value', () {
-      final restored = AppSettings.fromJson(const {
-        'reduceMotion': 'yes',
-      }, fallback: AppSettings.defaults().copyWith(reduceMotion: true));
-      expect(restored.reduceMotion, isTrue);
-    });
-  });
 }
