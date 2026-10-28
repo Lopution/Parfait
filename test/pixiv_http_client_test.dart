@@ -365,45 +365,41 @@ void main() {
     );
   });
 
-  test('a refresh fills in the account avatar', () async {
-    final fixture = _Fixture(rejectStaleSeed: true);
-    final (container, client, _, _) = await _makeWorld(fixture: fixture);
-    Account current() =>
-        container.read(accountStoreProvider).requireValue.current!;
-    expect(current().profileImageUrl, isNull);
+  test(
+    'a refresh fills in the account avatar, or keeps the stored one',
+    () async {
+      for (final (sent, stored) in [
+        (_avatar, null),
+        (null, 'https://i.pximg.net/old.jpg'),
+      ]) {
+        final fixture = _Fixture(rejectStaleSeed: true)..refreshAvatar = sent;
+        final (container, client, _, _) = await _makeWorld(
+          fixture: fixture,
+          accounts: [
+            Account(
+              id: '100',
+              userId: 100,
+              name: 'user100',
+              profileImageUrl: stored,
+            ),
+          ],
+        );
 
-    await client.getJson(Uri.parse(_api));
+        await client.getJson(Uri.parse(_api));
 
-    expect(fixture.refreshCalls, 1);
-    expect(current().profileImageUrl, _avatar);
-  });
-
-  test('a refresh without an avatar keeps the stored one', () async {
-    final fixture = _Fixture(rejectStaleSeed: true)..refreshAvatar = null;
-    final (container, client, _, _) = await _makeWorld(
-      fixture: fixture,
-      accounts: const [
-        Account(
-          id: '100',
-          userId: 100,
-          name: 'user100',
-          profileImageUrl: 'https://i.pximg.net/old.jpg',
-        ),
-      ],
-    );
-
-    await client.getJson(Uri.parse(_api));
-
-    expect(fixture.refreshCalls, 1);
-    expect(
-      container
-          .read(accountStoreProvider)
-          .requireValue
-          .current!
-          .profileImageUrl,
-      'https://i.pximg.net/old.jpg',
-    );
-  });
+        expect(fixture.refreshCalls, 1);
+        expect(
+          container
+              .read(accountStoreProvider)
+              .requireValue
+              .current!
+              .profileImageUrl,
+          sent ?? stored,
+          reason: 'sent $sent',
+        );
+      }
+    },
+  );
 
   test(
     'invalid refresh marks the account re-auth and terminates the queue',
@@ -433,42 +429,51 @@ void main() {
   // refresh that could not complete (server error, rate limit, network) is a
   // failed request: the account stays signed in and the next request
   // refreshes again.
-  for (final (label, status, errorType) in [
-    ('server error', 503, isA<ApiHttpError>()),
-    ('rate limit', 429, isA<ApiRateLimited>()),
-  ]) {
-    test('a refresh $label keeps the account signed in', () async {
-      final fixture = _Fixture(refreshStatus: status, rejectStaleSeed: true);
-      final (container, client, _, _) = await _makeWorld(fixture: fixture);
+  test(
+    'a refresh that could not complete keeps the account signed in',
+    () async {
+      for (final (label, fail, error) in [
+        (
+          'server error',
+          (_Fixture f) => f.refreshStatus = 503,
+          isA<ApiHttpError>(),
+        ),
+        (
+          'rate limit',
+          (_Fixture f) => f.refreshStatus = 429,
+          isA<ApiRateLimited>(),
+        ),
+        (
+          'unreachable',
+          (_Fixture f) => f.refreshUnreachable = true,
+          isA<ApiNetworkError>(),
+        ),
+      ]) {
+        final fixture = _Fixture(rejectStaleSeed: true);
+        fail(fixture);
+        final (container, client, _, _) = await _makeWorld(fixture: fixture);
 
-      await expectLater(client.getJson(Uri.parse(_api)), throwsA(errorType));
-      expect(
-        container.read(accountStoreProvider).requireValue.current!.authState,
-        AccountAuthState.authenticated,
-      );
+        await expectLater(
+          client.getJson(Uri.parse(_api)),
+          throwsA(error),
+          reason: label,
+        );
+        expect(
+          container.read(accountStoreProvider).requireValue.current!.authState,
+          AccountAuthState.authenticated,
+          reason: label,
+        );
 
-      fixture.refreshStatus = 200;
-      expect(await client.getJson(Uri.parse(_api)), {'ok': true});
-      expect(fixture.refreshCalls, 2);
-    });
-  }
-
-  test('an unreachable token endpoint keeps the account signed in', () async {
-    final fixture = _Fixture(rejectStaleSeed: true)..refreshUnreachable = true;
-    final (container, client, _, _) = await _makeWorld(fixture: fixture);
-
-    await expectLater(
-      client.getJson(Uri.parse(_api)),
-      throwsA(isA<ApiNetworkError>()),
-    );
-    expect(
-      container.read(accountStoreProvider).requireValue.current!.authState,
-      AccountAuthState.authenticated,
-    );
-
-    fixture.refreshUnreachable = false;
-    expect(await client.getJson(Uri.parse(_api)), {'ok': true});
-  });
+        fixture
+          ..refreshStatus = 200
+          ..refreshUnreachable = false;
+        expect(await client.getJson(Uri.parse(_api)), {
+          'ok': true,
+        }, reason: label);
+        expect(fixture.refreshCalls, 2, reason: label);
+      }
+    },
+  );
 
   test(
     '400 invalid_grant triggers refresh and retries (live-device shape)',
@@ -627,27 +632,54 @@ void main() {
     expect(fixtureF.refreshCalls, 0);
   });
 
-  test('429 maps to rate limited with the retry-after hint', () async {
-    final (container, _, _, _) = await _makeWorld();
-    final rateLimited = _clientOver(
-      container,
-      MockClient(
-        (request) async =>
-            http.Response('limited', 429, headers: {'retry-after': '7'}),
-      ),
-    );
-
-    await expectLater(
-      rateLimited.getJson(Uri.parse(_api)),
-      throwsA(
-        isA<ApiRateLimited>().having(
-          (e) => e.retryAfter,
-          'retryAfter',
-          const Duration(seconds: 7),
+  test(
+    '429, server, parse and transport failures map to errors, no retry',
+    () async {
+      final (container, _, _, _) = await _makeWorld();
+      for (final (name, respond, error) in [
+        (
+          '429',
+          () => http.Response('limited', 429, headers: {'retry-after': '7'}),
+          isA<ApiRateLimited>().having(
+            (e) => e.retryAfter,
+            'retryAfter',
+            const Duration(seconds: 7),
+          ),
         ),
-      ),
-    );
-  });
+        (
+          '500',
+          () => http.Response('boom', 500),
+          isA<ApiHttpError>().having((e) => e.statusCode, 'statusCode', 500),
+        ),
+        (
+          'not JSON',
+          () => http.Response('not json at all', 200),
+          isA<ApiParseError>(),
+        ),
+        (
+          'transport',
+          () => throw http.ClientException('certificate verify failed'),
+          isA<ApiNetworkError>(),
+        ),
+      ]) {
+        var requests = 0;
+        final client = _clientOver(
+          container,
+          MockClient((request) async {
+            requests += 1;
+            return respond();
+          }),
+        );
+
+        await expectLater(
+          client.getJson(Uri.parse(_api)),
+          throwsA(error),
+          reason: name,
+        );
+        expect(requests, 1, reason: name);
+      }
+    },
+  );
 
   test('after a 429 reads wait out the cooldown; posts still go', () async {
     var now = DateTime(2026, 10, 8, 12);
@@ -690,34 +722,6 @@ void main() {
     });
   });
 
-  test('server errors map to ApiHttpError without retry', () async {
-    final (container, _, _, _) = await _makeWorld();
-    final failing = _clientOver(
-      container,
-      MockClient((request) async => http.Response('boom', 500)),
-    );
-
-    await expectLater(
-      failing.getJson(Uri.parse(_api)),
-      throwsA(
-        isA<ApiHttpError>().having((e) => e.statusCode, 'statusCode', 500),
-      ),
-    );
-  });
-
-  test('non-JSON responses map to a parse error', () async {
-    final (container, _, _, _) = await _makeWorld();
-    final parseErrorClient = _clientOver(
-      container,
-      MockClient((request) async => http.Response('not json at all', 200)),
-    );
-
-    await expectLater(
-      parseErrorClient.getJson(Uri.parse(_api)),
-      throwsA(isA<ApiParseError>()),
-    );
-  });
-
   test('bodies decode and map on the data worker unchanged', () async {
     final (container, _, _, _) = await _makeWorld();
     final worker = IsolateDataWorker();
@@ -749,21 +753,6 @@ void main() {
     await expectLater(
       clientReturning(jsonEncode(illusts)).getJson(Uri.parse(_api)),
       throwsA(isA<ApiParseError>()),
-    );
-  });
-
-  test('transport failures map to network errors and stay failures', () async {
-    final (container, _, _, _) = await _makeWorld();
-    final failing = _clientOver(
-      container,
-      MockClient((request) async {
-        throw http.ClientException('certificate verify failed');
-      }),
-    );
-
-    await expectLater(
-      failing.getJson(Uri.parse(_api)),
-      throwsA(isA<ApiNetworkError>()),
     );
   });
 
