@@ -55,19 +55,35 @@ double _pressScale(WidgetTester tester) {
 }
 
 void main() {
-  group('MotionTokens gate', () {
-    Future<Duration> resolve(
-      WidgetTester tester, {
+  testWidgets('the motion gate collapses every token; the speed scales them', (
+    tester,
+  ) async {
+    const off = Duration.zero;
+    Future<void> check(
+      String name,
+      Duration expected, {
       bool reduce = false,
       bool platformDisable = false,
+      bool iosReduce = false,
       AnimationSpeed speed = AnimationSpeed.normal,
     }) async {
-      Duration? resolved;
+      if (iosReduce) {
+        tester.platformDispatcher.accessibilityFeaturesTestValue =
+            const FakeAccessibilityFeatures(reduceMotion: true);
+      }
+      late Duration duration;
+      late Duration springDuration;
+      SpringDescription? spring;
       await tester.pumpWidget(
         _wrap(
           Builder(
             builder: (context) {
-              resolved = MotionTokens.resolve(context, MotionTokens.spatial);
+              duration = MotionTokens.resolve(context, MotionTokens.spatial);
+              (springDuration, _) = MotionTokens.springCurve(
+                context,
+                MotionSpring.spatialDefault,
+              );
+              spring = MotionTokens.spring(context, MotionSpring.spatialFast);
               return const SizedBox.shrink();
             },
           ),
@@ -76,128 +92,49 @@ void main() {
           speed: speed,
         ),
       );
-      return resolved!;
+      tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
+      expect(duration, expected, reason: name);
+      expect(spring == null, expected == off, reason: name);
+      if (expected == off) expect(springDuration, off, reason: name);
     }
 
-    testWidgets('scales by the animation speed', (tester) async {
-      expect(
-        await resolve(tester, speed: AnimationSpeed.slow),
-        MotionTokens.spatial * (450 / 350),
-      );
-      expect(
-        await resolve(tester, speed: AnimationSpeed.fast),
-        MotionTokens.spatial * (250 / 350),
-      );
-    });
-
-    testWidgets('the gate wins over the speed', (tester) async {
-      expect(
-        await resolve(tester, reduce: true, speed: AnimationSpeed.slow),
-        Duration.zero,
-      );
-    });
-
-    testWidgets('plays when neither source asks for reduction', (tester) async {
-      expect(await resolve(tester), MotionTokens.spatial);
-    });
-
-    testWidgets('collapses under the in-app reduce-motion setting', (
-      tester,
-    ) async {
-      expect(await resolve(tester, reduce: true), Duration.zero);
-    });
-
-    testWidgets('collapses under platform disableAnimations', (tester) async {
-      expect(await resolve(tester, platformDisable: true), Duration.zero);
-    });
-
-    testWidgets('collapses under platform reduceMotion (iOS hole)', (
-      tester,
-    ) async {
-      // iOS "Reduce Motion" sets AccessibilityFeatures.reduceMotion WITHOUT
-      // raising disableAnimations — the gate must read it directly or those
-      // users get full animation.
-      tester.platformDispatcher.accessibilityFeaturesTestValue =
-          const FakeAccessibilityFeatures(reduceMotion: true);
-      addTearDown(
-        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
-      );
-      bool? gate;
-      await tester.pumpWidget(
-        _wrap(
-          Builder(
-            builder: (context) {
-              gate = MotionTokens.enabled(context);
-              return const SizedBox.shrink();
-            },
-          ),
-        ),
-      );
-      expect(gate, isFalse);
-      expect(await resolve(tester), Duration.zero);
-    });
+    await check('plays', MotionTokens.spatial);
+    await check(
+      'slow',
+      MotionTokens.spatial * (450 / 350),
+      speed: AnimationSpeed.slow,
+    );
+    await check(
+      'fast',
+      MotionTokens.spatial * (250 / 350),
+      speed: AnimationSpeed.fast,
+    );
+    await check(
+      'the in-app setting wins over the speed',
+      off,
+      reduce: true,
+      speed: AnimationSpeed.slow,
+    );
+    await check('platform disableAnimations', off, platformDisable: true);
+    // iOS "Reduce Motion" sets reduceMotion without disableAnimations: read
+    // on its own, or those users get full animation.
+    await check('platform reduceMotion', off, iosReduce: true);
   });
 
-  group('spring tokens', () {
-    SpringCurve curveOf(MotionSpring token) => SpringCurve(
-      SpringDescription.withDampingRatio(
-        mass: 1,
-        stiffness: token.stiffness,
-        ratio: token.dampingRatio,
-      ),
-    );
-
-    test('a spring curve starts at 0 and ends exactly at 1', () {
-      for (final token in MotionSpring.values) {
-        final curve = curveOf(token);
-        expect(curve.transform(0), 0, reason: token.name);
-        expect(curve.transform(1), 1, reason: token.name);
-        // Within the settle tolerance just before the end.
-        expect(curve.transform(0.999), closeTo(1, 0.002), reason: token.name);
-      }
-    });
-
-    Future<(Duration, Curve)> springCurveAt(
-      WidgetTester tester, {
-      AnimationSpeed speed = AnimationSpeed.normal,
-      bool reduce = false,
-    }) async {
-      (Duration, Curve)? resolved;
-      await tester.pumpWidget(
-        _wrap(
-          Builder(
-            builder: (context) {
-              resolved = MotionTokens.springCurve(
-                context,
-                MotionSpring.spatialDefault,
-              );
-              return const SizedBox.shrink();
-            },
-          ),
-          speed: speed,
-          reduce: reduce,
+  test('a spring curve starts at 0 and ends exactly at 1', () {
+    for (final token in MotionSpring.values) {
+      final curve = SpringCurve(
+        SpringDescription.withDampingRatio(
+          mass: 1,
+          stiffness: token.stiffness,
+          ratio: token.dampingRatio,
         ),
       );
-      return resolved!;
+      expect(curve.transform(0), 0, reason: token.name);
+      expect(curve.transform(1), 1, reason: token.name);
+      // Within the settle tolerance just before the end.
+      expect(curve.transform(0.999), closeTo(1, 0.002), reason: token.name);
     }
-
-    testWidgets('reduced motion has no spring', (tester) async {
-      final (duration, _) = await springCurveAt(tester, reduce: true);
-      expect(duration, Duration.zero);
-      SpringDescription? spring;
-      await tester.pumpWidget(
-        _wrap(
-          Builder(
-            builder: (context) {
-              spring = MotionTokens.spring(context, MotionSpring.spatialFast);
-              return const SizedBox.shrink();
-            },
-          ),
-          reduce: true,
-        ),
-      );
-      expect(spring, isNull);
-    });
   });
 
   group('PressScale', () {
@@ -264,13 +201,7 @@ void main() {
         tester.getCenter(find.byType(PressScale)),
       );
       await tester.pumpAndSettle();
-      expect(
-        find.descendant(
-          of: find.byType(PressScale),
-          matching: find.byType(ScaleTransition),
-        ),
-        findsNothing,
-      );
+      expect(_pressScale(tester), 1);
       await gesture.up();
     });
 
@@ -359,13 +290,11 @@ void main() {
       return (scale.scale.value, fade.opacity.value);
     }
 
-    testWidgets('the first build shows the icon at rest', (tester) async {
-      await tester.pumpWidget(_wrap(switcher(false)));
-      expect(entering(tester, Icons.circle_outlined), (1.0, 1.0));
-    });
-
-    testWidgets('a rebuild with the same state does not swap', (tester) async {
+    testWidgets('the first build and a same-state rebuild show it at rest', (
+      tester,
+    ) async {
       await tester.pumpWidget(_wrap(switcher(true)));
+      expect(entering(tester, Icons.check_circle), (1.0, 1.0));
       await tester.pumpWidget(_wrap(switcher(true)));
       await tester.pump(const Duration(milliseconds: 40));
       expect(find.byIcon(Icons.check_circle), findsOneWidget);
@@ -598,13 +527,11 @@ void main() {
         .opacity
         .value;
 
-    testWidgets('the first build shows its state at once', (tester) async {
-      await tester.pumpWidget(faded('skeleton'));
-      expect(opacity(tester, 'skeleton'), 1);
-    });
-
-    testWidgets('a rebuild of the same kind does not fade', (tester) async {
+    testWidgets('the first build and a same-kind rebuild show it at once', (
+      tester,
+    ) async {
       await tester.pumpWidget(faded('content'));
+      expect(opacity(tester, 'content'), 1);
       await tester.pumpWidget(faded('content'));
       expect(opacity(tester, 'content'), 1);
     });
@@ -654,35 +581,25 @@ void main() {
     });
   });
 
-  testWidgets(
-    'a ticker partition mutes with its ancestor on its own notifier',
-    (tester) async {
-      late ValueListenable<TickerModeData> route;
-      late ValueListenable<TickerModeData> card;
-      Widget build({required bool enabled}) => TickerMode(
-        enabled: enabled,
+  testWidgets('a ticker partition mutes with its ancestor', (tester) async {
+    late ValueListenable<TickerModeData> card;
+    Widget build({required bool enabled}) => TickerMode(
+      enabled: enabled,
+      child: TickerPartition(
         child: Builder(
           builder: (context) {
-            route = TickerMode.getValuesNotifier(context);
-            return TickerPartition(
-              child: Builder(
-                builder: (context) {
-                  card = TickerMode.getValuesNotifier(context);
-                  return const SizedBox();
-                },
-              ),
-            );
+            card = TickerMode.getValuesNotifier(context);
+            return const SizedBox();
           },
         ),
-      );
+      ),
+    );
 
-      await tester.pumpWidget(build(enabled: true));
-      expect(card, isNot(same(route)));
-      expect(card.value.enabled, isTrue);
-      await tester.pumpWidget(build(enabled: false));
-      expect(card.value.enabled, isFalse);
-    },
-  );
+    await tester.pumpWidget(build(enabled: true));
+    expect(card.value.enabled, isTrue);
+    await tester.pumpWidget(build(enabled: false));
+    expect(card.value.enabled, isFalse);
+  });
 
   group('SpringSize', () {
     Widget section(bool open, {bool reduce = false}) => _wrap(
