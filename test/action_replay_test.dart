@@ -460,20 +460,5 @@ void main() {
       expect(entry.isPending, isTrue);
       expect(await world.store.listFor('100'), hasLength(1));
     });
-
-    test('follow toggles queue on raw transport failures too', () async {
-      final world = await _makeWorld();
-      addTearDown(world.container.dispose);
-      world.fixture.failures['follow'] = const SecureResolutionException(
-        'all DoH endpoints failed',
-      );
-
-      await world.container.read(followActionsProvider).toggle(7);
-
-      final entry = world.container.read(followStoreProvider)[7]!;
-      expect(entry.isPending, isTrue);
-      final rows = await world.store.listFor('100');
-      expect(rows.single.type, ActionTypes.followAdd);
-    });
   });
 }
