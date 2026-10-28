@@ -199,114 +199,81 @@ void main() {
     expect(repository.saved.last.searchNovelFilters, novel);
   });
 
-  test('networkModeCode round-trips and missing key defaults to automatic', () {
-    final stored = baseTestSettings().copyWith(
-      networkMode: NetworkMode.directOnly,
+  test('each option is stored under its key and read back; a damaged or '
+      'missing value keeps the previous choice', () {
+    _expectStored(
+      'networkModeCode',
+      read: (s) => s.networkMode,
+      write: (s, v) => s.copyWith(networkMode: v),
+      initial: NetworkMode.automatic,
+      stored: [
+        (NetworkMode.automatic, 0),
+        (NetworkMode.directOnly, 1),
+        (NetworkMode.compatPrefer, 2),
+      ],
+      damaged: 9,
     );
-    final encoded = stored.toJson();
-    expect(encoded['networkModeCode'], NetworkMode.directOnly.code);
-    final restored = AppSettings.fromJson(
-      encoded,
-      fallback: baseTestSettings(),
+    _expectStored(
+      'reverseImageEngine',
+      read: (s) => s.reverseImageEngine,
+      write: (s, v) => s.copyWith(reverseImageEngine: v),
+      initial: ReverseImageEngine.sauceNao,
+      stored: [
+        (ReverseImageEngine.sauceNao, 'sauceNao'),
+        (ReverseImageEngine.iqdb, 'iqdb'),
+        (ReverseImageEngine.ascii2d, 'ascii2d'),
+        (ReverseImageEngine.tinEye, 'tinEye'),
+      ],
+      damaged: 'goggles',
     );
-    expect(restored.networkMode, NetworkMode.directOnly);
-
-    final missing = AppSettings.fromJson({
-      'guideCompleted': true,
-      'languageTag': 'en-US',
-      'themeCode': AppSettings.lightTheme,
-    }, fallback: baseTestSettings());
-    expect(missing.networkMode, NetworkMode.automatic);
-  });
-
-  test('reverseImageEngine round-trips and unknown values fall back', () {
-    final stored = baseTestSettings().copyWith(
-      reverseImageEngine: ReverseImageEngine.ascii2d,
+    // The speed keeps the page-transition key and its millisecond codes, so
+    // older payloads need no migration. An unknown code reads as normal.
+    _expectStored(
+      'pageTransitionSpeedCode',
+      read: (s) => s.animationSpeed,
+      write: (s, v) => s.copyWith(animationSpeed: v),
+      initial: AnimationSpeed.normal,
+      stored: [
+        (AnimationSpeed.fast, 250),
+        (AnimationSpeed.normal, 350),
+        (AnimationSpeed.slow, 450),
+      ],
+      damaged: 999,
+      damagedReads: AnimationSpeed.normal,
     );
-    final encoded = stored.toJson();
-    expect(encoded['reverseImageEngine'], 'ascii2d');
-    final restored = AppSettings.fromJson(
-      encoded,
-      fallback: baseTestSettings(),
+    _expectStored(
+      'feedDensity',
+      read: (s) => s.feedDensity,
+      write: (s, v) => s.copyWith(feedDensity: v),
+      initial: FeedDensity.standard,
+      stored: [
+        (FeedDensity.compact, 'compact'),
+        (FeedDensity.standard, 'standard'),
+        (FeedDensity.comfortable, 'comfortable'),
+      ],
+      damaged: 'dense',
     );
-    expect(restored.reverseImageEngine, ReverseImageEngine.ascii2d);
-
-    final unknown = AppSettings.fromJson({
-      'reverseImageEngine': 'goggles',
-    }, fallback: baseTestSettings());
-    expect(unknown.reverseImageEngine, ReverseImageEngine.sauceNao);
-    // A missing key keeps the explicit default for existing users.
-    final missing = AppSettings.fromJson(
-      const {},
-      fallback: baseTestSettings(),
+    _expectStored(
+      'hapticStrength',
+      read: (s) => s.hapticStrength,
+      write: (s, v) => s.copyWith(hapticStrength: v),
+      initial: HapticStrength.standard,
+      stored: [
+        (HapticStrength.off, 'off'),
+        (HapticStrength.light, 'light'),
+        (HapticStrength.standard, 'standard'),
+        (HapticStrength.strong, 'strong'),
+      ],
+      damaged: 'max',
     );
-    expect(missing.reverseImageEngine, ReverseImageEngine.sauceNao);
-  });
-
-  test('animationSpeed round-trips under the legacy key', () {
-    final stored = baseTestSettings().copyWith(
-      animationSpeed: AnimationSpeed.fast,
+    _expectStored(
+      'reduceMotion',
+      read: (s) => s.reduceMotion,
+      write: (s, v) => s.copyWith(reduceMotion: v),
+      initial: false,
+      stored: [(false, false), (true, true)],
+      damaged: 'yes',
     );
-    final encoded = stored.toJson();
-    // The persisted key and codes predate the rename: no migration.
-    expect(encoded['pageTransitionSpeedCode'], 250);
-    final restored = AppSettings.fromJson(
-      encoded,
-      fallback: baseTestSettings(),
-    );
-    expect(restored.animationSpeed, AnimationSpeed.fast);
-    final legacySlow = AppSettings.fromJson({
-      'pageTransitionSpeedCode': 450,
-    }, fallback: baseTestSettings());
-    expect(legacySlow.animationSpeed, AnimationSpeed.slow);
-
-    final unknown = AppSettings.fromJson({
-      'pageTransitionSpeedCode': 999,
-    }, fallback: baseTestSettings());
-    expect(unknown.animationSpeed, AnimationSpeed.normal);
-    // Missing key keeps the fallback's value; the explicit default is
-    // normal for existing installs.
-    final missing = AppSettings.fromJson(
-      const {},
-      fallback: baseTestSettings(),
-    );
-    expect(missing.animationSpeed, AnimationSpeed.normal);
-    expect(AppSettings.defaults().animationSpeed, AnimationSpeed.normal);
-  });
-
-  test('a retired pageTransitionStyle key reads and is not written', () {
-    final read = AppSettings.fromJson({
-      'pageTransitionStyle': 'slide',
-      'pressFeedback': false,
-    }, fallback: baseTestSettings());
-    expect(read.pressFeedback, isFalse);
-    expect(read.toJson(), isNot(contains('pageTransitionStyle')));
-  });
-
-  test('feedDensity defaults to standard and round-trips by name', () {
-    expect(AppSettings.defaults().feedDensity, FeedDensity.standard);
-    for (final density in FeedDensity.values) {
-      final encoded = baseTestSettings().copyWith(feedDensity: density);
-      expect(
-        AppSettings.fromJson(
-          encoded.toJson(),
-          fallback: baseTestSettings(),
-        ).feedDensity,
-        density,
-      );
-    }
-    expect(
-      AppSettings.fromJson({
-        'feedDensity': 'dense',
-      }, fallback: baseTestSettings()).feedDensity,
-      FeedDensity.standard,
-    );
-  });
-
-  test('animation speed factors scale from the normal tier', () {
-    expect(AnimationSpeed.normal.factor, 1);
-    expect(AnimationSpeed.fast.factor, closeTo(250 / 350, 1e-9));
-    expect(AnimationSpeed.slow.factor, closeTo(450 / 350, 1e-9));
   });
 
   test('typed search filters round-trip and damaged fields fall back', () {
@@ -397,52 +364,95 @@ void main() {
     );
   });
 
-  test('legacy single searchFilters blob migrates into both type sets', () {
-    final restored = AppSettings.fromJson({
-      'searchFilters': {
-        'target': 'title_and_caption',
-        'sort': 'popular_female_desc',
-        'bookmarkMin': 50,
-        'ratio': 'square',
-      },
-    }, fallback: baseTestSettings());
-    // The pre-typed default seeds the illust set as-is...
-    expect(restored.searchIllustFilters.target, SearchTarget.titleAndCaption);
-    expect(restored.searchIllustFilters.bookmarkMin, 50);
-    expect(restored.searchIllustFilters.ratio, SearchRatioPattern.square);
-    // ...and the novel set too, clamped into the novel-legal values.
-    expect(
-      restored.searchNovelFilters.target,
-      SearchTarget.partialMatchForTags,
+  test('values saved by older versions carry over; retired keys are never '
+      'written', () {
+    // `before` differs from every expected value, so a row whose old key
+    // were ignored would fail.
+    final before = baseTestSettings().copyWith(
+      viewQuality: ViewQuality.medium,
+      hapticStrength: HapticStrength.light,
     );
-    expect(restored.searchNovelFilters.sort, SearchSort.popularDesc);
-    expect(restored.searchNovelFilters.bookmarkMin, 50);
+    const blob = {
+      'target': 'title_and_caption',
+      'sort': 'popular_female_desc',
+      'bookmarkMin': 50,
+      'ratio': 'square',
+    };
+    final rows =
+        <(Map<String, Object?>, Object? Function(AppSettings), Object)>[
+          (
+            {'previewQuality': true},
+            (s) => s.previewQuality,
+            PreviewQuality.large,
+          ),
+          ({'scaleQuality': true}, (s) => s.viewQuality, ViewQuality.original),
+          ({'scaleQuality': false}, (s) => s.viewQuality, ViewQuality.large),
+          (
+            {'enableHaptics': false},
+            (s) => s.hapticStrength,
+            HapticStrength.off,
+          ),
+          (
+            {'enableHaptics': true},
+            (s) => s.hapticStrength,
+            HapticStrength.standard,
+          ),
+          // The new key wins over a stale old one.
+          (
+            {'enableHaptics': false, 'hapticStrength': 'strong'},
+            (s) => s.hapticStrength,
+            HapticStrength.strong,
+          ),
+          // The single filter blob seeds both types; the novel set clamps it
+          // into its own targets and sorts.
+          (
+            {'searchFilters': blob},
+            (s) => s.searchIllustFilters,
+            const IllustSearchFilters(
+              target: SearchTarget.titleAndCaption,
+              sort: SearchSort.popularFemaleDesc,
+              bookmarkMin: 50,
+              ratio: SearchRatioPattern.square,
+            ),
+          ),
+          (
+            {'searchFilters': blob},
+            (s) => s.searchNovelFilters,
+            const NovelSearchFilters(
+              sort: SearchSort.popularDesc,
+              bookmarkMin: 50,
+            ),
+          ),
+          // A payload with the retired transition style still reads the rest.
+          (
+            {'pageTransitionStyle': 'slide', 'pressFeedback': false},
+            (s) => s.pressFeedback,
+            false,
+          ),
+        ];
+    for (final (json, read, expected) in rows) {
+      expect(
+        read(AppSettings.fromJson(json, fallback: before)),
+        expected,
+        reason: '$json',
+      );
+    }
+    expect(
+      before.toJson().keys,
+      isNot(
+        anyOf([
+          for (final key in const [
+            'previewQuality',
+            'scaleQuality',
+            'enableHaptics',
+            'searchFilters',
+            'pageTransitionStyle',
+          ])
+            contains(key),
+        ]),
+      ),
+    );
   });
-
-  test('legacy previewQuality true migrates to PreviewQuality.large', () {
-    final settings = AppSettings.fromJson({
-      'previewQuality': true,
-    }, fallback: baseTestSettings());
-    expect(settings.previewQuality, PreviewQuality.large);
-  });
-
-  test(
-    'legacy scaleQuality bool migrates per R3 (true→original, false→large)',
-    () {
-      // `false → large` is the discriminating half: the type default is
-      // `original`, so `true → original` alone would also pass if the legacy
-      // key were ignored.
-      final fromFalse = AppSettings.fromJson({
-        'scaleQuality': false,
-      }, fallback: baseTestSettings());
-      expect(fromFalse.viewQuality, ViewQuality.large);
-
-      final fromTrue = AppSettings.fromJson({
-        'scaleQuality': true,
-      }, fallback: baseTestSettings());
-      expect(fromTrue.viewQuality, ViewQuality.original);
-    },
-  );
 
   test('plain settings JSON never contains translation credentials', () {
     final json = baseTestSettings().toJson();
@@ -450,39 +460,42 @@ void main() {
     expect(json.values, isNot(contains('access-token')));
     expect(AppSettings.translationCredentialRef.credentialKey, isNotEmpty);
   });
+}
 
-  test('hapticStrength defaults to standard and round-trips through JSON', () {
-    final base = baseTestSettings();
-    expect(base.hapticStrength, HapticStrength.standard);
-    for (final strength in HapticStrength.values) {
-      final json = base.copyWith(hapticStrength: strength).toJson();
-      expect(json['hapticStrength'], strength.name);
-      expect(json.containsKey('enableHaptics'), isFalse);
-      expect(
-        AppSettings.fromJson(json, fallback: baseTestSettings()).hapticStrength,
-        strength,
-      );
-    }
-  });
-
-  test('the legacy haptics switch migrates to a strength', () {
-    HapticStrength read(Map<String, dynamic> json) => AppSettings.fromJson(
-      json,
-      fallback: baseTestSettings().copyWith(
-        hapticStrength: HapticStrength.light,
-      ),
-    ).hapticStrength;
-    final legacy = baseTestSettings().toJson()..remove('hapticStrength');
-    expect(read({...legacy, 'enableHaptics': false}), HapticStrength.off);
-    expect(read({...legacy, 'enableHaptics': true}), HapticStrength.standard);
-    // Neither key: the fallback wins.
-    expect(read(legacy), HapticStrength.light);
-    // The new key wins over a stale legacy one.
+/// Checks how one option is stored: its default, each value written under
+/// [key] as [stored] lists it and read back over another choice, and that a
+/// [damaged] value or a missing key keeps the previous choice
+/// ([damagedReads] when a damaged value resets the option instead).
+void _expectStored<T extends Object>(
+  String key, {
+  required T Function(AppSettings) read,
+  required AppSettings Function(AppSettings, T) write,
+  required T initial,
+  required List<(T, Object)> stored,
+  required Object damaged,
+  T? damagedReads,
+}) {
+  expect(read(AppSettings.defaults()), initial, reason: '$key default');
+  T otherThan(T value) => stored.map((e) => e.$1).firstWhere((v) => v != value);
+  for (final (value, raw) in stored) {
+    expect(write(baseTestSettings(), value).toJson()[key], raw, reason: key);
+    final over = write(baseTestSettings(), otherThan(value));
     expect(
-      read({...legacy, 'enableHaptics': false, 'hapticStrength': 'strong'}),
-      HapticStrength.strong,
+      read(AppSettings.fromJson({key: raw}, fallback: over)),
+      value,
+      reason: '$key $raw',
     );
-    // An unknown value is ignored like a missing key.
-    expect(read({...legacy, 'hapticStrength': 'max'}), HapticStrength.light);
-  });
+  }
+  final previous = otherThan(initial);
+  final before = write(baseTestSettings(), previous);
+  expect(
+    read(AppSettings.fromJson({key: damaged}, fallback: before)),
+    damagedReads ?? previous,
+    reason: '$key $damaged',
+  );
+  expect(
+    read(AppSettings.fromJson(const {}, fallback: before)),
+    previous,
+    reason: '$key missing',
+  );
 }

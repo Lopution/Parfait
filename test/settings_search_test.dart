@@ -253,14 +253,17 @@ void main() {
       final option = searchSettings(zh, '深色');
       expect(option.single.entry, Setting.themeMode);
       expect(option.single.path, ['主题']);
+      expect(
+        (option.single.label, option.single.location),
+        ('深色', Setting.themeMode.location),
+      );
       expect(searchSettings(zh, '   '), isEmpty);
       expect(searchSettings(zh, '不存在的设置项'), isEmpty);
     });
   });
 
-  testWidgets('a result opens its page with the setting revealed and marked', (
-    tester,
-  ) async {
+  testWidgets('a result opens its page with the setting revealed and marked; '
+      'back returns to the search', (tester) async {
     setViewSize(tester, const Size(390, 844));
     final router = pixivRouter(settingsIndexPath);
     await tester.pumpWidget(
@@ -308,37 +311,20 @@ void main() {
 
     await tester.pumpAndSettle();
     expect(markOf(overlays), 0, reason: 'the mark fades after its dwell');
-  });
-
-  testWidgets('back from a result returns to the search', (tester) async {
-    setViewSize(tester, const Size(390, 844));
-    final router = pixivRouter(settingsIndexPath);
-    await tester.pumpWidget(
-      localizedRouterApp(
-        router,
-        overrides: _overrides(),
-        builder: promptHostBuilder,
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(SearchBar), '深色');
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(of: find.byType(SettingsTile), matching: find.text('深色')),
-    );
-    await tester.pumpAndSettle();
-    expect(router.state.uri.path, SettingsPageRef.theme.path);
 
     unawaited(router.maybePop());
     await tester.pumpAndSettle();
     expect(router.state.uri.path, settingsIndexPath);
     expect(
       tester.widget<EditableText>(find.byType(EditableText)).controller.text,
-      '深色',
+      title,
       reason: 'the query survives',
     );
     expect(
-      find.descendant(of: find.byType(SettingsTile), matching: find.text('深色')),
+      find.descendant(
+        of: find.byType(SettingsTile),
+        matching: find.text(title),
+      ),
       findsOneWidget,
     );
   });

@@ -43,7 +43,7 @@ reviewed: 2026-10-25
   crept back and then left at full speed (10-24). The slide's shadow box
   took every touch on the leaving page. A still shell under root pages
   made two kinds of push from one menu (user report).
-- **Check:** `test/func_page_test.dart` "a page slides in from the trailing edge over the page below" "back mid-push turns the slide where it is; the page below answers"; `test/navigation_router_test.dart` "openDownloadTasks lands on /downloads; the shell moves aside"; `test/pop_snapshot_paint_test.dart` "a TurnCurve goes on from where it turns, on the other curve"; `test/app_settings_test.dart` "a retired pageTransitionStyle key reads and is not written"
+- **Check:** `test/func_page_test.dart` "a page slides in from the trailing edge over the page below" "back mid-push turns the slide where it is; the page below answers"; `test/navigation_router_test.dart` "openDownloadTasks lands on /downloads; the shell moves aside"; `test/pop_snapshot_paint_test.dart` "a TurnCurve goes on from where it turns, on the other curve"; `test/app_settings_test.dart` "values saved by older versions carry over; retired keys are never"
 - **Code:** `lib/app/navigation/func_page.dart`, `lib/core/settings/app_settings.dart`
 
 ### TRANS-02 The slide uses the Cupertino widget, not its builder

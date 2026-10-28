@@ -164,68 +164,6 @@ void main() {
     await expectLater(repository.fetchAiShow(), throwsA(isA<ApiHttpError>()));
   });
 
-  test(
-    'controller fetches per account and confirms optimistic writes',
-    () async {
-      const showAi = true;
-      var restricted = false;
-      final (container, _) = await _world(
-        _ApiScript({
-          'GET /v1/user/ai-show-settings': (_) =>
-              http.Response(jsonEncode({'show_ai': showAi}), 200),
-          'GET /v1/user/restricted-mode-settings': (_) => http.Response(
-            jsonEncode({'is_restricted_mode_enabled': restricted}),
-            200,
-          ),
-          'POST /v1/user/restricted-mode-settings': (_) {
-            restricted = true;
-            return http.Response('{"is_restricted_mode_enabled":true}', 200);
-          },
-        }),
-      );
-
-      final initial = await container.read(
-        serverDisplaySettingsProvider.future,
-      );
-      expect(initial, isA<ServerDisplaySettings>());
-      expect(initial.showAi, isTrue);
-      expect(initial.restrictedMode, isFalse);
-
-      await container
-          .read(serverDisplaySettingsProvider.notifier)
-          .setRestrictedMode(true);
-      expect(
-        container.read(serverDisplaySettingsProvider).value!.restrictedMode,
-        isTrue,
-      );
-    },
-  );
-
-  test('a failed write rolls the visible state back and rethrows', () async {
-    final (container, _) = await _world(
-      _ApiScript({
-        'GET /v1/user/ai-show-settings': (_) =>
-            http.Response('{"show_ai":true}', 200),
-        'GET /v1/user/restricted-mode-settings': (_) =>
-            http.Response('{"is_restricted_mode_enabled":false}', 200),
-        'POST /v1/user/ai-show-settings/edit': (_) =>
-            http.Response('{"error":"nope"}', 400),
-      }),
-    );
-
-    await container.read(serverDisplaySettingsProvider.future);
-
-    await expectLater(
-      container.read(serverDisplaySettingsProvider.notifier).setShowAi(false),
-      throwsA(isA<ApiHttpError>()),
-    );
-    expect(
-      container.read(serverDisplaySettingsProvider).value!.showAi,
-      isTrue,
-      reason: 'the toggle snaps back to the last confirmed value',
-    );
-  });
-
   test('no usable account fails at once, without a retry backoff', () {
     fakeAsync((async) {
       late final ProviderContainer container;

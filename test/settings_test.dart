@@ -1051,56 +1051,39 @@ void main() {
     expect(safTreeDisplayName(zh, ''), '');
   });
 
-  testWidgets('the export tile exports bounded transfer data after confirm', (
-    tester,
-  ) async {
-    final clipboard = _TransferClipboard();
-    await _pumpAccountSettings(tester, clipboard);
-
-    await tester.tap(find.text('导出账号凭据'));
-    await tester.pumpAndSettle();
-    // The tile only opens the confirm dialog — nothing is exported yet.
-    expect(clipboard.writeCount, 0);
-    await tester.tap(find.text('确定'));
-    await tester.pumpAndSettle();
-
-    expect(clipboard.writeCount, 1);
-    expect(TransferEnvelope.parse(clipboard.text!), isA<TransferEnvelope>());
-  });
-
-  testWidgets(
-    'exporting on a device without sensitive clipboard shows a warning',
-    (tester) async {
-      final clipboard = _TransferClipboard();
+  testWidgets('export copies once after confirm; a clipboard that cannot '
+      'mark it sensitive adds a warning', (tester) async {
+    const warning = '此设备不支持敏感剪贴板标记（Android 13+ 才支持），凭据不会被标记为敏感内容。请尽快粘贴。';
+    for (final sensitive in [true, false]) {
+      final clipboard = _TransferClipboard()
+        ..sensitiveMarkSupported = sensitive;
+      await tester.pumpWidget(const SizedBox());
       await _pumpAccountSettings(
         tester,
         clipboard,
-        overrides: [
-          // Capability override: emulate an Android <13 device that
-          // cannot mark the clipboard entry as sensitive.
-          transferClipboardProvider.overrideWithValue(
-            _TransferClipboard()..sensitiveMarkSupported = false,
-          ),
-        ],
+        overrides: [transferClipboardProvider.overrideWithValue(clipboard)],
       );
 
       await tester.tap(find.text('导出账号凭据'));
       await tester.pumpAndSettle();
-      // Export is gated behind the warning dialog's confirm action.
+      // The tile only opens the confirm dialog: nothing is exported yet.
+      expect(clipboard.writeCount, 0);
       await tester.tap(find.text('确定'));
       await tester.pumpAndSettle();
-      // The copied-toast (4s) blocks the queued warning snackbar; advance
-      // past it so the explicit security warning becomes visible.
+      expect(clipboard.writeCount, 1);
+      expect(TransferEnvelope.parse(clipboard.text!), isA<TransferEnvelope>());
+
+      // The warning queues behind the copied toast (4s); a security
+      // downgrade is never silent (R4).
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
-
-      // The explicit security warning appears (R4: 安全降级不能静默).
       expect(
-        find.text('此设备不支持敏感剪贴板标记（Android 13+ 才支持），凭据不会被标记为敏感内容。请尽快粘贴。'),
-        findsOneWidget,
+        find.text(warning),
+        sensitive ? findsNothing : findsOneWidget,
+        reason: 'sensitive mark supported: $sensitive',
       );
-    },
-  );
+    }
+  });
 
   testWidgets('network advanced accepts hostname DoH endpoints', (
     tester,

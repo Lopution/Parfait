@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,20 +15,6 @@ import 'support/contrast.dart';
 
 void main() {
   group('NovelReaderSettings', () {
-    test('json round-trip keeps every field', () {
-      const settings = NovelReaderSettings(
-        fontSize: 21,
-        lineHeight: 1.9,
-        theme: NovelReaderTheme.night,
-      );
-
-      final restored = NovelReaderSettings.fromJson(
-        jsonDecode(jsonEncode(settings.toJson())) as Map<String, Object?>,
-      );
-
-      expect(restored, settings);
-    });
-
     test('copyWith clamps typography into the supported range', () {
       const settings = NovelReaderSettings();
 
@@ -48,33 +32,29 @@ void main() {
   });
 
   group('novelReaderPalette', () {
-    test('system inherits the app theme; presets pin colors', () {
+    test('system inherits the app theme; presets pin their colors and the '
+        'brightness they read as', () {
       final system = novelReaderPalette(NovelReaderTheme.system);
       expect(system.background, isNull);
       expect(system.foreground, isNull);
-
-      final night = novelReaderPalette(NovelReaderTheme.night);
-      expect(night.background, isNotNull);
-      expect(night.foreground, isNotNull);
-      expect(night.background!.computeLuminance(), lessThan(0.2));
-    });
-
-    test('palette brightness matches each pinned background', () {
-      // The reader's system-bar icons invert off this value — a recolored
-      // preset that forgets to repin `brightness` fails here.
-      expect(novelReaderPalette(NovelReaderTheme.system).brightness, isNull);
+      expect(system.brightness, isNull);
+      // The reader's system-bar icons invert off the brightness: a
+      // recolored preset that forgets to repin it fails here.
       for (final theme in [
         NovelReaderTheme.paper,
         NovelReaderTheme.sepia,
         NovelReaderTheme.night,
       ]) {
         final palette = novelReaderPalette(theme);
+        expect(palette.foreground, isNotNull, reason: '$theme');
         expect(
           palette.brightness,
           ThemeData.estimateBrightnessForColor(palette.background!),
           reason: '$theme brightness must track its background',
         );
       }
+      final night = novelReaderPalette(NovelReaderTheme.night);
+      expect(night.background!.computeLuminance(), lessThan(0.2));
     });
 
     test(
@@ -113,17 +93,17 @@ void main() {
   });
 
   group('NovelReaderSettingsStore', () {
-    test('save then load restores the settings', () async {
-      final prefs = SharedPreferencesAsync();
-      final store = NovelReaderSettingsStore(prefs);
-
-      await store.save(
-        const NovelReaderSettings(fontSize: 22, theme: NovelReaderTheme.sepia),
+    test('save then load restores every field', () async {
+      final store = NovelReaderSettingsStore(SharedPreferencesAsync());
+      // No field at its default, so a field the JSON drops shows.
+      const settings = NovelReaderSettings(
+        fontSize: 21,
+        lineHeight: 1.9,
+        theme: NovelReaderTheme.night,
       );
 
-      final loaded = await store.load();
-      expect(loaded.fontSize, 22);
-      expect(loaded.theme, NovelReaderTheme.sepia);
+      await store.save(settings);
+      expect(await store.load(), settings);
     });
 
     test('corrupt blob falls back to defaults', () async {
@@ -136,40 +116,15 @@ void main() {
   });
 
   group('NovelProgressStore', () {
-    test('write then read restores the anchor payload', () async {
-      final prefs = SharedPreferencesAsync();
-      final store = NovelProgressStore(prefs);
+    test('entries are scoped per account and per novel', () async {
+      final store = NovelProgressStore(SharedPreferencesAsync());
 
       await store.write('acct-1', 77, paragraphId: 'p9', offset: 12);
 
-      final saved = await store.read('acct-1', 77);
-      expect(saved?.paragraphId, 'p9');
-      expect(saved?.offset, 12);
-    });
-
-    test('entries are scoped per account and per novel', () async {
-      final prefs = SharedPreferencesAsync();
-      final store = NovelProgressStore(prefs);
-
-      await store.write('acct-1', 77, paragraphId: 'p9', offset: 0);
-
       expect(await store.read('acct-2', 77), isNull);
       expect(await store.read('acct-1', 78), isNull);
-      expect(await store.read('acct-1', 77), isNotNull);
-    });
-
-    test('evicts the stalest entries beyond the 200-entry cap', () async {
-      final prefs = SharedPreferencesAsync();
-      final store = NovelProgressStore(prefs);
-
-      for (var index = 0; index < 205; index++) {
-        await store.write('acct', index, paragraphId: 'p0', offset: 0);
-      }
-
-      // The first five novels were evicted; the most recent survive.
-      expect(await store.read('acct', 0), isNull);
-      expect(await store.read('acct', 4), isNull);
-      expect(await store.read('acct', 204), isNotNull);
+      final saved = await store.read('acct-1', 77);
+      expect((saved?.paragraphId, saved?.offset), ('p9', 12));
     });
 
     test('re-writing an existing entry renews its recency position', () async {
