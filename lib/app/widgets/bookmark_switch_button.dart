@@ -574,63 +574,9 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: FuncSpacing.lg),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: FuncSpacing.xl,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.initiallyBookmarked
-                              ? l10n.bookmarkEditTitle
-                              : _bookmarkText(
-                                  context,
-                                  widget.isNovel
-                                      ? 'bookmarkNovel'
-                                      : 'bookmarkIllust',
-                                ),
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: FuncSpacing.sm),
-                        Text(
-                          widget.title,
-                          style: FuncSemanticTokens.of(context).title,
-                        ),
-                        Text(
-                          '${widget.bookmarkKey.id}',
-                          style: FuncSemanticTokens.of(context).caption,
-                        ),
-                        const SizedBox(height: FuncSpacing.lg),
-                        // The sheet paints its colour on a DecoratedBox; the
-                        // row needs its own Material for the ink.
-                        Material(
-                          type: MaterialType.transparency,
-                          child: SettingsControl(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(l10n.restrictPrivate),
-                            value: _restrict == BookmarkRestrict.private,
-                            // The whole edit area is inert while an existing
-                            // bookmark's detail is still in flight: the tag
-                            // editor is replaced by the spinner and the
-                            // switch locks too — a mid-load restrict change
-                            // would dirty the draft so the arriving prefill
-                            // kept the empty tag list and overwrote the
-                            // persisted tags.
-                            onChanged: (awaitingPrefill && !prefillFailed)
-                                ? null
-                                : (private) => setState(
-                                    () => _restrict = private
-                                        ? BookmarkRestrict.private
-                                        : BookmarkRestrict.public,
-                                  ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: FuncSpacing.lg),
+                  // Everything above the confirm row scrolls: at a large
+                  // font with the keyboard up, the header and switch alone
+                  // outgrow the sheet.
                   Flexible(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.symmetric(
@@ -639,6 +585,53 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Text(
+                            widget.initiallyBookmarked
+                                ? l10n.bookmarkEditTitle
+                                : _bookmarkText(
+                                    context,
+                                    widget.isNovel
+                                        ? 'bookmarkNovel'
+                                        : 'bookmarkIllust',
+                                  ),
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: FuncSpacing.sm),
+                          Text(
+                            widget.title,
+                            style: FuncSemanticTokens.of(context).title,
+                          ),
+                          Text(
+                            '${widget.bookmarkKey.id}',
+                            style: FuncSemanticTokens.of(context).caption,
+                          ),
+                          const SizedBox(height: FuncSpacing.lg),
+                          // The sheet paints its colour on a DecoratedBox; the
+                          // row needs its own Material for the ink.
+                          Material(
+                            type: MaterialType.transparency,
+                            child: SettingsControl(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(l10n.restrictPrivate),
+                              value: _restrict == BookmarkRestrict.private,
+                              // The whole edit area is inert while an existing
+                              // bookmark's detail is still in flight: the tag
+                              // editor is replaced by the spinner and the
+                              // switch locks too — a mid-load restrict change
+                              // would dirty the draft so the arriving prefill
+                              // kept the empty tag list and overwrote the
+                              // persisted tags.
+                              onChanged: (awaitingPrefill && !prefillFailed)
+                                  ? null
+                                  : (private) => setState(
+                                      () => _restrict = private
+                                          ? BookmarkRestrict.private
+                                          : BookmarkRestrict.public,
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: FuncSpacing.lg),
                           Text(
                             l10n.bookmarkTags,
                             style: FuncSemanticTokens.of(context).body,
@@ -813,21 +806,25 @@ class _BookmarkEditSheetState extends ConsumerState<_BookmarkEditSheet> {
         ),
       ),
     );
-    if (!_closableFreely) {
-      // Drag-to-dismiss bypasses PopScope entirely: BottomSheet.onClosing
-      // calls Navigator.pop() directly, and imperative pops never consult
-      // popDisposition. While dirty the sheet content claims vertical
-      // drags itself and routes a downward release through the same
-      // _attemptClose confirmation. The inner scroll view still wins
-      // drags that start inside it, so scrolling is unaffected.
-      sheet = GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onVerticalDragEnd: (details) {
-          if ((details.primaryVelocity ?? 0) > 0) unawaited(_attemptClose());
-        },
-        child: sheet,
-      );
-    }
+    // Drag-to-dismiss bypasses PopScope entirely: BottomSheet.onClosing
+    // calls Navigator.pop() directly, and imperative pops never consult
+    // popDisposition. While dirty the sheet content claims vertical drags
+    // itself and routes a downward release through the same _attemptClose
+    // confirmation. The inner scroll view still wins drags that start
+    // inside it, so scrolling is unaffected. The detector is always there,
+    // so a draft turning dirty does not rebuild the form and lose its
+    // scroll position.
+    sheet = GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onVerticalDragEnd: _closableFreely
+          ? null
+          : (details) {
+              if ((details.primaryVelocity ?? 0) > 0) {
+                unawaited(_attemptClose());
+              }
+            },
+      child: sheet,
+    );
     return PopScope(
       canPop: _closableFreely,
       onPopInvokedWithResult: (didPop, _) {

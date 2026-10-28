@@ -25,6 +25,7 @@ import 'package:parfait/features/profile/profile_edit_page.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
+import 'helpers/prompt_host.dart';
 import 'helpers/image_headers.dart';
 import 'helpers/reverse_image_world.dart' show FakeReverseImagePlatform;
 import 'helpers/view_size.dart';
@@ -440,6 +441,7 @@ void main() {
         localizedApp(
           container: container,
           locale: const Locale('en', 'US'),
+          builder: promptHostBuilder,
           home: ProfileEditPage(
             userId: 42,
             session: session,
@@ -494,6 +496,56 @@ void main() {
       expect(avatarSize.shortestSide, greaterThanOrEqualTo(48));
       expect(tester.getSize(background).height, greaterThanOrEqualTo(48));
     });
+
+    testWidgets('save waits for a picked image to be read', (tester) async {
+      await pumpEditor(tester, _appApi({ProfileField.avatar}));
+      bool saveEnabled() => tester
+          .widget<ButtonStyleButton>(
+            find.ancestor(
+              of: find.text('Save profile'),
+              matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+            ),
+          )
+          .enabled;
+      expect(saveEnabled(), isTrue);
+
+      platform.copy = Completer<String>();
+      await tester.tap(avatar);
+      await tester.pump();
+      expect(saveEnabled(), isFalse);
+
+      platform.copy!.completeError(const FileSystemException('gone'));
+      await tester.pump();
+      expect(saveEnabled(), isTrue);
+    });
+  });
+
+  test('an image picked mid-submit is released, not sent later', () async {
+    final outcome = Completer<ProfileEditOutcome>();
+    final repository = _FakeRepository(
+      _appApi({ProfileField.displayName, ProfileField.avatar}),
+      deferredOutcome: outcome,
+    );
+    final controller = await _loaded(_session(repository));
+    controller.updateText(ProfileField.displayName, 'saved');
+    final submit = controller.submit();
+    var released = 0;
+    await controller.selectImage(
+      ProfileField.avatar,
+      ProfileImageSelection(
+        path: '/private/avatar.png',
+        mimeType: 'image/png',
+        sizeBytes: 128,
+        width: 10,
+        height: 10,
+        cleanup: () async => released++,
+      ),
+    );
+
+    expect(controller.state.status, ProfileEditStatus.submitting);
+    expect(released, 1);
+    outcome.complete(ProfileEditConfirmed(_user()));
+    await submit;
   });
 
   testWidgets('production init keeps the auto-dispose controller alive', (
@@ -601,19 +653,28 @@ class _FakeRepository implements ProfileEditRepository {
   }
 }
 
-/// Picker boundary that counts requests and returns nothing.
+/// Picker boundary that counts requests and returns nothing, or with
+/// [copy] set, a picked image whose copy waits on it.
 class _CountingImagePlatform implements ReverseImageInputPlatform {
   int picks = 0;
+  Completer<String>? copy;
 
   @override
   Future<ReverseImageInputReference?> pickImage() async {
     picks++;
-    return null;
+    if (copy == null) return null;
+    return const ReverseImageInputReference(
+      contentUri: 'content://picker/1',
+      mimeType: 'image/png',
+      sizeBytes: 128,
+      hasReadUriPermission: true,
+      source: ReverseImageInputSource.picker,
+    );
   }
 
   @override
   Future<String> copyToOwnedFile(ReverseImageInputReference reference) =>
-      throw UnimplementedError();
+      copy?.future ?? (throw UnimplementedError());
 
   @override
   Future<void> deleteOwnedFile(String path) => throw UnimplementedError();

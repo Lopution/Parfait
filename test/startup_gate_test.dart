@@ -298,7 +298,9 @@ void main() {
     expect(router.state.uri.path, '/recommended');
   });
 
-  testWidgets('an image shared into a cold start stays open', (tester) async {
+  testWidgets('an image shared into a cold start stays open until back', (
+    tester,
+  ) async {
     // Android pushes the share over the splash before the account loads.
     InAppWebViewPlatform.instance = FakeInAppWebViewPlatform();
     final metadata = _PendingMetadataRepository();
@@ -312,6 +314,11 @@ void main() {
     metadata._completer.complete(_signedIn);
     await tester.pumpAndSettle();
     expect(router.state.uri.path, '/reverse-image');
+
+    // Back lands on the splash, which is never a destination.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(HomePage), findsOneWidget);
   });
 
   testWidgets('corrupt metadata surfaces a retryable error', (tester) async {

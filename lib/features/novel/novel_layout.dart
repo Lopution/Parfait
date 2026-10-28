@@ -148,6 +148,7 @@ class NovelLayoutKey {
     required this.fontWeight,
     required this.brightness,
     required this.textDirection,
+    this.textScaler = TextScaler.noScaling,
   });
 
   final String contentVersion;
@@ -159,6 +160,10 @@ class NovelLayoutKey {
   final Brightness brightness;
   final TextDirection textDirection;
 
+  /// The text scaler the page paints with, so each row is measured as
+  /// wide as it is drawn (LAYOUT-04).
+  final TextScaler textScaler;
+
   @override
   bool operator ==(Object other) {
     return other is NovelLayoutKey &&
@@ -169,7 +174,8 @@ class NovelLayoutKey {
         other.lineHeight == lineHeight &&
         other.fontWeight == fontWeight &&
         other.brightness == brightness &&
-        other.textDirection == textDirection;
+        other.textDirection == textDirection &&
+        other.textScaler == textScaler;
   }
 
   @override
@@ -182,6 +188,7 @@ class NovelLayoutKey {
     fontWeight,
     brightness,
     textDirection,
+    textScaler,
   );
 }
 
@@ -345,6 +352,7 @@ class NovelLayoutEngine {
     required Color textColor,
     required Brightness brightness,
     TextDirection textDirection = TextDirection.ltr,
+    TextScaler textScaler = TextScaler.noScaling,
     NovelLayoutBudget budget = const NovelLayoutBudget(),
     NovelLayoutProgressCallback? onProgress,
   }) {
@@ -354,6 +362,7 @@ class NovelLayoutEngine {
       style: style,
       brightness: brightness,
       textDirection: textDirection,
+      textScaler: textScaler,
     );
     final cached = cache.get(key);
     if (cached != null) {
@@ -385,6 +394,7 @@ class NovelLayoutEngine {
     required Color textColor,
     required Brightness brightness,
     TextDirection textDirection = TextDirection.ltr,
+    TextScaler textScaler = TextScaler.noScaling,
     Map<String, String> translations = const {},
     CancelToken? cancelToken,
     NovelLayoutBudget budget = const NovelLayoutBudget(),
@@ -396,6 +406,7 @@ class NovelLayoutEngine {
       style: style,
       brightness: brightness,
       textDirection: textDirection,
+      textScaler: textScaler,
     );
     final cached = cache.get(key);
     if (cached != null) {
@@ -428,6 +439,7 @@ class NovelLayoutEngine {
     required Color textColor,
     required Brightness brightness,
     TextDirection textDirection = TextDirection.ltr,
+    TextScaler textScaler = TextScaler.noScaling,
     NovelLayoutBudget budget = const NovelLayoutBudget(),
     NovelLayoutProgressCallback? onProgress,
   }) {
@@ -439,6 +451,7 @@ class NovelLayoutEngine {
       textColor: textColor,
       brightness: brightness,
       textDirection: textDirection,
+      textScaler: textScaler,
       budget: budget,
       onProgress: onProgress,
     );
@@ -452,6 +465,7 @@ class NovelLayoutEngine {
     required Color textColor,
     required Brightness brightness,
     TextDirection textDirection = TextDirection.ltr,
+    TextScaler textScaler = TextScaler.noScaling,
     Map<String, String> translations = const {},
     CancelToken? cancelToken,
     NovelLayoutBudget budget = const NovelLayoutBudget(),
@@ -465,6 +479,7 @@ class NovelLayoutEngine {
       textColor: textColor,
       brightness: brightness,
       textDirection: textDirection,
+      textScaler: textScaler,
       translations: translations,
       cancelToken: cancelToken,
       budget: budget,
@@ -602,6 +617,7 @@ class NovelLayoutEngine {
     required NovelLayoutStyle style,
     required Brightness brightness,
     required TextDirection textDirection,
+    required TextScaler textScaler,
   }) {
     return NovelLayoutKey(
       contentVersion: contentVersion,
@@ -612,6 +628,7 @@ class NovelLayoutEngine {
       fontWeight: style.fontWeight,
       brightness: brightness,
       textDirection: textDirection,
+      textScaler: textScaler,
     );
   }
 
@@ -639,6 +656,7 @@ class NovelLayoutEngine {
         style: style,
         textColor: textColor,
         textDirection: textDirection,
+        textScaler: key.textScaler,
       );
       for (var index = 0; index < paragraphs.length; index++) {
         if (cancelToken?.isCancelled ?? false) throw const ApiCancelled();
@@ -712,6 +730,7 @@ class NovelLayoutEngine {
         style: style,
         textColor: textColor,
         textDirection: textDirection,
+        textScaler: key.textScaler,
       );
       for (var index = 0; index < paragraphs.length; index++) {
         if (cancelled()) throw const ApiCancelled();
@@ -768,6 +787,7 @@ class NovelLayoutEngine {
     key.lineHeight,
     key.fontWeight,
     key.textDirection,
+    key.textScaler,
   );
 
   List<_MeasuredLine> _cached(
@@ -886,7 +906,7 @@ class NovelLayoutEngine {
     final painter = TextPainter(
       text: TextSpan(text: text, style: style),
       textDirection: measure.textDirection,
-      textScaler: TextScaler.noScaling,
+      textScaler: measure.textScaler,
     )..layout(maxWidth: measure.maxWidth);
     final rows = [
       for (final metric in painter.computeLineMetrics())
@@ -1112,6 +1132,7 @@ class _Measure {
     required this.style,
     required this.textColor,
     required this.textDirection,
+    required this.textScaler,
   });
 
   /// Lines measured under an equal signature wrap the same way.
@@ -1120,4 +1141,5 @@ class _Measure {
   final NovelLayoutStyle style;
   final Color textColor;
   final TextDirection textDirection;
+  final TextScaler textScaler;
 }

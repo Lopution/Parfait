@@ -385,6 +385,37 @@ void main() {
     expect(repository.adds, isEmpty);
   });
 
+  testWidgets('turning the draft dirty keeps the sheet scrolled', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      child: BookmarkSwitchButton(illustId: 1, title: 'work 1 ' * 200),
+    );
+    await tester.longPress(find.byType(BookmarkSwitchButton));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('私密'));
+    await tester.pumpAndSettle();
+    double offset() => tester
+        .state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byType(SingleChildScrollView),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        )
+        .position
+        .pixels;
+    final scrolled = offset();
+    expect(scrolled, greaterThan(0));
+
+    await tester.tap(find.text('私密'));
+    await tester.pumpAndSettle();
+    expect(_privateSwitch(tester).value, isTrue);
+    expect(offset(), scrolled);
+  });
+
   testWidgets('a submit outlives its sheet but not its account', (
     tester,
   ) async {

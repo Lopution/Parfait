@@ -100,12 +100,16 @@ reviewed: 2026-10-17
   pages) are a login, welcome or splash route. Login pushed over an app
   page is "add account": it stays, and on success the login page pops
   back to the page that opened it. A page pushed over the splash (an
-  image shared into a cold start) stays too.
+  image shared into a cold start) stays too, until back lands on the
+  splash. The gate judges again after every stack change: it listens to
+  the router delegate as well, rebuilding once the frame is done, since
+  the delegate also notifies inside the Router's build.
 - **Why:** A token refresh or a network-mode toggle rebuilt the gate
   during add account and threw the user home mid-OAuth. Judging the base
   alone dropped a share pushed over the splash, and left a finished add
-  account on the login form.
-- **Check:** `test/startup_gate_test.dart` "add account survives the gate rebuilding under it" "an image shared into a cold start stays open"
+  account on the login form. A pop does not notify the route information
+  provider, so back from that share stayed on the splash.
+- **Check:** `test/startup_gate_test.dart` "add account survives the gate rebuilding under it" "an image shared into a cold start stays open until back"
 - **Code:** `lib/app/startup_gate.dart`, `lib/features/login/login_page.dart`
 
 ## Bottom bar

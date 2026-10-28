@@ -330,6 +330,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   Size? _requestedViewport;
   Brightness? _requestedBrightness;
   TextDirection? _requestedDirection;
+  TextScaler? _requestedTextScaler;
   bool _layoutScheduled = false;
 
   /// Set while a commit postFrame performs the programmatic restore
@@ -421,15 +422,18 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         // WCAG 1.4.8 line-length cap: ~40 CJK glyphs per line, relative to
         // the font slider so the cap scales with settings and only bites
         // on wide screens (a 390dp phone is narrower than 17*40+48).
+        // The body follows the system font size like any text.
+        final textScaler = MediaQuery.textScalerOf(context);
         final layoutWidth = math.min(
           constraints.maxWidth,
-          _style.fontSize * 40 + _style.horizontalPadding * 2,
+          textScaler.scale(_style.fontSize) * 40 + _style.horizontalPadding * 2,
         );
         final viewport = Size(layoutWidth, constraints.maxHeight);
         _scheduleLayout(
           viewport: viewport,
           brightness: theme.brightness,
           direction: Directionality.of(context),
+          textScaler: textScaler,
         );
         final layoutError = _layoutError;
         if (layoutError != null) {
@@ -540,16 +544,19 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     Size? viewport,
     Brightness? brightness,
     TextDirection? direction,
+    TextScaler? textScaler,
     bool force = false,
   }) {
     if (!mounted) return;
     final nextViewport = viewport ?? _requestedViewport;
     final nextBrightness = brightness ?? _requestedBrightness;
     final nextDirection = direction ?? _requestedDirection;
+    final nextTextScaler = textScaler ?? _requestedTextScaler;
     final unchanged =
         nextViewport == _requestedViewport &&
         nextBrightness == _requestedBrightness &&
-        nextDirection == _requestedDirection;
+        nextDirection == _requestedDirection &&
+        nextTextScaler == _requestedTextScaler;
     // A recorded layout error counts as "answered" for the same request —
     // re-running it automatically would retry a deterministic failure
     // forever; only an explicit [force] (retry/settings change) re-enters.
@@ -559,6 +566,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
     _requestedViewport = nextViewport;
     _requestedBrightness = nextBrightness;
     _requestedDirection = nextDirection;
+    _requestedTextScaler = nextTextScaler;
     if (_requestedViewport == null || _layoutScheduled) return;
     _layoutScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -589,6 +597,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
         textColor: widget.textColor ?? Theme.of(context).colorScheme.onSurface,
         brightness: brightness,
         textDirection: direction,
+        textScaler: _requestedTextScaler ?? TextScaler.noScaling,
         translations: widget.translations,
         cancelToken: layoutContext.cancelToken,
         budget: widget.budget,

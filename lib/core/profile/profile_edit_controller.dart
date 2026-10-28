@@ -220,7 +220,13 @@ class ProfileEditController extends Notifier<ProfileEditState> {
     ProfileImageSelection selection,
   ) async {
     final draft = state.draft;
-    if (_closed || draft == null || !field.isImage) {
+    // Mid-submit or saved, the form is locked: a late pick would reopen
+    // it under the running submit and never be sent.
+    if (_closed ||
+        draft == null ||
+        !field.isImage ||
+        state.status == ProfileEditStatus.submitting ||
+        state.status == ProfileEditStatus.confirmed) {
       await selection.dispose();
       return;
     }

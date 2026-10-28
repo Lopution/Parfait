@@ -84,7 +84,7 @@ void main() {
       caption: 'caption',
       totalView: 123456,
       totalBookmarks: 12345,
-    );
+    )..['tools'] = ['CLIP STUDIO PAINT', 'Photoshop', 'SAI', 'Procreate'];
     final (container, _, _) = await makeWorld(detailOverrides: {42: illust});
     container.read(illustStoreProvider).mergeAll([parseIllust(illust)]);
     await _pumpChecked(

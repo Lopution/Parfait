@@ -84,13 +84,16 @@ void main() {
       ],
     );
     await container.read(accountStoreProvider.future);
+    // A long title with the keyboard up: the sheet has less than half the
+    // screen.
+    tester.view.viewInsets = FakeViewPadding(bottom: profile.size.height / 2);
     await tester.pumpWidget(
       localeLayoutApp(
         locale: locale,
         container: container,
-        home: const Scaffold(
+        home: Scaffold(
           body: Center(
-            child: BookmarkSwitchButton(illustId: 1, title: 'work 1'),
+            child: BookmarkSwitchButton(illustId: 1, title: 'work 1 ' * 12),
           ),
         ),
       ),
@@ -102,6 +105,8 @@ void main() {
       find.byType(BookmarkSwitchButton),
       longPress: true,
     );
+    // The sheet is up and its confirm row is on screen.
+    expect(find.byType(FilledButton).hitTestable(), findsOneWidget);
   });
 
   localeLayoutMatrix('sheets: follow', (tester, locale, profile) async {

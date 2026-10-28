@@ -366,7 +366,10 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
           ),
     );
     if (saved && mounted) {
-      setState(() => _templateDirty = false);
+      // Edited during the write: a newer draft.
+      setState(
+        () => _templateDirty = _templateController.text.trim() != template,
+      );
       showAppSnackBar(context, context.l10n.saved);
     }
   }

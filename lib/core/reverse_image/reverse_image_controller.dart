@@ -188,6 +188,9 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
     // late reference die here instead of flowing into prepare().
     final generation = ++_generation;
     _cancelToken?.cancel();
+    // Pick is offered at rest only (no image, an image held, a failure or
+    // no match), so a cancelled picker goes back to exactly that.
+    final before = state;
     _setState(
       ReverseImageFlowState(
         status: ReverseImageFlowStatus.picking,
@@ -198,7 +201,7 @@ class ReverseImageSearchController extends Notifier<ReverseImageFlowState> {
       final reference = await platform.pickImage();
       if (_closed || generation != _generation) return;
       if (reference == null) {
-        _setState(const ReverseImageFlowState.idle());
+        _setState(before);
         return;
       }
       await prepare(reference);

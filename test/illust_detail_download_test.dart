@@ -144,9 +144,17 @@ void main() {
           if (manager.tasks.single.status != DownloadStatus.running) break;
         }
         expect(manager.tasks.single.status, DownloadStatus.succeeded);
-        await tester.pump();
+        await tester.pumpAndSettle();
         expect(selectionCount(tester), isNull);
         expect(transport.openedUrls, hasLength(1));
+        // The action bar the selection replaced is back.
+        expect(
+          tester
+              .widget<DetailActionBar>(find.byType(DetailActionBar))
+              .visibility
+              .value,
+          1,
+        );
       },
     );
 

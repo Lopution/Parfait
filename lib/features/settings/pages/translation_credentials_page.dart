@@ -34,6 +34,10 @@ class _TranslationCredentialsPageState
   final _modelController = TextEditingController();
   bool _busy = false;
   bool _clearing = false;
+
+  /// Bumped by every save and clear: a read that started before one is
+  /// older than the store and must not fill the form.
+  int _writes = 0;
   String? _status;
   bool _statusIsError = false;
 
@@ -82,26 +86,36 @@ class _TranslationCredentialsPageState
   }
 
   Future<void> _load() async {
+    final writes = _writes;
     try {
       final store = ref.read(translationCredentialStoreProvider);
+      // Re-fill the form so a user can verify what is stored. Secret
+      // values are filled into the obscured field only; they are never
+      // rendered in status messages.
+      final List<String>? stored;
       if (widget.baidu) {
         final credentials = await store.readBaidu();
-        if (credentials != null && mounted) {
-          // Re-fill the form so a user can verify what is stored. Secret
-          // values are filled into the obscured field only; they are never
-          // rendered in status messages.
-          _appIdController.text = credentials.appId;
-          _secretController.text = credentials.secret;
-        }
+        stored = credentials == null
+            ? null
+            : [credentials.appId, credentials.secret];
       } else {
         final credentials = await store.readLlm();
-        if (credentials != null && mounted) {
-          _baseUrlController.text = credentials.baseUrl;
-          _apiKeyController.text = credentials.apiKey;
-          _modelController.text = credentials.model ?? '';
+        stored = credentials == null
+            ? null
+            : [
+                credentials.baseUrl,
+                credentials.apiKey,
+                credentials.model ?? '',
+              ];
+      }
+      if (stored == null || !mounted || writes != _writes) return;
+      // A field typed into while the read ran keeps the typing.
+      for (var i = 0; i < _controllers.length; i++) {
+        if (_controllers[i].text == _pristine[i]) {
+          _controllers[i].text = stored[i];
         }
       }
-      if (mounted) _pristine = _snapshot();
+      setState(() => _pristine = stored!);
     } on Object {
       if (mounted) {
         setState(() {
@@ -120,6 +134,8 @@ class _TranslationCredentialsPageState
       _status = null;
       _statusIsError = false;
     });
+    // What is written: typing during the write is a new draft.
+    final submitted = _snapshot();
     try {
       final store = ref.read(translationCredentialStoreProvider);
       if (widget.baidu) {
@@ -128,6 +144,7 @@ class _TranslationCredentialsPageState
         if (appId.isEmpty || secret.isEmpty) {
           throw const TranslationError('incomplete baidu credentials');
         }
+        _writes++;
         await store.writeBaidu(
           BaiduTranslationCredentials(appId: appId, secret: secret),
         );
@@ -143,6 +160,7 @@ class _TranslationCredentialsPageState
           throw const TranslationError('invalid LLM endpoint');
         }
         final model = _modelController.text.trim();
+        _writes++;
         await store.writeLlm(
           LlmTranslationCredentials(
             baseUrl: baseUrl,
@@ -153,7 +171,7 @@ class _TranslationCredentialsPageState
       }
       if (mounted) {
         setState(() {
-          _pristine = _snapshot();
+          _pristine = submitted;
           _status = context.l10n.translateCredentialsSaved;
           _statusIsError = false;
         });
@@ -165,19 +183,15 @@ class _TranslationCredentialsPageState
           _statusIsError = true;
         });
       }
-    } on TranslationCredentialsStoreException {
-      if (mounted) {
-        setState(() {
-          _status = context.l10n.translateCredentialsStoreError;
-          _statusIsError = true;
-        });
-      }
     } on Object {
       if (mounted) {
         setState(() {
           _status = context.l10n.translateCredentialsStoreError;
           _statusIsError = true;
         });
+        // The write may have stored part of it, and it dropped any read
+        // still running: read again (typed fields keep their text).
+        unawaited(_load());
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -206,6 +220,7 @@ class _TranslationCredentialsPageState
       ),
     );
     if (confirmed != true || !mounted) return;
+    _writes++;
     setState(() {
       _busy = true;
       _clearing = true;
@@ -238,12 +253,14 @@ class _TranslationCredentialsPageState
       }
     } on TranslationCredentialsStoreException {
       // The delete failed — keep the entered values so the user can
-      // retry or copy them out instead of losing input.
+      // retry or copy them out instead of losing input; untouched fields
+      // show what storage still holds.
       if (mounted) {
         setState(() {
           _status = context.l10n.translateCredentialsStoreError;
           _statusIsError = true;
         });
+        unawaited(_load());
       }
     } finally {
       if (mounted) setState(() => _busy = false);
