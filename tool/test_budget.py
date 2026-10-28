@@ -6,7 +6,9 @@ comment. The budget counts test/ except test/review/ (the screenshot
 review, reported on its own line) and test/fixtures/ (recorded data). The
 cap is `ratio` (tool/test_budget.json) times lib/'s code lines, so tests
 may grow with the code but not faster; changing the ratio needs the
-user's consent.
+user's consent. The case count (call sites of `test(` and `testWidgets(`
+on code lines; a table-driven loop counts once) and the code lines per
+case are reported for the trend, never enforced.
 
 Usage:
   python3 tool/test_budget.py                 count the working tree
@@ -22,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -31,11 +34,13 @@ REPO = Path(__file__).resolve().parent.parent
 BUDGET = REPO / 'tool/test_budget.json'
 REVIEW_DIR = 'test/review/'
 UNCOUNTED = (REVIEW_DIR, 'test/fixtures/')
+CASE = re.compile(r'(?<![\w.])(?:testWidgets|test)\(')
 
 
 @dataclass(frozen=True)
 class Count:
     tests: int
+    cases: int
     review: int
     lib: int
 
@@ -51,6 +56,11 @@ def git(*args: str) -> str:
 def code_lines(text: str) -> int:
     return sum(1 for line in text.splitlines()
                if line.strip() and not line.lstrip().startswith('//'))
+
+
+def case_count(text: str) -> int:
+    return sum(len(CASE.findall(line)) for line in text.splitlines()
+               if not line.lstrip().startswith('//'))
 
 
 def dart_sources(root: str, ref: str | None) -> dict[str, str]:
@@ -83,9 +93,11 @@ def dart_sources(root: str, ref: str | None) -> dict[str, str]:
 
 def count(ref: str | None) -> Count:
     tests = dart_sources('test', ref)
+    counted = [text for path, text in tests.items()
+               if not path.startswith(UNCOUNTED)]
     return Count(
-        tests=sum(code_lines(text) for path, text in tests.items()
-                  if not path.startswith(UNCOUNTED)),
+        tests=sum(code_lines(text) for text in counted),
+        cases=sum(case_count(text) for text in counted),
         review=sum(code_lines(text) for path, text in tests.items()
                    if path.startswith(REVIEW_DIR)),
         lib=sum(code_lines(text) for text in dart_sources('lib', ref).values()),
@@ -102,10 +114,15 @@ def report(now: Count, base: Count | None, base_name: str | None,
     cap = now.cap(ratio)
     change = (f' ({signed(now.tests - base.tests)} against {base_name}, '
               f'lib/ {signed(now.lib - base.lib)})' if base else '')
+    case_change = (f' ({signed(now.cases - base.cases)} against {base_name})'
+                   if base else '')
+    per_case = now.tests / now.cases if now.cases else 0
     log = [
         f'test/ code lines: {now.tests:,}{change}',
         f'cap: {ratio} x lib/ {now.lib:,} = {cap:,}; '
         f'test/lib {now.tests / now.lib:.3f}',
+        f'cases: {now.cases:,}{case_change}; '
+        f'{per_case:.1f} code lines per case',
         f'test/review/ (not counted): {now.review:,}',
     ]
     summary = [
@@ -115,6 +132,8 @@ def report(now: Count, base: Count | None, base_name: str | None,
         '|---|---:|',
         f'| test/ (counted) | {now.tests:,}{change} |',
         f'| Cap ({ratio} × lib/ {now.lib:,}) | {cap:,} |',
+        f'| Cases{case_change} | {now.cases:,} '
+        f'({per_case:.1f} lines each) |',
         f'| test/review/ (not counted) | {now.review:,} |',
         '',
     ]
@@ -152,8 +171,9 @@ def main() -> int:
                  'order: share duplicated doubles and table-drive '
                  'near-copies, then drop UI tests of colour, spacing, order '
                  'or copy, then tests of removed code, then a second layer '
-                 'covering one behaviour. Changing the ratio needs the '
-                 'user\'s consent.')
+                 'covering one behaviour, then prune passing tests whose '
+                 'condition another case covers (TEST-13). Changing the '
+                 'ratio needs the user\'s consent.')
         return 1
     return 0
 
