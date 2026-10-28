@@ -59,6 +59,8 @@ void main() {
     tester,
   ) async {
     const off = Duration.zero;
+    // The spring at normal speed: its settle time and stiffness.
+    (Duration, double)? normal;
     Future<void> check(
       String name,
       Duration expected, {
@@ -95,7 +97,27 @@ void main() {
       tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
       expect(duration, expected, reason: name);
       expect(spring == null, expected == off, reason: name);
-      if (expected == off) expect(springDuration, off, reason: name);
+      if (expected == off) {
+        expect(springDuration, off, reason: name);
+        return;
+      }
+      // A speed f times slower stretches a spring f times in time: it
+      // settles f times later, at 1/f² the stiffness.
+      final f = expected.inMicroseconds / MotionTokens.spatial.inMicroseconds;
+      final (normalSettle, normalStiffness) = normal ??= (
+        springDuration,
+        spring!.stiffness,
+      );
+      expect(
+        springDuration.inMicroseconds / normalSettle.inMicroseconds,
+        closeTo(f, 0.01),
+        reason: name,
+      );
+      expect(
+        normalStiffness / spring!.stiffness,
+        closeTo(f * f, 1e-4),
+        reason: name,
+      );
     }
 
     await check('plays', MotionTokens.spatial);

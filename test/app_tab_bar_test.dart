@@ -1,7 +1,9 @@
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/motion/hero_transition.dart' show LiftableShadow;
+import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
 import 'package:parfait/app/widgets/app_tab_bar.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
@@ -41,16 +43,15 @@ Future<void> _pumpBar(
   await tester.pump();
 }
 
-RichText _labelRichText(WidgetTester tester, String label) {
-  return tester.widget<RichText>(
-    find
-        .descendant(
-          of: find.ancestor(of: find.text(label), matching: find.byType(Tab)),
-          matching: find.byType(RichText),
-        )
-        .first,
-  );
-}
+RenderParagraph _label(WidgetTester tester, String label) =>
+    tester.renderObject(
+      find
+          .descendant(
+            of: find.ancestor(of: find.text(label), matching: find.byType(Tab)),
+            matching: find.byType(RichText),
+          )
+          .first,
+    );
 
 void main() {
   testWidgets('labels that do not fit scroll from the start at 14sp', (
@@ -78,13 +79,29 @@ void main() {
     ]) {
       await _pumpBar(tester, labels, textScale: textScale);
       expect(tester.takeException(), isNull);
-      final bar = tester.widget<TabBar>(find.byType(TabBar));
-      expect(bar.isScrollable, isTrue);
-      expect(bar.tabAlignment, TabAlignment.start);
-      expect(
-        (_labelRichText(tester, labels.first).text as TextSpan).style!.fontSize,
-        14,
+      for (final label in labels) {
+        final paragraph = _label(tester, label);
+        expect((paragraph.text as TextSpan).style!.fontSize, 14, reason: label);
+        // Shown whole: not squeezed into a slot and faded out.
+        expect(
+          paragraph.size.width,
+          moreOrLessEquals(paragraph.getMaxIntrinsicWidth(double.infinity)),
+          reason: label,
+        );
+      }
+      // The first label sits at the start edge, within its label padding,
+      // and a drag reaches the last one.
+      final bar = tester.getRect(find.byType(TabBar));
+      Rect tab(String label) => tester.getRect(
+        find.ancestor(of: find.text(label), matching: find.byType(Tab)),
       );
+      expect(
+        tab(labels.first).left,
+        inInclusiveRange(bar.left, bar.left + FuncSpacing.md),
+      );
+      await tester.drag(find.byType(TabBar), const Offset(-1000, 0));
+      await tester.pumpAndSettle();
+      expect(tab(labels.last).right, lessThanOrEqualTo(bar.right));
     }
   });
 
