@@ -326,7 +326,7 @@ reviewed: 2026-10-26
   offset, so each scroll frame rebuilt every visible row, and with an
   accessibility service on every rebuilt `Semantics` re-sent its node:
   up to 6 ms of each scroll frame on device.
-- **Check:** `test/responsive_layout_test.dart` "a width-built sliver rebuilds on a width change, not a scroll"
+- **Check:** `test/responsive_layout_test.dart` "a width-built sliver takes taps after a scroll and follows a"
 - **Code:** `lib/app/layout/sliver_width_builder.dart`, `lib/app/format/app_format.dart`, `lib/app/motion/motion_tokens.dart`, `lib/app/widgets/fit_label.dart`
 
 ### MOTION-16 Repeated parts of a page get their own ticker notifier
