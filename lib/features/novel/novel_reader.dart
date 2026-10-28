@@ -263,7 +263,6 @@ class NovelReader extends StatefulWidget {
     this.handle,
     this.layoutEngine,
     this.budget = const NovelLayoutBudget(),
-    this.textWarmup,
   });
 
   final NovelEntity novel;
@@ -306,9 +305,6 @@ class NovelReader extends StatefulWidget {
   /// the [NovelLayoutBudgetExceeded] error path.
   final NovelLayoutBudget budget;
 
-  /// Test seam for the pages laid out ahead; production leaves the default.
-  final FeedTextWarmup? textWarmup;
-
   @override
   State<NovelReader> createState() => _NovelReaderState();
 }
@@ -319,7 +315,7 @@ class _NovelReaderState extends State<NovelReader> with WidgetsBindingObserver {
   late final NovelLayoutEngine _layoutEngine =
       widget.layoutEngine ?? NovelLayoutEngine();
   final NovelReaderCommitGate _commitGate = NovelReaderCommitGate();
-  late final FeedTextWarmup _warmup = widget.textWarmup ?? FeedTextWarmup();
+  final FeedTextWarmup _warmup = FeedTextWarmup();
 
   NovelLayout? _layout;
 

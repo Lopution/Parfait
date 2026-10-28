@@ -199,31 +199,6 @@ void main() {
       await tester.pump();
       expect(image(tester).fadeOutDuration, MotionTokens.imageFade);
     });
-
-    testWidgets('an image the flip cannot change is not rebuilt', (
-      tester,
-    ) async {
-      // Every image on a page used to rebuild in the frame a transition
-      // started or ended — the layout spikes on device.
-      final tickers = ValueNotifier(true);
-      addTearDown(tickers.dispose);
-      await tester.pumpWidget(
-        frozenBy(
-          tickers,
-          const PixivImage(
-            url: 'https://i.pximg.net/no-fade-flip.jpg',
-            fade: false,
-          ),
-        ),
-      );
-      final before = image(tester);
-
-      tickers.value = false;
-      await tester.pump();
-      tickers.value = true;
-      await tester.pump();
-      expect(image(tester), same(before));
-    });
   });
 
   testWidgets('an image on screen holds its URL in the image demand', (

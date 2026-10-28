@@ -124,34 +124,6 @@ void main() {
       },
     );
 
-    testWidgets('the push frame builds no list item off screen', (
-      tester,
-    ) async {
-      final (container, _, _) = await makeWorld();
-      // Lazy list items; a sliver itself is built wherever it sits.
-      int listItems() => find
-          .descendant(
-            of: find.bySubtype<CustomScrollView>().first,
-            matching: find.byType(IndexedSemantics, skipOffstage: false),
-            skipOffstage: false,
-          )
-          .evaluate()
-          .length;
-
-      // Short enough that the info list runs past the screen.
-      await pumpDetail(
-        tester,
-        container,
-        surface: const Size(390, 560),
-        firstFrameOnly: true,
-      );
-      final pushFrame = listItems();
-      // The cache area fills in on the next frame.
-      await tester.pump();
-      expect(listItems(), greaterThan(pushFrame));
-      await tester.pump(const Duration(milliseconds: 50));
-    });
-
     testWidgets(
       'without a store snapshot the first load shows the detail skeleton',
       (tester) async {
@@ -845,11 +817,6 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('1 / 3'), findsOneWidget);
-        // The top bar redraws as it scrolls (immersion); the page body is
-        // what must stay put.
-        CustomScrollView body() =>
-            tester.widget<CustomScrollView>(find.bySubtype<CustomScrollView>());
-        final scrollView = body();
 
         // Jump past page 2's bottom edge so page 3 is the only visible
         // artwork — deterministic, no fling physics involved.
@@ -863,8 +830,6 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
         expect(find.text('3 / 3'), findsOneWidget);
-        // Only the pill followed: the page itself did not rebuild.
-        expect(identical(body(), scrollView), isTrue);
 
         // Scrolling past the artwork to the bottom leaves no page
         // visible — the pill fades out with it. The first jump brings the

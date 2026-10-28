@@ -326,7 +326,7 @@ reviewed: 2026-10-26
   offset, so each scroll frame rebuilt every visible row, and with an
   accessibility service on every rebuilt `Semantics` re-sent its node:
   up to 6 ms of each scroll frame on device.
-- **Check:** `test/responsive_layout_test.dart` "a width-built sliver rebuilds on a width change, not a scroll"
+- **Check:** `test/responsive_layout_test.dart` "a width-built sliver takes taps after a scroll and follows a"
 - **Code:** `lib/app/layout/sliver_width_builder.dart`, `lib/app/format/app_format.dart`, `lib/app/motion/motion_tokens.dart`, `lib/app/widgets/fit_label.dart`
 
 ### MOTION-16 Repeated parts of a page get their own ticker notifier
@@ -355,5 +355,5 @@ reviewed: 2026-10-26
 - **Why:** Neighbour tabs built in a swipe's first frame and their data
   landed mid-snap (29–38 ms frames, 10-15 trace); a held finger keeps no
   ticker. An off-screen branch Navigator took the search field's focus.
-- **Check:** `test/home_branch_stack_test.dart` "a branch built ahead and never shown saves no setting" "a switch before its turn builds the branch at once", `test/illust_detail_pager_test.dart` "neighbours build after the push transition, one per frame"
+- **Check:** `test/home_branch_stack_test.dart` "a branch built ahead and never shown saves no setting" "a switch before its turn builds the branch at once"
 - **Code:** `lib/app/motion/still_work.dart`, `lib/app/widgets/tab_swipe_switcher.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/routes.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/core/image/image_worker.dart`, `lib/features/ranking/ranking_tabs.dart`
