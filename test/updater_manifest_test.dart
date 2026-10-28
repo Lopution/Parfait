@@ -82,15 +82,150 @@ void main() {
       expect(transport.requested, isEmpty);
     });
 
-    test('invalid signature cannot produce UpdateAvailable', () async {
-      final transport = _FakeManifestTransport(
-        body: utf8.encode(jsonEncode(_manifestValue())),
-        signature: base64Encode(List<int>.filled(64, 1)).codeUnits,
-      );
-      final result = await _check(transport, signed: false);
+    test('a failed check reports its status and code and offers no '
+        'release', () async {
+      List<int> body([Map<String, Object?>? value]) =>
+          utf8.encode(jsonEncode(value ?? _manifestValue()));
+      final signature = base64Encode(List<int>.filled(64, 1)).codeUnits;
+      Future<void> fails(
+        String name,
+        _FakeManifestTransport transport,
+        UpdateCheckStatus status, {
+        String? code,
+        int? requests,
+        int? verified,
+        bool signed = true,
+        List<String>? abis,
+      }) async {
+        final verifier = FakeUpdateSignatureVerifier(valid: signed);
+        final result = await UpdateService(
+          platform: abis == null
+              ? FakeUpdatePlatform()
+              : FakeUpdatePlatform(
+                  capability: UpdateCapability.github(),
+                  supportedAbis: abis,
+                ),
+          manifestTransport: transport,
+          signatureVerifier: verifier,
+        ).check();
+        expect(result.status, status, reason: name);
+        expect(result.release, isNull, reason: name);
+        if (code != null) expect(result.errorCode, code, reason: name);
+        if (requests != null) {
+          expect(transport.requested, hasLength(requests), reason: name);
+        }
+        if (verified != null) expect(verifier.calls, verified, reason: name);
+      }
 
-      expect(result.status, UpdateCheckStatus.invalid);
-      expect(result.release, isNull);
+      await fails(
+        'a signature that does not verify',
+        _FakeManifestTransport(body: body(), signature: signature),
+        UpdateCheckStatus.invalid,
+        signed: false,
+      );
+      await fails(
+        'an unsupported ABI is invalid, never up_to_date',
+        _FakeManifestTransport(body: body(), signature: signature),
+        UpdateCheckStatus.invalid,
+        code: 'abi_unsupported',
+        abis: const ['x86_64'],
+      );
+      await fails(
+        'a rate-limited manifest, before parsing release data',
+        _FakeManifestTransport(body: body(), manifestStatus: 429),
+        UpdateCheckStatus.rateLimited,
+        requests: 1,
+      );
+      await fails(
+        'a rate-limited signature',
+        _FakeManifestTransport(
+          body: body(),
+          signature: signature,
+          signatureStatus: 429,
+        ),
+        UpdateCheckStatus.rateLimited,
+        code: 'signature_rate_limited',
+        requests: 2,
+      );
+      await fails(
+        'an offline manifest fetch',
+        _FakeManifestTransport(manifestError: const SocketException('x')),
+        UpdateCheckStatus.offline,
+        code: 'network',
+      );
+      await fails(
+        'an offline signature fetch',
+        _FakeManifestTransport(
+          body: body(),
+          signatureError: const SocketException('x'),
+        ),
+        UpdateCheckStatus.offline,
+        code: 'network',
+      );
+      await fails(
+        'a malformed signature, before verification',
+        _FakeManifestTransport(
+          body: body(),
+          signature: utf8.encode('not-base64'),
+        ),
+        UpdateCheckStatus.invalid,
+        code: 'signature_format',
+        verified: 0,
+      );
+      await fails(
+        'a prerelease on the stable channel is not installable',
+        _FakeManifestTransport(
+          body: body(
+            _manifestValue()
+              ..['version'] = '0.1.1-beta.1'
+              ..['tag'] = 'v0.1.1-beta.1'
+              ..['channel'] = 'beta',
+          ),
+          signature: signature,
+        ),
+        UpdateCheckStatus.prerelease,
+      );
+      // No signature is fetched for an absent manifest.
+      await fails(
+        'no published manifest is no update, not a failure',
+        _FakeManifestTransport(manifestStatus: 404),
+        UpdateCheckStatus.noUpdate,
+        code: 'manifest_not_published',
+        requests: 1,
+      );
+      await fails(
+        'an unknown channel, after verification',
+        _FakeManifestTransport(
+          body: body(_manifestValue()..['channel'] = 'canary'),
+          signature: signature,
+        ),
+        UpdateCheckStatus.invalid,
+        code: 'channel',
+        verified: 1,
+      );
+      await fails(
+        'an oversize manifest, before verification',
+        _FakeManifestTransport(
+          body: List<int>.filled(updateManifestMaxBytes + 1, 0x78),
+          signature: signature,
+        ),
+        UpdateCheckStatus.invalid,
+        code: 'manifest_http',
+        verified: 0,
+      );
+      await fails(
+        'an asset signer that is not the installed one',
+        _FakeManifestTransport(
+          body: body(
+            _manifestValue()
+              ..['signingCertificateSha256'] =
+                  '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
+          ),
+          signature: signature,
+        ),
+        UpdateCheckStatus.invalid,
+        code: 'asset_identity_mismatch',
+      );
     });
 
     test('valid signature is required before a release is available', () async {
@@ -139,24 +274,6 @@ void main() {
       },
     );
 
-    test('unsupported ABI is invalid, never up_to_date', () async {
-      final transport = _FakeManifestTransport(
-        body: utf8.encode(jsonEncode(_manifestValue())),
-        signature: base64Encode(List<int>.filled(64, 9)).codeUnits,
-      );
-      final result = await _check(
-        transport,
-        platform: FakeUpdatePlatform(
-          capability: UpdateCapability.github(),
-          supportedAbis: const ['x86_64'],
-        ),
-      );
-
-      expect(result.status, UpdateCheckStatus.invalid);
-      expect(result.errorCode, 'abi_unsupported');
-      expect(result.release, isNull);
-    });
-
     test('installed 2001 is up to date against manifest base 1', () async {
       // Base 2 is newer than 2001's base 1 and is offered.
       for (final (base, status) in [
@@ -179,157 +296,6 @@ void main() {
         if (base == 1) expect(result.errorCode, 'up_to_date');
       }
     });
-
-    test(
-      '429 is surfaced as rate limited without parsing release data',
-      () async {
-        final transport = _FakeManifestTransport(
-          body: utf8.encode(jsonEncode(_manifestValue())),
-          manifestStatus: 429,
-        );
-        final result = await _check(transport);
-
-        expect(result.status, UpdateCheckStatus.rateLimited);
-        expect(result.release, isNull);
-        expect(transport.requested, hasLength(1));
-      },
-    );
-
-    test('signature endpoint 429 is also surfaced as rate limited', () async {
-      final transport = _FakeManifestTransport(
-        body: utf8.encode(jsonEncode(_manifestValue())),
-        signature: base64Encode(List<int>.filled(64, 7)).codeUnits,
-        signatureStatus: 429,
-      );
-      final result = await _check(transport);
-
-      expect(result.status, UpdateCheckStatus.rateLimited);
-      expect(result.errorCode, 'signature_rate_limited');
-      expect(transport.requested, hasLength(2));
-    });
-
-    test('offline transport is reported as offline', () async {
-      final result = await _check(
-        _FakeManifestTransport(manifestError: const SocketException('offline')),
-      );
-
-      expect(result.status, UpdateCheckStatus.offline);
-      expect(result.errorCode, 'network');
-    });
-
-    test('signature transport failure is reported as offline', () async {
-      final result = await _check(
-        _FakeManifestTransport(
-          body: utf8.encode(jsonEncode(_manifestValue())),
-          signatureError: const SocketException('offline'),
-        ),
-      );
-
-      expect(result.status, UpdateCheckStatus.offline);
-      expect(result.errorCode, 'network');
-    });
-
-    test('malformed signature is rejected before verification', () async {
-      final transport = _FakeManifestTransport(
-        body: utf8.encode(jsonEncode(_manifestValue())),
-        signature: utf8.encode('not-base64'),
-      );
-      final result = await _check(transport);
-
-      expect(result.status, UpdateCheckStatus.invalid);
-      expect(result.errorCode, 'signature_format');
-    });
-
-    test(
-      'stable channel does not expose prerelease as an installable update',
-      () async {
-        final value = _manifestValue()
-          ..['version'] = '0.1.1-beta.1'
-          ..['tag'] = 'v0.1.1-beta.1'
-          ..['channel'] = 'beta';
-        final transport = _FakeManifestTransport(
-          body: utf8.encode(jsonEncode(value)),
-          signature: base64Encode(List<int>.filled(64, 3)).codeUnits,
-        );
-        final service = UpdateService(
-          platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
-          manifestTransport: transport,
-          signatureVerifier: FakeUpdateSignatureVerifier(valid: true),
-        );
-
-        final result = await service.check(channel: UpdateChannel.stable);
-
-        expect(result.status, UpdateCheckStatus.prerelease);
-        expect(result.release, isNull);
-      },
-    );
-
-    test(
-      'manifest 404 means no published release yet, not a failure',
-      () async {
-        final transport = _FakeManifestTransport(manifestStatus: 404);
-        final result = await _check(transport);
-
-        expect(result.status, UpdateCheckStatus.noUpdate);
-        expect(result.errorCode, 'manifest_not_published');
-        // The signature asset is not fetched when the manifest itself is
-        // absent.
-        expect(transport.requested, hasLength(1));
-      },
-    );
-
-    test('unknown channel is rejected after signature verification', () async {
-      final value = _manifestValue()..['channel'] = 'canary';
-      final transport = _FakeManifestTransport(
-        body: utf8.encode(jsonEncode(value)),
-        signature: base64Encode(List<int>.filled(64, 4)).codeUnits,
-      );
-      final result = await _check(transport);
-
-      expect(result.status, UpdateCheckStatus.invalid);
-      expect(result.errorCode, 'channel');
-      expect(result.release, isNull);
-    });
-
-    test(
-      'oversize manifest is rejected before signature verification',
-      () async {
-        final transport = _FakeManifestTransport(
-          body: List<int>.filled(updateManifestMaxBytes + 1, 0x78),
-          signature: base64Encode(List<int>.filled(64, 5)).codeUnits,
-        );
-        final verifier = FakeUpdateSignatureVerifier(valid: true);
-        final service = UpdateService(
-          platform: FakeUpdatePlatform(capability: UpdateCapability.github()),
-          manifestTransport: transport,
-          signatureVerifier: verifier,
-        );
-
-        final result = await service.check();
-
-        expect(result.status, UpdateCheckStatus.invalid);
-        expect(result.errorCode, 'manifest_http');
-        expect(verifier.calls, 0);
-      },
-    );
-
-    test(
-      'asset signer mismatch is not exposed as an available update',
-      () async {
-        final value = _manifestValue()
-          ..['signingCertificateSha256'] =
-              '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff';
-        final transport = _FakeManifestTransport(
-          body: utf8.encode(jsonEncode(value)),
-          signature: base64Encode(List<int>.filled(64, 6)).codeUnits,
-        );
-        final result = await _check(transport);
-
-        expect(result.status, UpdateCheckStatus.invalid);
-        expect(result.errorCode, 'asset_identity_mismatch');
-        expect(result.release, isNull);
-      },
-    );
   });
 
   group('MethodChannelUpdatePlatform.info', () {
@@ -369,16 +335,15 @@ void main() {
       );
     }
 
-    test('missing supportedAbis is platform_info_malformed', () {
-      return expectMalformed(_missingAbis);
-    });
-
-    test('non-list supportedAbis is platform_info_malformed', () {
-      return expectMalformed('arm64-v8a');
-    });
-
-    test('non-string supportedAbis entries are platform_info_malformed', () {
-      return expectMalformed(<Object?>['arm64-v8a', 64]);
+    test('supportedAbis missing, not a list or not all strings is '
+        'platform_info_malformed', () async {
+      for (final abis in [
+        _missingAbis,
+        'arm64-v8a',
+        <Object?>['arm64-v8a', 64],
+      ]) {
+        await expectMalformed(abis);
+      }
     });
   });
 }
