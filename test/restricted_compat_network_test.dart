@@ -234,33 +234,48 @@ void main() {
     );
   });
 
-  test('an empty GET prefers the strict tier over direct', () async {
-    final direct = FakeClient(failure: SocketException('Connection refused'));
-    final secureDns = FakeClient(body: '{"route":"secure-dns"}');
-    final resolver = FakeResolver([InternetAddress('1.2.3.4')]);
-    final client = _appApi(
-      NetworkAccessPolicy(
-        resolver: resolver,
-        clientFactory: (route, canonicalHost, _) =>
-            route.kind == NetworkRouteKind.direct ? direct : secureDns,
-      ),
-    );
+  test(
+    'an empty GET prefers the strict tier over direct, and so does a POST',
+    () async {
+      for (final (method, address) in [
+        ('GET', '1.2.3.4'),
+        ('POST', '1.2.3.5'),
+      ]) {
+        final direct = FakeClient(
+          failure: SocketException('Connection refused'),
+        );
+        final secureDns = FakeClient(body: '{"route":"secure-dns"}');
+        final resolver = FakeResolver([InternetAddress(address)]);
+        final client = _appApi(
+          NetworkAccessPolicy(
+            resolver: resolver,
+            clientFactory: (route, canonicalHost, _) =>
+                route.kind == NetworkRouteKind.direct ? direct : secureDns,
+          ),
+        );
 
-    final response = await client.get(
-      Uri.parse('https://app-api.pixiv.net/v1/illust/recommended'),
-    );
+        final response = method == 'GET'
+            ? await client.get(
+                Uri.parse('https://app-api.pixiv.net/v1/illust/recommended'),
+              )
+            : await client.post(
+                Uri.parse('https://app-api.pixiv.net/v1/illust/bookmark/add'),
+                body: const {'illust_id': '1'},
+              );
 
-    expect(response.statusCode, 200);
-    expect(resolver.calls, 1);
-    expect(
-      direct.requests,
-      isEmpty,
-      reason: 'an unverified direct attempt is skipped when strict succeeded',
-    );
-    expect(secureDns.requests.map((request) => request.method), ['GET']);
-    expect(secureDns.requests.single.url.host, 'app-api.pixiv.net');
-    expect(secureDns.requests.single.url.port, 443);
-  });
+        expect(response.statusCode, 200, reason: method);
+        expect(resolver.calls, 1, reason: method);
+        expect(
+          direct.requests,
+          isEmpty,
+          reason: '$method: direct is skipped when the strict tier answered',
+        );
+        expect(secureDns.requests.map((request) => request.method), [method]);
+        expect(secureDns.requests.single.url.host, 'app-api.pixiv.net');
+        expect(secureDns.requests.single.url.port, 443);
+      }
+    },
+  );
 
   test(
     'the strict tier is tried before an unverified direct attempt',
@@ -279,35 +294,6 @@ void main() {
       expect(resolver.calls, 1);
       expect(direct.requests.map((request) => request.method), ['GET']);
       expect(policy.hasStrictRouteMemory('app-api.pixiv.net'), isTrue);
-    },
-  );
-
-  test(
-    'a POST prefers the strict tier; direct is only a last resort',
-    () async {
-      final direct = FakeClient(failure: SocketException('Connection reset'));
-      final secureDns = FakeClient(body: 'should-not-send');
-      final resolver = FakeResolver([InternetAddress('1.2.3.5')]);
-      final client = _appApi(
-        NetworkAccessPolicy(
-          resolver: resolver,
-          clientFactory: (route, canonicalHost, _) =>
-              route.kind == NetworkRouteKind.direct ? direct : secureDns,
-        ),
-      );
-
-      final response = await client.post(
-        Uri.parse('https://app-api.pixiv.net/v1/illust/bookmark/add'),
-        body: const {'illust_id': '1'},
-      );
-      expect(response.statusCode, 200);
-      expect(resolver.calls, 1);
-      expect(
-        direct.requests,
-        isEmpty,
-        reason: 'the DoH tier answered; direct never needs an attempt',
-      );
-      expect(secureDns.requests.map((request) => request.method), ['POST']);
     },
   );
 
