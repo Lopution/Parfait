@@ -32,11 +32,13 @@ reviews:
         Test code is capped at a ratio of the lib code (spec TEST-05): do
         not ask for tests of colour, spacing, order or copy, or for tests
         of how a refactor or optimisation works inside (TEST-12). A fix's
-        test belongs beside the tests of its behaviour (TEST-01). Deleting
-        a passing test is fine when the commit names the case that still
-        covers it (TEST-13); flag a deletion that names none, or a test
-        loosened to pass. The system under test always runs for real; only
-        network, disk, clock and third-party boundaries may be faked.
+        test belongs beside the tests of its behaviour (TEST-01). Pruning
+        a passing test is fine when its commit names the case that still
+        covers it, or TEST-12 for a mechanism test (TEST-13); flag a prune
+        that names neither, or a test loosened to pass. Tests of removed or
+        changed behaviour go with that change (TEST-04). The system under
+        test always runs for real; only network, disk, clock and
+        third-party boundaries may be faked.
     - path: "CHANGELOG.md"
       instructions: >-
         Written for users in Chinese and English, following Keep a

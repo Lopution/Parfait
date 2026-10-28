@@ -69,7 +69,9 @@ reviewed: 2026-10-28
   never paints sharp first; an original nobody wants stops downloading).
   How it gets there (what builds in which frame, how far a cache grows,
   which widgets rebuild) is not asserted. A test that breaks on such a
-  change pinned the implementation: rewrite it against the behaviour.
+  change while the behaviour still holds pinned the implementation:
+  rewrite it against the behaviour. A broken behaviour is fixed in the
+  code.
 - **Why:** Optimisation commits pinned their mechanism in new cases, which
   the next optimisation had to rewrite.
 - **Check:** manual
@@ -106,13 +108,16 @@ reviewed: 2026-10-28
 ### TEST-13 A passing test may be pruned; a failing one is never weakened
 - **Rule:** User decision: a failing test is never deleted, skipped or
   loosened to get green; the code is fixed, or the test changes in the
-  commit that changes the behaviour it asserts. A passing test may be
-  deleted when the confidence it gives is kept: another case or a scan
-  covers the same condition, it pins implementation rather than behaviour
-  (TEST-03, TEST-12), or it repeats another case. Deletions get their own
-  commit whose message names, for each, the reason and the covering case;
-  the PR lists them. A change that edits a test file also prunes that
-  file's redundant cases, and no other file's.
+  commit that changes or removes the behaviour it asserts (TEST-04). A
+  passing test of a behaviour that stays may be pruned when the confidence
+  it gives is kept: another case or a scan covers the same condition, or
+  it repeats another case. A test that pins implementation (TEST-03,
+  TEST-12) is rewritten against the behaviour it guards, or pruned when
+  that behaviour is covered or not observable by a user. Prunes get their
+  own commit whose message names, for each, the reason and the covering
+  case, or TEST-12 for a mechanism; the PR lists them. A change that edits
+  a test file also prunes that file's redundant cases, and no other
+  file's.
 - **Why:** The suite only grew: fixes and optimisations never removed a
   case, and removals came only from deleted code or slimming passes.
   Agents add tests readily, and deleting a failing test is how an agent
