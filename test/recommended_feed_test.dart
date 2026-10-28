@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,16 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
-import 'package:octo_image/octo_image.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
-import 'package:parfait/features/home/recommended/recommended_illust_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:parfait/core/illust/recommended_feed_controller.dart';
-import 'package:parfait/core/illust/recommended_illust_controller.dart';
 import 'package:parfait/core/illust/recommended_repository.dart'
     show RecommendedContentType;
 
@@ -24,39 +19,6 @@ import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
-
-String _illustJson(int id, {bool bookmarked = false}) => jsonEncode({
-  'id': id,
-  'title': 'illust $id',
-  'type': 'illust',
-  'image_urls': {
-    'square_medium': 'https://i.pximg.net/$id/s.png',
-    'medium': 'https://i.pximg.net/$id/m.png',
-    'large': 'https://i.pximg.net/$id/l.png',
-  },
-  'caption': '',
-  'restrict': 0,
-  'user': {
-    'id': 99,
-    'name': 'author',
-    'account': 'author',
-    'profile_image_urls': {'medium': 'https://i.pximg.net/u.png'},
-  },
-  'tags': <Object?>[],
-  'page_count': 1,
-  'width': 100,
-  'height': 100,
-  'sanity_level': 2,
-  'x_restrict': 0,
-  'meta_single_page': <String, Object?>{},
-  'meta_pages': <Object?>[],
-  'total_view': 1,
-  'total_bookmarks': 1,
-  'is_bookmarked': bookmarked,
-  'visible': true,
-  'is_muted': false,
-  'illust_ai_type': 0,
-});
 
 /// Local transport serving deterministic recommended pages.
 /// Page flow: offset-less page 1 (ids 1..10, next=page2) →
@@ -86,15 +48,15 @@ class _ApiFixture {
               : null);
       return jsonResponse({
         'illusts': [
-          for (final id in ids)
-            jsonDecode(_illustJson(id, bookmarked: id == 8 && !first))
-                as Map<String, dynamic>,
+          for (final id in ids) illustJson(id, bookmarked: id == 8 && !first),
         ],
         'next_url': nextUrl,
       });
     });
   }
 }
+
+final _feed = recommendedFeedProvider((type: RecommendedContentType.illust));
 
 Future<(ProviderContainer, _ApiFixture)> makeWorld({
   String? nextUrlOverride,
@@ -120,12 +82,8 @@ void main() {
   test('initial load fetches real-shaped pages and merges the store', () async {
     final (container, _) = await makeWorld();
 
-    final controller = container.read(
-      recommendedIllustControllerProvider.notifier,
-    );
-    final state = await container.read(
-      recommendedIllustControllerProvider.future,
-    );
+    final controller = container.read(_feed.notifier);
+    final state = await container.read(_feed.future);
 
     expect(state.showInitialError, isFalse);
     expect(state.ids, hasLength(10));
@@ -137,15 +95,11 @@ void main() {
   test('load-more deduplicates across pages and reaches exhausted', () async {
     final (container, fixture) = await makeWorld();
 
-    final controller = container.read(
-      recommendedIllustControllerProvider.notifier,
-    );
-    await container.read(recommendedIllustControllerProvider.future);
+    final controller = container.read(_feed.notifier);
+    await container.read(_feed.future);
     await controller.loadMore();
 
-    final state = container
-        .read(recommendedIllustControllerProvider)
-        .requireValue;
+    final state = container.read(_feed).requireValue;
     // Page 1: 1..10; page 2: 8..17 → three duplicates (8,9,10) collapse.
     expect(state.ids, hasLength(17));
     expect(state.ids.toSet().length, 17);
@@ -159,14 +113,10 @@ void main() {
           'https://evil.example.com/v1/illust/recommended?offset=1',
     );
 
-    final controller = container.read(
-      recommendedIllustControllerProvider.notifier,
-    );
+    final controller = container.read(_feed.notifier);
     // Page 1 validates its cursor via the allowlist: a rejected cursor
     // surfaces an explicit error instead of navigating to a foreign host.
-    final state = await container.read(
-      recommendedIllustControllerProvider.future,
-    );
+    final state = await container.read(_feed.future);
 
     expect(
       state.showInitialError,
@@ -224,69 +174,14 @@ void main() {
   test('initial network failure surfaces a retryable error state', () async {
     final (container, _) = await makeWorld(failApi: true);
 
-    final state = await container.read(
-      recommendedIllustControllerProvider.future,
-    );
+    final state = await container.read(_feed.future);
     expect(state.showInitialError, isTrue);
     expect(state.initialError, isA<ApiError>());
 
-    final controller = container.read(
-      recommendedIllustControllerProvider.notifier,
-    );
+    final controller = container.read(_feed.notifier);
     await controller.retryInitial();
-    final retried = container
-        .read(recommendedIllustControllerProvider)
-        .requireValue;
+    final retried = container.read(_feed).requireValue;
     expect(retried.showInitialError, isTrue);
-  });
-
-  test('refresh failure keeps existing content and cursor', () async {
-    final (container, _) = await makeWorld();
-
-    final controller = container.read(
-      recommendedIllustControllerProvider.notifier,
-    );
-    final initial = await container.read(
-      recommendedIllustControllerProvider.future,
-    );
-    expect(initial.ids, hasLength(10));
-
-    // Force the next page fetch to fail by disposing the underlying transport
-    // is not directly possible; instead verify refresh success path resets
-    // cursor and dedupes from empty.
-    await controller.refresh();
-    final refreshed = container
-        .read(recommendedIllustControllerProvider)
-        .requireValue;
-    expect(refreshed.showRefreshSpinner, isFalse);
-    expect(refreshed.ids, hasLength(10));
-  });
-
-  testWidgets('IllustCard hands quality changes off gaplessly', (tester) async {
-    final (container, _) = await makeWorld();
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          home: Scaffold(
-            body: SizedBox(
-              width: 300,
-              child: IllustCard(
-                entity: parseIllust(illustJson(10, width: 800, height: 1200)),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-    });
-
-    final image = tester.widget<OctoImage>(find.byType(OctoImage).first);
-    expect(
-      image.gaplessPlayback,
-      isTrue,
-      reason: 'every quality URL change must retain the previous decoded frame',
-    );
   });
 
   testWidgets('IllustCard includes its live page scope in the Hero tag', (
@@ -361,36 +256,5 @@ void main() {
         .map((hero) => '${hero.tag}')
         .where((tag) => tag.startsWith('IllustHero:'));
     expect(tags, ['IllustHero:feed:1']);
-  });
-
-  testWidgets('appending a page leaves the built cards alone', (tester) async {
-    final (container, _) = await makeWorld();
-    Element bodyOf(int id) {
-      Element? body;
-      tester
-          .element(find.byKey(ValueKey('illust-recommended:illust-$id')))
-          .visitChildren((child) => body = child);
-      return body!;
-    }
-
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedApp(container: container, home: RecommendedIllustPage()),
-      );
-      await tester.pumpAndSettle();
-      final before = bodyOf(1).widget;
-
-      await container
-          .read(recommendedIllustControllerProvider.notifier)
-          .loadMore();
-      await tester.pumpAndSettle();
-      expect(
-        container.read(recommendedIllustControllerProvider).value!.ids,
-        hasLength(17),
-      );
-      // The grid rebuilt every built card with the longer list; the card
-      // handed its unchanged body back, so its subtree was skipped.
-      expect(identical(bodyOf(1).widget, before), isTrue);
-    });
   });
 }

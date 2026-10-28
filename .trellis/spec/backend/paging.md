@@ -57,7 +57,7 @@ reviewed: 2026-10-12
 - **Why:** A cursor pointing off the API origin would have sent the token
   elsewhere; a repeated cursor looped forever. A duration search left open
   past local midnight refused every next page.
-- **Check:** `test/illust_store_test.dart` "a cursor may not move the client off the Pixiv API origin", `test/feed_generation_commit_test.dart` "duplicate next cursor fails before entity commit or cursor advance", `test/search_catalog_test.dart` "search cursors accept the new filter parameters"
+- **Check:** `test/next_page_parser_test.dart` "a next_url may never leave the Pixiv API origin", `test/feed_generation_commit_test.dart` "duplicate next cursor fails before entity commit or cursor advance", `test/paged_feed_refill_test.dart` "a rejected or repeated cursor fails the load like a page's own", `test/search_catalog_test.dart` "search cursors accept the new filter parameters"
 - **Code:** `lib/core/network/next_page_parser.dart`
 
 ### PAGING-10 Local filters cover every discovery list, novels alike

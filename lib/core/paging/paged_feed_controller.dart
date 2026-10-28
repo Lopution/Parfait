@@ -216,7 +216,10 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   /// caller still commits through the original [context].
   ///
   /// A [paced] fetch (load-more) holds each refill hop to the paging
-  /// interval and counts it against the paging budget.
+  /// interval and counts it against the paging budget. A cursor a refill
+  /// would follow is checked as a page's own: rejected, or repeated within
+  /// this fetch or the feed, it fails the fetch with [ApiParseError]. The
+  /// cursors it followed join the feed's when the page commits.
   Future<FeedPage> fetchRelevantPage(
     FeedRequestContext context, {
     bool paced = false,
@@ -241,7 +244,8 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
         commit: page.commit,
       );
     }
-    var nextCursor = page.nextCursor;
+    var nextCursor = _validateCursor(page.nextCursor, context);
+    final requested = {?context.cursor};
     final commits = <FeedPageCommit?>[page.commit];
     for (
       var refill = 1;
@@ -263,26 +267,34 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
         await _awaitPageSlot();
         if (!_isContextActive(context) || context.isCancelled) break;
       }
+      final FeedPage nextPage;
       try {
-        final nextPage = await fetchPageForContext(refillContext);
-        if (!_isContextActive(context) || context.isCancelled) break;
-        nextCursor = _validatedRefillCursor(nextPage.nextCursor, refillContext);
-        visible = _dedupe(
-          filterPageIds(
-            nextPage.ids,
-            incomingIllusts: nextPage.incomingIllusts,
-            incomingNovels: nextPage.incomingNovels,
-          ),
-          visible,
-        );
-        commits.add(nextPage.commit);
+        nextPage = await fetchPageForContext(refillContext);
       } on ApiCancelled {
         break;
       } on ApiError {
-        // Server ended or a transient refill failure: keep what was already
-        // fetched and present normally — never an unbounded retry loop.
+        // A failed hop, network or parse: keep what was already fetched.
+        // Its cursor stays next, so the next load-more requests it as a
+        // page, and a lasting failure shows there with a retry. A rejected
+        // or repeated next cursor has no such place to resume, so it throws.
         break;
       }
+      if (!_isContextActive(context) || context.isCancelled) break;
+      requested.add(nextCursor);
+      nextCursor = _validateCursor(
+        nextPage.nextCursor,
+        refillContext,
+        requested: requested,
+      );
+      visible = _dedupe(
+        filterPageIds(
+          nextPage.ids,
+          incomingIllusts: nextPage.incomingIllusts,
+          incomingNovels: nextPage.incomingNovels,
+        ),
+        visible,
+      );
+      commits.add(nextPage.commit);
     }
     return FeedPage(
       ids: visible,
@@ -291,30 +303,11 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
         for (final commit in commits) {
           commit?.call(finalContext);
         }
+        // The cursors this refill followed belong to the feed once it
+        // commits: a later page pointing back at one repeats it.
+        requested.forEach(_recordCursor);
       },
     );
-  }
-
-  /// Validates a refill page cursor without touching the committed-cursor
-  /// ledger; the final cursor recorded by the caller is the last accepted
-  /// one. Returns null (stop refilling) when rejected or repeated.
-  String? _validatedRefillCursor(
-    String? rawCursor,
-    FeedRequestContext context,
-  ) {
-    if (rawCursor == null || rawCursor.isEmpty) return null;
-    String? cursor;
-    try {
-      cursor = validateCursor(rawCursor);
-    } on ApiError {
-      return null;
-    }
-    if (cursor == null ||
-        cursor == context.cursor ||
-        _committedCursors.contains(cursor)) {
-      return null;
-    }
-    return cursor;
   }
 
   /// Validates a server-provided cursor (e.g. the next_url allowlist).
@@ -756,14 +749,22 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     );
   }
 
-  String? _validateCursor(String? rawCursor, FeedRequestContext context) {
+  /// Checks a page's next cursor; [requested] holds the cursors a refill
+  /// already followed in the same fetch.
+  String? _validateCursor(
+    String? rawCursor,
+    FeedRequestContext context, {
+    Set<String> requested = const {},
+  }) {
     if (rawCursor == null || rawCursor.isEmpty) return null;
     final cursor = validateCursor(rawCursor);
     if (cursor == null) {
       // validateCursor returning null for a non-empty cursor is a reject.
       throw const ApiParseError('cursor rejected by allowlist');
     }
-    if (cursor == context.cursor || _committedCursors.contains(cursor)) {
+    if (cursor == context.cursor ||
+        requested.contains(cursor) ||
+        _committedCursors.contains(cursor)) {
       throw const ApiParseError('cursor repeated by page response');
     }
     return cursor;

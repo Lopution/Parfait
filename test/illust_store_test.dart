@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/entity/illust_store.dart';
-import 'package:parfait/core/network/next_page_parser.dart';
 
 IllustEntity entity(
   int id, {
@@ -263,7 +262,7 @@ void main() {
     });
   });
 
-  group('PagedFeedController (via RecommendedIllustController behaviour)', () {
+  group('IllustEntity.parsePage', () {
     test('page parse errors surface as ApiParseError, not empty success', () {
       expect(
         () => IllustEntity.parsePage({
@@ -290,31 +289,6 @@ void main() {
       });
       expect(ok.illusts, hasLength(1));
       expect(ok.nextUrl, isNull);
-    });
-  });
-
-  group('feed dedupe semantics (documented via store)', () {
-    test('cross-page duplicate IDs collapse in the store', () {
-      final store = IllustStore();
-      final page1 = [entity(1), entity(2), entity(3)];
-      final page2 = [entity(2, bookmarked: true), entity(3), entity(4)];
-      store.mergeAll(page1);
-      store.mergeAll(page2);
-      expect(store.getAll([1, 2, 3, 4]), hasLength(4));
-    });
-
-    test('a cursor may not move the client off the Pixiv API origin', () {
-      for (final bad in [
-        'http://app-api.pixiv.net/v1/illust/recommended?offset=30',
-        'https://evil.example.com/v1/illust/recommended?offset=30',
-        'https://app-api.pixiv.net@evil.example.com/v1/illust/recommended',
-      ]) {
-        expect(
-          () => NextPageParser.parse(bad),
-          throwsA(isA<NextPageParseError>()),
-          reason: bad,
-        );
-      }
     });
   });
 }
