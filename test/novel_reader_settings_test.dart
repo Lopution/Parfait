@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,20 +15,6 @@ import 'support/contrast.dart';
 
 void main() {
   group('NovelReaderSettings', () {
-    test('json round-trip keeps every field', () {
-      const settings = NovelReaderSettings(
-        fontSize: 21,
-        lineHeight: 1.9,
-        theme: NovelReaderTheme.night,
-      );
-
-      final restored = NovelReaderSettings.fromJson(
-        jsonDecode(jsonEncode(settings.toJson())) as Map<String, Object?>,
-      );
-
-      expect(restored, settings);
-    });
-
     test('copyWith clamps typography into the supported range', () {
       const settings = NovelReaderSettings();
 
@@ -113,17 +97,17 @@ void main() {
   });
 
   group('NovelReaderSettingsStore', () {
-    test('save then load restores the settings', () async {
-      final prefs = SharedPreferencesAsync();
-      final store = NovelReaderSettingsStore(prefs);
-
-      await store.save(
-        const NovelReaderSettings(fontSize: 22, theme: NovelReaderTheme.sepia),
+    test('save then load restores every field', () async {
+      final store = NovelReaderSettingsStore(SharedPreferencesAsync());
+      // No field at its default, so a field the JSON drops shows.
+      const settings = NovelReaderSettings(
+        fontSize: 21,
+        lineHeight: 1.9,
+        theme: NovelReaderTheme.night,
       );
 
-      final loaded = await store.load();
-      expect(loaded.fontSize, 22);
-      expect(loaded.theme, NovelReaderTheme.sepia);
+      await store.save(settings);
+      expect(await store.load(), settings);
     });
 
     test('corrupt blob falls back to defaults', () async {
