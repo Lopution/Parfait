@@ -46,7 +46,7 @@ reviewed: 2026-10-12
 - **Why:** Per-page classification disagreed about the same failure and
   left no durable trace for support. Unlabelled, five 503 SnackBars read
   as five crashes in a user's crash.log (10-26).
-- **Check:** `test/error_category_test.dart` "ApiHttpError splits by status" "parse family", `test/error_details_test.dart` "shows action + category and records the raw error"
+- **Check:** `test/error_category_test.dart` "categorizeError puts each error in its category", `test/error_details_test.dart` "shows action + category and records the raw error"
 - **Code:** `lib/core/errors/error_category.dart`, `lib/core/logging/crash_log.dart`
 
 ### ERR-04 Download rows read their failure from `failureKind`
