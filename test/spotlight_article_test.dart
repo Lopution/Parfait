@@ -10,7 +10,6 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:image/image.dart' as img;
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/share/share_service.dart';
 import 'package:parfait/core/spotlight/article_parser.dart';
@@ -115,22 +114,20 @@ Future<GoRouter> pumpArticle(
   final (container, _) = await makeSpotlightWorld(webClient: webClient);
   container.read(spotlightArticleStoreProvider.notifier).mergeAll(entries);
 
-  await mockNetworkImagesFor(() async {
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        // A nested scope carries test-only overrides (e.g. the share
-        // boundary) without rebuilding the fixture container.
-        child: localizedRouterApp(
-          router,
-          overrides: extraOverrides,
-          builder: promptHostBuilder,
-          scrollBehavior: const FuncScrollBehavior(),
-        ),
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      // A nested scope carries test-only overrides (e.g. the share
+      // boundary) without rebuilding the fixture container.
+      child: localizedRouterApp(
+        router,
+        overrides: extraOverrides,
+        builder: promptHostBuilder,
+        scrollBehavior: const FuncScrollBehavior(),
       ),
-    );
-    await tester.pumpAndSettle();
-  });
+    ),
+  );
+  await tester.pumpAndSettle();
   return router;
 }
 
@@ -400,34 +397,32 @@ void main() {
     );
     addTearDown(router.dispose);
 
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedRouterApp(
-          router,
-          container: container,
-          builder: promptHostBuilder,
-        ),
-      );
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      localizedRouterApp(
+        router,
+        container: container,
+        builder: promptHostBuilder,
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.text('特辑标题'), findsOneWidget);
-      expect(find.text('小节标题'), findsOneWidget);
-      // Images hold a square until decoded; the work sits below them.
-      await tester.scrollUntilVisible(
-        find.text('作品标题'),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.scrollUntilVisible(
-        find.textContaining('作品链接'),
-        -200,
-        scrollable: find.byType(Scrollable).first,
-      );
+    expect(find.text('特辑标题'), findsOneWidget);
+    expect(find.text('小节标题'), findsOneWidget);
+    // Images hold a square until decoded; the work sits below them.
+    await tester.scrollUntilVisible(
+      find.text('作品标题'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.scrollUntilVisible(
+      find.textContaining('作品链接'),
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
 
-      await tester.tapOnText(find.textRange.ofSubstring('作品链接'));
-      await tester.pumpAndSettle();
-      expect(router.state.uri.path, '/recommended/illust/12345');
-    });
+    await tester.tapOnText(find.textRange.ofSubstring('作品链接'));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/recommended/illust/12345');
   });
 
   group('a pixivision CDN image', () {

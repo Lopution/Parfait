@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers/image_network.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/ugoira/ugoira_providers.dart';
 import 'package:parfait/core/ugoira/ugoira_repository.dart';
@@ -19,41 +18,39 @@ void main() {
     'a long-press is inert — ugoira never enters page selection and the '
     'export affordance stays directly visible',
     (tester) async {
-      await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          ProviderScope(
-            child: localizedApp(
-              home: const Scaffold(
-                body: UgoiraViewer(
-                  illustId: 42,
-                  previewUrl: 'https://i.pximg.net/42/large.jpg',
-                  width: 800,
-                  height: 600,
-                ),
+      await tester.pumpWidget(
+        ProviderScope(
+          child: localizedApp(
+            home: const Scaffold(
+              body: UgoiraViewer(
+                illustId: 42,
+                previewUrl: 'https://i.pximg.net/42/large.jpg',
+                width: 800,
+                height: 600,
               ),
             ),
           ),
-        );
-        await tester.pump();
+        ),
+      );
+      await tester.pump();
 
-        // The old long-press handoff into the detail page's download mode
-        // is gone: ugoira has no pages to select. The press must not
-        // toggle playback or open anything.
-        await tester.longPress(find.byType(UgoiraViewer));
-        await tester.pump();
+      // The old long-press handoff into the detail page's download mode
+      // is gone: ugoira has no pages to select. The press must not
+      // toggle playback or open anything.
+      await tester.longPress(find.byType(UgoiraViewer));
+      await tester.pump();
 
-        expect(find.byType(UgoiraViewer), findsOneWidget);
-        expect(find.byIcon(Icons.play_circle_outline_outlined), findsOneWidget);
-        // The export entry stays rendered (a disabled IconButton while the
-        // asset has not loaded yet).
-        expect(
-          find.descendant(
-            of: find.byType(UgoiraViewer),
-            matching: find.byType(IconButton),
-          ),
-          findsOneWidget,
-        );
-      });
+      expect(find.byType(UgoiraViewer), findsOneWidget);
+      expect(find.byIcon(Icons.play_circle_outline_outlined), findsOneWidget);
+      // The export entry stays rendered (a disabled IconButton while the
+      // asset has not loaded yet).
+      expect(
+        find.descendant(
+          of: find.byType(UgoiraViewer),
+          matching: find.byType(IconButton),
+        ),
+        findsOneWidget,
+      );
     },
   );
 
@@ -143,26 +140,24 @@ void main() {
   testWidgets('a specific failure headline keeps its diagnostic in details', (
     tester,
   ) async {
-    await mockNetworkImagesFor(() async {
-      await pumpFailingViewer(
-        tester,
-        const UgoiraArchiveException('JPEG marker is malformed'),
-      );
+    await pumpFailingViewer(
+      tester,
+      const UgoiraArchiveException('JPEG marker is malformed'),
+    );
 
-      // The headline names the problem, so no generic category line rides
-      // under it, and the raw reason is not interpolated into the copy.
-      expect(find.text('动图压缩包无效'), findsOneWidget);
-      expect(find.text('未知错误'), findsNothing);
-      expect(find.textContaining('JPEG marker'), findsNothing);
+    // The headline names the problem, so no generic category line rides
+    // under it, and the raw reason is not interpolated into the copy.
+    expect(find.text('动图压缩包无效'), findsOneWidget);
+    expect(find.text('未知错误'), findsNothing);
+    expect(find.textContaining('JPEG marker'), findsNothing);
 
-      await tester.tap(find.text('详情'));
-      await tester.pump();
-      expect(
-        find.text('UgoiraArchiveException: JPEG marker is malformed'),
-        findsOneWidget,
-      );
-      await tester.pump(const Duration(milliseconds: 500));
-    });
+    await tester.tap(find.text('详情'));
+    await tester.pump();
+    expect(
+      find.text('UgoiraArchiveException: JPEG marker is malformed'),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(milliseconds: 500));
   });
 }
 

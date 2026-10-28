@@ -4,7 +4,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:parfait/app/haptics/haptics_driver.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
@@ -733,45 +732,43 @@ void main() {
         responses: done(1),
       );
       final task = manager.submit(downloadRequest(7));
-      await mockNetworkImagesFor(() async {
-        final router = await pumpRouted(tester, container);
-        await pumpUntil(
-          tester,
-          () => manager.tasks.single.status == DownloadStatus.succeeded,
-        );
-        await tester.pump();
+      final router = await pumpRouted(tester, container);
+      await pumpUntil(
+        tester,
+        () => manager.tasks.single.status == DownloadStatus.succeeded,
+      );
+      await tester.pump();
 
-        final semantics = tester.ensureSemantics();
-        expect(
-          tester.getSemantics(
-            find
-                .descendant(
-                  of: _taskRow(task.id),
-                  matching: find.byType(Semantics),
-                )
-                .first,
-          ),
-          isSemantics(isButton: true, onTapHint: '打开作品'),
-        );
-        semantics.dispose();
+      final semantics = tester.ensureSemantics();
+      expect(
+        tester.getSemantics(
+          find
+              .descendant(
+                of: _taskRow(task.id),
+                matching: find.byType(Semantics),
+              )
+              .first,
+        ),
+        isSemantics(isButton: true, onTapHint: '打开作品'),
+      );
+      semantics.dispose();
 
-        await tester.tap(
-          find.text(downloadTaskTitle(manager.taskById(task.id)!)),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('opened 7'), findsOneWidget);
-        router.pop();
-        await tester.pumpAndSettle();
+      await tester.tap(
+        find.text(downloadTaskTitle(manager.taskById(task.id)!)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('opened 7'), findsOneWidget);
+      router.pop();
+      await tester.pumpAndSettle();
 
-        await tester.tap(find.widgetWithText(TextButton, '管理'));
-        await tester.pump();
-        await tester.tap(
-          find.text(downloadTaskTitle(manager.taskById(task.id)!)),
-        );
-        await tester.pump();
-        expect(_selectionTitle('已选 1 项'), findsOneWidget);
-        expect(find.text('opened 7'), findsNothing);
-      });
+      await tester.tap(find.widgetWithText(TextButton, '管理'));
+      await tester.pump();
+      await tester.tap(
+        find.text(downloadTaskTitle(manager.taskById(task.id)!)),
+      );
+      await tester.pump();
+      expect(_selectionTitle('已选 1 项'), findsOneWidget);
+      expect(find.text('opened 7'), findsNothing);
     });
 
     testWidgets('clear completed leaves failures and is undone in place', (
@@ -796,32 +793,30 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
       }
 
-      await mockNetworkImagesFor(() async {
-        await _pumpPage(tester, container);
-        await pumpUntil(
-          tester,
-          () => manager.tasks.every((t) => isTerminal(t.status)),
-        );
-        await tester.pump();
-        final order = [for (final task in manager.tasks) task.id];
+      await _pumpPage(tester, container);
+      await pumpUntil(
+        tester,
+        () => manager.tasks.every((t) => isTerminal(t.status)),
+      );
+      await tester.pump();
+      final order = [for (final task in manager.tasks) task.id];
 
-        await toggleMenu();
-        await tester.tap(clear);
-        // The menu closes, then the rows play their exit.
-        for (var i = 0; i < 3; i++) {
-          await tester.pump(const Duration(milliseconds: 300));
-        }
-        expect(manager.tasks.single.status, DownloadStatus.failed);
-        expect(find.text('已移除 2 条记录'), findsOneWidget);
-        // Only failures left: nothing to clear.
-        await toggleMenu();
-        expect(tester.widget<MenuItemButton>(clear).onPressed, isNull);
-        await toggleMenu();
+      await toggleMenu();
+      await tester.tap(clear);
+      // The menu closes, then the rows play their exit.
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+      expect(manager.tasks.single.status, DownloadStatus.failed);
+      expect(find.text('已移除 2 条记录'), findsOneWidget);
+      // Only failures left: nothing to clear.
+      await toggleMenu();
+      expect(tester.widget<MenuItemButton>(clear).onPressed, isNull);
+      await toggleMenu();
 
-        await _tapUndo(tester);
-        await tester.pump();
-        expect([for (final task in manager.tasks) task.id], order);
-      });
+      await _tapUndo(tester);
+      await tester.pump();
+      expect([for (final task in manager.tasks) task.id], order);
     });
 
     testWidgets('removing a finished group is undone with its header', (
@@ -834,33 +829,30 @@ void main() {
         downloadRequest(1),
         downloadRequest(2),
       ]);
-      await mockNetworkImagesFor(() async {
-        await _pumpPage(tester, container);
-        await pumpUntil(
-          tester,
-          () =>
-              manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
-        );
-        await tester.pump();
+      await _pumpPage(tester, container);
+      await pumpUntil(
+        tester,
+        () => manager.tasks.every((t) => t.status == DownloadStatus.succeeded),
+      );
+      await tester.pump();
 
-        await tester.tap(
-          find.descendant(
-            of: _groupHeader(group.id),
-            matching: find.byIcon(Icons.remove_circle_outline),
-          ),
-        );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        expect(manager.groups, isEmpty);
-        expect(find.text('已移除 2 条记录'), findsOneWidget);
+      await tester.tap(
+        find.descendant(
+          of: _groupHeader(group.id),
+          matching: find.byIcon(Icons.remove_circle_outline),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(manager.groups, isEmpty);
+      expect(find.text('已移除 2 条记录'), findsOneWidget);
 
-        await _tapUndo(tester);
-        await tester.pump();
-        await tester.pump();
-        expect(manager.groups.single.id, group.id);
-        expect(manager.groups.single.jobIds, group.jobIds);
-        expect(_groupHeader(group.id), findsOneWidget);
-      });
+      await _tapUndo(tester);
+      await tester.pump();
+      await tester.pump();
+      expect(manager.groups.single.id, group.id);
+      expect(manager.groups.single.jobIds, group.jobIds);
+      expect(_groupHeader(group.id), findsOneWidget);
     });
   });
 }

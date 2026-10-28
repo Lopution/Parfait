@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/widgets/bookmark_switch_button.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/follow_switch_button.dart';
@@ -128,29 +127,27 @@ void main() {
 
   localeLayoutMatrix('sheets: card actions', (tester, locale, profile) async {
     final (container, _, _) = await makeCardWorld();
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localeLayoutApp(
-          locale: locale,
-          container: container,
-          home: Scaffold(
-            body: Center(
-              child: SizedBox(
-                width: 200,
-                child: IllustCard(entity: parseIllust(illustJson(7))),
-              ),
+    await tester.pumpWidget(
+      localeLayoutApp(
+        locale: locale,
+        container: container,
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 200,
+              child: IllustCard(entity: parseIllust(illustJson(7))),
             ),
           ),
         ),
-      );
-      await _expectOpened(
-        tester,
-        locale,
-        profile,
-        find.byType(IllustCard),
-        longPress: true,
-      );
-    });
+      ),
+    );
+    await _expectOpened(
+      tester,
+      locale,
+      profile,
+      find.byType(IllustCard),
+      longPress: true,
+    );
   });
 
   for (final type in const [SearchResultType.illust, SearchResultType.novel]) {

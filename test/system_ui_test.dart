@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:parfait/core/network/data_worker.dart';
 import 'package:parfait/app/app.dart';
@@ -147,20 +146,18 @@ void main() {
   testWidgets('the image viewer pins light bar icons while mounted', (
     tester,
   ) async {
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        withStalledImages(
-          localizedApp(
-            theme: replicaTheme(Brightness.light),
-            home: const ImageViewerPage(
-              urls: ['https://i.pximg.net/1/original.jpg'],
-            ),
+    await tester.pumpWidget(
+      withStalledImages(
+        localizedApp(
+          theme: replicaTheme(Brightness.light),
+          home: const ImageViewerPage(
+            urls: ['https://i.pximg.net/1/original.jpg'],
           ),
         ),
-      );
-      await tester.pump();
-      await tester.pump();
-    });
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
 
     // The black stage overrides the light theme's dark icons; without the
     // override the clock is invisible after immersive mode exits.
@@ -218,30 +215,27 @@ void main() {
     );
 
     final navigatorKey = GlobalKey<NavigatorState>();
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        withStalledImages(
-          localizedApp(
-            navigatorKey: navigatorKey,
-            home: const Scaffold(body: SizedBox.expand()),
-          ),
+    await tester.pumpWidget(
+      withStalledImages(
+        localizedApp(
+          navigatorKey: navigatorKey,
+          home: const Scaffold(body: SizedBox.expand()),
         ),
-      );
-      navigatorKey.currentState!.push(
-        MaterialPageRoute<void>(
-          builder: (_) => const ImageViewerPage(
-            urls: ['https://i.pximg.net/1/original.jpg'],
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    navigatorKey.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            const ImageViewerPage(urls: ['https://i.pximg.net/1/original.jpg']),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      // Chrome starts visible; a lone tap hides it → immersiveSticky. The
-      // tap resolves after the double-tap window (~300ms).
-      await tester.tap(find.byType(PageView));
-      await tester.pump(const Duration(milliseconds: 400));
-      await tester.pumpAndSettle();
-    });
+    // Chrome starts visible; a lone tap hides it → immersiveSticky. The
+    // tap resolves after the double-tap window (~300ms).
+    await tester.tap(find.byType(PageView));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
     expect(modes, contains('SystemUiMode.immersiveSticky'));
 
     navigatorKey.currentState!.pop();

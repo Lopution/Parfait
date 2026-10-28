@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/auth/credential.dart';
@@ -198,30 +197,28 @@ void main() {
     tester,
   ) async {
     final (container, repository) = await _makeWorld(illustCount: 24);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(_app(container));
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_app(container));
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
 
-      // Adjacent scope slots stay mounted for swipe warmup — restrict
-      // scroll-state queries to the onstage feed.
-      final feedView = find.bySubtype<CustomScrollView>().hitTestable();
-      expect(feedView, findsOneWidget);
-      final controller = tester.widget<CustomScrollView>(feedView).controller!;
+    // Adjacent scope slots stay mounted for swipe warmup — restrict
+    // scroll-state queries to the onstage feed.
+    final feedView = find.bySubtype<CustomScrollView>().hitTestable();
+    expect(feedView, findsOneWidget);
+    final controller = tester.widget<CustomScrollView>(feedView).controller!;
 
-      // A programmatic jump stages the "scrolled away" state deterministi-
-      // cally — the assertion is about the re-tap landing, not gestures.
-      controller.jumpTo(400);
-      await tester.pump();
-      expect(controller.offset, 400);
+    // A programmatic jump stages the "scrolled away" state deterministi-
+    // cally — the assertion is about the re-tap landing, not gestures.
+    controller.jumpTo(400);
+    await tester.pump();
+    expect(controller.offset, 400);
 
-      // Same-index scope tap → pure scroll-to-top, nothing refetched.
-      await tester.tap(find.text('关注'));
-      await tester.pumpAndSettle();
-      expect(controller.offset, 0);
-      expect(repository.requests, [_followingIllust]);
-    });
+    // Same-index scope tap → pure scroll-to-top, nothing refetched.
+    await tester.tap(find.text('关注'));
+    await tester.pumpAndSettle();
+    expect(controller.offset, 0);
+    expect(repository.requests, [_followingIllust]);
   });
 
   testWidgets('branch re-tap scrolls the feed to top — no refetch', (
@@ -231,34 +228,32 @@ void main() {
     final router = pixivRouter('/new');
     _phone(tester);
 
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(_routerApp(container, router));
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_routerApp(container, router));
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
 
-      final feedView = find.bySubtype<CustomScrollView>();
-      expect(feedView, findsOneWidget);
-      final controller = tester.widget<CustomScrollView>(feedView).controller!;
-      controller.jumpTo(400);
-      await tester.pump();
-      expect(controller.offset, 400);
+    final feedView = find.bySubtype<CustomScrollView>();
+    expect(feedView, findsOneWidget);
+    final controller = tester.widget<CustomScrollView>(feedView).controller!;
+    controller.jumpTo(400);
+    await tester.pump();
+    expect(controller.offset, 400);
 
-      // Same-destination tap on the bottom-bar "new" slot.
-      final requestsBefore = repository.requests.length;
-      await tester.tap(
-        find.descendant(
-          of: find.byType(FuncShellBottomNav),
-          matching: find.byIcon(AppIcons.n),
-        ),
-      );
-      await tester.pump();
-      await tester.pumpAndSettle();
+    // Same-destination tap on the bottom-bar "new" slot.
+    final requestsBefore = repository.requests.length;
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FuncShellBottomNav),
+        matching: find.byIcon(AppIcons.n),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
 
-      expect(controller.offset, 0);
-      expect(repository.requests.length, requestsBefore);
-      expect(find.text('关注'), findsOneWidget);
-    });
+    expect(controller.offset, 0);
+    expect(repository.requests.length, requestsBefore);
+    expect(find.text('关注'), findsOneWidget);
   });
 
   testWidgets('a re-tap on a feed already at the top refreshes it', (
@@ -268,47 +263,45 @@ void main() {
     final router = pixivRouter('/new');
     _phone(tester);
 
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(_routerApp(container, router));
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
-      // The tab next to it is built too, off screen.
-      final controller = tester
-          .widget<CustomScrollView>(
-            find.bySubtype<CustomScrollView>().hitTestable(),
-          )
-          .controller!;
-      expect(controller.offset, 0);
+    await tester.pumpWidget(_routerApp(container, router));
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
+    // The tab next to it is built too, off screen.
+    final controller = tester
+        .widget<CustomScrollView>(
+          find.bySubtype<CustomScrollView>().hitTestable(),
+        )
+        .controller!;
+    expect(controller.offset, 0);
 
-      final requestsBefore = repository.requests.length;
-      repository.pendingFetch = Completer<void>();
-      await tester.tap(
-        find.descendant(
-          of: find.byType(FuncShellBottomNav),
-          matching: find.byIcon(AppIcons.n),
-        ),
-      );
-      // As after a release: the overscroll springs onto the trigger, then
-      // the refresh starts.
-      for (var frame = 0; frame < 60; frame++) {
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-      // The pull's own indicator shows the refresh in flight.
-      expect(find.byType(RefreshProgressIndicator), findsOneWidget);
-      expect(repository.requests.length, requestsBefore + 1);
+    final requestsBefore = repository.requests.length;
+    repository.pendingFetch = Completer<void>();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FuncShellBottomNav),
+        matching: find.byIcon(AppIcons.n),
+      ),
+    );
+    // As after a release: the overscroll springs onto the trigger, then
+    // the refresh starts.
+    for (var frame = 0; frame < 60; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    // The pull's own indicator shows the refresh in flight.
+    expect(find.byType(RefreshProgressIndicator), findsOneWidget);
+    expect(repository.requests.length, requestsBefore + 1);
 
-      repository.pendingFetch!.complete();
-      await tester.pumpAndSettle();
-      expect(find.byType(RefreshProgressIndicator), findsNothing);
-      expect(controller.offset, 0);
+    repository.pendingFetch!.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(RefreshProgressIndicator), findsNothing);
+    expect(controller.offset, 0);
 
-      // The in-page scope re-tap follows the same rule.
-      repository.pendingFetch = null;
-      await tester.tap(find.text('关注'));
-      await tester.pumpAndSettle();
-      expect(repository.requests.length, requestsBefore + 2);
-    });
+    // The in-page scope re-tap follows the same rule.
+    repository.pendingFetch = null;
+    await tester.tap(find.text('关注'));
+    await tester.pumpAndSettle();
+    expect(repository.requests.length, requestsBefore + 2);
   });
 
   testWidgets('the book button pushes the novel page; back keeps the illust '
@@ -320,41 +313,36 @@ void main() {
     final router = pixivRouter('/new?scope=everyone');
     _phone(tester);
 
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(_routerApp(container, router));
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(_routerApp(container, router));
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
 
-      final illustFeed = find.bySubtype<CustomScrollView>().hitTestable();
-      final illustController = tester
-          .widget<CustomScrollView>(illustFeed)
-          .controller!;
-      illustController.jumpTo(400);
-      await tester.pump();
+    final illustFeed = find.bySubtype<CustomScrollView>().hitTestable();
+    final illustController = tester
+        .widget<CustomScrollView>(illustFeed)
+        .controller!;
+    illustController.jumpTo(400);
+    await tester.pump();
 
-      await tester.tap(find.byTooltip('小说新作'));
-      await tester.pumpAndSettle();
-      expect(router.state.uri.path, '/new/new-novels');
-      expect(find.text('novel 2000').hitTestable(), findsOneWidget);
-      // The novel page opens on its own default scope.
-      expect(
-        repository.requests.last,
-        const NewFeedKey(
-          scope: NewFeedScope.following,
-          type: NewFeedType.novel,
-        ),
-      );
+    await tester.tap(find.byTooltip('小说新作'));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/new/new-novels');
+    expect(find.text('novel 2000').hitTestable(), findsOneWidget);
+    // The novel page opens on its own default scope.
+    expect(
+      repository.requests.last,
+      const NewFeedKey(scope: NewFeedScope.following, type: NewFeedType.novel),
+    );
 
-      await tester.tap(find.byType(BackButton));
-      await tester.pumpAndSettle();
-      expect(router.state.uri.path, '/new');
-      expect(router.state.uri.queryParameters, {'scope': 'everyone'});
-      expect(illustController.offset, 400);
-      expect(
-        tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
-        NewFeedScope.values.indexOf(NewFeedScope.everyone),
-      );
-    });
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/new');
+    expect(router.state.uri.queryParameters, {'scope': 'everyone'});
+    expect(illustController.offset, 400);
+    expect(
+      tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
+      NewFeedScope.values.indexOf(NewFeedScope.everyone),
+    );
   });
 }

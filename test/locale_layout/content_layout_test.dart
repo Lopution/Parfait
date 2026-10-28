@@ -4,7 +4,6 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/widgets/feed/spotlight_article_card.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/reverse_image/reverse_image_engine.dart';
@@ -60,11 +59,9 @@ Future<void> _pumpChecked(
   LayoutProfile profile,
   Widget app,
 ) async {
-  await mockNetworkImagesFor(() async {
-    await tester.pumpWidget(app);
-    await settleLayout(tester);
-    await expectPageLayoutIntact(tester, locale: locale, profile: profile);
-  });
+  await tester.pumpWidget(app);
+  await settleLayout(tester);
+  await expectPageLayoutIntact(tester, locale: locale, profile: profile);
 }
 
 void main() {

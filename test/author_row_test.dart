@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/widgets/author_row.dart';
 import 'package:parfait/app/widgets/person_card.dart';
 import 'package:parfait/core/auth/account.dart';
@@ -39,37 +38,33 @@ void main() {
   testWidgets('the whole row is one 48dp target that opens the profile', (
     tester,
   ) async {
-    await mockNetworkImagesFor(() async {
-      final router = await _pumpOnRouter(
-        tester,
-        const AuthorRow(userId: 42, name: 'author'),
-      );
+    final router = await _pumpOnRouter(
+      tester,
+      const AuthorRow(userId: 42, name: 'author'),
+    );
 
-      final target = find.byType(InkWell);
-      expect(target, findsOneWidget);
-      expect(
-        tester.getSize(target).height,
-        greaterThanOrEqualTo(AuthorRow.minHeight),
-      );
-      // The target spans the row, not just the name text.
-      expect(tester.getSize(target).width, 300);
-      // The chevron follows the name, inside the one target.
-      final chevron = find.descendant(
-        of: target,
-        matching: find.byIcon(Icons.chevron_right),
-      );
-      expect(
-        tester.getTopLeft(chevron).dx,
-        moreOrLessEquals(tester.getTopRight(find.text('author')).dx),
-      );
+    final target = find.byType(InkWell);
+    expect(target, findsOneWidget);
+    expect(
+      tester.getSize(target).height,
+      greaterThanOrEqualTo(AuthorRow.minHeight),
+    );
+    // The target spans the row, not just the name text.
+    expect(tester.getSize(target).width, 300);
+    // The chevron follows the name, inside the one target.
+    final chevron = find.descendant(
+      of: target,
+      matching: find.byIcon(Icons.chevron_right),
+    );
+    expect(
+      tester.getTopLeft(chevron).dx,
+      moreOrLessEquals(tester.getTopRight(find.text('author')).dx),
+    );
 
-      // A tap well right of the name still lands.
-      await tester.tapAt(
-        tester.getRect(target).centerRight - const Offset(8, 0),
-      );
-      await tester.pump();
-      expect(router.state.uri.path, '/recommended/user/42');
-    });
+    // A tap well right of the name still lands.
+    await tester.tapAt(tester.getRect(target).centerRight - const Offset(8, 0));
+    await tester.pump();
+    expect(router.state.uri.path, '/recommended/user/42');
   });
 
   testWidgets('a person card is one target; its trailing button is its own', (

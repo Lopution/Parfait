@@ -2,8 +2,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:network_image_mock/network_image_mock.dart';
-
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/core/entity/illust_store.dart';
@@ -134,14 +132,12 @@ Future<void> pumpDetail(
       ),
     );
   }
-  await mockNetworkImagesFor(() async {
-    await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: app),
-    );
-    if (firstFrameOnly) return;
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-  });
+  await tester.pumpWidget(
+    UncontrolledProviderScope(container: container, child: app),
+  );
+  if (firstFrameOnly) return;
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 50));
 }
 
 Future<void> longPressImage(WidgetTester tester) async {

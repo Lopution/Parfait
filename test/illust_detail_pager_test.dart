@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
@@ -34,15 +33,13 @@ Future<void> _pumpPager(
   Size surface = const Size(390, 844),
 }) async {
   setViewSize(tester, surface);
-  await mockNetworkImagesFor(() async {
-    await tester.pumpWidget(
-      localizedApp(
-        container: container,
-        home: IllustDetailPagerPage(source: source, initialIllustId: initialId),
-      ),
-    );
-    await tester.pumpAndSettle();
-  });
+  await tester.pumpWidget(
+    localizedApp(
+      container: container,
+      home: IllustDetailPagerPage(source: source, initialIllustId: initialId),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 /// Pumps 8 ms frames until [condition] holds, failing after a second.
@@ -384,20 +381,18 @@ void main() {
     expect(_detail(43), findsOneWidget);
     expect(_detail(44), findsNothing);
 
-    await mockNetworkImagesFor(() async {
-      final gesture = await tester.startGesture(_swipeOrigin(tester));
-      for (var i = 0; i < 3; i++) {
-        await gesture.moveBy(const Offset(-40, 0));
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-      expect(_page(tester), greaterThan(0));
-      expect(_detail(44), findsNothing);
+    final gesture = await tester.startGesture(_swipeOrigin(tester));
+    for (var i = 0; i < 3; i++) {
+      await gesture.moveBy(const Offset(-40, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(_page(tester), greaterThan(0));
+    expect(_detail(44), findsNothing);
 
-      await gesture.moveBy(const Offset(-200, 0));
-      await tester.pump();
-      await gesture.up();
-      await tester.pumpAndSettle();
-    });
+    await gesture.moveBy(const Offset(-200, 0));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
     expect(_page(tester), 1);
     expect(_detail(44), findsOneWidget);
   });
@@ -411,27 +406,25 @@ void main() {
     ]);
     final router = pixivRouter('/recommended');
     final source = IllustPagerSource()..update(const [41, 42, 43]);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(localizedRouterApp(router, container: container));
-      await tester.pump();
-      unawaited(
-        router.push<void>(
-          '/recommended/illust/42',
-          extra: IllustRouteExtra(pagerSource: source),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(_detail(42), findsOneWidget);
-      expect(_detail(41), findsNothing);
-      expect(_detail(43), findsNothing);
+    await tester.pumpWidget(localizedRouterApp(router, container: container));
+    await tester.pump();
+    unawaited(
+      router.push<void>(
+        '/recommended/illust/42',
+        extra: IllustRouteExtra(pagerSource: source),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(_detail(42), findsOneWidget);
+    expect(_detail(41), findsNothing);
+    expect(_detail(43), findsNothing);
 
-      // The page ahead joins first, in a frame of its own.
-      await tester.pump(const Duration(milliseconds: 400));
-      await _pumpUntil(tester, () => _detail(43).tryEvaluate());
-      expect(_detail(41), findsNothing);
-      await _pumpUntil(tester, () => _detail(41).tryEvaluate());
-    });
+    // The page ahead joins first, in a frame of its own.
+    await tester.pump(const Duration(milliseconds: 400));
+    await _pumpUntil(tester, () => _detail(43).tryEvaluate());
+    expect(_detail(41), findsNothing);
+    await _pumpUntil(tester, () => _detail(41).tryEvaluate());
   });
 
   testWidgets('a neighbour joins once its text is laid out as its page '
@@ -444,25 +437,23 @@ void main() {
     final laidOut = <(WarmText, Set<int>)>[];
     final source = IllustPagerSource()..update(const [41, 42, 43]);
     setViewSize(tester, const Size(390, 844));
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          home: IllustDetailPagerPage(
-            source: source,
-            initialIllustId: 42,
-            debugTextLaidOut: (text) => laidOut.add((
-              text,
-              {
-                for (final id in [41, 43])
-                  if (_detail(id).evaluate().isNotEmpty) id,
-              },
-            )),
-          ),
+    await tester.pumpWidget(
+      localizedApp(
+        container: container,
+        home: IllustDetailPagerPage(
+          source: source,
+          initialIllustId: 42,
+          debugTextLaidOut: (text) => laidOut.add((
+            text,
+            {
+              for (final id in [41, 43])
+                if (_detail(id).evaluate().isNotEmpty) id,
+            },
+          )),
         ),
-      );
-      await tester.pumpAndSettle();
-    });
+      ),
+    );
+    await tester.pumpAndSettle();
 
     const page43 = ['illust 43', 'author', '@author', '#original'];
     expect(
@@ -500,10 +491,8 @@ void main() {
     ]);
     final router = pixivRouter('/recommended');
     final source = IllustPagerSource()..update(const [42, 43]);
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(localizedRouterApp(router, container: container));
-      await tester.pump();
-    });
+    await tester.pumpWidget(localizedRouterApp(router, container: container));
+    await tester.pump();
     // push()'s future only completes when the route pops — don't await
     // it, just let the transition play out over bounded pumps.
     unawaited(
@@ -547,14 +536,12 @@ void main() {
     expect(_detail(44), findsOneWidget);
     expect(await recorded(), [43], reason: 'prebuilt neighbours unseen');
 
-    await mockNetworkImagesFor(() async {
-      final gesture = await tester.startGesture(_swipeOrigin(tester));
-      await gesture.moveBy(const Offset(-40, 0));
-      await gesture.moveBy(const Offset(-280, 0));
-      await gesture.up();
-      await _pumpUntil(tester, () => _page(tester) == 2);
-      await tester.pump(IllustDetailPagerPage.activeDwell);
-    });
+    final gesture = await tester.startGesture(_swipeOrigin(tester));
+    await gesture.moveBy(const Offset(-40, 0));
+    await gesture.moveBy(const Offset(-280, 0));
+    await gesture.up();
+    await _pumpUntil(tester, () => _page(tester) == 2);
+    await tester.pump(IllustDetailPagerPage.activeDwell);
     // Closing commits each built page; one never seen leaves no row.
     await tester.pumpWidget(const SizedBox());
     expect((await recorded())!.toSet(), {43, 44});
@@ -618,39 +605,37 @@ void main() {
       );
       expect(log, [42]);
 
-      await mockNetworkImagesFor(() async {
-        // Half a swipe brings the neighbour's section on screen while the
-        // page is still not current.
-        final gesture = await tester.startGesture(_swipeOrigin(tester));
-        await gesture.moveBy(const Offset(-40, 0));
-        await gesture.moveBy(const Offset(-80, 0));
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.pump();
-        expect(log, [42]);
+      // Half a swipe brings the neighbour's section on screen while the
+      // page is still not current.
+      final gesture = await tester.startGesture(_swipeOrigin(tester));
+      await gesture.moveBy(const Offset(-40, 0));
+      await gesture.moveBy(const Offset(-80, 0));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
+      expect(log, [42]);
 
-        await gesture.moveBy(const Offset(-200, 0));
-        await gesture.up();
-        // Settling starts the dwell; the frames after it would outlast it.
-        await _pumpUntil(tester, () => _page(tester) == 1);
-        expect(log, [42], reason: 'a page just settled on sends nothing yet');
+      await gesture.moveBy(const Offset(-200, 0));
+      await gesture.up();
+      // Settling starts the dwell; the frames after it would outlast it.
+      await _pumpUntil(tester, () => _page(tester) == 1);
+      expect(log, [42], reason: 'a page just settled on sends nothing yet');
 
-        // Reveal the current page's related section explicitly so this
-        // activity-gate test does not depend on the synthetic 2400dp
-        // viewport's content budget.
-        final currentScroll = find.descendant(
-          of: _detail(43),
-          matching: find.byType(Scrollable),
-        );
-        final position = tester
-            .state<ScrollableState>(currentScroll.first)
-            .position;
-        position.jumpTo(position.maxScrollExtent);
-        await tester.pump();
-        await tester.pump();
+      // Reveal the current page's related section explicitly so this
+      // activity-gate test does not depend on the synthetic 2400dp
+      // viewport's content budget.
+      final currentScroll = find.descendant(
+        of: _detail(43),
+        matching: find.byType(Scrollable),
+      );
+      final position = tester
+          .state<ScrollableState>(currentScroll.first)
+          .position;
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pump();
+      await tester.pump();
 
-        await tester.pump(IllustDetailPagerPage.activeDwell);
-        await tester.pump();
-      });
+      await tester.pump(IllustDetailPagerPage.activeDwell);
+      await tester.pump();
       expect(log, [42, 43]);
     });
   });

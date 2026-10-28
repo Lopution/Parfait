@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/app/widgets/novel_entry.dart';
 import 'package:parfait/core/auth/account.dart';
@@ -105,33 +104,31 @@ void main() {
     // providers fail fast inside the test host — this test only asserts
     // the facade wiring, not the destination page's content.
     final router = pixivRouter('/recommended');
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedRouterApp(
-          router,
-          overrides: signedInAccountOverrides(
-            const Account(id: '100', userId: 100, name: 't'),
-          ),
+    await tester.pumpWidget(
+      localizedRouterApp(
+        router,
+        overrides: signedInAccountOverrides(
+          const Account(id: '100', userId: 100, name: 't'),
         ),
-      );
-      await tester.pump();
+      ),
+    );
+    await tester.pump();
 
-      // Host the entry on a plain pushed route — driving the shell's
-      // recommended feed needs the full feed world; the contract under
-      // test is "tap calls openNovel", not the feed.
-      router.routerDelegate.navigatorKey.currentState!.push(
-        PageRouteBuilder<void>(
-          pageBuilder: (context, _, _) =>
-              Scaffold(body: NovelEntry.compact(entity: _novel(77))),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(find.byType(NovelEntry), findsOneWidget);
+    // Host the entry on a plain pushed route — driving the shell's
+    // recommended feed needs the full feed world; the contract under
+    // test is "tap calls openNovel", not the feed.
+    router.routerDelegate.navigatorKey.currentState!.push(
+      PageRouteBuilder<void>(
+        pageBuilder: (context, _, _) =>
+            Scaffold(body: NovelEntry.compact(entity: _novel(77))),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(NovelEntry), findsOneWidget);
 
-      await tester.tap(find.byType(NovelEntry));
-      await tester.pump();
-      expect(router.state.uri.path, '/recommended/novel/77');
-    });
+    await tester.tap(find.byType(NovelEntry));
+    await tester.pump();
+    expect(router.state.uri.path, '/recommended/novel/77');
   });
 }

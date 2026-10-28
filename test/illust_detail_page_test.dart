@@ -5,8 +5,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:network_image_mock/network_image_mock.dart';
-
 import 'package:parfait/app/pixiv_image.dart';
 import 'package:parfait/app/theme/func_semantic_tokens.dart';
 import 'package:parfait/app/person_avatar.dart';
@@ -70,61 +68,59 @@ void main() {
           illustJson(42, pageCount: 1, width: 800, height: 100),
         );
 
-        await mockNetworkImagesFor(() async {
-          await tester.pumpWidget(
-            localizedApp(
-              container: container,
-              builder: promptHostBuilder,
-              home: IllustDetailPage(
-                illustId: 42,
-                initialEntity: entity,
-                heroScope: 'profile:42:bookmarks:illust:public',
-                heroImageUrl: 'https://i.pximg.net/feed/42/medium.jpg',
-              ),
+        await tester.pumpWidget(
+          localizedApp(
+            container: container,
+            builder: promptHostBuilder,
+            home: IllustDetailPage(
+              illustId: 42,
+              initialEntity: entity,
+              heroScope: 'profile:42:bookmarks:illust:public',
+              heroImageUrl: 'https://i.pximg.net/feed/42/medium.jpg',
             ),
-          );
-          // No second pump / settle: this is the AsyncLoading first frame.
-          expect(find.byType(ProgressIndicator), findsNothing);
-          expect(find.byType(IllustDetailSkeleton), findsNothing);
-          expect(
-            find.byType(Scrollable),
-            findsWidgets,
-            reason: 'content renders from the card snapshot, not a spinner',
-          );
-          // The snapshot proves out through the InfoBlock title — the
-          // detail page keeps no separate title copy anymore.
-          expect(
-            find.descendant(
-              of: find.byType(InfoBlock),
-              matching: find.text('illust 42'),
-            ),
-            findsOneWidget,
-          );
-          expect(find.text('author'), findsWidgets);
-          expect(
-            tester.widget<PixivImage>(find.byType(PixivImage).first).url,
-            'https://i.pximg.net/feed/42/medium.jpg',
-            reason: 'the Hero target must reuse the exact feed cache key',
-          );
-          expect(find.byKey(const Key('illust-author-row')), findsOneWidget);
-          expect(find.byType(PersonAvatar), findsOneWidget);
-          expect(
-            tester.widget<PersonAvatar>(find.byType(PersonAvatar)).imageUrl,
-            isNotNull,
-            reason: 'the author avatar provider exists in the first frame',
-          );
-          // Hero destination exists on the first frame (feed -> detail flight).
-          final hero = tester.widget<Hero>(
-            find.byWidgetPredicate(
-              (widget) =>
-                  widget is Hero &&
-                  widget.tag ==
-                      'IllustHero:profile:42:bookmarks:illust:public:42',
-            ),
-          );
-          expect(hero, isNotNull);
-          expect(hero.flightShuttleBuilder, illustHeroFlightShuttleBuilder);
-        });
+          ),
+        );
+        // No second pump / settle: this is the AsyncLoading first frame.
+        expect(find.byType(ProgressIndicator), findsNothing);
+        expect(find.byType(IllustDetailSkeleton), findsNothing);
+        expect(
+          find.byType(Scrollable),
+          findsWidgets,
+          reason: 'content renders from the card snapshot, not a spinner',
+        );
+        // The snapshot proves out through the InfoBlock title — the
+        // detail page keeps no separate title copy anymore.
+        expect(
+          find.descendant(
+            of: find.byType(InfoBlock),
+            matching: find.text('illust 42'),
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('author'), findsWidgets);
+        expect(
+          tester.widget<PixivImage>(find.byType(PixivImage).first).url,
+          'https://i.pximg.net/feed/42/medium.jpg',
+          reason: 'the Hero target must reuse the exact feed cache key',
+        );
+        expect(find.byKey(const Key('illust-author-row')), findsOneWidget);
+        expect(find.byType(PersonAvatar), findsOneWidget);
+        expect(
+          tester.widget<PersonAvatar>(find.byType(PersonAvatar)).imageUrl,
+          isNotNull,
+          reason: 'the author avatar provider exists in the first frame',
+        );
+        // Hero destination exists on the first frame (feed -> detail flight).
+        final hero = tester.widget<Hero>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Hero &&
+                widget.tag ==
+                    'IllustHero:profile:42:bookmarks:illust:public:42',
+          ),
+        );
+        expect(hero, isNotNull);
+        expect(hero.flightShuttleBuilder, illustHeroFlightShuttleBuilder);
       },
     );
 
@@ -151,11 +147,9 @@ void main() {
       );
       final pushFrame = listItems();
       // The cache area fills in on the next frame.
-      await mockNetworkImagesFor(tester.pump);
+      await tester.pump();
       expect(listItems(), greaterThan(pushFrame));
-      await mockNetworkImagesFor(
-        () => tester.pump(const Duration(milliseconds: 50)),
-      );
+      await tester.pump(const Duration(milliseconds: 50));
     });
 
     testWidgets(
@@ -217,14 +211,12 @@ void main() {
             extraOverrides: [outboundUrlOpenerProvider.overrideWithValue(seen)],
           );
           await pumpDetail(tester, container, useRouter: true);
-          await mockNetworkImagesFor(() async {
-            await tester.scrollUntilVisible(
-              find.textContaining('line1'),
-              300,
-              scrollable: find.byType(Scrollable).first,
-            );
-            await tester.pump();
-          });
+          await tester.scrollUntilVisible(
+            find.textContaining('line1'),
+            300,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await tester.pump();
 
           // The key assertions: no literal `<br />` text, the caption text
           // renders decoded, and tapping a pixiv link pushes a route.
@@ -255,26 +247,22 @@ void main() {
     ) async {
       final (container, _, _) = await makeWorld();
       await pumpDetail(tester, container, useRouter: true);
-      await mockNetworkImagesFor(() async {
-        await tester.scrollUntilVisible(
-          find.byKey(const Key('illust-author-row')),
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        // Mid-screen, clear of the floating action bar.
-        await Scrollable.ensureVisible(
-          tester.element(find.byKey(const Key('illust-author-row'))),
-          alignment: 0.5,
-        );
-        await tester.pump();
-      });
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('illust-author-row')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      // Mid-screen, clear of the floating action bar.
+      await Scrollable.ensureVisible(
+        tester.element(find.byKey(const Key('illust-author-row'))),
+        alignment: 0.5,
+      );
+      await tester.pump();
 
       expect(find.byType(UserPage), findsNothing);
-      await mockNetworkImagesFor(() async {
-        // The whole card is the target, not just the avatar or name.
-        await tester.tap(find.byKey(const Key('illust-author-row')));
-        await tester.pumpAndSettle();
-      });
+      // The whole card is the target, not just the avatar or name.
+      await tester.tap(find.byKey(const Key('illust-author-row')));
+      await tester.pumpAndSettle();
       expect(find.byType(UserPage), findsOneWidget);
     });
   });
@@ -698,10 +686,8 @@ void main() {
     ) async {
       final json = illustJson(42, width: 4000, height: 100);
       final (container, _, _) = await makeWorld(detailOverrides: {42: json});
-      await mockNetworkImagesFor(() async {
-        await pumpDetail(tester, container, locale: const Locale('en', 'US'));
-        await tester.pumpAndSettle();
-      });
+      await pumpDetail(tester, container, locale: const Locale('en', 'US'));
+      await tester.pumpAndSettle();
 
       final frame = find.byKey(const ValueKey('panorama-frame'));
       expect(frame, findsOneWidget);
@@ -720,26 +706,24 @@ void main() {
         },
       );
       await pumpDetail(tester, container, useRouter: true);
-      await mockNetworkImagesFor(() async {
-        await scrollToRelated(tester);
-        // Ensure the tile is visible before tapping (it may sit below the
-        // fold after the second drag).
-        await tester.scrollUntilVisible(
-          find.text('illust 901'),
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.pump(const Duration(milliseconds: 50));
-        // Tap the related card's image area (IllustCard's onTap covers the
-        // image; the title row below is not clickable).
-        final relatedHero = find.byWidgetPredicate(
-          (w) => w is Hero && '${w.tag}'.contains('901'),
-        );
-        await tester.tapAt(tester.getRect(relatedHero).center);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 50));
-        await tester.pump(const Duration(milliseconds: 350));
-      });
+      await scrollToRelated(tester);
+      // Ensure the tile is visible before tapping (it may sit below the
+      // fold after the second drag).
+      await tester.scrollUntilVisible(
+        find.text('illust 901'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+      // Tap the related card's image area (IllustCard's onTap covers the
+      // image; the title row below is not clickable).
+      final relatedHero = find.byWidgetPredicate(
+        (w) => w is Hero && '${w.tag}'.contains('901'),
+      );
+      await tester.tapAt(tester.getRect(relatedHero).center);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 350));
       // The related section is a feed grid, so the tile opens the
       // work-to-work pager across the related list — the
       // pushed route is a pager whose landing work is 901.
@@ -765,32 +749,28 @@ void main() {
         extraOverrides: [filterSettings(blockR18: true)],
       );
       await pumpDetail(tester, container);
-      await mockNetworkImagesFor(() async {
-        await tester.pump(const Duration(milliseconds: 300));
-        // A short scroll that keeps the section below the fold.
-        await tester.drag(
-          find.bySubtype<CustomScrollView>(),
-          const Offset(0, -80),
-        );
-        await tester.pump(const Duration(milliseconds: 300));
-      });
+      await tester.pump(const Duration(milliseconds: 300));
+      // A short scroll that keeps the section below the fold.
+      await tester.drag(
+        find.bySubtype<CustomScrollView>(),
+        const Offset(0, -80),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
       expect(log, isEmpty, reason: 'opening the page sends no request');
 
-      await mockNetworkImagesFor(() => scrollToRelated(tester));
+      await scrollToRelated(tester);
       expect(log, [42]);
       expect(find.text('illust 901'), findsOneWidget);
       expect(find.text('illust 900'), findsNothing);
 
       // Scrolling away and back, and the bottom-of-page paging check, do
       // not send the first request again.
-      await mockNetworkImagesFor(() async {
-        await tester.drag(
-          find.bySubtype<CustomScrollView>(),
-          const Offset(0, 900),
-        );
-        await tester.pump(const Duration(milliseconds: 200));
-        await scrollToRelated(tester);
-      });
+      await tester.drag(
+        find.bySubtype<CustomScrollView>(),
+        const Offset(0, 900),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      await scrollToRelated(tester);
       expect(log, [42]);
     });
 
@@ -806,12 +786,10 @@ void main() {
         extraOverrides: [filterSettings(blockR18: true)],
       );
       await pumpDetail(tester, container);
-      await mockNetworkImagesFor(() async {
-        // The first page and its three refills, all filtered out.
-        await scrollToRelated(tester);
-        // Reaching the page's bottom again loads nothing on its own.
-        await scrollToRelated(tester);
-      });
+      // The first page and its three refills, all filtered out.
+      await scrollToRelated(tester);
+      // Reaching the page's bottom again loads nothing on its own.
+      await scrollToRelated(tester);
       expect(log, hasLength(4));
       expect(find.text('illust 900'), findsNothing);
 
@@ -926,11 +904,9 @@ void main() {
         of: find.byType(DetailPageCounter),
         matching: find.byType(DecoratedBox),
       );
-      await mockNetworkImagesFor(() async {
-        await tester.tapAt(tester.getCenter(pill));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 400));
-      });
+      await tester.tapAt(tester.getCenter(pill));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(ImageViewerPage), findsOneWidget);
     });
   });

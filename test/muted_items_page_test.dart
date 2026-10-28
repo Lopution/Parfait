@@ -6,7 +6,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/motion/removal.dart';
 import 'package:parfait/app/widgets/settings/settings_group.dart';
 import 'package:parfait/core/mute/mute_store.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/features/settings/pages/muted_items_page.dart';
 
 import 'helpers/fake_account.dart';
@@ -50,13 +49,11 @@ Future<(ProviderContainer, _MuteApi)> _pump(
 }) async {
   final api = _MuteApi(users: users);
   final container = await signedInApiContainer(api.build());
-  await mockNetworkImagesFor(
-    () => tester.pumpWidget(
-      localizedApp(
-        container: container,
-        builder: promptHostBuilder,
-        home: MutedItemsPage(),
-      ),
+  await tester.pumpWidget(
+    localizedApp(
+      container: container,
+      builder: promptHostBuilder,
+      home: MutedItemsPage(),
     ),
   );
   // The page's watch starts the hydrate; the transport answers in

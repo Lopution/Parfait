@@ -7,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/icons/app_icons.dart';
 import 'package:go_router/go_router.dart';
 import 'package:parfait/app/widgets/follow_switch_button.dart';
@@ -150,21 +149,19 @@ Future<(ProviderContainer, _ApiFixture)> _makeWorld({
 void main() {
   testWidgets('switching to manga requests content_type=manga', (tester) async {
     final (container, fixture) = await _makeWorld();
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          builder: promptHostBuilder,
-          home: RecommendedHomePage(),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-      await tester.tap(find.byType(Tab).at(1));
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
-    });
+    await tester.pumpWidget(
+      localizedApp(
+        container: container,
+        builder: promptHostBuilder,
+        home: RecommendedHomePage(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.byType(Tab).at(1));
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
     expect(
       fixture.requests,
       contains(
@@ -178,58 +175,56 @@ void main() {
   ) async {
     final (container, fixture) = await _makeWorld();
     final router = pixivRouter('/recommended?type=manga');
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedRouterApp(
-          router,
-          container: container,
-          builder: promptHostBuilder,
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      localizedRouterApp(
+        router,
+        container: container,
+        builder: promptHostBuilder,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
 
-      // The URL seeds the selected type.
-      expect(
-        tester
-            .widget<RecommendedHomePage>(find.byType(RecommendedHomePage))
-            .initialType,
-        RecommendedContentType.manga,
-      );
+    // The URL seeds the selected type.
+    expect(
+      tester
+          .widget<RecommendedHomePage>(find.byType(RecommendedHomePage))
+          .initialType,
+      RecommendedContentType.manga,
+    );
 
-      // A tab tap writes back through context.replace — the route rebuild
-      // delivers the new initialType while the strip keeps its position.
-      await tester.tap(
-        find.descendant(
-          of: find.byType(RecommendedHomePage),
-          matching: find.byType(Tab).at(2),
-        ),
-      );
-      await tester.pump();
-      await tester.pumpAndSettle();
+    // A tab tap writes back through context.replace — the route rebuild
+    // delivers the new initialType while the strip keeps its position.
+    await tester.tap(
+      find.descendant(
+        of: find.byType(RecommendedHomePage),
+        matching: find.byType(Tab).at(2),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
 
-      expect(router.state.uri.path, '/recommended');
-      expect(router.state.uri.queryParameters['type'], 'novel');
-      expect(
-        tester
-            .widget<RecommendedHomePage>(find.byType(RecommendedHomePage))
-            .initialType,
-        RecommendedContentType.novel,
-      );
-      expect(
-        tester
-            .widget<TabBar>(
-              find.descendant(
-                of: find.byType(RecommendedHomePage),
-                matching: find.byType(TabBar),
-              ),
-            )
-            .controller!
-            .index,
-        2,
-      );
-    });
+    expect(router.state.uri.path, '/recommended');
+    expect(router.state.uri.queryParameters['type'], 'novel');
+    expect(
+      tester
+          .widget<RecommendedHomePage>(find.byType(RecommendedHomePage))
+          .initialType,
+      RecommendedContentType.novel,
+    );
+    expect(
+      tester
+          .widget<TabBar>(
+            find.descendant(
+              of: find.byType(RecommendedHomePage),
+              matching: find.byType(TabBar),
+            ),
+          )
+          .controller!
+          .index,
+      2,
+    );
     expect(
       fixture.requests,
       contains(
@@ -290,9 +285,7 @@ void main() {
           .read(muteStoreProvider.notifier)
           .muteWork(const MutedWork(illustId: 103));
 
-      await mockNetworkImagesFor(() async {
-        await pumpUsers(tester, container);
-      });
+      await pumpUsers(tester, container);
 
       expect(thumbnail(101), findsOneWidget);
       expect(thumbnail(102), findsNothing); // R-18 with the local block on
@@ -312,9 +305,7 @@ void main() {
     testWidgets('follow state comes from the follow store', (tester) async {
       final (container, _) = await _makeWorld();
 
-      await mockNetworkImagesFor(() async {
-        await pumpUsers(tester, container);
-      });
+      await pumpUsers(tester, container);
 
       Finder followButtonOf(String name) => find.descendant(
         of: find.ancestor(of: find.text(name), matching: find.byType(Card)),
@@ -349,82 +340,78 @@ void main() {
     // Compact viewport: at ≥600px the shell swaps the bottom bar for a
     // rail and FuncShellBottomNav leaves the tree.
     setViewSize(tester, const Size(390, 844));
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedRouterApp(
-          router,
-          container: container,
-          builder: promptHostBuilder,
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      localizedRouterApp(
+        router,
+        container: container,
+        builder: promptHostBuilder,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
 
-      final feedView = find.descendant(
-        of: find.byType(RecommendedHomePage),
-        matching: find.bySubtype<CustomScrollView>(),
-      );
-      expect(feedView, findsOneWidget);
-      final controller = tester.widget<CustomScrollView>(feedView).controller!;
-      controller.jumpTo(400);
-      await tester.pump();
-      expect(controller.offset, 400);
+    final feedView = find.descendant(
+      of: find.byType(RecommendedHomePage),
+      matching: find.bySubtype<CustomScrollView>(),
+    );
+    expect(feedView, findsOneWidget);
+    final controller = tester.widget<CustomScrollView>(feedView).controller!;
+    controller.jumpTo(400);
+    await tester.pump();
+    expect(controller.offset, 400);
 
-      // Same-destination tap on the home slot: pure scroll-to-top — no
-      // refresh, no re-request.
-      final requestsBefore = fixture.requests.length;
-      await tester.tap(
-        find.descendant(
-          of: find.byType(FuncShellBottomNav),
-          matching: find.byIcon(AppIcons.home),
-        ),
-      );
-      await tester.pump();
-      await tester.pumpAndSettle();
+    // Same-destination tap on the home slot: pure scroll-to-top — no
+    // refresh, no re-request.
+    final requestsBefore = fixture.requests.length;
+    await tester.tap(
+      find.descendant(
+        of: find.byType(FuncShellBottomNav),
+        matching: find.byIcon(AppIcons.home),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
 
-      expect(controller.offset, 0);
-      expect(fixture.requests.length, requestsBefore);
-    });
+    expect(controller.offset, 0);
+    expect(fixture.requests.length, requestsBefore);
   });
 
   testWidgets('a failed refresh surfaces a snackbar, not only a tail row', (
     tester,
   ) async {
     final (container, fixture) = await _makeWorld();
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          builder: promptHostBuilder,
-          home: RecommendedHomePage(),
-        ),
-      );
-      await tester.pump();
-      await tester.pump();
-      await tester.pumpAndSettle();
-      expect(shownPrompt, findsNothing);
+    await tester.pumpWidget(
+      localizedApp(
+        container: container,
+        builder: promptHostBuilder,
+        home: RecommendedHomePage(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(shownPrompt, findsNothing);
 
-      // Fail the next recommended request, then refresh — the error must
-      // surface in the viewport as a SnackBar with a retry action.
-      fixture.failRecommended = true;
-      await container
-          .read(
-            recommendedFeedProvider((
-              type: RecommendedContentType.illust,
-            )).notifier,
-          )
-          .refresh();
-      await tester.pump();
-      await tester.pump();
+    // Fail the next recommended request, then refresh — the error must
+    // surface in the viewport as a SnackBar with a retry action.
+    fixture.failRecommended = true;
+    await container
+        .read(
+          recommendedFeedProvider((
+            type: RecommendedContentType.illust,
+          )).notifier,
+        )
+        .refresh();
+    await tester.pump();
+    await tester.pump();
 
-      expect(shownPrompt, findsOneWidget);
-      expect(find.textContaining('刷新失败'), findsOneWidget);
-      expect(
-        find.descendant(of: shownPrompt, matching: find.text('重试')),
-        findsOneWidget,
-      );
-    });
+    expect(shownPrompt, findsOneWidget);
+    expect(find.textContaining('刷新失败'), findsOneWidget);
+    expect(
+      find.descendant(of: shownPrompt, matching: find.text('重试')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('sideways drags and tab hops leave the loaded feed unbuilt', (
@@ -434,42 +421,40 @@ void main() {
     // page. Neither may reach a feed that is already on screen: on device
     // that rebuilt all of its cards inside the swipe frame.
     final (container, _) = await _makeWorld();
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          builder: promptHostBuilder,
-          home: RecommendedHomePage(),
-        ),
+    await tester.pumpWidget(
+      localizedApp(
+        container: container,
+        builder: promptHostBuilder,
+        home: RecommendedHomePage(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
+    // The illust feed's cards as mounted now; any later build of these
+    // same elements is a rebuild (the hook's builtOnce flag is only kept
+    // under debugPrintRebuildDirtyWidgets).
+    final settledCards = find.byType(IllustCard).evaluate().toSet();
+    expect(settledCards, isNotEmpty);
+
+    var cardRebuilds = 0;
+    debugOnRebuildDirtyWidget = (element, _) {
+      if (settledCards.contains(element)) cardRebuilds++;
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = null);
+
+    // Short, slow drags: the strip follows and reels back, no commit.
+    for (var i = 0; i < 2; i++) {
+      await tester.timedDrag(
+        find.bySubtype<CustomScrollView>().first,
+        const Offset(-60, 0),
+        const Duration(milliseconds: 600),
       );
-      await tester.pump();
-      await tester.pump();
       await tester.pumpAndSettle();
-      // The illust feed's cards as mounted now; any later build of these
-      // same elements is a rebuild (the hook's builtOnce flag is only kept
-      // under debugPrintRebuildDirtyWidgets).
-      final settledCards = find.byType(IllustCard).evaluate().toSet();
-      expect(settledCards, isNotEmpty);
+    }
+    await tester.tap(find.byType(Tab).at(1));
+    await tester.pumpAndSettle();
 
-      var cardRebuilds = 0;
-      debugOnRebuildDirtyWidget = (element, _) {
-        if (settledCards.contains(element)) cardRebuilds++;
-      };
-      addTearDown(() => debugOnRebuildDirtyWidget = null);
-
-      // Short, slow drags: the strip follows and reels back, no commit.
-      for (var i = 0; i < 2; i++) {
-        await tester.timedDrag(
-          find.bySubtype<CustomScrollView>().first,
-          const Offset(-60, 0),
-          const Duration(milliseconds: 600),
-        );
-        await tester.pumpAndSettle();
-      }
-      await tester.tap(find.byType(Tab).at(1));
-      await tester.pumpAndSettle();
-
-      expect(cardRebuilds, 0);
-    });
+    expect(cardRebuilds, 0);
   });
 }

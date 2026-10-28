@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/widgets/feed/illust_card.dart';
 import 'package:parfait/app/widgets/selectable_tile.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
@@ -39,8 +38,7 @@ Finder _tile(int id) => find.ancestor(
   matching: find.byType(SelectableTile),
 );
 
-Future<void> _settle(WidgetTester tester) =>
-    mockNetworkImagesFor(() => tester.pumpAndSettle());
+Future<void> _settle(WidgetTester tester) => tester.pumpAndSettle();
 
 void main() {
   late ProviderContainer container;
@@ -51,7 +49,7 @@ void main() {
     container = world;
     repository = memory;
     await _seed(repository);
-    await mockNetworkImagesFor(() => tester.pumpWidget(_app(container)));
+    await tester.pumpWidget(_app(container));
     await _settle(tester);
   }
 

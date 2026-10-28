@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:flutter/services.dart';
 
 import 'package:parfait/core/settings/app_settings.dart';
@@ -221,17 +220,15 @@ void main() {
   group('comment preview and author works (§2-E)', () {
     /// Brings a section header mid-screen and lets its request land.
     Future<void> showSection(WidgetTester tester, Finder header) async {
-      await mockNetworkImagesFor(() async {
-        await tester.scrollUntilVisible(
-          header,
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await Scrollable.ensureVisible(tester.element(header), alignment: 0.3);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.pump(const Duration(milliseconds: 300));
-      });
+      await tester.scrollUntilVisible(
+        header,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await Scrollable.ensureVisible(tester.element(header), alignment: 0.3);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
     }
 
     Map<String, dynamic> comment(int id) => {
@@ -298,102 +295,97 @@ void main() {
           await tester.pump();
         }
 
-        await mockNetworkImagesFor(() async {
-          // The stamp key opens on the stamp panel, in place of the bar.
-          await tester.tap(
-            find.descendant(of: entry, matching: find.byTooltip('Stamp')),
-          );
-          await settle();
-          expect(composer().debugInputState, CommentComposerInputState.stamp);
-          expect(bar(), 0);
-          // Back closes the composer, not the page.
-          await tester.binding.handlePopRoute();
-          await settle();
-          expect(find.byType(CommentComposer), findsNothing);
-          expect(find.byType(IllustDetailPage), findsOneWidget);
-          expect(bar(), 1);
+        // The stamp key opens on the stamp panel, in place of the bar.
+        await tester.tap(
+          find.descendant(of: entry, matching: find.byTooltip('Stamp')),
+        );
+        await settle();
+        expect(composer().debugInputState, CommentComposerInputState.stamp);
+        expect(bar(), 0);
+        // Back closes the composer, not the page.
+        await tester.binding.handlePopRoute();
+        await settle();
+        expect(find.byType(CommentComposer), findsNothing);
+        expect(find.byType(IllustDetailPage), findsOneWidget);
+        expect(bar(), 1);
 
-          // On the keyboard the composer rides it: out of sight before it
-          // rises, whole over its upper half, and gone with it when it is
-          // put away on its own.
-          double shown() => tester
-              .widget<Opacity>(
-                find
-                    .descendant(
-                      of: find.byType(CommentComposer),
-                      matching: find.byType(Opacity),
-                    )
-                    .first,
+        // On the keyboard the composer rides it: out of sight before it
+        // rises, whole over its upper half, and gone with it when it is
+        // put away on its own.
+        double shown() => tester
+            .widget<Opacity>(
+              find
+                  .descendant(
+                    of: find.byType(CommentComposer),
+                    matching: find.byType(Opacity),
+                  )
+                  .first,
+            )
+            .opacity;
+        void keyboardAt(double height) => tester.view.viewInsets =
+            FakeViewPadding(bottom: height * tester.view.devicePixelRatio);
+        addTearDown(tester.view.resetViewInsets);
+        await tester.tap(
+          find.descendant(of: entry, matching: find.text('添加评论')),
+        );
+        await tester.pump();
+        await tester.pump();
+        expect(composer().debugInputState, CommentComposerInputState.keyboard);
+        expect(shown(), 0);
+        keyboardAt(300);
+        await tester.pump();
+        expect(shown(), 1);
+        keyboardAt(60);
+        await tester.pump();
+        expect(shown(), inExclusiveRange(0, 1));
+        keyboardAt(0);
+        // Down, out of focus, then gone: a frame each.
+        await tester.pump();
+        await tester.pump();
+        await settle();
+        expect(find.byType(CommentComposer), findsNothing);
+        expect(bar(), 1);
+
+        // Text left by a touch beside the composer is there the next
+        // time. With no keyboard rising, the composer shows anyway.
+        await tester.tap(
+          find.descendant(of: entry, matching: find.text('添加评论')),
+        );
+        await settle();
+        expect(shown(), 1);
+        await tester.enterText(find.byType(TextField), 'hello');
+        // An emoji inserted last is part of it too.
+        await tester.tap(find.byTooltip('Emoji'));
+        await settle();
+        await tester.tap(
+          find
+              .descendant(
+                of: find.byType(CommentComposer),
+                matching: find.byType(InkResponse),
               )
-              .opacity;
-          void keyboardAt(double height) => tester.view.viewInsets =
-              FakeViewPadding(bottom: height * tester.view.devicePixelRatio);
-          addTearDown(tester.view.resetViewInsets);
-          await tester.tap(
-            find.descendant(of: entry, matching: find.text('添加评论')),
-          );
-          await tester.pump();
-          await tester.pump();
-          expect(
-            composer().debugInputState,
-            CommentComposerInputState.keyboard,
-          );
-          expect(shown(), 0);
-          keyboardAt(300);
-          await tester.pump();
-          expect(shown(), 1);
-          keyboardAt(60);
-          await tester.pump();
-          expect(shown(), inExclusiveRange(0, 1));
-          keyboardAt(0);
-          // Down, out of focus, then gone: a frame each.
-          await tester.pump();
-          await tester.pump();
-          await settle();
-          expect(find.byType(CommentComposer), findsNothing);
-          expect(bar(), 1);
+              .first,
+        );
+        final draft = 'hello(${commentEmojiNames.first})';
+        // The page stays live: a drag on it closes the composer and
+        // scrolls on.
+        final page = tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position;
+        final before = page.pixels;
+        await tester.dragFrom(const Offset(200, 200), const Offset(0, 80));
+        await settle();
+        expect(find.byType(CommentComposer), findsNothing);
+        expect(page.pixels, lessThan(before));
+        await tester.dragFrom(const Offset(200, 200), const Offset(0, -80));
+        await settle();
+        await tester.tap(
+          find.descendant(of: entry, matching: find.text('添加评论')),
+        );
+        await settle();
+        expect(find.text(draft), findsOneWidget);
 
-          // Text left by a touch beside the composer is there the next
-          // time. With no keyboard rising, the composer shows anyway.
-          await tester.tap(
-            find.descendant(of: entry, matching: find.text('添加评论')),
-          );
-          await settle();
-          expect(shown(), 1);
-          await tester.enterText(find.byType(TextField), 'hello');
-          // An emoji inserted last is part of it too.
-          await tester.tap(find.byTooltip('Emoji'));
-          await settle();
-          await tester.tap(
-            find
-                .descendant(
-                  of: find.byType(CommentComposer),
-                  matching: find.byType(InkResponse),
-                )
-                .first,
-          );
-          final draft = 'hello(${commentEmojiNames.first})';
-          // The page stays live: a drag on it closes the composer and
-          // scrolls on.
-          final page = tester
-              .state<ScrollableState>(find.byType(Scrollable).first)
-              .position;
-          final before = page.pixels;
-          await tester.dragFrom(const Offset(200, 200), const Offset(0, 80));
-          await settle();
-          expect(find.byType(CommentComposer), findsNothing);
-          expect(page.pixels, lessThan(before));
-          await tester.dragFrom(const Offset(200, 200), const Offset(0, -80));
-          await settle();
-          await tester.tap(
-            find.descendant(of: entry, matching: find.text('添加评论')),
-          );
-          await settle();
-          expect(find.text(draft), findsOneWidget);
-
-          await tester.tap(find.byIcon(Icons.send_outlined));
-          await settle();
-        });
+        await tester.tap(find.byIcon(Icons.send_outlined));
+        await settle();
         expect(find.byType(CommentComposer), findsNothing);
         final rows = find.descendant(
           of: find.byKey(const Key('illust-comments-preview')),
@@ -445,12 +437,10 @@ void main() {
         isSemantics(label: '评论（5）', isHeader: true),
       );
 
-      await mockNetworkImagesFor(() async {
-        await tester.tap(
-          find.descendant(of: heading, matching: find.text('查看全部')),
-        );
-        await tester.pumpAndSettle();
-      });
+      await tester.tap(
+        find.descendant(of: heading, matching: find.text('查看全部')),
+      );
+      await tester.pumpAndSettle();
       expect(find.byType(CommentsPage), findsOneWidget);
     });
 
@@ -515,10 +505,8 @@ void main() {
       expect(tile('illust 42'), findsNothing);
       expect(tile('illust 503'), findsNothing, reason: 'muted (A6)');
 
-      await mockNetworkImagesFor(() async {
-        await tester.tap(tile('illust 501'));
-        await tester.pumpAndSettle();
-      });
+      await tester.tap(tile('illust 501'));
+      await tester.pumpAndSettle();
       expect(
         find.byWidgetPredicate(
           (w) => w is IllustDetailPage && w.illustId == 501,

@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_series_section.dart';
 
@@ -42,33 +41,31 @@ void main() {
     );
     addTearDown(router.dispose);
 
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(localizedRouterApp(router, container: container));
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(localizedRouterApp(router, container: container));
+    await tester.pumpAndSettle();
 
-      expect(find.text('series 55'), findsOneWidget);
-      expect(
-        find.ancestor(
-          of: find.text('series 55'),
-          matching: find.byType(PressScale),
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('第 3 话 / 共 12 话'), findsOneWidget);
-      expect(find.byTooltip('上一话'), findsOneWidget);
-      expect(find.byTooltip('下一话'), findsOneWidget);
+    expect(find.text('series 55'), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.text('series 55'),
+        matching: find.byType(PressScale),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('第 3 话 / 共 12 话'), findsOneWidget);
+    expect(find.byTooltip('上一话'), findsOneWidget);
+    expect(find.byTooltip('下一话'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('下一话'));
-      await tester.pumpAndSettle();
-      expect(router.state.uri.path, '/recommended/illust/911');
+    await tester.tap(find.byTooltip('下一话'));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/recommended/illust/911');
 
-      router.pop();
-      await tester.pumpAndSettle();
-      expect(router.state.uri.path, '/recommended');
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/recommended');
 
-      await tester.tap(find.text('series 55'));
-      await tester.pumpAndSettle();
-      expect(router.state.uri.path, '/recommended/series/55');
-    });
+    await tester.tap(find.text('series 55'));
+    await tester.pumpAndSettle();
+    expect(router.state.uri.path, '/recommended/series/55');
   });
 }

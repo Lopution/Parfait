@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:parfait/app/motion/press_scale.dart';
 import 'package:parfait/app/pixiv_image.dart';
@@ -103,79 +102,70 @@ void main() {
       );
       addTearDown(router.dispose);
 
-      await mockNetworkImagesFor(() async {
-        await tester.pumpWidget(
-          localizedRouterApp(router, container: container),
-        );
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(localizedRouterApp(router, container: container));
+      await tester.pumpAndSettle();
 
-        // Page one committed: two cards, each image → title → date, with
-        // no trailing arrow.
-        expect(find.text('spotlight 101'), findsOneWidget);
-        expect(find.text('spotlight 102'), findsOneWidget);
-        final card = find.widgetWithText(SpotlightArticleCard, 'spotlight 101');
-        expect(
-          find.descendant(of: card, matching: find.byType(PressScale)),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(of: card, matching: find.byIcon(Icons.chevron_right)),
-          findsNothing,
-        );
-        final image = find.descendant(
-          of: card,
-          matching: find.byType(PixivImage),
-        );
-        final title = find.text('spotlight 101');
-        final date = find.descendant(
-          of: card,
-          matching: find.text('2026年9月1日'),
-        );
-        expect(
-          tester.getRect(image).bottom,
-          lessThanOrEqualTo(tester.getRect(title).top),
-        );
-        expect(
-          tester.getRect(title).bottom,
-          lessThanOrEqualTo(tester.getRect(date).top),
-        );
-        expect(
-          tester.getSize(image).aspectRatio,
-          closeTo(SpotlightArticleCard.imageAspectRatio, 0.01),
-        );
-        expect(find.text('label 101'), findsNothing);
-        expect(fixture.requests.first.queryParameters['category'], 'all');
+      // Page one committed: two cards, each image → title → date, with
+      // no trailing arrow.
+      expect(find.text('spotlight 101'), findsOneWidget);
+      expect(find.text('spotlight 102'), findsOneWidget);
+      final card = find.widgetWithText(SpotlightArticleCard, 'spotlight 101');
+      expect(
+        find.descendant(of: card, matching: find.byType(PressScale)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: card, matching: find.byIcon(Icons.chevron_right)),
+        findsNothing,
+      );
+      final image = find.descendant(
+        of: card,
+        matching: find.byType(PixivImage),
+      );
+      final title = find.text('spotlight 101');
+      final date = find.descendant(of: card, matching: find.text('2026年9月1日'));
+      expect(
+        tester.getRect(image).bottom,
+        lessThanOrEqualTo(tester.getRect(title).top),
+      );
+      expect(
+        tester.getRect(title).bottom,
+        lessThanOrEqualTo(tester.getRect(date).top),
+      );
+      expect(
+        tester.getSize(image).aspectRatio,
+        closeTo(SpotlightArticleCard.imageAspectRatio, 0.01),
+      );
+      expect(find.text('label 101'), findsNothing);
+      expect(fixture.requests.first.queryParameters['category'], 'all');
 
-        // Thumbnails are pximg URLs: they must carry the Pixiv referer
-        // (PixivImage) and decode for the card's width.
-        final thumbnails = tester.widgetList<PixivImage>(
-          find.byType(PixivImage),
-        );
-        expect(thumbnails.map((image) => image.url), [
-          'https://i.pximg.net/spotlight/101.jpg',
-          'https://i.pximg.net/spotlight/102.jpg',
-        ]);
-        expect(thumbnails.map((image) => image.memCacheWidth).toSet(), {
-          PixivImage.decodeWidthFor(tester.getSize(image).width),
-        });
-
-        // Category tabs drive independent family feeds.
-        await tester.tap(find.widgetWithText(Tab, '插画'));
-        await tester.pumpAndSettle();
-        expect(fixture.requests.last.queryParameters['category'], 'illust');
-        await tester.tap(find.widgetWithText(Tab, '全部'));
-        await tester.pumpAndSettle();
-
-        // A card opens the in-app article route with its pixivision URL.
-        // The illust tab keeps its list beside this one; tap the visible card.
-        await tester.tap(find.text('spotlight 101').hitTestable());
-        await tester.pumpAndSettle();
-        expect(router.state.uri.path, '/recommended/spotlight/article/101');
-        expect(
-          router.state.uri.queryParameters['url'],
-          'https://www.pixivision.net/a/101',
-        );
+      // Thumbnails are pximg URLs: they must carry the Pixiv referer
+      // (PixivImage) and decode for the card's width.
+      final thumbnails = tester.widgetList<PixivImage>(find.byType(PixivImage));
+      expect(thumbnails.map((image) => image.url), [
+        'https://i.pximg.net/spotlight/101.jpg',
+        'https://i.pximg.net/spotlight/102.jpg',
+      ]);
+      expect(thumbnails.map((image) => image.memCacheWidth).toSet(), {
+        PixivImage.decodeWidthFor(tester.getSize(image).width),
       });
+
+      // Category tabs drive independent family feeds.
+      await tester.tap(find.widgetWithText(Tab, '插画'));
+      await tester.pumpAndSettle();
+      expect(fixture.requests.last.queryParameters['category'], 'illust');
+      await tester.tap(find.widgetWithText(Tab, '全部'));
+      await tester.pumpAndSettle();
+
+      // A card opens the in-app article route with its pixivision URL.
+      // The illust tab keeps its list beside this one; tap the visible card.
+      await tester.tap(find.text('spotlight 101').hitTestable());
+      await tester.pumpAndSettle();
+      expect(router.state.uri.path, '/recommended/spotlight/article/101');
+      expect(
+        router.state.uri.queryParameters['url'],
+        'https://www.pixivision.net/a/101',
+      );
     },
   );
 }

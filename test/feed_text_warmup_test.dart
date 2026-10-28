@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 
 import 'package:parfait/app/layout/card_columns.dart';
 import 'package:parfait/app/theme/replica_theme.dart';
@@ -210,40 +209,38 @@ void main() {
       paragraphs: const [],
     );
     late BuildContext context;
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: localizedApp(
-            theme: replicaTheme(Brightness.light),
-            // The bold-text setting is merged after the card's style.
-            builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(context).copyWith(boldText: true),
-              child: child!,
-            ),
-            body: Builder(
-              builder: (c) {
-                context = c;
-                return ListView(
-                  children: [
-                    // As the recommended users list lays it out.
-                    const Card(
-                      child: AuthorSummary(
-                        name: 'ねこ',
-                        account: '@neko',
-                        imageUrl: null,
-                      ),
+    await tester.pumpWidget(
+      ProviderScope(
+        child: localizedApp(
+          theme: replicaTheme(Brightness.light),
+          // The bold-text setting is merged after the card's style.
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(boldText: true),
+            child: child!,
+          ),
+          body: Builder(
+            builder: (c) {
+              context = c;
+              return ListView(
+                children: [
+                  // As the recommended users list lays it out.
+                  const Card(
+                    child: AuthorSummary(
+                      name: 'ねこ',
+                      account: '@neko',
+                      imageUrl: null,
                     ),
-                    NovelEntry.compact(entity: novel),
-                    SizedBox(width: 300, child: IllustCard(entity: illust)),
-                  ],
-                );
-              },
-            ),
+                  ),
+                  NovelEntry.compact(entity: novel),
+                  SizedBox(width: 300, child: IllustCard(entity: illust)),
+                ],
+              );
+            },
           ),
         ),
-      );
-      await tester.pump();
-    });
+      ),
+    );
+    await tester.pump();
     final lines = [
       ...NovelEntry.warmTexts(context, novel),
       ...IllustCard.warmTexts(context, illust),

@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/network/api_error.dart';
@@ -181,22 +180,20 @@ void main() {
   ) async {
     final (container, _) = await makeWorld();
     final entity = parseIllust(illustJson(8));
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          home: SingleChildScrollView(
-            child: Column(
-              children: [
-                IllustCard(entity: entity, heroScope: 'ranking:day'),
-                IllustCard(entity: entity, heroScope: 'search:blue-archive'),
-              ],
-            ),
+    await tester.pumpWidget(
+      localizedApp(
+        container: container,
+        home: SingleChildScrollView(
+          child: Column(
+            children: [
+              IllustCard(entity: entity, heroScope: 'ranking:day'),
+              IllustCard(entity: entity, heroScope: 'search:blue-archive'),
+            ],
           ),
         ),
-      );
-      await tester.pump();
-    });
+      ),
+    );
+    await tester.pump();
 
     final tags = tester
         .widgetList<Hero>(find.byType(Hero))
@@ -221,27 +218,25 @@ void main() {
         'https://i.pximg.net/c/360x360_70/img-master/$dir/1_p0_square1200.jpg';
     const custom =
         'https://i.pximg.net/c/360x360_70/custom-thumb/$dir/2_p0_custom1200.jpg';
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          home: SingleChildScrollView(
-            child: Column(
-              children: [
-                IllustCard(entity: tall(1, own), heroScope: 'feed'),
-                IllustCard(entity: tall(2, custom), heroScope: 'feed'),
-                // An ugoira's cover lays out no top square.
-                IllustCard(
-                  entity: tall(3, own, type: 'ugoira'),
-                  heroScope: 'feed',
-                ),
-              ],
-            ),
+    await tester.pumpWidget(
+      localizedApp(
+        container: container,
+        home: SingleChildScrollView(
+          child: Column(
+            children: [
+              IllustCard(entity: tall(1, own), heroScope: 'feed'),
+              IllustCard(entity: tall(2, custom), heroScope: 'feed'),
+              // An ugoira's cover lays out no top square.
+              IllustCard(
+                entity: tall(3, own, type: 'ugoira'),
+                heroScope: 'feed',
+              ),
+            ],
           ),
         ),
-      );
-      await tester.pump();
-    });
+      ),
+    );
+    await tester.pump();
 
     final tags = tester
         .widgetList<Hero>(find.byType(Hero))
