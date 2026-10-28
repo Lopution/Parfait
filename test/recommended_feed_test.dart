@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,39 +20,6 @@ import 'helpers/fake_account.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
-
-String _illustJson(int id, {bool bookmarked = false}) => jsonEncode({
-  'id': id,
-  'title': 'illust $id',
-  'type': 'illust',
-  'image_urls': {
-    'square_medium': 'https://i.pximg.net/$id/s.png',
-    'medium': 'https://i.pximg.net/$id/m.png',
-    'large': 'https://i.pximg.net/$id/l.png',
-  },
-  'caption': '',
-  'restrict': 0,
-  'user': {
-    'id': 99,
-    'name': 'author',
-    'account': 'author',
-    'profile_image_urls': {'medium': 'https://i.pximg.net/u.png'},
-  },
-  'tags': <Object?>[],
-  'page_count': 1,
-  'width': 100,
-  'height': 100,
-  'sanity_level': 2,
-  'x_restrict': 0,
-  'meta_single_page': <String, Object?>{},
-  'meta_pages': <Object?>[],
-  'total_view': 1,
-  'total_bookmarks': 1,
-  'is_bookmarked': bookmarked,
-  'visible': true,
-  'is_muted': false,
-  'illust_ai_type': 0,
-});
 
 /// Local transport serving deterministic recommended pages.
 /// Page flow: offset-less page 1 (ids 1..10, next=page2) →
@@ -84,9 +49,7 @@ class _ApiFixture {
               : null);
       return jsonResponse({
         'illusts': [
-          for (final id in ids)
-            jsonDecode(_illustJson(id, bookmarked: id == 8 && !first))
-                as Map<String, dynamic>,
+          for (final id in ids) illustJson(id, bookmarked: id == 8 && !first),
         ],
         'next_url': nextUrl,
       });
