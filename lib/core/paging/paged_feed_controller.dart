@@ -273,8 +273,10 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
       } on ApiCancelled {
         break;
       } on ApiError {
-        // A transient refill failure: keep what was already fetched and
-        // present normally; the next load-more retries this cursor.
+        // A failed hop, network or parse: keep what was already fetched.
+        // Its cursor stays next, so the next load-more requests it as a
+        // page, and a lasting failure shows there with a retry. A rejected
+        // or repeated next cursor has no such place to resume, so it throws.
         break;
       }
       if (!_isContextActive(context) || context.isCancelled) break;
