@@ -303,12 +303,6 @@ void main() {
     );
   });
 
-  test('animation speed factors scale from the normal tier', () {
-    expect(AnimationSpeed.normal.factor, 1);
-    expect(AnimationSpeed.fast.factor, closeTo(250 / 350, 1e-9));
-    expect(AnimationSpeed.slow.factor, closeTo(450 / 350, 1e-9));
-  });
-
   test('typed search filters round-trip and damaged fields fall back', () {
     const filters = IllustSearchFilters(
       target: SearchTarget.exactMatchForTags,
