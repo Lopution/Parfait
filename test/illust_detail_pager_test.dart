@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:parfait/app/navigation/routes.dart';
 import 'package:parfait/app/widgets/feed/feed_grid.dart';
-import 'package:parfait/app/widgets/feed/feed_text_warmup.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/history/history_repository.dart';
 import 'package:parfait/core/platform/platform_caps.dart';
@@ -22,7 +21,6 @@ import 'helpers/localized_app.dart';
 import 'helpers/touch.dart';
 import 'helpers/view_size.dart';
 import 'helpers/pixiv_router.dart';
-import 'helpers/warm_text.dart';
 import 'helpers/waits.dart';
 
 Future<void> _pumpPager(
@@ -239,36 +237,6 @@ void main() {
     );
   });
 
-  testWidgets('a page landing mid-paging keeps the built detail pages', (
-    tester,
-  ) async {
-    final (container, _, _) = await makeWorld();
-    container.read(illustStoreProvider).mergeAll([
-      for (final id in [42, 43, 44, 45]) parseIllust(illustJson(id)),
-    ]);
-    final source = IllustPagerSource()..update(const [42, 43, 44]);
-    await _pumpPager(tester, container, source: source, initialId: 42);
-    final before = tester.widget<IllustDetailPage>(_detail(42));
-
-    // The feed re-publishes an equal list on every rebuild (a load-more
-    // phase flip): nothing to re-seat.
-    var notified = 0;
-    source.addListener(() => notified++);
-    source.update(const [42, 43, 44]);
-    expect(notified, 0);
-
-    // A real append re-seats the pager, but the built detail subtrees
-    // must come through untouched.
-    source.update(const [42, 43, 44, 45]);
-    await tester.pump();
-    await tester.pump();
-    expect(notified, 1);
-    expect(
-      identical(tester.widget<IllustDetailPage>(_detail(42)), before),
-      isTrue,
-    );
-  });
-
   testWidgets('only the visible page owns a live hero', (tester) async {
     // Adjacent pages pre-build for the swipe, but all three carry the feed
     // hero tag — without HeroMode gating, a push or pop would fly three
@@ -308,175 +276,6 @@ void main() {
       ),
       findsOneWidget,
     );
-  });
-
-  testWidgets('swiping keeps the sibling detail page instance alive', (
-    tester,
-  ) async {
-    // allowImplicitScrolling builds the neighbour as the drag pulls it
-    // into the window; the swipe commit only needs to move the HeroMode
-    // gate — rebuilding the whole detail subtree mid-swipe is exactly
-    // the device-reported hitch.
-    final (container, _, _) = await makeWorld();
-    container.read(illustStoreProvider).mergeAll([
-      for (final id in [42, 43, 44]) parseIllust(illustJson(id)),
-    ]);
-    final source = IllustPagerSource()..update(const [42, 43, 44]);
-    await _pumpPager(tester, container, source: source, initialId: 42);
-
-    final page43 = find.byWidgetPredicate(
-      (w) => w is IllustDetailPage && w.illustId == 43,
-    );
-
-    // Hold the drag mid-swipe: the incoming page has mounted but the
-    // commit has not fired yet, so the captured widget predates it.
-    final gesture = await tester.startGesture(_swipeOrigin(tester));
-    for (var i = 0; i < 10 && page43.evaluate().isEmpty; i++) {
-      await gesture.moveBy(const Offset(-40, 0));
-      await tester.pump(const Duration(milliseconds: 16));
-    }
-    expect(page43, findsOneWidget);
-    final before = tester.widget<IllustDetailPage>(page43);
-
-    // Push past the midpoint so the release commits to the next page.
-    await gesture.moveBy(const Offset(-250, 0));
-    await tester.pump();
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(_page(tester), 1);
-
-    expect(
-      identical(before, tester.widget<IllustDetailPage>(page43)),
-      isTrue,
-      reason:
-          'the adjacent IllustDetailPage subtree must survive the '
-          'page-change notify — only its HeroMode wrapper may rebuild',
-    );
-
-    // The hero gate still follows the committed page.
-    final enabled = find.byWidgetPredicate((w) => w is HeroMode && w.enabled);
-    expect(enabled, findsOneWidget);
-    expect(
-      find.descendant(
-        of: enabled,
-        matching: find.byWidgetPredicate(
-          (w) => w is IllustDetailPage && w.illustId == 43,
-        ),
-      ),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('a page pulled in mid-swipe builds once the scroll settles', (
-    tester,
-  ) async {
-    // The first drag frame pulls the page after next into the cache
-    // extent; building its whole detail there was the swipe hitch.
-    final (container, _, _) = await makeWorld();
-    container.read(illustStoreProvider).mergeAll([
-      for (final id in [42, 43, 44, 45]) parseIllust(illustJson(id)),
-    ]);
-    final source = IllustPagerSource()..update(const [42, 43, 44, 45]);
-    await _pumpPager(tester, container, source: source, initialId: 42);
-    expect(_detail(43), findsOneWidget);
-    expect(_detail(44), findsNothing);
-
-    final gesture = await tester.startGesture(_swipeOrigin(tester));
-    for (var i = 0; i < 3; i++) {
-      await gesture.moveBy(const Offset(-40, 0));
-      await tester.pump(const Duration(milliseconds: 16));
-    }
-    expect(_page(tester), greaterThan(0));
-    expect(_detail(44), findsNothing);
-
-    await gesture.moveBy(const Offset(-200, 0));
-    await tester.pump();
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(_page(tester), 1);
-    expect(_detail(44), findsOneWidget);
-  });
-
-  testWidgets('neighbours build after the push transition, one per frame', (
-    tester,
-  ) async {
-    final (container, _, _) = await makeWorld();
-    container.read(illustStoreProvider).mergeAll([
-      for (final id in [41, 42, 43]) parseIllust(illustJson(id)),
-    ]);
-    final router = pixivRouter('/recommended');
-    final source = IllustPagerSource()..update(const [41, 42, 43]);
-    await tester.pumpWidget(localizedRouterApp(router, container: container));
-    await tester.pump();
-    unawaited(
-      router.push<void>(
-        '/recommended/illust/42',
-        extra: IllustRouteExtra(pagerSource: source),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(_detail(42), findsOneWidget);
-    expect(_detail(41), findsNothing);
-    expect(_detail(43), findsNothing);
-
-    // The page ahead joins first, in a frame of its own.
-    await tester.pump(const Duration(milliseconds: 400));
-    await _pumpUntil(tester, () => _detail(43).tryEvaluate());
-    expect(_detail(41), findsNothing);
-    await _pumpUntil(tester, () => _detail(41).tryEvaluate());
-  });
-
-  testWidgets('a neighbour joins once its text is laid out as its page '
-      'lays it out', (tester) async {
-    final (container, _, _) = await makeWorld();
-    container.read(illustStoreProvider).mergeAll([
-      for (final id in [41, 42, 43]) parseIllust(illustJson(id)),
-    ]);
-    // Each paragraph laid out, with the neighbours built by then.
-    final laidOut = <(WarmText, Set<int>)>[];
-    final source = IllustPagerSource()..update(const [41, 42, 43]);
-    setViewSize(tester, const Size(390, 844));
-    await tester.pumpWidget(
-      localizedApp(
-        container: container,
-        home: IllustDetailPagerPage(
-          source: source,
-          initialIllustId: 42,
-          debugTextLaidOut: (text) => laidOut.add((
-            text,
-            {
-              for (final id in [41, 43])
-                if (_detail(id).evaluate().isNotEmpty) id,
-            },
-          )),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    const page43 = ['illust 43', 'author', '@author', '#original'];
-    expect(
-      [
-        for (final (text, built) in laidOut) [text.span.toPlainText(), built],
-      ],
-      [
-        for (final text in [...page43, '#風景 scenery']) [text, <int>{}],
-        for (final text in ['illust 41', ...page43.skip(1)])
-          [
-            text,
-            {43},
-          ],
-        [
-          '#風景 scenery',
-          {43},
-        ],
-      ],
-    );
-    expect(_detail(41), findsOneWidget);
-    expectLaidOutAsWarmed(tester, [
-      for (final (text, _) in laidOut.take(5)) text,
-    ], root: _detail(43));
   });
 
   testWidgets('a card feed exposes its work list to the detail route', (

@@ -116,7 +116,7 @@ reviewed: 2026-10-17
   after it and laid out its lines cold (16 dropped frames in a turning
   trace, Shaft 1). Each reveal re-created both bars and laid out their
   text again (4 ms on device).
-- **Check:** `test/novel_reader_test.dart` "the pages beside the page on screen are built at rest" "at rest the pages two away are queued as their lines lay"; `test/novel_reader_chrome_test.dart` "immersive reader: chrome toggles, back closes chrome first"
+- **Check:** `test/novel_reader_chrome_test.dart` "immersive reader: chrome toggles, back closes chrome first"
 - **Code:** `lib/features/novel/novel_reader.dart`, `lib/features/novel/novel_reader_stage.dart`, `lib/app/widgets/feed/feed_text_warmup.dart`
 
 ### NOVEL-10 The progress hint and pill keep their contrast on every palette

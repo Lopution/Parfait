@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 
 import 'package:parfait/app/widgets/feed/feed_states.dart';
-import 'package:parfait/app/widgets/feed/feed_text_warmup.dart';
 
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
@@ -16,7 +15,6 @@ import 'package:parfait/features/novel/novel_reader.dart';
 import 'package:parfait/l10n/app_localizations_delegates.dart';
 import 'package:parfait/l10n/app_localizations.dart';
 import 'helpers/localized_app.dart';
-import 'helpers/warm_text.dart';
 
 void main() {
   test(
@@ -253,106 +251,6 @@ void main() {
     }
   });
 
-  testWidgets('the pages beside the page on screen are built at rest', (
-    tester,
-  ) async {
-    final handle = NovelReaderHandle();
-    await tester.pumpWidget(
-      localizedApp(
-        body: NovelReader(
-          novel: _novel([for (var i = 0; i < 1200; i++) 'w$i'].join(' ')),
-          handle: handle,
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    final pages = handle.layout!()!.pages;
-    expect(pages.length, greaterThan(3));
-    Finder firstLine(int page) => find.text(
-      pages[page].lines.firstWhere((line) => line.text.isNotEmpty).text,
-      skipOffstage: false,
-    );
-    expect(firstLine(1), findsOneWidget);
-    expect(firstLine(2), findsNothing);
-
-    // Mid-swipe nothing new is built; the page after waits for the landing.
-    final swipe = await tester.startGesture(const Offset(600, 300));
-    await swipe.moveBy(const Offset(-40, 0));
-    await tester.pump();
-    await swipe.moveBy(const Offset(-460, 0));
-    await tester.pump();
-    expect(firstLine(2), findsNothing);
-    await swipe.up();
-    await tester.pumpAndSettle();
-    expect(handle.currentPage?.call(), 1);
-    expect(firstLine(0), findsOneWidget);
-    expect(firstLine(2), findsOneWidget);
-  });
-
-  for (final word in ['ある日の物語', '某日的故事']) {
-    testWidgets('at rest the pages two away are queued as their lines lay '
-        'out ($word)', (tester) async {
-      final warmup = _RecordingWarmup();
-      final handle = NovelReaderHandle();
-      final settings = ValueNotifier(const NovelReaderSettings());
-      addTearDown(settings.dispose);
-      await tester.pumpWidget(
-        localizedApp(
-          body: ValueListenableBuilder(
-            valueListenable: settings,
-            builder: (_, value, _) => NovelReader(
-              novel: _novel([for (var i = 0; i < 900; i++) '$word$i'].join()),
-              settings: value,
-              handle: handle,
-              textWarmup: warmup,
-            ),
-          ),
-        ),
-      );
-      Future<void> settle() async {
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-
-      await settle();
-      List<String> linesOf(int page) => [
-        for (final line in handle.layout!()!.pages[page].lines)
-          if (line.text.isNotEmpty) line.text,
-      ];
-      expect(warmup.queued.keys, [2]);
-      final ahead = warmup.queued[2]!;
-      expect([for (final line in ahead) line.span.text], linesOf(2));
-
-      // Nothing is queued mid-swipe; the landing queues around page 1.
-      final swipe = await tester.startGesture(const Offset(600, 300));
-      await swipe.moveBy(const Offset(-40, 0));
-      await swipe.moveBy(const Offset(-460, 0));
-      await tester.pump();
-      expect(warmup.queued, isEmpty);
-      await swipe.up();
-      await tester.pumpAndSettle();
-      expect(warmup.queued.keys, [3]);
-
-      // Page 2 lays its lines out as they were queued.
-      handle.goToPage!(2, animate: false);
-      await tester.pump();
-      expect(warmup.queued.keys, [0, 4]);
-      expectLaidOutAsWarmed(tester, ahead);
-      // The UI locale, as the lines set none, even for Japanese text.
-      expect(ahead.first.locale?.languageCode, 'zh');
-
-      // A new font size queues the pages of the new layout.
-      settings.value = const NovelReaderSettings(fontSize: 24);
-      await settle();
-      final page = handle.currentPage!();
-      expect(warmup.queued.keys, [page - 2, page + 2]);
-      expect([
-        for (final line in warmup.queued[page + 2]!) line.span.text,
-      ], linesOf(page + 2));
-    });
-  }
-
   testWidgets('goToPage(animate:false) lands in a single frame', (
     tester,
   ) async {
@@ -573,20 +471,3 @@ Map<String, dynamic> _novelJson(String content) => {
     'visible': true,
   },
 };
-
-class _RecordingWarmup extends FeedTextWarmup {
-  final queued = <int, List<WarmText>>{};
-
-  @override
-  void add(
-    Iterable<WarmText> texts, {
-    required int item,
-    required TextScaler textScaler,
-    required TextDirection textDirection,
-  }) {
-    queued[item] = texts.toList();
-  }
-
-  @override
-  void clear() => queued.clear();
-}

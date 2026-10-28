@@ -370,7 +370,7 @@ reviewed: 2026-10-25
   id.
 - **Why:** A stand-in at another position jumped on landing; index mapping
   rebuilt pages as other works when the list shifted.
-- **Check:** `test/illust_detail_pager_test.dart` "a page landing mid-paging keeps the built detail pages"
+- **Check:** `test/illust_detail_page_test.dart` "a short first image sits a band low; Hero and badge keep to it", `test/illust_detail_pager_test.dart` "a rewritten feed list keeps the viewport on the same work"
 - **Code:** `lib/features/illust/detail/illust_detail_pager_page.dart`
 
 ### TRANS-19 The viewer decodes a preview first, the whole file once zoomed

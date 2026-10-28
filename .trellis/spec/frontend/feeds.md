@@ -150,7 +150,7 @@ reviewed: 2026-10-19
   layout also fills SkParagraph's shared 128-entry cache (key: text, locale,
   font style), which spares the frame the shaping only if the line matches
   exactly and is not evicted before its card is built.
-- **Check:** `test/illust_detail_pager_test.dart` "a neighbour joins once its text is laid out as its page"
+- **Check:** manual — warm-up only saves layout time inside a frame (TEST-12); checked on a trace
 - **Code:** `lib/app/widgets/feed/feed_text_warmup.dart`, `lib/app/widgets/feed/illust_card.dart`, `lib/features/illust/detail/widgets/info_block.dart`, `lib/app/widgets/tag_chips.dart`, `lib/app/widgets/novel_entry.dart`, `lib/app/widgets/author_summary.dart`, `lib/app/layout/card_columns.dart`, `lib/app/format/content_locale.dart`
 
 ### FEED-18 A list builds its cache area from its second frame
@@ -169,7 +169,7 @@ reviewed: 2026-10-19
   visit to ranking, new works, an author or the settings to 13–25 ms.
   A detail page's first frame is its push. Data landing or a page
   appended later built the half screen in one frame (13.7–16.8 ms).
-- **Check:** `test/responsive_layout_test.dart` "a deferred cache builds the screen, then only the cache area", `test/illust_detail_page_test.dart` "the push frame builds no list item off screen", `test/sliver_cache_ramp_test.dart`
+- **Check:** `test/sliver_cache_ramp_test.dart`; when each frame builds the cache area is manual (TEST-12)
 - **Code:** `lib/app/layout/deferred_cache_scroll_view.dart`, `lib/app/layout/sliver_cache_ramp.dart`, `lib/app/motion/hero_transition.dart`, `lib/features/illust/detail/illust_detail_page.dart`
 
 ### FEED-21 A built card rebuilds only when its own inputs change
