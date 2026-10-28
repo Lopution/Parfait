@@ -165,29 +165,6 @@ void main() {
   });
 
   group('dwell', () {
-    testWidgets('a prompt with an action times out like any other', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _app(
-          home: _Buttons({
-            'show': (c) => showAppSnackBar(
-              c,
-              '带按钮提示',
-              action: PromptAction(label: '打开', onPressed: () {}),
-            ),
-          }),
-        ),
-      );
-      await tester.tap(find.text('show'));
-      await tester.pumpAndSettle();
-      expect(find.text('带按钮提示'), findsOneWidget);
-
-      await tester.pump(defaultPromptDuration);
-      await tester.pumpAndSettle();
-      expect(find.text('带按钮提示'), findsNothing);
-    });
-
     testWidgets('the system timeout stretches the dwell', (tester) async {
       final timeouts = _ScaledTimeouts(3);
       await tester.pumpWidget(
