@@ -945,25 +945,8 @@ void main() {
       );
     });
 
-    test(
-      'a mirror host exhausting its ladder reports onImageHostExhausted',
-      () async {
-        final exhausted = <String>[];
-        final policy = autoPolicy(
-          (_) => FakeClient(failure: const SocketException('refused')),
-        );
-        policy.onImageHostExhausted = exhausted.add;
-        final client = _imageClient(policy);
-
-        await expectLater(
-          client.get(Uri.parse('https://i.pixiv.re/img/a.jpg')),
-          throwsA(anything),
-        );
-        expect(exhausted, ['i.pixiv.re']);
-      },
-    );
-
-    test('canonical pximg hosts never trigger onImageHostExhausted', () async {
+    test('only a mirror host exhausting its ladder reports '
+        'onImageHostExhausted', () async {
       final exhausted = <String>[];
       final policy = autoPolicy(
         (_) => FakeClient(failure: const SocketException('refused')),
@@ -971,11 +954,13 @@ void main() {
       policy.onImageHostExhausted = exhausted.add;
       final client = _imageClient(policy);
 
-      await expectLater(
-        client.get(Uri.parse('https://i.pximg.net/img/a.jpg')),
-        throwsA(anything),
-      );
-      expect(exhausted, isEmpty);
+      for (final host in ['i.pximg.net', 'i.pixiv.re']) {
+        await expectLater(
+          client.get(Uri.parse('https://$host/img/a.jpg')),
+          throwsA(anything),
+        );
+      }
+      expect(exhausted, ['i.pixiv.re']);
     });
   });
 
@@ -999,21 +984,17 @@ void main() {
       return order;
     }
 
-    test('automatic keeps direct ahead of the bootstrap tier', () async {
-      final order = await runExhaustingLadder(NetworkMode.automatic);
+    test('automatic keeps direct ahead of the bootstrap tier; compatPrefer '
+        'walks every compat tier first', () async {
       // ECH yields no route without an ECH-capable resolver, so the
-      // observable ladder is the DoH tiers → direct → bootstrap tier.
-      expect(order, [
+      // observable ladder is the DoH tiers, direct and the bootstrap tier.
+      expect(await runExhaustingLadder(NetworkMode.automatic), [
         NetworkRouteKind.noSni,
         NetworkRouteKind.dohRealSni,
         NetworkRouteKind.direct,
         NetworkRouteKind.bootstrapNoSni,
       ]);
-    });
-
-    test('compatPrefer walks every compat tier before direct', () async {
-      final order = await runExhaustingLadder(NetworkMode.compatPrefer);
-      expect(order, [
+      expect(await runExhaustingLadder(NetworkMode.compatPrefer), [
         NetworkRouteKind.noSni,
         NetworkRouteKind.dohRealSni,
         NetworkRouteKind.bootstrapNoSni,
