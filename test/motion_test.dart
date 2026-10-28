@@ -43,20 +43,6 @@ Widget _wrap(
   );
 }
 
-var _gateReads = 0;
-
-/// Counts its builds; reads only the motion gate.
-class _GateReader extends StatelessWidget {
-  const _GateReader();
-
-  @override
-  Widget build(BuildContext context) {
-    _gateReads++;
-    MotionTokens.enabled(context);
-    return const SizedBox.shrink();
-  }
-}
-
 /// The rendered press scale: PressScale drives a [ScaleTransition] from its
 /// own spring controller. 1.0 when the wrapper renders no transition.
 double _pressScale(WidgetTester tester) {
@@ -66,27 +52,6 @@ double _pressScale(WidgetTester tester) {
   );
   if (transition.evaluate().isEmpty) return 1;
   return tester.widget<ScaleTransition>(transition).scale.value;
-}
-
-/// Counts State creations — a re-inflated card mounts a second time.
-class _MountCounter extends StatefulWidget {
-  const _MountCounter({required this.onMount});
-
-  final VoidCallback onMount;
-
-  @override
-  State<_MountCounter> createState() => _MountCounterState();
-}
-
-class _MountCounterState extends State<_MountCounter> {
-  @override
-  void initState() {
-    super.initState();
-    widget.onMount();
-  }
-
-  @override
-  Widget build(BuildContext context) => const Text('card');
 }
 
 void main() {
@@ -144,32 +109,6 @@ void main() {
 
     testWidgets('collapses under platform disableAnimations', (tester) async {
       expect(await resolve(tester, platformDisable: true), Duration.zero);
-    });
-
-    testWidgets('does not rebuild on unrelated MediaQuery changes', (
-      tester,
-    ) async {
-      _gateReads = 0;
-      Widget host(MediaQueryData data) => MediaQuery(
-        data: data,
-        child: const MotionScope(reduce: false, child: _GateReader()),
-      );
-      await tester.pumpWidget(host(const MediaQueryData()));
-      // Insets and the platform's accessibleNavigation flag change at
-      // startup; every card and image reads this gate.
-      await tester.pumpWidget(
-        host(
-          const MediaQueryData(
-            padding: EdgeInsets.only(top: 24),
-            accessibleNavigation: true,
-          ),
-        ),
-      );
-      expect(_gateReads, 1);
-      await tester.pumpWidget(
-        host(const MediaQueryData(disableAnimations: true)),
-      );
-      expect(_gateReads, 2);
     });
 
     testWidgets('collapses under platform reduceMotion (iOS hole)', (

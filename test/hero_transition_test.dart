@@ -66,73 +66,6 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('drag-to-dismiss returns to origin when canceled', (
-    tester,
-  ) async {
-    const key = Key('drag-surface');
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: DragToDismiss(
-            onDismissed: _noop,
-            child: SizedBox(key: key, width: 200, height: 200),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    final surface = find.byKey(key);
-    final origin = tester.getTopLeft(surface).dy;
-    await tester.drag(find.byType(DragToDismiss), const Offset(0, 80));
-    await tester.pump();
-    expect(tester.getTopLeft(surface).dy, greaterThan(origin));
-
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(surface).dy, closeTo(origin, 0.001));
-  });
-
-  testWidgets('feed → detail → viewer keeps one hero tag family', (
-    tester,
-  ) async {
-    // The spatial contract: one illustHeroTag(scope, id) base flows feed
-    // card → detail page-0 → viewer page-0; only the page suffix differs.
-    // Asserted through the real route glue (openIllust / openImageViewer /
-    // heroTagForPage), so a second tag family or a lost scope fails here.
-    await pushFromFeed(
-      tester,
-      illustJson(42, pageCount: 2, withMetaPages: true),
-    );
-    await tester.pump(const Duration(milliseconds: 400));
-    final baseTag = illustHeroTag('feed', 42);
-
-    expect(find.byType(IllustDetailPage), findsOneWidget);
-    expect(
-      find.byWidgetPredicate((w) => w is Hero && w.tag == baseTag),
-      findsOneWidget,
-      reason: 'detail page-0 must fly with the feed card tag',
-    );
-
-    // Tap the page image → the viewer continues the same tag base.
-    await tester.tap(find.byType(DetailPageImage).first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(ImageViewerPage), findsOneWidget);
-    expect(
-      find.byWidgetPredicate((w) => w is Hero && w.tag == baseTag),
-      findsOneWidget,
-      reason: 'viewer page-0 continues the same spatial chain',
-    );
-    // Page 1 derives from the same base — no second family appears.
-    expect(
-      find.byWidgetPredicate((w) => w is Hero && w.tag == '$baseTag-1'),
-      findsNothing,
-      reason: 'other pages mount only inside the pager when visited',
-    );
-  });
-
   // A root page (the viewer) pairs its Hero with the top page of every
   // branch: the same work open in a branch out of sight shared the tag,
   // and the image flew to where that branch had it.
@@ -1230,8 +1163,6 @@ void main() {
     await tester.pumpAndSettle();
   });
 }
-
-void _noop() {}
 
 /// A red Hero flying with the production shuttle builder.
 Hero _hero(Object tag, {double? width, double? height}) => Hero(

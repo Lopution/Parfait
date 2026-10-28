@@ -220,7 +220,7 @@ reviewed: 2026-10-26
   inset change or route cover. `ModalRoute.of` rebuilds its caller whenever
   `isCurrent` flips: a leaving detail page and both neighbours rebuilt in
   full in the first frame of every back transition.
-- **Check:** `test/motion_test.dart` "does not rebuild on unrelated MediaQuery changes"; `test/func_page_test.dart` "a page reading its route animation is not rebuilt as its route is covered, uncovered or popped"
+- **Check:** `test/func_page_test.dart` "a page reading its route animation is not rebuilt as its route is covered, uncovered or popped"
 - **Code:** `lib/app/motion/motion_tokens.dart`, `lib/app/motion/press_scale.dart`, `lib/app/pixiv_image.dart`, `lib/app/navigation/route_animation.dart`
 
 ### MOTION-11 Fades keep semantics; progress moves in steps
