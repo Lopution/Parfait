@@ -100,8 +100,15 @@ release goes through these steps in order:
    updater reads `releases/latest`, which skips pre-releases, so only
    people who download it by hand get it. Once no regression shows up,
    mark the same release as latest; nothing is rebuilt.
-7. **After release**: watch Issues. A regression gets a hotfix branched
-   from the tag (`hotfix/X.Y.Z`), tagged, and merged back into `main`.
+7. **After release**: watch Issues. Give each new issue a type label
+   (`bug`, `enhancement`, …), one priority label (`priority: high`,
+   `priority: medium` or `priority: low`), a status (`needs-info`,
+   `confirmed`, `planned`) and a first reply within 3 days; planned
+   issues go into the next version's milestone. A
+   regression gets a hotfix branched from the tag (`hotfix/X.Y.Z`),
+   tagged, and merged back into `main`, and a root-cause retrospective.
+   Record how many hotfixes the release needed and which change
+   introduced each regression.
 
 ## Building by hand
 
