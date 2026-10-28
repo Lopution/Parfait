@@ -4,7 +4,7 @@ applies_to:
   - test/**
   - tool/test_shards.py
   - dart_test.yaml
-reviewed: 2026-10-13
+reviewed: 2026-10-28
 ---
 
 # Tests
@@ -17,11 +17,16 @@ reviewed: 2026-10-13
 
 ## What a test proves
 
-### TEST-01 A regression test is run against the defect
+### TEST-01 A regression test fails on the defect and sits with its behaviour
 - **Rule:** Before trusting a test written with a fix, restore the old
   implementation (`git show HEAD:<path>`), run the new cases and confirm
-  the ones encoding the defect fail.
-- **Why:** Regression tests passed for reasons unrelated to the bug.
+  the ones encoding the defect fail. The kept test is the case its
+  behaviour was missing: a table row or a case beside that behaviour's
+  tests, named after the behaviour, with the issue number, if any, in a
+  comment. A new group only when the behaviour has no tests.
+- **Why:** Regression tests passed for reasons unrelated to the bug. Cases
+  named after incidents piled up apart from the behaviour they test, one
+  per instance of the same defect.
 - **Check:** manual
 - **Code:** `test`
 
@@ -58,22 +63,34 @@ reviewed: 2026-10-13
 - **Check:** `test/architecture/test_hygiene_test.dart` "no skipped cases"
 - **Code:** `test`
 
+### TEST-12 Refactors and optimisations add no tests
+- **Rule:** A refactor or performance change keeps the existing tests and
+  adds a case only for a contract a user can observe (a blurred cover
+  never paints sharp first; an original nobody wants stops downloading).
+  How it gets there (what builds in which frame, how far a cache grows,
+  which widgets rebuild) is not asserted. A test that breaks on such a
+  change pinned the implementation: rewrite it against the behaviour.
+- **Why:** Optimisation commits pinned their mechanism in new cases, which
+  the next optimisation had to rewrite.
+- **Check:** manual
+- **Code:** `test`
+
 ## Volume
 
 ### TEST-05 The suite stays within its budget
-- **Rule:** User decision: `test/` holds at most `ratio` × `lib/` Dart
-  code lines (`tool/test_budget.json`, 0.607; blank and comment lines
-  excluded; `test/review/` and `test/fixtures/` not counted), so tests
-  grow with the code but not faster. Only the user changes the ratio; an
-  agent asks and never edits it. A change that needs room makes it in this order: dedupe or
+- **Rule:** User decision: `test/` holds at most `ratio` × `lib/` Dart code
+  lines (`tool/test_budget.json`, 0.607; blank and comment lines excluded;
+  `test/review/` and `test/fixtures/` not counted), so tests grow with the
+  code but not faster. Only the user changes the ratio; an agent asks and
+  never edits it. A change that needs room makes it in this order: dedupe or
   table-drive repeated cases; drop UI tests of colour, spacing, order or
-  copy; drop tests of removed code; drop a duplicated layer. Tests of
-  core logic, fixed bugs and security are never deleted for room. A UI
-  change ships one or two tests of its key behaviour; layout, colour,
-  spacing and copy are checked with review screenshots. No per-locale or
-  per-variant copies of a case. Core logic (network, credentials,
-  downloads, paging, parsing, persistence) and every fixed bug keep
-  thorough coverage. A file over 1500 lines is split by feature, with
+  copy; drop tests of removed code; drop a duplicated layer; prune under
+  TEST-13. Coverage of core logic, fixed bugs and security is never given up
+  for room. A UI change ships one or two tests of its key behaviour; layout,
+  colour, spacing and copy are checked with review screenshots. No
+  per-locale or per-variant copies of a case. Core logic (network,
+  credentials, downloads, paging, parsing, persistence) and every fixed bug
+  keep thorough coverage. A file over 1500 lines is split by feature, with
   shared fakes in `test/helpers/`. A test file is named after the `lib/`
   module it covers; a file of one or two cases joins its feature's file
   unless it is the only test of its module.
@@ -86,18 +103,49 @@ reviewed: 2026-10-13
 - **Check:** `tool/test_budget.py`, `test/architecture/test_hygiene_test.dart` "test files stay under"
 - **Code:** `test`
 
+### TEST-13 A passing test may be pruned; a failing one is never weakened
+- **Rule:** User decision: a failing test is never deleted, skipped or
+  loosened to get green; the code is fixed, or the test changes in the
+  commit that changes the behaviour it asserts. A passing test may be
+  deleted when the confidence it gives is kept: another case or a scan
+  covers the same condition, it pins implementation rather than behaviour
+  (TEST-03, TEST-12), or it repeats another case. Deletions get their own
+  commit whose message names, for each, the reason and the covering case;
+  the PR lists them. A change that edits a test file also prunes that
+  file's redundant cases, and no other file's.
+- **Why:** The suite only grew: fixes and optimisations never removed a
+  case, and removals came only from deleted code or slimming passes.
+  Agents add tests readily, and deleting a failing test is how an agent
+  cheats; whether the test was failing separates pruning from cheating.
+- **Check:** manual
+- **Code:** `test`
+
+### TEST-14 A recurring defect class becomes a scan
+- **Rule:** When a defect class is fixed for the second or third time, a
+  scan under `test/architecture/` fails on new instances, the existing
+  instances are fixed, and the per-instance cases fold into the scan under
+  TEST-13. A scan that cannot avoid flagging correct code is not added;
+  the cases stay.
+- **Why:** Each instance of a class got its own regression test while
+  nothing stopped the next instance.
+- **Check:** manual
+- **Code:** `test/architecture`
+
 ### TEST-10 A test double is defined once
-- **Rule:** Look in `test/helpers/` before writing a fake, stub, recorder
-  or fixture server. A double a second file needs moves to `test/helpers/`
-  and both import it; a small difference becomes a parameter of the
-  shared one. A double that behaves differently gets a name that says how
-  (`_ThrowAfterWriteSink`, not a second `_FailingSink`) and a body that
-  is mostly its own: a class sharing 80% of its lines with a class in
-  another file is a copy, whatever its name.
+- **Rule:** Look in `test/helpers/` before writing a fake, stub, recorder,
+  fixture server, scripted response, wait loop or widget harness. One that a
+  second file needs moves to `test/helpers/` and both import it; a small
+  difference becomes a parameter of the shared one. A double that behaves
+  differently gets a name that says how (`_ThrowAfterWriteSink`, not a
+  second `_FailingSink`) and a body that is mostly its own: a class sharing
+  80% of its lines with a class in another file is a copy, whatever its
+  name.
 - **Why:** Eight copies of one account stub drifted apart, and a fix to
   one copy left the others asserting the old behaviour. Renamed copies
   (`_Resolver`, `_ScriptedResolver`, `StubResolver` beside `FakeResolver`)
   passed a name-only check; a third of the suite sat outside any case.
+  Inline response scripts, polling loops and app scaffolds made the
+  average case about 31 lines.
 - **Check:** `test/architecture/test_hygiene_test.dart` "each test double is defined once" "no test double is copied into a second file"
 - **Code:** `test/helpers`
 
