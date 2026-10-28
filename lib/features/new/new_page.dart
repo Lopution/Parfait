@@ -302,6 +302,13 @@ class _NewFeedBody extends ConsumerWidget {
           );
         }
         if (feed.showInitialSpinner) return _loading(context);
+        if (feed.isAllHidden) {
+          return FeedAllHidden(
+            feed: feed,
+            onLoadMore: () =>
+                ref.read(newFeedProvider(feedKey).notifier).retryLoadMore(),
+          );
+        }
         if (feed.isEmptyAndReady) {
           return FeedEmpty(
             icon: Icons.inbox_outlined,

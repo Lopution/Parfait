@@ -16,6 +16,7 @@ import 'package:visibility_detector/visibility_detector.dart';
 import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/search/search_autocomplete_controller.dart';
 import 'package:parfait/core/search/search_feed_controller.dart';
@@ -123,8 +124,9 @@ void main() {
   }
 
   test('search cursors accept the new filter parameters', () async {
+    String? next;
     final container = await _apiContainer(
-      (request) async => _json({'illusts': <Object?>[], 'next_url': null}),
+      (request) async => _json({'illusts': <Object?>[], 'next_url': next}),
     );
     final repository = container.read(searchRepositoryProvider);
 
@@ -149,6 +151,30 @@ void main() {
       ),
       isTrue,
     );
+    // A duration search's cursor keeps the range it began with: past local
+    // midnight today's range differs, and the page must still load (R15).
+    const day = IllustSearchQuery(
+      keyword: 'cat',
+      filters: IllustSearchFilters(duration: SearchDuration.day),
+    );
+    const base =
+        'https://app-api.pixiv.net/v1/search/illust?word=cat&'
+        'search_target=partial_match_for_tags&sort=date_desc&filter=for_android';
+    const ranged = '$base&start_date=2020-01-01&end_date=2020-01-02';
+    expect(repository.validateCursor(day, cursor: ranged), isTrue);
+    // Each next page keeps it too: other dates or none are refused.
+    next = '$ranged&offset=30';
+    expect((await repository.searchIllust(day, cursor: ranged)).nextUrl, next);
+    for (final drifted in [
+      '$base&offset=30',
+      '$base&start_date=2020-01-02&end_date=2020-01-03&offset=30',
+    ]) {
+      next = drifted;
+      await expectLater(
+        repository.searchIllust(day, cursor: ranged),
+        throwsA(isA<ApiParseError>()),
+      );
+    }
     // A pinned filter param mismatch belongs to another feed and is refused.
     expect(
       repository.validateCursor(

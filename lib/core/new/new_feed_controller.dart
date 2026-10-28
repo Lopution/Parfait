@@ -28,6 +28,16 @@ class _NewFeedController extends PagedFeedController {
     NewFeedType.novel => const NovelSnapshotCodec(),
   };
 
+  /// C9: every New scope is discovery content, following included.
+  @override
+  bool get localFilterEnabled => true;
+
+  @override
+  bool get novelIds => key.type == NewFeedType.novel;
+
+  @override
+  int get filterMinVisible => 24;
+
   @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
     final repository = ref.read(newFeedRepositoryProvider);
@@ -55,6 +65,7 @@ class _NewFeedController extends PagedFeedController {
     return FeedPage(
       ids: [for (final item in page.novels) item.id],
       nextCursor: page.nextUrl,
+      incomingNovels: {for (final item in page.novels) item.id: item},
       commit: (_) => store.mergeAll(page.novels),
     );
   }

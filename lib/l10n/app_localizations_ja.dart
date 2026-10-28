@@ -2253,6 +2253,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get feedContinueLoading => '続きを読み込む';
 
   @override
+  String get feedAllHidden => '読み込んだ作品はすべて非表示・ミュート・絞り込みで除外されています';
+
+  @override
   String get commentAuthorBadge => '作者';
 
   @override

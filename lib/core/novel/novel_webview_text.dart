@@ -54,9 +54,7 @@ NovelWebPayload extractNovelWebPayload(String html) {
   final object = _balancedObject(html, braceStart);
   final Map<String, dynamic> pixiv;
   try {
-    pixiv =
-        jsonDecode(_stripTrailingCommas(_jsLiteralToJson(object)))
-            as Map<String, dynamic>;
+    pixiv = jsonDecode(_jsLiteralToJson(object)) as Map<String, dynamic>;
   } on FormatException catch (error) {
     throw ApiParseError(error);
   }
@@ -100,25 +98,27 @@ String _balancedObject(String html, int start) {
   throw const ApiParseError('pixiv bootstrap value object is truncated');
 }
 
-final _trailingComma = RegExp(r',(?=\s*[}\]])');
-
-String _stripTrailingCommas(String object) =>
-    object.replaceAll(_trailingComma, '');
-
 /// Normalizes the bootstrap `value:` payload from a JavaScript object
 /// literal into strict JSON: unquoted keys get quoted ("sessionUserId:" is
 /// what the real page ships), '…' strings become "…", and the JS-only
-/// literals `undefined`/`NaN`/`Infinity` fold to null. Gson's lenient mode
-/// accepts all three; dart:convert does
-/// not, which is why the strict decode died on the first unquoted key.
+/// literals `undefined`/`NaN`/`Infinity` fold to null, and a trailing comma
+/// before `}` or `]` is dropped (outside strings: a body may hold `,]`).
+/// Gson's lenient mode accepts all of these; dart:convert does not, which
+/// is why the strict decode died on the first unquoted key.
 String _jsLiteralToJson(String source) {
   final out = StringBuffer();
   // Stack entry true = object, false = array.
   final stack = <bool>[];
   var expectKey = false;
+  // A comma is written once the next token shows it is not trailing.
+  var pendingComma = false;
   var i = 0;
   while (i < source.length) {
     final u = source.codeUnitAt(i);
+    if (pendingComma && !_isSpace(u)) {
+      pendingComma = false;
+      if (u != 0x7D && u != 0x5D) out.writeCharCode(0x2C);
+    }
     if (u == 0x22 || u == 0x27) {
       i = _emitString(source, i, out);
       continue;
@@ -139,7 +139,7 @@ String _jsLiteralToJson(String source) {
         out.writeCharCode(u);
       case 0x2C: // ,
         expectKey = stack.isNotEmpty && stack.last;
-        out.writeCharCode(u);
+        pendingComma = true;
       case 0x3A: // :
         expectKey = false;
         out.writeCharCode(u);
@@ -203,6 +203,8 @@ int _emitString(String source, int start, StringBuffer out) {
   }
   throw const ApiParseError('pixiv bootstrap value has an unterminated string');
 }
+
+bool _isSpace(int u) => u == 0x20 || u == 0x09 || u == 0x0A || u == 0x0D;
 
 bool _isIdentStart(int u) =>
     (u >= 0x41 && u <= 0x5A) ||

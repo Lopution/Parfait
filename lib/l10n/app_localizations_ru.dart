@@ -2307,6 +2307,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get feedContinueLoading => 'Загрузить ещё';
 
   @override
+  String get feedAllHidden =>
+      'Все загруженные работы скрыты, заглушены или отсеяны фильтрами';
+
+  @override
   String get commentAuthorBadge => 'Автор';
 
   @override

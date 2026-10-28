@@ -16,6 +16,19 @@ class _UserNovelFeedController extends PagedFeedController {
   @override
   FeedSnapshotCodec? get snapshotCodec => const NovelSnapshotCodec();
 
+  /// C9: an author's works are discovery content, as for illusts.
+  @override
+  bool get localFilterEnabled => true;
+
+  @override
+  bool get novelIds => true;
+
+  @override
+  int get filterMinVisible => 24;
+
+  @override
+  int get filterMaxRefillPages => 3;
+
   @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
     ref.watch(accountStoreProvider.select((async) => async.value?.current?.id));
@@ -30,6 +43,7 @@ class _UserNovelFeedController extends PagedFeedController {
     return FeedPage(
       ids: [for (final novel in page.novels) novel.id],
       nextCursor: page.nextUrl,
+      incomingNovels: {for (final novel in page.novels) novel.id: novel},
       commit: (_) => store.mergeAll(page.novels),
     );
   }

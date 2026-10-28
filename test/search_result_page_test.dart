@@ -1,14 +1,23 @@
 import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:parfait/app/widgets/feed/feed_states.dart';
+import 'package:parfait/core/network/api_error.dart';
+import 'package:parfait/core/network/network_restore_signal.dart';
+import 'package:parfait/app/widgets/feed/illust_card.dart';
+import 'package:parfait/core/network/pixiv_http_client.dart';
+import 'package:parfait/core/search/search_models.dart';
 import 'package:parfait/core/search/search_repository.dart';
 import 'package:parfait/features/search/search_page.dart';
 import 'package:parfait/features/search/search_result_page.dart';
 import 'package:parfait/features/search/search_field_button.dart';
 
+import 'helpers/fake_settings.dart';
+import 'helpers/illust_fixtures.dart';
 import 'helpers/search_world.dart';
 import 'helpers/prompt_host.dart';
 import 'helpers/test_preferences.dart';
@@ -20,6 +29,8 @@ Future<GoRouter> _pumpRouter(
   WidgetTester tester, {
   required String initialLocation,
   Locale locale = const Locale('zh', 'CN'),
+  FakeSearchRepository? repository,
+  List<Override> overrides = const [],
 }) async {
   // The input page reads the search history from preferences.
   installMemoryPreferences();
@@ -30,7 +41,10 @@ Future<GoRouter> _pumpRouter(
     localizedRouterApp(
       router,
       overrides: [
-        searchRepositoryProvider.overrideWithValue(FakeSearchRepository()),
+        searchRepositoryProvider.overrideWithValue(
+          repository ?? FakeSearchRepository(),
+        ),
+        ...overrides,
       ],
       locale: locale,
       builder: promptHostBuilder,
@@ -40,6 +54,28 @@ Future<GoRouter> _pumpRouter(
   await tester.pump();
   await tester.pumpAndSettle();
   return router;
+}
+
+/// One work a page under a fresh cursor: R-18 until [visible] is set, then
+/// a visible last page.
+class _FilteredSearch extends FakeSearchRepository {
+  var visible = false;
+  Object? failure;
+
+  @override
+  Future<SearchIllustPage> searchIllust(
+    IllustSearchQuery query, {
+    String? cursor,
+    CancelToken? cancelToken,
+  }) async {
+    requests.add(query);
+    if (failure case final error?) throw error;
+    final n = requests.length;
+    return SearchIllustPage(
+      illusts: [parseIllust(illustJson(n, xRestrict: visible ? 0 : 1))],
+      nextUrl: visible ? null : 'https://app-api.pixiv.net/v1/search?p=$n',
+    );
+  }
 }
 
 Finder _tab(String label) =>
@@ -172,6 +208,40 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ActionChip), findsNothing);
     expect(inEmpty('修改搜索'), findsOneWidget);
+  });
+
+  testWidgets('loaded pages all filtered: a note offers loading more (B9)', (
+    tester,
+  ) async {
+    final repository = _FilteredSearch();
+    await _pumpRouter(
+      tester,
+      initialLocation: '/search/results?q=cat&type=illust',
+      repository: repository,
+      overrides: [filterSettings(blockR18: true)],
+    );
+    expect(find.text('已加载的作品都被屏蔽或筛选掉了'), findsOneWidget);
+
+    // A failed load scrolls to its buttons and retries by itself once the
+    // network is back.
+    repository.failure = const ApiNetworkError('offline');
+    await tester.tap(find.text('继续加载'));
+    await tester.pumpAndSettle();
+    final hidden = find.byType(FeedAllHidden);
+    expect(
+      find.descendant(of: hidden, matching: find.byType(Scrollable)),
+      findsOneWidget,
+    );
+    repository.failure = null;
+    repository.visible = true;
+    ProviderScope.containerOf(
+        tester.element(hidden),
+      ).read(networkRestoreSignalProvider.notifier)
+      ..observe(offlineNetworkIdentity)
+      ..observe('wifi');
+    await tester.pumpAndSettle();
+    expect(find.text('已加载的作品都被屏蔽或筛选掉了'), findsNothing);
+    expect(find.byType(IllustCard), findsOneWidget);
   });
 
   testWidgets('the user filter slot stays in place and explains its scope', (

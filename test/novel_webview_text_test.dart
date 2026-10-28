@@ -123,11 +123,11 @@ void main() {
       expect(payload.seriesNextId, 102);
     });
 
-    test('tolerates trailing commas in the embedded object', () {
+    test('tolerates trailing commas in the object, keeps them in text', () {
       final payload = extractNovelWebPayload(
-        _webviewHtml(text: 'body', trailingComma: true),
+        _webviewHtml(text: 'a list [1, 2,] in the body', trailingComma: true),
       );
-      expect(payload.text, 'body');
+      expect(payload.text, 'a list [1, 2,] in the body');
     });
 
     test(

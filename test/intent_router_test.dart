@@ -54,6 +54,8 @@ void main() {
         Uri.parse('pixiv://account'),
         Uri.parse('pixiv://account?code='),
         Uri.parse('pixiv://account?code=a&code=b'),
+        Uri.parse('pixiv://account?code=%FF'),
+        Uri.parse('https://www.pixiv.net/jump.php?illust_id=%FF'),
         Uri.parse('parfait://settings/1'),
       ]) {
         final route = IntentRouter.route(uri);

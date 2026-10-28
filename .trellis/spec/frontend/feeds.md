@@ -49,6 +49,21 @@ reviewed: 2026-10-19
 - **Check:** `test/history_page_test.dart` "an empty history with recording off offers to turn it on", `test/search_result_page_test.dart` "an empty result with filters on offers resetting them"
 - **Code:** `lib/app/widgets/feed/feed_states.dart`
 
+### FEED-22 A list its filters emptied says so and loads on
+- **Rule:** When the local filters hid every work loaded so far and the
+  server has more (`PagedFeedState.isAllHidden`), the page shows
+  `FeedAllHidden`: the loaded works are all blocked, muted or filtered
+  out (search's client-side filters empty pages too), and
+  "continue loading" runs one load-more per tap with its spinner and
+  error in place; a failed one retries when the network is back. Never "no results", and no automatic walking. A work
+  page's related section puts the same note and button in its own row,
+  and the page's bottom-of-scroll paging skips such a list.
+- **Why:** A search or ranking whose first pages were all filtered said
+  "no results" and dropped the paging trigger while more remained (user
+  decision 10-28).
+- **Check:** `test/search_result_page_test.dart` "loaded pages all filtered: a note offers loading more (B9)"; `test/illust_detail_page_test.dart` "related works all filtered: the section offers loading on"
+- **Code:** `lib/app/widgets/feed/feed_states.dart`, `lib/features/illust/detail/related_illusts_section.dart`, `lib/features/illust/detail/illust_detail_page.dart`
+
 ### FEED-03 Failures retry once when the network returns
 - **Rule:** An error with a retry button is `FeedError`, `FeedTail`, or
   wrapped in `RetryOnNetworkRestore`; each retries once per

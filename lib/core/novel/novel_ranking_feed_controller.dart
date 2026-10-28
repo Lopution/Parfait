@@ -37,6 +37,9 @@ class _NovelRankingFeedController extends PagedFeedController {
   bool get localFilterEnabled => true;
 
   @override
+  bool get novelIds => true;
+
+  @override
   int get filterMinVisible => 24;
 
   @override
@@ -62,6 +65,7 @@ class _NovelRankingFeedController extends PagedFeedController {
     return FeedPage(
       ids: [for (final item in page.novels) item.id],
       nextCursor: page.nextUrl,
+      incomingNovels: {for (final item in page.novels) item.id: item},
       commit: (_) => store.mergeAll(page.novels),
     );
   }

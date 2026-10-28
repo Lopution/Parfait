@@ -19,8 +19,10 @@ import 'package:parfait/core/novel/novel_store.dart';
 import 'package:parfait/core/paging/feed_database.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 
 import 'helpers/fake_account.dart';
+import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
 
@@ -94,7 +96,7 @@ class _World {
   }
 }
 
-Future<_World> _makeWorld() async {
+Future<_World> _makeWorld({bool blockR18 = false}) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final fixture = NovelRankingFixture();
   final directory = await Directory.systemTemp.createTemp('pixiv-feeds-test-');
@@ -110,6 +112,7 @@ Future<_World> _makeWorld() async {
       // Snapshot writes encode inline so a test can await them; the
       // isolate round trip is data_worker_test's.
       dataWorkerProvider.overrideWithValue(const InlineDataWorker()),
+      if (blockR18) filterSettings(blockR18: true),
     ],
   );
   return _World(container, fixture, database, directory);
@@ -174,6 +177,26 @@ void main() {
     expect(world.fixture.requests, hasLength(1));
     final state = world.container.read(provider).value!;
     expect(state.ids, [1, 2]);
+  });
+
+  test('a restored snapshot passes the filters switched on since', () async {
+    final world = await _makeWorld(blockR18: true);
+    addTearDown(world.dispose);
+    await world.snapshots.write(
+      '100',
+      feedKey,
+      ids: const [10, 11],
+      entities: {
+        'novel': {
+          '10': {..._novelSnapshotJson(10), 'x_restrict': 1},
+          '11': _novelSnapshotJson(11),
+        },
+      },
+    );
+    await world.container.read(settingsProvider.future);
+
+    final restored = await world.container.read(provider.future);
+    expect(restored.ids, [11]);
   });
 
   test('restored cursor continues pagination from the snapshot', () async {

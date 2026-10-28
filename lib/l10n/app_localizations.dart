@@ -4283,6 +4283,12 @@ abstract class AppLocalizations {
   /// **'继续加载'**
   String get feedContinueLoading;
 
+  /// A filtered feed whose loaded pages were all hidden by the local R-18/AI blocks, mutes or client-side search filters (bookmark count, AI only) while more pages exist; shown with the continue-loading button.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加载的作品都被屏蔽或筛选掉了'**
+  String get feedAllHidden;
+
   /// Marker beside the work author's name in its comments
   ///
   /// In zh, this message translates to:

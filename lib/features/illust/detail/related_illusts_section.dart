@@ -119,8 +119,13 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
     final store = ref.watch(illustStoreProvider);
     final illusts = store.getAll(state.ids);
     if (illusts.isEmpty) {
-      // No related works: the official client shows nothing at all.
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
+      // No related works: the official client shows nothing at all. Works
+      // the filters hid say so and load on only when tapped (FEED-22).
+      return SliverToBoxAdapter(
+        child: state.isAllHidden
+            ? _allHidden(context, state, controller.retryLoadMore)
+            : const SizedBox.shrink(),
+      );
     }
     return SliverMainAxisGroup(
       slivers: [
@@ -148,6 +153,46 @@ class _RelatedIllustsSliversState extends ConsumerState<RelatedIllustsSlivers> {
         SliverToBoxAdapter(
           child: _LoadMoreFooter(state: state, onLoadMore: controller.loadMore),
         ),
+      ],
+    );
+  }
+
+  /// Every related work loaded so far is blocked or muted and the server
+  /// has more ([PagedFeedState.isAllHidden]): the section's row shape with
+  /// a note and "continue loading".
+  Widget _allHidden(
+    BuildContext context,
+    PagedFeedState state,
+    VoidCallback onLoadMore,
+  ) {
+    final l10n = context.l10n;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DetailSectionHeader(title: l10n.relatedWorks),
+        if (state.showLoadMoreSpinner)
+          _LoadMoreFooter(state: state, onLoadMore: onLoadMore)
+        else
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              FuncSpacing.lg,
+              0,
+              FuncSpacing.lg,
+              FuncSpacing.lg,
+            ),
+            child: state.showLoadMoreError
+                ? _errorRow(context, state.loadMoreError, onLoadMore)
+                : Row(
+                    children: [
+                      Expanded(child: Text(l10n.feedAllHidden)),
+                      const SizedBox(width: FuncSpacing.md),
+                      TextButton(
+                        onPressed: onLoadMore,
+                        child: Text(l10n.feedContinueLoading),
+                      ),
+                    ],
+                  ),
+          ),
       ],
     );
   }

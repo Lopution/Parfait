@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:network_image_mock/network_image_mock.dart';
@@ -14,15 +15,18 @@ import 'package:parfait/app/widgets/func_bottom_nav.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/paging/feed_snapshot_store.dart';
 import 'package:parfait/core/network/api_error.dart';
+import 'package:parfait/core/new/new_feed_controller.dart';
 import 'package:parfait/core/new/new_feed_models.dart';
 import 'package:parfait/core/new/new_feed_repository.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
+import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:parfait/features/new/new_page.dart';
 import 'package:http/testing.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/fake_account.dart';
 import 'helpers/memory_feed_snapshot_store.dart';
+import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
@@ -44,6 +48,9 @@ class _FakeNewFeedRepository implements NewFeedRepository {
   /// When true, every fetch throws — drives the feed's error branch.
   var fails = false;
 
+  /// Ids served as R-18.
+  var r18 = <int>{};
+
   final requests = <NewFeedKey>[];
 
   @override
@@ -57,7 +64,8 @@ class _FakeNewFeedRepository implements NewFeedRepository {
     await pendingFetch?.future;
     return NewIllustPage(
       illusts: [
-        for (var i = 0; i < illustCount; i++) parseIllust(illustJson(1000 + i)),
+        for (var id = 1000; id < 1000 + illustCount; id++)
+          parseIllust(illustJson(id, xRestrict: r18.contains(id) ? 1 : 0)),
       ],
       nextUrl: null,
     );
@@ -74,8 +82,11 @@ class _FakeNewFeedRepository implements NewFeedRepository {
     await pendingFetch?.future;
     return NewNovelPage(
       novels: [
-        for (var i = 0; i < novelCount; i++)
-          NovelEntity.fromJson(novelJson(2000 + i)),
+        for (var id = 2000; id < 2000 + novelCount; id++)
+          NovelEntity.fromJson({
+            ...novelJson(id),
+            'x_restrict': r18.contains(id) ? 1 : 0,
+          }),
       ],
       nextUrl: null,
     );
@@ -96,6 +107,7 @@ class _FakeNewFeedRepository implements NewFeedRepository {
 Future<(ProviderContainer, _FakeNewFeedRepository)> _makeWorld({
   int illustCount = 0,
   int novelCount = 0,
+  List<Override> overrides = const [],
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final repository = _FakeNewFeedRepository(
@@ -124,6 +136,7 @@ Future<(ProviderContainer, _FakeNewFeedRepository)> _makeWorld({
         ),
       ),
       newFeedRepositoryProvider.overrideWithValue(repository),
+      ...overrides,
     ],
   );
   await container.read(accountStoreProvider.future);
@@ -162,6 +175,26 @@ void main() {
     expect(_followingIllust, isNot(followingNovel));
     expect(_followingIllust, isNot(everyoneIllust));
     expect({_followingIllust, followingNovel}, hasLength(2));
+  });
+
+  test('the local block filters New works and novels (R7)', () async {
+    final (container, repository) = await _makeWorld(
+      illustCount: 2,
+      novelCount: 2,
+      overrides: [filterSettings(blockR18: true)],
+    );
+    repository.r18 = {1000, 2000};
+    await container.read(settingsProvider.future);
+    for (final (type, shown) in [
+      (NewFeedType.illust, [1001]),
+      (NewFeedType.novel, [2001]),
+    ]) {
+      final feed = newFeedProvider(
+        NewFeedKey(scope: NewFeedScope.everyone, type: type),
+      );
+      container.listen(feed, (_, _) {});
+      expect((await container.read(feed.future)).ids, shown);
+    }
   });
 
   testWidgets('re-tapping the active scope scrolls the feed to top', (

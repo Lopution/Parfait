@@ -28,12 +28,14 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
   Completer<void>? detailGate,
   List<int>? relatedLog,
   Completer<void>? relatedGate,
+  bool relatedEndless = false,
   Duration? progressThrottle,
   Map<int, List<Map<String, dynamic>>>? commentOverrides,
   Map<int, List<Map<String, dynamic>>>? authorWorksOverrides,
   List<String>? requestLog,
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
+  var relatedPages = 1;
   final transport = FakeTransport();
   for (var i = 0; i < scriptedResponses; i++) {
     transport.responses.add(
@@ -75,9 +77,13 @@ Future<(ProviderContainer, FakeTransport, MemorySinkFactory)> makeWorld({
         final id = int.parse(request.url.queryParameters['illust_id']!);
         relatedLog?.add(id);
         await relatedGate?.future;
+        // Endless: a fresh offset every page, as pixiv's cursors carry.
         return okJson({
           'illusts': relatedOverrides?[id] ?? [],
-          'next_url': null,
+          'next_url': relatedEndless
+              ? 'https://app-api.pixiv.net/v2/illust/related?illust_id=$id'
+                    '&offset=${relatedPages++}'
+              : null,
         });
       }
       // The detail page's comment preview and author strip.

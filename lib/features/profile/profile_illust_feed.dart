@@ -58,6 +58,9 @@ class ProfileIllustFeed extends ConsumerWidget {
             padding: gridPadding,
           );
         }
+        final controller = ref.read(
+          profileIllustFeedProvider(feedKey).notifier,
+        );
         final store = ref.watch(illustStoreProvider);
         final entities = store.getAll(feed.ids);
         final query = localFilter?.trim().toLowerCase() ?? '';
@@ -93,12 +96,22 @@ class ProfileIllustFeed extends ConsumerWidget {
                 if (visibleEntities.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,
-                    child: FeedEmpty(
-                      icon: Icons.inbox_outlined,
-                      title: query.isEmpty
-                          ? context.l10n.profileItemsEmpty
-                          : context.l10n.bookmarkTagFilterEmpty,
-                    ),
+                    // Bookmarks are not filtered: an empty page there is
+                    // not the filters' doing.
+                    child:
+                        feed.isAllHidden &&
+                            query.isEmpty &&
+                            controller.localFilterEnabled
+                        ? FeedAllHidden(
+                            feed: feed,
+                            onLoadMore: controller.retryLoadMore,
+                          )
+                        : FeedEmpty(
+                            icon: Icons.inbox_outlined,
+                            title: query.isEmpty
+                                ? context.l10n.profileItemsEmpty
+                                : context.l10n.bookmarkTagFilterEmpty,
+                          ),
                   )
                 else
                   IllustFeedGrid(

@@ -16,6 +16,8 @@ import 'package:parfait/app/widgets/feed/feed_states.dart';
 import 'package:parfait/features/illust/detail/illust_detail_page.dart';
 import 'package:parfait/features/illust/detail/illust_detail_pager_page.dart';
 import 'package:parfait/app/widgets/app_top_bar.dart';
+import 'package:parfait/app/widgets/caption_rich_text.dart';
+import 'package:parfait/core/platform/android_intent_channel.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_page_counter.dart';
 import 'package:parfait/features/illust/detail/widgets/detail_section_header.dart';
 import 'package:parfait/features/illust/detail/widgets/illust_detail_skeleton.dart';
@@ -26,6 +28,7 @@ import 'package:parfait/features/profile/user_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/detail_world.dart';
+import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -33,6 +36,13 @@ import 'helpers/prompt_host.dart';
 
 import 'helpers/illust_detail_page_support.dart';
 import 'helpers/localized_app.dart';
+
+class _RecordingOpener implements OutboundUrlOpener {
+  final urls = <String>[];
+
+  @override
+  Future<void> openExternal(String url) async => urls.add(url);
+}
 
 void main() {
   installMemoryPreferences();
@@ -189,47 +199,60 @@ void main() {
       },
     );
 
-    testWidgets(
-      'U6: caption renders as rich clickable text, not literal HTML',
-      (tester) async {
-        final (container, _, _) = await makeWorld(
-          detailOverrides: {
-            42: illustJson(
-              42,
-              caption:
-                  'line1<br>line2 — <a '
-                  'href="https://www.pixiv.net/users/7">author</a> '
-                  '&amp; more',
-            ),
-          },
-        );
-        await pumpDetail(tester, container, useRouter: true);
-        await mockNetworkImagesFor(() async {
-          await tester.scrollUntilVisible(
-            find.textContaining('line1'),
-            300,
-            scrollable: find.byType(Scrollable).first,
+    for (final (href, opens) in [
+      ('pixiv://users/7', true),
+      // Pixiv web links open in the app whatever follows the id.
+      ('https://www.pixiv.net/en/users/7/illustrations?p=1', true),
+      // An id that is not UTF-8 goes outside, and the tap never throws.
+      ('https://www.pixiv.net/users/%FF/illustrations', false),
+    ]) {
+      testWidgets(
+        'U6: caption renders as rich clickable text, not literal HTML ($href)',
+        (tester) async {
+          final seen = _RecordingOpener();
+          final (container, _, _) = await makeWorld(
+            detailOverrides: {
+              42: illustJson(
+                42,
+                caption:
+                    'line1<br>line2 — <a '
+                    'href="$href">author</a> '
+                    '&amp; more',
+              ),
+            },
+            extraOverrides: [outboundUrlOpenerProvider.overrideWithValue(seen)],
           );
-          await tester.pump();
-        });
+          await pumpDetail(tester, container, useRouter: true);
+          await mockNetworkImagesFor(() async {
+            await tester.scrollUntilVisible(
+              find.textContaining('line1'),
+              300,
+              scrollable: find.byType(Scrollable).first,
+            );
+            await tester.pump();
+          });
 
-        // The key assertions: no literal `<br />` text, the caption text
-        // renders decoded, and tapping an in-app pixiv link pushes a route.
-        // ('author' also names the author block, hence .last.)
-        expect(find.textContaining('<br>'), findsNothing);
-        expect(find.textContaining('line1'), findsOneWidget);
-        expect(find.text('author'), findsWidgets);
-        expect(find.text('简介'), findsNothing);
+          // The key assertions: no literal `<br />` text, the caption text
+          // renders decoded, and tapping a pixiv link pushes a route.
+          expect(find.textContaining('<br>'), findsNothing);
+          expect(find.textContaining('line1'), findsOneWidget);
+          expect(find.text('简介'), findsNothing);
 
-        await tester.tap(find.text('author').last);
-        await tester.pumpAndSettle();
-        expect(
-          find.byType(Scaffold).evaluate().length,
-          greaterThanOrEqualTo(2),
-          reason: 'in-app pixiv link pushes a detail page route',
-        );
-      },
-    );
+          await tester.tapOnText(
+            find.textRange.ofSubstring(
+              'author',
+              descendentOf: find.byType(CaptionRichText),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            find.byWidgetPredicate((w) => w is UserPage && w.userId == 7),
+            opens ? findsOneWidget : findsNothing,
+          );
+          expect(seen.urls, opens ? isEmpty : [href]);
+        },
+      );
+    }
   });
 
   group('IllustDetailPage author block & i18n (U9 / C20)', () {
@@ -737,15 +760,15 @@ void main() {
       );
     });
 
-    testWidgets('requests related works only once the section is on screen', (
-      tester,
-    ) async {
+    testWidgets('requests related works only once the section is on screen; '
+        'the local block filters them (R7)', (tester) async {
       final log = <int>[];
       final (container, _, _) = await makeWorld(
         relatedLog: log,
         relatedOverrides: {
-          42: [illustJson(901, pageCount: 1)],
+          42: [illustJson(900, xRestrict: 1), illustJson(901, pageCount: 1)],
         },
+        extraOverrides: [filterSettings(blockR18: true)],
       );
       await pumpDetail(tester, container);
       await mockNetworkImagesFor(() async {
@@ -762,6 +785,7 @@ void main() {
       await mockNetworkImagesFor(() => scrollToRelated(tester));
       expect(log, [42]);
       expect(find.text('illust 901'), findsOneWidget);
+      expect(find.text('illust 900'), findsNothing);
 
       // Scrolling away and back, and the bottom-of-page paging check, do
       // not send the first request again.
@@ -774,6 +798,32 @@ void main() {
         await scrollToRelated(tester);
       });
       expect(log, [42]);
+    });
+
+    testWidgets('related works all filtered: the section offers loading on, '
+        'reaching the bottom does not load (FEED-22)', (tester) async {
+      final log = <int>[];
+      final (container, _, _) = await makeWorld(
+        relatedLog: log,
+        relatedOverrides: {
+          42: [illustJson(900, xRestrict: 1)],
+        },
+        relatedEndless: true,
+        extraOverrides: [filterSettings(blockR18: true)],
+      );
+      await pumpDetail(tester, container);
+      await mockNetworkImagesFor(() async {
+        // The first page and its three refills, all filtered out.
+        await scrollToRelated(tester);
+        // Reaching the page's bottom again loads nothing on its own.
+        await scrollToRelated(tester);
+      });
+      expect(log, hasLength(4));
+      expect(find.text('illust 900'), findsNothing);
+
+      await tester.tap(find.text('Continue loading'));
+      await tester.pump(const Duration(seconds: 5));
+      expect(log, hasLength(8));
     });
   });
 

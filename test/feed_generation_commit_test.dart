@@ -9,9 +9,9 @@ import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/network/api_error.dart';
 import 'package:parfait/core/network/pixiv_http_client.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
-import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 
+import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/fake_account.dart';
 
@@ -46,12 +46,6 @@ final _deferredFeedProvider =
       PagedFeedState,
       String
     >(_DeferredFeedController.new);
-
-class _BlockingSettingsController extends SettingsController {
-  @override
-  Future<AppSettings> build() async =>
-      AppSettings.defaults().copyWith(enableLocalBlockR18: true);
-}
 
 class _FilteringFeedController extends PagedFeedController {
   @override
@@ -113,7 +107,7 @@ void main() {
               ],
             ),
           ),
-          settingsProvider.overrideWith(_BlockingSettingsController.new),
+          filterSettings(blockR18: true),
         ],
       );
       await container.read(accountStoreProvider.future);

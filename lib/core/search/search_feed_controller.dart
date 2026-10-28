@@ -28,11 +28,13 @@ class _SearchFeedController extends PagedFeedController {
     _ => null,
   };
 
-  /// C9: search results are discovery content. The local-block predicate is
-  /// illust-entity based, but novel queries still need the refill loop for
-  /// their own client-side predicates — user queries stay unfiltered.
+  /// C9: search results are discovery content; user queries stay
+  /// unfiltered.
   @override
   bool get localFilterEnabled => query is! UserSearchQuery;
+
+  @override
+  bool get novelIds => query is NovelSearchQuery;
 
   /// Client-side enforcement for filters the server does not honor:
   /// `bookmark_num_min/max` are Premium-only (free accounts are silently
@@ -40,7 +42,7 @@ class _SearchFeedController extends PagedFeedController {
   /// all. Both predicates re-run against the returned entities so the
   /// filter holds on every account tier — idempotent when the server did
   /// apply them. Novel queries apply the same rule against `novel_ai_type`/
-  /// `total_bookmarks` and skip the illust-only C9 layer.
+  /// `total_bookmarks`.
   @override
   List<int> filterPageIds(
     List<int> ids, {
@@ -55,7 +57,7 @@ class _SearchFeedController extends PagedFeedController {
         incomingIllusts: incomingIllusts,
       ),
       NovelSearchQuery(:final filters) => _filterNovelIds(
-        ids,
+        super.filterPageIds(ids, incomingNovels: incomingNovels),
         filters,
         incomingNovels: incomingNovels,
       ),

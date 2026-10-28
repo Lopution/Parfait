@@ -490,12 +490,20 @@ void main() {
       expect(log, isNot(contains('/v3/illust/comments')));
     });
 
-    testWidgets('the author strip leaves this work out and opens the others', (
-      tester,
-    ) async {
+    testWidgets('the author strip leaves this work and muted ones out and '
+        'opens the others', (tester) async {
       final (container, _, _) = await makeWorld(
+        mutedTags: {'muted'},
         authorWorksOverrides: {
-          99: [illustJson(42), illustJson(501), illustJson(502)],
+          99: [
+            for (final id in [42, 501, 502]) illustJson(id),
+            {
+              ...illustJson(503),
+              'tags': [
+                {'name': 'muted'},
+              ],
+            },
+          ],
         },
       );
       await pumpDetail(
@@ -513,6 +521,7 @@ void main() {
       expect(tile('illust 501'), findsOneWidget);
       expect(tile('illust 502'), findsOneWidget);
       expect(tile('illust 42'), findsNothing);
+      expect(tile('illust 503'), findsNothing, reason: 'muted (A6)');
 
       await mockNetworkImagesFor(() async {
         await tester.tap(tile('illust 501'));

@@ -87,3 +87,13 @@ reviewed: 2026-10-12
   the history page kept the list of its first open for the whole session.
 - **Check:** `test/history_persistence_test.dart` "announces writes to the local rows, not to the outbox"; `test/history_page_test.dart` "each open reads afresh; open, the order holds; hidden, it "
 - **Code:** `lib/core/history/history_repository.dart`, `lib/core/history/history_feed_controller.dart`, `lib/features/history/history_page.dart`
+
+### HIST-08 The history feed pages after the last row read
+- **Rule:** The history feed's cursor is the last loaded row's
+  (`last_viewed_at`, id); `HistoryRepository.page(after:)` reads past it
+  in `last_viewed_at DESC, id DESC` order, never by offset. A failed
+  first read shows `FeedError` with retry, not the empty view.
+- **Why:** Offset paging skipped an unread row for each loaded row
+  deleted, and a read error said "no history" with no way to retry.
+- **Check:** `test/history_page_test.dart` "deleting a loaded record never skips one on the next page (B11)" "a failed first read offers a retry"
+- **Code:** `lib/core/history/history_feed_controller.dart`, `lib/core/history/history_repository.dart`, `lib/features/history/history_page.dart`

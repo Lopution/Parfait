@@ -5,29 +5,19 @@ import 'helpers/test_preferences.dart';
 import 'package:parfait/core/auth/account.dart';
 import 'package:parfait/core/auth/account_store.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
+import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/mute/mute_models.dart';
 import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/network/api_error.dart';
+import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/paging/paged_feed_controller.dart';
-import 'package:parfait/core/settings/app_settings.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'helpers/card_world.dart';
+import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/fake_account.dart';
-
-class _SettingsController extends SettingsController {
-  _SettingsController({this.blockR18 = false, this.hideMuted = false});
-
-  final bool blockR18;
-  final bool hideMuted;
-
-  @override
-  Future<AppSettings> build() async => AppSettings.defaults().copyWith(
-    enableLocalBlockR18: blockR18,
-    hideMuted: hideMuted,
-  );
-}
 
 class _RefillScript {
   _RefillScript({
@@ -35,10 +25,12 @@ class _RefillScript {
     this.localFilterEnabled = true,
     this.filterMinVisible = 4,
     this.filterMaxRefillPages = 2,
+    this.novelIds = false,
   });
 
   final List<Object> pages;
   final bool localFilterEnabled;
+  final bool novelIds;
   final int filterMinVisible;
   final int filterMaxRefillPages;
   final fetchedCursors = <String?>[];
@@ -54,6 +46,9 @@ class _RefillFeedController extends PagedFeedController {
 
   @override
   bool get localFilterEnabled => script.localFilterEnabled;
+
+  @override
+  bool get novelIds => script.novelIds;
 
   @override
   int get filterMinVisible => script.filterMinVisible;
@@ -85,18 +80,42 @@ IllustEntity _visible(int id) => parseIllust(illustJson(id));
 
 IllustEntity _r18(int id) => parseIllust(illustJson(id, xRestrict: 1));
 
-FeedPage _page(List<IllustEntity> illusts, {String? nextCursor}) {
-  return FeedPage(
-    ids: [for (final illust in illusts) illust.id],
-    nextCursor: nextCursor,
-    incomingIllusts: {for (final illust in illusts) illust.id: illust},
-  );
+NovelEntity _novel(int id, {List<Object> tags = const [], int xRestrict = 0}) =>
+    NovelEntity.fromJson({
+      ...novelJson(id),
+      'tags': tags,
+      'x_restrict': xRestrict,
+    });
+
+/// Pages from a script: '|' separates pages, a negative id is R-18 and a
+/// trailing '>' links the last page on. Page n is fetched with cursor 'cn'.
+List<FeedPage> _pages(String script) {
+  final pages = script.replaceAll('>', '').split('|');
+  return [
+    for (final (i, page) in pages.indexed)
+      _page(
+        [
+          for (final id in page.trim().split(' ').map(int.parse))
+            id < 0 ? _r18(-id) : _visible(id),
+        ],
+        nextCursor: i + 1 < pages.length || script.endsWith('>')
+            ? 'c${i + 2}'
+            : null,
+      ),
+  ];
 }
+
+FeedPage _page(List<IllustEntity> illusts, {String? nextCursor}) => FeedPage(
+  ids: [for (final illust in illusts) illust.id],
+  nextCursor: nextCursor,
+  incomingIllusts: {for (final illust in illusts) illust.id: illust},
+);
 
 /// A container whose account and settings have loaded.
 Future<ProviderContainer> _container({
   required bool blockR18,
   bool hideMuted = false,
+  MuteState mutes = const MuteState(),
 }) async {
   SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   final container = ProviderContainer.test(
@@ -106,9 +125,8 @@ Future<ProviderContainer> _container({
           accounts: const [Account(id: 'account-a', userId: 1, name: 'tester')],
         ),
       ),
-      settingsProvider.overrideWith(
-        () => _SettingsController(blockR18: blockR18, hideMuted: hideMuted),
-      ),
+      filterSettings(blockR18: blockR18, hideMuted: hideMuted),
+      muteStoreProvider.overrideWith(() => SeededMuteStore(mutes)),
     ],
   );
   await container.read(accountStoreProvider.future);
@@ -121,51 +139,32 @@ void main() {
     SharedPreferencesAsyncPlatform.instance = memoryPreferences();
   });
 
-  test(
-    'refill stops after filterMaxRefillPages extra pages as a normal load',
-    () async {
+  test('refill runs until enough show, the server ends or the cap', () async {
+    // Ten wanted, two refills at most.
+    for (final (enabled, blockR18, pages, fetched, ids) in [
+      (true, true, '1 -2 | 3 -4 | 5 -6 >', 3, [1, 3, 5]),
+      (true, true, '1 -2 | 3 -4', 2, [1, 3]),
+      (false, true, '1 >', 1, [1]),
+      (true, false, '1 2 >', 1, [1, 2]),
+    ]) {
       final script = _RefillScript(
+        localFilterEnabled: enabled,
         filterMinVisible: 10,
-        filterMaxRefillPages: 2,
-        pages: [
-          _page([_visible(1), _r18(2)], nextCursor: 'c2'),
-          _page([_visible(3), _r18(4)], nextCursor: 'c3'),
-          _page([_visible(5), _r18(6)], nextCursor: 'c4'),
-          _page([_visible(7), _r18(8)], nextCursor: 'c5'),
-        ],
+        pages: _pages(pages),
       );
-      final container = await _container(blockR18: true);
+      final container = await _container(blockR18: blockR18);
 
       final state = await container.read(_refillFeedProvider(script).future);
 
-      expect(script.fetchedCursors, [null, 'c2', 'c3']);
-      expect(state.ids, [1, 3, 5]);
-      expect(state.initialPhase, FeedPhase.idle);
-      expect(state.initialError, isNull);
-      expect(state.loadMoreError, isNull);
-      expect(state.showInitialError, isFalse);
-    },
-  );
-
-  test('refill stops when the server returns a null cursor', () async {
-    final script = _RefillScript(
-      filterMinVisible: 10,
-      filterMaxRefillPages: 3,
-      pages: [
-        _page([_visible(1), _r18(2)], nextCursor: 'c2'),
-        _page([_visible(3), _r18(4)]),
-        _page([_visible(5), _r18(6)], nextCursor: 'unused'),
-      ],
-    );
-    final container = await _container(blockR18: true);
-
-    final state = await container.read(_refillFeedProvider(script).future);
-
-    expect(script.fetchedCursors, [null, 'c2']);
-    expect(state.ids, [1, 3]);
-    expect(state.exhausted, isTrue);
-    expect(state.initialPhase, FeedPhase.idle);
-    expect(state.initialError, isNull);
+      expect(script.fetchedCursors, [
+        null,
+        for (var n = 2; n <= fetched; n++) 'c$n',
+      ]);
+      expect(state.ids, ids);
+      final last = script.pages[fetched - 1] as FeedPage;
+      expect(state.exhausted, last.nextCursor == null);
+      expect((state.initialPhase, state.initialError), (FeedPhase.idle, null));
+    }
   });
 
   test(
@@ -174,10 +173,7 @@ void main() {
       final script = _RefillScript(
         filterMinVisible: 10,
         filterMaxRefillPages: 3,
-        pages: [
-          _page([_visible(1), _r18(2)], nextCursor: 'c2'),
-          const ApiHttpError(503, 'refill failed'),
-        ],
+        pages: [..._pages('1 -2 >'), const ApiHttpError(503, 'refill failed')],
       );
       final container = await _container(blockR18: true);
 
@@ -199,7 +195,7 @@ void main() {
         filterMinVisible: 1,
         filterMaxRefillPages: 3,
         pages: [
-          _page([_visible(1), _r18(2)], nextCursor: 'c2'),
+          ..._pages('1 -2 >'),
           const ApiHttpError(503, 'load more failed'),
         ],
       );
@@ -218,65 +214,59 @@ void main() {
     },
   );
 
-  test('no refill happens when local filtering is disabled', () async {
-    final script = _RefillScript(
-      localFilterEnabled: false,
-      filterMinVisible: 10,
-      filterMaxRefillPages: 3,
-      pages: [
-        _page([_visible(1)], nextCursor: 'c2'),
-        _page([_visible(2)]),
-      ],
-    );
-    final container = await _container(blockR18: true);
+  test(
+    'hide mode drops mute hits, blur keeps them; novels read novels',
+    () async {
+      // Novel 1 has a muted tag and novel 3 is R-18; an R-18 illust in the
+      // store shares novel 2's id and must not hide it (R10).
+      for (final (hideMuted, novels, ids) in [
+        (true, false, [1]),
+        (false, false, [1, 2]),
+        (true, true, [2]),
+        (false, true, [1, 2]),
+      ]) {
+        final script = _RefillScript(
+          filterMinVisible: 1,
+          filterMaxRefillPages: 1,
+          novelIds: novels,
+          pages: [
+            if (novels)
+              FeedPage(
+                ids: const [1, 2, 3],
+                nextCursor: null,
+                incomingNovels: {
+                  1: _novel(
+                    1,
+                    tags: [
+                      {'name': 'muted'},
+                    ],
+                  ),
+                  2: _novel(2),
+                  3: _novel(3, xRestrict: 1),
+                },
+              )
+            else
+              _page([_visible(1), _visible(2)]),
+          ],
+        );
+        final container = await _container(
+          blockR18: true,
+          hideMuted: hideMuted,
+          mutes: const MuteState(
+            tags: {'muted'},
+            works: {2: MutedWork(illustId: 2)},
+          ),
+        );
+        container.read(illustStoreProvider).mergeAll([_r18(2)]);
 
-    final state = await container.read(_refillFeedProvider(script).future);
+        final state = await container.read(_refillFeedProvider(script).future);
 
-    expect(script.fetchedCursors, [null]);
-    expect(state.ids, [1]);
-    expect(state.initialPhase, FeedPhase.idle);
-  });
-
-  test('no refill happens when a filter is on but nothing is hidden', () async {
-    final script = _RefillScript(
-      filterMinVisible: 10,
-      filterMaxRefillPages: 3,
-      pages: [
-        _page([_visible(1), _visible(2)], nextCursor: 'c2'),
-        _page([_visible(3)]),
-      ],
-    );
-    final container = await _container(blockR18: false);
-
-    final state = await container.read(_refillFeedProvider(script).future);
-
-    expect(script.fetchedCursors, [null]);
-    expect(state.ids, [1, 2]);
-    expect(state.initialPhase, FeedPhase.idle);
-  });
-
-  test('hide-muted drops a muted work; blur keeps it for the card', () async {
-    for (final (hideMuted, ids) in [
-      (true, [1]),
-      (false, [1, 2]),
-    ]) {
-      final script = _RefillScript(
-        filterMinVisible: 1,
-        filterMaxRefillPages: 1,
-        pages: [
-          _page([_visible(1), _visible(2)]),
-        ],
-      );
-      final container = await _container(blockR18: false, hideMuted: hideMuted);
-      // Work mute is local-only: seeding through the store needs no server.
-      await container
-          .read(muteStoreProvider.notifier)
-          .muteWork(const MutedWork(illustId: 2));
-
-      final state = await container.read(_refillFeedProvider(script).future);
-
-      expect(state.ids, ids, reason: 'hideMuted: $hideMuted');
-      expect(state.initialPhase, FeedPhase.idle);
-    }
-  });
+        expect(
+          state.ids,
+          ids,
+          reason: 'hideMuted: $hideMuted, novels: $novels',
+        );
+      }
+    },
+  );
 }

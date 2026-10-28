@@ -174,6 +174,16 @@ reviewed: 2026-10-26
 - **Check:** `test/ugoira_test.dart` "evicts the least recently used frame and disposes it"
 - **Code:** `lib/core/ugoira`
 
+### IMG-15 A ugoira entry never inflates past its declared size
+- **Rule:** `SafeZipIndex` checks every entry against the metadata, its
+  local header and the compression-ratio limit, and inflates in chunks
+  into a sink that fails as soon as the output passes the declared size;
+  the size and CRC checks follow.
+- **Why:** The whole entry used to be inflated before the size check, so a
+  forged entry declaring a few megabytes could expand to gigabytes.
+- **Check:** `test/ugoira_test.dart` "a forged entry fails once it inflates past its declared size" "rejects metadata count mismatch and forged local sizes"
+- **Code:** `lib/core/ugoira/ugoira_zip.dart`
+
 ### IMG-11 GIF export is a cancellable worker job with one terminal state
 - **Rule:** GIF export quantizes in a worker isolate, checks cancellation
   between frames and before finalize, owns one pending MediaStore item and

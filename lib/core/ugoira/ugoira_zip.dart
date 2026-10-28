@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart' show Inflate, getCrc32;
+import 'package:archive/archive.dart' show getCrc32;
 
 import 'ugoira_limits.dart';
 import 'ugoira_metadata.dart';
@@ -334,10 +334,7 @@ class SafeZipIndex {
     try {
       decoded = switch (entry.compressionMethod) {
         0 => compressed,
-        8 => Inflate(
-          compressed,
-          uncompressedSize: entry.uncompressedSize,
-        ).getBytes(),
+        8 => _inflate(compressed, entry.uncompressedSize),
         _ => throw const UgoiraArchiveException('compression method rejected'),
       };
     } catch (error) {
@@ -353,6 +350,28 @@ class SafeZipIndex {
     return decoded;
   }
 
+  /// Raw deflate in chunks into a sink that fails as soon as the output
+  /// passes [declaredSize]: a forged entry stops there instead of
+  /// inflating to gigabytes before the size check.
+  static List<int> _inflate(Uint8List compressed, int declaredSize) {
+    final output = _CappedBytes(declaredSize);
+    final input = ZLibDecoder(raw: true).startChunkedConversion(output);
+    for (var start = 0; start < compressed.length; start += _inflateChunk) {
+      final end = start + _inflateChunk;
+      input.add(
+        Uint8List.sublistView(
+          compressed,
+          start,
+          end < compressed.length ? end : compressed.length,
+        ),
+      );
+    }
+    input.close();
+    return output.bytes.takeBytes();
+  }
+
+  static const _inflateChunk = 64 * 1024;
+
   void _validateFrameHeader(UgoiraFrameHeader header) {
     header.validate(limits);
   }
@@ -360,6 +379,26 @@ class SafeZipIndex {
   void _ensureOpen() {
     if (_closed) throw StateError('ugoira archive is disposed');
   }
+}
+
+class _CappedBytes implements Sink<List<int>> {
+  _CappedBytes(this.limit);
+
+  final int limit;
+  final bytes = BytesBuilder(copy: false);
+
+  @override
+  void add(List<int> chunk) {
+    if (bytes.length + chunk.length > limit) {
+      throw const UgoiraArchiveException(
+        'entry inflates past its declared size',
+      );
+    }
+    bytes.add(chunk);
+  }
+
+  @override
+  void close() {}
 }
 
 List<UgoiraZipEntry> _orderEntries(

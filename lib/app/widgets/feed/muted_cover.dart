@@ -9,12 +9,17 @@ class RevealedMuteIds extends Notifier<Set<int>> {
   @override
   Set<int> build() => const {};
 
-  void reveal(int illustId) => state = {...state, illustId};
+  void reveal(int id) => state = {...state, id};
 }
 
 final revealedMuteIdsProvider = NotifierProvider<RevealedMuteIds, Set<int>>(
   RevealedMuteIds.new,
 );
+
+/// [revealedMuteIdsProvider] for novel rows: a novel may share an
+/// illust's id.
+final revealedMutedNovelIdsProvider =
+    NotifierProvider<RevealedMuteIds, Set<int>>(RevealedMuteIds.new);
 
 /// The blur+reveal card variant for a muted object: the artwork, blurred
 /// once at decode, under a labelled cover; tapping reveals it in place.

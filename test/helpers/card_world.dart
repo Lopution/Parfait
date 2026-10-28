@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
+import 'package:parfait/core/mute/mute_models.dart';
+import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/share/share_service.dart';
 import 'package:parfait/core/watchlater/watch_later_database.dart';
 import 'package:parfait/core/watchlater/watch_later_repository.dart';
@@ -144,4 +146,14 @@ Future<CardWorld> makeCardWorld({ShareService? shareService}) async {
     ],
   );
   return (container, fixture, repository);
+}
+
+/// Mutes fixed at [seed], with no account, storage or server behind them.
+class SeededMuteStore extends MuteStore {
+  SeededMuteStore(this.seed);
+
+  final MuteState seed;
+
+  @override
+  MuteState build() => seed;
 }

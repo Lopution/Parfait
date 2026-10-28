@@ -1291,6 +1291,10 @@
   "@feedContinueLoading": {
     "description": "Feed tail button after automatic paging paused: loads the next pages."
   },
+  "feedAllHidden": "已加载的作品都被屏蔽或筛选掉了",
+  "@feedAllHidden": {
+    "description": "A filtered feed whose loaded pages were all hidden by the local R-18/AI blocks, mutes or client-side search filters (bookmark count, AI only) while more pages exist; shown with the continue-loading button."
+  },
   "commentAuthorBadge": "作者",
   "@commentAuthorBadge": {
     "description": "Marker beside the work author's name in its comments"

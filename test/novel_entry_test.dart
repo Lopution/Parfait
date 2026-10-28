@@ -5,10 +5,13 @@ import 'package:network_image_mock/network_image_mock.dart';
 import 'package:parfait/app/widgets/entity_row.dart';
 import 'package:parfait/app/widgets/novel_entry.dart';
 import 'package:parfait/core/auth/account.dart';
+import 'package:parfait/core/mute/mute_models.dart';
+import 'package:parfait/core/mute/mute_store.dart';
 import 'package:parfait/core/novel/novel_entity.dart';
 import 'package:parfait/core/user/user_entity.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'helpers/card_world.dart';
 import 'helpers/fake_account.dart';
 import 'helpers/test_preferences.dart';
 import 'helpers/localized_app.dart';
@@ -34,7 +37,11 @@ NovelEntity _novel(
   totalBookmarks: totalBookmarks,
 );
 
-Widget _host(Widget child) => localizedApp(home: Scaffold(body: child));
+Widget _host(Widget child, {MuteState mutes = const MuteState()}) =>
+    localizedApp(
+      overrides: [muteStoreProvider.overrideWith(() => SeededMuteStore(mutes))],
+      home: Scaffold(body: child),
+    );
 
 void main() {
   setUp(() {
@@ -76,6 +83,26 @@ void main() {
       findsOneWidget,
     );
     semantics.dispose();
+  });
+
+  testWidgets('a muted novel shows the reason until a tap reveals it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        NovelEntry.regular(
+          entity: _novel(6, tags: [NovelTag(name: 't1')]),
+        ),
+        mutes: const MuteState(tags: {'t1'}),
+      ),
+    );
+    expect(find.text('已屏蔽：t1'), findsOneWidget);
+    expect(find.text('#t1'), findsNothing);
+
+    await tester.tap(find.byType(NovelEntry));
+    await tester.pump();
+    expect(find.text('novel 6'), findsOneWidget);
+    expect(find.text('#t1'), findsOneWidget);
   });
 
   testWidgets('tap opens the novel route through the facade', (tester) async {

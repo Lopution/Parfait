@@ -175,6 +175,38 @@ void main() {
       );
     });
 
+    test('a forged entry fails once it inflates past its declared size', () {
+      final forged = Uint8List.fromList(
+        _zip({'000000.jpg': List<int>.filled(1 << 20, 0)}),
+      );
+      // Declare 4 KiB in the local header and its central directory entry.
+      final data = ByteData.sublistView(forged);
+      final central = data.getUint32(forged.length - 6, Endian.little);
+      for (final at in [22, central + 24]) {
+        data.setUint32(at, 4096, Endian.little);
+      }
+      final index = SafeZipIndex.fromBytes(
+        forged,
+        metadata: UgoiraMetadata.fromJson(
+          _metadataJson([
+            {'file': '000000.jpg', 'delay': 80},
+          ]),
+        ),
+      );
+      addTearDown(index.dispose);
+
+      expect(
+        index.readFrameBytes(0),
+        throwsA(
+          isA<UgoiraArchiveException>().having(
+            (error) => error.message,
+            'message',
+            contains('past its declared size'),
+          ),
+        ),
+      );
+    });
+
     test('parses dimensions before a decoder can allocate pixels', () {
       final header = UgoiraFrameHeader.parse(_onePixelPng());
 

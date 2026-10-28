@@ -13,10 +13,14 @@ reviewed: 2026-10-12
   controller. The platform passes only opaque `content://` metadata; the
   controller checks MIME against the file signature, dimensions and pixel
   budget before any full decode, and owns exactly one temporary file,
-  cleaned on every terminal path. Errors carry no paths.
+  cleaned on every terminal path. Errors carry no paths. A JPEG's size
+  comes from walking its segments in the file (at most
+  `maxJpegSegments`), not from a fixed header read.
 - **Why:** A pixel bomb or mislabeled file could exhaust memory; leaked
-  temp files piled up.
-- **Check:** `test/reverse_image_search_test.dart` "rejects a pixel bomb before any full image decode" "rejects a MIME declaration that does not match the file bytes" "picker and SEND references share preparation and terminal cleanup"
+  temp files piled up. EXIF, XMP or ICC data pushed a photo's frame header
+  past the 64 KiB header read, so it could be neither searched nor made
+  an avatar.
+- **Check:** `test/reverse_image_search_test.dart` "reads the format and size; EXIF cannot push a JPEG frame out of " "rejects a pixel bomb before any full image decode" "rejects a MIME declaration that does not match the file bytes" "picker and SEND references share preparation and terminal cleanup"
 - **Code:** `lib/core/reverse_image`
 
 ### REV-02 Large images are scaled, not refused

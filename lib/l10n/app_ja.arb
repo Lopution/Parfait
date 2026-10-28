@@ -934,6 +934,7 @@
   "detailAuthorNoOtherWorks": "他の作品はまだありません",
   "detailAuthorWorksLoadFailed": "作者の作品を読み込めませんでした",
   "feedContinueLoading": "続きを読み込む",
+  "feedAllHidden": "読み込んだ作品はすべて非表示・ミュート・絞り込みで除外されています",
   "commentAuthorBadge": "作者",
   "commentShowReplies": "返信を表示",
   "novelEntryBookmarks": "ブックマーク {count} 件",

@@ -137,6 +137,15 @@ abstract final class IntentRouter {
   static const Set<String> _parfaitHosts = {'users', 'illusts'};
 
   static DeepLinkRoute route(Uri uri) {
+    try {
+      return _route(uri);
+    } on FormatException {
+      // Query values decode lazily: `?code=%FF` is not UTF-8.
+      return const UnknownRoute('malformed percent-encoding');
+    }
+  }
+
+  static DeepLinkRoute _route(Uri uri) {
     switch (uri.scheme) {
       case 'pixiv':
         if (!_pixivHosts.contains(uri.host)) {

@@ -105,10 +105,15 @@ reviewed: 2026-10-14
   grant and bounded size. `IntentRouter` accepts VIEW only for exact Pixiv
   and app schemes, hosts and paths, and SEND only with one `EXTRA_STREAM`
   content URI, a read grant, a concrete `image/*` type and a bounded size.
-  Everything else is an observable rejection, not an empty route.
+  Everything else is an observable rejection, not an empty route, and a
+  query that is not UTF-8 is `UnknownRoute`. Links in captions resolve
+  through the same `IntentRouter.route`: a user or work opens in the app
+  (a pixiv.net link by its kind and id, whatever follows them), another
+  app link goes nowhere, any other link opens outside.
 - **Why:** Malformed links crashed routing; file URIs could reach private
-  files.
-- **Check:** `test/android_platform_boundary_test.dart` "rejects SEND without the exact stream extra and read grant" "rejects foreign, file and oversized shared payloads", `test/intent_router_test.dart` "malformed pixiv links are UnknownRoute, never crash"
+  files. Captions parsed links themselves and sent `pixiv://` links to
+  Android, which failed.
+- **Check:** `test/android_platform_boundary_test.dart` "rejects SEND without the exact stream extra and read grant" "rejects foreign, file and oversized shared payloads", `test/intent_router_test.dart` "malformed pixiv links are UnknownRoute, never crash", `test/illust_detail_page_test.dart` "U6: caption renders as rich clickable text"
 - **Code:** `lib/core/platform/intent_router.dart`, `android/app/src/main/kotlin/io/github/lopution/parfait/AndroidIntentChannel.kt`
 
 ### DROID-08 The login WebView does not police navigation

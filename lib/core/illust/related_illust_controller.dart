@@ -22,6 +22,13 @@ class _RelatedIllustController extends PagedFeedController {
   @override
   FeedSnapshotCodec? get snapshotCodec => const IllustSnapshotCodec();
 
+  /// C9: related works are discovery content.
+  @override
+  bool get localFilterEnabled => true;
+
+  @override
+  int get filterMinVisible => 24;
+
   @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
     final store = ref.read(illustStoreProvider);

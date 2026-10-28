@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:parfait/app/motion/removal.dart';
 import 'package:parfait/app/motion/state_icon_switcher.dart';
 import 'package:parfait/core/entity/illust_store.dart';
+import 'package:parfait/core/history/history_database.dart';
+import 'package:parfait/core/history/history_feed_controller.dart';
 import 'package:parfait/core/history/history_models.dart';
 import 'package:parfait/core/history/history_repository.dart';
 import 'package:parfait/core/settings/settings_controller.dart';
@@ -220,6 +222,52 @@ void main() {
     expect(find.text('历史记录'), findsOneWidget);
     expect(find.text('work 1'), findsOneWidget);
   });
+
+  testWidgets('a failed first read offers a retry, not "no history" (B10)', (
+    tester,
+  ) async {
+    late ProviderContainer container;
+    await tester.runAsync(() async {
+      // A store closed before it ever opened fails every read.
+      final database = HistoryDatabase(
+        factory: databaseFactoryFfi,
+        databasePath: inMemoryDatabasePath,
+      );
+      await database.close();
+      container = await makeHistoryWorld(HistoryRepository(database: database));
+    });
+    await tester.pumpWidget(_app(container));
+    await tester.runAsync(() => Future<void>.delayed(Durations.short2));
+    await tester.pump();
+    expect(find.text('历史记录加载失败'), findsOneWidget);
+    expect(find.text('重试'), findsOneWidget);
+  });
+
+  test(
+    'deleting a loaded record never skips one on the next page (B11)',
+    () async {
+      // 31 records a minute apart: the first page holds 31 down to 2.
+      final history = await openHistoryRepository([
+        for (var id = 1; id <= 31; id++)
+          historyRecord(
+            id,
+          ).copyWith(lastViewedAt: DateTime.utc(2026, 9, 20, 10, id)),
+      ]);
+      final container = await makeHistoryWorld(history);
+      final provider = historyFeedControllerProvider('100');
+      container.listen(provider, (_, _) {});
+      final first = await container.read(provider.future);
+      final feed = container.read(provider.notifier);
+
+      await feed.removeRecord(feed.recordFor(first.ids.first)!);
+      await feed.loadMore();
+      final ids = container.read(provider).requireValue.ids;
+      expect(
+        [for (final id in ids) feed.recordFor(id)!.contentId],
+        [for (var id = 30; id >= 1; id--) id],
+      );
+    },
+  );
 
   testWidgets('an empty history with recording off offers to turn it on', (
     tester,

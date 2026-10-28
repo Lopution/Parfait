@@ -98,6 +98,14 @@ class _NovelRankingModeBody extends ConsumerWidget {
         if (feed.showInitialSpinner) {
           return const FeedLoading();
         }
+        if (feed.isAllHidden) {
+          return FeedAllHidden(
+            feed: feed,
+            onLoadMore: () => ref
+                .read(novelRankingFeedProvider(feedKey).notifier)
+                .retryLoadMore(),
+          );
+        }
         if (feed.isEmptyAndReady) {
           return rankingEmpty(
             context,

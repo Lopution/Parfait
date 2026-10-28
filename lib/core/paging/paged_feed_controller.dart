@@ -15,11 +15,10 @@ import '../entity/illust_store.dart';
 import '../network/api_error.dart';
 import '../network/data_worker.dart';
 import '../network/pixiv_http_client.dart';
-import '../mute/mute_models.dart';
 import '../mute/mute_predicate.dart';
 import '../mute/mute_store.dart';
 import '../novel/novel_entity.dart';
-import '../settings/app_settings.dart';
+import '../novel/novel_store.dart';
 import '../settings/local_block_filter.dart';
 import '../settings/settings_controller.dart';
 import 'feed_paging_policy.dart';
@@ -81,6 +80,10 @@ class PagedFeedState {
   bool get isEmptyAndReady =>
       initialPhase == FeedPhase.idle && ids.isEmpty && !showInitialError;
 
+  /// Nothing to show although the server has more: the local filters hid
+  /// every work loaded so far. Pages show `FeedAllHidden`, not "no results".
+  bool get isAllHidden => isEmptyAndReady && !exhausted;
+
   static const _unset = Object();
 
   PagedFeedState copyWith({
@@ -141,6 +144,10 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   /// predicate; bookmark/history/detail paths leave this false.
   bool get localFilterEnabled => false;
 
+  /// Whether [PagedFeedState.ids] are novel ids: the filters then read the
+  /// page's novels and the novel store, never an illust sharing the id.
+  bool get novelIds => false;
+
   /// Applies the C9 predicate to one server page. Only called when
   /// [localFilterEnabled] is true. Entities unavailable in the shared store
   /// are kept (no evidence to hide them).
@@ -149,42 +156,35 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     Map<int, IllustEntity>? incomingIllusts,
     Map<int, NovelEntity>? incomingNovels,
   }) {
-    final store = ref.read(illustStoreProvider);
     final settings = ref.read(settingsProvider).value;
     if (settings == null) return ids;
+    final blockR18 = settings.enableLocalBlockR18;
+    final blockAI = settings.enableLocalBlockAI;
     // Mute hits are only filtered here when the user chose "hide". In blur
     // mode the card renders the muted variant instead and the id stays.
-    final muteState = settings.hideMuted ? ref.read(muteStoreProvider) : null;
+    final mutes = settings.hideMuted ? ref.read(muteStoreProvider) : null;
+    final bool Function(int id) hidden;
+    if (novelIds) {
+      final store = ref.read(novelStoreProvider);
+      hidden = (id) => switch (incomingNovels?[id] ?? store[id]) {
+        null => false,
+        final novel =>
+          isNovelLocallyBlocked(novel, blockR18: blockR18, blockAI: blockAI) ||
+              (mutes != null && novelMuteHitFor(novel, mutes) != null),
+      };
+    } else {
+      final store = ref.read(illustStoreProvider);
+      hidden = (id) => switch (incomingIllusts?[id] ?? store.get(id)) {
+        null => false,
+        final illust =>
+          isLocallyBlocked(illust, blockR18: blockR18, blockAI: blockAI) ||
+              (mutes != null && muteHitFor(illust, mutes) != null),
+      };
+    }
     return [
       for (final id in ids)
-        if (!_isFilteredId(
-          id,
-          store,
-          settings,
-          muteState,
-          incomingIllusts: incomingIllusts,
-        ))
-          id,
+        if (!hidden(id)) id,
     ];
-  }
-
-  bool _isFilteredId(
-    int id,
-    IllustStore store,
-    AppSettings settings,
-    MuteState? muteState, {
-    Map<int, IllustEntity>? incomingIllusts,
-  }) {
-    final entity = incomingIllusts?[id] ?? store.get(id);
-    if (entity == null) return false;
-    if (isLocallyBlocked(
-      entity,
-      blockR18: settings.enableLocalBlockR18,
-      blockAI: settings.enableLocalBlockAI,
-    )) {
-      return true;
-    }
-    return muteState != null && muteHitFor(entity, muteState) != null;
   }
 
   /// Pace and budget of automatic paging. Feeds read from local storage
@@ -819,8 +819,11 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
     if (snapshot.snapshotVersion != codec.snapshotVersion) return null;
     final payload = snapshot.entities[codec.entityType];
     if (payload is! Map<String, Object?>) return null;
-    final ids = codec.restoreEntities(claim.ref, snapshot.ids, payload);
-    if (ids.isEmpty && snapshot.ids.isNotEmpty) return null;
+    final restored = codec.restoreEntities(claim.ref, snapshot.ids, payload);
+    if (restored.isEmpty && snapshot.ids.isNotEmpty) return null;
+    // Written under the filters of its day: a block switched on since
+    // (which rebuilds the feed into this restore) applies here too.
+    final ids = localFilterEnabled ? filterPageIds(restored) : restored;
     _nextCursor = snapshot.cursor;
     _recordCursor(snapshot.cursor);
     _page = 1;

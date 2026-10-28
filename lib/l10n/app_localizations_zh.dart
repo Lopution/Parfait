@@ -2226,6 +2226,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get feedContinueLoading => '继续加载';
 
   @override
+  String get feedAllHidden => '已加载的作品都被屏蔽或筛选掉了';
+
+  @override
   String get commentAuthorBadge => '作者';
 
   @override
