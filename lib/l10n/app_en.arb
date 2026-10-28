@@ -941,6 +941,7 @@
   "detailAuthorNoOtherWorks": "No other works yet",
   "detailAuthorWorksLoadFailed": "Couldn't load the artist's works",
   "feedContinueLoading": "Continue loading",
+  "feedAllHidden": "Every work loaded so far is blocked, muted or filtered out",
   "commentAuthorBadge": "Author",
   "commentShowReplies": "View replies",
   "novelEntryBookmarks": "{count} bookmarks",

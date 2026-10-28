@@ -380,17 +380,20 @@ class _HistoryBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final feed = ref.watch(historyFeedControllerProvider(accountId));
+    Widget failed(Object? error) => FeedError(
+      title: context.l10n.historyLoadFailed,
+      error: error,
+      retryLabel: context.l10n.retry,
+      onRetry: () => ref
+          .read(historyFeedControllerProvider(accountId).notifier)
+          .retryInitial(),
+    );
     return feed.when(
       loading: () => const FeedLoading(),
-      error: (error, _) => FeedError(
-        title: context.l10n.historyLoadFailed,
-        error: error,
-        retryLabel: context.l10n.retry,
-        onRetry: () => ref
-            .read(historyFeedControllerProvider(accountId).notifier)
-            .retryInitial(),
-      ),
+      error: (error, _) => failed(error),
       data: (state) {
+        // A failed first read arrives as data with an error phase.
+        if (state.showInitialError) return failed(state.initialError);
         if (state.ids.isEmpty) {
           // With local recording off nothing will show up here: say so and
           // offer the switch instead.

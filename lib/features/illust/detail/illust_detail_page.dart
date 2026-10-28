@@ -1043,9 +1043,11 @@ class _IllustDetailPageState extends ConsumerState<IllustDetailPage>
         // on screen; this check must never be the first request, so it
         // only looks at a list that already exists. loadMore asserts an
         // AsyncData state (it calls requireValue), so it also waits for
-        // the first page to land.
+        // the first page to land. A list the filters hid entirely loads on
+        // only from its button (FEED-22).
         final related = relatedIllustControllerProvider(widget.illustId);
-        if (ref.exists(related) && ref.read(related).hasValue) {
+        if (ref.exists(related) &&
+            ref.read(related).value?.isAllHidden == false) {
           ref.read(related.notifier).loadMore();
         }
       }

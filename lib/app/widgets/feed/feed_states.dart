@@ -191,51 +191,54 @@ class FeedEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    // Always the result of a state change (loading → empty): fade in.
+    final column = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 48, color: colorScheme.onSurfaceVariant),
+        const SizedBox(height: FuncSpacing.md),
+        Text(title),
+        if (error != null) ...[
+          const SizedBox(height: FuncSpacing.sm),
+          Text(
+            errorCategoryText(context, categorizeError(error!)),
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+          ErrorDetails(error: error!),
+        ] else if (detail != null) ...[
+          const SizedBox(height: FuncSpacing.sm),
+          Text(
+            detail!,
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+        ],
+        if (onRefresh != null || onAction != null) ...[
+          const SizedBox(height: FuncSpacing.md),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              if (onRefresh != null)
+                StateActionButton(label: retryLabel!, onPressed: onRefresh),
+              if (onAction != null)
+                StateActionButton(
+                  label: actionLabel!,
+                  icon: actionIcon,
+                  onPressed: onAction,
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+    // Always the result of a state change (loading → empty): fade in. An
+    // error's details expand, so a short or large-text screen scrolls to
+    // the buttons, as FeedError does.
     final content = StateFade.onMount(
       child: _StatusCenter(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 48, color: colorScheme.onSurfaceVariant),
-            const SizedBox(height: FuncSpacing.md),
-            Text(title),
-            if (error != null) ...[
-              const SizedBox(height: FuncSpacing.sm),
-              Text(
-                errorCategoryText(context, categorizeError(error!)),
-                style: Theme.of(context).textTheme.bodySmall,
-                textAlign: TextAlign.center,
-              ),
-              ErrorDetails(error: error!),
-            ] else if (detail != null) ...[
-              const SizedBox(height: FuncSpacing.sm),
-              Text(
-                detail!,
-                style: Theme.of(context).textTheme.bodySmall,
-                textAlign: TextAlign.center,
-              ),
-            ],
-            if (onRefresh != null || onAction != null) ...[
-              const SizedBox(height: FuncSpacing.md),
-              Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: [
-                  if (onRefresh != null)
-                    StateActionButton(label: retryLabel!, onPressed: onRefresh),
-                  if (onAction != null)
-                    StateActionButton(
-                      label: actionLabel!,
-                      icon: actionIcon,
-                      onPressed: onAction,
-                    ),
-                ],
-              ),
-            ],
-          ],
-        ),
+        child: error == null ? column : SingleChildScrollView(child: column),
       ),
     );
     final refresh = onRefresh;
@@ -246,6 +249,49 @@ class FeedEmpty extends StatelessWidget {
         : RetryOnNetworkRestore(
             error: error,
             onRetry: () => unawaited(refresh()),
+            child: content,
+          );
+  }
+}
+
+/// A filtered feed with nothing to show yet although the server has more
+/// ([PagedFeedState.isAllHidden]): it says the loaded works are blocked,
+/// muted or filtered out and loads on, a page and its refills per tap,
+/// never on its own (user decision 10-28: walking the results unasked
+/// could fetch them all).
+class FeedAllHidden extends StatelessWidget {
+  const FeedAllHidden({
+    super.key,
+    required this.feed,
+    required this.onLoadMore,
+  });
+
+  final PagedFeedState feed;
+
+  /// The feed's user-initiated load-more (`retryLoadMore`).
+  final VoidCallback onLoadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    if (feed.showLoadMoreSpinner) {
+      return FeedLoading(label: l10n.contentLoading);
+    }
+    final error = feed.showLoadMoreError ? feed.loadMoreError : null;
+    final content = FeedEmpty(
+      icon: Icons.visibility_off_outlined,
+      title: l10n.feedAllHidden,
+      error: error,
+      actionLabel: l10n.feedContinueLoading,
+      actionIcon: Icons.expand_more,
+      onAction: onLoadMore,
+    );
+    // A failed load the user asked for retries once the network is back.
+    return error == null
+        ? content
+        : RetryOnNetworkRestore(
+            error: error,
+            onRetry: onLoadMore,
             child: content,
           );
   }

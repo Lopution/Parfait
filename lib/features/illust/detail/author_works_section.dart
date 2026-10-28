@@ -8,6 +8,8 @@ import '../../../app/widgets/feed/feed_states.dart';
 import '../../../app/widgets/skeleton/func_skeleton.dart';
 import '../../../core/entity/illust_entity.dart';
 import '../../../core/entity/illust_store.dart';
+import '../../../core/mute/mute_predicate.dart';
+import '../../../core/mute/mute_store.dart';
 import '../../../core/profile/profile_feed_controller.dart';
 import '../../../core/profile/profile_models.dart';
 import '../../../l10n/context.dart';
@@ -75,10 +77,16 @@ class _StripBody extends ConsumerWidget {
     final feed = profileIllustFeedProvider(feedKey);
     final async = ref.watch(feed);
     final store = ref.watch(illustStoreProvider);
+    final mutes = ref.watch(muteStoreProvider);
     final state = async.asData?.value;
+    // The user-works feed drops R-18/AI; mute hits are skipped here too,
+    // never blurred: a blurred square this small says nothing (PAGE-05).
     final works = [
       for (final id in state?.ids ?? const <int>[])
-        if (id != entity.id) ?store.get(id),
+        if (id != entity.id)
+          if (store.get(id) case final work?
+              when muteHitFor(work, mutes) == null)
+            work,
     ].take(AuthorWorksSlivers.shown).toList();
     final kind = switch (state) {
       null when async.hasError => _StripKind.error,

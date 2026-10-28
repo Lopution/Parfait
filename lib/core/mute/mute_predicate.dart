@@ -1,4 +1,5 @@
 import '../entity/illust_entity.dart';
+import '../novel/novel_entity.dart';
 import 'mute_models.dart';
 
 /// Why a work is muted. [label] is the human-readable hit (tag name,
@@ -24,17 +25,37 @@ MuteHit? muteHitFor(IllustEntity entity, MuteState state) {
   if (state.isWorkMuted(entity.id)) {
     return MuteHit(kind: MuteKind.work, label: entity.title);
   }
-  final mutedUser = state.users[entity.user.id];
+  final author = entity.user;
+  return _authorOrTagHit(
+    (author.id, author.name),
+    entity.tags.map((tag) => tag.name),
+    state,
+  );
+}
+
+/// [muteHitFor] for a novel: its author or a tag. Work mutes hold illust
+/// ids, so they never match a novel.
+MuteHit? novelMuteHitFor(NovelEntity novel, MuteState state) => _authorOrTagHit(
+  (novel.user.id, novel.user.name),
+  novel.tags.map((tag) => tag.name),
+  state,
+);
+
+MuteHit? _authorOrTagHit(
+  (int, String) author,
+  Iterable<String> tags,
+  MuteState state,
+) {
+  final (authorId, authorName) = author;
+  final mutedUser = state.users[authorId];
   if (mutedUser != null) {
     return MuteHit(
       kind: MuteKind.user,
-      label: mutedUser.name.isEmpty ? entity.user.name : mutedUser.name,
+      label: mutedUser.name.isEmpty ? authorName : mutedUser.name,
     );
   }
-  for (final tag in entity.tags) {
-    if (state.isTagMuted(tag.name)) {
-      return MuteHit(kind: MuteKind.tag, label: tag.name);
-    }
+  for (final tag in tags) {
+    if (state.isTagMuted(tag)) return MuteHit(kind: MuteKind.tag, label: tag);
   }
   return null;
 }

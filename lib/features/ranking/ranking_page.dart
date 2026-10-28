@@ -101,6 +101,14 @@ class _RankingModeBody extends ConsumerWidget {
         if (feed.showInitialSpinner) {
           return IllustGridSkeleton(label: context.l10n.contentLoading);
         }
+        if (feed.isAllHidden) {
+          return FeedAllHidden(
+            feed: feed,
+            onLoadMore: () => ref
+                .read(rankingFeedControllerProvider(feedKey).notifier)
+                .retryLoadMore(),
+          );
+        }
         if (feed.isEmptyAndReady) {
           return rankingEmpty(
             context,

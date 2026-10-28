@@ -33,12 +33,13 @@ class _RecommendedFeedController extends PagedFeedController {
     RecommendedContentType.user => null,
   };
 
-  /// C9: discovery content only. Illusts and manga are filtered; novels and
-  /// user recommendations have no local-block semantics and stay unfiltered.
+  /// C9: works are discovery content and filtered; user recommendations
+  /// have no local-block semantics and stay unfiltered.
   @override
-  bool get localFilterEnabled =>
-      key.type == RecommendedContentType.illust ||
-      key.type == RecommendedContentType.manga;
+  bool get localFilterEnabled => key.type != RecommendedContentType.user;
+
+  @override
+  bool get novelIds => key.type == RecommendedContentType.novel;
 
   @override
   int get filterMinVisible => 24;
@@ -88,6 +89,7 @@ class _RecommendedFeedController extends PagedFeedController {
     return FeedPage(
       ids: [for (final item in page.novels) item.id],
       nextCursor: page.nextUrl,
+      incomingNovels: {for (final item in page.novels) item.id: item},
       commit: (_) => store.mergeAll(page.novels),
     );
   }

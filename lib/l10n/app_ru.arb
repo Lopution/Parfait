@@ -934,6 +934,7 @@
   "detailAuthorNoOtherWorks": "Других работ пока нет",
   "detailAuthorWorksLoadFailed": "Не удалось загрузить работы автора",
   "feedContinueLoading": "Загрузить ещё",
+  "feedAllHidden": "Все загруженные работы скрыты, заглушены или отсеяны фильтрами",
   "commentAuthorBadge": "Автор",
   "commentShowReplies": "Показать ответы",
   "novelEntryBookmarks": "Закладок: {count}",

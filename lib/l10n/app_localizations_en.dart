@@ -2308,6 +2308,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get feedContinueLoading => 'Continue loading';
 
   @override
+  String get feedAllHidden =>
+      'Every work loaded so far is blocked, muted or filtered out';
+
+  @override
   String get commentAuthorBadge => 'Author';
 
   @override

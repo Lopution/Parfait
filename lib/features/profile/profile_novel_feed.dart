@@ -68,10 +68,17 @@ class ProfileNovelFeed extends ConsumerWidget {
                   // top-aligned list item.
                   SliverFillRemaining(
                     hasScrollBody: false,
-                    child: FeedEmpty(
-                      icon: Icons.inbox_outlined,
-                      title: context.l10n.profileItemsEmpty,
-                    ),
+                    child: feed.isAllHidden
+                        ? FeedAllHidden(
+                            feed: feed,
+                            onLoadMore: () => ref
+                                .read(userNovelFeedProvider(userId).notifier)
+                                .retryLoadMore(),
+                          )
+                        : FeedEmpty(
+                            icon: Icons.inbox_outlined,
+                            title: context.l10n.profileItemsEmpty,
+                          ),
                   )
                 else ...[
                   SliverCardList(

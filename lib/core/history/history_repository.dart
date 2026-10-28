@@ -73,9 +73,14 @@ class HistoryRepository {
     _changed();
   }
 
+  /// One page in `last_viewed_at DESC, id DESC` order. With [after] the
+  /// page starts past that row (keyset paging: a row deleted or viewed
+  /// again meanwhile never shifts it) and [HistoryPageResult.total] counts
+  /// from there.
   Future<HistoryPageResult> page({
     required String accountId,
     HistoryContentType? contentType,
+    ({DateTime viewedAt, int rowId})? after,
     int offset = 0,
     int limit = defaultPageSize,
   }) async {
@@ -90,6 +95,13 @@ class HistoryRepository {
     if (contentType != null) {
       where.write(' AND content_type = ?');
       whereArgs.add(contentType.storageValue);
+    }
+    if (after != null) {
+      final viewedAt = after.viewedAt.toUtc().microsecondsSinceEpoch;
+      where.write(
+        ' AND (last_viewed_at < ? OR (last_viewed_at = ? AND id < ?))',
+      );
+      whereArgs.addAll([viewedAt, viewedAt, after.rowId]);
     }
     final rows = await db.query(
       HistoryDatabase.historyTable,

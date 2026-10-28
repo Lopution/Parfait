@@ -545,6 +545,13 @@ class _IllustSearchFeed extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final entities = ref.watch(illustStoreProvider).getAll(feed.ids);
+    if (feed.isAllHidden) {
+      return FeedAllHidden(
+        feed: feed,
+        onLoadMore: () =>
+            ref.read(searchFeedProvider(query).notifier).retryLoadMore(),
+      );
+    }
     if (entities.isEmpty) return _EmptySearchResult(query: query);
     return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),
@@ -613,6 +620,13 @@ class _NovelSearchFeed extends ConsumerWidget {
           novelStoreProvider.select((store) => StoredEntities(store, feed.ids)),
         )
         .items;
+    if (feed.isAllHidden) {
+      return FeedAllHidden(
+        feed: feed,
+        onLoadMore: () =>
+            ref.read(searchFeedProvider(query).notifier).retryLoadMore(),
+      );
+    }
     if (entities.isEmpty) return _EmptySearchResult(query: query);
     return PullToRefresh(
       onRefresh: () => ref.read(searchFeedProvider(query).notifier).refresh(),

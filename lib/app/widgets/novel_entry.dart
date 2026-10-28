@@ -1,5 +1,8 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/mute/mute_predicate.dart';
+import '../../core/mute/mute_store.dart';
 import '../../core/novel/novel_entity.dart';
 import '../../l10n/context.dart';
 import '../format/app_format.dart';
@@ -8,6 +11,7 @@ import '../pixiv_image.dart';
 import '../theme/func_semantic_tokens.dart';
 import 'entity_row.dart';
 import 'feed/feed_text_warmup.dart';
+import 'feed/muted_cover.dart';
 
 /// The single novel list-entry contract — replaces the parallel
 /// `NovelCard`/`NovelRow` pair (roadmap §5.2, R1). Density follows the
@@ -24,7 +28,11 @@ import 'feed/feed_text_warmup.dart';
 /// author, series and word count, a tag footnote, the bookmark count on the
 /// cover, the work-id key and the [openNovel] primary action — pages never
 /// restyle a novel row.
-class NovelEntry extends StatelessWidget {
+///
+/// A muted novel (its author or a tag) blurs its cover and shows the reason
+/// in place of the title, series and tags, until a tap reveals it — as
+/// [IllustCard] does. A feed in hide mode never builds the row.
+class NovelEntry extends ConsumerWidget {
   NovelEntry._({
     Key? key,
     required this.entity,
@@ -179,14 +187,24 @@ class NovelEntry extends StatelessWidget {
       : entity.tags.take(_maxTags).map((tag) => '#${tag.name}').join(' ');
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final bookmarks = entity.totalBookmarks > 0
+    final hit = ref.watch(
+      muteStoreProvider.select((mutes) => novelMuteHitFor(entity, mutes)),
+    );
+    final revealed = ref.watch(
+      revealedMutedNovelIdsProvider.select((ids) => ids.contains(entity.id)),
+    );
+    final muted = hit != null && !revealed;
+    final title = muted
+        ? l10n.labelValue(l10n.mutedContent, hit.label)
+        : entity.title;
+    final bookmarks = !muted && entity.totalBookmarks > 0
         ? AppFormat.count(context, entity.totalBookmarks)
         : null;
     final identity = [
       if (rank != null) l10n.rankLabel(rank!),
-      entity.title,
+      title,
       entity.user.name,
       if (bookmarks != null) l10n.novelEntryBookmarks(bookmarks),
     ].join(', ');
@@ -197,24 +215,32 @@ class NovelEntry extends StatelessWidget {
         horizontal: FuncSpacing.lg,
         vertical: FuncSpacing.md,
       ),
-      leading: _cover(context, bookmarks),
-      title: entity.title,
+      leading: _cover(context, bookmarks, muted: muted),
+      title: title,
       titleLeading: rank == null ? null : EntityRankLabel(rank!),
       subtitle: entity.user.name,
-      meta: _meta(context, entity),
-      footnote: _footnote(entity),
+      meta: muted ? null : _meta(context, entity),
+      footnote: muted ? null : _footnote(entity),
       progress: progress,
       trailing: trailing,
-      onTap: onTap ?? () => openNovel(context, entity.id),
+      onTap: muted
+          ? () => ref
+                .read(revealedMutedNovelIdsProvider.notifier)
+                .reveal(entity.id)
+          : onTap ?? () => openNovel(context, entity.id),
       onLongPress: onLongPress,
       selected: selected,
-      semanticLabel: semanticLabel ?? identity,
+      semanticLabel: muted ? identity : semanticLabel ?? identity,
     );
   }
 
   /// The cover with its bookmark count laid over the bottom edge, in the
   /// same scrim badge the illust cards use.
-  Widget _cover(BuildContext context, String? bookmarks) {
+  Widget _cover(
+    BuildContext context,
+    String? bookmarks, {
+    required bool muted,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     return ClipRRect(
       borderRadius: BorderRadius.circular(_coverRadius),
@@ -232,7 +258,11 @@ class NovelEntry extends StatelessWidget {
                 child: const Icon(Icons.menu_book_outlined),
               )
             else
-              PixivImage.feed(entity.coverImageUrl!, layoutWidth: _coverWidth),
+              PixivImage.feed(
+                entity.coverImageUrl!,
+                layoutWidth: _coverWidth,
+                blur: muted ? MutedCover.blurSigma : null,
+              ),
             if (bookmarks != null)
               Positioned(
                 left: _badgeInset,

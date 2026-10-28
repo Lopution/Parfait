@@ -26,6 +26,7 @@ import 'package:parfait/features/profile/user_page.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'helpers/detail_world.dart';
+import 'helpers/fake_settings.dart';
 import 'helpers/illust_fixtures.dart';
 import 'helpers/test_preferences.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -737,15 +738,15 @@ void main() {
       );
     });
 
-    testWidgets('requests related works only once the section is on screen', (
-      tester,
-    ) async {
+    testWidgets('requests related works only once the section is on screen; '
+        'the local block filters them (R7)', (tester) async {
       final log = <int>[];
       final (container, _, _) = await makeWorld(
         relatedLog: log,
         relatedOverrides: {
-          42: [illustJson(901, pageCount: 1)],
+          42: [illustJson(900, xRestrict: 1), illustJson(901, pageCount: 1)],
         },
+        extraOverrides: [filterSettings(blockR18: true)],
       );
       await pumpDetail(tester, container);
       await mockNetworkImagesFor(() async {
@@ -762,6 +763,7 @@ void main() {
       await mockNetworkImagesFor(() => scrollToRelated(tester));
       expect(log, [42]);
       expect(find.text('illust 901'), findsOneWidget);
+      expect(find.text('illust 900'), findsNothing);
 
       // Scrolling away and back, and the bottom-of-page paging check, do
       // not send the first request again.
@@ -774,6 +776,32 @@ void main() {
         await scrollToRelated(tester);
       });
       expect(log, [42]);
+    });
+
+    testWidgets('related works all filtered: the section offers loading on, '
+        'reaching the bottom does not load (FEED-22)', (tester) async {
+      final log = <int>[];
+      final (container, _, _) = await makeWorld(
+        relatedLog: log,
+        relatedOverrides: {
+          42: [illustJson(900, xRestrict: 1)],
+        },
+        relatedEndless: true,
+        extraOverrides: [filterSettings(blockR18: true)],
+      );
+      await pumpDetail(tester, container);
+      await mockNetworkImagesFor(() async {
+        // The first page and its three refills, all filtered out.
+        await scrollToRelated(tester);
+        // Reaching the page's bottom again loads nothing on its own.
+        await scrollToRelated(tester);
+      });
+      expect(log, hasLength(4));
+      expect(find.text('illust 900'), findsNothing);
+
+      await tester.tap(find.text('Continue loading'));
+      await tester.pump(const Duration(seconds: 5));
+      expect(log, hasLength(8));
     });
   });
 

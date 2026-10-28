@@ -361,6 +361,15 @@ class _RecommendedFeedView extends ConsumerWidget {
             padding: _gridPadding,
           );
         }
+        final controller = ref.read(recommendedFeedProvider(key).notifier);
+        // User recommendations are not filtered: an empty page there is
+        // not the filters' doing.
+        if (feed.isAllHidden && controller.localFilterEnabled) {
+          return FeedAllHidden(
+            feed: feed,
+            onLoadMore: controller.retryLoadMore,
+          );
+        }
         if (feed.isEmptyAndReady) {
           return FeedEmpty(
             title: context.l10n.recommendedEmpty,

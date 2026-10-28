@@ -41,26 +41,37 @@ class _HistoryFeedController extends PagedFeedController {
   @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
     try {
-      // Request pages are 1-based (the first context carries page=1), so
-      // the row offset is (page - 1) * size — the previous formula skipped
-      // the first page of history entirely.
+      // The cursor is the last row read: deleting a loaded row or viewing
+      // a work again never shifts the next page (an offset skipped rows).
       final result = await repository.page(
         accountId: accountId,
-        offset: (context.page - 1) * pageSize,
+        after: _rowAfter(context.cursor),
         limit: pageSize,
       );
       for (final record in result.records) {
         _records[keyOf(record)] = record;
       }
+      final last = result.records.lastOrNull;
       return FeedPage(
         ids: [for (final record in result.records) keyOf(record)],
-        nextCursor: result.hasMore ? '${context.page * pageSize}' : null,
+        nextCursor: result.hasMore && last != null
+            ? '${last.lastViewedAt.microsecondsSinceEpoch}:${last.rowId}'
+            : null,
       );
     } on Object catch (error) {
       // History storage failures are local, not server API errors; wrap so
       // the base three-phase semantics can surface them.
       throw ApiParseError(error);
     }
+  }
+
+  static ({DateTime viewedAt, int rowId})? _rowAfter(String? cursor) {
+    if (cursor == null) return null;
+    final [viewedAt, rowId] = cursor.split(':').map(int.parse).toList();
+    return (
+      viewedAt: DateTime.fromMicrosecondsSinceEpoch(viewedAt, isUtc: true),
+      rowId: rowId,
+    );
   }
 
   /// Deletes one record and drops it from the visible feed.
