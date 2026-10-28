@@ -1202,9 +1202,9 @@ void main() {
     );
   });
 
-  testWidgets('send success clears the reply target and the draft', (
-    tester,
-  ) async {
+  testWidgets('send success clears the reply target and the draft, with one '
+      'success haptic', (tester) async {
+    final haptics = recordHaptics();
     await pumpCommentsPage(tester, FakeCommentRepository());
 
     await tester.tap(_replyButton().first);
@@ -1226,11 +1226,11 @@ void main() {
       isEmpty,
     );
     expect(replyRef(), findsNothing);
+    expect(haptics.roles, [HapticRole.success]);
   });
 
-  testWidgets('a mid-flight retarget is not cleared by the old send', (
-    tester,
-  ) async {
+  testWidgets('a mid-flight retarget keeps the spinner and outlives the old '
+      'send', (tester) async {
     final repo = FakeCommentRepository()
       ..rootComments = [
         sampleComment(11, replyCount: 1),
@@ -1238,6 +1238,8 @@ void main() {
       ]
       ..addCompleter = Completer<CommentEntity>();
     await pumpCommentsPage(tester, repo);
+    Finder inComposer(Finder finder) =>
+        find.descendant(of: find.byType(CommentComposer), matching: finder);
 
     await tester.tap(_replyButton().first);
     await tester.pump();
@@ -1247,32 +1249,27 @@ void main() {
     await tester.pump();
 
     // While the first send is in flight the user re-targets comment 12.
+    // The mutation key now maps to comment 12, which has no pending send:
+    // `sending` reports false while `_busy` still covers the await, and
+    // the spinner must persist through that window.
     await tester.tap(_replyButton().last);
     await tester.pump();
-    expect(
-      find.descendant(
-        of: find.byType(CommentComposer),
-        matching: find.textContaining('user 21'),
-      ),
-      findsOneWidget,
-    );
+    expect(inComposer(find.textContaining('user 21')), findsOneWidget);
+    expect(inComposer(find.byType(CircularProgressIndicator)), findsOneWidget);
 
     repo.addCompleter!.complete(sampleComment(20));
     await tester.pumpAndSettle();
 
     // The completed send must not clear the newer target.
-    expect(
-      find.descendant(
-        of: find.byType(CommentComposer),
-        matching: find.textContaining('user 21'),
-      ),
-      findsOneWidget,
-    );
+    expect(inComposer(find.textContaining('user 21')), findsOneWidget);
+    expect(inComposer(find.byType(CircularProgressIndicator)), findsNothing);
   });
 
   testWidgets(
-    'replies send failure keeps the draft and target, flags permission',
+    'replies send failure keeps the draft and target, flags permission, '
+    'plays no haptic',
     (tester) async {
+      final haptics = recordHaptics();
       final repo = FakeCommentRepository()
         ..addError = const CommentPermissionException();
       await pumpRepliesPage(tester, repo);
@@ -1297,65 +1294,10 @@ void main() {
         ),
         findsOneWidget,
       );
+      await tester.pumpAndSettle();
+      expect(haptics.played, isEmpty);
     },
   );
-
-  testWidgets('busy spinner survives the early-false mutation key window', (
-    tester,
-  ) async {
-    final repo = FakeCommentRepository()
-      ..rootComments = [
-        sampleComment(11, replyCount: 1),
-        sampleComment(12, userId: 21),
-      ]
-      ..addCompleter = Completer<CommentEntity>();
-    await pumpCommentsPage(tester, repo);
-
-    await tester.tap(_replyButton().first);
-    await tester.pump();
-    await tester.enterText(find.byType(TextField), 'hi');
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.send_outlined));
-    await tester.pump();
-
-    // Re-target mid-flight: the mutation key now maps to comment 12, which
-    // has no pending send — `sending` reports false while `_busy` still
-    // covers the await. The spinner must persist through the window.
-    await tester.tap(_replyButton().last);
-    await tester.pump();
-    expect(
-      find.descendant(
-        of: find.byType(CommentComposer),
-        matching: find.byType(CircularProgressIndicator),
-      ),
-      findsOneWidget,
-    );
-
-    repo.addCompleter!.complete(sampleComment(20));
-    await tester.pumpAndSettle();
-    expect(
-      find.descendant(
-        of: find.byType(CommentComposer),
-        matching: find.byType(CircularProgressIndicator),
-      ),
-      findsNothing,
-    );
-  });
-
-  Future<void> typeAndSend(WidgetTester tester) async {
-    await tester.enterText(find.byType(TextField), 'hi');
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.send_outlined));
-    await tester.pumpAndSettle();
-  }
-
-  testWidgets('send success fires one success haptic', (tester) async {
-    final haptics = recordHaptics();
-    await pumpCommentsPage(tester, FakeCommentRepository());
-
-    await typeAndSend(tester);
-    expect(haptics.roles, [HapticRole.success]);
-  });
 
   testWidgets('send failure fires no haptic', (tester) async {
     final haptics = recordHaptics();
@@ -1364,7 +1306,10 @@ void main() {
       FakeCommentRepository()..addError = StateError('offline'),
     );
 
-    await typeAndSend(tester);
+    await tester.enterText(find.byType(TextField), 'hi');
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.send_outlined));
+    await tester.pumpAndSettle();
     expect(haptics.played, isEmpty);
   });
 }
