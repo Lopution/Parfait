@@ -26,6 +26,7 @@ class _RefillScript {
     this.filterMinVisible = 4,
     this.filterMaxRefillPages = 2,
     this.novelIds = false,
+    this.rejected = const {},
   });
 
   final List<Object> pages;
@@ -33,6 +34,7 @@ class _RefillScript {
   final bool novelIds;
   final int filterMinVisible;
   final int filterMaxRefillPages;
+  final Set<String> rejected;
   final fetchedCursors = <String?>[];
 }
 
@@ -55,6 +57,10 @@ class _RefillFeedController extends PagedFeedController {
 
   @override
   int get filterMaxRefillPages => script.filterMaxRefillPages;
+
+  @override
+  String? validateCursor(String? rawCursor) =>
+      script.rejected.contains(rawCursor) ? null : rawCursor;
 
   @override
   Future<FeedPage> fetchPageForContext(FeedRequestContext context) async {
@@ -166,6 +172,35 @@ void main() {
       expect((state.initialPhase, state.initialError), (FeedPhase.idle, null));
     }
   });
+
+  test(
+    'a rejected or repeated cursor fails the load like a page\'s own',
+    () async {
+      // Each page shows one work and holds back one; its next cursor is
+      // listed. 'x' is rejected, and the third 'c2' repeats two hops back.
+      for (final (next, fetched) in [
+        (['x'], [null]),
+        (['c2', 'x'], [null, 'c2']),
+        (['c2', 'c3', 'c2'], [null, 'c2', 'c3']),
+      ]) {
+        final script = _RefillScript(
+          filterMinVisible: 10,
+          filterMaxRefillPages: 3,
+          rejected: {'x'},
+          pages: [
+            for (final (i, cursor) in next.indexed)
+              _page([_visible(2 * i + 1), _r18(2 * i + 2)], nextCursor: cursor),
+          ],
+        );
+        final container = await _container(blockR18: true);
+
+        final state = await container.read(_refillFeedProvider(script).future);
+
+        expect(script.fetchedCursors, fetched, reason: '$next');
+        expect(state.initialError, isA<ApiParseError>(), reason: '$next');
+      }
+    },
+  );
 
   test(
     'ApiError during refill keeps visible items and does not surface an error',
