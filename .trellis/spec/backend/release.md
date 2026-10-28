@@ -246,15 +246,17 @@ reviewed: 2026-10-14
 ### REL-16 PRs follow the template; high-risk ones may get a second review
 - **Rule:** PR titles use Conventional Commits, like the commits. The
   template's "User-facing change" (Chinese and English, or "none") feeds
-  `CHANGELOG.md`. User decision: an independent `codex review --base main`
-  is suggested for high-risk PRs (network and TLS, credentials and
-  accounts, persistence and migrations, downloads, release and signing,
-  CI workflows) and never required. CodeRabbit (free for public
-  repositories, configured in `.coderabbit.yaml`) comments on every
-  non-draft PR; it only advises: it is not a required check, does not edit
-  the description and does not commit. Each finding, from either review,
-  is fixed or answered in the PR's "Independent review" section or its
-  thread.
+  `CHANGELOG.md`. User decision: an independent review, one read-only
+  Codex run (`codex exec -s read-only "<prompt>"`) whose adversarial
+  prompt has it read and attack `git diff main...HEAD` itself, is
+  suggested for high-risk PRs (network and
+  TLS, credentials and accounts, persistence and migrations, downloads,
+  release and signing, CI workflows) and never required. CodeRabbit
+  (free for public repositories, configured in `.coderabbit.yaml`)
+  comments on every non-draft PR; it only advises: it is not a required
+  check, does not edit the description and does not commit. Each
+  finding, from either review, is fixed or answered in the PR's
+  "Independent review" section or its thread.
 - **Why:** One agent wrote, checked and merged every change; the first
   review caught a cross-account replay the tests had missed.
 - **Check:** manual
