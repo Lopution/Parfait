@@ -168,24 +168,21 @@ void main() {
     },
   );
 
-  test('404 maps to NotFound, not a generic error', () async {
-    final container = await makeContainer((request) async {
-      return http.Response('not found', 404);
-    });
-    final state = await container.read(
-      illustDetailControllerProvider(9).future,
-    );
-    expect(state, isA<IllustDetailNotFound>());
-  });
-
-  test('visible:false maps to Restricted', () async {
-    final container = await makeContainer((request) async {
-      return okJson({'illust': illustJson(11, visible: false)});
-    });
-    final state = await container.read(
-      illustDetailControllerProvider(11).future,
-    );
-    expect(state, isA<IllustDetailRestricted>());
+  test('404 maps to NotFound and visible:false to Restricted', () async {
+    for (final (id, response, state) in [
+      (9, http.Response('not found', 404), isA<IllustDetailNotFound>()),
+      (
+        11,
+        okJson({'illust': illustJson(11, visible: false)}),
+        isA<IllustDetailRestricted>(),
+      ),
+    ]) {
+      final container = await makeContainer((request) async => response);
+      expect(
+        await container.read(illustDetailControllerProvider(id).future),
+        state,
+      );
+    }
   });
 
   test(

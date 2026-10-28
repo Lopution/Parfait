@@ -76,5 +76,5 @@ reviewed: 2026-10-12
   200. Cancellation and `http.RequestAbortedException` rethrow as
   `ApiCancelled`, never as a submit failure.
 - **Why:** Failed saves showed as success; aborts showed as save errors.
-- **Check:** `test/web_profile_repository_test.dart` "does not report success when update envelope contains an error" "request abort is rethrown as ApiCancelled", `test/app_api_profile_edit_test.dart` "a soft JSON error envelope on HTTP 200 surfaces as a failure"
+- **Check:** `test/web_profile_repository_test.dart` "does not report success when update envelope contains an error" "a pre-cancelled token or a request abort is rethrown as", `test/app_api_profile_edit_test.dart` "a soft JSON error envelope on HTTP 200 surfaces as a failure"
 - **Code:** `lib/core/profile/web_profile_repository.dart`, `lib/core/profile/app_api_profile_edit_repository.dart`

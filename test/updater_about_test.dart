@@ -111,56 +111,47 @@ void main() {
     expect(find.widgetWithText(FilledButton, '下载并安装'), findsOneWidget);
   });
 
-  testWidgets('apply canceled reports cancellation, not generic failure', (
+  testWidgets('apply canceled reports cancellation, failed the generic text', (
     tester,
   ) async {
-    await pumpAbout(
-      tester,
-      service: _StubUpdateService(
-        checkResult: UpdateCheckResult(
-          status: UpdateCheckStatus.available,
-          release: fakeUpdateRelease(),
-        ),
-        applyResult: const UpdateApplyResult(
-          status: UpdateApplyStatus.canceled,
-        ),
+    for (final (result, shown, hidden) in [
+      (
+        const UpdateApplyResult(status: UpdateApplyStatus.canceled),
+        '已取消更新安装',
+        '更新检查或安装失败，请稍后重试',
       ),
-    );
-
-    await tester.tap(find.widgetWithText(FilledButton, '检查更新'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '下载并安装'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '确定'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('已取消更新安装'), findsOneWidget);
-    expect(find.text('更新检查或安装失败，请稍后重试'), findsNothing);
-  });
-
-  testWidgets('apply failed keeps the generic failure text', (tester) async {
-    await pumpAbout(
-      tester,
-      service: _StubUpdateService(
-        checkResult: UpdateCheckResult(
-          status: UpdateCheckStatus.available,
-          release: fakeUpdateRelease(),
-        ),
-        applyResult: const UpdateApplyResult(
+      (
+        const UpdateApplyResult(
           status: UpdateApplyStatus.failed,
           errorCode: 'install_failed',
         ),
+        '更新检查或安装失败，请稍后重试',
+        '已取消更新安装',
       ),
-    );
+    ]) {
+      // A fresh tree and provider scope per row.
+      await tester.pumpWidget(const SizedBox());
+      await pumpAbout(
+        tester,
+        service: _StubUpdateService(
+          checkResult: UpdateCheckResult(
+            status: UpdateCheckStatus.available,
+            release: fakeUpdateRelease(),
+          ),
+          applyResult: result,
+        ),
+      );
 
-    await tester.tap(find.widgetWithText(FilledButton, '检查更新'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '下载并安装'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '确定'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '检查更新'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '下载并安装'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '确定'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('更新检查或安装失败，请稍后重试'), findsOneWidget);
+      expect(find.text(shown), findsOneWidget);
+      expect(find.text(hidden), findsNothing);
+    }
   });
 }
 
