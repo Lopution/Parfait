@@ -31,45 +31,34 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('PlatformCaps selection', () {
-    test('saf picker and sink factory follow the platform', () {
+    test('each capability picks the platform implementation', () {
       final windows = _container(_windows);
-      expect(
-        windows.read(safTreePickerProvider),
-        isA<DesktopDirectoryPicker>(),
-      );
-      expect(
-        windows.read(safDocumentSinkFactoryProvider),
-        isA<DesktopSafDocumentSinkFactory>(),
-      );
-
       final android = _container(_android);
-      expect(android.read(safTreePickerProvider), isA<MethodChannelSafTree>());
-      expect(
-        android.read(safDocumentSinkFactoryProvider),
-        isA<MethodChannelSafTree>(),
-      );
-    });
-
-    test('clipboard picks the platform implementation', () {
-      expect(
-        _container(_windows).read(transferClipboardProvider),
-        isA<FlutterTransferClipboard>(),
-      );
-      expect(
-        _container(_android).read(transferClipboardProvider),
-        isA<MethodChannelTransferClipboard>(),
-      );
-    });
-
-    test('outbound url opener follows the platform', () {
-      expect(
-        _container(_windows).read(outboundUrlOpenerProvider),
-        isA<UrlLauncherOutboundUrlOpener>(),
-      );
-      expect(
-        _container(_android).read(outboundUrlOpenerProvider),
-        isA<MethodChannelOutboundUrlOpener>(),
-      );
+      for (final (provider, onWindows, onAndroid) in [
+        (
+          safTreePickerProvider,
+          isA<DesktopDirectoryPicker>(),
+          isA<MethodChannelSafTree>(),
+        ),
+        (
+          safDocumentSinkFactoryProvider,
+          isA<DesktopSafDocumentSinkFactory>(),
+          isA<MethodChannelSafTree>(),
+        ),
+        (
+          transferClipboardProvider,
+          isA<FlutterTransferClipboard>(),
+          isA<MethodChannelTransferClipboard>(),
+        ),
+        (
+          outboundUrlOpenerProvider,
+          isA<UrlLauncherOutboundUrlOpener>(),
+          isA<MethodChannelOutboundUrlOpener>(),
+        ),
+      ]) {
+        expect(windows.read(provider), onWindows);
+        expect(android.read(provider), onAndroid);
+      }
     });
   });
 
@@ -150,31 +139,23 @@ void main() {
       expect(File('${dir.path}/b.png').existsSync(), isFalse);
     });
 
-    test(
-      'mediastore session maps Pictures/<album> under the base dir',
-      () async {
+    test('mediastore session maps Pictures/<album>, else Parfait, under the '
+        'base dir', () async {
+      for (final (relativePath, album) in [
+        ('Pictures/MyAlbum', 'MyAlbum'),
+        (null, 'Parfait'),
+      ]) {
         final handle = await mediaStore.begin(
           displayName: 'c.png',
           mimeType: 'image/png',
-          relativePath: 'Pictures/MyAlbum',
+          relativePath: relativePath,
         );
         await handle.write([4, 5]);
         final uri = await handle.finalize();
         expect(uri.scheme, 'file');
-        final file = File('${dir.path}/MyAlbum/c.png');
-        expect(file.existsSync(), isTrue);
-        expect(await file.readAsBytes(), [4, 5]);
-      },
-    );
-
-    test('default album lands under <base>/Parfait', () async {
-      final handle = await mediaStore.begin(
-        displayName: 'd.png',
-        mimeType: 'image/png',
-      );
-      await handle.write([1]);
-      await handle.finalize();
-      expect(File('${dir.path}/Parfait/d.png').existsSync(), isTrue);
+        final file = File('${dir.path}/$album/c.png');
+        expect(await file.readAsBytes(), [4, 5], reason: album);
+      }
     });
 
     test('abort removes the staged file', () async {
@@ -325,22 +306,15 @@ void main() {
           .setMockMethodCallHandler(SystemChannels.platform, null);
     });
 
-    test('write/read round-trips with a fingerprint', () async {
-      final clipboard = FlutterTransferClipboard();
-      await clipboard.write('hello', clearAfter: const Duration(minutes: 5));
-      final content = await clipboard.read();
-      expect(content?.text, 'hello');
-      expect(content?.fingerprint, transferClipboardFingerprint('hello'));
-    });
-
     test(
       'clearIfCurrent only clears while the fingerprint still owns it',
       () async {
         final clipboard = FlutterTransferClipboard();
         await clipboard.write('owned', clearAfter: const Duration(minutes: 5));
-        expect(await clipboard.clearIfCurrent('wrong'), isFalse);
-        expect((await clipboard.read())?.text, 'owned');
         final fingerprint = transferClipboardFingerprint('owned');
+        expect(await clipboard.clearIfCurrent('wrong'), isFalse);
+        final content = await clipboard.read();
+        expect((content?.text, content?.fingerprint), ('owned', fingerprint));
         expect(await clipboard.clearIfCurrent(fingerprint), isTrue);
         expect(await clipboard.read(), isNull);
       },
@@ -353,16 +327,13 @@ void main() {
   });
 
   group('reverse-image external result allowlist', () {
-    test('plain https result urls are accepted', () {
+    test('only plain https result urls are accepted', () {
       expect(
         () => validateExternalResultUrl(
           Uri.parse('https://saucenao.com/search.php?db=999'),
         ),
         returnsNormally,
       );
-    });
-
-    test('non-https and credential/port/fragment urls are rejected', () {
       for (final raw in [
         'http://saucenao.com/x',
         'pixiv://illust/1',
