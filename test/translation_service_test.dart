@@ -71,23 +71,46 @@ void main() {
       },
     );
 
-    test('throws notConfigured for an absent credential record', () async {
-      final service = BaiduTranslationTransport(
-        MockClient((_) async => http.Response('{}', 200)),
-        () => fixedNow,
-        store,
-      );
-
-      await expectLater(
-        service.translate('hello', targetLanguage: 'zh'),
-        throwsA(
+    test('no credential record or an unsupported language fails without a '
+        'request', () async {
+      for (final (credentials, language, failure) in [
+        (
+          null,
+          'zh',
           isA<TranslationUnavailable>().having(
             (e) => e.kind,
             'kind',
             TranslationFailureKind.notConfigured,
           ),
         ),
-      );
+        (
+          const BaiduTranslationCredentials(appId: 'app-1', secret: 'sec-1'),
+          'xx',
+          isA<TranslationError>().having(
+            (e) => e.kind,
+            'kind',
+            TranslationFailureKind.unsupportedLanguage,
+          ),
+        ),
+      ]) {
+        store.baidu = credentials;
+        var called = false;
+        final service = BaiduTranslationTransport(
+          MockClient((_) async {
+            called = true;
+            return http.Response('{}', 200);
+          }),
+          () => fixedNow,
+          store,
+        );
+
+        await expectLater(
+          service.translate('hello', targetLanguage: language),
+          throwsA(failure),
+          reason: language,
+        );
+        expect(called, isFalse, reason: language);
+      }
     });
 
     test('maps business error codes into visible classifications', () async {
@@ -122,34 +145,6 @@ void main() {
           reason: 'error code ${entry.key}',
         );
       }
-    });
-
-    test('rejects unsupported target languages without a request', () async {
-      store.baidu = const BaiduTranslationCredentials(
-        appId: 'app-1',
-        secret: 'sec-1',
-      );
-      var called = false;
-      final service = BaiduTranslationTransport(
-        MockClient((_) async {
-          called = true;
-          return http.Response('{}', 200);
-        }),
-        () => fixedNow,
-        store,
-      );
-
-      await expectLater(
-        service.translate('hello', targetLanguage: 'xx'),
-        throwsA(
-          isA<TranslationError>().having(
-            (e) => e.kind,
-            'kind',
-            TranslationFailureKind.unsupportedLanguage,
-          ),
-        ),
-      );
-      expect(called, isFalse);
     });
   });
 
