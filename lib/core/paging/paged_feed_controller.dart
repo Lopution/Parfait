@@ -218,7 +218,8 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
   /// A [paced] fetch (load-more) holds each refill hop to the paging
   /// interval and counts it against the paging budget. A cursor a refill
   /// would follow is checked as a page's own: rejected, or repeated within
-  /// this fetch or the feed, it fails the fetch with [ApiParseError].
+  /// this fetch or the feed, it fails the fetch with [ApiParseError]. The
+  /// cursors it followed join the feed's when the page commits.
   Future<FeedPage> fetchRelevantPage(
     FeedRequestContext context, {
     bool paced = false,
@@ -300,6 +301,9 @@ abstract class PagedFeedController extends AsyncNotifier<PagedFeedState> {
         for (final commit in commits) {
           commit?.call(finalContext);
         }
+        // The cursors this refill followed belong to the feed once it
+        // commits: a later page pointing back at one repeats it.
+        requested.forEach(_recordCursor);
       },
     );
   }

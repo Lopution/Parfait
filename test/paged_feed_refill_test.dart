@@ -177,15 +177,17 @@ void main() {
     'a rejected or repeated cursor fails the load like a page\'s own',
     () async {
       // Each page shows one work and holds back one; its next cursor is
-      // listed. 'x' is rejected, and the third 'c2' repeats two hops back.
-      for (final (next, fetched) in [
-        (['x'], [null]),
-        (['c2', 'x'], [null, 'c2']),
-        (['c2', 'c3', 'c2'], [null, 'c2', 'c3']),
+      // listed. 'x' is rejected, and the third 'c2' repeats a cursor a
+      // refill followed: in the same load, or with one refill the next.
+      for (final (refills, next, fetched) in [
+        (3, ['x'], [null]),
+        (3, ['c2', 'x'], [null, 'c2']),
+        (3, ['c2', 'c3', 'c2'], [null, 'c2', 'c3']),
+        (1, ['c2', 'c3', 'c2'], [null, 'c2', 'c3']),
       ]) {
         final script = _RefillScript(
           filterMinVisible: 10,
-          filterMaxRefillPages: 3,
+          filterMaxRefillPages: refills,
           rejected: {'x'},
           pages: [
             for (final (i, cursor) in next.indexed)
@@ -193,11 +195,19 @@ void main() {
           ],
         );
         final container = await _container(blockR18: true);
+        final feed = _refillFeedProvider(script);
 
-        final state = await container.read(_refillFeedProvider(script).future);
+        if ((await container.read(feed.future)).initialError == null) {
+          await container.read(feed.notifier).loadMore();
+        }
 
-        expect(script.fetchedCursors, fetched, reason: '$next');
-        expect(state.initialError, isA<ApiParseError>(), reason: '$next');
+        final state = container.read(feed).requireValue;
+        expect(script.fetchedCursors, fetched, reason: '$refills $next');
+        expect(
+          state.initialError ?? state.loadMoreError,
+          isA<ApiParseError>(),
+          reason: '$refills $next',
+        );
       }
     },
   );
