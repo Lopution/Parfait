@@ -253,6 +253,10 @@ void main() {
       final option = searchSettings(zh, '深色');
       expect(option.single.entry, Setting.themeMode);
       expect(option.single.path, ['主题']);
+      expect(
+        (option.single.label, option.single.location),
+        ('深色', Setting.themeMode.location),
+      );
       expect(searchSettings(zh, '   '), isEmpty);
       expect(searchSettings(zh, '不存在的设置项'), isEmpty);
     });
