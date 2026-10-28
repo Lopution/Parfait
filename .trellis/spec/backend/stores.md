@@ -47,7 +47,7 @@ reviewed: 2026-10-13
   read the entity back with `store.get(id)`.
 - **Why:** Cards, the detail page and the viewer showed different data for
   the same work.
-- **Check:** `test/illust_store_test.dart` "cross-page duplicate IDs collapse in the store"
+- **Check:** `test/illust_store_test.dart` "merges entities keyed by ID without duplicates"
 - **Code:** `lib/core/entity/illust_store.dart`, `lib/core/user/user_store.dart`
 
 ### STORE-03 Every IllustEntity field has a merge decision per source

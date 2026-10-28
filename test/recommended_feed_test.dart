@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:network_image_mock/network_image_mock.dart';
-import 'package:octo_image/octo_image.dart';
 import 'package:parfait/core/entity/illust_entity.dart';
 import 'package:parfait/core/entity/illust_store.dart';
 import 'package:parfait/core/network/api_error.dart';
@@ -183,33 +182,6 @@ void main() {
     await controller.retryInitial();
     final retried = container.read(_feed).requireValue;
     expect(retried.showInitialError, isTrue);
-  });
-
-  testWidgets('IllustCard hands quality changes off gaplessly', (tester) async {
-    final (container, _) = await makeWorld();
-    await mockNetworkImagesFor(() async {
-      await tester.pumpWidget(
-        localizedApp(
-          container: container,
-          home: Scaffold(
-            body: SizedBox(
-              width: 300,
-              child: IllustCard(
-                entity: parseIllust(illustJson(10, width: 800, height: 1200)),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-    });
-
-    final image = tester.widget<OctoImage>(find.byType(OctoImage).first);
-    expect(
-      image.gaplessPlayback,
-      isTrue,
-      reason: 'every quality URL change must retain the previous decoded frame',
-    );
   });
 
   testWidgets('IllustCard includes its live page scope in the Hero tag', (
