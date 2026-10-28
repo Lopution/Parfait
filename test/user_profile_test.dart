@@ -1162,33 +1162,6 @@ void main() {
   });
 
   testWidgets(
-    'same work tab tap returns both profile scroll positions to top',
-    (tester) async {
-      final repository = FakeUserRepository(works: _works(36));
-      final container = await makeProfileWorld(users: repository);
-      await _pumpProfile(tester, container);
-
-      final outer = outerPosition(tester);
-      final inner = activeFeedPosition(tester);
-      expect(outer.maxScrollExtent, greaterThan(0));
-      expect(inner.maxScrollExtent, greaterThan(0));
-
-      outer.jumpTo(80);
-      inner.jumpTo(120);
-      await tester.pump();
-      expect(outer.pixels, greaterThan(0));
-      expect(inner.pixels, greaterThan(0));
-
-      await tester.tap(
-        find.descendant(of: find.byType(TabBar), matching: find.text('插画')),
-      );
-      await tester.pumpAndSettle();
-      expect(outer.pixels, 0);
-      expect(inner.pixels, 0);
-    },
-  );
-
-  testWidgets(
     'each tab scrolls on its own; re-tap rewinds only the selected one',
     (tester) async {
       final repository = FakeUserRepository(
@@ -1238,18 +1211,26 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(innerOf(bookmarkKey).maxScrollExtent, greaterThan(0));
+      // The header first: moving it through the coordinator would carry
+      // the inner offset along.
+      final outer = outerPosition(tester);
+      outer.jumpTo(80);
+      await tester.pump();
       innerOf(bookmarkKey).jumpTo(140);
       await tester.pump();
+      expect(outer.pixels, greaterThan(0));
       expect(innerOf(bookmarkKey).pixels, 140);
       // Only the selected tab is on the nested controller: A no longer
       // follows B, so a fling on one tab is never computed against
       // another's offset.
       expect(innerOf(workKey).pixels, 150);
 
+      // The re-tap rewinds the header and the selected tab, not the other.
       await tester.tap(
         find.descendant(of: find.byType(TabBar), matching: find.text('收藏')),
       );
       await tester.pumpAndSettle();
+      expect(outer.pixels, 0);
       expect(innerOf(bookmarkKey).pixels, 0);
       expect(innerOf(workKey).pixels, 150);
     },
