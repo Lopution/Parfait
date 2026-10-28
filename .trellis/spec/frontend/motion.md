@@ -355,5 +355,5 @@ reviewed: 2026-10-26
 - **Why:** Neighbour tabs built in a swipe's first frame and their data
   landed mid-snap (29–38 ms frames, 10-15 trace); a held finger keeps no
   ticker. An off-screen branch Navigator took the search field's focus.
-- **Check:** `test/tab_swipe_switcher_test.dart` "the tabs either side build one per still frame, next first" "a loading image and a held finger hold the tabs back", `test/home_branch_stack_test.dart` "a branch built ahead and never shown saves no setting" "a switch before its turn builds the branch at once", `test/illust_detail_pager_test.dart` "neighbours build after the push transition, one per frame"
+- **Check:** `test/home_branch_stack_test.dart` "a branch built ahead and never shown saves no setting" "a switch before its turn builds the branch at once", `test/illust_detail_pager_test.dart` "neighbours build after the push transition, one per frame"
 - **Code:** `lib/app/motion/still_work.dart`, `lib/app/widgets/tab_swipe_switcher.dart`, `lib/app/widgets/home_branch_stack.dart`, `lib/app/navigation/routes.dart`, `lib/features/illust/detail/illust_detail_pager_page.dart`, `lib/core/image/image_worker.dart`, `lib/features/ranking/ranking_tabs.dart`

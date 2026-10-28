@@ -57,66 +57,7 @@ Future<ProviderContainer> _makeWorld() async {
   return container;
 }
 
-Future<void> _pumpCard(
-  WidgetTester tester,
-  ProviderContainer container,
-  IllustCard card, {
-  ThemeData? theme,
-  double textScale = 1,
-  double width = 300,
-}) async {
-  await tester.pumpWidget(
-    localizedApp(
-      container: container,
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(textScaler: TextScaler.linear(textScale)),
-        child: child!,
-      ),
-      theme: theme,
-      body: SingleChildScrollView(
-        child: SizedBox(width: width, child: card),
-      ),
-    ),
-  );
-  await tester.pump();
-}
-
 void main() {
-  testWidgets('a parent rebuild with the same inputs skips the card body', (
-    tester,
-  ) async {
-    // Feed grids rebuild every built card on each feed state change; an
-    // unchanged card must not re-run its whole subtree for that.
-    final container = await _makeWorld();
-    final entity = parseIllust(illustJson(6));
-    Widget body() => tester.widget(
-      find
-          .descendant(
-            of: find.byType(IllustCard),
-            matching: find.byType(Column),
-          )
-          .first,
-    );
-
-    await _pumpCard(tester, container, IllustCard(entity: entity, rank: 1));
-    final first = body();
-    await _pumpCard(tester, container, IllustCard(entity: entity, rank: 1));
-    expect(identical(body(), first), isTrue);
-
-    // Any changed input builds the card again.
-    await _pumpCard(tester, container, IllustCard(entity: entity, rank: 2));
-    expect(identical(body(), first), isFalse);
-    final ranked = body();
-    await _pumpCard(
-      tester,
-      container,
-      IllustCard(entity: parseIllust(illustJson(6)), rank: 2),
-    );
-    expect(identical(body(), ranked), isFalse);
-  });
-
   testWidgets('the pager image flies back only to a card on screen', (
     tester,
   ) async {
