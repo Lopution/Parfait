@@ -160,18 +160,51 @@ void main() {
     expect(world.fixture.requests, hasLength(1), reason: 'nothing replays');
   });
 
-  test('business rejection fails visibly without queueing', () async {
-    final world = await _makeWorld();
-    addTearDown(world.container.dispose);
-    world.fixture.statuses['illust'] = 403;
+  test(
+    'connectivity failures and 5xx queue a bookmark, others fail visibly',
+    () async {
+      // The route ladder and secure resolver throw their own exception types,
+      // not package:http's: the airplane-mode path must queue those too.
+      for (final (name, failure, status, queued) in [
+        (
+          'ladder exhaustion',
+          const NetworkFailureException(NetworkFailureKind.connect),
+          null,
+          true,
+        ),
+        (
+          'secure resolver failure',
+          const SecureResolutionException('all DoH endpoints failed'),
+          null,
+          true,
+        ),
+        ('resolver timeout', TimeoutException('lookup timed out'), null, true),
+        ('503', null, 503, true),
+        (
+          'certificate mismatch',
+          const NetworkFailureException(NetworkFailureKind.certificateMismatch),
+          null,
+          false,
+        ),
+        ('business rejection', null, 403, false),
+      ]) {
+        final world = await _makeWorld();
+        addTearDown(world.container.dispose);
+        if (failure != null) world.fixture.failures['illust'] = failure;
+        if (status != null) world.fixture.statuses['illust'] = status;
 
-    await world.container.read(bookmarkActionsProvider).toggle(_illustKey);
+        await world.container.read(bookmarkActionsProvider).toggle(_illustKey);
 
-    final entry = world.container.read(bookmarkStoreProvider)[_illustKey]!;
-    expect(entry.isPending, isFalse);
-    expect(entry.error, isNotNull);
-    expect(await world.store.listFor('100'), isEmpty);
-  });
+        final entry = world.container.read(bookmarkStoreProvider)[_illustKey]!;
+        expect(entry.isPending, queued, reason: name);
+        expect(entry.error, queued ? isNull : isNotNull, reason: name);
+        final rows = await world.store.listFor('100');
+        expect(rows.map((row) => row.type), [
+          if (queued) ActionTypes.bookmarkAdd,
+        ], reason: name);
+      }
+    },
+  );
 
   test(
     'replay commits the still-pending bookmark through the repository',
@@ -280,49 +313,36 @@ void main() {
   );
 
   test(
-    'offline follow add queues and replays into a confirmed follow',
+    'offline follow and unfollow queue and replay into the confirmed state',
     () async {
-      final world = await _makeWorld();
-      addTearDown(world.container.dispose);
-      world.fixture.failures['follow'] = http.ClientException('offline');
+      for (final (followed, type, path) in [
+        (false, ActionTypes.followAdd, '/v1/user/follow/add'),
+        (true, ActionTypes.followDelete, '/v1/user/follow/delete'),
+      ]) {
+        final world = await _makeWorld();
+        addTearDown(world.container.dispose);
+        world.container
+            .read(followStoreProvider.notifier)
+            .observeRemote(7, followed: followed, snapshotRevision: 0);
+        world.fixture.failures['follow'] = http.ClientException('offline');
 
-      await world.container.read(followActionsProvider).toggle(7);
+        await world.container.read(followActionsProvider).toggle(7);
 
-      var entry = world.container.read(followStoreProvider)[7]!;
-      expect(entry.isPending, isTrue);
-      expect(entry.followed, isFalse);
-      final rows = await world.store.listFor('100');
-      expect(rows.single.type, ActionTypes.followAdd);
-      expect(rows.single.dedupeKey, 'follow:7');
+        var entry = world.container.read(followStoreProvider)[7]!;
+        expect(entry.isPending, isTrue, reason: type);
+        expect(entry.followed, followed, reason: type);
+        final rows = await world.store.listFor('100');
+        expect(rows.single.type, type);
+        expect(rows.single.dedupeKey, 'follow:7');
 
-      world.fixture.failures.remove('follow');
-      await world.container.read(actionQueueProvider).drain('100');
+        world.fixture.failures.remove('follow');
+        await world.container.read(actionQueueProvider).drain('100');
 
-      expect(world.fixture.requests.last.url.path, '/v1/user/follow/add');
-      entry = world.container.read(followStoreProvider)[7]!;
-      expect(entry.followed, isTrue);
-      expect(entry.isPending, isFalse);
-    },
-  );
-
-  test(
-    'offline unfollow queues and replays into a confirmed unfollow',
-    () async {
-      final world = await _makeWorld();
-      addTearDown(world.container.dispose);
-      world.container
-          .read(followStoreProvider.notifier)
-          .observeRemote(7, followed: true, snapshotRevision: 0);
-      world.fixture.failures['follow'] = http.ClientException('offline');
-
-      await world.container.read(followActionsProvider).toggle(7);
-      world.fixture.failures.remove('follow');
-      await world.container.read(actionQueueProvider).drain('100');
-
-      expect(world.fixture.requests.last.url.path, '/v1/user/follow/delete');
-      final entry = world.container.read(followStoreProvider)[7]!;
-      expect(entry.followed, isFalse);
-      expect(entry.isPending, isFalse);
+        expect(world.fixture.requests.last.url.path, path);
+        entry = world.container.read(followStoreProvider)[7]!;
+        expect(entry.followed, !followed, reason: type);
+        expect(entry.isPending, isFalse, reason: type);
+      }
     },
   );
 
@@ -397,68 +417,5 @@ void main() {
     await world.container.read(actionQueueProvider).drain('other');
     expect(await world.store.listFor('100'), hasLength(1));
     expect(world.fixture.requests, hasLength(1));
-  });
-
-  group('production transport exception types', () {
-    // The route ladder and secure resolver throw their own exception types,
-    // not package:http's. These cases pin the airplane-mode path: every
-    // connectivity-class transport failure must queue the intent instead
-    // of surfacing a raw error.
-    for (final (name, failure) in [
-      (
-        'ladder exhaustion (NetworkFailureException)',
-        const NetworkFailureException(NetworkFailureKind.connect),
-      ),
-      (
-        'secure resolver failure (SecureResolutionException)',
-        const SecureResolutionException('all DoH endpoints failed'),
-      ),
-      (
-        'resolver timeout (TimeoutException)',
-        TimeoutException('lookup timed out'),
-      ),
-    ]) {
-      test('$name queues the intent', () async {
-        final world = await _makeWorld();
-        addTearDown(world.container.dispose);
-        world.fixture.failures['illust'] = failure;
-
-        await world.container.read(bookmarkActionsProvider).toggle(_illustKey);
-
-        final entry = world.container.read(bookmarkStoreProvider)[_illustKey]!;
-        expect(entry.isPending, isTrue);
-        expect(entry.error, isNull);
-        final rows = await world.store.listFor('100');
-        expect(rows, hasLength(1));
-        expect(rows.single.type, ActionTypes.bookmarkAdd);
-      });
-    }
-
-    test('certificate mismatch stays a visible failure', () async {
-      final world = await _makeWorld();
-      addTearDown(world.container.dispose);
-      world.fixture.failures['illust'] = const NetworkFailureException(
-        NetworkFailureKind.certificateMismatch,
-      );
-
-      await world.container.read(bookmarkActionsProvider).toggle(_illustKey);
-
-      final entry = world.container.read(bookmarkStoreProvider)[_illustKey]!;
-      expect(entry.isPending, isFalse);
-      expect(entry.error, isNotNull);
-      expect(await world.store.listFor('100'), isEmpty);
-    });
-
-    test('a 503 response queues the intent', () async {
-      final world = await _makeWorld();
-      addTearDown(world.container.dispose);
-      world.fixture.statuses['illust'] = 503;
-
-      await world.container.read(bookmarkActionsProvider).toggle(_illustKey);
-
-      final entry = world.container.read(bookmarkStoreProvider)[_illustKey]!;
-      expect(entry.isPending, isTrue);
-      expect(await world.store.listFor('100'), hasLength(1));
-    });
   });
 }
